@@ -100,9 +100,9 @@ def initialize_database_tables():
                 );
             """)
 
-            cursor.execute("""
+            '''cursor.execute("""
                 ALTER TABLE table_name DROP COLUMN column_name;
-            """)
+            """)'''
             
             # Create connectlinkdatabase table
             cursor.execute("""
