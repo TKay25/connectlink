@@ -950,7 +950,7 @@
                                     </div>
 
                                     <div class="form-group row align-items-center" id="bullet_payment_date" style="display: none; margin-bottom: 0.5rem;">
-                                        <label for="bullet_payment_date_input" class="col-auto col-form-label" style="padding-right: 0.5rem;">Date Bullet Paid</label>
+                                        <label for="bullet_payment_date_input" class="col-auto col-form-label" style="padding-right: 0.5rem;">Date Full Payment Made</label>
                                         <div class="col">
                                             <input type="date" class="form-control editable-field" id="bullet_payment_date_input" name="bullet_payment_date" required>
                                         </div>
@@ -959,6 +959,7 @@
 
                                     <div id="paymentschedule" style="display: none;">
 
+
                                         <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
                                             <label for="monthstopay" class="col-auto col-form-label" style="padding-right: 0.5rem;">Months To Pay</label>
                                             <div class="col">
@@ -966,18 +967,26 @@
                                             </div>
                                         </div>
 
-
-
-                                        <div class="form-group">
-                                            <label>Date Deposit Paid</label>
-                                            <input type="date" class="form-control editable-field" name="deposit_payment_date" required>
+                                        <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                            <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Deposit Required (USD)</label>
+                                            <div class="col">
+                                                <input type="number" class="form-control editable-field" value="1000" readonly>
+                                            </div>
                                         </div>
 
-                                        <div class="form-group">
-                                            <label>Due Date For First Installment</label>
-                                            <input type="date" class="form-control editable-field" name="first_installment_due_date" required>
+                                        <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                            <label for="deposit_payment_date" class="col-auto col-form-label" style="padding-right: 0.5rem;">Date Deposit Paid</label>
+                                            <div class="col">
+                                                <input type="date" class="form-control editable-field" id="deposit_payment_date" name="deposit_payment_date" required>
+                                            </div>
                                         </div>
 
+                                        <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                            <label for="first_installment_due_date" class="col-auto col-form-label" style="padding-right: 0.5rem;">Due Date For First Installment</label>
+                                            <div class="col">
+                                                <input type="date" class="form-control editable-field" id="first_installment_due_date" name="first_installment_due_date" required>
+                                            </div>
+                                        </div>
 
                                     </div>
 
