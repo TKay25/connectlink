@@ -155,37 +155,6 @@ def initialize_database_tables():
 
             for sql_stmt in payment_alters:
                 cursor.execute(sql_stmt)
-
-            # Create cagwatickcustomerdetails table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS clientpayments (
-                    id INT,
-                    paymentmethod VARCHAR (100),
-                    totalcontractamount NUMERIC (12, 2),
-                    depositorbullet NUMERIC (12, 2),
-                    datedepositorbullet date,
-                    monthstopay INT,
-                    monthlyinstallment NUMERIC (12, 2),
-                    installment1amount NUMERIC (12, 2),
-                    installment1duedate date,
-                    installment1date date,
-                    installment2amount NUMERIC (12, 2),
-                    installment2duedate date,
-                    installment2date date,
-                    installment3amount NUMERIC (12, 2),
-                    installment3duedate date,
-                    installment3date date,
-                    installment4amount NUMERIC (12, 2),
-                    installment4duedate date,
-                    installment4date date,
-                    installment5amount NUMERIC (12, 2),
-                    installment5duedate date,
-                    installment5date date,
-                    installment6amount NUMERIC (12, 2),
-                    installment6duedate date,
-                    installment6date date
-                );
-            """)
             
             connection.commit()
             print("✅ Database tables initialized successfully!")
@@ -467,7 +436,7 @@ def contract_log():
                         safe_date(deposit_payment_date),
                         safe_float(monthlyinstallment),
                         safe_date(first_installment_due_date),
-                        datetime.now().date(),
+                        today_date,
                         capturer,
                         capturerid
                     )
