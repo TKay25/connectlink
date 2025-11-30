@@ -174,6 +174,7 @@ def Dashboard():
     with get_db() as (cursor, connection):
 
         user_uuid = session.get('user_uuid')
+        user_name = session.get('user_name')
         if user_uuid:
 
             try:
@@ -186,7 +187,7 @@ def Dashboard():
 
                 print("Back from adventures")
 
-                return render_template('adminpage.html', **results, id= userid)
+                return render_template('adminpage.html', **results, userid = userid, user_name=user_name)
                     
             except Error as e:
 
@@ -234,7 +235,9 @@ def login():
                         user_sessions[email] = {'uuid': str(user_uuid), 'email': email}
 
                         userid = table_df.iat[0, 0]
+                        user_name = table_df.iat[0,2]
                         session['userid'] = int(np.int64(userid))  # Ensure Python int
+                        session['user_name'] = user_name
 
                         # Redirect to dashboard
                         return redirect(url_for('Dashboard'))
