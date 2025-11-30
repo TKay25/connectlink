@@ -99,6 +99,10 @@ def initialize_database_tables():
                     contact INT
                 );
             """)
+
+            cursor.execute("""
+                ALTER TABLE table_name DROP COLUMN column_name;
+            """)
             
             # Create connectlinkdatabase table
             cursor.execute("""
@@ -268,10 +272,10 @@ def run1(userid):
         maindata = cursor.fetchall()
         print(maindata)
 
-        datamain = pd.DataFrame(maindata, columns=["id","clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositorbullet","first_installment_due_date","datecaptured","capturer","capturerid", "datedepositorbullet","monthlyinstallment","installment1amount","installment1duedate","installment1date","installment2amount","installment2duedate","installment2date","installment3amount","installment3duedate","installment3date","installment4amount","installment4duedate","installment4date","installment5amount","installment5duedate","installment5date","installment6amount","installment6duedate","installment6date"])
+        datamain = pd.DataFrame(maindata, columns=["id","clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositorbullet","datecaptured","capturer","capturerid", "datedepositorbullet","monthlyinstallment","installment1amount","installment1duedate","installment1date","installment2amount","installment2duedate","installment2date","installment3amount","installment3duedate","installment3date","installment4amount","installment4duedate","installment4date","installment5amount","installment5duedate","installment5date","installment6amount","installment6duedate","installment6date"])
         datamain['Action'] =  datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;">  <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-name="{x}" data-ID="{x}">Download Contract</button> <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-name="{x}" data-ID="{x}">View Project</button>  <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-name="{x}" data-ID="{x}">Log a Payment</button>''') 
 
-        datamain = datamain[["id", "clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositorbullet","first_installment_due_date","datecaptured","capturer","capturerid","datedepositorbullet","monthlyinstallment","installment1amount","installment1duedate","installment1date","installment2amount","installment2duedate","installment2date","installment3amount","installment3duedate","installment3date","installment4amount","installment4duedate","installment4date","installment5amount","installment5duedate","installment5date","installment6amount","installment6duedate","installment6date", "Action"]]
+        datamain = datamain[["id", "clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositorbullet","datecaptured","capturer","capturerid","datedepositorbullet","monthlyinstallment","installment1amount","installment1duedate","installment1date","installment2amount","installment2duedate","installment2date","installment3amount","installment3duedate","installment3date","installment4amount","installment4duedate","installment4date","installment5amount","installment5duedate","installment5date","installment6amount","installment6duedate","installment6date", "Action"]]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="employeespayrollTable", index=False,  escape=False,)
 
@@ -326,6 +330,7 @@ def contract_log():
                 agreement_date = request.form.get('agreement_date')
                 total_contract_price = request.form.get('total_contract_price')
                 payment_method = request.form.get('payment_method')
+                months_to_pay = request.form.get('months_to_pay')
 
                 if payment_method == "Bullet":
                     depostorbullet = request.form.get('total_contract_price')
@@ -336,9 +341,10 @@ def contract_log():
                     depostorbullet = request.form.get('deposit_required')
                     deposit_payment_date = request.form.get('deposit_payment_date')
 
+                monthlypayments = (float(total_contract_price) - float(depostorbullet))/int(months_to_pay)
 
 
-                months_to_pay = request.form.get('months_to_pay')
+
                 monthlyinstallment = request.form.get('monthly_installment')
                 first_installment_due_date = request.form.get('first_installment_due_date')
 
