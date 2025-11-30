@@ -234,63 +234,7 @@ def login():
                 # Check for missing input
                 if not email or not password:
                     return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
-                
-                if email == "iamgreat" and password == "011235813":
 
-                    cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
-                    
-                    tables = cursor.fetchall()
-                    table_names = [table[0] for table in tables]
-
-                    df_tables = pd.DataFrame(table_names, columns=['Company'])
-
-                    print(df_tables)
-
-                    main_tables = [name for name in table_names if name.endswith('main')]
-
-                    table_counts = []
-                    for table_name in main_tables:
-                        try:
-                            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-                            count = cursor.fetchone()[0]
-                            table_counts.append({'Company': table_name, 'Employees': count})
-                        except Exception as e:
-                            table_counts.append({'Company': table_name, 'Employees': f'Error: {e}'})
-
-                    df_main_counts = pd.DataFrame(table_counts)
-                    print(df_main_counts)
-
-                    query_compreg = f"SELECT * FROM companyreg;"
-                    cursor.execute(query_compreg)
-                    rows_comps = cursor.fetchall()
-                    compsreg = pd.DataFrame(rows_comps, columns=["Company ID","Company Name", "Date Registered"])
-                    print(compsreg)
-
-
-                    merged_df = pd.merge(df_main_counts, compsreg, left_on='Company', right_on='Company Name', how='outer')
-                    merged_df = merged_df.drop(columns=['Company Name'])
-                    merged_df = merged_df[["Company ID","Company", "Date Registered","Employees"]]
-                    print(merged_df)
-
-                    merged_df['ACTION'] = merged_df['Company'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary3 som-comp-btn" data-ID="{x}" onclick="somCompany('{x}')">SOM</button><button class="btn btn-primary3 delete-comp-btn" data-ID="{x}" onclick="deleteCompany('{x}')">Delete</button></div>''')
-
-                    merged_df = merged_df[["Company ID","Company", "Date Registered","Employees","ACTION"]]
-
-                    table_companies_html = merged_df.to_html(classes="table table-bordered table-theme", table_id="companiesTable", index=False,  escape=False,)
-        
-                    return render_template('edslmsadmin.html', today_date = today_date, table_companies_html=table_companies_html)
-
-
-                # Query tables with the 'email' column
-                column_search_query = """
-                    SELECT TABLE_NAME
-                    FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE COLUMN_NAME = 'email' AND TABLE_SCHEMA = 'public';
-                """
-                cursor.execute(column_search_query)
-                tables_with_email = cursor.fetchall()
-
-                results = []
                 for (table_name,) in tables_with_email:
                     search_query = f"SELECT * FROM {table_name} WHERE email = %s;"
                     cursor.execute(search_query, (email,))
@@ -530,113 +474,78 @@ def contract_log():
         
         if request.method == 'POST':
 
-            employee_number = request.form.get('employee_number')
-            first_name = request.form.get('first_name_app')
-            surname = request.form.get('surname')
-            department = request.form.get('department')
-            date_applied = request.form.get('dateapplied')
-            approver_name = request.form.get('approvername')
-            approver_id = int(np.float64(request.form.get('approverid')))
-            approver_email = request.form.get('approveremailapp')
-            approver_whatsapp = int(np.float64(request.form.get('approverwhatsappapp')))
-            leave_days_balance = float(np.float64(request.form.get('leavedays-bf')))
-            unicode = request.form.get('unicode')
-            leave_type = request.form.get('leaveType')
-            leave_specify = request.form.get('leaveSpecify')  # Optional field
-            start_date = request.form.get('startDate')
-            end_date = request.form.get('endDate')
-
             try:
 
-                start_date = datetime.strptime(start_date, '%Y-%m-%d')
-                end_date = datetime.strptime(end_date, '%Y-%m-%d')
+                client_name = request.form.get('client_name')
+                client_national_id = request.form.get('client_national_id')
+                client_address = request.form.get('client_address')
+                client_whatsapp_number = request.form.get('client_whatsapp_number')
+                client_email = request.form.get('client_email')
 
-                # Initialize count for non-Sundays
-                leave_days = 0
-                current_date = start_date
+                next_of_kin_name = request.form.get('next_of_kin_name')
+                next_of_kin_address = request.form.get('next_of_kin_address')
+                next_of_kin_contact_number = request.form.get('next_of_kin_contact_number')
+                relationship = request.form.get('relationship')
 
-                # Iterate through the range of dates
-                while current_date <= end_date:
-                    #if current_date.weekday() != 6:  # Exclude Sundays (6 is Sunday in Python's `weekday()` function)
-                    leave_days += 1
-                    current_date += timedelta(days=1)
+                administrator = request.form.get('administrator')
 
-                # Debug: Print the result
-                print(f"Number of leave days (excluding Sundays): {leave_days}")
+                project_name = request.form.get('project_name')
+                project_location = request.form.get('project_location')
+                project_start_date = request.form.get('project_start_date')
+                months_to_completion = request.form.get('months_to_completion')
 
-            except ValueError:
-                    # Handle invalid date format
-                    return jsonify({'status': 'error', 'message': 'Invalid date format. Use YYYY-MM-DD.'}), 400
+                agreement_date = request.form.get('agreement_date')
+                total_contract_price = request.form.get('total_contract_price')
+                payment_method = request.form.get('payment_method')
 
-            # Debug: Print received data (remove this in production)
-            print(f"Employee Number: {employee_number}")
-            print(f"First Name: {first_name}")
-            print(f"Surname: {surname}")
-            print(f"Date Applied: {date_applied}")
-            print(f"Approver Name: {approver_name}")
-            print(f"Approver ID: {approver_id}")
-            print(f"Leave Days Balance: {leave_days_balance}")
-            print(f"Unicode: {unicode}")
-            print(f"Leave Type: {leave_type}")
-            print(f"Leave Specify: {leave_specify}")
-            print(f"Start Date: {start_date}")
-            print(f"End Date: {end_date}")
-            print(f"Department: {department}")
+                bullet_payment_date = request.form.get('bullet_payment_date')
 
-            if leave_type == "Annual":
+                months_to_pay = request.form.get('months_to_pay')
+                deposit_required = request.form.get('deposit_required')
+                deposit_paid = request.form.get('deposit_paid')
+                deposit_payment_date = request.form.get('deposit_payment_date')
+                first_installment_due_date = request.form.get('first_installment_due_date')
 
-                leavedaysbalancebf = float(leave_days_balance) - float(leave_days)
+                # Debug: Print received data (remove this in production)
+                print(f"Client Name: {client_name}")
+                print(f"Client National ID: {client_national_id}")
+                print(f"Client Address: {client_address}")
+                print(f"Client Whatsapp Number: {client_whatsapp_number}")
+                print(f"Client Email: {client_email}")
 
-            else:
+                print(f"Next of Kin Name: {next_of_kin_name}")
+                print(f"Next of Kin Address: {next_of_kin_address}")
+                print(f"Next of Kin Contact Number: {next_of_kin_contact_number}")
+                print(f"Next of Kin Relationship: {relationship}")
 
-                leavedaysbalancebf = float(leave_days_balance)
+                print(f"Administrator: {administrator}")
 
-            table_name_apps_pending_approval = f"{company_name}appspendingapproval"
-            table_name_apps_approved = f"{company_name}appsapproved"
+                print(f"Project Name: {project_name}")
+                print(f"Project Location: {project_location}")
+                print(f"Project Start Date: {project_start_date}")
+                print(f"Project Duration (Months): {months_to_completion}")
 
-            query = f"SELECT id FROM {table_name_apps_pending_approval} WHERE id = {userid};"
-            cursor.execute(query)
-            rows = cursor.fetchall()
+                print(f"Agreement Date: {agreement_date}")
+                print(f"Total Contract Price: {total_contract_price}")
+                print(f"Payment Method: {payment_method}")
 
-            df_employeesappspendingcheck = pd.DataFrame(rows, columns=["id"])    
+                print(f"Bullet Payment Date: {bullet_payment_date}")
 
-            if len(df_employeesappspendingcheck) == 0:
+                print(f"Months to Pay: {months_to_pay}")
+                print(f"Deposit Required: {deposit_required}")
+                print(f"Deposit Paid: {deposit_paid}")
+                print(f"Deposit Payment Date: {deposit_payment_date}")
+                print(f"First Installment Due Date: {first_installment_due_date}")
 
-                query = f"""SELECT appid, id, leavestartdate, leaveenddate FROM {table_name_apps_approved} WHERE id = %s AND leavestartdate <= %s AND leaveenddate >= %s"""
 
-                cursor.execute(query, (employee_number, end_date, start_date))
-                results = cursor.fetchall()
+                if leave_type == "Annual":
 
-                # Process results
-                if results:
-                    print("Overlapping records found:")
-
-                    try:
-
-                        overlap_messages = []
-
-                        for row in results:
-
-                            formatted_date_start = row[2].strftime("%d %B %Y")
-                            formatted_date_end = row[3].strftime("%d %B %Y")
-
-                            overlap_messages.append(f"appID: {row[0]}, Starting Date: {formatted_date_start}, Ending Date: {formatted_date_end}")
-
-                        # Combine into one single string (newline-separated)
-                        overlap_info = "\n".join(overlap_messages)
-
-                        response = {'status': 'error', 'message': f'One of your previously approved leave applications include days within the period that you are currently applying for leave; {overlap_info}.'}
-                        return jsonify(response), 400  
-                    
-                    except Exception as e:
-
-                        response = {'status': 'error', 'message': {e}}
-                        return jsonify(response), 400                        
+                    leavedaysbalancebf = float(leave_days_balance) - float(leave_days)
 
                 else:
-                    print("No overlapping records found.")
 
-                    status = "Pending"
+                    leavedaysbalancebf = float(leave_days_balance)
+
 
                     insert_query = f"""
                     INSERT INTO {table_name_apps_pending_approval} (id, firstname, surname, department, leavetype, reasonifother, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, dateapplied, leavestartdate, leaveenddate, leavedaysappliedfor, leavedaysbalancebf, approvalstatus)
@@ -645,114 +554,10 @@ def contract_log():
                     cursor.execute(insert_query, (employee_number, first_name, surname, department, leave_type, leave_specify, approver_name, approver_id, approver_email, approver_whatsapp, leave_days_balance, date_applied, start_date, end_date, leave_days, float(leavedaysbalancebf), status))
                     connection.commit()
 
-
-                    query = f"SELECT id, firstname, surname, whatsapp, email, address, role, department, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, monthlyaccumulation FROM {table_name};"
-                    cursor.execute(query)
-                    rows = cursor.fetchall()
-
-                    df_employees = pd.DataFrame(rows, columns=["id","firstname", "surname", "whatsapp","Email", "Address", "Role","Department","Leave Approver Name","Leave Approver ID","Leave Approver Email", "Leave Approver WhatsAapp", "Leave Days Balance","Days Accumulated per Month"])
-                    print(df_employees)
-                    userdf = df_employees[df_employees['id'] == int(np.int64(employee_number))].reset_index()
-                    print("yeaarrrrr")
-                    print(userdf)
-                    firstname = userdf.iat[0,2]
-                    surname = userdf.iat[0,3]
-                    whatsapp = userdf.iat[0,4]
-                    address = userdf.iat[0,6]
-                    email = userdf.iat[0,5]
-                    fullnamedisp = firstname + ' ' + surname
-                    leaveapprovername = userdf.iat[0,9]
-                    leaveapproverid = userdf.iat[0,9]
-                    leaveapproveremail = userdf.iat[0, 10]
-                    leaveapproverwhatsapp = int(userdf.iat[0,12])
-                    role = userdf.iat[0,7]
-                    leavedaysbalance = userdf.iat[0,12]
-                    print('check')
-                    approovvver = leaveapprovername.title()
-
-
-                    departmentdf = df_employees[df_employees['Department'] == department].reset_index()
-                    numberindepartment = len(departmentdf)
-
-                    startdatex = pd.Timestamp(start_date)
-                    enddatex = pd.Timestamp(end_date)
-
-                    leave_dates = pd.date_range(startdatex, enddatex)
-
-                    query = f"""
-                        SELECT appid, id, leavetype, leaveapprovername, dateapplied, leavestartdate,
-                            leaveenddate, leavedaysappliedfor, approvalstatus, statusdate,
-                            leavedaysbalancebf, department
-                        FROM {table_name_apps_approved}
-                        WHERE department = %s;
-                    """
-                    cursor.execute(query, (department,))
-                    rows = cursor.fetchall()
-
-                    df_employeesappsapprovedcheck = pd.DataFrame(rows, columns=["appid","id", "leavetype", "leaveapprovername", "dateapplied", "leavestartdate", "leaveenddate", "leavedaysappliedfor","approvalstatus","statusdate", "leavedaysbalancebf","department"]) 
-
-                    # Create daily impact report
-                    df_employeesappsapprovedcheck["leavestartdate"] = pd.to_datetime(df_employeesappsapprovedcheck["leavestartdate"])
-                    df_employeesappsapprovedcheck["leaveenddate"] = pd.to_datetime(df_employeesappsapprovedcheck["leaveenddate"])
-                    df_employeesappsapprovedcheck.dropna(subset=["leavestartdate", "leaveenddate"], inplace=True)
-
-
-                    impact_report = []
-
-                    for date in leave_dates:
-        
-                        date = pd.Timestamp(date)
-
-                        print(type(date))  # Should be pandas._libs.tslibs.timestamps.Timestamp or datetime.datetime
-                        print(df_employeesappsapprovedcheck.dtypes)  # Check all datetime columns
-
-                        on_leave = ((df_employeesappsapprovedcheck["leavestartdate"] <= date) & (df_employeesappsapprovedcheck["leaveenddate"] >= date)).sum()
-                        remaining = numberindepartment - on_leave - 1  # subtract 1 for the new leave
-                        impact_report.append({
-                            "date": date.strftime("%Y-%m-%d"),
-                            "on leave": on_leave + 1,
-                            "employees remaining": remaining
-                        })
-
-                    # Convert to DataFrame for display
-                    impact_df = pd.DataFrame(impact_report)
-                    print("IMPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACT")
-                    print(impact_df)
-                    print(numberindepartment)
-
-                    impact_df["date"] = pd.to_datetime(impact_df["date"], dayfirst=True)
-                    #impact_df = impact_df[impact_df["date"].dt.weekday != 6].copy()
-
-                    impact_df["group"] = (impact_df[["on leave", "employees remaining"]] != impact_df[["on leave", "employees remaining"]].shift()).any(axis=1).cumsum()
-
-                    statements = []
-                    for _, group_df in impact_df.groupby("group"):
-                        start = group_df["date"].iloc[0].strftime("%d %B %Y")
-                        end = group_df["date"].iloc[-1].strftime("%d %B %Y")
-                        on_leave = group_df["on leave"].iloc[0]
-                        remaining = group_df["employees remaining"].iloc[0]
-                        
-                        if start == end:
-                            statements.append(f"On {start}, the {department} department will have {remaining} employee(s) remaining at work and {on_leave} employee(s) on leave.")
-                        else:
-                            statements.append(f"From {start} to {end}, the {department} department will have {remaining} employee(s) remaining at work and {on_leave} employee(s) on leave.")
-                    # Combine all statements into a single variable
-                    final_summary = "\n".join(statements)
-                    # Print output
-                    for s in statements:
-                        print(s)
-
-                    query = f"SELECT appid, id FROM {table_name_apps_pending_approval} WHERE id = {str(employee_number)} ;"
-                    cursor.execute(query, )
-                    rows = cursor.fetchall()
-
-                    df_employees = pd.DataFrame(rows, columns=["appid","id"])
-                    leaveappid = df_employees.iat[0,0]
-
-                    results = run1(table_name, userid)
+                    results = run1(userid)
                     return render_template('adminpage.html', **results)
 
-            else:
+            except Exception as e:
                 response = {'status': 'error', 'message': 'Leave application not submitted successfully.'}
                 return jsonify(response), 400  
 
