@@ -273,7 +273,7 @@ def run1(userid):
         maindata = cursor.fetchall()
         print(maindata)
 
-        datamain = pd.DataFrame(maindata, columns=["id","Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"])
+        datamain = pd.DataFrame(maindata, columns=["id","clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositrequired","datecaptured","capturer","capturerid"])
         datamain['ACTION'] =  datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"> <button class="btn btn-primary3 reapply-app-btn" data-bs-toggle="modal" data-bs-target="#reapplyappModal" data-name="{x}" data-ID="{x}">Re-Apply</button>''') 
 
         datamain = datamain[["id", "Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"]]
@@ -368,6 +368,84 @@ def contract_log():
                 print(f"Deposit Paid: {deposit_paid}")
                 print(f"Deposit Payment Date: {deposit_payment_date}")
                 print(f"First Installment Due Date: {first_installment_due_date}")
+
+
+                print(f"First Installment Due Date: {first_installment_due_date}")
+
+                # --- Insert into database (connectlinkdatabase) ---
+                def safe_int(v):
+                    try:
+                        return int(v) if v not in (None, "") else None
+                    except Exception:
+                        return None
+
+                def safe_float(v):
+                    try:
+                        return float(v) if v not in (None, "") else None
+                    except Exception:
+                        return None
+
+                def safe_date(v):
+                    try:
+                        return datetime.strptime(v, "%Y-%m-%d").date() if v not in (None, "") else None
+                    except Exception:
+                        return None
+
+                project_description = request.form.get('project_description') or ""
+                capturer = session.get('user_name', '')
+                capturerid = session.get('userid')
+
+                insert_query = """
+                    INSERT INTO connectlinkdatabase (
+                        clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                        clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
+                        projectname, projectlocation, projectdescription, projectadministratorname,
+                        projectstartdate, projectduration, contractagreementdate, totalcontractamount,
+                        paymentmethod, monthstopay, depositrequired, datecaptured, capturer, capturerid
+                    ) VALUES (
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s
+                    );
+                """
+
+                params = (
+                    client_name,
+                    client_national_id,
+                    client_address,
+                    safe_int(client_whatsapp_number),
+                    client_email,
+                    next_of_kin_name,
+                    next_of_kin_address,
+                    safe_int(next_of_kin_contact_number),
+                    relationship,
+                    project_name,
+                    project_location,
+                    project_description,
+                    administrator,
+                    safe_date(project_start_date),
+                    safe_int(months_to_completion),
+                    safe_date(agreement_date),
+                    safe_float(total_contract_price),
+                    payment_method,
+                    safe_int(months_to_pay),
+                    safe_float(deposit_required),
+                    datetime.now().date(),
+                    capturer,
+                    capturerid
+                )
+
+                try:
+                    cursor.execute(insert_query, params)
+                    connection.commit()
+                    print("✅ Project inserted into connectlinkdatabase")
+                except Exception as e:
+                    connection.rollback()
+                    print("❌ Failed to insert project:", e)
+                    response = {'status': 'error', 'message': 'Failed to save project.'}
+                    return jsonify(response), 500
 
 
                 results = run1(userid)

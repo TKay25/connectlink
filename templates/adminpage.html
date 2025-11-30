@@ -4175,7 +4175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script>
     $(document).ready(function () {
         // Initialize DataTable for the main employees table
-        $('#employeesTable').DataTable({
+        $('#table_datamain_html').DataTable({
             paging: false,    // Enable pagination
             searching: true, // Enable search
             ordering: true,  // Enable sorting
@@ -4184,92 +4184,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lengthChange: false, // Disable entries per page dropdown
         });
 
-
-        $('#employeespersonalTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-        });
-
-        $('#leaveappsTable').DataTable({
-            paging: true,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-            order: [[0, 'desc']] // Sort first column (index 0) in descending order
-
-        });
-
-        
-        
-        $('#myleaveappsTable').DataTable({
-            paging: true,        // Enable pagination
-            searching: true,     // Enable search
-            ordering: true,      // Enable sorting
-            info: true,          // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-            order: [[0, 'desc']] // Sort first column (index 0) in descending order
-        });
-
-        $('#leaveappsTableapprovedbyme').DataTable({
-            paging: true,        // Enable pagination
-            searching: true,     // Enable search
-            ordering: true,      // Enable sorting
-            info: true,          // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-            order: [[0, 'desc']] // Sort first column (index 0) in descending order
-
-        });
-
-        // Initialize DataTable for the accumulators table
-        $('#employeesaccumulatorsTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-        });
-        
-        $('#removeemployeesTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-        });
-
-        $('#employeesbulk1Table').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-        });
-        
-        $('#employeesbulkbalancesTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-        });
-        
-        $('#employeesbulkaccumulatorsTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-        });
-
-        $('#bulkemployeesbulkaccumulatorsTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-        });       
 
     });
 </script>
