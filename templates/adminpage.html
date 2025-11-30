@@ -931,38 +931,40 @@
 
                                     <div class="form-group">
                                         <label>Payment Method</label>
-                                        <select class="form-control-blue editable-field" required>
+                                        <select class="form-control-blue editable-field" id="paymentMethod" name="payment_method" required>
                                             <option value="" disabled selected>Select Payment Method</option>
-                                            <option value="Amortised">Amortised</option>
+                                            <option value="Installments">Installments</option>
                                             <option value="Bullet">Bullet</option>
                                         </select>
                                     </div>
 
-                                    <h5 style="color:#1E2A56; font-weight:700; margin-top:15px;">Payment Schedule</h5>
+                                    <div id="paymentschedule" style="display: none;">
 
-                                    <div class="form-group">
-                                        <label>Month 1</label>
-                                        <input type="text" class="form-control editable-field">
-                                    </div>
+                                        <div class="form-group">
+                                            <label>Months To Pay</label>
+                                            <input type="number" class="form-control editable-field" id="monthstopay" width="" required>
+                                        </div>
 
-                                    <div class="form-group">
-                                        <label>Month 2</label>
-                                        <input type="text" class="form-control editable-field">
-                                    </div>
+                                        <div class="form-group">
+                                            <label>Has client paid the deposit?</label>
+                                            <select class="form-control-blue editable-field" id="paymentMethod" name="payment_method" required>
+                                                <option value="" disabled selected>Indicate if Deposit has been paid</option>
+                                                <option value="Depositpaid">Yes</option>
+                                                <option value="Depositnotpaid">No</option>
+                                            </select>
+                                        </div>
 
-                                    <div class="form-group">
-                                        <label>Month 3</label>
-                                        <input type="text" class="form-control editable-field">
-                                    </div>
+                                        <div class="form-group">
+                                            <label>Date Deposit Paid</label>
+                                            <input type="date" class="form-control editable-field" name="first_installment_due_date" required>
+                                        </div>
 
-                                    <div class="form-group">
-                                        <label>Month 4</label>
-                                        <input type="text" class="form-control editable-field">
-                                    </div>
+                                        <div class="form-group">
+                                            <label>Due Date For First Installment</label>
+                                            <input type="date" class="form-control editable-field" name="first_installment_due_date" required>
+                                        </div>
 
-                                    <div class="form-group">
-                                        <label>Month 5</label>
-                                        <input type="text" class="form-control editable-field">
+
                                     </div>
 
                                 </div>
@@ -2230,6 +2232,19 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+    const paymentMethod = document.getElementById('paymentMethod');
+    const paymentSchedule = document.getElementById('paymentschedule');
+
+    paymentMethod.addEventListener('change', function() {
+        if (this.value === 'Installments') {
+            paymentSchedule.style.display = 'block';
+        } else {
+            paymentSchedule.style.display = 'none';
+        }
+    });
+</script>
 
 <script>
     const rawRemainingData = JSON.parse('{{ empsremainingbydpt | tojson | safe }}');
