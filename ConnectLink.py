@@ -394,7 +394,13 @@ def contract_log():
                 return jsonify(response), 400  
 
 
+@app.route('/logout')
+def logout():
+    # Clear the session data to log the user out
+    session.clear()
 
+    # Redirect to the landing page or login page after logout
+    return redirect(url_for('landingpage'))
 
 @app.teardown_appcontext
 def close_db(error):
