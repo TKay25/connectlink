@@ -165,6 +165,8 @@ def initialize_database_tables():
             print("✅ Database tables initialized successfully!")
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
+        
+initialize_database_tables()
 
 @app.route('/dashboard')
 def Dashboard():
