@@ -2107,6 +2107,49 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
 
 });
 </script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const table = document.getElementById("allprojectsTable");
+    if (!table) return;
+
+    const columnsToShow = [
+        "clientname",
+        "projectname",
+        "totalcontractamount",
+        "datecaptured",
+        "capturer"
+    ];
+
+    const headerCells = table.querySelectorAll("thead th");
+    let colIndexMap = {};
+
+    // Map column names → column index
+    headerCells.forEach((th, index) => {
+        const key = th.innerText.trim().toLowerCase().replace(/\s+/g, "");
+        colIndexMap[key] = index;
+    });
+
+    // Loop through all columns and hide those NOT in columnsToShow
+    headerCells.forEach((th, index) => {
+        const field = th.innerText.trim().toLowerCase().replace(/\s+/g, "");
+        if (!columnsToShow.includes(field)) {
+            hideColumn(table, index);
+        }
+    });
+
+    function hideColumn(table, columnIndex) {
+        const rows = table.querySelectorAll("tr");
+        rows.forEach(row => {
+            const cells = row.children;
+            if (cells[columnIndex]) {
+                cells[columnIndex].style.display = "none";
+            }
+        });
+    }
+
+});
+</script>
 
 <script>
     const paymentMethod = document.getElementById('paymentMethod');
@@ -4178,7 +4221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script>
     $(document).ready(function () {
         // Initialize DataTable for the main employees table
-        $('#table_datamain_html').DataTable({
+        $('#allprojectsTable').DataTable({
             paging: false,    // Enable pagination
             searching: true, // Enable search
             ordering: true,  // Enable sorting
