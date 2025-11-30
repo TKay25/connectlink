@@ -165,7 +165,7 @@ def initialize_database_tables():
             print("✅ Database tables initialized successfully!")
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
-        
+
 initialize_database_tables()
 
 @app.route('/dashboard')
@@ -272,12 +272,9 @@ def run1(userid):
         datamain = pd.DataFrame(maindata, columns=["id","Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"])
         datamain['ACTION'] =  datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"> <button class="btn btn-primary3 reapply-app-btn" data-bs-toggle="modal" data-bs-target="#reapplyappModal" data-name="{x}" data-ID="{x}">Re-Apply</button>''') 
 
-
-        datamain = datamain[["id", "Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank", "Action"]]
+        datamain = datamain[["id", "Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"]]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="employeespayrollTable", index=False,  escape=False,)
-
-        
 
         return {
             "table_datamain_html": table_datamain_html,
