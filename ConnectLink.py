@@ -530,7 +530,6 @@ def contract_log():
         
         if request.method == 'POST':
 
-            companyxx = company_name.replace("_"," ").title()
             employee_number = request.form.get('employee_number')
             first_name = request.form.get('first_name_app')
             surname = request.form.get('surname')
