@@ -1030,7 +1030,7 @@
                                         <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
                                             <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Deposit Required (USD):</label>
                                             <div class="col">
-                                                <input type="number" class="form-control editable-field" id="deposit_required" name="deposit_required" value="1000" readonly>
+                                                <input type="number" class="form-control editable-field" id="deposit_required" name="deposit_required" readonly>
                                             </div>
                                         </div>
 
@@ -2112,11 +2112,21 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const paymentMethod = document.getElementById('paymentMethod');
     const paymentSchedule = document.getElementById('paymentschedule');
     const bulletpaymentdate = document.getElementById('bullet_payment_date');
+    const depositRequired = document.getElementById('deposit_required');
+    const totalContractPrice = document.getElementById('total_contract_price');
 
     paymentMethod.addEventListener('change', function() {
         if (this.value === 'Installments') {
             paymentSchedule.style.display = 'block';
             bulletpaymentdate.style.display = 'none';
+
+            const total = parseFloat(totalContractPrice.value);
+            if (!isNaN(total)) {
+                depositRequired.value = (total * 0.3).toFixed(2);
+            } else {
+                depositRequired.value = '';
+            }
+            
         } else {
             paymentSchedule.style.display = 'none';
             bulletpaymentdate.style.display = 'block';
