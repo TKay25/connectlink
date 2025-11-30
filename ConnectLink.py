@@ -345,7 +345,7 @@ def contract_log():
                 next_of_kin_contact_number = request.form.get('next_of_kin_contact_number')
                 relationship = request.form.get('relationship')
 
-                administrator = request.form.get('administrator')
+                project_administrator = request.form.get('projectadministrator')
 
                 project_name = request.form.get('project_name')
                 project_location = request.form.get('project_location')
@@ -377,7 +377,7 @@ def contract_log():
                 print(f"Next of Kin Contact Number: {next_of_kin_contact_number}")
                 print(f"Next of Kin Relationship: {relationship}")
 
-                print(f"Administrator: {administrator}")
+                print(f"Administrator: {project_administrator}")
 
                 print(f"Project Name: {project_name}")
                 print(f"Project Location: {project_location}")
@@ -447,7 +447,7 @@ def contract_log():
                     project_name,
                     project_location,
                     project_description,
-                    administrator,
+                    project_administrator,
                     safe_date(project_start_date),
                     safe_int(months_to_completion),
                     safe_date(agreement_date),
