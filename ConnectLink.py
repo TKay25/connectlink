@@ -193,10 +193,10 @@ def Dashboard():
 
                 print(e)
 
-                return redirect(url_for('landingpage'))
+                return redirect(url_for('userlogin'))
 
         else:
-                return redirect(url_for('landingpage'))
+                return redirect(url_for('userlogin'))
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -462,7 +462,7 @@ def logout():
     session.clear()
 
     # Redirect to the landing page or login page after logout
-    return redirect(url_for('landingpage'))
+    return redirect(url_for('userlogin'))
 
 @app.teardown_appcontext
 def close_db(error):
