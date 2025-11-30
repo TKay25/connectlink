@@ -83,7 +83,7 @@ def initialize_database_tables():
             
             # Create connectlinkatabase table
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS connectlinkatabase (
+                CREATE TABLE IF NOT EXISTS connectlinkdatabase (
                     id SERIAL PRIMARY KEY,
                     clientname VARCHAR (100),
                     clientidnumber varchar (100),
@@ -105,22 +105,10 @@ def initialize_database_tables():
                     paymentmethod VARCHAR (100),
                     monthstopay INT,
                     depositrequired NUMERIC (12, 2),
+                    datecaptured date,
+                    capturer VARCHAR (100),
+                    capturerid INT
                 );
-            """)
-            
-            cursor.execute("""
-                ALTER TABLE connectlinkatabase
-                ADD COLUMN IF NOT EXISTS datecaptured date;
-            """)
-
-            cursor.execute("""
-                ALTER TABLE connectlinkatabase
-                ADD COLUMN IF NOT EXISTS capturer VARCHAR (100);
-            """)
-
-            cursor.execute("""
-                ALTER TABLE connectlinkatabase
-                ADD COLUMN IF NOT EXISTS capturerid INT;
             """)
 
             # Create cagwatickcustomerdetails table
@@ -256,7 +244,7 @@ def run1(userid):
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
         ######### payroll
-        querypayroll = f"SELECT id, firstname, surname, leaveapprovername, department, designation, datejoined, bank FROM {table_name};"
+        maindata = f"SELECT id, firstname, surname, leaveapprovername, department, designation, datejoined, bank FROM {table_name};"
         cursor.execute(querypayroll)
         rowspayroll = cursor.fetchall()
 
@@ -275,7 +263,8 @@ def run1(userid):
 
 
 
-
+        df_my_leave_apps_cancelled['ACTION'] =  df_my_leave_apps_cancelled['App ID'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"> <button class="btn btn-primary3 reapply-app-btn" data-bs-toggle="modal" data-bs-target="#reapplyappModal" data-name="{x}" data-ID="{x}">Re-Apply</button>''') 
+        
 
 
 
