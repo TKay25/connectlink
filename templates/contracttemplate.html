@@ -8,38 +8,59 @@
 <style>
     body {
         font-family: 'Roboto', sans-serif;
-        background: #f3f6fb;
+        background: #eef2fa;
         padding: 40px;
         color: #1E2A56;
     }
 
     .agreement-container {
         background: #ffffff;
-        width: 80%;
+        width: 85%;
         margin: auto;
-        padding: 40px 50px;
-        border-radius: 12px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-        line-height: 1.7;
+        padding: 50px 60px;
+        border-radius: 14px;
+        box-shadow: 0 8px 28px rgba(0,0,0,0.12);
+        line-height: 1.8;
+    }
+
+    .logo {
+        display: block;
+        margin: 0 auto 20px auto;
+        width: 230px;
     }
 
     h2.title {
         text-align: center;
         font-weight: 900;
         color: #1E2A56;
-        margin-bottom: 30px;
+        margin-bottom: 10px;
         text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .subtitle-line {
+        width: 120px;
+        height: 3px;
+        background: #1E2A56;
+        margin: 10px auto 30px auto;
+        border-radius: 10px;
     }
 
     h3.section-title {
         background-color: #1E2A56;
         color: white;
-        padding: 8px 12px;
-        border-radius: 8px;
+        padding: 10px 14px;
+        border-radius: 6px;
         font-size: 1rem;
-        margin-top: 35px;
-        margin-bottom: 15px;
+        margin-top: 40px;
+        margin-bottom: 20px;
         font-weight: 800;
+        letter-spacing: 0.5px;
+    }
+
+    p, li {
+        font-size: 0.95rem;
+        color: #1E2A56;
     }
 
     .field-label {
@@ -48,25 +69,44 @@
     }
 
     .field-line {
-        border-bottom: 1px solid #1E2A56;
+        border-bottom: 1.5px solid #1E2A56;
         width: 100%;
         display: inline-block;
-        height: 16px;
+        height: 18px;
         vertical-align: middle;
+        margin-left: 4px;
+    }
+
+    .scope-box {
+        border: 1.5px solid #1E2A56;
+        border-radius: 10px;
+        padding: 20px;
+        min-height: 140px;
+        background: #fafbff;
+    }
+
+    ul {
+        margin-top: 5px;
+        margin-bottom: 20px;
+    }
+
+    li {
+        margin-bottom: 6px;
     }
 
     .signature-block {
-        margin-top: 50px;
+        margin-top: 60px;
     }
 
     .signature-line {
         margin-top: 30px;
-        margin-bottom: 40px;
+        margin-bottom: 35px;
     }
 
     .signature-label {
         display: block;
         font-weight: 700;
+        margin-bottom: 5px;
     }
 
 </style>
@@ -75,45 +115,48 @@
 <body>
 
 <div class="agreement-container">
-    <img style="width: 250px;" src="{{ url_for('static', filename='images/web-logo.png') }}" alt="ConnectLink Logo">
+
+    <img class="logo" src="{{ url_for('static', filename='images/web-logo.png') }}" alt="ConnectLink Logo">
+
     <h2 class="title">Construction Agreement</h2>
+    <div class="subtitle-line"></div>
 
     <p>
         This Construction Agreement ("Agreement") is made and entered into on 
-        <span class="field-line" style="width:200px;"></span> 
+        <span class="field-line" style="width:200px;"> {{ project.agreement_date }}</span> 
         ("Effective Date") by and between:
     </p>
 
     <!-- CLIENT DETAILS -->
     <h3 class="section-title">CLIENT DETAILS</h3>
-    <p><span class="field-label">Name:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Address:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Contact Number:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Email:</span> <span class="field-line"></span></p>
+    <p><span class="field-label">Name:</span> <span class="field-line">{{ project.clientname }}</span></p>
+    <p><span class="field-label">Address:</span> <span class="field-line">{{ project.clientaddress }}</span></p>
+    <p><span class="field-label">Contact Number:</span> <span class="field-line">{{ project.clientwanumber }}</span></p>
+    <p><span class="field-label">Email:</span> <span class="field-line">{{ project.clientemail }}</span></p>
 
     <!-- NEXT OF KIN -->
     <h3 class="section-title">NEXT OF KIN DETAILS</h3>
-    <p><span class="field-label">Name:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Address:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Contact Number:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Relationship:</span> <span class="field-line"></span></p>
+    <p><span class="field-label">Name:</span> <span class="field-line">{{ project.clientnextofkinname }}</span></p>
+    <p><span class="field-label">Address:</span> <span class="field-line">{{ project.clientnextofkinaddress }}</span></p>
+    <p><span class="field-label">Contact Number:</span> <span class="field-line">{{ project.clientnextofkinphone }}</span></p>
+    <p><span class="field-label">Relationship:</span> <span class="field-line">{{ project.nextofkinrelationship }}</span></p>
 
     <!-- CONTRACTOR DETAILS -->
     <h3 class="section-title">CONTRACTOR DETAILS</h3>
-    <p><span class="field-label">Name:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Address:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Contact Number:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Email:</span> <span class="field-line"></span></p>
+    <p><span class="field-label">Name:</span> <span class="field-line">{{ project.contractorname }}</span></p>
+    <p><span class="field-label">Address:</span> <span class="field-line">{{ project.contractoraddress }}</span></p>
+    <p><span class="field-label">Contact Number:</span> <span class="field-line">{{ project.contractorcontact }}</span></p>
+    <p><span class="field-label">Email:</span> <span class="field-line">{{ project.contractoremail }}</span></p>
 
     <!-- PROJECT DETAILS -->
     <h3 class="section-title">PROJECT DETAILS</h3>
-    <p><span class="field-label">Project Name:</span> <span class="field-line"></span></p>
-    <p><span class="field-label">Project Location:</span> <span class="field-line"></span></p>
+    <p><span class="field-label">Project Name:</span> <span class="field-line">{{ project.projectname }}</span></p>
+    <p><span class="field-label">Project Location:</span> <span class="field-line">{{ project.projectlocation }}</span></p>
 
-    <p><span class="field-label">Project Scope:</span></p>
-    <p style="border:1px solid #1E2A56; border-radius:8px; padding:20px; min-height:120px;">
+    <p><span class="field-label">Project Scope:</span>{{ project.projectdescription }}</p>
+    <div class="scope-box">
         <!-- Long text area -->
-    </p>
+    </div>
 
     <!-- PAYMENT TERMS -->
     <h3 class="section-title">PAYMENT TERMS</h3>
@@ -134,12 +177,8 @@
         - If the Client fails to make any payment on or before the due date, the Client shall be liable to pay 
         interest at a rate of <span class="field-line" style="width:80px;"></span>% per annum.
     </p>
-    <p>
-        - Interest is calculated daily and compounded monthly.
-    </p>
-    <p>
-        - The Client shall also be liable for any additional costs incurred in recovering overdue amounts.
-    </p>
+    <p>- Interest is calculated daily and compounded monthly.</p>
+    <p>- The Client shall also be liable for any costs incurred in recovering overdue amounts.</p>
 
     <!-- TERMS AND CONDITIONS -->
     <h3 class="section-title">TERMS AND CONDITIONS</h3>
@@ -169,17 +208,17 @@
     <div class="signature-block">
         <div class="signature-line">
             <span class="signature-label">Client Signature:</span>
-            <span class="field-line" style="width:300px;"></span>
+            <span class="field-line" style="width:350px;"></span>
         </div>
 
         <div class="signature-line">
             <span class="signature-label">Contractor Signature:</span>
-            <span class="field-line" style="width:300px;"></span>
+            <span class="field-line" style="width:350px;"></span>
         </div>
 
         <div class="signature-line">
             <span class="signature-label">Date:</span>
-            <span class="field-line" style="width:200px;"></span>
+            <span class="field-line" style="width:220px;"></span>
         </div>
     </div>
 
