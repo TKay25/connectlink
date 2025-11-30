@@ -274,9 +274,9 @@ def run1(userid):
         print(maindata)
 
         datamain = pd.DataFrame(maindata, columns=["id","clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositrequired","datecaptured","capturer","capturerid"])
-        datamain['ACTION'] =  datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"> <button class="btn btn-primary3 reapply-app-btn" data-bs-toggle="modal" data-bs-target="#reapplyappModal" data-name="{x}" data-ID="{x}">Re-Apply</button>''') 
+        datamain['Action'] =  datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"> <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-name="{x}" data-ID="{x}">View Project</button>''') 
 
-        datamain = datamain[["id", "Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"]]
+        datamain = datamain[["id", "clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositrequired","datecaptured","capturer","capturerid","Action"]]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="employeespayrollTable", index=False,  escape=False,)
 
