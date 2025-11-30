@@ -280,6 +280,72 @@ def login():
 
     return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
 
+@app.route('/download_contract/<project_id>')
+def download_contract(project_id):
+
+    with get_db() as (cursor, connection):
+        try:
+            # Fetch project data
+            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id = %s", (project_id,))
+            row = cursor.fetchone()
+            if not row:
+                return "Project not found", 404
+
+            # Map row to dictionary
+            project = {
+                'id': row[0],
+                'client_name': row[1],
+                'client_idnumber': row[2],
+                'client_address': row[3],
+                'client_whatsapp': row[4],
+                'client_email': row[5],
+                'next_of_kin_name': row[6],
+                'next_of_kin_address': row[7],
+                'next_of_kin_phone': row[8],
+                'relationship': row[9],
+                'project_name': row[10],
+                'project_location': row[11],
+                'project_description': row[12],
+                'project_administrator': row[13],
+                'project_start_date': row[14],
+                'project_duration': row[15],
+                'agreement_date': row[16],
+                'total_contract_price': row[17],
+                'payment_method': row[18],
+                'months_to_pay': row[19],
+                'deposit_required': row[20] if len(row) > 20 else None,
+                'date_captured': row[21],
+                'capturer': row[22],
+                'capturerid': row[23],
+                'depositorbullet': row[24] if len(row) > 24 else None,
+                'datedepositorbullet': row[25] if len(row) > 25 else None,
+                'monthlyinstallment': row[26] if len(row) > 26 else None,
+            }
+
+            # Get logo as base64 for embedding in PDF
+            def get_logo_base64():
+                logo_path = os.path.join(app.static_folder, 'images', 'web-logo.png')
+                with open(logo_path, "rb") as img_file:
+                    return "data:image/png;base64," + base64.b64encode(img_file.read()).decode('utf-8')
+
+            project['company_logo'] = get_logo_base64()
+            project['generated_on'] = datetime.now().strftime('%d %B %Y')
+
+            # Render HTML template with project data
+            html = render_template('contracttemplate.html', project=project)
+
+            # Generate PDF
+            pdf = HTML(string=html).write_pdf()
+
+            # Return PDF as response
+            response = make_response(pdf)
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename=contract_{project_id}.pdf'
+            return response
+
+        except Exception as e:
+            return str(e), 500
+
 def run1(userid):
 
     with get_db() as (cursor, connection):
@@ -296,13 +362,7 @@ def run1(userid):
 
 
         datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus'])
-        datamain['Action'] = datamain['id'].apply(lambda x: f'''
-        <div style="display: flex; gap: 10px;">
-            <a href="/download_contract/{x}" class="btn btn-primary3">Download Contract</a>
-            <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">View Project</button>
-            <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Log a Payment</button>
-        </div>
-        ''')
+        datamain['Action'] = datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{x}" class="btn btn-primary3">Download Contract</a><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">View Project</button><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Log a Payment</button></div>''')
         datamain = datamain[['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus', 'Action']]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
