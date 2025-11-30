@@ -523,15 +523,13 @@ def contract_log():
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
         user_uuid = session.get('user_uuid')
-        table_name = session.get('table_name')
         userid = session.get('userid')
 
-        if not user_uuid or not table_name or not userid:
+        if not user_uuid or not userid:
             return "Session data is missing", 400
         
         if request.method == 'POST':
 
-            company_name = table_name.replace("main", "")
             companyxx = company_name.replace("_"," ").title()
             employee_number = request.form.get('employee_number')
             first_name = request.form.get('first_name_app')

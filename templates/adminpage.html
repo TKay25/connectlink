@@ -790,6 +790,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+
                     <form id="addProjectForm">
 
                         <!-- Row for side-by-side cards -->
@@ -804,14 +805,14 @@
                                     <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
                                         <label for="person_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Name:</label>
                                         <div class="col">
-                                            <input type="text" class="form-control editable-field" id="person_name" required>
+                                            <input type="text" class="form-control editable-field" id="client_name" required>
                                         </div>
                                     </div>
 
                                     <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
                                         <label for="national_id" class="col-auto col-form-label" style="padding-right: 0.5rem;">National ID Number:</label>
                                         <div class="col">
-                                            <input type="text" class="form-control editable-field" id="national_id" required>
+                                            <input type="text" class="form-control editable-field" id="client_national_id" required>
                                         </div>
                                     </div>
 
@@ -820,7 +821,7 @@
                                     <div class="form-group row align-items-start" style="margin-bottom: 0.5rem;">
                                         <label for="address" class="col-auto col-form-label" style="padding-right: 0.5rem;">Address:</label>
                                         <div class="col">
-                                            <textarea class="form-control editable-field" id="address" rows="3" required></textarea>
+                                            <textarea class="form-control editable-field" id="client_address" rows="3" required></textarea>
                                         </div>
                                     </div>
 
@@ -828,14 +829,14 @@
                                     <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
                                         <label for="whatsapp_number" class="col-auto col-form-label" style="padding-right: 0.5rem;">Whatsapp Number:</label>
                                         <div class="col">
-                                            <input type="text" class="form-control editable-field" id="whatsapp_number" required>
+                                            <input type="text" class="form-control editable-field" id="client_whatsapp_number" required>
                                         </div>
                                     </div>
 
                                     <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
                                         <label for="email_address" class="col-auto col-form-label" style="padding-right: 0.5rem;">Email:</label>
                                         <div class="col">
-                                            <input type="email" class="form-control editable-field" id="email_address" required>
+                                            <input type="email" class="form-control editable-field" id="client_email" required>
                                         </div>
                                     </div>
 
@@ -2320,10 +2321,69 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <script>
+document.getElementById("saveProjectBtn").addEventListener("click", function () {
+
+    // ----------------------------------------------------
+    // 1. Perform your custom checks before submitting
+    // ----------------------------------------------------
+
+    const clientName = document.getElementById("client_name").value.trim();
+    const projectName = document.getElementById("project_name").value.trim();
+    const paymentMethod = document.getElementById("paymentMethod").value;
+
+    if (clientName === "" || projectName === "") {
+        alert("Client Name and Project Name are required.");
+        return; // STOP submission
+    }
+
+    if (paymentMethod === "") {
+        alert("Select a payment method.");
+        return; // STOP submission
+    }
+
+    // Example additional logic:
+    if (paymentMethod === "Installments") {
+        let months = document.getElementById("monthstopay").value;
+        if (months === "" || months <= 0) {
+            alert("Months To Pay must be greater than 0.");
+            return;
+        }
+    }
+
+    // ----------------------------------------------------
+    // 2. Build FormData object and send to Flask route
+    // ----------------------------------------------------
+    let form = document.getElementById("addProjectForm");
+    let formData = new FormData(form);
+
+    fetch("/contract_log", {
+        method: "POST",
+        body: formData
+    })
+    .then(response => {
+        if (response.redirected) {
+            // Flask may redirect after saving
+            window.location.href = response.url;
+        } else {
+            return response.text();
+        }
+    })
+    .then(data => {
+        console.log("Server response:", data);
+        alert("Project saved successfully!");
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("There was an error saving the project.");
+    });
+
+});
+</script>
+
+<script>
     const paymentMethod = document.getElementById('paymentMethod');
     const paymentSchedule = document.getElementById('paymentschedule');
     const bulletpaymentdate = document.getElementById('bullet_payment_date');
-
 
     paymentMethod.addEventListener('change', function() {
         if (this.value === 'Installments') {
@@ -4576,28 +4636,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`Updated Selection: ${selectedOption.value} (${selectedOption.text})`);
     });
 
-
-
-    document.getElementById('saveapprover').addEventListener('click', function () {
-        const approverDropdown = document.getElementById('leaveapplicationsapprover-emp');
-        const selectedOption = approverDropdown.options[approverDropdown.selectedIndex];
-
-        if (selectedOption && selectedOption.value !== "") {
-            document.getElementById('confirmationMessageapprover').innerHTML =
-                `Proceed to assign <br><br> <strong><span style="background-color:#e9f1fb;padding:7px; border-radius:15px;">${selectedOption.text}</strong> <br><br> as the Leave Applications Approver for <br> <strong><span style="margin-top:8px;">${currentFirstName}</span></strong>?`;
-
-            const confirmationModalapprover = new bootstrap.Modal(document.getElementById('confirmationModalapprover'));
-            confirmationModalapprover.show();
-        } else {
-            alert("Please select an approver before proceeding.");
-        }
-    });
-
-    // Update selected value dynamically (optional, for reference or debugging)
-    document.getElementById('leaveapplicationsapprover-emp').addEventListener('change', function () {
-        const selectedOption = this.options[this.selectedIndex];
-        console.log(`Updated Selection: ${selectedOption.value} (${selectedOption.text})`);
-    });
 
 
 
