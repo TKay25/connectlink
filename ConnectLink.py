@@ -268,7 +268,7 @@ def userlogin():
 
 
 
-@app.route('contract_log', methods=['POST'])
+@app.route('/contract_log', methods=['POST'])
 def contract_log():
         
     with get_db() as (cursor, connection):
