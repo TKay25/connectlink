@@ -370,22 +370,6 @@ def contract_log():
                 print(f"First Installment Due Date: {first_installment_due_date}")
 
 
-                '''if leave_type == "Annual":
-
-                    leavedaysbalancebf = float(leave_days_balance) - float(leave_days)
-
-                else:
-
-                    leavedaysbalancebf = float(leave_days_balance)
-
-
-                    insert_query = f"""
-                    INSERT INTO connectlinkdatabase (id, firstname, surname, department, leavetype, reasonifother, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, dateapplied, leavestartdate, leaveenddate, leavedaysappliedfor, leavedaysbalancebf, approvalstatus)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-                    """
-                    cursor.execute(insert_query, (employee_number, first_name, surname, department, leave_type, leave_specify, approver_name, approver_id, approver_email, approver_whatsapp, leave_days_balance, date_applied, start_date, end_date, leave_days, float(leavedaysbalancebf), status))
-                    connection.commit()'''
-
                 results = run1(userid)
                 return render_template('adminpage.html', **results)
 
