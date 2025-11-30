@@ -351,17 +351,25 @@ def contract_log():
                 project_location = request.form.get('project_location')
                 project_start_date = request.form.get('project_start_date')
                 months_to_completion = request.form.get('months_to_completion')
+                project_description = request.form.get('project_description') or ""
+
 
                 agreement_date = request.form.get('agreement_date')
                 total_contract_price = request.form.get('total_contract_price')
                 payment_method = request.form.get('payment_method')
 
-                bullet_payment_date = request.form.get('bullet_payment_date')
+                if payment_method == "Bullet":
+                    depostorbullet = request.form.get('total_contract_price')
+                    deposit_payment_date = request.form.get('bullet_payment_date')
+
+
+                elif payment_method == "Installments":
+                    depostorbullet = request.form.get('deposit_required')
+                    deposit_payment_date = request.form.get('deposit_payment_date')
+
+
 
                 months_to_pay = request.form.get('months_to_pay')
-                deposit_required = request.form.get('deposit_required')
-                depostorbullet = request.form.get('deposit_paid')
-                deposit_payment_date = request.form.get('deposit_payment_date')
                 monthlyinstallment = request.form.get('monthly_installment')
                 first_installment_due_date = request.form.get('first_installment_due_date')
 
@@ -388,10 +396,9 @@ def contract_log():
                 print(f"Total Contract Price: {total_contract_price}")
                 print(f"Payment Method: {payment_method}")
 
-                print(f"Bullet Payment Date: {bullet_payment_date}")
+                print(f"Bullet/Deposit Payment Date: {deposit_payment_date}")
 
                 print(f"Months to Pay: {months_to_pay}")
-                print(f"Deposit Required: {deposit_required}")
                 print(f"Deposit Payment Date: {deposit_payment_date}")
                 print(f"First Installment Due Date: {first_installment_due_date}")
 
@@ -414,7 +421,6 @@ def contract_log():
                     except Exception:
                         return None
 
-                project_description = request.form.get('project_description') or ""
                 capturer = session.get('user_name', '')
                 capturerid = session.get('userid')
 

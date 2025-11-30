@@ -956,7 +956,7 @@
 
                                     <div class="form-group">
                                         <label>Project Scope:</label>
-                                        <textarea class="form-control editable-field" rows="3" required></textarea>
+                                        <textarea class="form-control editable-field" rows="3" id="project_description" name="project_description" required></textarea>
                                     </div>
 
                                     <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
@@ -2126,7 +2126,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
             } else {
                 depositRequired.value = '';
             }
-            
+
         } else {
             paymentSchedule.style.display = 'none';
             bulletpaymentdate.style.display = 'block';
