@@ -426,7 +426,7 @@ def contract_log():
                             clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
-                            paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, installment1duedate, capturer, capturerid
+                            paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, installment1duedate, datecaptured, capturer, capturerid
                         ) VALUES (
                             %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
@@ -456,7 +456,6 @@ def contract_log():
                         safe_float(total_contract_price),
                         payment_method,
                         safe_int(months_to_pay),
-                        safe_float(deposit_required),
                         safe_float(depostorbullet),
                         safe_date(deposit_payment_date),
                         safe_float(monthlyinstallment),
