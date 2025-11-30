@@ -2114,11 +2114,13 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!table) return;
 
     const columnsToShow = [
+        "id",
         "clientname",
-        "projectname",
+        "projectlocation",
         "totalcontractamount",
-        "datecaptured",
-        "capturer"
+        "projectadministratorname",
+        "projectcompletionstatus",
+        "Action"
     ];
 
     const headerCells = table.querySelectorAll("thead th");
