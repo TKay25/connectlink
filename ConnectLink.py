@@ -52,7 +52,28 @@ def initialize_database_tables():
     """Initialize all required database tables on startup"""
     try:
         with get_db() as (cursor, connection):
-            
+
+            def get_table_columns(table_name):
+                try:
+                    with get_db() as (cursor, connection):
+                        cursor.execute("""
+                            SELECT column_name
+                            FROM information_schema.columns
+                            WHERE table_name = %s
+                            ORDER BY ordinal_position;
+                        """, (table_name,))
+
+                        columns = [row[0] for row in cursor.fetchall()]
+                        return columns
+
+                except Exception as e:
+                    print(f"Error fetching columns: {e}")
+                    return []
+            columns = get_table_columns("connectlinkdatabase")
+            print(columns)
+
+
+
             cursor.execute("""
                 SELECT table_name
                 FROM information_schema.tables
