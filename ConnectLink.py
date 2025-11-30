@@ -85,12 +85,12 @@ def initialize_database_tables():
                 );
             """)
             current_date = datetime.now().strftime('%Y-%m-%d')
-            cursor.execute("""
+            '''cursor.execute("""
                 INSERT INTO connectlinkusers (datecreated, name, password, email)
                 VALUES (%s, %s, %s, %s);
             """, (current_date, "ConnectLinkAdmin01", "ConnectLinkAdmin01", "Admin01@connectlinkproperties.co.zw"))
 
-
+            '''
             # Create connectlinkadmin table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkadmin (
