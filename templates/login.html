@@ -137,7 +137,7 @@
 <body>
 
 <div class="login-container">
-    <img style="width: 250px;" src="C:/Users/Lenovo/Documents/GitHub/connectlink/static/images/web-logo.png" alt="Logo">
+    <img style="width: 250px;" src="{{ url_for('static', filename='images/web-logo.png') }}" alt="ConnectLink Logo">
     <h5>ADMINISTRATION PORTAL</h5>
     <form action="#" method="post">
         <input type="email" name="emaillogin" placeholder="Email" required>
