@@ -123,7 +123,6 @@ def initialize_database_tables():
                     totalcontractamount NUMERIC (12, 2),
                     paymentmethod VARCHAR (100),
                     monthstopay INT,
-                    depositrequired NUMERIC (12, 2),
                     datecaptured date,
                     capturer VARCHAR (100),
                     capturerid INT
@@ -361,8 +360,9 @@ def contract_log():
 
                 months_to_pay = request.form.get('months_to_pay')
                 deposit_required = request.form.get('deposit_required')
-                deposit_paid = request.form.get('deposit_paid')
+                depostorbullet = request.form.get('deposit_paid')
                 deposit_payment_date = request.form.get('deposit_payment_date')
+                monthlyinstallment = request.form.get('monthly_installment')
                 first_installment_due_date = request.form.get('first_installment_due_date')
 
                 # Debug: Print received data (remove this in production)
@@ -392,7 +392,6 @@ def contract_log():
 
                 print(f"Months to Pay: {months_to_pay}")
                 print(f"Deposit Required: {deposit_required}")
-                print(f"Deposit Paid: {deposit_paid}")
                 print(f"Deposit Payment Date: {deposit_payment_date}")
                 print(f"First Installment Due Date: {first_installment_due_date}")
 
@@ -428,7 +427,7 @@ def contract_log():
                         clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
                         projectname, projectlocation, projectdescription, projectadministratorname,
                         projectstartdate, projectduration, contractagreementdate, totalcontractamount,
-                        paymentmethod, monthstopay, depositrequired, datecaptured, capturer, capturerid
+                        paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, installment1duedate, capturer, capturerid
                     ) VALUES (
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s,
@@ -459,6 +458,10 @@ def contract_log():
                     payment_method,
                     safe_int(months_to_pay),
                     safe_float(deposit_required),
+                    safe_float(depostorbullet),
+                    safe_date(deposit_payment_date),
+                    safe_float(monthlyinstallment),
+                    safe_date(first_installment_due_date),
                     datetime.now().date(),
                     capturer,
                     capturerid
