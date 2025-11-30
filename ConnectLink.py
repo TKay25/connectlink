@@ -173,37 +173,11 @@ def Dashboard():
                 applied_date = datetime.now().strftime('%Y-%m-%d')
                 userid = session.get('userid')
 
-                companyname = table_name.replace("main", "")
-                company_name = companyname.replace('_', ' ')
-
-                results = run1(table_name, userid)  
+                results = run1(userid)  
 
                 print("Back from adventures")
-                if results["role"] == 'Administrator':
-                    role_narr = "LMS ADMINISTRATOR"
 
-                    return render_template('adminpage.html', **results, id= userid, company_name=company_name, role_narr = role_narr)
-
-                if results["role"] == 'Ordinary User':
-
-                    query = f"SELECT id FROM {table_name} WHERE leaveapproverid = {userid};"
-                    cursor.execute(query)
-                    rows = cursor.fetchall()
-
-                    df_employeesempapp = pd.DataFrame(rows, columns=["id"])
-
-                    if len(df_employeesempapp) > 0:
-
-                        role_narr = "LMS LEAVE APPLICATIONS APPROVER"
-                        hide_element = True
-                        return render_template('adminpage.html', **results, id= userid, company_name=company_name, hide_element=hide_element, role_narr = role_narr)
-
-                    elif len(df_employeesempapp) == 0:
-                        
-                        role_narr = "LMS USER"
-                        hide_element = True
-                        hide_element2 = True
-                        return render_template('adminpage.html', **results, id= userid, company_name=company_name, hide_element=hide_element, hide_element2 = hide_element2, role_narr = role_narr)
+                return render_template('adminpage.html', **results, id= userid)
                     
             except Error as e:
 
@@ -211,8 +185,6 @@ def Dashboard():
 
                 return redirect(url_for('landingpage'))
 
-
-        
         else:
                 return redirect(url_for('landingpage'))
 
@@ -235,30 +207,24 @@ def login():
                 if not email or not password:
                     return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
 
-                for (table_name,) in tables_with_email:
-                    search_query = f"SELECT * FROM {table_name} WHERE email = %s;"
-                    cursor.execute(search_query, (email,))
-                    rows = cursor.fetchall()
-                    if rows:
-                        results.append((table_name, rows))
+                search_query = "SELECT * FROM connectlinkusers WHERE email = %s;"
+                cursor.execute(search_query, (email,))
+                rows = cursor.fetchall()
 
-                if results:
-                    table_name, rows = results[0]
-                    print(f"Table Found: {table_name}")
-                    print(rows)
-                    sliced_rows = [row[:15] for row in rows]
-                    print(sliced_rows)
+                if rows: 
+                    user_row = rows[0]
 
-                    table_df = pd.DataFrame(sliced_rows, columns=['id', 'firstname', 'surname', 'whatsapp', 'address', 'email', 'password', 'department', 'role', 'leaveapprovername', 'leaveapproverid', 'leaveapproveremail','leaveapproverwhatsapp','currentleavedaysbalance', 'monthlyaccumulation'])
+                    table_df = pd.DataFrame([user_row], columns=[
+                        'id', 'datecreated', 'name', 'password', 'email'
+                    ])
 
-                    if table_df.iat[0, 6] == password:
+                    if table_df.iat[0, 3] == password:
                         user_uuid = uuid.uuid4()
                         session['user_uuid'] = str(user_uuid)
                         session.permanent = True
                         user_sessions[email] = {'uuid': str(user_uuid), 'email': email}
 
                         userid = table_df.iat[0, 0]
-                        session['table_name'] = table_name
                         session['userid'] = int(np.int64(userid))  # Ensure Python int
 
                         # Redirect to dashboard
@@ -433,7 +399,6 @@ def run1(userid):
         )
         table_rememployees_bulk_accumulators_html = rememployees3.to_html(classes="table table-bordered table-theme", table_id="bulkemployeesbulkaccumulatorsTable", index=False,  escape=False,)
 
-        company_name = table_name.replace("main", "")
 
 
 
@@ -451,6 +416,12 @@ def run1(userid):
 
 
 
+
+
+        return {
+            "table_my_leave_apps_html": table_my_leave_apps_html,
+            "name": name,
+            }
 
 @app.route('/')
 def userlogin():
@@ -548,7 +519,7 @@ def contract_log():
 
 
                     insert_query = f"""
-                    INSERT INTO {table_name_apps_pending_approval} (id, firstname, surname, department, leavetype, reasonifother, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, dateapplied, leavestartdate, leaveenddate, leavedaysappliedfor, leavedaysbalancebf, approvalstatus)
+                    INSERT INTO connectlinkatabase (id, firstname, surname, department, leavetype, reasonifother, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, dateapplied, leavestartdate, leaveenddate, leavedaysappliedfor, leavedaysbalancebf, approvalstatus)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                     """
                     cursor.execute(insert_query, (employee_number, first_name, surname, department, leave_type, leave_specify, approver_name, approver_id, approver_email, approver_whatsapp, leave_days_balance, date_applied, start_date, end_date, leave_days, float(leavedaysbalancebf), status))
