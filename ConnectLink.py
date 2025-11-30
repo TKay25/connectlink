@@ -87,6 +87,7 @@ def initialize_database_tables():
                     projectname VARCHAR (100),
                     projectlocation VARCHAR (100),
                     projectdescription VARCHAR (500),
+                    projectadministratorname VARCHAR (100),
                     projectstartdate date,
                     projectduration INT,
                     contractagreementdate date,
