@@ -299,10 +299,10 @@ def run1(userid):
         maindata = cursor.fetchall()
         print(maindata)
 
-        datamain = pd.DataFrame(maindata, columns=["id","clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositrequired","datecaptured","capturer","capturerid"])
+        datamain = pd.DataFrame(maindata, columns=["id","clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositorbullet","first_installment_due_date","datecaptured","capturer","capturerid"])
         datamain['Action'] =  datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"> <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-name="{x}" data-ID="{x}">View Project</button>''') 
 
-        datamain = datamain[["id", "clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositrequired","datecaptured","capturer","capturerid","Action"]]
+        datamain = datamain[["id", "clientname", "clientidnumber","clientaddress", "clientwanumber", "clientemail","clientnextofkinname","clientnextofkinaddress","clientnextofkinphone","nextofkinrelationship","projectname","projectlocation","projectdescription","projectadministratorname","projectstartdate","projectduration","contractagreementdate","totalcontractamount","paymentmethod","monthstopay","depositorbullet","first_installment_due_date","datecaptured","capturer","capturerid","Action"]]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="employeespayrollTable", index=False,  escape=False,)
 
@@ -393,9 +393,6 @@ def contract_log():
                 print(f"Months to Pay: {months_to_pay}")
                 print(f"Deposit Required: {deposit_required}")
                 print(f"Deposit Payment Date: {deposit_payment_date}")
-                print(f"First Installment Due Date: {first_installment_due_date}")
-
-
                 print(f"First Installment Due Date: {first_installment_due_date}")
 
                 # --- Insert into database (connectlinkdatabase) ---
