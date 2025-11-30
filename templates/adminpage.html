@@ -907,7 +907,12 @@
 
                                     <div class="form-group">
                                         <label>Project Scope</label>
-                                        <textarea class="form-control editable-field" rows="8" required></textarea>
+                                        <textarea class="form-control editable-field" rows="4" required></textarea>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Months to Completion from Commencement</label>
+                                        <input type="number" class="form-control editable-field" required>
                                     </div>
                                 </div>
                             </div>
@@ -919,15 +924,21 @@
                                     <!-- PAYMENT TERMS -->
                                     <h6 style="color:#1E2A56; font-weight:800;">PAYMENT TERMS</h6>
 
-                                    <div class="form-group">
-                                        <label>Contract Agreement Date</label>
-                                        <input type="date" class="form-control editable-field" name="agreement_date" required>
+                                    <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                        <label for="agreement_date" class="col-auto col-form-label" style="padding-right: 0.5rem;">Contract Agreement Date</label>
+                                        <div class="col">
+                                            <input type="date" class="form-control editable-field" id="agreement_date" name="agreement_date" required>
+                                        </div>
                                     </div>
 
-                                    <div class="form-group">
-                                        <label>Total Contract Price (USD)</label>
-                                        <input type="number" class="form-control editable-field" required>
+
+                                    <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                        <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Total Contract Price (USD)</label>
+                                        <div class="col">
+                                            <input type="number" class="form-control editable-field" required>
+                                        </div>
                                     </div>
+
 
                                     <div class="form-group">
                                         <label>Payment Method</label>
@@ -938,25 +949,28 @@
                                         </select>
                                     </div>
 
+                                    <div class="form-group row align-items-center" id="bullet_payment_date" style="display: none; margin-bottom: 0.5rem;">
+                                        <label for="bullet_payment_date_input" class="col-auto col-form-label" style="padding-right: 0.5rem;">Date Bullet Paid</label>
+                                        <div class="col">
+                                            <input type="date" class="form-control editable-field" id="bullet_payment_date_input" name="bullet_payment_date" required>
+                                        </div>
+                                    </div>
+
+
                                     <div id="paymentschedule" style="display: none;">
 
-                                        <div class="form-group">
-                                            <label>Months To Pay</label>
-                                            <input type="number" class="form-control editable-field" id="monthstopay" width="" required>
+                                        <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                            <label for="monthstopay" class="col-auto col-form-label" style="padding-right: 0.5rem;">Months To Pay</label>
+                                            <div class="col">
+                                                <input type="number" class="form-control editable-field" id="monthstopay" style="width: 40%;" required>
+                                            </div>
                                         </div>
 
-                                        <div class="form-group">
-                                            <label>Has client paid the deposit?</label>
-                                            <select class="form-control-blue editable-field" id="paymentMethod" name="payment_method" required>
-                                                <option value="" disabled selected>Indicate if Deposit has been paid</option>
-                                                <option value="Depositpaid">Yes</option>
-                                                <option value="Depositnotpaid">No</option>
-                                            </select>
-                                        </div>
+
 
                                         <div class="form-group">
                                             <label>Date Deposit Paid</label>
-                                            <input type="date" class="form-control editable-field" name="first_installment_due_date" required>
+                                            <input type="date" class="form-control editable-field" name="deposit_payment_date" required>
                                         </div>
 
                                         <div class="form-group">
@@ -2236,14 +2250,20 @@
 <script>
     const paymentMethod = document.getElementById('paymentMethod');
     const paymentSchedule = document.getElementById('paymentschedule');
+    const bulletpaymentdate = document.getElementById('bullet_payment_date');
+
 
     paymentMethod.addEventListener('change', function() {
         if (this.value === 'Installments') {
             paymentSchedule.style.display = 'block';
+            bulletpaymentdate.style.display = 'none';
         } else {
             paymentSchedule.style.display = 'none';
+            bulletpaymentdate.style.display = 'block';
         }
     });
+
+
 </script>
 
 <script>
