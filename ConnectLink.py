@@ -352,7 +352,7 @@ def run1(userid):
 
 
 
-        
+
 
         df_employees_payroll = pd.DataFrame(rowspayroll, columns=["id","Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"])
         df_employees_payroll['Action'] = df_employees_payroll.apply(
@@ -508,7 +508,9 @@ def run1(userid):
 
 
 
-
+@app.route('/')
+def userlogin():
+    return render_template('login.html') 
 
 
 
