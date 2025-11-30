@@ -4312,70 +4312,7 @@ window.addEventListener('load', function() {
 
 
 </script>
-<script>
 
-document.addEventListener("DOMContentLoaded", function () {
-    var leaveStatusData = JSON.parse('{{ leave_status_chart | tojson | safe }}');
-
-    var ctx = document.getElementById("leaveStatusChart").getContext("2d");
-    var chartInstance;
-
-    // Define color mapping for statuses
-    var statusColors = {
-        "Approved": "#002244",
-        "Pending": "#6699CC",
-        "Declined": "#E30022",
-        "Cancelled": "#006699"
-    };
-
-    function updateChart() {
-        var selectedStatuses = [];
-        document.querySelectorAll(".status-filter:checked").forEach(checkbox => {
-            selectedStatuses.push(checkbox.value);
-        });
-
-        var filteredData = {};
-        selectedStatuses.forEach(status => {
-            filteredData[status] = leaveStatusData[status] || 0;
-        });
-
-        if (chartInstance) {
-            chartInstance.destroy(); // Destroy old chart before creating a new one
-        }
-
-        chartInstance = new Chart(ctx, {
-            type: "pie",
-            data: {
-                labels: Object.keys(filteredData),
-                datasets: [{
-                    data: Object.values(filteredData),
-                    backgroundColor: Object.keys(filteredData).map(status => statusColors[status] || "#ccc")
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: { display: true, position: "bottom" },
-                    datalabels: { 
-                        display: true, 
-                        color: "white", 
-                        font: { weight: "bold", size: 14 },
-                        formatter: (value, context) => value // Show raw value inside slices
-                    }
-                }
-            },
-            plugins: [ChartDataLabels] // Enable Data Labels Plugin
-        });
-    }
-
-    // Initial chart load
-    updateChart();
-
-    // Add event listeners to checkboxes
-    document.querySelectorAll(".status-filter").forEach(checkbox => {
-        checkbox.addEventListener("change", updateChart);
-    });
-});
-</script>
 
 </body>
 </html>
