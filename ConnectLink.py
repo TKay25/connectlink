@@ -62,6 +62,16 @@ def initialize_database_tables():
                 );
             """)
 
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS connectlinkusers (
+                    id SERIAL PRIMARY KEY,
+                    datecreated date,
+                    name VARCHAR (200),
+                    password varchar (100),
+                    email VARCHAR (100)
+                );
+            """)
+
             # Create connectlinkadmin table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkadmin (
@@ -106,6 +116,11 @@ def initialize_database_tables():
             cursor.execute("""
                 ALTER TABLE connectlinkatabase
                 ADD COLUMN IF NOT EXISTS capturer VARCHAR (100);
+            """)
+
+            cursor.execute("""
+                ALTER TABLE connectlinkatabase
+                ADD COLUMN IF NOT EXISTS capturerid INT;
             """)
 
             # Create cagwatickcustomerdetails table
