@@ -140,7 +140,7 @@
 <div class="login-container">
     <img style="width: 250px;" src="{{ url_for('static', filename='images/web-logo.png') }}" alt="ConnectLink Logo">
     <h5>ADMINISTRATION PORTAL</h5>
-    <form id="loginForm">
+    <form id="loginForm" method="POST" action="/login">
         <input type="email" id="emaillogin" name="emaillogin" placeholder="Email" required>
         <div style="position: relative; margin-bottom: 20px;">
             <input type="password" id="passwordlogin" name="passwordlogin" placeholder="Password" required
@@ -151,6 +151,7 @@
         <button type="submit" style="width: 50%;">Login</button>
         <a href="#">Forgot Password?</a>
     </form>
+
 </div>
 <script>
     const password = document.getElementById('password');
@@ -169,41 +170,6 @@
         }
     });
 
-
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); // prevent default form submission
-
-        const email = loginForm.emaillogin.value;
-        const passwordVal = loginForm.passwordlogin.value;
-
-        // Optional: Add checks here before sending
-        if (!email || !passwordVal) {
-            alert("Please fill in all fields.");
-            return;
-        }
-
-        try {
-            const response = await fetch("/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ email: email, password: passwordVal })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                // Redirect or show success
-                window.location.href = "/dashboard"; // example
-            } else {
-                alert(result.message || "Login failed.");
-            }
-        } catch (error) {
-            console.error("Error:", error);
-            alert("An error occurred. Try again.");
-        }
-    });
 </script>
 </body>
 </html>
