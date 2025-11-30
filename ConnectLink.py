@@ -426,13 +426,14 @@ def contract_log():
                             clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
-                            paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, installment1duedate, datecaptured, capturer, capturerid
+                            paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
+                            installment1duedate, datecaptured, capturer, capturerid
                         ) VALUES (
                             %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s
                         );
                     """
 
