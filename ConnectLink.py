@@ -132,3 +132,11 @@ def initialize_database_tables():
             print("✅ Database tables initialized successfully!")
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
+
+@app.teardown_appcontext
+def close_db(error):
+    """Close any remaining connections on app shutdown"""
+    pass  # No-op now since you're using context managers everywhere   
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port = 55, debug = True)
