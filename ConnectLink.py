@@ -418,56 +418,60 @@ def contract_log():
                 capturer = session.get('user_name', '')
                 capturerid = session.get('userid')
 
-                insert_query = """
-                    INSERT INTO connectlinkdatabase (
-                        clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
-                        clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
-                        projectname, projectlocation, projectdescription, projectadministratorname,
-                        projectstartdate, projectduration, contractagreementdate, totalcontractamount,
-                        paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, installment1duedate, capturer, capturerid
-                    ) VALUES (
-                        %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s,
-                        %s, %s, %s, %s,
-                        %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s
-                    );
-                """
-
-                params = (
-                    client_name,
-                    client_national_id,
-                    client_address,
-                    safe_int(client_whatsapp_number),
-                    client_email,
-                    next_of_kin_name,
-                    next_of_kin_address,
-                    safe_int(next_of_kin_contact_number),
-                    relationship,
-                    project_name,
-                    project_location,
-                    project_description,
-                    project_administrator,
-                    safe_date(project_start_date),
-                    safe_int(months_to_completion),
-                    safe_date(agreement_date),
-                    safe_float(total_contract_price),
-                    payment_method,
-                    safe_int(months_to_pay),
-                    safe_float(deposit_required),
-                    safe_float(depostorbullet),
-                    safe_date(deposit_payment_date),
-                    safe_float(monthlyinstallment),
-                    safe_date(first_installment_due_date),
-                    datetime.now().date(),
-                    capturer,
-                    capturerid
-                )
-
                 try:
+
+                    insert_query = """
+                        INSERT INTO connectlinkdatabase (
+                            clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                            clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
+                            projectname, projectlocation, projectdescription, projectadministratorname,
+                            projectstartdate, projectduration, contractagreementdate, totalcontractamount,
+                            paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, installment1duedate, capturer, capturerid
+                        ) VALUES (
+                            %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s, %s
+                        );
+                    """
+
+                    params = (
+                        client_name,
+                        client_national_id,
+                        client_address,
+                        safe_int(client_whatsapp_number),
+                        client_email,
+                        next_of_kin_name,
+                        next_of_kin_address,
+                        safe_int(next_of_kin_contact_number),
+                        relationship,
+                        project_name,
+                        project_location,
+                        project_description,
+                        project_administrator,
+                        safe_date(project_start_date),
+                        safe_int(months_to_completion),
+                        safe_date(agreement_date),
+                        safe_float(total_contract_price),
+                        payment_method,
+                        safe_int(months_to_pay),
+                        safe_float(deposit_required),
+                        safe_float(depostorbullet),
+                        safe_date(deposit_payment_date),
+                        safe_float(monthlyinstallment),
+                        safe_date(first_installment_due_date),
+                        datetime.now().date(),
+                        capturer,
+                        capturerid
+                    )
+
+        
                     cursor.execute(insert_query, params)
                     connection.commit()
                     print("✅ Project inserted into connectlinkdatabase")
+
+
                 except Exception as e:
                     connection.rollback()
                     print("❌ Failed to insert project:", e)
