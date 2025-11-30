@@ -81,7 +81,7 @@ def initialize_database_tables():
                 );
             """)
             
-            # Create connectlinkatabase table
+            # Create connectlinkdatabase table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkdatabase (
                     id SERIAL PRIMARY KEY,
@@ -244,172 +244,22 @@ def run1(userid):
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
         ######### payroll
-        maindata = f"SELECT id, firstname, surname, leaveapprovername, department, designation, datejoined, bank FROM {table_name};"
-        cursor.execute(querypayroll)
-        rowspayroll = cursor.fetchall()
+        maindataquery = f"SELECT * FROM connectlinkdatabase;"
+        cursor.execute(maindataquery)
+        maindata = cursor.fetchall()
+
+        datamain = pd.DataFrame(maindata, columns=["id","Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"])
+        datamain['ACTION'] =  datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"> <button class="btn btn-primary3 reapply-app-btn" data-bs-toggle="modal" data-bs-target="#reapplyappModal" data-name="{x}" data-ID="{x}">Re-Apply</button>''') 
 
 
+        datamain = datamain[["id", "Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank", "Action"]]
 
+        table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="employeespayrollTable", index=False,  escape=False,)
 
-
-        df_employees_payroll = pd.DataFrame(rowspayroll, columns=["id","Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"])
-        df_employees_payroll['Action'] = df_employees_payroll.apply(
-            lambda row: f'''<div style="display: flex; gap: 10px;font-size: 12px;"><button class="btn btn-primary3 edit-emp-details-comp-btn-payroll" data-id="{row['id']}" data-firstname="{row['Firstname']}" data-surname="{row['Surname']}" data-manager="{row['Manager_Supervisor']}" data-department="{row['Department']}" data-designation="{row['Designation']}"  data-datejoined="{row['Date Joined']}"  data-bank="{row['Bank']}">Edit Information</button></div>''', axis=1
-        )
-
-        df_employees_payroll = df_employees_payroll[["id", "Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank", "Action"]]
-
-        table_employees_payroll_html = df_employees_payroll.to_html(classes="table table-bordered table-theme", table_id="employeespayrollTable", index=False,  escape=False,)
-
-
-
-        df_my_leave_apps_cancelled['ACTION'] =  df_my_leave_apps_cancelled['App ID'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"> <button class="btn btn-primary3 reapply-app-btn" data-bs-toggle="modal" data-bs-target="#reapplyappModal" data-name="{x}" data-ID="{x}">Re-Apply</button>''') 
         
-
-
-
-
-
-
-
-
-
-
-
-        ############################
-
-        query = f"SELECT id, firstname, surname, whatsapp, email, address, role, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, monthlyaccumulation, department FROM {table_name};"
-        cursor.execute(query)
-        rows = cursor.fetchall()
-
-        df_employees = pd.DataFrame(rows, columns=["id","firstname", "surname", "whatsapp","Email", "Address", "Role","Leave Approver Name","Leave Approver ID","Leave Approver Email", "Leave Approver WhatsAapp", "Leave Days Balance","Days Accumulated per Month","Department"])
-        
-        
-        
-        print(df_employees)
-        employee_personal_details = df_employees[["id","firstname", "surname", "whatsapp","Email","Address"]]
-
-        employee_personal_details['Action'] = employee_personal_details.apply(
-            lambda row: f'''<div style="display: flex; gap: 10px;font-size: 12px;"><button class="btn btn-primary3 edit-emp-details-comp-btn" data-id="{row['id']}" data-firstname="{row['firstname']}" data-surname="{row['surname']}" data-whatsapp="{row['whatsapp']}" data-email="{row['Email']}" data-address="{row['Address']}">Edit Information</button></div>''', axis=1
-        )
-
-        employee_personal_details.columns = ["ID","FIRST NAME","SURNAME","WHATSAPP","EMAIL","ADDRESS","ACTION"]
-        employee_personal_details_html = employee_personal_details.to_html(classes="table table-bordered table-theme", table_id="employeespersonalTable", index=False,  escape=False,)
-
-        total_days_available = df_employees["Leave Days Balance"].sum()
-
-        total_employees = len(df_employees)
-        userdf = df_employees[df_employees['id'] == empid].reset_index()
-        print("yeaarrrrr")
-        print(userdf)
-        firstname = userdf.iat[0,2]
-        surname = userdf.iat[0,3]
-        whatsapp = userdf.iat[0,4]
-        address = userdf.iat[0,6]
-        email = userdf.iat[0,5]
-        fullnamedisp = firstname + ' ' + surname
-        leaveapprovername = userdf.iat[0,8]
-        leaveapproverid = userdf.iat[0,9]
-        leaveapproveremail = userdf.iat[0, 10]
-
-        if userdf.iat[0,11]:
-            if not pd.isna(userdf.iat[0,11]):
-                leaveapproverwhatsapp = int(userdf.iat[0,11])
-            else:
-                leaveapproverwhatsapp = ""   # or None, depending on what you need
-
-        else:
-            leaveapproverwhatsapp = ""
-
-
-        role = userdf.iat[0,7]
-        leavedaysbalance = userdf.iat[0,12]
-        department = userdf.iat[0,14]
-
-        print('check')
-
-        df_employees['Employee Name'] = df_employees['firstname'] + ' ' + df_employees['surname']
-
-        df_employees['Action'] = df_employees['id'].apply(
-            lambda x: f'''<div style="display: flex; gap: 10px;font-size: 12px;"> <button class="btn btn-primary3 edit-priv-btn" data-bs-toggle="modal" data-bs-target="#editModalpriv" data-name="{x}"  data-ID="{x}">Edit Role</button> <button class="btn btn-primary3 edit-department-btn" data-bs-toggle="modal" data-bs-target="#editModaldepartment" data-name="{x}"  data-ID="{x}">Change Department</button>  <button class="btn btn-primary3 change-approver-btn" data-bs-toggle="modal" data-bs-target="#editModalapprover" data-name="{x}" data-ID="{x}">Change Approver</button>  <button class="btn btn-primary3 edit-balance-btn" data-bs-toggle="modal" data-bs-target="#editModalbalance" data-name="{x}" data-ID="{x}">Edit Balance</button> </div>'''
-        )
-
-        selected_columns = df_employees[['id','Employee Name', "Role", "Department", "Leave Approver Name", "Leave Days Balance", "Action"]]
-        selected_columns.columns = ['ID','EMPLOYEE NAME','ROLE','DEPARTMENT','APPROVER','DAYS BALANCE','ACTION']
-
-        table_employees_html = selected_columns.to_html(classes="table table-bordered table-theme", table_id="employeesTable", index=False,  escape=False,)
-
-        selected_columns['Combined'] = selected_columns.apply(
-            lambda row: f"{row['ID']}--{row['EMPLOYEE NAME']}", axis=1
-        )
-
-        employees_list = selected_columns['Combined'].tolist()
-
-        selected_columns_accumulators = df_employees[['id','Employee Name', "Days Accumulated per Month"]]
-        selected_columns_accumulators.columns = ['ID','EMPLOYEE NAME','DAYS ACCUMULATED PER MONTH']
-        selected_columns_accumulators.loc[:, 'LEAVE DAYS ACCUMULATED PER MONTH'] = selected_columns_accumulators.apply(
-            lambda row: f'<input type="number" step="0.5" class="editable-field" value="{row["DAYS ACCUMULATED PER MONTH"]:.1f}" data-id="{row["ID"]}" style="width: 100%;"/>'
-            if row["DAYS ACCUMULATED PER MONTH"] is not None
-            else f'<input type="number" step="0.5" class="editable-field" value="0.0" data-id="{row["ID"]}" style="width: 100%;"/>',
-            axis=1
-        )
-
-
-        seacc = selected_columns_accumulators[['ID','EMPLOYEE NAME','LEAVE DAYS ACCUMULATED PER MONTH']]
-
-        table_employees_accumulators_html = seacc.to_html(classes="table table-bordered table-theme", table_id="employeesaccumulatorsTable", index=False,  escape=False,)
-
-        rememployees = selected_columns_accumulators[['ID','EMPLOYEE NAME']]
-        rememployees.loc[:, 'SELECTION'] = rememployees.apply(
-            lambda row: f'<input type="checkbox" class="custom-checkbox employee-checkbox" name="employee_ids" value="{row["ID"]}" data-employee-name="{row["EMPLOYEE NAME"]}">',
-            axis=1
-        )
-
-        table_rememployees_html = rememployees.to_html(classes="table table-bordered table-theme", table_id="removeemployeesTable", index=False,  escape=False,)
-
-        rememployees1 = selected_columns_accumulators[['ID','EMPLOYEE NAME']]
-        rememployees1.loc[:, 'SELECTION'] = rememployees1.apply(
-            lambda row: f'<input type="checkbox" class="custom-checkbox employee-checkbox-bulk-approver" name="employee_ids" value="{row["ID"]}" data-employee-name="{row["EMPLOYEE NAME"]}">',
-            axis=1
-        )
-        table_rememployees_bulk1_html = rememployees1.to_html(classes="table table-bordered table-theme", table_id="employeesbulk1Table", index=False,  escape=False,)
-
-        rememployees2 = selected_columns_accumulators[['ID','EMPLOYEE NAME']]
-        rememployees2.loc[:, 'SELECTION'] = rememployees2.apply(
-            lambda row: f'<input type="checkbox" class="custom-checkbox employee-checkbox-bulk-balances" name="employee_ids" value="{row["ID"]}" data-employee-name="{row["EMPLOYEE NAME"]}">',
-            axis=1
-        )
-        table_rememployees_bulk_balances_html = rememployees2.to_html(classes="table table-bordered table-theme", table_id="employeesbulkbalancesTable", index=False,  escape=False,)
-
-        rememployees3 = selected_columns_accumulators[['ID','EMPLOYEE NAME']]
-        rememployees3.loc[:, 'SELECTION'] = rememployees3.apply(
-            lambda row: f'<input type="checkbox" class="custom-checkbox employee-checkbox-bulk-accumulators" name="employee_ids" value="{row["ID"]}" data-employee-name="{row["EMPLOYEE NAME"]}">',
-            axis=1
-        )
-        table_rememployees_bulk_accumulators_html = rememployees3.to_html(classes="table table-bordered table-theme", table_id="bulkemployeesbulkaccumulatorsTable", index=False,  escape=False,)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         return {
-            "table_my_leave_apps_html": table_my_leave_apps_html,
-            "name": name,
+            "table_datamain_html": table_datamain_html,
             }
 
 @app.route('/')
@@ -498,7 +348,7 @@ def contract_log():
                 print(f"First Installment Due Date: {first_installment_due_date}")
 
 
-                if leave_type == "Annual":
+                '''if leave_type == "Annual":
 
                     leavedaysbalancebf = float(leave_days_balance) - float(leave_days)
 
@@ -508,14 +358,14 @@ def contract_log():
 
 
                     insert_query = f"""
-                    INSERT INTO connectlinkatabase (id, firstname, surname, department, leavetype, reasonifother, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, dateapplied, leavestartdate, leaveenddate, leavedaysappliedfor, leavedaysbalancebf, approvalstatus)
+                    INSERT INTO connectlinkdatabase (id, firstname, surname, department, leavetype, reasonifother, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, dateapplied, leavestartdate, leaveenddate, leavedaysappliedfor, leavedaysbalancebf, approvalstatus)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                     """
                     cursor.execute(insert_query, (employee_number, first_name, surname, department, leave_type, leave_specify, approver_name, approver_id, approver_email, approver_whatsapp, leave_days_balance, date_applied, start_date, end_date, leave_days, float(leavedaysbalancebf), status))
-                    connection.commit()
+                    connection.commit()'''
 
-                    results = run1(userid)
-                    return render_template('adminpage.html', **results)
+                results = run1(userid)
+                return render_template('adminpage.html', **results)
 
             except Exception as e:
                 response = {'status': 'error', 'message': 'Leave application not submitted successfully.'}
