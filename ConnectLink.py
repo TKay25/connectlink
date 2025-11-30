@@ -159,6 +159,357 @@ def initialize_database_tables():
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
 
+@app.route('/dashboard')
+def Dashboard():
+
+    with get_db() as (cursor, connection):
+
+        user_uuid = session.get('user_uuid')
+        if user_uuid:
+
+            try:
+
+                today_date = datetime.now().strftime('%d %B %Y')
+                applied_date = datetime.now().strftime('%Y-%m-%d')
+                userid = session.get('userid')
+
+                companyname = table_name.replace("main", "")
+                company_name = companyname.replace('_', ' ')
+
+                results = run1(table_name, userid)  
+
+                print("Back from adventures")
+                if results["role"] == 'Administrator':
+                    role_narr = "LMS ADMINISTRATOR"
+
+                    return render_template('adminpage.html', **results, id= userid, company_name=company_name, role_narr = role_narr)
+
+                if results["role"] == 'Ordinary User':
+
+                    query = f"SELECT id FROM {table_name} WHERE leaveapproverid = {userid};"
+                    cursor.execute(query)
+                    rows = cursor.fetchall()
+
+                    df_employeesempapp = pd.DataFrame(rows, columns=["id"])
+
+                    if len(df_employeesempapp) > 0:
+
+                        role_narr = "LMS LEAVE APPLICATIONS APPROVER"
+                        hide_element = True
+                        return render_template('adminpage.html', **results, id= userid, company_name=company_name, hide_element=hide_element, role_narr = role_narr)
+
+                    elif len(df_employeesempapp) == 0:
+                        
+                        role_narr = "LMS USER"
+                        hide_element = True
+                        hide_element2 = True
+                        return render_template('adminpage.html', **results, id= userid, company_name=company_name, hide_element=hide_element, hide_element2 = hide_element2, role_narr = role_narr)
+                    
+            except Error as e:
+
+                print(e)
+
+                return redirect(url_for('landingpage'))
+
+
+        
+        else:
+                return redirect(url_for('landingpage'))
+
+@app.route('/login', methods=['POST'])
+def login():
+    if request.method == 'POST':
+            
+        try:
+                
+            with get_db() as (cursor, connection):
+
+                today_date = datetime.now().strftime('%d %B %Y')
+                applied_date = datetime.now().strftime('%Y-%m-%d')
+
+                # Retrieve form data
+                email = request.form.get('emaillogin').strip()
+                password = request.form.get('passwordlogin').strip()
+
+                # Check for missing input
+                if not email or not password:
+                    return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
+                
+                if email == "iamgreat" and password == "011235813":
+
+                    cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
+                    
+                    tables = cursor.fetchall()
+                    table_names = [table[0] for table in tables]
+
+                    df_tables = pd.DataFrame(table_names, columns=['Company'])
+
+                    print(df_tables)
+
+                    main_tables = [name for name in table_names if name.endswith('main')]
+
+                    table_counts = []
+                    for table_name in main_tables:
+                        try:
+                            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                            count = cursor.fetchone()[0]
+                            table_counts.append({'Company': table_name, 'Employees': count})
+                        except Exception as e:
+                            table_counts.append({'Company': table_name, 'Employees': f'Error: {e}'})
+
+                    df_main_counts = pd.DataFrame(table_counts)
+                    print(df_main_counts)
+
+                    query_compreg = f"SELECT * FROM companyreg;"
+                    cursor.execute(query_compreg)
+                    rows_comps = cursor.fetchall()
+                    compsreg = pd.DataFrame(rows_comps, columns=["Company ID","Company Name", "Date Registered"])
+                    print(compsreg)
+
+
+                    merged_df = pd.merge(df_main_counts, compsreg, left_on='Company', right_on='Company Name', how='outer')
+                    merged_df = merged_df.drop(columns=['Company Name'])
+                    merged_df = merged_df[["Company ID","Company", "Date Registered","Employees"]]
+                    print(merged_df)
+
+                    merged_df['ACTION'] = merged_df['Company'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary3 som-comp-btn" data-ID="{x}" onclick="somCompany('{x}')">SOM</button><button class="btn btn-primary3 delete-comp-btn" data-ID="{x}" onclick="deleteCompany('{x}')">Delete</button></div>''')
+
+                    merged_df = merged_df[["Company ID","Company", "Date Registered","Employees","ACTION"]]
+
+                    table_companies_html = merged_df.to_html(classes="table table-bordered table-theme", table_id="companiesTable", index=False,  escape=False,)
+        
+                    return render_template('edslmsadmin.html', today_date = today_date, table_companies_html=table_companies_html)
+
+
+                # Query tables with the 'email' column
+                column_search_query = """
+                    SELECT TABLE_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE COLUMN_NAME = 'email' AND TABLE_SCHEMA = 'public';
+                """
+                cursor.execute(column_search_query)
+                tables_with_email = cursor.fetchall()
+
+                results = []
+                for (table_name,) in tables_with_email:
+                    search_query = f"SELECT * FROM {table_name} WHERE email = %s;"
+                    cursor.execute(search_query, (email,))
+                    rows = cursor.fetchall()
+                    if rows:
+                        results.append((table_name, rows))
+
+                if results:
+                    table_name, rows = results[0]
+                    print(f"Table Found: {table_name}")
+                    print(rows)
+                    sliced_rows = [row[:15] for row in rows]
+                    print(sliced_rows)
+
+                    table_df = pd.DataFrame(sliced_rows, columns=['id', 'firstname', 'surname', 'whatsapp', 'address', 'email', 'password', 'department', 'role', 'leaveapprovername', 'leaveapproverid', 'leaveapproveremail','leaveapproverwhatsapp','currentleavedaysbalance', 'monthlyaccumulation'])
+
+                    if table_df.iat[0, 6] == password:
+                        user_uuid = uuid.uuid4()
+                        session['user_uuid'] = str(user_uuid)
+                        session.permanent = True
+                        user_sessions[email] = {'uuid': str(user_uuid), 'email': email}
+
+                        userid = table_df.iat[0, 0]
+                        session['table_name'] = table_name
+                        session['userid'] = int(np.int64(userid))  # Ensure Python int
+
+                        # Redirect to dashboard
+                        return redirect(url_for('Dashboard'))
+
+                    else:
+                        print('Incorrect password')
+                        return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
+
+                else:
+                    print(f"No rows found with email '{email}' in any table.")
+                    return jsonify({'success': False, 'message': 'Email not found.'}), 404
+
+        except Exception as e:
+            print("Error while connecting to the database:", e)
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+        finally:
+            print("Done")
+
+    return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
+
+def run1(userid):
+
+    with get_db() as (cursor, connection):
+
+        print(userid)
+        today_date = datetime.now().strftime('%d %B %Y')
+        applied_date = datetime.now().strftime('%Y-%m-%d')
+
+        ######### payroll
+        querypayroll = f"SELECT id, firstname, surname, leaveapprovername, department, designation, datejoined, bank FROM {table_name};"
+        cursor.execute(querypayroll)
+        rowspayroll = cursor.fetchall()
+
+
+
+        
+
+        df_employees_payroll = pd.DataFrame(rowspayroll, columns=["id","Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank"])
+        df_employees_payroll['Action'] = df_employees_payroll.apply(
+            lambda row: f'''<div style="display: flex; gap: 10px;font-size: 12px;"><button class="btn btn-primary3 edit-emp-details-comp-btn-payroll" data-id="{row['id']}" data-firstname="{row['Firstname']}" data-surname="{row['Surname']}" data-manager="{row['Manager_Supervisor']}" data-department="{row['Department']}" data-designation="{row['Designation']}"  data-datejoined="{row['Date Joined']}"  data-bank="{row['Bank']}">Edit Information</button></div>''', axis=1
+        )
+
+        df_employees_payroll = df_employees_payroll[["id", "Firstname", "Surname","Manager_Supervisor", "Department", "Designation","Date Joined","Bank", "Action"]]
+
+        table_employees_payroll_html = df_employees_payroll.to_html(classes="table table-bordered table-theme", table_id="employeespayrollTable", index=False,  escape=False,)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ############################
+
+        query = f"SELECT id, firstname, surname, whatsapp, email, address, role, leaveapprovername, leaveapproverid, leaveapproveremail, leaveapproverwhatsapp, currentleavedaysbalance, monthlyaccumulation, department FROM {table_name};"
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        df_employees = pd.DataFrame(rows, columns=["id","firstname", "surname", "whatsapp","Email", "Address", "Role","Leave Approver Name","Leave Approver ID","Leave Approver Email", "Leave Approver WhatsAapp", "Leave Days Balance","Days Accumulated per Month","Department"])
+        
+        
+        
+        print(df_employees)
+        employee_personal_details = df_employees[["id","firstname", "surname", "whatsapp","Email","Address"]]
+
+        employee_personal_details['Action'] = employee_personal_details.apply(
+            lambda row: f'''<div style="display: flex; gap: 10px;font-size: 12px;"><button class="btn btn-primary3 edit-emp-details-comp-btn" data-id="{row['id']}" data-firstname="{row['firstname']}" data-surname="{row['surname']}" data-whatsapp="{row['whatsapp']}" data-email="{row['Email']}" data-address="{row['Address']}">Edit Information</button></div>''', axis=1
+        )
+
+        employee_personal_details.columns = ["ID","FIRST NAME","SURNAME","WHATSAPP","EMAIL","ADDRESS","ACTION"]
+        employee_personal_details_html = employee_personal_details.to_html(classes="table table-bordered table-theme", table_id="employeespersonalTable", index=False,  escape=False,)
+
+        total_days_available = df_employees["Leave Days Balance"].sum()
+
+        total_employees = len(df_employees)
+        userdf = df_employees[df_employees['id'] == empid].reset_index()
+        print("yeaarrrrr")
+        print(userdf)
+        firstname = userdf.iat[0,2]
+        surname = userdf.iat[0,3]
+        whatsapp = userdf.iat[0,4]
+        address = userdf.iat[0,6]
+        email = userdf.iat[0,5]
+        fullnamedisp = firstname + ' ' + surname
+        leaveapprovername = userdf.iat[0,8]
+        leaveapproverid = userdf.iat[0,9]
+        leaveapproveremail = userdf.iat[0, 10]
+
+        if userdf.iat[0,11]:
+            if not pd.isna(userdf.iat[0,11]):
+                leaveapproverwhatsapp = int(userdf.iat[0,11])
+            else:
+                leaveapproverwhatsapp = ""   # or None, depending on what you need
+
+        else:
+            leaveapproverwhatsapp = ""
+
+
+        role = userdf.iat[0,7]
+        leavedaysbalance = userdf.iat[0,12]
+        department = userdf.iat[0,14]
+
+        print('check')
+
+        df_employees['Employee Name'] = df_employees['firstname'] + ' ' + df_employees['surname']
+
+        df_employees['Action'] = df_employees['id'].apply(
+            lambda x: f'''<div style="display: flex; gap: 10px;font-size: 12px;"> <button class="btn btn-primary3 edit-priv-btn" data-bs-toggle="modal" data-bs-target="#editModalpriv" data-name="{x}"  data-ID="{x}">Edit Role</button> <button class="btn btn-primary3 edit-department-btn" data-bs-toggle="modal" data-bs-target="#editModaldepartment" data-name="{x}"  data-ID="{x}">Change Department</button>  <button class="btn btn-primary3 change-approver-btn" data-bs-toggle="modal" data-bs-target="#editModalapprover" data-name="{x}" data-ID="{x}">Change Approver</button>  <button class="btn btn-primary3 edit-balance-btn" data-bs-toggle="modal" data-bs-target="#editModalbalance" data-name="{x}" data-ID="{x}">Edit Balance</button> </div>'''
+        )
+
+        selected_columns = df_employees[['id','Employee Name', "Role", "Department", "Leave Approver Name", "Leave Days Balance", "Action"]]
+        selected_columns.columns = ['ID','EMPLOYEE NAME','ROLE','DEPARTMENT','APPROVER','DAYS BALANCE','ACTION']
+
+        table_employees_html = selected_columns.to_html(classes="table table-bordered table-theme", table_id="employeesTable", index=False,  escape=False,)
+
+        selected_columns['Combined'] = selected_columns.apply(
+            lambda row: f"{row['ID']}--{row['EMPLOYEE NAME']}", axis=1
+        )
+
+        employees_list = selected_columns['Combined'].tolist()
+
+        selected_columns_accumulators = df_employees[['id','Employee Name', "Days Accumulated per Month"]]
+        selected_columns_accumulators.columns = ['ID','EMPLOYEE NAME','DAYS ACCUMULATED PER MONTH']
+        selected_columns_accumulators.loc[:, 'LEAVE DAYS ACCUMULATED PER MONTH'] = selected_columns_accumulators.apply(
+            lambda row: f'<input type="number" step="0.5" class="editable-field" value="{row["DAYS ACCUMULATED PER MONTH"]:.1f}" data-id="{row["ID"]}" style="width: 100%;"/>'
+            if row["DAYS ACCUMULATED PER MONTH"] is not None
+            else f'<input type="number" step="0.5" class="editable-field" value="0.0" data-id="{row["ID"]}" style="width: 100%;"/>',
+            axis=1
+        )
+
+
+        seacc = selected_columns_accumulators[['ID','EMPLOYEE NAME','LEAVE DAYS ACCUMULATED PER MONTH']]
+
+        table_employees_accumulators_html = seacc.to_html(classes="table table-bordered table-theme", table_id="employeesaccumulatorsTable", index=False,  escape=False,)
+
+        rememployees = selected_columns_accumulators[['ID','EMPLOYEE NAME']]
+        rememployees.loc[:, 'SELECTION'] = rememployees.apply(
+            lambda row: f'<input type="checkbox" class="custom-checkbox employee-checkbox" name="employee_ids" value="{row["ID"]}" data-employee-name="{row["EMPLOYEE NAME"]}">',
+            axis=1
+        )
+
+        table_rememployees_html = rememployees.to_html(classes="table table-bordered table-theme", table_id="removeemployeesTable", index=False,  escape=False,)
+
+        rememployees1 = selected_columns_accumulators[['ID','EMPLOYEE NAME']]
+        rememployees1.loc[:, 'SELECTION'] = rememployees1.apply(
+            lambda row: f'<input type="checkbox" class="custom-checkbox employee-checkbox-bulk-approver" name="employee_ids" value="{row["ID"]}" data-employee-name="{row["EMPLOYEE NAME"]}">',
+            axis=1
+        )
+        table_rememployees_bulk1_html = rememployees1.to_html(classes="table table-bordered table-theme", table_id="employeesbulk1Table", index=False,  escape=False,)
+
+        rememployees2 = selected_columns_accumulators[['ID','EMPLOYEE NAME']]
+        rememployees2.loc[:, 'SELECTION'] = rememployees2.apply(
+            lambda row: f'<input type="checkbox" class="custom-checkbox employee-checkbox-bulk-balances" name="employee_ids" value="{row["ID"]}" data-employee-name="{row["EMPLOYEE NAME"]}">',
+            axis=1
+        )
+        table_rememployees_bulk_balances_html = rememployees2.to_html(classes="table table-bordered table-theme", table_id="employeesbulkbalancesTable", index=False,  escape=False,)
+
+        rememployees3 = selected_columns_accumulators[['ID','EMPLOYEE NAME']]
+        rememployees3.loc[:, 'SELECTION'] = rememployees3.apply(
+            lambda row: f'<input type="checkbox" class="custom-checkbox employee-checkbox-bulk-accumulators" name="employee_ids" value="{row["ID"]}" data-employee-name="{row["EMPLOYEE NAME"]}">',
+            axis=1
+        )
+        table_rememployees_bulk_accumulators_html = rememployees3.to_html(classes="table table-bordered table-theme", table_id="bulkemployeesbulkaccumulatorsTable", index=False,  escape=False,)
+
+        company_name = table_name.replace("main", "")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @app.route('contract_log', methods=['POST'])
@@ -171,9 +522,9 @@ def contract_log():
 
         user_uuid = session.get('user_uuid')
         table_name = session.get('table_name')
-        empid = session.get('empid')
+        userid = session.get('userid')
 
-        if not user_uuid or not table_name or not empid:
+        if not user_uuid or not table_name or not userid:
             return "Session data is missing", 400
         
         if request.method == 'POST':
@@ -244,7 +595,7 @@ def contract_log():
             table_name_apps_pending_approval = f"{company_name}appspendingapproval"
             table_name_apps_approved = f"{company_name}appsapproved"
 
-            query = f"SELECT id FROM {table_name_apps_pending_approval} WHERE id = {empid};"
+            query = f"SELECT id FROM {table_name_apps_pending_approval} WHERE id = {userid};"
             cursor.execute(query)
             rows = cursor.fetchall()
 
@@ -399,28 +750,7 @@ def contract_log():
                     df_employees = pd.DataFrame(rows, columns=["appid","id"])
                     leaveappid = df_employees.iat[0,0]
 
-
-                    """send_whatsapp_message(f"263{whatsapp}", f"✅ Great News {first_name} from {companyxx}'s {department} department! \n\n Your `{leave_type} Leave Application` for `{leave_days} days` from `{start_date.strftime('%d %B %Y')}` to `{end_date.strftime('%d %B %Y')}` has been submitted successfully!\n\n"
-                        f"Your Leave Application ID is `{leaveappid}`.\n\n"
-                        f"A Notification has been sent to `{approovvver}`  on `+263{leaveapproverwhatsapp}` to decide on  your application.\n\n"
-                        "To Check the approval status of your leave application, type `Hello` then select `Track Application`.")
-                    
-                    if leaveapproverwhatsapp:
-
-                        buttons = [
-                            {"type": "reply", "reply": {"id": f"Approve5appwa_{leaveappid}", "title": "Approve"}},
-                            {"type": "reply", "reply": {"id": f"Disapproveappwa_{leaveappid}", "title": "Disapprove"}},
-                        ]
-                        send_whatsapp_message(
-                            f"263{leaveapproverwhatsapp}", 
-                            f"Hey {approovvver}! 😊. New `{leave_type}` Leave Application from `{first_name} {surname}` in {department} department for `{leave_days} days` from `{start_date.strftime('%d %B %Y')}` to `{end_date.strftime('%d %B %Y')}`.\n\n" 
-                            f"If you approve this leave application, {final_summary}\n\n"  
-                            f"Select an option below to either approve or disapprove the application."         
-                            , 
-                            buttons
-                        )"""
-
-                    results = run1(table_name, empid)
+                    results = run1(table_name, userid)
                     return render_template('adminpage.html', **results)
 
             else:
