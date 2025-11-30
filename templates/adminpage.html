@@ -183,6 +183,7 @@
             background-color: #1E2A5611; /* Example */
             border: 1px solid #ccc;
             appearance: auto; /* Ensure native dropdown appearance */
+            padding: 8px 12px;
         }
 
 
@@ -201,13 +202,6 @@
             min-height: 100vh;
         }
 
-        .all-payroll-content {
-            margin-left: 270px;
-            padding: 30px;
-            width: calc(100% - 270px);
-            background-color: #ffffff;
-            min-height: 100vh;
-        }
 
         header {
             display: flex;
@@ -536,23 +530,8 @@
             display: none;
         }
 
-        /* Remove default calendar icon */
-        input[type="date"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);  /* Try to invert the icon to make it white */
-            background-color: transparent;
-            cursor: pointer;
-        }
 
-        /* Firefox */
-        input[type="date"]::-moz-calendar-picker-indicator {
-            filter: invert(1);
-            background-color: transparent;
-        }
 
-        /* To remove the native calendar icon completely (not recommended for accessibility) */
-        input[type="date"] {
-            background-image: none;
-        }
         .modal-body{
             color: #1E2A56;
         }
@@ -785,199 +764,217 @@
         <br>
         <h5 class="mb-3 text-center">ConnectLink Admin System</h5>
 
-        <div class="accordion" id="sidebarAccordion">
-            <!-- Leave Management -->
-            <div class="accordion-item border rounded-2 mb-2">
-                <h2 class="accordion-header">
-                    <div class="accordion-button collapsed d-flex justify-content-between align-items-center" 
-                        type="button" 
-                        data-bs-toggle="collapse" 
-                        data-bs-target="#leaveMenu" 
-                        aria-expanded="false" 
-                        aria-controls="leaveMenu">
-                        <span><i class="bi bi-briefcase-fill me-2"></i> Administration System</span>
-                    </div>
-                </h2>
-                <div id="leaveMenu" class="accordion-collapse collapse" data-bs-parent="#sidebarAccordion">
-                    <div class="accordion-body p-0">
-                        <div class="list-group list-group-flush">
-                            <button class="list-group-item list-group-item-action" id="lmsview">
-                                <i class="bi bi-view-list"></i> View Portal
-                            </button>
-                            <button class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#leaveApplicationModal">
-                                <i class="bi bi-file-earmark-medical-fill me-2"></i> Apply for Leave
-                            </button>
-                            <button class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#editinfoModal">
-                                <i class="bi bi-pencil-square me-2"></i> Edit My Info
-                            </button>
-                            <button class="list-group-item list-group-item-action" id="btn-employee-profiles">
-                                <i class="bi bi-info-circle-fill me-2"></i> Log Query
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
+                id="addnewprojectBtn" data-bs-toggle="modal" data-bs-target="#addnewProjectModal">
+            <span><i class="bi bi-briefcase-fill me-2"></i> Add New Project</span>
+        </button>
 
-            <!-- Employee Management -->
-            <div class="accordion-item border rounded-2 mb-2 attendance" data-hide="{{ hide_element }}" id="attendance">
-                <h2 class="accordion-header">
-                    <div class="accordion-button d-flex justify-content-start align-items-center" style="cursor: pointer;">
-                        <span><i class="bi bi-people-fill me-2"></i> Attendance</span>
-                    </div>
-                </h2>
-            </div>
+        <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
+                id="addnewprojectBtn">
+            <span><i class="bi bi-briefcase-fill me-2"></i> Manage Administrators</span>
+        </button>
+
+        <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
+                id="addnewprojectBtn">
+            <span><i class="bi bi-briefcase-fill me-2"></i> Push Payment Reminders</span>
+        </button>
 
 
-            <!-- Employee Management -->
-            <div class="accordion-item border rounded-2 mb-2" data-hide="{{ hide_element }}" id="performance">
-                <h2 class="accordion-header">
-                    <div class="accordion-button collapsed d-flex justify-content-between align-items-center"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#performamceMenu"
-                        aria-expanded="false"
-                        aria-controls="performamceMenu">
-                        <span><i class="bi bi-card-checklist me-2"></i> Performance</span>
-                    </div>
-                </h2>
-                <div id="performamceMenu" class="accordion-collapse collapse" data-bs-parent="#sidebarAccordion">
-                    <div class="accordion-body p-0">
-                        <div class="list-group list-group-flush">
-                            <button class="list-group-item list-group-item-action">
-                                <i class="bi bi-person-lines-fill me-2"></i> View Profiles
-                            </button>
-                            <button class="list-group-item list-group-item-action">
-                                <i class="bi bi-person-plus-fill me-2"></i> Add Employee
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Reports -->
-            <div class="accordion-item border rounded-2 mb-2" data-hide="{{ hide_element }}" id="payroll">
-                <h2 class="accordion-header">
-                    <div class="accordion-button d-flex justify-content-start align-items-center" style="cursor: pointer;">
-                            <span><i class="bi bi-wallet-fill me-2"></i> Payroll</span>
-                    </div>
-                </h2>
-            </div>
-
-            <div class="accordion-item border rounded-2 mb-2" data-hide="{{ hide_element }}" id="equipmentassets">
-                <h2 class="accordion-header">
-                    <div class="accordion-button d-flex justify-content-start align-items-center" style="cursor: pointer;">
-                            <span><i class="bi bi-wallet-fill me-2"></i> Equipment & Assets</span>
-                    </div>
-                </h2>
-            </div>
-
-        </div>
     </div>
 
-
-    <div class="all-payroll-content" id="payroll-content" style="display: none;">
-        <header>
-            <div class="employeetag">{{firstname}} {{surname}}, {{company_name}} SYSTEM ADMINISTRATOR <span style="color: white;background-color: #1E2A56;border-radius: 10px;padding: 6px;font-size: 13px;">ID: {{id}}</span></div>
-            <div><span class="current-date" id="currdate">DATE: {{ today_date }}</span></div>
-            <span id="name-down" value="{{firstname}}" style="display: none;"></span>
-            <span id="name-down2" value="{{surname}}" style="display: none;"></span>
-            <button onclick="window.location.href='/logout'" class="btn btn-primary" style="width: max-content;">  Logout<i class="bi bi-door-closed-fill" style="margin-left: 7px;"></i>  </button>
-        </header>
-
-        <ul class="nav nav-tabs">
-            <li class="nav-item">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#payroll-summary-tab">
-                    <i class="bi bi-wallet-fill"></i> PAYROLL DASHBOARD
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#payroll-reports-tab">
-                    <i class="bi bi-file-earmark-text-fill"></i> EMPLOYEE DETAILS
-                </button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#payroll-settings-tab">
-                    <i class="bi bi-gear-fill"></i> SETTINGS
-                </button>
-            </li>
-        </ul>
-
-        <div class="tab-content mt-4">
-            <!-- Payroll Summary -->
-            <div class="tab-pane fade show active" id="payroll-summary-tab">
-                    <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#exportPayrollReportsModal">
-                        <i class="bi bi-file-earmark-zip-fill"></i> Export Payroll Report
-                    </button>
-                <div class="dashboard-summary">
-                    <div class="summary-card">
-                        <div class="icon"><i class="bi bi-cash-stack fs-3" style="color: #1E2A56;"></i></div>
-                        <div class="details">
-                            <h5 style="font-weight: bolder;">Total Payroll Amount</h5>
-                            <p>{{ total_payroll }}</p>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="icon"><i class="bi bi-calendar2-check-fill fs-3" style="color: #1E2A56;"></i></div>
-                        <div class="details">
-                            <h5 style="font-weight: bolder;">Processed Employees</h5>
-                            <p>{{ employees_processed }}</p>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="icon"><i class="bi bi-hourglass-split fs-3" style="color: #1E2A56;"></i></div>
-                        <div class="details">
-                            <h5 style="font-weight: bolder;">Pending Approvals</h5>
-                            <p>{{ payroll_pending }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Payroll Reports -->
-            <div class="tab-pane fade" id="payroll-reports-tab">
-                <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#uploadPayrolldetailsModal">
-                    <i class="bi bi-file-earmark-zip-fill"></i> Upload Payroll Details
-                </button>
-                <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#exportPayrollReportsModal">
-                    <i class="bi bi-file-earmark-zip-fill"></i> Export Master File
-                </button>
-                <div class="container mt-5">
-                    <div class="container2" style="max-height: 450px; overflow-y: auto;">
-                        {{ table_employees_payroll_html|safe }}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Payroll Settings -->
-            <div class="tab-pane fade" id="payroll-settings-tab">
-                <p>Payroll settings and configuration can go here.</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="uploadPayrolldetailsModal" tabindex="-1" aria-labelledby="uploadPayrolldetailsModalLabel">
-        <div class="modal-dialog" style="max-width: 45%;">
+    <div class="modal fade" id="addnewProjectModal" tabindex="-1" aria-labelledby="addnewProjectModalLabel" aria-hidden="true">
+        <div class="modal-dialog" style="max-width: 80%;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="uploadPayrolldetailsTempModal">UPLOAD EMPLOYEE PAYROLL DETAILS FROM EXCEL TEMPLATE</h5>
+                    <h5 class="modal-title" id="addnewProjectModalLabel"><i class="bi bi-briefcase-fill"></i> NEW PROJECT</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="d-flex flex-column align-items-center justify-content-center text-center">
-                        <form id="upload-form-payroll" action="/upload-excel-payroll" method="POST" enctype="multipart/form-data">
-                            <button class="btn upload-template-payroll btn-primary2 mt-3" style="width: max-content;">
-                                Upload Excel Template Containing Employee Payroll Details 
-                                <i class="bi bi-cloud-upload" style="margin-left: 5px;"></i>
-                            </button>
-                            <!-- Hidden file input -->
-                            <input type="file-payroll" id="file-upload-payroll" name="file-payroll" accept=".xlsx" style="display: none;">
-                        </form>
-                        <button class="btn btn-primary2 mt-3" id="download-btn-excel-template-payroll" style="width: max-content;">Download Employee Payroll Details Template <i class="bi bi-file-earmark-arrow-down" style="margin-left: 5px;"></i></button>
-                    </div>         
+                    <form id="addProjectForm">
+
+                        <!-- Row for side-by-side cards -->
+                        <div class="row g-3">
+
+                            <!-- CLIENT DETAILS CARD -->
+                            <div class="col-md-4">
+                                <div class="card" style="padding:15px;">
+
+                                    <h6 style="color:#1E2A56; font-weight:800;">CLIENT DETAILS</h6>
+
+                                    <div class="form-group">
+                                        <label>Name</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>National ID Number</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+
+                                    <div class="form-group">
+                                        <label>Address</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Whatsapp Number</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Email</label>
+                                        <input type="email" class="form-control editable-field" required>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- NEXT OF KIN DETAILS CARD -->
+                            <div class="col-md-4">
+                                <div class="card" style="padding:15px;">
+
+                                    <h6 style="color:#1E2A56; font-weight:800;">NEXT OF KIN DETAILS</h6>
+
+                                    <div class="form-group">
+                                        <label>Name</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Address</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Contact Number</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Relationship</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+
+
+                            <div class="col-md-4">
+                                <div class="card" style="padding:15px;">
+                                    <!-- CONTRACTOR DETAILS -->
+                                    <h6 style="color:#1E2A56; font-weight:800;">CONTRACTOR DETAILS</h6>
+
+                                    <div class="form-group">
+                                        <label>Name</label>
+                                        <input type="text" class="form-control editable-field" value="ConnectLink Properties" readonly>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Address</label>
+                                        <input type="text" class="form-control editable-field" value="38A Coronation Avenue Greendale Harare" readonly>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Contact Number</label>
+                                        <input type="text" class="form-control editable-field" value="+263 773 368 558 ; +263 716 788 838" readonly>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Email</label>
+                                        <input type="email" class="form-control editable-field" value="info@connectlinkproperties.co.zw" readonly>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="card" style="padding:15px;">
+                                    <!-- PROJECT DETAILS -->
+                                    <h6 style="color:#1E2A56; font-weight:800;">PROJECT DETAILS</h6>
+
+                                    <div class="form-group">
+                                        <label>Project Name</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Project Location</label>
+                                        <input type="text" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Project Scope</label>
+                                        <textarea class="form-control editable-field" rows="8" required></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="card" style="padding:15px;">
+
+                        
+                                    <!-- PAYMENT TERMS -->
+                                    <h6 style="color:#1E2A56; font-weight:800;">PAYMENT TERMS</h6>
+
+                                    <div class="form-group">
+                                        <label>Contract Agreement Date</label>
+                                        <input type="date" class="form-control editable-field" name="agreement_date" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Total Contract Price (USD)</label>
+                                        <input type="number" class="form-control editable-field" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Payment Method</label>
+                                        <select class="form-control-blue editable-field" required>
+                                            <option value="" disabled selected>Select Payment Method</option>
+                                            <option value="Amortised">Amortised</option>
+                                            <option value="Bullet">Bullet</option>
+                                        </select>
+                                    </div>
+
+                                    <h5 style="color:#1E2A56; font-weight:700; margin-top:15px;">Payment Schedule</h5>
+
+                                    <div class="form-group">
+                                        <label>Month 1</label>
+                                        <input type="text" class="form-control editable-field">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Month 2</label>
+                                        <input type="text" class="form-control editable-field">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Month 3</label>
+                                        <input type="text" class="form-control editable-field">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Month 4</label>
+                                        <input type="text" class="form-control editable-field">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label>Month 5</label>
+                                        <input type="text" class="form-control editable-field">
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </form>
                 </div>
-                
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveProjectBtn" style="width: max-content;">Save Project</button>
                 </div>
             </div>
         </div>
@@ -1005,7 +1002,7 @@
                 </li>
 
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#projects-tab"><i class="bi bi-list-columns-reverse"></i>    PROJECTS PORTAL</button>
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#projects-tab"><i class="bi bi-list-columns-reverse"></i>    PROJECTS PORTFOLIO PORTAL</button>
                 </li>
 
             </ul>
@@ -1090,10 +1087,7 @@
 
                 </div>
                 <div class="tab-pane fade" id="projects-tab">
-                    <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#ExportLMSBookModal"><i class="bi bi-journal-text"></i>    Export LMS Book</button>
-                    <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#exportleaveapprovalformsModal" style="width: max-content;"><i class="bi bi-file-earmark-zip-fill"></i>    Export Leave Applications Approval Forms (PDFs)</button>
-                    <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#exportleaveapplicationsreportModal" style="width: max-content;"><i class="bi bi-files-alt"></i>   Export Leave Applications Report</button>
-
+                    <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#ExportProjectsPortfolioModal"><i class="bi bi-journal-text"></i>    Export Projects Portfolio</button>
                     <div class="container mt-5">
                         <div class="container2" style="overflow-y: auto;">
                             {{ table_leave_apps_html |safe }}
@@ -1504,15 +1498,15 @@
     </div>
 </div>
 
-<div class="modal fade" id="ExportLMSBookModal" tabindex="-1" aria-labelledby="ExportLMSBookModalLabel" >
+<div class="modal fade" id="ExportProjectsPortfolioModal" tabindex="-1" aria-labelledby="ExportProjectsPortfolioModalLabel" >
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="ExportLMSBookModalLabel"><i class="bi bi-journal-text"></i>    EXPORT LMS BOOK</h5>
+                <h5 class="modal-title" id="ExportProjectsPortfolioModalLabel"><i class="bi bi-journal-text"></i>    EXPORT PROJECTS PORTFOLIO</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p style="font-weight: 500;">Select file format to export LMS Book for <b>{{company_name}}</b> :</p>
+                <p style="font-weight: 500;">Select file format to export Projects Portfolio for <b>{{company_name}}</b> :</p>
                 <div class="d-flex justify-content-around">
                     <button class="btn btn-primary2 mt-3"  data-bs-dismiss="modal" id="formatexcellmsbookexport"><i class="bi bi-filetype-xlsx"></i>    Excel Workbook</button>
                     <button class="btn btn-primary2 mt-3"  data-bs-dismiss="modal" id="formatpdflmsbookexport"><i class="bi bi-filetype-pdf"></i>    PDF</button>
@@ -1546,26 +1540,6 @@
     </div>
 </div>
 
-<div class="modal fade" id="uploadEmployeedetailsModal" tabindex="-1" aria-labelledby="uploadEmployeedetailsModalLabel" >
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="uploadEmployeedetailsLabel"><i class="bi bi-person-fill-add"></i>    UPLOAD EMPLOYEE PAYROLL DETAILS</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>Select an option to add employees:</p>
-                <div class="d-flex justify-content-around">
-                    <button class="btn btn-primary2 mt-3" id="formaddemployees">Add Manually</button>
-                    <button class="btn btn-primary2 mt-3" data-bs-toggle="modal" data-bs-target="#ExcelTempModal">Import from Excel File</button>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="modal fade" id="ExcelTempModal" tabindex="-1" aria-labelledby="ExcelTempModalLabel">
     <div class="modal-dialog" style="max-width: 40%;">
@@ -3311,16 +3285,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const myDiv5 = document.getElementById('payroll');
-
-    if (myDiv5) {
-        const shouldHide5= myDiv5.getAttribute('data-hide');  // Correct attribute
-
-        // Hide if data-hide is "True"
-        if (shouldHide5 === "True") {
-            myDiv5.remove();
-        }
-    }
 
     document.getElementById('formatexcellmsbookexport').addEventListener('click', () => {
             window.location.href = '/export_lms_book_excel';
@@ -3844,30 +3808,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-
-
-    const payrollMenuBtn = document.querySelector('#payroll .accordion-button');
-    const mainContentx = document.getElementById('main-content');
-    const payrollContent = document.getElementById('payroll-content');
-    const viewlmscontent = document.getElementById('lmsview');
-
-    if (payrollMenuBtn) {
-        payrollMenuBtn.addEventListener('click', (e) => {
-            e.preventDefault(); // prevent any default Bootstrap accordion behavior
-
-            if(mainContentx) mainContentx.style.display = 'none';
-            if(payrollContent) payrollContent.style.display = 'block';
-        });
-    }
-
-    if (viewlmscontent) {
-    viewlmscontent.addEventListener('click', (e) => {
-        e.preventDefault(); // prevent any default Bootstrap accordion behavior
-
-        if(mainContentx) mainContentx.style.display = 'block';
-        if(payrollContent) payrollContent.style.display = 'none';
-    });
-}
 
 
 
@@ -4723,14 +4663,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lengthChange: false, // Disable entries per page dropdown
         });
 
-        $('#employeespayrollTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-        });
 
         $('#employeespersonalTable').DataTable({
             paging: false,    // Enable pagination
