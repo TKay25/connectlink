@@ -54,6 +54,19 @@ def initialize_database_tables():
         with get_db() as (cursor, connection):
             
             cursor.execute("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                ORDER BY table_name;
+            """)
+
+            tables = cursor.fetchall()
+
+            print("Tables in database:")
+            for table in tables:
+                print(table[0])
+
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkdetails (
                     address VARCHAR (200),
                     contact1 INT,
@@ -144,7 +157,7 @@ def initialize_database_tables():
                     installment5date date,
                     installment6amount NUMERIC (12, 2),
                     installment6duedate date,
-                    installment6date date,
+                    installment6date date
                 );
             """)
             
