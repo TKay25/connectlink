@@ -399,18 +399,15 @@ def run1(userid):
 
         ####### admins
 
-        maindataquery = f"SELECT * FROM connectlinkadmin;"
-        cursor.execute(maindataquery)
-        maindata = cursor.fetchall()
-        print(maindata)
+        adminsdataquery = f"SELECT * FROM connectlinkadmin;"
+        cursor.execute(adminsdataquery)
+        adminsdata = cursor.fetchall()
+        print(adminsdata)
 
-
-        datamain = pd.DataFrame(maindata, columns= ['id', 'name', 'contact'])
-        datamain['Action'] = datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{x}" class="btn btn-primary3">Download Contract</a><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">View Project</button><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Log a Payment</button></div>''')
-        datamain = datamain[['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus', 'Action']]
-
-        table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
-
+        adminsdatamain = pd.DataFrame(adminsdata, columns= ['id', 'name', 'contact'])
+        adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button></div>''')
+        adminsdatamain = adminsdatamain[['id', 'name', 'contact', 'Action']]
+        table_datamain_admins_html = adminsdatamain.to_html(classes="table table-bordered table-theme", table_id="alladminsTable", index=False,  escape=False,)
 
 
 
