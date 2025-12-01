@@ -187,22 +187,22 @@
 
         <div class="field-row">
             <div class="field-label">Name:</div>
-            <div class="field-value">{{ project.contractorname }}</div>
+            <div class="field-value">{{ project.companyname }}</div>
         </div>
 
         <div class="field-row">
             <div class="field-label">Address:</div>
-            <div class="field-value">{{ project.contractoraddress }}</div>
+            <div class="field-value">{{ project.companyaddress }}</div>
         </div>
 
         <div class="field-row">
             <div class="field-label">Contact Number:</div>
-            <div class="field-value">{{ project.contractorcontact }}</div>
+            <div class="field-value">{{ project.companycontact1 }} {{project.companycontact2}}</div>
         </div>
 
         <div class="field-row">
             <div class="field-label">Email:</div>
-            <div class="field-value">{{ project.contractoremail }}</div>
+            <div class="field-value">{{ project.companyemail }}</div>
         </div>
 
         <br><br>
@@ -212,17 +212,17 @@
 
         <div class="field-row">
             <div class="field-label">Project Name:</div>
-            <div class="field-value">{{ project.projectname }}</div>
+            <div class="field-value">{{ project.project_name }}</div>
         </div>
 
         <div class="field-row">
             <div class="field-label">Project Location:</div>
-            <div class="field-value">{{ project.projectlocation }}</div>
+            <div class="field-value">{{ project.project_location }}</div>
         </div>
 
         <p><strong>Project Scope:</strong></p>
         <div class="scope-box">
-            {{ project.projectdescription }}
+            {{ project.project_description }}
         </div>
 
         <!-- PAYMENT TERMS -->
