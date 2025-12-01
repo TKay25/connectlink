@@ -9,13 +9,13 @@
     body {
         font-family: 'Roboto', sans-serif;
         background: #eef2fa;
-        padding: 40px;
+        padding: 60px;
         color: #1E2A56;
     }
 
     .agreement-container {
         background: #ffffff;
-        width: 85%;
+        width: 75%;
         margin: auto;
         padding: 50px 60px;
         border-radius: 14px;
@@ -46,10 +46,11 @@
         border-radius: 10px;
     }
 
-    h3.section-title {
+    h4.section-title {
+        text-align: center;
         background-color: #1E2A56;
         color: white;
-        padding: 10px 14px;
+        padding: 5px 7px;
         border-radius: 6px;
         font-size: 1rem;
         margin-top: 40px;
@@ -63,18 +64,24 @@
         color: #1E2A56;
     }
 
-    .field-label {
-        font-weight: 700;
-        margin-right: 8px;
+    /* NEW FLEX ROW FOR LABELS + VALUES */
+    .field-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
     }
 
-    .field-line {
+    .field-label {
+        font-weight: 700;
+        width: 170px; 
+        flex-shrink: 0;
+    }
+
+    .field-value {
+        flex: 1;
         border-bottom: 1.5px solid #1E2A56;
-        width: 100%;
-        display: inline-block;
-        height: 18px;
-        vertical-align: middle;
-        margin-left: 4px;
+        padding-bottom: 2px;
+        min-height: 20px;
     }
 
     .scope-box {
@@ -83,6 +90,7 @@
         padding: 20px;
         min-height: 140px;
         background: #fafbff;
+        margin-bottom: 20px;
     }
 
     ul {
@@ -116,110 +124,177 @@
 
 <div class="agreement-container">
 
-    <img class="logo" src="{{ url_for('static', filename='images/web-logo.png') }}" alt="ConnectLink Logo">
+    <div style="border: 3px solid #1E2A56; border-radius: 14px; padding: 20px;">
 
-    <h2 class="title">Construction Agreement</h2>
-    <div class="subtitle-line"></div>
+        <img class="logo" src="{{ url_for('static', filename='images/web-logo.png') }}" alt="ConnectLink Logo">
 
-    <p>
-        This Construction Agreement ("Agreement") is made and entered into on 
-        <span class="field-line" style="width:200px;"> {{ project.agreement_date }}</span> 
-        ("Effective Date") by and between:
-    </p>
+        <h2 class="title">Construction Agreement</h2>
+        <div class="subtitle-line"></div>
 
-    <!-- CLIENT DETAILS -->
-    <h3 class="section-title">CLIENT DETAILS</h3>
-    <p><span class="field-label">Name:</span> <span class="field-line">{{ project.client_name }}</span></p>
-    <p><span class="field-label">Address:</span> <span class="field-line">{{ project.client_address }}</span></p>
-    <p><span class="field-label">Contact Number:</span> <span class="field-line">{{ project.client_whatsapp }}</span></p>
-    <p><span class="field-label">Email:</span> <span class="field-line">{{ project.client_email }}</span></p>
+        <p>
+            This Construction Agreement ("Agreement") is made and entered into on 
+            <strong>{{ project.agreement_date }}</strong> 
+            ("Effective Date") by and between:
+        </p>
 
-    <!-- NEXT OF KIN -->
-    <h3 class="section-title">NEXT OF KIN DETAILS</h3>
-    <p><span class="field-label">Name:</span> <span class="field-line">{{ project.next_of_kin_name }}</span></p>
-    <p><span class="field-label">Address:</span> <span class="field-line">{{ project.next_of_kin_address }}</span></p>
-    <p><span class="field-label">Contact Number:</span> <span class="field-line">{{ project.next_of_kin_phone }}</span></p>
-    <p><span class="field-label">Relationship:</span> <span class="field-line">{{ project.next_of_kin_relationship }}</span></p>
+        <!-- CLIENT DETAILS -->
+        <h4 class="section-title">CLIENT DETAILS</h4>
 
-    <!-- CONTRACTOR DETAILS -->
-    <h3 class="section-title">CONTRACTOR DETAILS</h3>
-    <p><span class="field-label">Name:</span> <span class="field-line">{{ project.contractorname }}</span></p>
-    <p><span class="field-label">Address:</span> <span class="field-line">{{ project.contractoraddress }}</span></p>
-    <p><span class="field-label">Contact Number:</span> <span class="field-line">{{ project.contractorcontact }}</span></p>
-    <p><span class="field-label">Email:</span> <span class="field-line">{{ project.contractoremail }}</span></p>
-
-    <!-- PROJECT DETAILS -->
-    <h3 class="section-title">PROJECT DETAILS</h3>
-    <p><span class="field-label">Project Name:</span> <span class="field-line">{{ project.projectname }}</span></p>
-    <p><span class="field-label">Project Location:</span> <span class="field-line">{{ project.projectlocation }}</span></p>
-
-    <p><span class="field-label">Project Scope:</span>{{ project.projectdescription }}</p>
-    <div class="scope-box">
-        <!-- Long text area -->
-    </div>
-
-    <!-- PAYMENT TERMS -->
-    <h3 class="section-title">PAYMENT TERMS</h3>
-    <p><span class="field-label">Total Contract Price:</span> <span class="field-line" style="width:200px;"></span></p>
-
-    <p><span class="field-label">Payment Schedule:</span></p>
-    <ul>
-        <li>Month 1: <span class="field-line" style="width:150px;"></span></li>
-        <li>Month 2: <span class="field-line" style="width:150px;"></span></li>
-        <li>Month 3: <span class="field-line" style="width:150px;"></span></li>
-        <li>Month 4: <span class="field-line" style="width:150px;"></span></li>
-        <li>Month 5: <span class="field-line" style="width:150px;"></span></li>
-    </ul>
-
-    <!-- LATE PAYMENT -->
-    <h3 class="section-title">LATE PAYMENT AND INTEREST</h3>
-    <p>
-        - If the Client fails to make any payment on or before the due date, the Client shall be liable to pay 
-        interest at a rate of <span class="field-line" style="width:80px;"></span>% per annum.
-    </p>
-    <p>- Interest is calculated daily and compounded monthly.</p>
-    <p>- The Client shall also be liable for any costs incurred in recovering overdue amounts.</p>
-
-    <!-- TERMS AND CONDITIONS -->
-    <h3 class="section-title">TERMS AND CONDITIONS</h3>
-    <ol>
-        <li>The Contractor shall commence work within <span class="field-line" style="width:80px;"></span> days of receiving the first payment.</li>
-        <li>The Client shall make payments as per the payment schedule.</li>
-        <li>The Contractor shall complete the project within <span class="field-line" style="width:80px;"></span> months.</li>
-        <li>The Client is responsible for obtaining all required permits.</li>
-        <li>The Contractor is responsible for all materials and labor.</li>
-    </ol>
-
-    <!-- TERMINATION -->
-    <h3 class="section-title">TERMINATION</h3>
-    <p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
-
-    <!-- DISPUTE -->
-    <h3 class="section-title">DISPUTE RESOLUTION</h3>
-    <p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
-
-    <!-- LAW -->
-    <h3 class="section-title">GOVERNING LAW</h3>
-    <p>This Agreement is governed by the laws of Zimbabwe.</p>
-
-    <!-- SIGNATURES -->
-    <h3 class="section-title">SIGNATURES</h3>
-
-    <div class="signature-block">
-        <div class="signature-line">
-            <span class="signature-label">Client Signature:</span>
-            <span class="field-line" style="width:350px;"></span>
+        <div class="field-row">
+            <div class="field-label">Name:</div>
+            <div class="field-value">{{ project.client_name }}</div>
         </div>
 
-        <div class="signature-line">
-            <span class="signature-label">Contractor Signature:</span>
-            <span class="field-line" style="width:350px;"></span>
+        <div class="field-row">
+            <div class="field-label">Address:</div>
+            <div class="field-value">{{ project.client_address }}</div>
         </div>
 
-        <div class="signature-line">
-            <span class="signature-label">Date:</span>
-            <span class="field-line" style="width:220px;"></span>
+        <div class="field-row">
+            <div class="field-label">Contact Number:</div>
+            <div class="field-value">{{ project.client_whatsapp }}</div>
         </div>
+
+        <div class="field-row">
+            <div class="field-label">Email:</div>
+            <div class="field-value">{{ project.client_email }}</div>
+        </div>
+
+        <!-- NEXT OF KIN -->
+        <h4 class="section-title">NEXT OF KIN DETAILS</h4>
+
+        <div class="field-row">
+            <div class="field-label">Name:</div>
+            <div class="field-value">{{ project.next_of_kin_name }}</div>
+        </div>
+
+        <div class="field-row">
+            <div class="field-label">Address:</div>
+            <div class="field-value">{{ project.next_of_kin_address }}</div>
+        </div>
+
+        <div class="field-row">
+            <div class="field-label">Contact Number:</div>
+            <div class="field-value">{{ project.next_of_kin_phone }}</div>
+        </div>
+
+        <div class="field-row">
+            <div class="field-label">Relationship:</div>
+            <div class="field-value">{{ project.next_of_kin_relationship }}</div>
+        </div>
+
+        <!-- CONTRACTOR DETAILS -->
+        <h4 class="section-title">CONTRACTOR DETAILS</h4>
+
+        <div class="field-row">
+            <div class="field-label">Name:</div>
+            <div class="field-value">{{ project.contractorname }}</div>
+        </div>
+
+        <div class="field-row">
+            <div class="field-label">Address:</div>
+            <div class="field-value">{{ project.contractoraddress }}</div>
+        </div>
+
+        <div class="field-row">
+            <div class="field-label">Contact Number:</div>
+            <div class="field-value">{{ project.contractorcontact }}</div>
+        </div>
+
+        <div class="field-row">
+            <div class="field-label">Email:</div>
+            <div class="field-value">{{ project.contractoremail }}</div>
+        </div>
+
+        <!-- PROJECT DETAILS -->
+        <h4 class="section-title">PROJECT DETAILS</h4>
+
+        <div class="field-row">
+            <div class="field-label">Project Name:</div>
+            <div class="field-value">{{ project.projectname }}</div>
+        </div>
+
+        <div class="field-row">
+            <div class="field-label">Project Location:</div>
+            <div class="field-value">{{ project.projectlocation }}</div>
+        </div>
+
+        <p><strong>Project Scope:</strong></p>
+        <div class="scope-box">
+            {{ project.projectdescription }}
+        </div>
+
+        <!-- PAYMENT TERMS -->
+        <h4 class="section-title">PAYMENT TERMS</h4>
+
+        <div class="field-row">
+            <div class="field-label">Total Contract Price:</div>
+            <div class="field-value"></div>
+        </div>
+
+        <p><strong>Payment Schedule:</strong></p>
+        <ul>
+            <li>Month 1: <span class="field-value" style="display:inline-block; width:150px;"></span></li>
+            <li>Month 2: <span class="field-value" style="display:inline-block; width:150px;"></span></li>
+            <li>Month 3: <span class="field-value" style="display:inline-block; width:150px;"></span></li>
+            <li>Month 4: <span class="field-value" style="display:inline-block; width:150px;"></span></li>
+            <li>Month 5: <span class="field-value" style="display:inline-block; width:150px;"></span></li>
+        </ul>
+
+        <!-- LATE PAYMENT -->
+        <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
+        <p>
+            - If the Client fails to make any payment on or before the due date, the Client shall be liable to pay 
+            interest at a rate of <span class="field-value" style="display:inline-block; width:80px;"></span>% per annum.
+        </p>
+        <p>- Interest is calculated daily and compounded monthly.</p>
+        <p>- The Client shall also be liable for any costs incurred in recovering overdue amounts.</p>
+
+        <!-- TERMS AND CONDITIONS -->
+        <h4 class="section-title">TERMS AND CONDITIONS</h4>
+        <ol>
+            <li>The Contractor shall commence work within <span class="field-value" style="display:inline-block; width:80px;"></span> days of receiving the first payment.</li>
+            <li>The Client shall make payments as per the payment schedule.</li>
+            <li>The Contractor shall complete the project within <span class="field-value" style="display:inline-block; width:80px;"></span> months.</li>
+            <li>The Client is responsible for obtaining all required permits.</li>
+            <li>The Contractor is responsible for all materials and labor.</li>
+        </ol>
+
+        <!-- TERMINATION -->
+        <h4 class="section-title">TERMINATION</h4>
+        <p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
+
+        <!-- DISPUTE -->
+        <h4 class="section-title">DISPUTE RESOLUTION</h4>
+        <p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
+
+        <!-- LAW -->
+        <h4 class="section-title">GOVERNING LAW</h4>
+        <p>This Agreement is governed by the laws of Zimbabwe.</p>
+
+        <!-- SIGNATURES -->
+        <h4 class="section-title">SIGNATURES</h4>
+
+        <div class="signature-block">
+
+            <div class="signature-line">
+                <span class="signature-label">Client Signature:</span>
+                <div class="field-value" style="width:350px;"></div>
+            </div>
+
+            <div class="signature-line">
+                <span class="signature-label">Contractor Signature:</span>
+                <div class="field-value" style="width:350px;"></div>
+            </div>
+
+            <div class="signature-line">
+                <span class="signature-label">Date:</span>
+                <div class="field-value" style="width:220px;"></div>
+            </div>
+
+        </div>
+
+
     </div>
 
 </div>

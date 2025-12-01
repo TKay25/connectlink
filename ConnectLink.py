@@ -291,6 +291,9 @@ def download_contract(project_id):
             if not row:
                 return "Project not found", 404
 
+            agreement_date = row[16] 
+            formatted_agreement_date = agreement_date.strftime("%d %B %Y")
+
             # Map row to dictionary
             project = {
                 'id': row[0],
@@ -309,7 +312,7 @@ def download_contract(project_id):
                 'project_administrator': row[13],
                 'project_start_date': row[14],
                 'project_duration': row[15],
-                'agreement_date': row[16],
+                'agreement_date': formatted_agreement_date,
                 'total_contract_price': row[17],
                 'payment_method': row[18],
                 'months_to_pay': row[19],
