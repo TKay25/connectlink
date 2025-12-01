@@ -1142,28 +1142,28 @@
                                 <div class="icon"><i class="bi bi-people-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Projects</h5>
-                                    <p>{{ total_employees }}</p>
+                                    <p>{{ total_projects }}</p>
                                 </div>
                             </div>
                             <div class="summary-card">
                                 <div class="icon"><i class="bi bi-hourglass-split fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Ongoing Projects</h5>
-                                    <p>{{ open_requests }}</p>
+                                    <p>{{ ongoing_projects }}</p>
                                 </div>
                             </div>
                             <div class="summary-card">
                                 <div class="icon"><i class="bi bi-calendar2-check-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Completed Projects</h5>
-                                    <p>{{ approved_requests }}</p>
+                                    <p>{{ completed_projects }}</p>
                                 </div>
                             </div>
                             <div class="summary-card">
                                 <div class="icon"><i class="bi bi-stopwatch-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Average Completion Time</h5>
-                                    <p>{{ avg_approval_time }} days</p>
+                                    <p>{{ avg_completion_time }} days</p>
                                 </div>
                             </div>
 
@@ -1171,7 +1171,7 @@
                                 <div class="icon"><i class="bi bi-1-circle-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Top Location</h5>
-                                    <p>{{ top_leave_type }} Leave</p>
+                                    <p>{{ top_location }}</p>
                                 </div>
                             </div>
 
@@ -1181,34 +1181,22 @@
                         <button id="filterBtn"  class="btn btn-primary" style="width:max-content;">Filter</button>
                         <br>
                         <div class="dashboard-graphs">
-                            <div class="graph-card">
-                                <h6>Leave Requests by Department</h6>
-                                <canvas id="leaveByDepartmentChart" width="800" height="800"></canvas>
 
-                            </div>
                             <div class="graph-card">
-                                <h6>Leave Requests by Leave Type</h6>
+                                <h6>Completed vs Ongoing</h6>
                                 <canvas id="leaveByTypeChart" width="800" height="800"></canvas>
                             </div>
 
+                            div class="graph-card">
+                                <h6>Projects By Location</h6>
+                                <canvas id="projectsByLocationChart" width="800" height="800"></canvas>
+                            </div>
+
                             <div class="graph-card">
-                                <h6>Employees at Work by Department</h6>
+                                <h6>Overdue Payments</h6>
                                 <canvas id="employeesRemainingChart" width="800" height="800"></canvas>
                             </div>
-
-
-                            <div class="graph-card">
-                                <h6>% Employee Occupancy by Department</h6>
-                                <canvas id="employeesRemainingChartbar" width="800" height="800"></canvas>
-                            </div>
-                            <div class="graph-card">
-                                <h6>Top 5 Leave Takers</h6>
-                                <canvas id="topLeaveTakersChart"></canvas>
-                            </div>
-                            <div class="graph-card">
-                                <h6>Pending vs Approved</h6>
-                                <canvas id="statusPieChart"></canvas>
-                            </div>
+                            
                         </div>
                     </div>
 
