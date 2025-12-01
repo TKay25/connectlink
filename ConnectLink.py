@@ -404,11 +404,6 @@ def run1(userid):
         compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
         tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
         
-
-
-
-
-        
         return {
             "table_datamain_html": table_datamain_html,
             "companyname": companyname,
