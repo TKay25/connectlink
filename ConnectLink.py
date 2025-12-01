@@ -431,6 +431,8 @@ def run1(userid):
         adminsdatamain = adminsdatamain[['id', 'name', 'contact', 'Action']]
         table_datamain_admins_html = adminsdatamain.to_html(classes="table table-bordered table-theme", table_id="alladminsTable", index=False,  escape=False,)
 
+        admin_options = adminsdatamain.apply(lambda row: f"{row['id']}--{row['name']}", axis=1).tolist()
+
 
         ######### maindata
         maindataquery = f"SELECT * FROM connectlinkdatabase;"

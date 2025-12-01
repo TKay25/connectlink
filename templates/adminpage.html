@@ -1007,8 +1007,9 @@
                                         <label>Administrator:</label>
                                         <select class="form-control-blue editable-field" id="projectadministrator" name="projectadministrator" required>
                                             <option value="" disabled selected>Select Administrator</option>
-                                            <option value="AAA">AAA</option>
-                                            <option value="BBB">BBB</option>
+                                            {% for option in admin_options %}
+                                                <option value="{{ option }}">{{ option }}</option>
+                                            {% endfor %}
                                         </select>
                                     </div>
 
