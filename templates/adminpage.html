@@ -814,15 +814,54 @@
 
             <!-- Modal Footer -->
             <div class="modal-footer">
-
-                <button class="btn btn-primary" id="addAdminBtn" style="width: max-content;">
-                <i class="bi bi-person-plus"></i> Add Administrator
+                <button class="btn btn-primary" id="addAdminplusBtn" style="width: max-content;"
+                        data-bs-toggle="modal" data-bs-target="#addAdminplusModal">
+                    <i class="bi bi-person-plus"></i> Add Administrator
                 </button>
+
 
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                 Close
                 </button>
 
+            </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addAdminplusModal" tabindex="-1" aria-labelledby="addAdminplusModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-md modal-dialog-centered">
+            <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title" id="addAdminplusModalLabel">ADD ADMINISTRATOR</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <form id="adminForm">
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Full Name</label>
+                    <input type="text" class="form-control" id="adminName" placeholder="Enter full name">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Contact Phone</label>
+                    <input type="text" class="form-control" id="adminPhone" placeholder="e.g. +263 77 123 4567">
+                </div>
+
+                </form>
+
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="saveAdminBtn">
+                <i class="bi bi-check-circle"></i> Save
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
 
             </div>
