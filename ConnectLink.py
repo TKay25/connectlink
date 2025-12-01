@@ -491,7 +491,8 @@ def run1(userid):
             "compemail": compemail,
             "tinnumber": tinnumber,
             'today_date': today_date,
-            'num_projects': num_projects
+            'num_projects': num_projects,
+            'admin_options': admin_options
             }
 
 @app.route('/')
@@ -502,7 +503,7 @@ def userlogin():
 def get_project(project_id):
 
     with get_db() as (cursor, connection):
-        
+
         try:
             cursor.execute("SELECT * FROM connectlinkdatabase WHERE id=%s", (project_id,))
             row = cursor.fetchone()
