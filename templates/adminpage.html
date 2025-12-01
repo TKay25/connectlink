@@ -842,17 +842,15 @@
             <div class="modal-body">
 
                 <form id="adminForm">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Full Name</label>
+                        <input type="text" class="form-control" id="adminName" name="adminName" placeholder="Enter full name">
+                    </div>
 
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Full Name</label>
-                    <input type="text" class="form-control" id="adminName" placeholder="Enter full name">
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Contact Phone</label>
-                    <input type="text" class="form-control" id="adminPhone" placeholder="e.g. +263 77 123 4567">
-                </div>
-
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Contact Phone</label>
+                        <input type="text" class="form-control" id="adminPhone" name="adminPhone" placeholder="e.g. +263 77 123 4567">
+                    </div>
                 </form>
 
             </div>
@@ -866,7 +864,7 @@
 
             </div>
         </div>
-        </div>
+    </div>
 
 
 
@@ -2201,6 +2199,48 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+document.getElementById("saveAdminBtn").addEventListener("click", function () {
+
+    const name = document.getElementById("adminName").value.trim();
+    const phone = document.getElementById("adminPhone").value.trim();
+
+    if (!name || !phone) {
+        alert("Please fill in all fields");
+        return;
+    }
+
+    fetch("/addadmin", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            adminName: name,
+            adminPhone: phone
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+
+        if (data.status === "success") {
+            alert("Administrator added!");
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById("addAdminplusModal"));
+            modal.hide();
+
+            // Reset form
+            document.getElementById("adminForm").reset();
+        } else {
+            alert("Error: " + data.message);
+        }
+    })
+    .catch(error => {
+        alert("Request failed: " + error);
+    });
+});
+</script>
 
 <script>
 document.getElementById("saveProjectBtn").addEventListener("click", function () {

@@ -389,6 +389,28 @@ def download_contract(project_id):
         except Exception as e:
             return str(e), 500
 
+
+@app.route('/addadmin', methods=['POST'])
+def add_admin():
+    data = request.get_json()
+
+    adminName = data.get("adminName")
+    adminPhone = data.get("adminPhone")
+
+    with get_db() as (cursor, connection):
+
+        try:
+            cursor.execute("""
+                INSERT INTO connectlinkadmin (name, contact)
+                VALUES (%s, %s)
+            """, (adminName, adminPhone))
+            connection.commit()
+            return jsonify({"status": "success"})
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
+
+
 def run1(userid):
 
     with get_db() as (cursor, connection):
@@ -408,10 +430,6 @@ def run1(userid):
         adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button></div>''')
         adminsdatamain = adminsdatamain[['id', 'name', 'contact', 'Action']]
         table_datamain_admins_html = adminsdatamain.to_html(classes="table table-bordered table-theme", table_id="alladminsTable", index=False,  escape=False,)
-
-
-
-
 
 
         ######### maindata
