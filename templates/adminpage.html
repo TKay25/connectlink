@@ -856,9 +856,11 @@
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-success" id="saveAdminBtn">
-                <i class="bi bi-check-circle"></i> Save
+                <button type="button" class="btn btn-success d-flex align-items-center" id="saveAdminBtn" style="gap:6px;">
+                    <span id="saveText"><i class="bi bi-check-circle"></i> Save</span>
+                    <div id="saveLoader" class="spinner-border spinner-border-sm text-light d-none" role="status"></div>
                 </button>
+
                 <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
             </div>
 
@@ -2199,6 +2201,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
 <script>
 document.getElementById("saveAdminBtn").addEventListener("click", function () {
 
@@ -2210,11 +2213,14 @@ document.getElementById("saveAdminBtn").addEventListener("click", function () {
         return;
     }
 
+    // Show loader + disable button
+    document.getElementById("saveText").classList.add("d-none");
+    document.getElementById("saveLoader").classList.remove("d-none");
+    document.getElementById("saveAdminBtn").disabled = true;
+
     fetch("/addadmin", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             adminName: name,
             adminPhone: phone
@@ -2223,24 +2229,37 @@ document.getElementById("saveAdminBtn").addEventListener("click", function () {
     .then(response => response.json())
     .then(data => {
 
+        // Hide loader, restore button
+        document.getElementById("saveText").classList.remove("d-none");
+        document.getElementById("saveLoader").classList.add("d-none");
+        document.getElementById("saveAdminBtn").disabled = false;
+
         if (data.status === "success") {
+
             alert("Administrator added!");
 
-            // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById("addAdminplusModal"));
             modal.hide();
 
-            // Reset form
             document.getElementById("adminForm").reset();
+
         } else {
             alert("Error: " + data.message);
         }
+
     })
     .catch(error => {
+
+        // Hide loader, restore button if an error occurs
+        document.getElementById("saveText").classList.remove("d-none");
+        document.getElementById("saveLoader").classList.add("d-none");
+        document.getElementById("saveAdminBtn").disabled = false;
+
         alert("Request failed: " + error);
     });
 });
 </script>
+
 
 <script>
 document.getElementById("saveProjectBtn").addEventListener("click", function () {
