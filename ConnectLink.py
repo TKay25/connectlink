@@ -463,7 +463,7 @@ def run1(userid):
 
 
         datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus'])
-        datamain['Action'] = datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{x}" class="btn btn-primary3">Download Contract</a><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">View Project</button><button class="btn btn-primary3 log-payment-btn" data-bs-toggle="modal" data-bs-target="#logpaymentModal" data-ID="{x}">Log a Payment</button></div>''')
+        datamain['Action'] = datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{x}" class="btn btn-primary3">Download Contract</a>    <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{x}">View Project</button><button class="btn btn-primary3 log-payment-btn" data-bs-toggle="modal" data-bs-target="#logpaymentModal" data-ID="{x}">Log a Payment</button></div>''')
         datamain = datamain[['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus', 'Action']]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
@@ -498,7 +498,37 @@ def run1(userid):
 def userlogin():
     return render_template('login.html') 
 
+@app.route('/get_project/<int:project_id>')
+def get_project(project_id):
 
+    with get_db() as (cursor, connection):
+        
+        try:
+            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id=%s", (project_id,))
+            row = cursor.fetchone()
+            cursor.close()
+
+            if not row:
+                return jsonify({})
+
+            # Map columns to dict
+            columns = ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                    'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
+                    'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname',
+                    'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount',
+                    'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet',
+                    'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate',
+                    'installment1date', 'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
+                    'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
+                    'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
+                    'projectcompletionstatus']
+
+            project_dict = dict(zip(columns, row))
+            return jsonify(project_dict)
+
+        except Exception as e:
+            return jsonify({"error": str(e)})
 
 @app.route('/contract_log', methods=['POST'])
 def contract_log():
