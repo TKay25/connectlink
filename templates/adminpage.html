@@ -82,6 +82,30 @@
             border: 3px solid white;
             box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
         }
+
+        .btn-danger-2{
+            color: white;
+            background-color: red;
+            width: 15%;
+            margin: 8px 0;
+            padding: 5px;
+            border-radius: 8px;
+            border: 3px solid #1E2A56;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+            text-align: center;
+            font-weight: 500;
+
+        }
+        .btn-danger-2:hover{
+            background-color: white;
+            color: red;
+            border: 3px solid red;
+            box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
+        }
+
+
+
         .btn-primary{
             color: white;
             background-color: #1E2A56;
@@ -1182,7 +1206,7 @@
                                 <div class="icon"><i class="bi bi-people-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Projects</h5>
-                                    <p>{{ total_projects }}</p>
+                                    <p>{{ num_projects }}</p>
                                 </div>
                             </div>
                             <div class="summary-card">
@@ -2323,6 +2347,43 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+
+        // Delegate click events for dynamically generated buttons
+    document.querySelector('#alladminsTable').addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('remove-admin-btn')) {
+            const adminId = e.target.getAttribute('data-ID');
+
+            if (!confirm("Are you sure you want to remove this administrator?")) {
+                return;
+            }
+
+            fetch('/removeadmin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: adminId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Administrator removed!');
+                    // Optionally remove the row from table
+                    e.target.closest('tr').remove();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Request failed: ' + error);
+            });
+        }
+    });
+
+
+
+
+
+
+
 
     const table = document.getElementById("allprojectsTable");
     if (!table) return;

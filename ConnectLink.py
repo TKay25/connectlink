@@ -411,7 +411,25 @@ def add_admin():
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)})
 
+@app.route('/removeadmin', methods=['POST'])
+def remove_admin():
+    data = request.get_json()
+    admin_id = data.get('id')
 
+    if not admin_id:
+        return jsonify({"status": "error", "message": "No ID provided"})
+
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("DELETE FROM connectlinkadmin WHERE id=%s", (admin_id,))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+        
 def run1(userid):
 
     with get_db() as (cursor, connection):
@@ -428,7 +446,7 @@ def run1(userid):
         print(adminsdata)
 
         adminsdatamain = pd.DataFrame(adminsdata, columns= ['id', 'name', 'contact'])
-        adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button><button class="btn btn-danger view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Remove</button></div>''')
+        adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary view-project-btn" style="width:max-content;" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button>    <button class="btn btn-danger remove-admin-btn" data-ID="{x}">Remove</button></div>''')
         adminsdatamain = adminsdatamain[['id', 'name', 'contact', 'Action']]
         table_datamain_admins_html = adminsdatamain.to_html(classes="table table-bordered table-theme", table_id="alladminsTable", index=False,  escape=False,)
 
@@ -440,6 +458,8 @@ def run1(userid):
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         print(maindata)
+        num_projects = len(maindata)
+        print(f"Number of projects: {num_projects}")
 
 
         datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus'])
@@ -470,7 +490,8 @@ def run1(userid):
             "contact2": contact2,
             "compemail": compemail,
             "tinnumber": tinnumber,
-            'today_date': today_date
+            'today_date': today_date,
+            'num_projects': num_projects
             }
 
 @app.route('/')
