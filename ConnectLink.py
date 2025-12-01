@@ -96,6 +96,14 @@ def initialize_database_tables():
                 );
             """)
 
+            comp_details_alters = [
+                "ALTER TABLE connectlinkdetails ADD COLUMN IF NOT EXISTS companyname VARCHAR(200);",
+                "ALTER TABLE connectlinkdetails ADD COLUMN IF NOT EXISTS tinnumber VARCHAR(100);"
+            ]
+
+            for sql_stmt in comp_details_alters:
+                cursor.execute(sql_stmt)            
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkusers (
                     id SERIAL PRIMARY KEY,
