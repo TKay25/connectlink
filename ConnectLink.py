@@ -218,13 +218,14 @@ def Dashboard():
 
         user_uuid = session.get('user_uuid')
         user_name = session.get('user_name')
+        userid = session.get('userid')
+
         if user_uuid:
 
             try:
 
                 today_date = datetime.now().strftime('%d %B %Y')
                 applied_date = datetime.now().strftime('%Y-%m-%d')
-                userid = session.get('userid')
 
                 results = run1(userid)  
 
