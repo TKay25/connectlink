@@ -427,7 +427,7 @@ def run1(userid):
         print(adminsdata)
 
         adminsdatamain = pd.DataFrame(adminsdata, columns= ['id', 'name', 'contact'])
-        adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button></div>''')
+        adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button><button class="btn btn-danger view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Remove</button></div>''')
         adminsdatamain = adminsdatamain[['id', 'name', 'contact', 'Action']]
         table_datamain_admins_html = adminsdatamain.to_html(classes="table table-bordered table-theme", table_id="alladminsTable", index=False,  escape=False,)
 
@@ -460,6 +460,7 @@ def run1(userid):
         
         return {
             "table_datamain_html": table_datamain_html,
+            'table_datamain_admins_html': table_datamain_admins_html,
             "companyname": companyname,
             "address": address,
             "contact1": contact1,
