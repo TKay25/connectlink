@@ -466,7 +466,8 @@ def run1(userid):
             "contact1": contact1,
             "contact2": contact2,
             "compemail": compemail,
-            "tinnumber": tinnumber
+            "tinnumber": tinnumber,
+            'today_date': today_date
             }
 
 @app.route('/')
