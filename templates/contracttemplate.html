@@ -197,7 +197,7 @@
 
         <div class="field-row">
             <div class="field-label">Contact Number:</div>
-            <div class="field-value">{{ project.companycontact1 }} {{project.companycontact2}}</div>
+            <div class="field-value">0{{ project.companycontact1 }} ; 0{{project.companycontact2}}</div>
         </div>
 
         <div class="field-row">
@@ -229,7 +229,7 @@
         <h4 class="section-title">PAYMENT TERMS</h4>
 
         <div class="field-row">
-            <div class="field-label">Total Contract Price:</div>
+            <div class="field-label">USD {{ project.total_contract_price }}:</div>
             <div class="field-value"></div>
         </div>
 
@@ -244,8 +244,7 @@
 
         <!-- LATE PAYMENT -->
         <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
-        <p>
-            - If the Client fails to make any payment on or before the due date, the Client shall be liable to pay 
+        <p>- If the Client fails to make any payment on or before the due date, the Client shall be liable to pay 
             interest at a rate of <span class="field-value" style="display:inline-block; width:80px;"></span>% per annum.
         </p>
         <p>- Interest is calculated daily and compounded monthly.</p>
