@@ -419,14 +419,14 @@ def remove_admin():
     if not admin_id:
         return jsonify({"status": "error", "message": "No ID provided"})
 
-    try:
-        cursor = mysql.connection.cursor()
-        cursor.execute("DELETE FROM connectlinkadmin WHERE id=%s", (admin_id,))
-        mysql.connection.commit()
-        cursor.close()
-        return jsonify({"status": "success"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
+    with get_db() as (cursor, connection):
+
+        try:
+            cursor.execute("DELETE FROM connectlinkadmin WHERE id=%s", (admin_id,))
+            connection.commit()
+            return jsonify({"status": "success"})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
 
 
 
