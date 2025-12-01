@@ -1241,7 +1241,7 @@
             <div class="modal-content rounded-4 border-0 shadow">
 
             <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="editContractorModalLabel">Edit Contractor Details</h5>
+                <h5 class="modal-title fw-bold" id="editContractorModalLabel">CONTRACTOR DETAILS EDITOR</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
@@ -1251,35 +1251,40 @@
 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                    <label class="form-label fw-semibold">Name</label>
-                    <input type="text" class="form-control" value="John Doe">
-                    </div>
-                    <div class="col-md-6">
-                    <label class="form-label fw-semibold">Company</label>
-                    <input type="text" class="form-control" value="Doe Construction Ltd.">
+                        <label class="form-label fw-semibold">Company Name</label>
+                        <input type="text" class="form-control" value="{{ companyname }}">
                     </div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                    <label class="form-label fw-semibold">Phone</label>
-                    <input type="text" class="form-control" value="+1 (555) 123-4567">
+                        <label class="form-label fw-semibold">Phone 1</label>
+                        <input type="text" class="form-control" value="{{contact1}}">
                     </div>
+
+                    <div class="col-md-6">
+                    <label class="form-label fw-semibold">Phone 2</label>
+                    <input type="text" class="form-control" value="{{contact2}}">
+                    </div>
+
                     <div class="col-md-6">
                     <label class="form-label fw-semibold">Email</label>
-                    <input type="email" class="form-control" value="contact@doeconstruction.com">
+                    <input type="email" class="form-control" value="{{ compemail }}">
                     </div>
+
+                    <div class="col-md-6">
+                    <label class="form-label fw-semibold">Tin Number</label>
+                    <input type="text" class="form-control" value="{{ tinnumber }}">
+                    </div>
+                    
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6">
                     <label class="form-label fw-semibold">Address</label>
-                    <input type="text" class="form-control" value="123 Main St, Springfield">
+                    <input type="text" class="form-control" value="{{ address }}">
                     </div>
-                    <div class="col-md-6">
-                    <label class="form-label fw-semibold">License Number</label>
-                    <input type="text" class="form-control" value="LC-784923">
-                    </div>
+
                 </div>
 
                 </form>

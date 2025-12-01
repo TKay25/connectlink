@@ -102,7 +102,20 @@ def initialize_database_tables():
             ]
 
             for sql_stmt in comp_details_alters:
-                cursor.execute(sql_stmt)            
+                cursor.execute(sql_stmt) 
+
+
+            cursor.execute("""
+                INSERT INTO connectlinkdetails (address, contact1, contact2, email, companyname, tinnumber)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                "38A Coronation Avenue Greendale Harare",
+                773368558 ,
+                718047602,
+                "info@connectlinkproperties.co.zw",
+                "ConnectLink Properties",
+                ""
+            ))           
 
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkusers (
