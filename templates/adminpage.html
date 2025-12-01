@@ -586,6 +586,15 @@
             font-family: 'Century Gothic', sans-serif;  
         }
         
+        .eds-logo {
+            color: white;
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 0 10px #1E2A56;
+        }
+        
         .eds-tagline {
             color: #fff;
             font-size: 0.6rem;
@@ -752,6 +761,8 @@
     </div>
     
     <div class="sidebar p-2">
+        <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
+
         <br>
         <h5 class="mb-3 text-center">ADMINISTRATION SYSTEM</h5>
 
