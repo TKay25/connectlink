@@ -378,8 +378,32 @@ def run1(userid):
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
 
+        detailscompquery = f"SELECT * FROM connectlinkdetails;"
+        cursor.execute(detailscompquery)
+        detailscompdata = cursor.fetchall()
+        print(detailscompdata)
+
+        detailscompdata = pd.DataFrame(detailscompdata, columns= ['address', 'contact1', 'contact2', 'email', 'companyname', 'tinnumber'])
+        companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
+        address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
+        contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
+        contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
+        compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
+        tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
+        
+
+
+
+
+        
         return {
             "table_datamain_html": table_datamain_html,
+            "companyname": companyname,
+            "address": address,
+            "contact1": contact1,
+            "contact2": contact2,
+            "compemail": compemail,
+            "tinnumber": tinnumber
             }
 
 @app.route('/')

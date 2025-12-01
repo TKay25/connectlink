@@ -1193,16 +1193,16 @@
                                 <div class="row mb-3">
                                     <div class="col-md-4">
                                         <p class="text-muted mb-1">COMPANY</p>
-                                        <p class="fw-semibold">ConnectLink Properties</p>
+                                        <p class="fw-semibold">{{ companyname }}</p>
                                     </div>
                                     <div class="col-md-4">
                                         <p class="text-muted mb-1">PHONES</p>
-                                        <p class="fw-semibold">+263 773 368 558</p>
-                                        <p class="fw-semibold">+263 716 788 838</p>
+                                        <p class="fw-semibold">{{ contact1 }}</p>
+                                        <p class="fw-semibold">{{ contact2 }}</p>
                                     </div>
                                     <div class="col-md-4">
                                         <p class="text-muted mb-1">EMAIL</p>
-                                        <p class="fw-semibold">info@connectlinkproperties.co.zw</p>
+                                        <p class="fw-semibold">{{ compemail }}</p>
                                     </div>
                                 </div>
  
@@ -1210,15 +1210,15 @@
 
                                     <div class="col-md-4">
                                         <p class="text-muted mb-1">ADDRESS</p>
-                                        <p class="fw-semibold">33A Coronation Avenue Greendale Harare</p>
+                                        <p class="fw-semibold">{{ address }}</p>
                                     </div>
                                     <div class="col-md-4">
                                         <p class="text-muted mb-1">TIN NUMBER</p>
-                                        <p class="fw-semibold"></p>
+                                        <p class="fw-semibold">{{ tinnumber }}</p>
                                     </div>
                                 </div>
 
-                                <button class="btn btn-primary px-4 py-2">
+                                <button class="btn btn-primary px-4 py-2" data-bs-toggle="modal" data-bs-target="#editContractorModal">
                                     Edit Details
                                 </button>
 
