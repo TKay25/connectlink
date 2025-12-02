@@ -1600,24 +1600,33 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
         method: "POST",
         body: formData
     })
-    .then(response => {
-        if (response.redirected) {
-            // Flask may redirect after saving
-            window.location.href = response.url;
-        } else {
-            return response.text();
+    .then(async response => {
+
+        // If server returned JSON error 
+        if (!response.ok) {
+            let errorText = await response.text();
+            console.error("Server error:", errorText);
+            alert("❌ Failed to save: " + errorText);
+            throw new Error("Server returned an error");
         }
+
+        // If Flask redirected normally = success
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+
+        return response.text();
     })
     .then(data => {
         console.log("Server response:", data);
-        alert("Project saved successfully!");
-        location.reload();
-
+        alert("✅ Project saved successfully!");
     })
     .catch(error => {
         console.error("Error:", error);
-        alert("There was an error saving the project.");
+        alert("❌ There was an error saving the project.");
     });
+
 
 });
 </script>

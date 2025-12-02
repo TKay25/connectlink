@@ -640,7 +640,7 @@ def contract_log():
                 installment_due_dates = []
 
                 for i in range(months_to_pay):
-                    next_date = add_months(first_installment_due_date, i)
+                    next_date = add_months(first_installment_due_date_calc, i)
                     last_day = last_day_of_month(next_date)
                     installment_due_dates.append(last_day)
 
