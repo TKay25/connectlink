@@ -205,16 +205,9 @@
             <div class="field-value">{{ project.companyemail }}</div>
         </div>
 
-        <hr>
-
         <div class="field-row">
             <div class="field-label">Administrator Name:</div>
             <div class="field-value">{{ project.projectadministratorname }}</div>
-        </div>
-
-        <div class="field-row">
-            <div class="field-label">Administrator Contact:</div>
-            <div class="field-value">{{ project.projectadministratorcontact }}</div>
         </div>
 
         <br><br>
@@ -263,7 +256,7 @@
         <!-- LATE PAYMENT -->
         <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
         <p>- If the Client fails to make any payment on or before the due date, the Client shall be liable to pay 
-            interest at a rate of <span class="field-value" style="display:inline-block; width:80px;"></span>% per annum.
+            interest at a rate of <span class="field-value" style="display:inline-block; width:80px;">{{project.late_payment_interest}}</span>% per annum.
         </p>
         <p>- Interest is calculated daily and compounded monthly.</p>
         <p>- The Client shall also be liable for any costs incurred in recovering overdue amounts.</p>
