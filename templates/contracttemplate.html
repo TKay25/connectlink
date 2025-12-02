@@ -19,7 +19,7 @@
         padding: 50px 60px;
         border-radius: 14px;
         box-shadow: 0 8px 28px rgba(0,0,0,0.12);
-        line-height: 1.2;
+        line-height: 1;
     }
 
     .logo {
@@ -73,7 +73,7 @@
     .field-label {
         font-weight: 700;
         width: 170px; 
-        font-size: 14px;
+        font-size: 13px;
         flex-shrink: 0;
     }
 
@@ -81,7 +81,7 @@
         flex: 1;
         border-bottom: 1.5px solid #1E2A56;
         padding-bottom: 2px;
-        font-size: 14px;
+        font-size: 13px;
         min-height: 20px;
     }
 
@@ -140,7 +140,7 @@
         <h4 class="section-title">CLIENT DETAILS</h4>
 
         <div class="field-row">
-            <div class="field-label">Name:</div>
+            <div class="field-label">Full Name:</div>
             <div class="field-value">{{ project.client_name }}</div>
         </div>
 
@@ -163,7 +163,7 @@
         <h4 class="section-title">NEXT OF KIN DETAILS</h4>
 
         <div class="field-row">
-            <div class="field-label">Name:</div>
+            <div class="field-label">Full Name:</div>
             <div class="field-value">{{ project.next_of_kin_name }}</div>
         </div>
 
@@ -239,7 +239,7 @@
         </div>
 
         <div class="field-row">
-            <div class="field-label">Deposit Paid:</div>
+            <div class="field-label">Deposit Required:</div>
             <div class="field-value">USD {{ project.depositorbullet }}</div>
         </div>
 
