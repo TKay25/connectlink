@@ -359,12 +359,31 @@ def download_contract(project_id):
                 'depositorbullet': row[24] if len(row) > 24 else None,
                 'datedepositorbullet': row[25] if len(row) > 25 else None,
                 'monthlyinstallment': row[26] if len(row) > 26 else None,
+                'installment1amount': row[27] if len(row) > 27 else None,
+                'installment1duedate': row[28] if len(row) > 28 else None,
+                'installment1date': row[29] if len(row) > 29 else None,
+                'installment2amount': row[30] if len(row) > 30 else None,
+                'installment2duedate': row[31] if len(row) > 31 else None,
+                'installment2date': row[32] if len(row) > 32 else None,
+                'installment3amount': row[33] if len(row) > 33 else None,
+                'installment3duedate': row[34] if len(row) > 34 else None,
+                'installment3date': row[35] if len(row) > 35 else None,
+                'installment4amount': row[36] if len(row) > 36 else None,
+                'installment4duedate': row[37] if len(row) > 37 else None,
+                'installment4date': row[38] if len(row) > 38 else None,
+                'installment5amount': row[39] if len(row) > 39 else None,
+                'installment5duedate': row[40] if len(row) > 40 else None,
+                'installment5date': row[41] if len(row) > 41 else None,
+                'installment6amount': row[42] if len(row) > 42 else None,
+                'installment6duedate': row[43] if len(row) > 43 else None,
+                'installment6date': row[44] if len(row) > 44 else None,
                 'companyname': companyname,
                 'companyaddress': address,
                 'companycontact1': contact1,
                 'companycontact2': contact2,
-                'companyemail': compemail
+                'companyemail': compemail,
             }
+
 
             # Get logo as base64 for embedding in PDF
             def get_logo_base64():
