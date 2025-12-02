@@ -411,7 +411,7 @@ def download_contract(project_id):
                 'installment6amount': row[41] if len(row) > 41 else None,
                 'installment6duedate': row[42].strftime("%-d %B %Y") if len(row) > 42 else None,
                 'installment6date': row[43].strftime("%-d %B %Y") if len(row) > 43 else None,
-                "latepaymentinterest": row[44] if len(row) > 43 else None,
+                "latepaymentinterest": row[45] if len(row) > 43 else None,
                 'companyname': companyname,
                 'companyaddress': address,
                 'companycontact1': contact1,
