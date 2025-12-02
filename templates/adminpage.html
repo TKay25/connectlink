@@ -1232,7 +1232,7 @@
                                 <label for="updateCompletionStatus" class="form-label fw-bold">Completion Status</label>
                                 <select class="form-select" id="updateCompletionStatus" name="completion_status">
                                     <option value="Not Started">Not Started</option>
-                                    <option value="In Progress">In Progress</option>
+                                    <option value="In Progress">Ongoing</option>
                                     <option value="On Hold">On Hold</option>
                                     <option value="Completed">Completed</option>
                                     <option value="Cancelled">Cancelled</option>
@@ -1256,36 +1256,12 @@
                                     </div>
                                     <div class="col-md-4">
                                         <label for="updateInstallment1PaidDate" class="form-label fw-bold">Paid Date</label>
-                                        <input type="date" class="form-control" id="updateInstallment1PaidDate" name="installment1_paid_date">
+                                        <input type="date" class="form-control" id="updateInstallment1Date" name="installment1_paid_date">
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- You can add more installments here if needed -->
-                        <div class="card mb-3">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0">Additional Information</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <label for="updateProjectLocation" class="form-label fw-bold">Project Location</label>
-                                        <input type="text" class="form-control" id="updateProjectLocation" name="project_location">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="updateTotalContractPrice" class="form-label fw-bold">Total Contract Price (USD)</label>
-                                        <input type="text" class="form-control" id="updateTotalContractPrice" name="total_contract_price">
-                                    </div>
-                                </div>
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <label for="updateProjectDescription" class="form-label fw-bold">Project Description</label>
-                                        <textarea class="form-control" id="updateProjectDescription" name="project_description" rows="3"></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -1610,16 +1586,15 @@ $(document).ready(function() {
         const projectName = $row.find('td:eq(10)').text().trim(); // Third column (Project Name)
         const adminName = $row.find('td:eq(13)').text().trim(); // Fourth column (Admin Name)
         const completionStatus = $row.find('td:eq(44)').text().trim(); // Fifth column (Status)
-        const installment1Amount = $row.find('td:eq(5)').text().trim(); // Sixth column (Amount)
-        const installment1DueDate = $row.find('td:eq(6)').text().trim(); // Seventh column (Due Date)
-        const projectLocation = $row.find('td:eq(7)').text().trim(); // Eighth column (Location)
-        const totalPrice = $row.find('td:eq(8)').text().trim(); // Ninth column (Total Price)
-        
+        const installment1Amount = $row.find('td:eq(26)').text().trim(); // Sixth column (Amount)
+        const installment1DueDate = $row.find('td:eq(27)').text().trim(); // Seventh column (Due Date)
+        const installment1Date = $row.find('td:eq(28)').text().trim(); // Seventh column (Due Date)
+
         // Debug: Check what values you're getting
         console.log('Row data:', {
             id, clientName, projectName, adminName, 
             completionStatus, installment1Amount, 
-            installment1DueDate, projectLocation, totalPrice
+            installment1DueDate
         });
         
         // Set values in the modal
@@ -1630,8 +1605,8 @@ $(document).ready(function() {
         $('#updateCompletionStatus').val(completionStatus);
         $('#updateInstallment1Amount').val(installment1Amount);
         $('#updateInstallment1DueDate').val(installment1DueDate);
-        $('#updateProjectLocation').val(projectLocation);
-        $('#updateTotalContractPrice').val(totalPrice);
+        $('#updateInstallment1Date').val(installment1Date);
+
         
         // Clear the paid date field
         $('#updateInstallment1PaidDate').val('');
