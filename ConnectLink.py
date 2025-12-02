@@ -384,7 +384,6 @@ def download_contract(project_id):
                 'companyemail': compemail,
             }
 
-
             # Get logo as base64 for embedding in PDF
             def get_logo_base64():
                 logo_path = os.path.join(app.static_folder, 'images', 'web-logo.png')
