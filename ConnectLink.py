@@ -330,7 +330,7 @@ def download_contract(project_id):
             compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
             tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
 
-            nameclient = row[0]
+            nameclient = row[1]
             locationclientprojectnum = row[11]
 
             # Map row to dictionary
