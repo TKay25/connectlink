@@ -572,12 +572,12 @@ def contract_log():
                 client_name = request.form.get('client_name')
                 client_national_id = request.form.get('client_national_id')
                 client_address = request.form.get('client_address')
-                client_whatsapp_number = request.form.get('client_whatsapp_number')
+                client_whatsapp_number = request.form.get('client_whatsapp_number')[-9:]
                 client_email = request.form.get('client_email')
 
                 next_of_kin_name = request.form.get('next_of_kin_name')
                 next_of_kin_address = request.form.get('next_of_kin_address')
-                next_of_kin_contact_number = request.form.get('next_of_kin_contact_number')
+                next_of_kin_contact_number = request.form.get('next_of_kin_contact_number')[-9:]
                 relationship = request.form.get('relationship')
 
                 project_administrator = request.form.get('projectadministrator')
