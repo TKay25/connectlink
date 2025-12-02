@@ -508,7 +508,7 @@ def get_notes(project_id):
                 notes_list.append({
                     'id': note[0],
                     'capturer': note[2],
-                    'timestamp': note[1].strftime('%Y-%m-%d %H:%M:%S') if note[2] else None,
+                    'timestamp': note[1].strftime('%Y-%m-%d %H:%M:%S') if note[1] else None,
                     'note_text': note[3]
                 })
             

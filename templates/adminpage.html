@@ -1735,60 +1735,69 @@ $(document).ready(function() {
     }
     
     // Handle Add Note button click
-    $('#addNoteBtn').click(function() {
-        const projectId = $('#notesProjectId').val();
-        const noteText = $('#newNoteText').val().trim();
-        
-        if (!projectId) {
-            alert('No project selected');
-            return;
-        }
-        
-        if (!noteText) {
-            alert('Please enter a note');
-            $('#newNoteText').focus();
-            return;
-        }
-        
-        // Disable button and show loading
-        const btn = $(this);
-        const originalText = btn.html();
-        btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Adding...');
-        btn.prop('disabled', true);
-        
-        // Send note to server
-        $.ajax({
-            url: '/add_note',
-            method: 'POST',
-            data: {
-                project_id: projectId,
-                note_text: noteText
-            },
-            success: function(response) {
-                if (response.success) {
-                    // Clear textarea
-                    $('#newNoteText').val('');
-                    
-                    // Reload notes
-                    loadNotes(projectId);
-                    
-                    // Show success message
-                    showToast('Success', 'Note added successfully!', 'success');
-                } else {
-                    alert('Error: ' + response.message);
-                }
-            },
-            error: function() {
-                alert('Failed to add note. Please try again.');
-            },
-            complete: function() {
-                // Reset button
-                btn.html(originalText);
-                btn.prop('disabled', false);
-            }
-        });
-    });
+$('#addNoteBtn').click(function() {
+    const projectId = $('#notesProjectId').val();
+    const noteText = $('#newNoteText').val().trim();
     
+    if (!projectId) {
+        alert('No project selected');
+        return;
+    }
+    
+    if (!noteText) {
+        alert('Please enter a note');
+        $('#newNoteText').focus();
+        return;
+    }
+    
+    // Disable button and show loading
+    const btn = $(this);
+    const originalText = btn.html();
+    btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Adding...');
+    btn.prop('disabled', true);
+    
+    // Send note to server
+    $.ajax({
+        url: '/add_note',
+        method: 'POST',
+        data: {
+            project_id: projectId,
+            note_text: noteText
+        },
+        success: function(response) {
+            // Debug: Log the response
+            console.log('Response:', response);
+            console.log('Response type:', typeof response);
+            
+            if (response.success) {
+                // Clear textarea
+                $('#newNoteText').val('');
+                
+                // Reload notes
+                loadNotes(projectId);
+                
+                // Show success message
+                showToast('Success', 'Note added successfully!', 'success');
+            } else {
+                alert('Error: ' + (response.message || response.error || 'Unknown error'));
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', status, error);
+            console.error('Response:', xhr.responseText);
+            alert('Failed to add note. Please try again.');
+        },
+        complete: function() {
+            // Reset button
+            btn.html(originalText);
+            btn.prop('disabled', false);
+        }
+    });
+});
+
+
+
+
     // Optional: Add keyboard shortcut (Ctrl+Enter to add note)
     $('#newNoteText').keydown(function(e) {
         if (e.ctrlKey && e.keyCode === 13) { // Ctrl + Enter
