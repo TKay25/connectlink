@@ -531,7 +531,7 @@ def add_note():
             
             # Insert note into database
             cursor.execute("""
-                INSERT INTO project_notes (project_id, note_text, created_at, created_by)
+                INSERT INTO connectlinknotes (projectid, note_text, timestamp, capturer)
                 VALUES (%s, %s, NOW(), %s)
             """, (project_id, note_text, 'Admin'))  # Replace with actual user
             
