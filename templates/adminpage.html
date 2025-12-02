@@ -1597,182 +1597,50 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
-// Function to load data into update modal
-function loadUpdateData(projectId) {
-    // Set the project ID in hidden field
-    document.getElementById('updateProjectId').value = projectId;
-    
-    // Show loading state
-    const modalBody = document.querySelector('#updateModal .modal-body');
-    modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Loading project data...</p></div>';
-    
-    // Fetch project data from server
-    fetch(`/get_project_data/${projectId}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Populate form fields with data
-            populateUpdateForm(data);
-        })
-        .catch(error => {
-            console.error('Error loading project data:', error);
-            modalBody.innerHTML = '<div class="alert alert-danger">Failed to load project data. Please try again.</div>';
+$(document).ready(function() {
+    // Handle Update button click
+    $(document).on('click', '.update-project-btn', function () {
+        // Get the table row that contains this button
+        const $row = $(this).closest('tr');
+        
+        // Get data from table cells - adjust indices based on your table structure
+        // You'll need to check what column index each data is in
+        const id = $row.find('td:eq(0)').text().trim(); // First column (ID)
+        const clientName = $row.find('td:eq(1)').text().trim(); // Second column (Client Name)
+        const projectName = $row.find('td:eq(2)').text().trim(); // Third column (Project Name)
+        const adminName = $row.find('td:eq(3)').text().trim(); // Fourth column (Admin Name)
+        const completionStatus = $row.find('td:eq(4)').text().trim(); // Fifth column (Status)
+        const installment1Amount = $row.find('td:eq(5)').text().trim(); // Sixth column (Amount)
+        const installment1DueDate = $row.find('td:eq(6)').text().trim(); // Seventh column (Due Date)
+        const projectLocation = $row.find('td:eq(7)').text().trim(); // Eighth column (Location)
+        const totalPrice = $row.find('td:eq(8)').text().trim(); // Ninth column (Total Price)
+        
+        // Debug: Check what values you're getting
+        console.log('Row data:', {
+            id, clientName, projectName, adminName, 
+            completionStatus, installment1Amount, 
+            installment1DueDate, projectLocation, totalPrice
         });
-}
-
-// Function to populate form with data
-function populateUpdateForm(data) {
-    // Basic information
-    document.getElementById('updateClientName').value = data.clientname || '';
-    document.getElementById('updateProjectName').value = data.projectname || '';
-    document.getElementById('updateAdminName').value = data.projectadministratorname || '';
-    
-    // Completion status
-    const statusSelect = document.getElementById('updateCompletionStatus');
-    if (data.completion_status) {
-        statusSelect.value = data.completion_status;
-    }
-    
-    // Installment 1 details
-    document.getElementById('updateInstallment1Amount').value = data.installment1amount || '';
-    document.getElementById('updateInstallment1DueDate').value = formatDateForDisplay(data.installment1duedate) || '';
-    document.getElementById('updateInstallment1PaidDate').value = formatDateForInput(data.installment1_paid_date) || '';
-    
-    // Additional fields
-    document.getElementById('updateProjectLocation').value = data.project_location || '';
-    document.getElementById('updateTotalContractPrice').value = data.total_contract_price || '';
-    document.getElementById('updateProjectDescription').value = data.project_description || '';
-}
-
-// Helper function to format date for display
-function formatDateForDisplay(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-    });
-}
-
-// Helper function to format date for date input
-function formatDateForInput(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
-}
-
-// Save changes handler
-document.getElementById('saveUpdateChanges').addEventListener('click', function() {
-    const projectId = document.getElementById('updateProjectId').value;
-    const formData = new FormData(document.getElementById('updateProjectForm'));
-    
-    // Convert FormData to JSON
-    const data = {};
-    formData.forEach((value, key) => {
-        data[key] = value;
+        
+        // Set values in the modal
+        $('#updateProjectId').val(id);
+        $('#updateClientName').val(clientName);
+        $('#updateProjectName').val(projectName);
+        $('#updateAdminName').val(adminName);
+        $('#updateCompletionStatus').val(completionStatus);
+        $('#updateInstallment1Amount').val(installment1Amount);
+        $('#updateInstallment1DueDate').val(installment1DueDate);
+        $('#updateProjectLocation').val(projectLocation);
+        $('#updateTotalContractPrice').val(totalPrice);
+        
+        // Clear the paid date field
+        $('#updateInstallment1PaidDate').val('');
+        
+        // Show the modal
+        $('#updateModal').modal('show');
     });
     
-    // Add project ID
-    data.project_id = projectId;
-    
-    // Show loading on save button
-    const saveButton = this;
-    const originalText = saveButton.innerHTML;
-    saveButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
-    saveButton.disabled = true;
-    
-    // Send update request
-    fetch('/update_project', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            // Show success message
-            showToast('Success', 'Project updated successfully!', 'success');
-            
-            // Close modal after short delay
-            setTimeout(() => {
-                const modal = bootstrap.Modal.getInstance(document.getElementById('updateModal'));
-                modal.hide();
-                
-                // Refresh page or update table data
-                location.reload(); // Or update specific row
-            }, 1500);
-        } else {
-            throw new Error(result.message || 'Update failed');
-        }
-    })
-    .catch(error => {
-        console.error('Error updating project:', error);
-        showToast('Error', 'Failed to update project. Please try again.', 'error');
-    })
-    .finally(() => {
-        // Reset button
-        saveButton.innerHTML = originalText;
-        saveButton.disabled = false;
-    });
-});
-
-// Toast notification function (if not already defined)
-function showToast(title, message, type = 'info') {
-    // Create or use existing toast container
-    let toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-        document.body.appendChild(toastContainer);
-    }
-    
-    const toastId = 'toast-' + Date.now();
-    const bgClass = type === 'success' ? 'bg-success' : 
-                    type === 'error' ? 'bg-danger' : 
-                    type === 'warning' ? 'bg-warning' : 'bg-info';
-    
-    const toastHtml = `
-        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header ${bgClass} text-white">
-                <strong class="me-auto">${title}</strong>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body">
-                ${message}
-            </div>
-        </div>
-    `;
-    
-    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-    
-    const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement, {
-        autohide: true,
-        delay: 5000
-    });
-    toast.show();
-    
-    // Remove toast from DOM after it's hidden
-    toastElement.addEventListener('hidden.bs.toast', function () {
-        this.remove();
-    });
-}
-
-// Initialize modal event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    // Clear form when modal is hidden
-    const updateModal = document.getElementById('updateModal');
-    updateModal.addEventListener('hidden.bs.modal', function () {
-        document.getElementById('updateProjectForm').reset();
-    });
+    // Rest of your save handler...
 });
 </script>
 <script>
