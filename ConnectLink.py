@@ -330,6 +330,9 @@ def download_contract(project_id):
             compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
             tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
 
+            nameclient = row[0]
+            locationclientprojectnum = row[11]
+
             # Map row to dictionary
             project = {
                 'id': row[0],
@@ -401,7 +404,7 @@ def download_contract(project_id):
             # Return PDF as response
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
-            response.headers['Content-Disposition'] = f'attachment; filename=contract_{project_id}.pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename={nameclient}_{locationclientprojectnum}_contract_{project_id}.pdf'
             return response
 
         except Exception as e:
