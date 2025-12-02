@@ -501,19 +501,21 @@ def get_notes(project_id):
             """, (project_id,))
             
             notes = cursor.fetchall()
+            print(notes)
             
             notes_list = []
             for note in notes:
                 notes_list.append({
                     'id': note[0],
-                    'timestamp': note[1],
-                    'capturer': note[2].strftime('%Y-%m-%d %H:%M:%S') if note[2] else None,
+                    'capturer': note[2],
+                    'timestamp': note[1].strftime('%Y-%m-%d %H:%M:%S') if note[2] else None,
                     'note_text': note[3]
                 })
             
             return jsonify({'success': True, 'notes': notes_list})
             
         except Exception as e:
+            print(e)
             return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/add_note', methods=['POST'])
