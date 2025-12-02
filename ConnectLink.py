@@ -496,7 +496,7 @@ def get_notes(project_id):
             cursor.execute("""
                 SELECT id, timestamp, capturer, note 
                 FROM connectlinknotes 
-                WHERE project_id = %s 
+                WHERE projectid = %s 
                 ORDER BY id DESC
             """, (project_id,))
             
