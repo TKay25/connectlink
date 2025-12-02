@@ -1502,6 +1502,47 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <script>
+function handleDownloadClick(button) {
+    // Store original text
+    const originalText = button.textContent;
+    
+    // Change to "Downloading..."
+    button.textContent = "Downloading...";
+    button.disabled = true;
+    
+    // Optional: Add a spinner
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Downloading...';
+    
+    // The download will start automatically since it's an anchor tag
+    
+    // Reset button after 3 seconds (or when download completes)
+    setTimeout(() => {
+        button.textContent = originalText;
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }, 3000);
+    
+    return true; // Allow the download to proceed
+}
+
+// Alternative: Using event delegation if buttons are dynamically added
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('download-contract-btn')) {
+        const button = e.target;
+        const originalText = button.textContent;
+        
+        button.textContent = "Downloading...";
+        button.disabled = true;
+        
+        // Optional: Change back after 3 seconds
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.disabled = false;
+        }, 3000);
+    }
+});
+</script>
+<script>
 document.getElementById("saveAdminBtn").addEventListener("click", function () {
 
     const name = document.getElementById("adminName").value.trim();
