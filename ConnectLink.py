@@ -604,6 +604,54 @@ def contract_log():
                 monthlyinstallment = (float(total_contract_price) - float(depostorbullet))/int(months_to_pay)
                 project_completion_status = "Ongoing"
 
+                if months_to_pay == 1:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = 0
+                    installment3amount = 0
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+
+                elif months_to_pay == 2:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = 0
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+                
+                elif months_to_pay == 3:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+
+                elif months_to_pay == 4:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = 0
+                    installment6amount = 0
+
+                elif months_to_pay == 5:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = 0
+
+                elif months_to_pay == 6:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+
 
                 first_installment_due_date = request.form.get('first_installment_due_date')
 
@@ -668,7 +716,7 @@ def contract_log():
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
                             paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
-                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus
+                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount
                         ) VALUES (
                             %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
@@ -705,7 +753,13 @@ def contract_log():
                         today_date,
                         capturer,
                         capturerid,
-                        project_completion_status
+                        project_completion_status,
+                        installment1amount,
+                        installment2amount,
+                        installment3amount,
+                        installment4amount,
+                        installment5amount,
+                        installment6amount
                     )
 
         
