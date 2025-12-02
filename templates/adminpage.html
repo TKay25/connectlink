@@ -2292,7 +2292,7 @@ document.getElementById("saveAdminBtn").addEventListener("click", function () {
             const modal = bootstrap.Modal.getInstance(document.getElementById("addAdminplusModal"));
             modal.hide();
 
-            document.getElementById("adminForm").reset();
+            location.reload();
 
         } else {
             alert("Error: " + data.message);
@@ -2363,6 +2363,8 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     .then(data => {
         console.log("Server response:", data);
         alert("Project saved successfully!");
+        location.reload();
+
     })
     .catch(error => {
         console.error("Error:", error);
@@ -2425,6 +2427,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     alert('Administrator removed!');
                     // Optionally remove the row from table
                     e.target.closest('tr').remove();
+                    location.reload();
+
                 } else {
                     alert('Error: ' + data.message);
                 }
