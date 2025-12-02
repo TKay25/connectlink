@@ -348,12 +348,9 @@ def download_contract(project_id):
 
             # Calculate days between two dates
             def days_between(date1, date2):
-                # Convert strings to date objects
-                d1 = datetime.strptime(date1, "%Y-%m-%d").date()
-                d2 = datetime.strptime(date2, "%Y-%m-%d").date()
                 
                 # Calculate difference
-                delta = d2 - d1
+                delta = date_str1 - date_str2
                 return abs(delta.days)
 
             # Example usage
