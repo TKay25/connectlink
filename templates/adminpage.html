@@ -1231,6 +1231,7 @@
                             <div class="col-md-6">
                                 <label for="updateCompletionStatus" class="form-label fw-bold">Completion Status</label>
                                 <select class="form-select" id="updateCompletionStatus" name="completion_status">
+                                    <option value="ph" selected disabled>ph</option>
                                     <option value="Not Started">Not Started</option>
                                     <option value="In Progress">Ongoing</option>
                                     <option value="On Hold">On Hold</option>
@@ -1263,8 +1264,8 @@
                                 <!-- Get Receipt Button Row -->
                                 <div class="row mt-3">
                                     <div class="col-12">
-                                        <button type="button" class="btn btn-primary3" id="getReceiptBtn">
-                                            <i class="fas fa-receipt me-2"></i>Get Receipt
+                                        <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
+                                            <i class="bi bi-receipt me-2"></i>Get Receipt
                                         </button>
                                     </div>
                                 </div>
@@ -1294,8 +1295,8 @@
                                 <!-- Get Receipt Button Row -->
                                 <div class="row mt-3">
                                     <div class="col-12">
-                                        <button type="button" class="btn btn-primary3" id="getReceiptBtn">
-                                            <i class="fas fa-receipt me-2"></i>Get Receipt
+                                        <button type="button" class="btn btn-primary3" id="getReceipt2Btn" style="width: max-content;">
+                                            <i class="bi bi-receipt me-2"></i>Get Receipt
                                         </button>
                                     </div>
                                 </div>
@@ -1636,7 +1637,7 @@ $(document).ready(function() {
         const installment2Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
 
         
-        $('#updateCompletionStatus option[value="Not Started"]').text(completionStatus);
+        $('#updateCompletionStatus option[value="ph"]').text(completionStatus);
 
         // Debug: Check what values you're getting
         console.log('Row data:', {
