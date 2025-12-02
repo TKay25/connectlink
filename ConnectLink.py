@@ -553,38 +553,41 @@ from flask import jsonify
 
 @app.route('/get_project_data/<int:project_id>')
 def get_project_data(project_id):
-    try:
-        # Query your database for the project
-        cursor.execute("""
-            SELECT 
-                client_name, project_name, projectadministratorname,
-                completion_status, installment1amount, installment1duedate,
-                installment1_paid_date, project_location, total_contract_price,
-                project_description
-            FROM your_projects_table
-            WHERE id = %s
-        """, (project_id,))
-        
-        project = cursor.fetchone()
-        
-        if project:
-            return jsonify({
-                'client_name': project[0],
-                'project_name': project[1],
-                'projectadministratorname': project[2],
-                'completion_status': project[3],
-                'installment1amount': project[4],
-                'installment1duedate': project[5].strftime('%Y-%m-%d') if project[5] else None,
-                'installment1_paid_date': project[6].strftime('%Y-%m-%d') if project[6] else None,
-                'project_location': project[7],
-                'total_contract_price': project[8],
-                'project_description': project[9]
-            })
-        else:
-            return jsonify({'error': 'Project not found'}), 404
+
+    with get_db() as (cursor, connection):
+
+        try:
+            # Query your database for the project
+            cursor.execute("""
+                SELECT 
+                    client_name, project_name, projectadministratorname,
+                    completion_status, installment1amount, installment1duedate,
+                    installment1_paid_date, project_location, total_contract_price,
+                    project_description
+                FROM your_projects_table
+                WHERE id = %s
+            """, (project_id,))
             
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+            project = cursor.fetchone()
+            
+            if project:
+                return jsonify({
+                    'client_name': project[0],
+                    'project_name': project[1],
+                    'projectadministratorname': project[2],
+                    'completion_status': project[3],
+                    'installment1amount': project[4],
+                    'installment1duedate': project[5].strftime('%Y-%m-%d') if project[5] else None,
+                    'installment1_paid_date': project[6].strftime('%Y-%m-%d') if project[6] else None,
+                    'project_location': project[7],
+                    'total_contract_price': project[8],
+                    'project_description': project[9]
+                })
+            else:
+                return jsonify({'error': 'Project not found'}), 404
+                
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
 @app.route('/update_project', methods=['POST'])
 def update_project():
