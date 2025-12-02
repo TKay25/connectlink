@@ -1710,7 +1710,7 @@ $(document).ready(function() {
         
         let notesHtml = '';
         notes.forEach((note, index) => {
-            const date = new Date(note.created_at).toLocaleString();
+            const date = new Date(note.timestamp).toLocaleString();
             notesHtml += `
                 <div class="card mb-3 ${index !== 0 ? 'mt-3' : ''}">
                     <div class="card-body">
