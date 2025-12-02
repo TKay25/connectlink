@@ -1623,7 +1623,6 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-
     document.querySelector('#allprojectsTable').addEventListener('click', function(e) {
         if (e.target && e.target.classList.contains('view-project-btn')) {
 
@@ -1634,19 +1633,71 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(response => response.json())
             .then(data => {
 
-                // Build table rows dynamically
+                // Define the exact order you want
+                const fieldOrder = [
+                    "id",
+                    "datecaptured",
+                    "capturer",
+                    "capturerid",
+                    "clientname",
+                    "clientidnumber",
+                    "clientaddress",
+                    "clientwanumber",
+                    "clientemail",
+                    "clientnextofkinname",
+                    "clientnextofkinaddress",
+                    "clientnextofkinphone",
+                    "nextofkinrelationship",
+                    "projectname",
+                    "projectlocation",
+                    "projectdescription",
+                    "projectadministratorname",
+                    "projectstartdate",
+                    "projectduration",
+                    "contractagreementdate",
+                    "totalcontractamount",
+                    "latepaymentinterest",
+                    "paymentmethod",
+                    "monthstopay",
+                    "depositorbullet",
+                    "datedepositorbullet",
+                    "monthlyinstallment",
+                    "installment1amount",
+                    "installment1duedate",
+                    "installment2amount",
+                    "installment2duedate",
+                    "installment3amount",
+                    "installment3duedate",
+                    "installment4amount",
+                    "installment4duedate",
+                    "installment5amount",
+                    "installment5duedate",
+                    "installment6amount",
+                    "installment6duedate",
+                    "projectcompletionstatus"
+                ];
+
+                // Get the table body
                 const tbody = document.getElementById('projectDetailsBody');
-                tbody.innerHTML = ''; // Clear previous
+                tbody.innerHTML = ''; // Clear old data
 
-                for (const key in data) {
-                    const row = document.createElement('tr');
+                // Build rows in the exact order defined above
+                fieldOrder.forEach(key => {
+                    if (data[key] !== undefined) {
 
-                    row.innerHTML = `
-                        <th style="width: 30%; text-transform: capitalize;">${key.replace(/_/g, ' ')}</th>
-                        <td>${data[key]}</td>
-                    `;
-                    tbody.appendChild(row);
-                }
+                        const row = document.createElement('tr');
+
+                        row.innerHTML = `
+                            <th style="width: 30%; text-transform: capitalize;">
+                                ${key.replace(/_/g, ' ')}
+                            </th>
+                            <td>${data[key] === null ? "" : data[key]}</td>
+                        `;
+
+                        tbody.appendChild(row);
+                    }
+                });
+
             })
             .catch(err => {
                 alert('Failed to fetch project details: ' + err);
@@ -1654,6 +1705,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         }
     });
+
 
         // Delegate click events for dynamically generated buttons
     document.querySelector('#alladminsTable').addEventListener('click', function(e) {
