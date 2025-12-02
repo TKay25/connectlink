@@ -497,7 +497,7 @@ def get_notes(project_id):
                 SELECT id, timestamp, capturer, note 
                 FROM connectlinknotes 
                 WHERE project_id = %s 
-                ORDER BY created_at DESC
+                ORDER BY id DESC
             """, (project_id,))
             
             notes = cursor.fetchall()
@@ -508,7 +508,7 @@ def get_notes(project_id):
                     'id': note[0],
                     'timestamp': note[1],
                     'capturer': note[2].strftime('%Y-%m-%d %H:%M:%S') if note[2] else None,
-                    'note': note[3]
+                    'note_text': note[3]
                 })
             
             return jsonify({'success': True, 'notes': notes_list})
