@@ -1255,18 +1255,59 @@
                                         <input type="text" class="form-control" id="updateInstallment1DueDate" readonly>
                                     </div>
                                     <div class="col-md-4">
-                                        <label for="updateInstallment1PaidDate" class="form-label fw-bold">Paid Date</label>
+                                        <label for="updateInstallment1PaidDate" class="form-label fw-bold">Date Paid</label>
                                         <input type="date" class="form-control" id="updateInstallment1Date" name="installment1_paid_date">
+                                    </div>
+                                </div>
+                                
+                                <!-- Get Receipt Button Row -->
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <button type="button" class="btn btn-primary3" id="getReceiptBtn">
+                                            <i class="fas fa-receipt me-2"></i>Get Receipt
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Installment 2 Details</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label for="updateInstallment1Amount" class="form-label fw-bold">Amount (USD)</label>
+                                        <input type="text" class="form-control" id="updateInstallment2Amount" readonly>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="updateInstallment1DueDate" class="form-label fw-bold">Due Date</label>
+                                        <input type="text" class="form-control" id="updateInstallment2DueDate" readonly>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="updateInstallment1PaidDate" class="form-label fw-bold">Date Paid</label>
+                                        <input type="date" class="form-control" id="updateInstallment2Date" name="installment1_paid_date">
+                                    </div>
+                                </div>
+                                
+                                <!-- Get Receipt Button Row -->
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <button type="button" class="btn btn-primary3" id="getReceiptBtn">
+                                            <i class="fas fa-receipt me-2"></i>Get Receipt
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>                        
+
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary3" id="saveUpdateChanges">Download Payments History</button>    
                     <button type="button" class="btn btn-primary" id="saveUpdateChanges">Save Changes</button>
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -1589,6 +1630,9 @@ $(document).ready(function() {
         const installment1Amount = $row.find('td:eq(26)').text().trim(); // Sixth column (Amount)
         const installment1DueDate = $row.find('td:eq(27)').text().trim(); // Seventh column (Due Date)
         const installment1Date = $row.find('td:eq(28)').text().trim(); // Seventh column (Due Date)
+        const installment2Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
+        const installment2DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
+        const installment2Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
 
         // Debug: Check what values you're getting
         console.log('Row data:', {
@@ -1606,7 +1650,9 @@ $(document).ready(function() {
         $('#updateInstallment1Amount').val(installment1Amount);
         $('#updateInstallment1DueDate').val(installment1DueDate);
         $('#updateInstallment1Date').val(installment1Date);
-
+        $('#updateInstallment2Amount').val(installment2Amount);
+        $('#updateInstallment2DueDate').val(installment2DueDate);
+        $('#updateInstallment2Date').val(installment2Date);
         
         // Clear the paid date field
         $('#updateInstallment1PaidDate').val('');
