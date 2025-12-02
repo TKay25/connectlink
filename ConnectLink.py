@@ -118,6 +118,19 @@ def initialize_database_tables():
             ))'''          
 
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS connectlinknotes (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP,
+                    capturer VARCHAR (100),
+                    capturerid INT,
+                    projectid INT,
+                    note VARCHAR (1000)
+                );
+            """)
+
+
+
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkusers (
                     id SERIAL PRIMARY KEY,
                     datecreated date,
