@@ -286,7 +286,7 @@
         <!-- LATE PAYMENT -->
         <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
         <p>- If the Client fails to make any payment on or before the due date, the Client shall be liable to pay 
-            interest at a rate of <span class="field-value" style="display:inline-block; width:80px;">{{project.late_payment_interest}}</span>% per annum.
+            interest at a rate of <span class="field-value" style="display:inline-block; width:80px;">{{project.latepaymentinterest}}</span>% per annum.
         </p>
         <p>- Interest is calculated daily and compounded monthly.</p>
         <p>- The Client shall also be liable for any costs incurred in recovering overdue amounts.</p>
@@ -294,9 +294,9 @@
         <!-- TERMS AND CONDITIONS -->
         <h4 class="section-title">TERMS AND CONDITIONS</h4>
         <ol>
-            <li>The Contractor shall commence work within <span class="field-value" style="display:inline-block; width:80px;"></span> days of receiving the first payment.</li>
+            <li>The Contractor shall commence work within <span class="field-value" style="display:inline-block; width:80px;">{{project.days_difference}}</span> days of receiving the first payment.</li>
             <li>The Client shall make payments as per the payment schedule.</li>
-            <li>The Contractor shall complete the project within <span class="field-value" style="display:inline-block; width:80px;"></span> months.</li>
+            <li>The Contractor shall complete the project within <span class="field-value" style="display:inline-block; width:80px;">{{project.project_duration}}</span> days.</li>
             <li>The Client is responsible for obtaining all required permits.</li>
             <li>The Contractor is responsible for all materials and labor.</li>
         </ol>

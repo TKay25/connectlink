@@ -346,6 +346,28 @@ def download_contract(project_id):
             nameclient = row[1]
             locationclientprojectnum = row[11]
 
+            # Calculate days between two dates
+            def days_between(date1, date2):
+                # Convert strings to date objects
+                d1 = datetime.strptime(date1, "%Y-%m-%d").date()
+                d2 = datetime.strptime(date2, "%Y-%m-%d").date()
+                
+                # Calculate difference
+                delta = d2 - d1
+                return abs(delta.days)
+
+            # Example usage
+            date_str1 = row[14]
+            date_str2 = row[24]
+
+            # Store the result in a variable
+            days_difference = days_between(date_str1, date_str2)
+            print(days_difference)  # Output: 14
+
+
+
+
+
             # Map row to dictionary
             project = {
                 'id': row[0],
@@ -398,6 +420,7 @@ def download_contract(project_id):
                 'companycontact1': contact1,
                 'companycontact2': contact2,
                 'companyemail': compemail,
+                'days_difference': days_difference
             }
 
             # Get logo as base64 for embedding in PDF
