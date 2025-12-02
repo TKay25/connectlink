@@ -1531,6 +1531,48 @@
         </div>
     </div>
 
+        <!-- Notes Modal -->
+    <div class="modal fade" id="notesModal" tabindex="-1" aria-labelledby="notesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #1E2A56; color: white;">
+                    <h5 class="modal-title" id="notesModalLabel">Project Notes</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="notesProjectId">
+                    
+                    <!-- Display Container for Existing Notes -->
+                    <div class="notes-display-container mb-4">
+                        <h6 class="mb-3">Existing Notes:</h6>
+                        <div id="notesList" class="border rounded p-3" style="max-height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                            <!-- Notes will be loaded here -->
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-journal-text display-6"></i>
+                                <p class="mt-2">No notes yet. Add your first note below.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Add New Note Section -->
+                    <div class="add-note-section">
+                        <h6 class="mb-3">Add New Note:</h6>
+                        <div class="mb-3">
+                            <textarea class="form-control" id="newNoteText" rows="4" placeholder="Enter your note here..." style="resize: vertical;"></textarea>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-primary3" id="addNoteBtn">
+                                <i class="bi bi-plus-circle me-2"></i>Add Note
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="modal fade" id="exportleaveapplicationsreportModal" tabindex="-1" aria-labelledby="exportleaveapplicationsreportModalLabel" >
         <div class="modal-dialog">
@@ -1614,6 +1656,160 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+$(document).ready(function() {
+    // Function to load notes for a project
+    function loadNotes(projectId) {
+        // Set project ID in hidden field
+        $('#notesProjectId').val(projectId);
+        
+        // Clear the textarea
+        $('#newNoteText').val('');
+        
+        // Show loading in notes container
+        $('#notesList').html(`
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading notes...</p>
+            </div>
+        `);
+        
+        // Fetch notes from server
+        $.ajax({
+            url: '/get_notes/' + projectId,
+            method: 'GET',
+            success: function(response) {
+                displayNotes(response.notes || []);
+            },
+            error: function() {
+                $('#notesList').html(`
+                    <div class="alert alert-danger">
+                        Failed to load notes. Please try again.
+                    </div>
+                `);
+            }
+        });
+    }
+    
+    // Function to display notes in the container
+    function displayNotes(notes) {
+        const notesList = $('#notesList');
+        
+        if (notes.length === 0) {
+            notesList.html(`
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-journal-text display-6"></i>
+                    <p class="mt-2">No notes yet. Add your first note below.</p>
+                </div>
+            `);
+            return;
+        }
+        
+        let notesHtml = '';
+        notes.forEach((note, index) => {
+            const date = new Date(note.created_at).toLocaleString();
+            notesHtml += `
+                <div class="card mb-3 ${index !== 0 ? 'mt-3' : ''}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-light text-dark">Note #${index + 1}</span>
+                            <small class="text-muted">${date}</small>
+                        </div>
+                        <p class="card-text mb-0">${escapeHtml(note.note_text)}</p>
+                    </div>
+                </div>
+            `;
+        });
+        
+        notesList.html(notesHtml);
+    }
+    
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Handle Add Note button click
+    $('#addNoteBtn').click(function() {
+        const projectId = $('#notesProjectId').val();
+        const noteText = $('#newNoteText').val().trim();
+        
+        if (!projectId) {
+            alert('No project selected');
+            return;
+        }
+        
+        if (!noteText) {
+            alert('Please enter a note');
+            $('#newNoteText').focus();
+            return;
+        }
+        
+        // Disable button and show loading
+        const btn = $(this);
+        const originalText = btn.html();
+        btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Adding...');
+        btn.prop('disabled', true);
+        
+        // Send note to server
+        $.ajax({
+            url: '/add_note',
+            method: 'POST',
+            data: {
+                project_id: projectId,
+                note_text: noteText
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Clear textarea
+                    $('#newNoteText').val('');
+                    
+                    // Reload notes
+                    loadNotes(projectId);
+                    
+                    // Show success message
+                    showToast('Success', 'Note added successfully!', 'success');
+                } else {
+                    alert('Error: ' + response.message);
+                }
+            },
+            error: function() {
+                alert('Failed to add note. Please try again.');
+            },
+            complete: function() {
+                // Reset button
+                btn.html(originalText);
+                btn.prop('disabled', false);
+            }
+        });
+    });
+    
+    // Optional: Add keyboard shortcut (Ctrl+Enter to add note)
+    $('#newNoteText').keydown(function(e) {
+        if (e.ctrlKey && e.keyCode === 13) { // Ctrl + Enter
+            $('#addNoteBtn').click();
+        }
+    });
+    
+    // Clear textarea when modal is hidden
+    $('#notesModal').on('hidden.bs.modal', function() {
+        $('#newNoteText').val('');
+        $('#notesProjectId').val('');
+    });
+    
+    // Update the notes button click handler if you removed onclick attribute
+    $(document).on('click', '.notes-btn', function() {
+        const projectId = $(this).data('id');
+        loadNotes(projectId);
+    });
+});
+</script>
+
 <script>
 $(document).ready(function() {
 

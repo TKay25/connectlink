@@ -483,6 +483,67 @@ def remove_admin():
             return jsonify({"status": "error", "message": str(e)})
 
 
+from flask import jsonify
+from datetime import datetime
+
+@app.route('/get_notes/<int:project_id>')
+def get_notes(project_id):
+
+    with get_db() as (cursor, connection):
+
+        try:
+            # Fetch notes from database
+            cursor.execute("""
+                SELECT id, timestamp, capturer, note 
+                FROM connectlinknotes 
+                WHERE project_id = %s 
+                ORDER BY created_at DESC
+            """, (project_id,))
+            
+            notes = cursor.fetchall()
+            
+            notes_list = []
+            for note in notes:
+                notes_list.append({
+                    'id': note[0],
+                    'timestamp': note[1],
+                    'capturer': note[2].strftime('%Y-%m-%d %H:%M:%S') if note[2] else None,
+                    'note': note[3]
+                })
+            
+            return jsonify({'success': True, 'notes': notes_list})
+            
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/add_note', methods=['POST'])
+def add_note():
+        
+    with get_db() as (cursor, connection):
+        
+
+        try:
+            project_id = request.form.get('project_id')
+            note_text = request.form.get('note_text')
+            
+            if not project_id or not note_text:
+                return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+            
+            # Insert note into database
+            cursor.execute("""
+                INSERT INTO project_notes (project_id, note_text, created_at, created_by)
+                VALUES (%s, %s, NOW(), %s)
+            """, (project_id, note_text, 'Admin'))  # Replace with actual user
+            
+            connection.commit()
+            
+            return jsonify({'success': True, 'message': 'Note added successfully'})
+            
+        except Exception as e:
+            connection.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+
 
 def run1(userid):
 
@@ -517,7 +578,7 @@ def run1(userid):
 
 
         datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus','latepaymentinterest'])
-        datamain['Action'] = datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{x}" class="btn btn-primary3 download-contract-btn" data-id="{x}" onclick="handleDownloadClick(this)"> Download Contract</a>    <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{x}">View Project</button><button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-ID="{x}">Notes</button>        <button class="btn btn-primary3 update-project-btn">Update</button></div>''')
+        datamain['Action'] = datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{x}" class="btn btn-primary3 download-contract-btn" data-id="{x}" onclick="handleDownloadClick(this)"> Download Contract</a>    <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{x}">View Project</button><button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-ID="{x}" onclick="loadNotes({x})">Notes</button>        <button class="btn btn-primary3 update-project-btn">Update</button></div>''')
         datamain = datamain[['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus', 'latepaymentinterest', 'Action']]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
