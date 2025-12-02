@@ -1734,7 +1734,6 @@ $(document).ready(function() {
         return div.innerHTML;
     }
     
-    // Handle Add Note button click
 $('#addNoteBtn').click(function() {
     const projectId = $('#notesProjectId').val();
     const noteText = $('#newNoteText').val().trim();
@@ -1765,11 +1764,10 @@ $('#addNoteBtn').click(function() {
             note_text: noteText
         },
         success: function(response) {
-            // Debug: Log the response
             console.log('Response:', response);
-            console.log('Response type:', typeof response);
             
-            if (response.success) {
+            // Check if response is valid JSON and has success
+            if (response && response.success === true) {
                 // Clear textarea
                 $('#newNoteText').val('');
                 
@@ -1777,26 +1775,23 @@ $('#addNoteBtn').click(function() {
                 loadNotes(projectId);
                 
                 // Show success message
-                showToast('Success', 'Note added successfully!', 'success');
+                alert('Note added successfully!');
             } else {
-                alert('Error: ' + (response.message || response.error || 'Unknown error'));
+                const errorMsg = response?.message || response?.error || 'Failed to add note';
+                alert('Error: ' + errorMsg);
             }
         },
         error: function(xhr, status, error) {
-            console.error('AJAX Error:', status, error);
-            console.error('Response:', xhr.responseText);
+            console.error('AJAX Error:', status, error, xhr.responseText);
             alert('Failed to add note. Please try again.');
-        },
-        complete: function() {
-            // Reset button
-            btn.html(originalText);
-            btn.prop('disabled', false);
         }
+    }).always(function() {
+        // This runs whether success or error - ALWAYS RESETS THE BUTTON
+        console.log('AJAX complete - resetting button');
+        btn.html(originalText);
+        btn.prop('disabled', false);
     });
 });
-
-
-
 
     // Optional: Add keyboard shortcut (Ctrl+Enter to add note)
     $('#newNoteText').keydown(function(e) {
