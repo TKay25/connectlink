@@ -560,11 +560,11 @@ def get_project_data(project_id):
             # Query your database for the project
             cursor.execute("""
                 SELECT 
-                    client_name, project_name, projectadministratorname,
-                    completion_status, installment1amount, installment1duedate,
-                    installment1_paid_date, project_location, total_contract_price,
-                    project_description
-                FROM your_projects_table
+                    clientname, projectname, projectadministratorname,
+                    projectcompletionstatus, installment1amount, installment1duedate,
+                    installment1date, projectlocation, totalcontractamount,
+                    projectdescription
+                FROM connectlinkdatabase
                 WHERE id = %s
             """, (project_id,))
             
@@ -572,8 +572,8 @@ def get_project_data(project_id):
             
             if project:
                 return jsonify({
-                    'client_name': project[0],
-                    'project_name': project[1],
+                    'clientname': project[0],
+                    'projectname': project[1],
                     'projectadministratorname': project[2],
                     'completion_status': project[3],
                     'installment1amount': project[4],

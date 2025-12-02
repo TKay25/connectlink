@@ -1627,8 +1627,8 @@ function loadUpdateData(projectId) {
 // Function to populate form with data
 function populateUpdateForm(data) {
     // Basic information
-    document.getElementById('updateClientName').value = data.client_name || '';
-    document.getElementById('updateProjectName').value = data.project_name || '';
+    document.getElementById('updateClientName').value = data.clientname || '';
+    document.getElementById('updateProjectName').value = data.projectname || '';
     document.getElementById('updateAdminName').value = data.projectadministratorname || '';
     
     // Completion status
