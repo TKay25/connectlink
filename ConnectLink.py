@@ -8,7 +8,8 @@ from db_helper import get_db, execute_query
 import numpy as np
 from mysql.connector import Error
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_file,flash, make_response, after_this_request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import calendar
 import pandas as pd
 from xhtml2pdf import pisa
 from email.mime.text import MIMEText
@@ -562,6 +563,20 @@ def get_project(project_id):
 
         except Exception as e:
             return jsonify({"error": str(e)})
+        
+def add_months(source_date, months):
+    """Return source_date plus X months (keeps end-of-month safe)."""
+    month = source_date.month - 1 + months
+    year = source_date.year + (month // 12)
+    month = month % 12 + 1
+    day = min(source_date.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def last_day_of_month(d):
+    """Return the last day of d's month."""
+    last_day = calendar.monthrange(d.year, d.month)[1]
+    return date(d.year, d.month, last_day)
 
 @app.route('/contract_log', methods=['POST'])
 def contract_log():
@@ -619,6 +634,22 @@ def contract_log():
 
                 monthlyinstallment = (float(total_contract_price) - float(depostorbullet))/int(months_to_pay)
                 project_completion_status = "Ongoing"
+                first_installment_due_date = request.form.get('first_installment_due_date')
+                first_installment_due_date_calc = datetime.strptime(first_installment_due_date, "%Y-%m-%d").date()
+
+                installment_due_dates = []
+
+                for i in range(months_to_pay):
+                    next_date = add_months(first_installment_due_date, i)
+                    last_day = last_day_of_month(next_date)
+                    installment_due_dates.append(last_day)
+
+                # Fill up to 6 slots
+                while len(installment_due_dates) < 6:
+                    installment_due_dates.append(None)
+
+                installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate = installment_due_dates
+
 
                 if int(months_to_pay) == 1:
                     installment1amount = float(monthlyinstallment)
@@ -668,8 +699,12 @@ def contract_log():
                     installment5amount = float(monthlyinstallment)
                     installment6amount = float(monthlyinstallment)
 
+                installment2duedate = installment_due_dates[1] if int(months_to_pay) >= 2 else None
+                installment3duedate = installment_due_dates[2] if int(months_to_pay) >= 3 else None
+                installment4duedate = installment_due_dates[3] if int(months_to_pay) >= 4 else None
+                installment5duedate = installment_due_dates[4] if int(months_to_pay) >= 5 else None
+                installment6duedate = installment_due_dates[5] if int(months_to_pay) >= 6 else None
 
-                first_installment_due_date = request.form.get('first_installment_due_date')
 
                 # Debug: Print received data (remove this in production)
                 print(f"Client Name: {client_name}")
@@ -732,13 +767,13 @@ def contract_log():
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
                             paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
-                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount
+                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate
                         ) VALUES (
                             %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         );
                     """
 
@@ -776,7 +811,12 @@ def contract_log():
                         installment3amount,
                         installment4amount,
                         installment5amount,
-                        installment6amount
+                        installment6amount,
+                        installment2duedate,
+                        installment3duedate,
+                        installment4duedate,
+                        installment5duedate,
+                        installment6duedate
                     )
 
         
