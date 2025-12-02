@@ -604,7 +604,7 @@ def contract_log():
                 monthlyinstallment = (float(total_contract_price) - float(depostorbullet))/int(months_to_pay)
                 project_completion_status = "Ongoing"
 
-                if months_to_pay == 1:
+                if int(months_to_pay) == 1:
                     installment1amount = float(monthlyinstallment)
                     installment2amount = 0
                     installment3amount = 0
@@ -612,7 +612,7 @@ def contract_log():
                     installment5amount = 0
                     installment6amount = 0
 
-                elif months_to_pay == 2:
+                elif int(months_to_pay) == 2:
                     installment1amount = float(monthlyinstallment)
                     installment2amount = float(monthlyinstallment)
                     installment3amount = 0
@@ -620,7 +620,7 @@ def contract_log():
                     installment5amount = 0
                     installment6amount = 0
                 
-                elif months_to_pay == 3:
+                elif int(months_to_pay) == 3:
                     installment1amount = float(monthlyinstallment)
                     installment2amount = float(monthlyinstallment)
                     installment3amount = float(monthlyinstallment)
@@ -628,7 +628,7 @@ def contract_log():
                     installment5amount = 0
                     installment6amount = 0
 
-                elif months_to_pay == 4:
+                elif int(months_to_pay) == 4:
                     installment1amount = float(monthlyinstallment)
                     installment2amount = float(monthlyinstallment)
                     installment3amount = float(monthlyinstallment)
@@ -636,7 +636,7 @@ def contract_log():
                     installment5amount = 0
                     installment6amount = 0
 
-                elif months_to_pay == 5:
+                elif int(months_to_pay) == 5:
                     installment1amount = float(monthlyinstallment)
                     installment2amount = float(monthlyinstallment)
                     installment3amount = float(monthlyinstallment)
@@ -644,7 +644,7 @@ def contract_log():
                     installment5amount = float(monthlyinstallment)
                     installment6amount = 0
 
-                elif months_to_pay == 6:
+                elif int(months_to_pay) == 6:
                     installment1amount = float(monthlyinstallment)
                     installment2amount = float(monthlyinstallment)
                     installment3amount = float(monthlyinstallment)
