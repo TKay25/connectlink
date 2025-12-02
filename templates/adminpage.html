@@ -1200,6 +1200,102 @@
         </div>
     </div>
 
+    <!-- Update Project Modal -->
+    <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #1E2A56; color: white;">
+                    <h5 class="modal-title" id="updateModalLabel">Update Project Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="updateProjectForm">
+                        <input type="hidden" id="updateProjectId" name="project_id">
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="updateClientName" class="form-label fw-bold">Client Name</label>
+                                <input type="text" class="form-control" id="updateClientName" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="updateProjectName" class="form-label fw-bold">Project Name</label>
+                                <input type="text" class="form-control" id="updateProjectName" readonly>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="updateAdminName" class="form-label fw-bold">Administrator Name</label>
+                                <input type="text" class="form-control" id="updateAdminName" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="updateCompletionStatus" class="form-label fw-bold">Completion Status</label>
+                                <select class="form-select" id="updateCompletionStatus" name="completion_status">
+                                    <option value="Not Started">Not Started</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="On Hold">On Hold</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Installment 1 Details</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label for="updateInstallment1Amount" class="form-label fw-bold">Amount (USD)</label>
+                                        <input type="text" class="form-control" id="updateInstallment1Amount" readonly>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="updateInstallment1DueDate" class="form-label fw-bold">Due Date</label>
+                                        <input type="text" class="form-control" id="updateInstallment1DueDate" readonly>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="updateInstallment1PaidDate" class="form-label fw-bold">Paid Date</label>
+                                        <input type="date" class="form-control" id="updateInstallment1PaidDate" name="installment1_paid_date">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- You can add more installments here if needed -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Additional Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="updateProjectLocation" class="form-label fw-bold">Project Location</label>
+                                        <input type="text" class="form-control" id="updateProjectLocation" name="project_location">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="updateTotalContractPrice" class="form-label fw-bold">Total Contract Price (USD)</label>
+                                        <input type="text" class="form-control" id="updateTotalContractPrice" name="total_contract_price">
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <label for="updateProjectDescription" class="form-label fw-bold">Project Description</label>
+                                        <textarea class="form-control" id="updateProjectDescription" name="project_description" rows="3"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveUpdateChanges">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <main class="main-content" id="main-content">
         <header>
             <div class="employeetag">{{user_name}}, CONNECTLINK PROPERTIES <span style="color: white;background-color: #1E2A56;border-radius: 10px;padding: 6px;font-size: 13px;">ID: {{userid}}</span></div>
@@ -1500,7 +1596,185 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+// Function to load data into update modal
+function loadUpdateData(projectId) {
+    // Set the project ID in hidden field
+    document.getElementById('updateProjectId').value = projectId;
+    
+    // Show loading state
+    const modalBody = document.querySelector('#updateModal .modal-body');
+    modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Loading project data...</p></div>';
+    
+    // Fetch project data from server
+    fetch(`/get_project_data/${projectId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Populate form fields with data
+            populateUpdateForm(data);
+        })
+        .catch(error => {
+            console.error('Error loading project data:', error);
+            modalBody.innerHTML = '<div class="alert alert-danger">Failed to load project data. Please try again.</div>';
+        });
+}
 
+// Function to populate form with data
+function populateUpdateForm(data) {
+    // Basic information
+    document.getElementById('updateClientName').value = data.client_name || '';
+    document.getElementById('updateProjectName').value = data.project_name || '';
+    document.getElementById('updateAdminName').value = data.projectadministratorname || '';
+    
+    // Completion status
+    const statusSelect = document.getElementById('updateCompletionStatus');
+    if (data.completion_status) {
+        statusSelect.value = data.completion_status;
+    }
+    
+    // Installment 1 details
+    document.getElementById('updateInstallment1Amount').value = data.installment1amount || '';
+    document.getElementById('updateInstallment1DueDate').value = formatDateForDisplay(data.installment1duedate) || '';
+    document.getElementById('updateInstallment1PaidDate').value = formatDateForInput(data.installment1_paid_date) || '';
+    
+    // Additional fields
+    document.getElementById('updateProjectLocation').value = data.project_location || '';
+    document.getElementById('updateTotalContractPrice').value = data.total_contract_price || '';
+    document.getElementById('updateProjectDescription').value = data.project_description || '';
+}
+
+// Helper function to format date for display
+function formatDateForDisplay(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+}
+
+// Helper function to format date for date input
+function formatDateForInput(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+}
+
+// Save changes handler
+document.getElementById('saveUpdateChanges').addEventListener('click', function() {
+    const projectId = document.getElementById('updateProjectId').value;
+    const formData = new FormData(document.getElementById('updateProjectForm'));
+    
+    // Convert FormData to JSON
+    const data = {};
+    formData.forEach((value, key) => {
+        data[key] = value;
+    });
+    
+    // Add project ID
+    data.project_id = projectId;
+    
+    // Show loading on save button
+    const saveButton = this;
+    const originalText = saveButton.innerHTML;
+    saveButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+    saveButton.disabled = true;
+    
+    // Send update request
+    fetch('/update_project', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            // Show success message
+            showToast('Success', 'Project updated successfully!', 'success');
+            
+            // Close modal after short delay
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('updateModal'));
+                modal.hide();
+                
+                // Refresh page or update table data
+                location.reload(); // Or update specific row
+            }, 1500);
+        } else {
+            throw new Error(result.message || 'Update failed');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating project:', error);
+        showToast('Error', 'Failed to update project. Please try again.', 'error');
+    })
+    .finally(() => {
+        // Reset button
+        saveButton.innerHTML = originalText;
+        saveButton.disabled = false;
+    });
+});
+
+// Toast notification function (if not already defined)
+function showToast(title, message, type = 'info') {
+    // Create or use existing toast container
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : 
+                    type === 'error' ? 'bg-danger' : 
+                    type === 'warning' ? 'bg-warning' : 'bg-info';
+    
+    const toastHtml = `
+        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header ${bgClass} text-white">
+                <strong class="me-auto">${title}</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: 5000
+    });
+    toast.show();
+    
+    // Remove toast from DOM after it's hidden
+    toastElement.addEventListener('hidden.bs.toast', function () {
+        this.remove();
+    });
+}
+
+// Initialize modal event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Clear form when modal is hidden
+    const updateModal = document.getElementById('updateModal');
+    updateModal.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('updateProjectForm').reset();
+    });
+});
+</script>
 <script>
 // Track ongoing downloads
 const ongoingDownloads = new Set();

@@ -517,7 +517,7 @@ def run1(userid):
 
 
         datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus','latepaymentinterest'])
-        datamain['Action'] = datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{x}" class="btn btn-primary3 download-contract-btn" data-id="{x}" onclick="handleDownloadClick(this)"> Download Contract</a>    <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{x}">View Project</button><button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-ID="{x}">Notes</button><button class="btn btn-primary3 log-payment-btn" data-bs-toggle="modal" data-bs-target="#logpaymentModal" data-ID="{x}">Update</button></div>''')
+        datamain['Action'] = datamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{x}" class="btn btn-primary3 download-contract-btn" data-id="{x}" onclick="handleDownloadClick(this)"> Download Contract</a>    <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{x}">View Project</button><button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-ID="{x}">Notes</button>    <button class="btn btn-primary3 log-payment-btn" data-bs-toggle="modal" data-bs-target="#updateModal" data-ID="{x}" onclick="loadUpdateData({x})">Update</button></div>''')
         datamain = datamain[['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus', 'latepaymentinterest', 'Action']]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
@@ -548,6 +548,78 @@ def run1(userid):
             'num_projects': num_projects,
             'admin_options': admin_options
             }
+
+from flask import jsonify
+
+@app.route('/get_project_data/<int:project_id>')
+def get_project_data(project_id):
+    try:
+        # Query your database for the project
+        cursor.execute("""
+            SELECT 
+                client_name, project_name, projectadministratorname,
+                completion_status, installment1amount, installment1duedate,
+                installment1_paid_date, project_location, total_contract_price,
+                project_description
+            FROM your_projects_table
+            WHERE id = %s
+        """, (project_id,))
+        
+        project = cursor.fetchone()
+        
+        if project:
+            return jsonify({
+                'client_name': project[0],
+                'project_name': project[1],
+                'projectadministratorname': project[2],
+                'completion_status': project[3],
+                'installment1amount': project[4],
+                'installment1duedate': project[5].strftime('%Y-%m-%d') if project[5] else None,
+                'installment1_paid_date': project[6].strftime('%Y-%m-%d') if project[6] else None,
+                'project_location': project[7],
+                'total_contract_price': project[8],
+                'project_description': project[9]
+            })
+        else:
+            return jsonify({'error': 'Project not found'}), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/update_project', methods=['POST'])
+def update_project():
+
+    with get_db() as (cursor, connection):
+
+        try:
+            data = request.get_json()
+            project_id = data.get('project_id')
+            
+            # Update the project in database
+            cursor.execute("""
+                UPDATE your_projects_table 
+                SET completion_status = %s,
+                    installment1_paid_date = %s,
+                    project_location = %s,
+                    total_contract_price = %s,
+                    project_description = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+            """, (
+                data.get('completion_status'),
+                data.get('installment1_paid_date'),
+                data.get('project_location'),
+                data.get('total_contract_price'),
+                data.get('project_description'),
+                project_id
+            ))
+            
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Project updated successfully'})
+            
+        except Exception as e:
+            connection.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/')
 def userlogin():
