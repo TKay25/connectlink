@@ -836,8 +836,9 @@ def contract_log():
                 return render_template('adminpage.html', **results)
 
             except Exception as e:
-                response = {'status': 'error', 'message': 'Leave application not submitted successfully.'}
-                return jsonify(response), 400  
+                print("❌ UNCAUGHT ERROR in contract_log():", str(e))  # <-- PRINT REAL ERROR
+                return jsonify({'status': 'error', 'message': str(e)}), 400
+
 
 
 @app.route('/logout')
