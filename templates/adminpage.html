@@ -1615,6 +1615,7 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script>
 $(document).ready(function() {
+
     // Handle Update button click
     $(document).on('click', '.update-project-btn', function () {
         // Get the table row that contains this button
@@ -1633,6 +1634,9 @@ $(document).ready(function() {
         const installment2Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
         const installment2DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
         const installment2Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
+
+        
+        $('#updateCompletionStatus option[value="Not Started"]').text(completionStatus);
 
         // Debug: Check what values you're getting
         console.log('Row data:', {
