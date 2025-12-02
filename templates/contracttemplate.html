@@ -244,14 +244,44 @@
         </div>
 
         <p><strong>Payment Schedule:</strong></p>
-        <ul>
-            <li>Month 1: <span class="field-value" style="display:inline-block; width:150px;">USD {{project.installment1amount}}</span></li>
-            <li>Month 2: <span class="field-value" style="display:inline-block; width:150px;">USD {{project.installment2amount}}</span></li>
-            <li>Month 3: <span class="field-value" style="display:inline-block; width:150px;">USD {{project.installment3amount}}</span></li>
-            <li>Month 4: <span class="field-value" style="display:inline-block; width:150px;">USD {{project.installment4amount}}</span></li>
-            <li>Month 5: <span class="field-value" style="display:inline-block; width:150px;">USD {{project.installment5amount}}</span></li>
-            <li>Month 6: <span class="field-value" style="display:inline-block; width:150px;">USD {{project.installment6amount}}</span></li>
-        </ul>
+        <h4 class="section-title">Installments</h4>
+
+        <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
+            <thead>
+                <tr>
+                    <th class="field-label" style="text-align:left; border-bottom: 2px solid #1E2A56;">Due Date</th>
+                    <th class="field-value" style="border-bottom: 2px solid #1E2A56;">Installment (USD)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="field-row">
+                    <td class="field-label">{{ project.installment1duedate }}</td>
+                    <td class="field-value">{{ project.installment1amount }}</td>
+                </tr>
+                <tr class="field-row">
+                    <td class="field-label">{{ project.installment2duedate }}</td>
+                    <td class="field-value">{{ project.installment2amount }}</td>
+                </tr>
+                <tr class="field-row">
+                    <td class="field-label">{{ project.installment3duedate }}</td>
+                    <td class="field-value">{{ project.installment3amount }}</td>
+                </tr>
+                <tr class="field-row">
+                    <td class="field-label">{{ project.installment4duedate }}</td>
+                    <td class="field-value">{{ project.installment4amount }}</td>
+                </tr>
+                <tr class="field-row">
+                    <td class="field-label">{{ project.installment5duedate }}</td>
+                    <td class="field-value">{{ project.installment5amount }}</td>
+                </tr>
+                <tr class="field-row">
+                    <td class="field-label">{{ project.installment6duedate }}</td>
+                    <td class="field-value">{{ project.installment6amount }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+
 
         <!-- LATE PAYMENT -->
         <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
