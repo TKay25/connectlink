@@ -209,12 +209,12 @@
 
         <div class="field-row">
             <div class="field-label">Administrator Name:</div>
-            <div class="field-value">{{ project.companyname }}</div>
+            <div class="field-value">{{ project.projectadministratorname }}</div>
         </div>
 
         <div class="field-row">
             <div class="field-label">Administrator Contact:</div>
-            <div class="field-value">{{ project.companyaddress }}</div>
+            <div class="field-value">{{ project.projectadministratorcontact }}</div>
         </div>
 
         <br><br>
@@ -306,7 +306,7 @@
             </div>
 
             <div class="signature-line">
-                <span class="signature-label">Date:</span>
+                <span class="signature-label">Date: {{ project.agreement_date }}</span>
                 <div class="field-value" style="width:220px;"></div>
             </div>
 
