@@ -1561,6 +1561,9 @@
 
                 <div class="tab-pane fade show active" id="dashboard-tab">
 
+                    <input type="hidden" id="completed-projects" value="{{ count_completed|default(0)|int }}">
+                    <input type="hidden" id="ongoing-projects" value="{{ count_ongoing|default(0)|int }}">
+
                     <div class="tab-pane fade show active" id="dashboard-tab">
                         <div class="dashboard-summary">
                             <div class="summary-card">
@@ -1574,21 +1577,21 @@
                                 <div class="icon"><i class="bi bi-hourglass-split fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Ongoing Projects</h5>
-                                    <p>{{ ongoing_projects }}</p>
+                                    <p>{{ count_ongoing }}</p>
                                 </div>
                             </div>
                             <div class="summary-card">
                                 <div class="icon"><i class="bi bi-calendar2-check-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Completed Projects</h5>
-                                    <p>{{ completed_projects }}</p>
+                                    <p>{{ count_completed }}</p>
                                 </div>
                             </div>
                             <div class="summary-card">
                                 <div class="icon"><i class="bi bi-stopwatch-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Average Completion Time</h5>
-                                    <p>{{ avg_completion_time }} days</p>
+                                    <p>{{ average_duration }} days</p>
                                 </div>
                             </div>
 
@@ -1596,7 +1599,7 @@
                                 <div class="icon"><i class="bi bi-1-circle-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Top Location</h5>
-                                    <p>{{ top_location }}</p>
+                                    <p>{{ most_frequent_location }}</p>
                                 </div>
                             </div>
 
@@ -1864,6 +1867,36 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const completed = parseInt(document.getElementById('completed-projects').value, 10) || 0;
+    const ongoing = parseInt(document.getElementById('ongoing-projects').value, 10) || 0;
+
+    const ctx = document.getElementById('leaveByTypeChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Completed Projects', 'Ongoing Projects'],
+            datasets: [{
+                data: [completed, ongoing],
+                backgroundColor: ['#1E2A56', '#FF7F50'],
+                borderColor: ['#fff', '#fff'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+});
+</script>
 
 <script>
 
