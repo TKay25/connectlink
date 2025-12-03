@@ -791,7 +791,15 @@ def download_payments_history(project_id):
                     <p><strong>Administrator:</strong> {row[13]}</p>
                 </div>
 
-                <div class="section-title">Payments Breakdown</div>
+                
+                <!-- DEPOSIT / BULLET PAYMENT -->
+                <div class="section-title">Initial Payment</div>
+                <div class="info-box">
+                    <p><strong>Deposit / Bullet Payment:</strong> USD {row[23] if row[23] else '—'}</p>
+                    <p><strong>Date Paid:</strong> {row[24].strftime('%d %B %Y') if row[24] else '—'}</p>
+                </div>
+
+                <div class="section-title">Monthly Installments Breakdown</div>
 
                 <table>
                     <thead>
