@@ -710,8 +710,8 @@ def add_note():
 
         try:
             client_name = request.form.get('client_name')
-            client_number = request.form.get('client_wa_number')
-            nextofkin_number = request.form.get('client_next_of_kin_number')
+            client_number = int(request.form.get('client_wa_number'))
+            nextofkin_number = int(request.form.get('client_next_of_kin_number'))
             project_name = request.form.get('project_name')
             project_id = request.form.get('project_id')
             note_text = request.form.get('note_text')
