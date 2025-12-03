@@ -293,9 +293,6 @@ def Dashboard():
 
             try:
 
-                today_date = datetime.now().strftime('%d %B %Y')
-                applied_date = datetime.now().strftime('%Y-%m-%d')
-
                 results = run1(userid)  
 
                 print("Back from adventures")
@@ -859,6 +856,54 @@ def last_day_of_month(d):
     """Return the last day of d's month."""
     last_day = calendar.monthrange(d.year, d.month)[1]
     return date(d.year, d.month, last_day)
+
+
+@app.route('/update_project', methods=['POST'])
+def update_project():
+
+    with get_db() as (cursor, connection):
+
+        project_id = request.form.get('project_id')
+        completion_status = request.form.get('completion_status')
+
+        installment1_date = request.form.get('installment1_paid_date')
+        installment2_date = request.form.get('installment2_paid_date')
+        installment3_date = request.form.get('installment3_paid_date')
+        installment4_date = request.form.get('installment4_paid_date')
+        installment5_date = request.form.get('installment5_paid_date')
+        installment6_date = request.form.get('installment6_paid_date')
+
+        # --- EXAMPLE SQL (modify for your DB) ---
+        query = """
+            UPDATE connectlinkdatabase
+            SET 
+                projectcompletionstatus = %s,
+                installment1date = %s,
+                installment2date = %s,
+                installment3date = %s,
+                installment4date = %s,
+                installment5date = %s,
+                installment6date = %s
+            WHERE id = %s
+        """
+        
+        values = (
+            completion_status,
+            installment1_date,
+            installment2_date,
+            installment3_date,
+            installment4_date,
+            installment5_date,
+            installment6_date,
+            project_id
+        )
+
+        cursor.execute(query, values)
+        connection.commit()
+
+        flash("Project updated successfully!", "success")
+        return redirect(url_for('dashboard'))  # or wherever you want to go
+
 
 @app.route('/contract_log', methods=['POST'])
 def contract_log():

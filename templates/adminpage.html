@@ -1329,7 +1329,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="updateProjectForm">
+                    <form id="updateProjectForm" method="POST" action="/update_project">
                         <input type="hidden" id="updateProjectId" name="project_id">
                         
                         <div class="row mb-3">
@@ -1571,8 +1571,6 @@
 
                         </div>
                         <!-- End Scrollable Container -->
-                       
-
                     </form>
                 </div>
                 <div class="modal-footer">
