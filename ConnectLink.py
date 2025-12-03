@@ -451,29 +451,29 @@ def download_contract(project_id):
                 <!DOCTYPE html>
                 <html lang="en">
                 <head>
-                <meta charset="UTF-8">
-                <title>Construction Agreement</title>
-                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
-                <style>
-                body {{ font-family: 'Roboto', sans-serif; background: #eef2fa; color: #1E2A56; }}
-                .agreement-container {{ background: #fff; width: 95%; margin: auto; padding: 50px 60px; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); line-height: 1; }}
-                .logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
-                h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
-                .subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
-                h4.section-title {{ text-align: center; background-color: #1E2A56; color: white; padding: 5px 7px; border-radius: 6px; font-size: 1rem; margin-top: 40px; margin-bottom: 20px; font-weight: 800; letter-spacing: 0.5px; }}
-                p, li {{ font-size: 0.85rem; color: #1E2A56; }}
-                .field-row {{ display: flex; align-items: center; margin-bottom: 12px; }}
-                .field-label {{ font-weight: 700; width: 170px; font-size: 14px; flex-shrink: 0; }}
-                .field-value {{ flex: 1; border-bottom: 1.5px solid #1E2A56; padding-bottom: 2px; font-size: 14px; min-height: 20px; }}
-                .scope-box {{ border: 1.5px solid #1E2A56; border-radius: 10px; padding: 10px; min-height: 80px; background: #fafbff; margin-bottom: 10px; }}
-                ul {{ margin-top: 5px; margin-bottom: 20px; }}
-                li {{ margin-bottom: 6px; }}
-                .signature-block {{ margin-top: 60px; }}
-                .signature-line {{ margin-top: 30px; margin-bottom: 35px; }}
-                .signature-label {{ display: block; font-weight: 700; margin-bottom: 5px; }}
-                .watermark {{ position: fixed; top: 40%; left: 15%; opacity: 0.1; font-size: 80px; color: #1E2A56; transform: rotate(-45deg); z-index: -1000; }}
-                @page {{ size: A4; margin: 50px 40px; }}
-                </style>
+                    <meta charset="UTF-8">
+                    <title>Construction Agreement</title>
+                    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
+                    <style>
+                    body {{ font-family: 'Roboto', sans-serif; background: #eef2fa; color: #1E2A56; }}
+                    .agreement-container {{ background: #fff; width: 95%; margin: auto; padding: 50px 60px; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); line-height: 1; }}
+                    .logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
+                    h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
+                    .subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
+                    h4.section-title {{ text-align: center; background-color: #1E2A56; color: white; padding: 5px 7px; border-radius: 6px; font-size: 1rem; margin-top: 40px; margin-bottom: 20px; font-weight: 800; letter-spacing: 0.5px; }}
+                    p, li {{ font-size: 0.85rem; color: #1E2A56; }}
+                    .field-row {{ display: flex; align-items: center; margin-bottom: 12px; }}
+                    .field-label {{ font-weight: 700; width: 170px; font-size: 14px; flex-shrink: 0; }}
+                    .field-value {{ flex: 1; border-bottom: 1.5px solid #1E2A56; padding-bottom: 2px; font-size: 14px; min-height: 20px; }}
+                    .scope-box {{ border: 1.5px solid #1E2A56; border-radius: 10px; padding: 10px; min-height: 80px; background: #fafbff; margin-bottom: 10px; }}
+                    ul {{ margin-top: 5px; margin-bottom: 20px; }}
+                    li {{ margin-bottom: 6px; }}
+                    .signature-block {{ margin-top: 60px; }}
+                    .signature-line {{ margin-top: 30px; margin-bottom: 35px; }}
+                    .signature-label {{ display: block; font-weight: 700; margin-bottom: 5px; }}
+                    .watermark {{ position: fixed; top: 40%; left: 15%; opacity: 0.1; font-size: 80px; color: #1E2A56; transform: rotate(-45deg); z-index: -1000; }}
+                    @page {{ size: A4; margin: 50px 40px; }}
+                    </style>
                 </head>
                 <body>
                 <div class="watermark">CONFIDENTIAL</div>
@@ -526,7 +526,10 @@ def download_contract(project_id):
                 <tbody>
                 <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1amount']}</td></tr>
                 <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2amount']}</td></tr>
-                <!-- Add installments 3-6 similarly if needed -->
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment3duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment3amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment4duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment4amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment5duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment5amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment6duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment6amount']}</td></tr>               
                 </tbody>
                 </table>
 
