@@ -615,7 +615,7 @@ def create_system_user():
         try:
             cursor.execute("""
                 INSERT INTO connectlinkusers (datecreated, name, email, password)
-                VALUES (%s, %s, %s, %s))
+                VALUES (%s, %s, %s, %s)
             """, ( created_date ,fullname, email, password))
 
             connection.commit()
