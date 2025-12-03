@@ -1450,7 +1450,14 @@
 
                 </div>
                 <div class="tab-pane fade" id="projects-tab">
-                    <button class="btn btn-primary mt-3" style="width: max-content;" data-bs-toggle="modal" data-bs-target="#ExportProjectsPortfolioModal"><i class="bi bi-journal-text"></i>    Export Projects Portfolio</button>
+                    <button class="btn btn-primary mt-3"
+                            id="exportprojectportBtn"
+                            style="width: max-content;"
+                            onclick="downloadPortfolio()">
+                        <i class="bi bi-journal-text"></i> Download Projects Portfolio
+                        <iframe id="downloadFrame" style="display:none;"></iframe>
+                    </button>
+
                     <div class="container mt-5">
                         <div class="container2" style="overflow-y: auto;">
                             {{ table_datamain_html |safe }}
@@ -1662,28 +1669,6 @@
     </div>
 
 
-    <div class="modal fade" id="ExportProjectsPortfolioModal" tabindex="-1" aria-labelledby="ExportProjectsPortfolioModalLabel" >
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="ExportProjectsPortfolioModalLabel"><i class="bi bi-journal-text"></i>    EXPORT PROJECTS PORTFOLIO</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p style="font-weight: 500;">Select file format to export Projects Portfolio for <b>{{company_name}}</b> :</p>
-                    <div class="d-flex justify-content-around">
-                        <button class="btn btn-primary2 mt-3"  data-bs-dismiss="modal" id="formatexcellmsbookexport"><i class="bi bi-filetype-xlsx"></i>    Excel Workbook</button>
-                        <button class="btn btn-primary2 mt-3"  data-bs-dismiss="modal" id="formatpdflmsbookexport"><i class="bi bi-filetype-pdf"></i>    PDF</button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
   <!-- Bootstrap and jQuery Scripts -->
 
 
@@ -1700,6 +1685,32 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<script>
+function downloadPortfolio() {
+    const btn = document.getElementById("exportprojectportBtn");
+
+    // Change button to loading state
+    btn.disabled = true;
+    btn.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        Downloading...
+    `;
+
+    const iframe = document.getElementById("downloadFrame");
+
+    // When iframe finishes loading, reset button
+    iframe.onload = function () {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-journal-text"></i> Download Projects Portfolio`;
+    };
+
+    // Trigger file download by loading the route in the iframe
+    iframe.src = "/export-projects-portfolio";
+}
+</script>
+
+
 <script>
 document.getElementById("createUserForm").addEventListener("submit", async function (e) {
     e.preventDefault(); // Stop normal form submit

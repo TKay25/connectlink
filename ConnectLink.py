@@ -26,6 +26,7 @@ import io
 import base64
 import json
 import requests
+from openpyxl import Workbook
 from weasyprint import HTML
 import re
 #from paynow import Paynow
@@ -227,6 +228,52 @@ def initialize_database_tables():
         print(f"❌ Error initializing database tables: {e}")
 
 initialize_database_tables()
+
+@app.route('/export-projects-portfolio')
+def export_projects_portfolio():
+
+    with get_db() as (cursor, connection):
+
+        try:
+            today_date = datetime.now().strftime('%d %B %Y')
+
+            # ========= SHEET 1 — PROJECTS =========
+            cursor.execute("SELECT * FROM connectlinkdatabase")
+            rows_1 = cursor.fetchall()
+
+            cols_1 = [desc[0] for desc in cursor.description]
+            df_projects = pd.DataFrame(rows_1, columns=cols_1)
+
+
+            # ========= SHEET 2 — PORTFOLIO =========
+            cursor.execute("SELECT * FROM connectlinknotes")
+            rows_2 = cursor.fetchall()
+
+            cols_2 = [desc[0] for desc in cursor.description]
+            df_portfolio = pd.DataFrame(rows_2, columns=cols_2)
+
+
+            # ========= CREATE EXCEL FILE IN MEMORY =========
+            output = io.BytesIO()
+
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                df_projects.to_excel(writer, index=False, sheet_name="Projects Database")
+                df_portfolio.to_excel(writer, index=False, sheet_name="Notes")
+
+
+            output.seek(0)
+
+            # ========= SEND THE FILE =========
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=f"ConnectLink Properties Projects Portfolio as at {today_date}.xlsx",
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+        except Exception as e:
+            print("Error:", str(e))
+            return f"Error occurred: {str(e)}", 500
 
 @app.route('/dashboard')
 def Dashboard():
