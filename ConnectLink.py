@@ -799,7 +799,7 @@ def download_payments_history(project_id):
                             <th>Installment</th>
                             <th>Amount (USD)</th>
                             <th>Due Date</th>
-                            <th>Paid Date</th>
+                            <th>Date Paid</th>
                         </tr>
                     </thead>
                     <tbody>
