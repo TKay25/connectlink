@@ -243,7 +243,7 @@ def export_projects_portfolio():
             today_date = datetime.now().strftime('%d %B %Y %H:%M:%S')
 
             # ========= SHEET 1 — PROJECTS =========
-            cursor.execute("SELECT * FROM connectlinkdatabase")
+            cursor.execute("SELECT * FROM connectlinkdatabase ORDER BY id DESC")
             rows_1 = cursor.fetchall()
 
             cols_1 = [desc[0] for desc in cursor.description]
@@ -251,7 +251,7 @@ def export_projects_portfolio():
 
 
             # ========= SHEET 2 — PORTFOLIO =========
-            cursor.execute("SELECT * FROM connectlinknotes")
+            cursor.execute("SELECT * FROM connectlinknotes ORDER BY id DESC")
             rows_2 = cursor.fetchall()
 
             cols_2 = [desc[0] for desc in cursor.description]
