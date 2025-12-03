@@ -361,10 +361,6 @@ def download_contract(project_id):
             days_difference = days_between(date_str1, date_str2)
             print(days_difference)  # Output: 14
 
-
-
-
-
             # Map row to dictionary
             project = {
                 'id': row[0],
@@ -443,6 +439,31 @@ def download_contract(project_id):
 
         except Exception as e:
             return str(e), 500
+
+@app.route('/create-system-user', methods=['POST'])
+def create_system_user():
+    data = request.get_json()
+
+    fullname = data.get("fullname")
+    email = data.get("email")
+    password = data.get("password")
+    created_date = datetime.now()
+
+
+    with get_db() as (cursor, connection):
+
+        try:
+            cursor.execute("""
+                INSERT INTO connectlinkusers (datecreated, name, email, password)
+                VALUES (%s, %s, %s, %s))
+            """, ( created_date ,fullname, email, password))
+
+            connection.commit()
+
+            return jsonify({"status": "success"})
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
 
 
 @app.route('/addadmin', methods=['POST'])

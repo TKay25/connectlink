@@ -802,7 +802,7 @@
         </button>
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
-                id="addnewprojectBtn">
+                id="addnewprojectBtn" data-bs-toggle="modal" data-bs-target="#createUserModal">
             <span><i class="bi bi-briefcase-fill me-2"></i> Create System User</span>
         </button>
 
@@ -812,6 +812,50 @@
             <span><i class="bi bi-briefcase-fill me-2"></i> Manage Administrators</span>
         </button>
 
+    </div>
+
+    <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            
+            <div class="modal-header">
+                <h5 class="modal-title" id="createUserModalLabel">CREATE SYSTEM USER</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="createUserForm">
+                    <div class="mb-3">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" class="form-control" name="fullname" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Admin Permission Passcode</label>
+                        <input type="text" class="form-control" name="permission_passcode" id="permissionPasscode" required>
+                    </div>
+
+
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary" type="submit" form="createUserForm">Create</button>
+            </div>
+
+            </div>
+        </div>
     </div>
 
 
@@ -1656,6 +1700,52 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+document.getElementById("createUserForm").addEventListener("submit", async function (e) {
+    e.preventDefault(); // Stop normal form submit
+
+    const passcode = document.getElementById("permissionPasscode").value.trim();
+
+    // Validate passcode
+    if (passcode !== "conlink01admin01") {
+        alert("Invalid Admin Permission Passcode.");
+        return;
+    }
+
+    // Collect form data
+    const data = {
+        fullname: this.fullname.value,
+        email: this.email.value,
+        password: this.password.value
+    };
+
+    // Send to Flask route
+    try {
+        const response = await fetch("/create-system-user", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+            alert("User created successfully!");
+            this.reset();
+            const modal = bootstrap.Modal.getInstance(document.getElementById("createUserModal"));
+            modal.hide();
+        } else {
+            alert("Error: " + result.message);
+        }
+
+    } catch (error) {
+        console.error("Request failed", error);
+        alert("Failed to save user.");
+    }
+});
+</script>
 
 <script>
 $(document).ready(function() {
