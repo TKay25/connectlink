@@ -1905,13 +1905,13 @@ $(document).ready(function() {
         notes.forEach((note, index) => {
             const date = new Date(note.timestamp).toLocaleString();
             notesHtml += `
-                <div class="card mb-2 ${index !== 0 ? 'mt-2' : ''}">
-                    <div class="card-body p-2">
+                <div class="card mb-1 ${index !== 0 ? 'mt-1' : ''}" style="border-radius: 0.25rem;">
+                    <div class="card-body p-1">
                         <div class="d-flex justify-content-between align-items-start mb-1">
-                            <span class="badge bg-light text-dark">Note #${index + 1}</span>
-                            <small class="text-muted">${date}</small>
+                            <span class="badge bg-light text-dark py-0 px-1" style="font-size: 0.7rem;">Note #${index + 1}</span>
+                            <small class="text-muted" style="font-size: 0.65rem;">${date}</small>
                         </div>
-                        <p class="card-text mb-0">${escapeHtml(note.note_text)}</p>
+                        <p class="card-text mb-0" style="font-size: 0.75rem; line-height: 1rem;">${escapeHtml(note.note_text)}</p>
                     </div>
                 </div>
             `;
