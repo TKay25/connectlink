@@ -456,7 +456,17 @@ def download_contract(project_id):
                     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
                     <style>
                     body {{ font-family: 'Roboto', sans-serif; background: #eef2fa; color: #1E2A56; }}
-                    .agreement-container {{ background: #fff; width: 95%; margin: auto; padding: 50px 60px; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); line-height: 1; }}
+                    .agreement-container {{
+                        width: 100%; /* or max-width: 800px */
+                        margin: auto;
+                        padding: 15px;
+                        border: 3px solid #1E2A56;
+                        border-radius: 14px;
+                        background: #fff;
+                        box-shadow: 0 8px 28px rgba(0,0,0,0.12);
+                        box-sizing: border-box; /* include padding/border in width */
+                        overflow-wrap: break-word; /* wrap long words */
+                    }}
                     .logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
                     h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
                     .subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
