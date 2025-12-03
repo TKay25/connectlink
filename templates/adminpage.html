@@ -1905,9 +1905,9 @@ $(document).ready(function() {
         notes.forEach((note, index) => {
             const date = new Date(note.timestamp).toLocaleString();
             notesHtml += `
-                <div class="card mb-3 ${index !== 0 ? 'mt-3' : ''}">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="card mb-2 ${index !== 0 ? 'mt-2' : ''}">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
                             <span class="badge bg-light text-dark">Note #${index + 1}</span>
                             <small class="text-muted">${date}</small>
                         </div>
