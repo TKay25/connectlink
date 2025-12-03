@@ -2205,8 +2205,20 @@ $(document).ready(function() {
         const installment2Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
         const installment2DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
         const installment2Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
-
+        const installment3Amount = $row.find('td:eq(32)').text().trim(); // Seventh column (Due Date)
+        const installment3DueDate = $row.find('td:eq(33)').text().trim(); // Seventh column (Due Date)
+        const installment3Date = $row.find('td:eq(34)').text().trim(); // Seventh column (Due Date)
+        const installment4Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
+        const installment4DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
+        const installment4Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
+        const installment5Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
+        const installment5DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
+        const installment5Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
+        const installment6Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
+        const installment6DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
+        const installment6Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
         
+
         $('#updateCompletionStatus option[value="ph"]').text(completionStatus);
 
         // Debug: Check what values you're getting
@@ -2228,7 +2240,19 @@ $(document).ready(function() {
         $('#updateInstallment2Amount').val(installment2Amount);
         $('#updateInstallment2DueDate').val(installment2DueDate);
         $('#updateInstallment2Date').val(installment2Date);
-        
+        $('#updateInstallment3Amount').val(installment3Amount);
+        $('#updateInstallment3DueDate').val(installment3DueDate);
+        $('#updateInstallment3Date').val(installment3Date);
+        $('#updateInstallment4Amount').val(installment4Amount);
+        $('#updateInstallment4DueDate').val(installment4DueDate);
+        $('#updateInstallment4Date').val(installment4Date);        
+        $('#updateInstallment5Amount').val(installment5Amount);
+        $('#updateInstallment5DueDate').val(installment5DueDate);
+        $('#updateInstallment5Date').val(installment5Date);        
+        $('#updateInstallment6Amount').val(installment6Amount);
+        $('#updateInstallment6DueDate').val(installment6DueDate);
+        $('#updateInstallment6Date').val(installment6Date);
+
         // Clear the paid date field
         $('#updateInstallment1PaidDate').val('');
         
