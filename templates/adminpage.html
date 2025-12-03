@@ -1360,68 +1360,73 @@
                                 </select>
                             </div>
                         </div>
-                        
-                        <div class="card mb-3">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0">Installment 1 Details</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-4">
+                                                
+                        <!-- Scrollable Container -->
+                        <div style="max-height: 350px; overflow-y: auto; padding-right: 10px;">
+
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 1 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
                                             <label for="updateInstallment1Amount" class="form-label fw-bold">Amount (USD)</label>
                                             <input type="text" class="form-control" id="updateInstallment1Amount" readonly>
-                                    </div>
-                                    <div class="col-md-4">
+                                        </div>
+                                        <div class="col-md-4">
                                             <label for="updateInstallment1DueDate" class="form-label fw-bold">Due Date</label>
                                             <input type="text" class="form-control" id="updateInstallment1DueDate" readonly>
-                                    </div>
-                                    <div class="col-md-4">
+                                        </div>
+                                        <div class="col-md-4">
                                             <label for="updateInstallment1PaidDate" class="form-label fw-bold">Date Paid</label>
                                             <input type="date" class="form-control" id="updateInstallment1Date" name="installment1_paid_date">
+                                        </div>
                                     </div>
-                                </div>
-                                
-                                <!-- Get Receipt Button Row -->
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
-                                            <i class="bi bi-receipt me-2"></i>Get Receipt
-                                        </button>
+
+                                    <div class="row mt-3">
+                                        <div class="col-12">
+                                            <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
+                                                <i class="bi bi-receipt me-2"></i>Get Receipt
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 2 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Amount (USD)</label>
+                                            <input type="text" class="form-control" id="updateInstallment2Amount" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Due Date</label>
+                                            <input type="text" class="form-control" id="updateInstallment2DueDate" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Date Paid</label>
+                                            <input type="date" class="form-control" id="updateInstallment2Date" name="installment2_paid_date">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mt-3">
+                                        <div class="col-12">
+                                            <button type="button" class="btn btn-primary3" id="getReceipt2Btn" style="width: max-content;">
+                                                <i class="bi bi-receipt me-2"></i>Get Receipt
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
-                        
-                        <div class="card mb-3">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0">Installment 2 Details</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1Amount" class="form-label fw-bold">Amount (USD)</label>
-                                        <input type="text" class="form-control" id="updateInstallment2Amount" readonly>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1DueDate" class="form-label fw-bold">Due Date</label>
-                                        <input type="text" class="form-control" id="updateInstallment2DueDate" readonly>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1PaidDate" class="form-label fw-bold">Date Paid</label>
-                                        <input type="date" class="form-control" id="updateInstallment2Date" name="installment1_paid_date">
-                                    </div>
-                                </div>
-                                
-                                <!-- Get Receipt Button Row -->
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <button type="button" class="btn btn-primary3" id="getReceipt2Btn" style="width: max-content;">
-                                            <i class="bi bi-receipt me-2"></i>Get Receipt
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>                        
+                        <!-- End Scrollable Container -->
+                       
 
                     </form>
                 </div>
