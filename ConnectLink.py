@@ -905,7 +905,7 @@ def update_project():
         connection.commit()
 
         flash("Project updated successfully!", "success")
-        return redirect(url_for('dashboard'))  # or wherever you want to go
+        return redirect(url_for('Dashboard'))  # or wherever you want to go
 
 
 @app.route('/contract_log', methods=['POST'])
