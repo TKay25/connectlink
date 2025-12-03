@@ -410,13 +410,19 @@
         }
         /* Style the close button */
         .modal-header .btn-close {
+            width: 1rem;      /* default is ~1.5rem */
+            height: 1rem;     /* default is ~1.5rem */
+            padding: 0.25rem; /* reduce padding to shrink clickable area */
+            font-size: 0.75rem; 
+            font-weight: bolder;
             background-color: white; /* Makes the background white */
-            color: black; /* Change the icon color to black */
+            color: #1E2A56; /* Change the icon color to black */
             opacity: 1; /* Ensure the button is fully opaque */
         }
 
         /* Optional: Hover effect */
         .modal-header .btn-close:hover {
+
             background-color: #f8f9fa; /* Light grey background on hover */
             color: #000; /* Ensure the icon stays black on hover */
             opacity: 1; /* Ensure full opacity on hover */
