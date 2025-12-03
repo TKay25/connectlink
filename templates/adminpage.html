@@ -292,7 +292,7 @@
         .modal-header{
             background-color: #1E2A56;
             color: white;
-            font-weight: bold;
+            font-weight: bolder;
         }
         .form-group {
             margin-bottom: 20px; /* Increase vertical spacing between fields */
@@ -873,13 +873,13 @@
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
                 id="addnewprojectBtn" data-bs-toggle="modal" data-bs-target="#createUserModal">
-            <span><i class="bi bi-briefcase-fill me-2"></i> Create System User</span>
+            <span><i class="bi bi-person-fill-add"></i> Create System User</span>
         </button>
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
                 data-bs-toggle="modal"
                 data-bs-target="#addcompAdminModal">
-            <span><i class="bi bi-briefcase-fill me-2"></i> Manage Administrators</span>
+            <span><i class="bi bi-people-fill"></i> Manage Administrators</span>
         </button>
 
     </div>
@@ -889,30 +889,30 @@
             <div class="modal-content">
             
             <div class="modal-header">
-                <h5 class="modal-title" id="createUserModalLabel">CREATE SYSTEM USER</h5>
+                <h6 class="modal-title" id="createUserModalLabel"><i class="bi bi-person-fill-add"></i> CREATE SYSTEM USER</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
-            <div class="modal-body">
+            <div class="modal-body" style="font-size: 14px;">
                 <form id="createUserForm">
                     <div class="mb-3">
-                        <label class="form-label">Full Name</label>
-                        <input type="text" class="form-control" name="userfullname" required>
+                        <label class="form-label" style="font-weight: bold;">Full Name</label>
+                        <input type="text" class="form-control editable-field" name="userfullname" required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" name="useremail" required>
+                        <label class="form-label" style="font-weight: bold;">Email</label>
+                        <input type="email" class="form-control editable-field" name="useremail" required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input type="password" class="form-control" name="userpassword" required>
+                        <label class="form-label" style="font-weight: bold;">Password</label>
+                        <input type="password" class="form-control editable-field" name="userpassword" required>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Admin Permission Passcode</label>
-                        <input type="text" class="form-control" name="permission_passcode" id="permissionPasscode" required>
+                        <label class="form-label" style="font-weight: bold;">Admin Permission Passcode</label>
+                        <input type="text" class="form-control editable-field" name="permission_passcode" id="permissionPasscode" required>
                     </div>
 
 
