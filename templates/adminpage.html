@@ -1686,27 +1686,36 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
+
 <script>
 function downloadPortfolio() {
     const btn = document.getElementById("exportprojectportBtn");
 
-    // Change button to loading state
+    // Show spinner
     btn.disabled = true;
     btn.innerHTML = `
         <span class="spinner-border spinner-border-sm me-2"></span>
         Downloading...
     `;
 
-    const iframe = document.getElementById("downloadFrame");
+    // Create hidden link for download
+    const link = document.createElement("a");
+    link.href = "/export-projects-portfolio";
+    link.download = "";
+    link.style.display = "none";
+    document.body.appendChild(link);
 
-    // When iframe finishes loading, reset button
-    iframe.onload = function () {
+    // Click the link to start download
+    link.click();
+
+    // Remove link
+    document.body.removeChild(link);
+
+    // Reset button after short delay
+    setTimeout(() => {
         btn.disabled = false;
-        btn.innerHTML = `<i class="bi bi-journal-text"></i> Download Projects Portfolio`;
-    };
-
-    // Trigger file download by loading the route in the iframe
-    iframe.src = "/export-projects-portfolio";
+        btn.innerHTML = `<i class="bi bi-journal-text"></i> Export Projects Portfolio`;
+    }, 2500); // 2.5 seconds works well
 }
 </script>
 
@@ -1877,6 +1886,7 @@ $('#addNoteBtn').click(function() {
                 
                 // Show success message
                 alert('Note added successfully!');
+
             } else {
                 const errorMsg = response?.message || response?.error || 'Failed to add note';
                 alert('Error: ' + errorMsg);
