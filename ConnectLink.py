@@ -590,7 +590,7 @@ def download_contract(project_id):
 
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
-            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]} {project["project_name"]} contract_{project["project_id_num"]}.pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]} {project["project_name"]} contract_{project["project_id_num"]} ConnectLink Properties.pdf'
             return response
 
         except Exception as e:
@@ -828,7 +828,7 @@ def download_payments_history(project_id):
 
             response = make_response(pdf)
             response.headers["Content-Type"] = "application/pdf"
-            response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[10]} payments history_{project_id}.pdf"
+            response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[10]} payments history_{project_id}_ConnectLink Properties.pdf"
 
             return response
 

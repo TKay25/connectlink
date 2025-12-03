@@ -719,19 +719,21 @@
         }
 
         .dashboard-graphs {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 30px;
+            display: flex;
+            flex-wrap: wrap; /* allows wrapping to next row if not enough space */
+            gap: 20px;       /* spacing between charts */
+            justify-content: space-between; /* optional: space out evenly */
         }
 
         .graph-card {
-            background-color: #ffffff;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            font-size: 12px;
+            flex: 1 1 30%; /* grow, shrink, base width 30% */
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            min-width: 300px; /* ensures charts don’t shrink too small */
         }
+
 
         .graph-card h6 {
             margin-bottom: 10px;
