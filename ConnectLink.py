@@ -471,45 +471,6 @@ def download_contract(project_id):
                         box-sizing: border-box; /* include padding/border in width */
                         overflow-wrap: break-word; /* wrap long words */
                     }}
-                    @page {{
-                        size: A4;
-                        margin: 100px 50px 80px 50px; /* top right bottom left */
-                        
-                        @top-center {{
-                            content: element(header);
-                        }}
-                        @bottom-center {{
-                            content: element(footer);
-                        }}
-                    }}
-
-                    header {{
-                        display: block;
-                        text-align: center;
-                        font-size: 0.9rem;
-                        font-weight: 700;
-                        margin-bottom: 10px;
-                    }}
-
-                    footer {{
-                        display: block;
-                        text-align: center;
-                        font-size: 0.8rem;
-                        color: #555;
-                        margin-top: 10px;
-                    }}
-
-                    /* Watermark */
-                    .watermark {{
-                        position: fixed;
-                        top: 40%;
-                        left: 15%;
-                        opacity: 0.08;
-                        font-size: 80px;
-                        color: #1E2A56;
-                        transform: rotate(-45deg);
-                        z-index: -1000;
-                    }}
                     .logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
                     h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
                     .subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
@@ -529,11 +490,6 @@ def download_contract(project_id):
                     </style>
                 </head>
                 <body>
-                <header id="header">
-                    <img src="data:image/png;base64,{logo_base64}" alt="ConnectLink Logo" width="150">
-                    <div>ConnectLink Construction Agreement</div>
-                </header>
-
                 <div class="watermark">CONFIDENTIAL</div>
                 <div class="agreement-container">
 
