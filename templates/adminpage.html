@@ -1519,14 +1519,13 @@
                         <!-- End Scrollable Container -->
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary3" id="saveUpdateChanges" style="width: max-content;">Download Payments History</button>    
+                        <button type="button" class="btn btn-primary3" id="downloadpaymentshistory" style="width: max-content;">
+                            <span id="downloadText">Download Payments History</span>
+                            <span id="downloadSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                        </button>
                         <button type="submit" class="btn btn-primary" style="width: max-content;">Save Changes</button>
                         <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
                     </div>
-
-
-
-
                 </form>
             </div>
         </div>
@@ -1866,6 +1865,44 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
+<script>
+
+document.getElementById("downloadpaymentshistory").addEventListener("click", function () {
+    const projectId = document.getElementById("updateProjectId").value;
+
+    if (!projectId) {
+        alert("Project ID missing!");
+        return;
+    }
+
+    const btn = this;
+    const spinner = document.getElementById("downloadSpinner");
+    const text = document.getElementById("downloadText");
+
+    // Start spinner & disable button
+    spinner.classList.remove("d-none");
+    text.textContent = "Preparing File...";
+    btn.disabled = true;
+
+    // Trigger file download
+    window.location.href = `/download_payments_history/${projectId}`;
+
+    // Best available solution:
+    // Detect when user comes back to page after download dialog closes
+    const stopSpinner = () => {
+        spinner.classList.add("d-none");
+        text.textContent = "Download Payments History";
+        btn.disabled = false;
+        window.removeEventListener("focus", stopSpinner);
+    };
+
+    // When user returns focus → assume download triggered
+    window.addEventListener("focus", stopSpinner);
+
+    // Extra safety timeout (in case browser does not blur)
+    setTimeout(stopSpinner, 4000);
+});
+</script>
 
 <script>
 function downloadPortfolio() {

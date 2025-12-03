@@ -595,6 +595,146 @@ def download_contract(project_id):
             return str(e), 500
 
 
+@app.route('/download_payments_history/<project_id>')
+def download_payments_history(project_id):
+    with get_db() as (cursor, connection):
+        try:
+            # Fetch full project row (as your system does)
+            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id = %s", (project_id,))
+            row = cursor.fetchone()
+            if not row:
+                return "Project not found", 404
+
+            # Fetch company details
+            cursor.execute("SELECT * FROM connectlinkdetails;")
+            details = cursor.fetchall()
+            details = pd.DataFrame(details, columns=[
+                'address','contact1','contact2','email','companyname','tinnumber'
+            ])
+
+            companyname = details.iat[0,4] if not details.empty else ""
+            address = details.iat[0,0] if not details.empty else ""
+            contact1 = details.iat[0,1] if not details.empty else ""
+            contact2 = details.iat[0,2] if not details.empty else ""
+            compemail = details.iat[0,3] if not details.empty else ""
+
+            # Payment fields (same index references as your system)
+            payments = [
+                {
+                    "name": "Installment 1",
+                    "amount": row[26],
+                    "due": row[27].strftime("%-d %B %Y") if row[27] else "-",
+                    "paid": row[28].strftime("%-d %B %Y") if row[28] else "Not Paid",
+                },
+                {
+                    "name": "Installment 2",
+                    "amount": row[29],
+                    "due": row[30].strftime("%-d %B %Y") if row[30] else "-",
+                    "paid": row[31].strftime("%-d %B %Y") if row[31] else "Not Paid",
+                },
+                {
+                    "name": "Installment 3",
+                    "amount": row[32],
+                    "due": row[33].strftime("%-d %B %Y") if row[33] else "-",
+                    "paid": row[34].strftime("%-d %B %Y") if row[34] else "Not Paid",
+                },
+                {
+                    "name": "Installment 4",
+                    "amount": row[35],
+                    "due": row[36].strftime("%-d %B %Y") if row[36] else "-",
+                    "paid": row[37].strftime("%-d %B %Y") if row[37] else "Not Paid",
+                },
+                {
+                    "name": "Installment 5",
+                    "amount": row[38],
+                    "due": row[39].strftime("%-d %B %Y") if row[39] else "-",
+                    "paid": row[40].strftime("%-d %B %Y") if row[40] else "Not Paid",
+                },
+                {
+                    "name": "Installment 6",
+                    "amount": row[41],
+                    "due": row[42].strftime("%-d %B %Y") if row[42] else "-",
+                    "paid": row[43].strftime("%-d %B %Y") if row[43] else "Not Paid",
+                }
+            ]
+
+            # Get logo as base64
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+            with open(logo_path, 'rb') as img:
+                logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+
+            # Build payments table rows
+            payment_rows = ""
+            for p in payments:
+                payment_rows += f"""
+                    <tr>
+                        <td style="border:1px solid #ccc;padding:8px;">{p['name']}</td>
+                        <td style="border:1px solid #ccc;padding:8px;">{p['amount']}</td>
+                        <td style="border:1px solid #ccc;padding:8px;">{p['due']}</td>
+                        <td style="border:1px solid #ccc;padding:8px;">{p['paid']}</td>
+                    </tr>
+                """
+
+            # HTML template
+            html = f"""
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body {{ font-family: Arial; }}
+                    table {{ border-collapse: collapse; width: 100%; }}
+                    th {{ background: #1E2A56; color: white; padding: 8px; }}
+                    td {{ padding: 8px; }}
+                </style>
+            </head>
+            <body>
+
+            <img src="data:image/png;base64,{logo_base64}" style="width:180px;">
+
+            <h2 style="text-align:center;">PAYMENTS HISTORY RECEIPT</h2>
+
+            <h3>Client Details</h3>
+            <p><strong>Name:</strong> {row[1]}</p>
+            <p><strong>Address:</strong> {row[3]}</p>
+            <p><strong>Contact:</strong> 0{row[4]}</p>
+
+            <h3>Project Details</h3>
+            <p><strong>Project:</strong> {row[10]}</p>
+            <p><strong>Location:</strong> {row[11]}</p>
+
+            <h3>Payments</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Installment</th>
+                        <th>Amount (USD)</th>
+                        <th>Due Date</th>
+                        <th>Date Paid</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {payment_rows}
+                </tbody>
+            </table>
+
+            <br><br>
+            <p><em>Generated on: {datetime.now().strftime("%d %B %Y")}</em></p>
+
+            </body>
+            </html>
+            """
+
+            pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+
+            response = make_response(pdf)
+            response.headers["Content-Type"] = "application/pdf"
+            response.headers["Content-Disposition"] = f"attachment; filename=payments_history_{project_id}.pdf"
+
+            return response
+
+        except Exception as e:
+            return str(e), 500
 
 
 @app.route('/create-system-user', methods=['POST'])
