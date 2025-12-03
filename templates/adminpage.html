@@ -1455,7 +1455,6 @@
                             style="width: max-content;"
                             onclick="downloadPortfolio()">
                         <i class="bi bi-journal-text"></i> Download Master File
-                        <iframe id="downloadFrame" style="display:none;"></iframe>
                     </button>
 
                     <div class="container mt-5">
@@ -1980,74 +1979,28 @@ $(document).ready(function() {
     // Rest of your save handler...
 });
 </script>
+
 <script>
-// Track ongoing downloads
-const ongoingDownloads = new Set();
 
 function handleDownloadClick(button) {
     const originalText = button.textContent;
-    const downloadId = button.dataset.id || Date.now(); // Unique identifier
-    
-    // Skip if already downloading
-    if (ongoingDownloads.has(downloadId)) {
-        return true;
-    }
-    
-    // Mark as downloading
-    ongoingDownloads.add(downloadId);
-    
-    // Change button state
     button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Downloading...';
     button.disabled = true;
-    
-    // Create a hidden iframe to track download
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.name = 'downloadFrame_' + downloadId;
-    document.body.appendChild(iframe);
-    
-    // Change the link target to the iframe
-    const originalTarget = button.target;
-    button.target = iframe.name;
-    
-    // Listen for iframe load event (download complete)
-    iframe.onload = function() {
-        // Reset button
-        button.innerHTML = 'Download Contract';
+
+    // Trigger download
+    const downloadUrl = button.dataset.url; // e.g., /download_contract/123
+    window.location.href = downloadUrl;
+
+    // Fallback: remove spinner after 3 seconds (UI only)
+    setTimeout(() => {
+        button.innerHTML = originalText;
         button.disabled = false;
-        button.target = originalTarget;
-        
-        // Cleanup
-        document.body.removeChild(iframe);
-        ongoingDownloads.delete(downloadId);
-        
-        // Optional: Show success message for 1 second
-        button.innerHTML = '<i class="fas fa-check me-2"></i>Downloaded!';
-        button.classList.add('btn-success');
-        
-        setTimeout(() => {
-            button.innerHTML = 'Download Contract';
-            button.classList.remove('btn-success');
-        }, 1000);
-    };
-    
-    // Set timeout as fallback (in case iframe doesn't trigger)
-    const fallbackTimeout = setTimeout(() => {
-        if (ongoingDownloads.has(downloadId)) {
-            button.innerHTML = 'Download Contract';
-            button.disabled = false;
-            button.target = originalTarget;
-            
-            if (document.body.contains(iframe)) {
-                document.body.removeChild(iframe);
-            }
-            ongoingDownloads.delete(downloadId);
-        }
-    }, 10000); // 10 second timeout
-    
-    return true;
+    }, 3000);
 }
+
+
 </script>
+
 <script>
 document.getElementById("saveAdminBtn").addEventListener("click", function () {
 

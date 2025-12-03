@@ -448,121 +448,121 @@ def download_contract(project_id):
 
             # HTML string (full template)
             html = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Construction Agreement</title>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
-<style>
-body {{ font-family: 'Roboto', sans-serif; background: #eef2fa; color: #1E2A56; }}
-.agreement-container {{ background: #fff; width: 95%; margin: auto; padding: 50px 60px; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); line-height: 1; }}
-.logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
-h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
-.subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
-h4.section-title {{ text-align: center; background-color: #1E2A56; color: white; padding: 5px 7px; border-radius: 6px; font-size: 1rem; margin-top: 40px; margin-bottom: 20px; font-weight: 800; letter-spacing: 0.5px; }}
-p, li {{ font-size: 0.85rem; color: #1E2A56; }}
-.field-row {{ display: flex; align-items: center; margin-bottom: 12px; }}
-.field-label {{ font-weight: 700; width: 170px; font-size: 14px; flex-shrink: 0; }}
-.field-value {{ flex: 1; border-bottom: 1.5px solid #1E2A56; padding-bottom: 2px; font-size: 14px; min-height: 20px; }}
-.scope-box {{ border: 1.5px solid #1E2A56; border-radius: 10px; padding: 10px; min-height: 80px; background: #fafbff; margin-bottom: 10px; }}
-ul {{ margin-top: 5px; margin-bottom: 20px; }}
-li {{ margin-bottom: 6px; }}
-.signature-block {{ margin-top: 60px; }}
-.signature-line {{ margin-top: 30px; margin-bottom: 35px; }}
-.signature-label {{ display: block; font-weight: 700; margin-bottom: 5px; }}
-.watermark {{ position: fixed; top: 40%; left: 15%; opacity: 0.1; font-size: 80px; color: #1E2A56; transform: rotate(-45deg); z-index: -1000; }}
-@page {{ size: A4; margin: 50px 40px; }}
-</style>
-</head>
-<body>
-<div class="watermark">CONFIDENTIAL</div>
-<div class="agreement-container">
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                <meta charset="UTF-8">
+                <title>Construction Agreement</title>
+                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
+                <style>
+                body {{ font-family: 'Roboto', sans-serif; background: #eef2fa; color: #1E2A56; }}
+                .agreement-container {{ background: #fff; width: 95%; margin: auto; padding: 50px 60px; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); line-height: 1; }}
+                .logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
+                h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
+                .subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
+                h4.section-title {{ text-align: center; background-color: #1E2A56; color: white; padding: 5px 7px; border-radius: 6px; font-size: 1rem; margin-top: 40px; margin-bottom: 20px; font-weight: 800; letter-spacing: 0.5px; }}
+                p, li {{ font-size: 0.85rem; color: #1E2A56; }}
+                .field-row {{ display: flex; align-items: center; margin-bottom: 12px; }}
+                .field-label {{ font-weight: 700; width: 170px; font-size: 14px; flex-shrink: 0; }}
+                .field-value {{ flex: 1; border-bottom: 1.5px solid #1E2A56; padding-bottom: 2px; font-size: 14px; min-height: 20px; }}
+                .scope-box {{ border: 1.5px solid #1E2A56; border-radius: 10px; padding: 10px; min-height: 80px; background: #fafbff; margin-bottom: 10px; }}
+                ul {{ margin-top: 5px; margin-bottom: 20px; }}
+                li {{ margin-bottom: 6px; }}
+                .signature-block {{ margin-top: 60px; }}
+                .signature-line {{ margin-top: 30px; margin-bottom: 35px; }}
+                .signature-label {{ display: block; font-weight: 700; margin-bottom: 5px; }}
+                .watermark {{ position: fixed; top: 40%; left: 15%; opacity: 0.1; font-size: 80px; color: #1E2A56; transform: rotate(-45deg); z-index: -1000; }}
+                @page {{ size: A4; margin: 50px 40px; }}
+                </style>
+                </head>
+                <body>
+                <div class="watermark">CONFIDENTIAL</div>
+                <div class="agreement-container">
 
-<img class="logo" src="{request.host_url}static/images/web-logo.png" alt="ConnectLink Logo">
+                <img class="logo" src="{{ url_for('static', filename='images/web-logo.png') }}" alt="ConnectLink Logo">
 
-<h2 class="title">Construction Agreement</h2>
-<div class="subtitle-line"></div>
+                <h2 class="title">Construction Agreement</h2>
+                <div class="subtitle-line"></div>
 
-<p>This Construction Agreement ("Agreement") is made and entered into on <strong>{project['agreement_date']}</strong> ("Effective Date") by and between:</p>
+                <p>This Construction Agreement ("Agreement") is made and entered into on <strong>{project['agreement_date']}</strong> ("Effective Date") by and between:</p>
 
-<h4 class="section-title">CLIENT DETAILS</h4>
-<div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
-<div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['client_address']}</div></div>
-<div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['client_whatsapp']}</div></div>
-<div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['client_email']}</div></div>
+                <h4 class="section-title">CLIENT DETAILS</h4>
+                <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
+                <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['client_address']}</div></div>
+                <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['client_whatsapp']}</div></div>
+                <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['client_email']}</div></div>
 
-<h4 class="section-title">NEXT OF KIN DETAILS</h4>
-<div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['next_of_kin_name']}</div></div>
-<div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['next_of_kin_address']}</div></div>
-<div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
-<div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
+                <h4 class="section-title">NEXT OF KIN DETAILS</h4>
+                <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['next_of_kin_name']}</div></div>
+                <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['next_of_kin_address']}</div></div>
+                <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
+                <div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
 
-<h4 class="section-title">CONTRACTOR DETAILS</h4>
-<div class="field-row"><div class="field-label">Name:</div><div class="field-value">{project['companyname']}</div></div>
-<div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
-<div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['companycontact1']} ; 0{project['companycontact2']}</div></div>
-<div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
-<div class="field-row"><div class="field-label">Administrator Name:</div><div class="field-value">{project['project_administrator']}</div></div>
+                <h4 class="section-title">CONTRACTOR DETAILS</h4>
+                <div class="field-row"><div class="field-label">Name:</div><div class="field-value">{project['companyname']}</div></div>
+                <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
+                <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['companycontact1']} ; 0{project['companycontact2']}</div></div>
+                <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
+                <div class="field-row"><div class="field-label">Administrator Name:</div><div class="field-value">{project['project_administrator']}</div></div>
 
-<h4 class="section-title">PROJECT DETAILS</h4>
-<div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
-<div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
-<p><strong>Project Scope:</strong></p>
-<div class="scope-box">{project['project_description']}</div>
+                <h4 class="section-title">PROJECT DETAILS</h4>
+                <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
+                <div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
+                <p><strong>Project Scope:</strong></p>
+                <div class="scope-box">{project['project_description']}</div>
 
-<h4 class="section-title">PAYMENT TERMS</h4>
-<div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value">USD {project['total_contract_price']}</div></div>
-<div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value">USD {project['depositorbullet']}</div></div>
+                <h4 class="section-title">PAYMENT TERMS</h4>
+                <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value">USD {project['total_contract_price']}</div></div>
+                <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value">USD {project['depositorbullet']}</div></div>
 
-<p><strong>Payment Schedule:</strong></p>
-<table style="width:70%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #1E2A56;">
-<thead>
-<tr>
-<th style="text-align:left; border: 1px solid #1E2A56; padding: 8px; background-color: #f0f2f8;">Installment Due Date</th>
-<th style="border: 1px solid #1E2A56; padding: 8px; background-color: #f0f2f8;">Installment (USD)</th>
-</tr>
-</thead>
-<tbody>
-<tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1amount']}</td></tr>
-<tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2amount']}</td></tr>
-<!-- Add installments 3-6 similarly if needed -->
-</tbody>
-</table>
+                <p><strong>Payment Schedule:</strong></p>
+                <table style="width:70%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #1E2A56;">
+                <thead>
+                <tr>
+                <th style="text-align:left; border: 1px solid #1E2A56; padding: 8px; background-color: #f0f2f8;">Installment Due Date</th>
+                <th style="border: 1px solid #1E2A56; padding: 8px; background-color: #f0f2f8;">Installment (USD)</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2amount']}</td></tr>
+                <!-- Add installments 3-6 similarly if needed -->
+                </tbody>
+                </table>
 
-<h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
-<p>- If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of {project['latepaymentinterest']}% per annum.</p>
-<p>- Interest is calculated daily and compounded monthly.</p>
+                <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
+                <p>- If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of {project['latepaymentinterest']}% per annum.</p>
+                <p>- Interest is calculated daily and compounded monthly.</p>
 
-<h4 class="section-title">TERMS AND CONDITIONS</h4>
-<ol>
-<li>The Contractor shall commence work within {project['days_difference']} days of receiving the first payment.</li>
-<li>The Client shall make payments as per the payment schedule.</li>
-<li>The Contractor shall complete the project within {project['project_duration']} days.</li>
-<li>The Client is responsible for obtaining all required permits.</li>
-<li>The Contractor is responsible for all materials and labor.</li>
-</ol>
+                <h4 class="section-title">TERMS AND CONDITIONS</h4>
+                <ol>
+                <li>The Contractor shall commence work within {project['days_difference']} days of receiving the first payment.</li>
+                <li>The Client shall make payments as per the payment schedule.</li>
+                <li>The Contractor shall complete the project within {project['project_duration']} days.</li>
+                <li>The Client is responsible for obtaining all required permits.</li>
+                <li>The Contractor is responsible for all materials and labor.</li>
+                </ol>
 
-<h4 class="section-title">TERMINATION</h4>
-<p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
+                <h4 class="section-title">TERMINATION</h4>
+                <p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
 
-<h4 class="section-title">DISPUTE RESOLUTION</h4>
-<p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
+                <h4 class="section-title">DISPUTE RESOLUTION</h4>
+                <p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
 
-<h4 class="section-title">GOVERNING LAW</h4>
-<p>This Agreement is governed by the laws of Zimbabwe.</p>
+                <h4 class="section-title">GOVERNING LAW</h4>
+                <p>This Agreement is governed by the laws of Zimbabwe.</p>
 
-<h4 class="section-title">SIGNATURES</h4>
-<div class="signature-block">
-<div class="signature-line"><span class="signature-label">Client Signature:</span><div class="field-value" style="width:350px;"></div></div>
-<div class="signature-line"><span class="signature-label">Contractor Signature:</span><div class="field-value" style="width:350px;"></div></div>
-<div class="signature-line"><span class="signature-label">Date:</span><div class="field-value" style="width:220px;"></div></div>
-</div>
+                <h4 class="section-title">SIGNATURES</h4>
+                <div class="signature-block">
+                <div class="signature-line"><span class="signature-label">Client Signature:</span><div class="field-value" style="width:350px;"></div></div>
+                <div class="signature-line"><span class="signature-label">Contractor Signature:</span><div class="field-value" style="width:350px;"></div></div>
+                <div class="signature-line"><span class="signature-label">Date:</span><div class="field-value" style="width:220px;"></div></div>
+                </div>
 
-</div>
-</body>
-</html>
-"""
+                </div>
+                </body>
+                </html>
+                """
 
             # Generate PDF
             pdf = HTML(string=html, base_url=request.host_url).write_pdf()
