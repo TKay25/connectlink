@@ -1324,12 +1324,14 @@
     <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content" style="font-size: 13px;">
-                <div class="modal-header" style="background-color: #1E2A56; color: white;">
-                    <h6 class="modal-title" id="updateModalLabel"><i class="bi bi-card-checklist"></i> PROJECT PROGRESS UPDATE</h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="updateProjectForm" method="POST" action="/update_project">
+                <form id="updateProjectForm" method="POST" action="/update_project">
+
+                    <div class="modal-header" style="background-color: #1E2A56; color: white;">
+                        <h6 class="modal-title" id="updateModalLabel"><i class="bi bi-card-checklist"></i> PROJECT PROGRESS UPDATE</h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+
                         <input type="hidden" id="updateProjectId" name="project_id">
                         
                         <div class="row mb-3">
@@ -1571,13 +1573,17 @@
 
                         </div>
                         <!-- End Scrollable Container -->
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary3" id="saveUpdateChanges" style="width: max-content;">Download Payments History</button>    
-                    <button type="submit" class="btn btn-primary" style="width: max-content;">Save Changes</button>
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
-                </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary3" id="saveUpdateChanges" style="width: max-content;">Download Payments History</button>    
+                        <button type="submit" class="btn btn-primary" style="width: max-content;">Save Changes</button>
+                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+                    </div>
+
+
+
+
+                </form>
             </div>
         </div>
     </div>
@@ -1609,6 +1615,7 @@
 
             </ul>
             <div class="tab-content mt-4">
+                
                 <div class="tab-pane fade show active" id="dashboard-tab">
 
                     <div class="tab-pane fade show active" id="dashboard-tab">
@@ -1651,7 +1658,7 @@
                             </div>
 
                         </div>
-                        <br>
+
                         <div class="dashboard-graphs">
 
                             <div class="graph-card">
