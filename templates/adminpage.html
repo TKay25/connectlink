@@ -1871,7 +1871,6 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const locations = JSON.parse(document.getElementById('locations-data').value);
@@ -1927,8 +1926,6 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, // allows manual size control
-            aspectRatio: 1, // width/height ratio (1 = square)
             plugins: {
                 legend: { position: 'bottom' }
             }
