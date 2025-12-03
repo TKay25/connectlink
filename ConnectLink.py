@@ -235,7 +235,7 @@ def export_projects_portfolio():
     with get_db() as (cursor, connection):
 
         try:
-            today_date = datetime.now().strftime('%d %B %Y')
+            today_date = datetime.now().strftime('%d %B %Y %H:%M:%S')
 
             # ========= SHEET 1 — PROJECTS =========
             cursor.execute("SELECT * FROM connectlinkdatabase")
