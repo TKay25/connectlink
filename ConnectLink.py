@@ -369,7 +369,6 @@ def login():
 
 @app.route('/download_contract/<project_id>')
 def download_contract(project_id):
-
     with get_db() as (cursor, connection):
         try:
             # Fetch project data
@@ -378,43 +377,31 @@ def download_contract(project_id):
             if not row:
                 return "Project not found", 404
 
+            # Format agreement date
             agreement_date = row[16] 
             formatted_agreement_date = agreement_date.strftime("%d %B %Y")
 
-            detailscompquery = f"SELECT * FROM connectlinkdetails;"
-            cursor.execute(detailscompquery)
+            # Fetch company details
+            cursor.execute("SELECT * FROM connectlinkdetails;")
             detailscompdata = cursor.fetchall()
-            print(detailscompdata)
-
-            detailscompdata = pd.DataFrame(detailscompdata, columns= ['address', 'contact1', 'contact2', 'email', 'companyname', 'tinnumber'])
+            detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber'])
             companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
             address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
             contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
             contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
             compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
-            tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
 
-            nameclient = row[1]
-            locationclientprojectnum = row[11]
-
-            # Calculate days between two dates
+            # Calculate days difference
             def days_between(date1, date2):
-                
-                # Calculate difference
-                delta = date_str1 - date_str2
+                delta = date1 - date2
                 return abs(delta.days)
 
-            # Example usage
             date_str1 = row[14]
             date_str2 = row[24]
-
-            # Store the result in a variable
             days_difference = days_between(date_str1, date_str2)
-            print(days_difference)  # Output: 14
 
-            # Map row to dictionary
+            # Map project row to dictionary
             project = {
-                'id': row[0],
                 'client_name': row[1],
                 'client_idnumber': row[2],
                 'client_address': row[3],
@@ -432,64 +419,164 @@ def download_contract(project_id):
                 'project_duration': row[15],
                 'agreement_date': formatted_agreement_date,
                 'total_contract_price': row[17],
-                'payment_method': row[18],
-                'months_to_pay': row[19],
-                'date_captured': row[20],
-                'capturer': row[21],
-                'capturerid': row[22],
                 'depositorbullet': row[23] if len(row) > 23 else None,
                 'datedepositorbullet': row[24] if len(row) > 24 else None,
                 'monthlyinstallment': row[25] if len(row) > 25 else None,
                 'installment1amount': row[26] if len(row) > 26 else None,
-                'installment1duedate': row[27].strftime("%-d %B %Y") if len(row) > 27 and row[27] is not None else None,
-                'installment1date': row[28].strftime("%-d %B %Y") if len(row) > 28 and row[28] is not None else None,
+                'installment1duedate': row[27].strftime("%-d %B %Y") if len(row) > 27 and row[27] else None,
                 'installment2amount': row[29] if len(row) > 29 else None,
-                'installment2duedate': row[30].strftime("%-d %B %Y") if len(row) > 30 and row[30] is not None else None,
-                'installment2date': row[31].strftime("%-d %B %Y") if len(row) > 31 and row[31] is not None else None,
+                'installment2duedate': row[30].strftime("%-d %B %Y") if len(row) > 30 and row[30] else None,
                 'installment3amount': row[32] if len(row) > 32 else None,
-                'installment3duedate': row[33].strftime("%-d %B %Y") if len(row) > 33 and row[33] is not None else None,
-                'installment3date': row[34].strftime("%-d %B %Y") if len(row) > 34 and row[34] is not None else None,
+                'installment3duedate': row[33].strftime("%-d %B %Y") if len(row) > 33 and row[33] else None,
                 'installment4amount': row[35] if len(row) > 35 else None,
-                'installment4duedate': row[36].strftime("%-d %B %Y") if len(row) > 36 and row[36] is not None else None,
-                'installment4date': row[37].strftime("%-d %B %Y") if len(row) > 37 and row[37] is not None else None,
+                'installment4duedate': row[36].strftime("%-d %B %Y") if len(row) > 36 and row[36] else None,
                 'installment5amount': row[38] if len(row) > 38 else None,
-                'installment5duedate': row[39].strftime("%-d %B %Y") if len(row) > 39 and row[39] is not None else None,
-                'installment5date': row[40].strftime("%-d %B %Y") if len(row) > 40 and row[40] is not None else None,
+                'installment5duedate': row[39].strftime("%-d %B %Y") if len(row) > 39 and row[39] else None,
                 'installment6amount': row[41] if len(row) > 41 else None,
-                'installment6duedate': row[42].strftime("%-d %B %Y") if len(row) > 42 and row[42] is not None else None,
-                'installment6date': row[43].strftime("%-d %B %Y") if len(row) > 43 and row[43] is not None else None,
-                "latepaymentinterest": row[45] if len(row) > 43 else None,
+                'installment6duedate': row[42].strftime("%-d %B %Y") if len(row) > 42 and row[42] else None,
+                'latepaymentinterest': row[45] if len(row) > 43 else None,
                 'companyname': companyname,
                 'companyaddress': address,
                 'companycontact1': contact1,
                 'companycontact2': contact2,
                 'companyemail': compemail,
-                'days_difference': days_difference
+                'days_difference': days_difference,
+                'relationship': row[9] if len(row) > 9 else ""
             }
 
-            # Get logo as base64 for embedding in PDF
-            def get_logo_base64():
-                logo_path = os.path.join(app.static_folder, 'images', 'web-logo.png')
-                with open(logo_path, "rb") as img_file:
-                    return "data:image/png;base64," + base64.b64encode(img_file.read()).decode('utf-8')
-
-            project['company_logo'] = get_logo_base64()
             project['generated_on'] = datetime.now().strftime('%d %B %Y')
 
-            # Render HTML template with project data
-            html = render_template('contracttemplate.html', project=project)
+            # HTML string (full template)
+            html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Construction Agreement</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+body {{ font-family: 'Roboto', sans-serif; background: #eef2fa; color: #1E2A56; }}
+.agreement-container {{ background: #fff; width: 95%; margin: auto; padding: 50px 60px; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); line-height: 1; }}
+.logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
+h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
+.subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
+h4.section-title {{ text-align: center; background-color: #1E2A56; color: white; padding: 5px 7px; border-radius: 6px; font-size: 1rem; margin-top: 40px; margin-bottom: 20px; font-weight: 800; letter-spacing: 0.5px; }}
+p, li {{ font-size: 0.85rem; color: #1E2A56; }}
+.field-row {{ display: flex; align-items: center; margin-bottom: 12px; }}
+.field-label {{ font-weight: 700; width: 170px; font-size: 14px; flex-shrink: 0; }}
+.field-value {{ flex: 1; border-bottom: 1.5px solid #1E2A56; padding-bottom: 2px; font-size: 14px; min-height: 20px; }}
+.scope-box {{ border: 1.5px solid #1E2A56; border-radius: 10px; padding: 10px; min-height: 80px; background: #fafbff; margin-bottom: 10px; }}
+ul {{ margin-top: 5px; margin-bottom: 20px; }}
+li {{ margin-bottom: 6px; }}
+.signature-block {{ margin-top: 60px; }}
+.signature-line {{ margin-top: 30px; margin-bottom: 35px; }}
+.signature-label {{ display: block; font-weight: 700; margin-bottom: 5px; }}
+.watermark {{ position: fixed; top: 40%; left: 15%; opacity: 0.1; font-size: 80px; color: #1E2A56; transform: rotate(-45deg); z-index: -1000; }}
+@page {{ size: A4; margin: 50px 40px; }}
+</style>
+</head>
+<body>
+<div class="watermark">CONFIDENTIAL</div>
+<div class="agreement-container">
+
+<img class="logo" src="{request.host_url}static/images/web-logo.png" alt="ConnectLink Logo">
+
+<h2 class="title">Construction Agreement</h2>
+<div class="subtitle-line"></div>
+
+<p>This Construction Agreement ("Agreement") is made and entered into on <strong>{project['agreement_date']}</strong> ("Effective Date") by and between:</p>
+
+<h4 class="section-title">CLIENT DETAILS</h4>
+<div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
+<div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['client_address']}</div></div>
+<div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['client_whatsapp']}</div></div>
+<div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['client_email']}</div></div>
+
+<h4 class="section-title">NEXT OF KIN DETAILS</h4>
+<div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['next_of_kin_name']}</div></div>
+<div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['next_of_kin_address']}</div></div>
+<div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
+<div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
+
+<h4 class="section-title">CONTRACTOR DETAILS</h4>
+<div class="field-row"><div class="field-label">Name:</div><div class="field-value">{project['companyname']}</div></div>
+<div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
+<div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['companycontact1']} ; 0{project['companycontact2']}</div></div>
+<div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
+<div class="field-row"><div class="field-label">Administrator Name:</div><div class="field-value">{project['project_administrator']}</div></div>
+
+<h4 class="section-title">PROJECT DETAILS</h4>
+<div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
+<div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
+<p><strong>Project Scope:</strong></p>
+<div class="scope-box">{project['project_description']}</div>
+
+<h4 class="section-title">PAYMENT TERMS</h4>
+<div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value">USD {project['total_contract_price']}</div></div>
+<div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value">USD {project['depositorbullet']}</div></div>
+
+<p><strong>Payment Schedule:</strong></p>
+<table style="width:70%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #1E2A56;">
+<thead>
+<tr>
+<th style="text-align:left; border: 1px solid #1E2A56; padding: 8px; background-color: #f0f2f8;">Installment Due Date</th>
+<th style="border: 1px solid #1E2A56; padding: 8px; background-color: #f0f2f8;">Installment (USD)</th>
+</tr>
+</thead>
+<tbody>
+<tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1amount']}</td></tr>
+<tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2amount']}</td></tr>
+<!-- Add installments 3-6 similarly if needed -->
+</tbody>
+</table>
+
+<h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
+<p>- If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of {project['latepaymentinterest']}% per annum.</p>
+<p>- Interest is calculated daily and compounded monthly.</p>
+
+<h4 class="section-title">TERMS AND CONDITIONS</h4>
+<ol>
+<li>The Contractor shall commence work within {project['days_difference']} days of receiving the first payment.</li>
+<li>The Client shall make payments as per the payment schedule.</li>
+<li>The Contractor shall complete the project within {project['project_duration']} days.</li>
+<li>The Client is responsible for obtaining all required permits.</li>
+<li>The Contractor is responsible for all materials and labor.</li>
+</ol>
+
+<h4 class="section-title">TERMINATION</h4>
+<p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
+
+<h4 class="section-title">DISPUTE RESOLUTION</h4>
+<p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
+
+<h4 class="section-title">GOVERNING LAW</h4>
+<p>This Agreement is governed by the laws of Zimbabwe.</p>
+
+<h4 class="section-title">SIGNATURES</h4>
+<div class="signature-block">
+<div class="signature-line"><span class="signature-label">Client Signature:</span><div class="field-value" style="width:350px;"></div></div>
+<div class="signature-line"><span class="signature-label">Contractor Signature:</span><div class="field-value" style="width:350px;"></div></div>
+<div class="signature-line"><span class="signature-label">Date:</span><div class="field-value" style="width:220px;"></div></div>
+</div>
+
+</div>
+</body>
+</html>
+"""
 
             # Generate PDF
-            pdf = HTML(string=html).write_pdf()
+            pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
-            # Return PDF as response
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
-            response.headers['Content-Disposition'] = f'attachment; filename={nameclient}_{locationclientprojectnum}_contract_{project_id}_{companyname}.pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]}_contract.pdf'
             return response
 
         except Exception as e:
             return str(e), 500
+
+
+
 
 @app.route('/create-system-user', methods=['POST'])
 def create_system_user():
