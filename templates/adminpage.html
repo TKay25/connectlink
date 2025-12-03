@@ -2015,6 +2015,15 @@ $('#addNoteBtn').click(function() {
         const clientWaNumber = $(this).data('client-wa-number'); // Add this
         const clientNextOfKinNumber = $(this).data('client-next-of-kin-number'); // Add this
 
+        console.log('Button data:', {
+            projectId, projectName, clientName, 
+            clientWaNumber, clientNextOfKinNumber
+        });
+        
+        // Store data in modal
+        $('#notesModal').data('clientWaNumber', clientWaNumber);
+        $('#notesModal').data('clientNextOfKinNumber', clientNextOfKinNumber);
+        
         loadNotes(projectId, projectName, clientName);
     });
 
