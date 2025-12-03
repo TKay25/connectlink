@@ -716,6 +716,13 @@ def add_note():
             project_id = request.form.get('project_id')
             note_text = request.form.get('note_text')
             
+            print(client_name)
+            print(client_number)
+            print(nextofkin_number)
+            print(project_name)
+            print(project_id)
+            print(note_text)
+
             if not project_id or not note_text:
                 return jsonify({'success': False, 'message': 'Missing required fields'}), 400
 
@@ -730,6 +737,7 @@ def add_note():
             return jsonify({'success': True, 'message': 'Note added successfully'})
             
         except Exception as e:
+            print(e)
             connection.rollback()
             return jsonify({'success': False, 'error': str(e)}), 500
     
