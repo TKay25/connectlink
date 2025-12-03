@@ -703,20 +703,27 @@ def get_notes(project_id):
 def add_note():
         
     with get_db() as (cursor, connection):
-        
+
+        user_uuid = session.get('user_uuid')
+        user_name = session.get('user_name')
+        userid = session.get('userid')
 
         try:
+            client_name = request.form.get('client_name')
+            client_number = request.form.get('client_wa_number')
+            nextofkin_number = request.form.get('client_next_of_kin_number')
+            project_name = request.form.get('project_name')
             project_id = request.form.get('project_id')
             note_text = request.form.get('note_text')
             
             if not project_id or not note_text:
                 return jsonify({'success': False, 'message': 'Missing required fields'}), 400
-            
+
             # Insert note into database
             cursor.execute("""
-                INSERT INTO connectlinknotes (projectid, note, timestamp, capturer)
-                VALUES (%s, %s, NOW(), %s)
-            """, (project_id, note_text, 'Admin'))  # Replace with actual user
+                INSERT INTO connectlinknotes (projectid, note, timestamp, capturer, projectname, clientname, clientwanumber, clientnextofkinnumber)
+                VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s)
+            """, (project_id, note_text, user_name, project_name, client_name, client_number, nextofkin_number))  # Replace with actual user
             
             connection.commit()
             
@@ -807,7 +814,6 @@ def get_project(project_id):
         try:
             cursor.execute("SELECT * FROM connectlinkdatabase WHERE id=%s", (project_id,))
             row = cursor.fetchone()
-            cursor.close()
 
             if not row:
                 return jsonify({})

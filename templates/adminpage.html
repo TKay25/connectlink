@@ -1670,7 +1670,7 @@
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="notesProjectId">
-                    
+
                     <!-- Display Container for Existing Notes -->
                     <div class="notes-display-container mb-4">
                         <h6 class="mb-3">Existing Notes:</h6>
@@ -1850,9 +1850,7 @@ $(document).ready(function() {
     // Function to load notes for a project
     function loadNotes(projectId, projectName, clientName) {
         // Set project ID in hidden field
-        $('#notesProjectId').val(projectId);
-        
-        // Set modal header values
+        $('#notesProjectId').val(projectId);        
         $('#modalProjectName').text(projectName);
         $('#modalClientName').text(clientName);
         
@@ -1930,7 +1928,9 @@ $(document).ready(function() {
 $('#addNoteBtn').click(function() {
     const projectId = $('#notesProjectId').val();
     const noteText = $('#newNoteText').val().trim();
-    
+    const clientName = $('#modalClientName').text(); // Get client name from modal
+    const projectName = $('#modalProjectName').text(); // Get project name from modal
+
     if (!projectId) {
         alert('No project selected');
         return;
@@ -1948,13 +1948,20 @@ $('#addNoteBtn').click(function() {
     btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Adding...');
     btn.prop('disabled', true);
     
+    const clientWaNumber = $('#notesModal').data('clientWaNumber') || '';
+    const clientNextOfKinNumber = $('#notesModal').data('clientNextOfKinNumber') || '';
+    
     // Send note to server
     $.ajax({
         url: '/add_note',
         method: 'POST',
         data: {
             project_id: projectId,
-            note_text: noteText
+            note_text: noteText,
+            client_name: clientName,
+            project_name: projectName,
+            client_wa_number: clientWaNumber,
+            client_next_of_kin_number: clientNextOfKinNumber
         },
         success: function(response) {
             console.log('Response:', response);
@@ -1965,7 +1972,7 @@ $('#addNoteBtn').click(function() {
                 $('#newNoteText').val('');
                 
                 // Reload notes
-                loadNotes(projectId);
+                loadNotes(projectId, projectName, clientName);
                 
                 // Show success message
                 alert('Note added successfully!');
@@ -2005,6 +2012,8 @@ $('#addNoteBtn').click(function() {
         const projectId = $(this).data('id');
         const projectName = $(this).data('project-name'); // pass project name as data attribute
         const clientName = $(this).data('client-name');   // pass client name as data attribute
+        const clientWaNumber = $(this).data('client-wa-number'); // Add this
+        const clientNextOfKinNumber = $(this).data('client-next-of-kin-number'); // Add this
 
         loadNotes(projectId, projectName, clientName);
     });
