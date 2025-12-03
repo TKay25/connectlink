@@ -467,7 +467,7 @@ def download_contract(project_id):
                         box-sizing: border-box; /* include padding/border in width */
                         overflow-wrap: break-word; /* wrap long words */
                     }}
-                    .logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
+                    .logo {{ display: block; margin: 0 auto 20px auto; width: 200px; }}
                     h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
                     .subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
                     h4.section-title {{ text-align: center; background-color: #1E2A56; color: white; padding: 5px 7px; border-radius: 6px; font-size: 1rem; margin-top: 40px; margin-bottom: 20px; font-weight: 800; letter-spacing: 0.5px; }}
