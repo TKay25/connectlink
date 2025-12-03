@@ -569,7 +569,7 @@ def download_contract(project_id):
                 <div class="signature-block">
                 <div class="signature-line"><span class="signature-label">Client Signature:</span><div class="field-value" style="width:350px;"></div></div>
                 <div class="signature-line"><span class="signature-label">Contractor Signature:</span><div class="field-value" style="width:350px;"></div></div>
-                <div class="signature-line"><span class="signature-label">Date:</span><div class="field-value" style="width:220px;"></div></div>
+                <div class="signature-line"><span class="signature-label">Date: {project['agreement_date']}</span><div class="field-value" style="width:220px;"></div></div>
                 </div>
 
                 </div>
