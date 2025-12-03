@@ -857,6 +857,8 @@ def last_day_of_month(d):
     last_day = calendar.monthrange(d.year, d.month)[1]
     return date(d.year, d.month, last_day)
 
+def clean_date_update(value):
+    return value if value not in ("", None) else None
 
 @app.route('/update_project', methods=['POST'])
 def update_project():
@@ -866,12 +868,13 @@ def update_project():
         project_id = request.form.get('project_id')
         completion_status = request.form.get('completion_status')
 
-        installment1_date = request.form.get('installment1_paid_date')
-        installment2_date = request.form.get('installment2_paid_date')
-        installment3_date = request.form.get('installment3_paid_date')
-        installment4_date = request.form.get('installment4_paid_date')
-        installment5_date = request.form.get('installment5_paid_date')
-        installment6_date = request.form.get('installment6_paid_date')
+        installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
+        installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
+        installment3_date = clean_date_update(request.form.get('installment3_paid_date'))
+        installment4_date = clean_date_update(request.form.get('installment4_paid_date'))
+        installment5_date = clean_date_update(request.form.get('installment5_paid_date'))
+        installment6_date = clean_date_update(request.form.get('installment6_paid_date'))
+
 
         # --- EXAMPLE SQL (modify for your DB) ---
         query = """
