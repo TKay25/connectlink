@@ -2461,6 +2461,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     .then(data => {
         console.log("Server response:", data);
         alert("✅ Project saved successfully!");
+        location.reload()
     })
     .catch(error => {
         console.error("Error:", error);
