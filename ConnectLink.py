@@ -675,55 +675,145 @@ def download_payments_history(project_id):
                     </tr>
                 """
 
-            # HTML template
             html = f"""
-            <html>
+            <!DOCTYPE html>
+            <html lang="en">
             <head>
                 <meta charset="UTF-8">
+
                 <style>
-                    body {{ font-family: Arial; }}
-                    table {{ border-collapse: collapse; width: 100%; }}
-                    th {{ background: #1E2A56; color: white; padding: 8px; }}
-                    td {{ padding: 8px; }}
+                    body {{
+                        font-family: 'Arial', sans-serif;
+                        margin: 40px;
+                        color: #1E2A56;
+                        background-color: #ffffff;
+                        line-height: 1.5;
+                    }}
+
+                    .header {{
+                        text-align: center;
+                        margin-bottom: 25px;
+                    }}
+
+                    .logo {{
+                        width: 170px;
+                        margin-bottom: 12px;
+                    }}
+
+                    h1 {{
+                        font-size: 24px;
+                        margin: 5px 0 0 0;
+                        font-weight: 800;
+                    }}
+
+                    .tagline {{
+                        font-size: 13px;
+                        color: #445;
+                        margin-top: 3px;
+                    }}
+
+                    .section-title {{
+                        font-size: 17px;
+                        margin-top: 35px;
+                        margin-bottom: 12px;
+                        padding-bottom: 6px;
+                        border-bottom: 2px solid #1E2A56;
+                        font-weight: 800;
+                    }}
+
+                    .info-box {{
+                        padding: 12px 16px;
+                        border: 1px solid #d3d6e4;
+                        border-radius: 8px;
+                        background: #f9faff;
+                        margin-bottom: 10px;
+                    }}
+
+                    .info-box p {{
+                        margin: 3px 0;
+                        font-size: 14px;
+                    }}
+
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                        font-size: 14px;
+                    }}
+
+                    th {{
+                        background: #1E2A56;
+                        color: #fff;
+                        padding: 10px;
+                        text-align: left;
+                        font-size: 14px;
+                    }}
+
+                    td {{
+                        padding: 10px;
+                        border-bottom: 1px solid #e0e3ef;
+                    }}
+
+                    tr:nth-child(even) {{
+                        background: #f4f6fb;
+                    }}
+
+                    .footer {{
+                        margin-top: 35px;
+                        text-align: right;
+                        font-size: 12px;
+                        color: #666;
+                    }}
                 </style>
             </head>
+
             <body>
 
-            <img src="data:image/png;base64,{logo_base64}" style="width:180px;">
+                <div class="header">
+                    <img src="data:image/png;base64,{logo_base64}" class="logo">
+                    <h1>Payments History</h1>
+                    <div class="tagline">Official Client Payment Record</div>
+                </div>
 
-            <h2 style="text-align:center;">PAYMENTS HISTORY RECEIPT</h2>
+                <div class="section-title">Client Information</div>
+                <div class="info-box">
+                    <p><strong>Name:</strong> {row[1]}</p>
+                    <p><strong>Address:</strong> {row[3]}</p>
+                    <p><strong>Contact:</strong> 0{row[4]}</p>
+                    <p><strong>Email:</strong> {row[5]}</p>
+                </div>
 
-            <h3>Client Details</h3>
-            <p><strong>Name:</strong> {row[1]}</p>
-            <p><strong>Address:</strong> {row[3]}</p>
-            <p><strong>Contact:</strong> 0{row[4]}</p>
+                <div class="section-title">Project Information</div>
+                <div class="info-box">
+                    <p><strong>Project Name:</strong> {row[10]}</p>
+                    <p><strong>Location:</strong> {row[11]}</p>
+                    <p><strong>Administrator:</strong> {row[13]}</p>
+                </div>
 
-            <h3>Project Details</h3>
-            <p><strong>Project:</strong> {row[10]}</p>
-            <p><strong>Location:</strong> {row[11]}</p>
+                <div class="section-title">Payments Breakdown</div>
 
-            <h3>Payments</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Installment</th>
+                            <th>Amount (USD)</th>
+                            <th>Due Date</th>
+                            <th>Paid Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {payment_rows}
+                    </tbody>
+                </table>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Installment</th>
-                        <th>Amount (USD)</th>
-                        <th>Due Date</th>
-                        <th>Date Paid</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {payment_rows}
-                </tbody>
-            </table>
-
-            <br><br>
-            <p><em>Generated on: {datetime.now().strftime("%d %B %Y")}</em></p>
+                <div class="footer">
+                    Generated on {datetime.now().strftime("%d %B %Y")}
+                </div>
 
             </body>
             </html>
             """
+
 
             pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
