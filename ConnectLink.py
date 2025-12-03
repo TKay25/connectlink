@@ -498,7 +498,7 @@ def download_contract(project_id):
                 <h2 class="title">Construction Agreement</h2>
                 <div class="subtitle-line"></div>
 
-                <p>This Construction Agreement ("Agreement") is made and entered into on <strong>{project['agreement_date']}</strong> ("Effective Date") by and between:</p>
+                <p>This Construction Agreement ("Agreement") is made and entered into on <strong class="field-value">{project['agreement_date']}</strong> ("Effective Date") by and between:</p>
 
                 <h4 class="section-title">CLIENT DETAILS</h4>
                 <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
@@ -573,7 +573,7 @@ def download_contract(project_id):
                 <div class="signature-block">
                 <div class="signature-line"><span class="signature-label">Client Signature:</span><div class="field-value" style="width:350px;"></div></div>
                 <div class="signature-line"><span class="signature-label">Contractor Signature:</span><div class="field-value" style="width:350px;"></div></div>
-                <div class="signature-line"><span class="signature-label">Date:</span><div class="field-value" style="width:220px;"></div></div>
+                <div class="signature-line"><span class="signature-label">Date: </span><div class="field-value" style="width:220px;">{project['agreement_date']}</div></div>
                 </div>
 
                 </div>
