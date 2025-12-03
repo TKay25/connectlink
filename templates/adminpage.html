@@ -1927,6 +1927,8 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false, // allows manual size control
+            aspectRatio: 1, // width/height ratio (1 = square)
             plugins: {
                 legend: { position: 'bottom' }
             }
