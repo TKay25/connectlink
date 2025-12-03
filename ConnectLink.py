@@ -1423,7 +1423,9 @@ def contract_log():
 
 
                 results = run1(userid)
-                return render_template('adminpage.html', **results)
+                # At the end of your try block
+                response = {'status': 'success', 'message': 'Project saved successfully!'}
+                return jsonify(response)
 
             except Exception as e:
                 print("❌ UNCAUGHT ERROR in contract_log():", str(e))  # <-- PRINT REAL ERROR

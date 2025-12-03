@@ -2446,7 +2446,6 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     // ----------------------------------------------------
     let form = document.getElementById("addProjectForm");
     let formData = new FormData(form);
-
     fetch("/contract_log", {
         method: "POST",
         body: formData
@@ -2454,31 +2453,23 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     .then(async response => {
         if (!response.ok) {
             let errorText = await response.text();
-            console.error("Server error:", errorText);
-            alert("❌ Failed to save: " + errorText);
-            throw new Error("Server returned an error");
+            throw new Error(errorText);
         }
-
-        if (response.redirected) {
-            window.location.href = response.url;
-            return;
-        }
-
-        return response.text();
+        return response.json(); // Expect JSON now
     })
     .then(data => {
-        console.log("Server response:", data);
-        alert("✅ Project saved successfully!");
-        location.reload();
+        if (data.status === 'success') {
+            alert("✅ " + data.message);
+            location.reload(); // reload after success
+        } else {
+            alert("❌ " + (data.message || "Unknown error"));
+        }
     })
     .catch(error => {
-        console.error("Error:", error);
-        alert("❌ There was an error saving the project.");
+        alert("❌ There was an error: " + error.message);
     })
     .finally(() => {
-        // ----------------------------------------------------
-        // 4. Hide spinner and enable button (in case of error)
-        // ----------------------------------------------------
+        // Hide spinner
         saveBtn.disabled = false;
         saveBtnSpinner.style.display = "none";
     });
