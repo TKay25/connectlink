@@ -1421,11 +1421,9 @@ def contract_log():
                     response = {'status': 'error', 'message': 'Failed to save project.'}
                     return jsonify(response), 500
 
-
-                results = run1(userid)
                 # At the end of your try block
-                response = {'status': 'success', 'message': 'Project saved successfully!'}
-                return jsonify(response)
+                return redirect(url_for('Dashboard'))  # or wherever you want to go
+
 
             except Exception as e:
                 print("❌ UNCAUGHT ERROR in contract_log():", str(e))  # <-- PRINT REAL ERROR
