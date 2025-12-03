@@ -1609,7 +1609,7 @@
 
                             <div class="graph-card">
                                 <h6>Completed vs Ongoing</h6>
-                                <canvas id="leaveByTypeChart" width="800" height="300"></canvas>
+                                <canvas id="leaveByTypeChart" width="500" height="200"></canvas>
                             </div>
 
                             <div class="graph-card">
@@ -1883,7 +1883,7 @@ document.addEventListener('DOMContentLoaded', () => {
             labels: ['Completed Projects', 'Ongoing Projects'],
             datasets: [{
                 data: [completed, ongoing],
-                backgroundColor: ['#1E2A56', '#FF7F50'],
+                backgroundColor: ['#28a745', '#dc3545'], // green for completed, red for ongoing
                 borderColor: ['#fff', '#fff'],
                 borderWidth: 2
             }]
