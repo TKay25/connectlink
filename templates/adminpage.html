@@ -1848,7 +1848,7 @@ document.getElementById("createUserForm").addEventListener("submit", async funct
 <script>
 $(document).ready(function() {
     // Function to load notes for a project
-    function loadNotes(projectId, projectName, clientName) {
+    function loadNotes(projectId, projectName, clientName, clientWaNumber, clientNextOfKinNumber) {
         // Set project ID in hidden field
         $('#notesProjectId').val(projectId);        
         $('#modalProjectName').text(projectName);
@@ -1930,6 +1930,8 @@ $('#addNoteBtn').click(function() {
     const noteText = $('#newNoteText').val().trim();
     const clientName = $('#modalClientName').text(); // Get client name from modal
     const projectName = $('#modalProjectName').text(); // Get project name from modal
+    const clientWaNumber = $('#notesModal').data('clientWaNumber') || '';
+    const clientNextOfKinNumber = $('#notesModal').data('clientNextOfKinNumber') || '';
 
     if (!projectId) {
         alert('No project selected');
@@ -1947,9 +1949,6 @@ $('#addNoteBtn').click(function() {
     const originalText = btn.html();
     btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Adding...');
     btn.prop('disabled', true);
-    
-    const clientWaNumber = $('#notesModal').data('clientWaNumber') || '';
-    const clientNextOfKinNumber = $('#notesModal').data('clientNextOfKinNumber') || '';
     
     // Send note to server
     $.ajax({
@@ -1972,7 +1971,7 @@ $('#addNoteBtn').click(function() {
                 $('#newNoteText').val('');
                 
                 // Reload notes
-                loadNotes(projectId, projectName, clientName);
+                loadNotes(projectId, projectName, clientName, clientWaNumber, clientNextOfKinNumber);
                 
                 // Show success message
                 alert('Note added successfully!');
@@ -2024,7 +2023,7 @@ $('#addNoteBtn').click(function() {
         $('#notesModal').data('clientWaNumber', clientWaNumber);
         $('#notesModal').data('clientNextOfKinNumber', clientNextOfKinNumber);
         
-        loadNotes(projectId, projectName, clientName);
+        loadNotes(projectId, projectName, clientName, clientWaNumber, clientNextOfKinNumber);
     });
 
 });
