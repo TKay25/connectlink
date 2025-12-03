@@ -538,12 +538,12 @@ def download_contract(project_id):
                 </tr>
                 </thead>
                 <tbody>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment3duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment3amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment4duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment4amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment5duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment5amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment6duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment6amount']}</td></tr>               
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment1duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment2duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment3duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment3amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment4duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment4amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment5duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment5amount']}</td></tr>
+                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment6duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment6amount']}</td></tr>               
                 </tbody>
                 </table>
 
