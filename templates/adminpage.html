@@ -1316,7 +1316,10 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="saveProjectBtn" style="width: max-content;">Save Project</button>
+                    <button type="button" id="saveProjectBtn" class="btn btn-primary">
+                        <span class="spinner-border spinner-border-sm d-none" id="saveProjectSpinner" role="status" aria-hidden="true"></span>
+                        <span id="saveProjectBtnText">Save Project</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -2402,26 +2405,28 @@ document.getElementById("saveAdminBtn").addEventListener("click", function () {
 
 <script>
 document.getElementById("saveProjectBtn").addEventListener("click", function () {
+    const saveBtn = document.getElementById("saveProjectBtn");
+    const saveBtnText = document.getElementById("saveBtnText");
+    const saveBtnSpinner = document.getElementById("saveBtnSpinner");
 
     // ----------------------------------------------------
     // 1. Perform your custom checks before submitting
     // ----------------------------------------------------
-
     const clientName = document.getElementById("client_name").value.trim();
     const projectName = document.getElementById("project_name").value.trim();
     const paymentMethod = document.getElementById("paymentMethod").value;
+    const adminx = document.getElementById("projectadministrator").value;
 
-    if (clientName === "" || projectName === "") {
-        alert("Client Name and Project Name are required.");
-        return; // STOP submission
+    if (clientName === "" || projectName === "" || adminx === "") {
+        alert("Client Name, Project Name and Administrator are required.");
+        return;
     }
 
     if (paymentMethod === "") {
         alert("Select a payment method.");
-        return; // STOP submission
+        return;
     }
 
-    // Example additional logic:
     if (paymentMethod === "Installments") {
         let months = document.getElementById("monthstopay").value;
         if (months === "" || months <= 0) {
@@ -2431,7 +2436,13 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     }
 
     // ----------------------------------------------------
-    // 2. Build FormData object and send to Flask route
+    // 2. Show spinner and disable button
+    // ----------------------------------------------------
+    saveBtn.disabled = true;
+    saveBtnSpinner.style.display = "inline-block";
+
+    // ----------------------------------------------------
+    // 3. Build FormData and send to Flask route
     // ----------------------------------------------------
     let form = document.getElementById("addProjectForm");
     let formData = new FormData(form);
@@ -2441,8 +2452,6 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
         body: formData
     })
     .then(async response => {
-
-        // If server returned JSON error 
         if (!response.ok) {
             let errorText = await response.text();
             console.error("Server error:", errorText);
@@ -2450,7 +2459,6 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
             throw new Error("Server returned an error");
         }
 
-        // If Flask redirected normally = success
         if (response.redirected) {
             window.location.href = response.url;
             return;
@@ -2461,16 +2469,27 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     .then(data => {
         console.log("Server response:", data);
         alert("✅ Project saved successfully!");
-        location.reload()
+        location.reload();
     })
     .catch(error => {
         console.error("Error:", error);
         alert("❌ There was an error saving the project.");
+    })
+    .finally(() => {
+        // ----------------------------------------------------
+        // 4. Hide spinner and enable button (in case of error)
+        // ----------------------------------------------------
+        saveBtn.disabled = false;
+        saveBtnSpinner.style.display = "none";
     });
-
 
 });
 </script>
+
+
+
+
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     document.querySelector('#allprojectsTable').addEventListener('click', function(e) {
