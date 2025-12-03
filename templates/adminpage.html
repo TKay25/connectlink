@@ -1656,7 +1656,10 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header" style="background-color: #1E2A56; color: white;">
-                    <h5 class="modal-title" id="notesModalLabel">Project Notes</h5>
+                    <h5 class="modal-title" id="notesModalLabel">
+                        <span id="modalClientName"></span> - <span id="modalProjectName"></span> NOTES
+                    </h5>
+
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -1678,7 +1681,7 @@
                     <div class="add-note-section">
                         <h6 class="mb-3">Add New Note:</h6>
                         <div class="mb-3">
-                            <textarea class="form-control" id="newNoteText" rows="4" placeholder="Enter your note here..." style="resize: vertical;"></textarea>
+                            <textarea class="form-control" id="newNoteText" rows="3" placeholder="Enter your note here..." style="resize: vertical;"></textarea>
                         </div>
                         <div class="d-flex justify-content-end">
                             <button type="button" class="btn btn-primary" id="addNoteBtn">
@@ -1839,9 +1842,13 @@ document.getElementById("createUserForm").addEventListener("submit", async funct
 <script>
 $(document).ready(function() {
     // Function to load notes for a project
-    function loadNotes(projectId) {
+    function loadNotes(projectId, projectName, clientName) {
         // Set project ID in hidden field
         $('#notesProjectId').val(projectId);
+        
+        // Set modal header values
+        $('#modalProjectName').text(projectName);
+        $('#modalClientName').text(clientName);
         
         // Clear the textarea
         $('#newNoteText').val('');
@@ -1872,6 +1879,7 @@ $(document).ready(function() {
             }
         });
     }
+
     
     // Function to display notes in the container
     function displayNotes(notes) {
@@ -1989,8 +1997,12 @@ $('#addNoteBtn').click(function() {
     // Update the notes button click handler if you removed onclick attribute
     $(document).on('click', '.notes-btn', function() {
         const projectId = $(this).data('id');
-        loadNotes(projectId);
+        const projectName = $(this).data('project-name'); // pass project name as data attribute
+        const clientName = $(this).data('client-name');   // pass client name as data attribute
+
+        loadNotes(projectId, projectName, clientName);
     });
+
 });
 </script>
 
