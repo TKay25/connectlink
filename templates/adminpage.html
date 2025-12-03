@@ -764,19 +764,19 @@
         /* Add this to your existing CSS section */
 
         #addnewProjectModal .modal-body {
-            font-size: 0.85rem; /* Reduced from default 1rem */
+            font-size: 0.8rem; /* Reduced from default 1rem */
         }
 
         #addnewProjectModal .form-group label {
-            font-size: 0.85rem; /* Smaller label text */
+            font-size: 0.8rem; /* Smaller label text */
             font-weight: 600; /* Keep it bold but smaller */
         }
 
         #addnewProjectModal .form-control,
         #addnewProjectModal .form-control-blue,
         #addnewProjectModal select.form-control-blue {
-            font-size: 0.85rem; /* Smaller input text */
-            padding: 0.4rem 0.75rem; /* Adjust padding proportionally */
+            font-size: 0.8rem; /* Smaller input text */
+            padding: 0.4rem 0.7rem; /* Adjust padding proportionally */
         }
 
         #addnewProjectModal .card h6 {
@@ -785,15 +785,15 @@
         }
 
         #addnewProjectModal textarea.form-control {
-            font-size: 0.85rem; /* Smaller textarea text */
+            font-size: 0.8rem; /* Smaller textarea text */
         }
 
         #addnewProjectModal .form-group.row {
-            margin-bottom: 0.75rem; /* Reduce spacing between rows */
+            margin-bottom: 0.7rem; /* Reduce spacing between rows */
         }
 
         #addnewProjectModal .col-auto.col-form-label {
-            padding-right: 0.25rem; /* Reduce label padding */
+            padding-right: 0.2rem; /* Reduce label padding */
         }
 
         #addnewProjectModal .modal-title {
@@ -802,11 +802,34 @@
 
         /* Make the modal slightly more compact overall */
         #addnewProjectModal .card {
-            padding: 10px; /* Reduce card padding */
+            padding: 8px; /* Reduce card padding */
         }
 
         #addnewProjectModal .modal-dialog {
             max-width: 85%; /* Optionally adjust modal width */
+        }
+
+        /* Add this to your existing CSS */
+        #addnewProjectModal .modal-content {
+            height: 90vh; /* Set a maximum height for the modal */
+            display: flex;
+            flex-direction: column;
+        }
+
+        #addnewProjectModal .modal-header,
+        #addnewProjectModal .modal-footer {
+            flex-shrink: 0; /* Prevent header and footer from shrinking */
+        }
+
+        #addnewProjectModal .modal-body {
+            overflow-y: auto; /* Make the body scrollable */
+            max-height: calc(90vh - 120px); /* Adjust based on header/footer height */
+            padding: 15px;
+        }
+
+        #addnewProjectModal .modal-dialog {
+            max-width: 80%;
+            margin: 1.7rem auto;
         }
 
     </style>
@@ -845,7 +868,7 @@
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
                 id="addnewprojectBtn">
-            <span><i class="bi bi-briefcase-fill me-2"></i> Push Payment Reminders</span>
+            <span><i class="bi bi-credit-card-2-front-fill"></i> Push Payment Reminders</span>
         </button>
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
@@ -1009,7 +1032,7 @@
 
 
     <div class="modal fade" id="addnewProjectModal" tabindex="-1" aria-labelledby="addnewProjectModalLabel" aria-hidden="true">
-        <div class="modal-dialog" style="max-width: 80%;">
+        <div class="modal-dialog" style="max-width: 85%;">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="addnewProjectModalLabel"><i class="bi bi-briefcase-fill"></i> NEW PROJECT</h5>
@@ -1029,7 +1052,7 @@
                                     <h6 style="background-color:#1E2A56; font-weight:800;color: white;text-align: center;padding: 1%;">CLIENT DETAILS</h6>
 
                                     <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                        <label for="person_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Name:</label>
+                                        <label for="person_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Full Name:</label>
                                         <div class="col">
                                             <input type="text" class="form-control editable-field" id="client_name" name="client_name" required>
                                         </div>
@@ -1077,7 +1100,7 @@
                                     <h6 style="background-color:#1E2A56; font-weight:800;color: white;text-align: center;padding: 1%;">NEXT OF KIN DETAILS</h6>
 
                                     <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                        <label for="person_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Name:</label>
+                                        <label for="person_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Full Name:</label>
                                         <div class="col">
                                             <input type="text" class="form-control editable-field" id="next_of_kin_name" name="next_of_kin_name" required>
                                         </div>
@@ -1218,13 +1241,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                        <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Late Payment Interest (% p.a):</label>
-                                        <div class="col">
-                                            <input type="number" class="form-control editable-field" id="late_payment_interest" name="late_payment_interest" required>
-                                        </div>
-                                    </div>
-
                                     <div class="form-group">
                                         <label>Payment Method:</label>
                                         <select class="form-control-blue editable-field" id="paymentMethod" name="payment_method" required>
@@ -1250,6 +1266,13 @@
                                             <label for="monthstopay" class="col-auto col-form-label" style="padding-right: 0.5rem;">Months To Pay:</label>
                                             <div class="col">
                                                 <input type="number" class="form-control editable-field" id="monthstopay" name="months_to_pay" style="width: 40%;" required>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                            <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Late Payment Interest (% p.a):</label>
+                                            <div class="col">
+                                                <input type="number" class="form-control editable-field" id="late_payment_interest" name="late_payment_interest" required>
                                             </div>
                                         </div>
 
