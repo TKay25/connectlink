@@ -404,6 +404,7 @@ def download_contract(project_id):
 
             # Map project row to dictionary
             project = {
+                'project_id_num': row[0],
                 'client_name': row[1],
                 'client_idnumber': row[2],
                 'client_address': row[3],
@@ -588,7 +589,7 @@ def download_contract(project_id):
 
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
-            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]}_contract.pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]} {project["project_name"]} contract_{project["project_id_num"]}.pdf'
             return response
 
         except Exception as e:
@@ -819,7 +820,7 @@ def download_payments_history(project_id):
 
             response = make_response(pdf)
             response.headers["Content-Type"] = "application/pdf"
-            response.headers["Content-Disposition"] = f"attachment; filename=payments_history_{project_id}.pdf"
+            response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[10]} payments history_{project_id}.pdf"
 
             return response
 
