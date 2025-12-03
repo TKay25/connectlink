@@ -1385,25 +1385,17 @@
                                             <input type="date" class="form-control" id="updateInstallment1Date" name="installment1_paid_date" value="{{project.installment1Date}}">
                                         </div>
                                     </div>
-
                                     <div class="row mt-3">
-                                            <div class="col-12 d-flex gap-2">
-                                                {% if project.installment1date %}
-                                                    <!-- Show PDF buttons -->
-                                                    <a href="{{ url_for('generate_receipt', project_id=project.id, installment=1) }}" class="btn btn-primary3">
-                                                        <i class="bi bi-receipt me-2"></i>Get Receipt
-                                                    </a>
-                                                    <button type="button" class="btn btn-primary3 send-receipt-btn" data-project-id="{{ project.id }}" data-installment="1">
-                                                        <i class="bi bi-receipt me-2"></i>Send Receipt
-                                                    </button>
-                                                {% else %}
-                                                    <!-- Show remind button -->
-                                                    <button type="button" class="btn btn-warning remind-client-btn" data-project-id="{{ project.id }}" data-installment="1">
-                                                        <i class="bi bi-bell me-2"></i>Remind Client to Pay
-                                                    </button>
-                                                {% endif %}
-                                            </div>
+                                        <div class="col-12 d-flex gap-2">
+                                            <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
+                                                <i class="bi bi-receipt me-2"></i>Get Receipt
+                                            </button>
+
+                                            <button type="button" class="btn btn-primary3" id="sendReceipt1Btn" style="width: max-content;">
+                                                <i class="bi bi-receipt me-2"></i>Send Receipt to Client
+                                            </button>
                                         </div>
+                                    </div>
 
                                 </div>
                             </div>
@@ -1428,17 +1420,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="row mt-3">
-                                        <div class="col-12 d-flex gap-2">
-                                            <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Get Receipt
-                                            </button>
-
-                                            <button type="button" class="btn btn-primary3" id="sendReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Send Receipt to Client
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1462,17 +1443,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="row mt-3">
-                                        <div class="col-12 d-flex gap-2">
-                                            <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Get Receipt
-                                            </button>
-
-                                            <button type="button" class="btn btn-primary3" id="sendReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Send Receipt to Client
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1496,17 +1466,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="row mt-3">
-                                        <div class="col-12 d-flex gap-2">
-                                            <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Get Receipt
-                                            </button>
-
-                                            <button type="button" class="btn btn-primary3" id="sendReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Send Receipt to Client
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1530,17 +1489,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="row mt-3">
-                                        <div class="col-12 d-flex gap-2">
-                                            <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Get Receipt
-                                            </button>
-
-                                            <button type="button" class="btn btn-primary3" id="sendReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Send Receipt to Client
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1564,17 +1512,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="row mt-3">
-                                        <div class="col-12 d-flex gap-2">
-                                            <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Get Receipt
-                                            </button>
-
-                                            <button type="button" class="btn btn-primary3" id="sendReceipt1Btn" style="width: max-content;">
-                                                <i class="bi bi-receipt me-2"></i>Send Receipt to Client
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
