@@ -1614,7 +1614,7 @@
 
                             <div class="graph-card">
                                 <h6>Projects By Location</h6>
-                                <canvas id="projectsByLocationChart" width="800" height="300"></canvas>
+                                <canvas id="projectsByLocationChart" width="500" height="200"></canvas>
                             </div>
 
                             <div class="graph-card">
@@ -1850,6 +1850,8 @@
         </div>
     </div>
 
+    <input type="hidden" id="locations-data" value='{{ locations|tojson }}'>
+    <input type="hidden" id="frequencies-data" value='{{ frequencies|tojson }}'>
 
   <!-- Bootstrap and jQuery Scripts -->
 
@@ -1869,6 +1871,42 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<canvas id="projectsByLocationChart" width="800" height="300"></canvas>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const locations = JSON.parse(document.getElementById('locations-data').value);
+    const frequencies = JSON.parse(document.getElementById('frequencies-data').value);
+
+    const ctx = document.getElementById('projectsByLocationChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: locations,
+            datasets: [{
+                label: 'Number of Projects',
+                data: frequencies,
+                backgroundColor: '#1E2A56', // dark blue bars
+                borderColor: '#fff',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+});
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {

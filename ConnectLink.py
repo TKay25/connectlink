@@ -29,6 +29,7 @@ import requests
 from openpyxl import Workbook
 from weasyprint import HTML
 import re
+from collections import Counter
 #from paynow import Paynow
 import time
 import random
@@ -1016,6 +1017,13 @@ def run1(userid):
         average_duration = round(pd.to_numeric(datamain["projectduration"], errors="coerce").mean(),0)
         locations = datamain['projectlocation'].replace('', pd.NA)
 
+        locations2 = datamain['projectlocation'].dropna().astype(str)  # remove None/NaN, ensure string
+        location_counts = Counter(locations2)
+
+        # Convert to lists for Jinja
+        locations_list = list(location_counts.keys())
+        frequencies_list = list(location_counts.values())
+
         # Get the most frequent location
         most_frequent_location = locations.value_counts(dropna=True).idxmax()
 
@@ -1054,6 +1062,8 @@ def run1(userid):
             'count_completed': count_completed,
             'average_duration': average_duration,
             'most_frequent_location': most_frequent_location,
+            'locations': locations_list,
+            'frequencies': frequencies_list,
             'admin_options': admin_options
             }
 
