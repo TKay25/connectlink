@@ -49,6 +49,10 @@ database = 'connectlinkdata'
 #VERIFY_TOKEN = "521035180620700"
 #WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
 
+############# WHATSAPP ###################
+
+
+
 def initialize_database_tables():
     """Initialize all required database tables on startup"""
     try:
