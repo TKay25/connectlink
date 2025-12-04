@@ -170,6 +170,9 @@ def initialize_database_tables():
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
 
             cursor.execute("""SELECT pg_get_serial_sequence('connectlinkdatabase', 'id');""")
+            cursor.execute("""SELECT pg_get_serial_sequence('connectlinknotes', 'id');""")
+            cursor.execute("""SELECT pg_get_serial_sequence('connectlinkadmin', 'id');""")
+
 
             # Create connectlinkdatabase table
             cursor.execute("""
