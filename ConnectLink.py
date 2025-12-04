@@ -1116,10 +1116,10 @@ def get_project(project_id):
             return jsonify({"error": str(e)})
         
 def add_months(source_date, months):
-    """Return source_date plus X months (keeps end-of-month safe)."""
     month = source_date.month - 1 + months
     year = source_date.year + (month // 12)
     month = month % 12 + 1
+    # Pick the smaller of the original day or the last day of target month
     day = min(source_date.day, calendar.monthrange(year, month)[1])
     return date(year, month, day)
 
@@ -1238,17 +1238,19 @@ def contract_log():
                 project_completion_status = "Ongoing"
                 first_installment_due_date = request.form.get('first_installment_due_date')
                 first_installment_due_date_calc = datetime.strptime(first_installment_due_date, "%Y-%m-%d").date()
-
+                                
                 installment_due_dates = []
 
+                # Generate installment dates
                 for i in range(int(months_to_pay)):
                     next_date = add_months(first_installment_due_date_calc, i)
-                    last_day = last_day_of_month(next_date)
-                    installment_due_dates.append(last_day)
+                    installment_due_dates.append(next_date)
 
-                # Fill up to 6 slots
+                # Fill up to 6 slots using same day logic for following months
                 while len(installment_due_dates) < 6:
-                    installment_due_dates.append(None)
+                    next_date = add_months(first_installment_due_date_calc, len(installment_due_dates))
+                    installment_due_dates.append(next_date)
+
 
                 installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate = installment_due_dates
 
