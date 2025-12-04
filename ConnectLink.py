@@ -165,9 +165,9 @@ def initialize_database_tables():
                 ALTER TABLE connectlinkdatabase DROP COLUMN depositrequired;
             """)'''
 
-            cursor.execute("""DELETE FROM connectlinkdatabase WHERE id BETWEEN 1 AND 16 RESTART IDENTITY;""")
-            cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6 RESTART IDENTITY;""")
-            cursor.execute("""TRUNCATE TABLE connectlinknotes RESTART IDENTITY;""")
+            cursor.execute("""DELETE FROM connectlinkdatabase WHERE id BETWEEN 1 AND 16;""")
+            cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
+            cursor.execute("""TRUNCATE TABLE connectlinknotes;""")
             # Create connectlinkdatabase table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkdatabase (
