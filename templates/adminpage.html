@@ -2406,9 +2406,11 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const clientName = document.getElementById("client_name").value.trim();
     const projectName = document.getElementById("project_name").value.trim();
     const paymentMethod = document.getElementById("paymentMethod").value;
+    const projectadmin = document.getElementById("projectadministrator").value.trim();
 
-    if (clientName === "" || projectName === "") {
-        alert("Client Name and Project Name are required.");
+
+    if (clientName === "" || projectName === "" || projectadmin === "") {
+        alert("Client Name, Project Name and Administrator Name are required.");
         return; // STOP submission
     }
 
