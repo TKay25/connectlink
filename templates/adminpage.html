@@ -2902,7 +2902,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $(document).ready(function () {
         // Initialize DataTable for the main employees table
         $('#allprojectsTable').DataTable({
-            paging: false,    // Enable pagination
+            paging: true,    // Enable pagination
             searching: true, // Enable search
             ordering: true,  // Enable sorting
             info: true,      // Show table information
@@ -2911,6 +2911,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
 
+        $('#alladminsTable').DataTable({
+            paging: true,    // Enable pagination
+            searching: true, // Enable search
+            ordering: true,  // Enable sorting
+            info: true,      // Show table information
+            pageLength: 8,       // Force max 5 entries per page
+            lengthChange: false, // Disable entries per page dropdown
+        });
     });
 </script>
 
