@@ -1891,7 +1891,26 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+
+
+});
+</script>
+
+
+<script>
 document.addEventListener('DOMContentLoaded', () => {
+
+    const loaderxyz = document.getElementById("edsLoader");
+    const formxyzg = document.getElementById("updateProjectForm");
+
+    // Show loader when the form is submitted
+    formxyzg.addEventListener("submit", function () {
+        loaderxyz.style.display = "flex";   // show loader
+    });
+
+
     const locations = JSON.parse(document.getElementById('locations-data').value);
     const frequencies = JSON.parse(document.getElementById('frequencies-data').value);
 
