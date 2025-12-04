@@ -168,7 +168,9 @@ def initialize_database_tables():
             '''cursor.execute("""DELETE FROM connectlinkdatabase WHERE id BETWEEN 1 AND 16;""")
             cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
-            
+
+            cursor.execute("""SELECT pg_get_serial_sequence('connectlinkdatabase', 'id');""")
+
             # Create connectlinkdatabase table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkdatabase (
