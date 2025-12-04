@@ -878,6 +878,24 @@
             <div class="grid-item"></div>
         </div>
     </div>
+
+    <div class="eds-loader" id="edsLoader2" style="display: none;">
+        <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
+
+        <br><br>
+        <p style="font-weight: 700;color: white;font-size: 1.2rem;">Your changes are being saved {{user_name}}, Please Wait...</p>
+
+        <div class="loader-bar">
+            <div class="loader-progress"></div>
+        </div>
+        
+        <div class="eds-grid">
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+        </div>
+    </div>
     
     <div class="sidebar p-2">
         <br><br>
@@ -1949,7 +1967,7 @@ document.addEventListener("DOMContentLoaded", function () {
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-    const loaderxyz = document.getElementById("edsLoader");
+    const loaderxyz = document.getElementById("edsLoader2");
     const formxyzg = document.getElementById("updateProjectForm");
 
     // Show loader when the form is submitted
