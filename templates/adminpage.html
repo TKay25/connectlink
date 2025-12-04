@@ -197,7 +197,7 @@
             padding-bottom: 1px;
             border-radius: 8px;
             border: 3px solid #1E2A56;
-            font-size: 13px;
+            font-size: 14px;
             transition: background 0.3s;
             text-align: center;
             font-weight: 500;
@@ -601,6 +601,7 @@
             display: block;
         }
 
+        /* Main loader layout */
         .eds-loader {
             position: fixed;
             top: 0;
@@ -608,79 +609,97 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.9);
+
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            justify-content: center;   /* vertical center */
+            align-items: center;       /* horizontal center */
+            gap: 25px;                 /* clean spacing */
+
             z-index: 9999;
-            font-family: 'Century Gothic', sans-serif;  
+            font-family: 'Century Gothic', sans-serif;
+            text-align: center;
+            padding: 20px;
         }
-        
+
+        /* Logo section */
         .eds-logo {
             color: white;
             font-size: 1rem;
             font-weight: bold;
-            margin-bottom: 20px;
-            text-align: center;
+            margin-bottom: 10px;
             text-shadow: 0 0 10px #1E2A56;
         }
-        
+
+        /* Tagline text */
         .eds-tagline {
             color: #fff;
-            font-size: 0.6rem;
-            margin-bottom: 30px;
+            font-size: 0.8rem;   /* increased for readability */
             opacity: 0.8;
+            margin: 0;
         }
-        
+
+        /* Loader bar */
         .loader-bar {
             width: 300px;
             height: 4px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             border-radius: 2px;
             overflow: hidden;
             position: relative;
+            margin-top: 5px;
         }
-        
+
         .loader-progress {
             position: absolute;
             left: 0;
             top: 0;
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, White, #1E2A56);
+            background: linear-gradient(90deg, white, #1E2A56);
             animation: load 3s ease-in-out infinite;
             border-radius: 2px;
         }
-        
+
         @keyframes load {
-            0% { width: 0%; left: 0; }
-            50% { width: 100%; left: 0; }
+            0%   { width: 0%; left: 0; }
+            50%  { width: 100%; left: 0; }
             100% { width: 0%; left: 100%; }
         }
-        
+
+        /* Pulsing grid */
         .eds-grid {
             display: grid;
             grid-template-columns: repeat(4, 20px);
             gap: 10px;
-            margin-top: 30px;
+            margin-top: 10px;
         }
-        
+
         .grid-item {
             width: 20px;
             height: 20px;
-            background: rgba(0, 255, 252, 0.2);
+            background: rgba(0, 255, 252, 0.25);
             animation: pulse 1.5s ease-in-out infinite;
+            border-radius: 3px; /* optional visual improvement */
         }
-        
+
         .grid-item:nth-child(1) { animation-delay: 0s; }
         .grid-item:nth-child(2) { animation-delay: 0.2s; }
         .grid-item:nth-child(3) { animation-delay: 0.4s; }
         .grid-item:nth-child(4) { animation-delay: 0.6s; }
-        
+
         @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.2; }
-            50% { transform: scale(1.2); opacity: 1; background: #336699; }
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.2;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+                background: #336699;
+            }
         }
+
 
 
 
@@ -843,10 +862,10 @@
 
 <body>
     <div class="eds-loader" id="edsLoader" style="display: none;">
-        <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
+        <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
 
         <br><br>
-        <p style="font-weight: 700;color: white;font-size: 1.2rem;">We Are Commiting Your Changes {{user_name}}, Please Wait...</p>
+        <p style="font-weight: 700;color: white;font-size: 1.2rem;">The Project is being saved {{user_name}}, Please Wait...</p>
 
         <div class="loader-bar">
             <div class="loader-progress"></div>
@@ -1324,12 +1343,14 @@
     <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content" style="font-size: 13px;">
-                <div class="modal-header" style="background-color: #1E2A56; color: white;">
-                    <h6 class="modal-title" id="updateModalLabel"><i class="bi bi-card-checklist"></i> UPDATE PROJECT DETAILS</h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="updateProjectForm">
+                <form id="updateProjectForm" method="POST" action="/update_project">
+
+                    <div class="modal-header" style="background-color: #1E2A56; color: white;">
+                        <h6 class="modal-title" id="updateModalLabel"><i class="bi bi-card-checklist"></i> PROJECT PROGRESS UPDATE</h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+
                         <input type="hidden" id="updateProjectId" name="project_id">
                         
                         <div class="row mb-3">
@@ -1349,87 +1370,182 @@
                                 <input type="text" class="form-control" id="updateAdminName" readonly>
                             </div>
                             <div class="col-md-6">
-                                <label for="updateCompletionStatus" class="form-label fw-bold">Completion Status</label>
+                                <label for="updateCompletionStatus" class="form-label fw-bold">Project Completion Status</label>
                                 <select class="form-select" id="updateCompletionStatus" name="completion_status">
-                                    <option value="ph" selected disabled>ph</option>
+                                    <option value="ph" disabled selected hidden>ph</option>
                                     <option value="Not Started">Not Started</option>
-                                    <option value="In Progress">Ongoing</option>
+                                    <option value="Ongoing">Ongoing</option>
                                     <option value="On Hold">On Hold</option>
                                     <option value="Completed">Completed</option>
                                     <option value="Cancelled">Cancelled</option>
                                 </select>
                             </div>
                         </div>
-                        
-                        <div class="card mb-3">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0">Installment 1 Details</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1Amount" class="form-label fw-bold">Amount (USD)</label>
-                                        <input type="text" class="form-control" id="updateInstallment1Amount" readonly>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1DueDate" class="form-label fw-bold">Due Date</label>
-                                        <input type="text" class="form-control" id="updateInstallment1DueDate" readonly>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1PaidDate" class="form-label fw-bold">Date Paid</label>
-                                        <input type="date" class="form-control" id="updateInstallment1Date" name="installment1_paid_date">
-                                    </div>
-                                </div>
-                                
-                                <!-- Get Receipt Button Row -->
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
-                                            <i class="bi bi-receipt me-2"></i>Get Receipt
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="card mb-3">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0">Installment 2 Details</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1Amount" class="form-label fw-bold">Amount (USD)</label>
-                                        <input type="text" class="form-control" id="updateInstallment2Amount" readonly>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1DueDate" class="form-label fw-bold">Due Date</label>
-                                        <input type="text" class="form-control" id="updateInstallment2DueDate" readonly>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="updateInstallment1PaidDate" class="form-label fw-bold">Date Paid</label>
-                                        <input type="date" class="form-control" id="updateInstallment2Date" name="installment1_paid_date">
-                                    </div>
-                                </div>
-                                
-                                <!-- Get Receipt Button Row -->
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <button type="button" class="btn btn-primary3" id="getReceipt2Btn" style="width: max-content;">
-                                            <i class="bi bi-receipt me-2"></i>Get Receipt
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>                        
+                                                
+                        <!-- Scrollable Container -->
+                        <div style="max-height: 350px; overflow-y: auto; padding-right: 10px;">
 
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary3" id="saveUpdateChanges">Download Payments History</button>    
-                    <button type="button" class="btn btn-primary" id="saveUpdateChanges">Save Changes</button>
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
-                </div>
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 1 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label for="updateInstallment1Amount" class="form-label fw-bold">Amount (USD)</label>
+                                            <input type="text" class="form-control" id="updateInstallment1Amount" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="updateInstallment1DueDate" class="form-label fw-bold">Due Date</label>
+                                            <input type="text" class="form-control" id="updateInstallment1DueDate" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="updateInstallment1PaidDate" class="form-label fw-bold">Date Paid</label>
+                                            <input type="date" class="form-control" id="updateInstallment1Date" name="installment1_paid_date">
+                                        </div>
+                                    </div>
+                                    <div class="row mt-3">
+                                        <div class="col-12 d-flex gap-2">
+                                            <button type="button" class="btn btn-primary3" id="getReceipt1Btn" style="width: max-content;">
+                                                <i class="bi bi-receipt me-2"></i>Get Receipt
+                                            </button>
+
+                                            <button type="button" class="btn btn-primary3" id="sendReceipt1Btn" style="width: max-content;">
+                                                <i class="bi bi-receipt me-2"></i>Send Receipt to Client
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 2 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Amount (USD)</label>
+                                            <input type="text" class="form-control" id="updateInstallment2Amount" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Due Date</label>
+                                            <input type="text" class="form-control" id="updateInstallment2DueDate" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Date Paid</label>
+                                            <input type="date" class="form-control" id="updateInstallment2Date" name="installment2_paid_date">
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 3 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Amount (USD)</label>
+                                            <input type="text" class="form-control" id="updateInstallment3Amount" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Due Date</label>
+                                            <input type="text" class="form-control" id="updateInstallment3DueDate" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Date Paid</label>
+                                            <input type="date" class="form-control" id="updateInstallment3Date" name="installment3_paid_date">
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 4 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Amount (USD)</label>
+                                            <input type="text" class="form-control" id="updateInstallment4Amount" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Due Date</label>
+                                            <input type="text" class="form-control" id="updateInstallment4DueDate" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Date Paid</label>
+                                            <input type="date" class="form-control" id="updateInstallment4Date" name="installment4_paid_date">
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 5 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Amount (USD)</label>
+                                            <input type="text" class="form-control" id="updateInstallment5Amount" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Due Date</label>
+                                            <input type="text" class="form-control" id="updateInstallment5DueDate" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Date Paid</label>
+                                            <input type="date" class="form-control" id="updateInstallment5Date" name="installment5_paid_date">
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 6 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Amount (USD)</label>
+                                            <input type="text" class="form-control" id="updateInstallment6Amount" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Due Date</label>
+                                            <input type="text" class="form-control" id="updateInstallment6DueDate" readonly>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">Date Paid</label>
+                                            <input type="date" class="form-control" id="updateInstallment6Date" name="installment6_paid_date">
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                        </div>
+                        <!-- End Scrollable Container -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary3" id="downloadpaymentshistory" style="width: max-content;">
+                            <span id="downloadText">Download Payments History</span>
+                            <span id="downloadSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                        </button>
+                        <button type="submit" class="btn btn-primary" style="width: max-content;">Save Changes</button>
+                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -1461,7 +1577,11 @@
 
             </ul>
             <div class="tab-content mt-4">
+
                 <div class="tab-pane fade show active" id="dashboard-tab">
+
+                    <input type="hidden" id="completed-projects" value="{{ count_completed|default(0)|int }}">
+                    <input type="hidden" id="ongoing-projects" value="{{ count_ongoing|default(0)|int }}">
 
                     <div class="tab-pane fade show active" id="dashboard-tab">
                         <div class="dashboard-summary">
@@ -1476,21 +1596,21 @@
                                 <div class="icon"><i class="bi bi-hourglass-split fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Ongoing Projects</h5>
-                                    <p>{{ ongoing_projects }}</p>
+                                    <p>{{ count_ongoing }}</p>
                                 </div>
                             </div>
                             <div class="summary-card">
                                 <div class="icon"><i class="bi bi-calendar2-check-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Completed Projects</h5>
-                                    <p>{{ completed_projects }}</p>
+                                    <p>{{ count_completed }}</p>
                                 </div>
                             </div>
                             <div class="summary-card">
                                 <div class="icon"><i class="bi bi-stopwatch-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Average Completion Time</h5>
-                                    <p>{{ avg_completion_time }} days</p>
+                                    <p>{{ average_duration }} days</p>
                                 </div>
                             </div>
 
@@ -1498,12 +1618,12 @@
                                 <div class="icon"><i class="bi bi-1-circle-fill fs-3" style="color: #1E2A56;"></i></div>
                                 <div class="details">
                                     <h5 style="font-weight: bolder;">Top Location</h5>
-                                    <p>{{ top_location }}</p>
+                                    <p>{{ most_frequent_location }}</p>
                                 </div>
                             </div>
 
                         </div>
-                        <br>
+
                         <div class="dashboard-graphs">
 
                             <div class="graph-card">
@@ -1669,8 +1789,7 @@
                     <h6 class="modal-title" id="notesModalLabel">
                         <i class="bi bi-list-ol"></i><span id="modalClientName"></span> - <span id="modalProjectName"></span> NOTES
                     </h6>
-
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="notesProjectId">
@@ -1750,6 +1869,8 @@
         </div>
     </div>
 
+    <input type="hidden" id="locations-data" value='{{ locations|tojson }}'>
+    <input type="hidden" id="frequencies-data" value='{{ frequencies|tojson }}'>
 
   <!-- Bootstrap and jQuery Scripts -->
 
@@ -1767,7 +1888,128 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+
+
+});
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const loaderxyz = document.getElementById("edsLoader");
+    const formxyzg = document.getElementById("updateProjectForm");
+
+    // Show loader when the form is submitted
+    formxyzg.addEventListener("submit", function () {
+        loaderxyz.style.display = "flex";   // show loader
+    });
+
+
+    const locations = JSON.parse(document.getElementById('locations-data').value);
+    const frequencies = JSON.parse(document.getElementById('frequencies-data').value);
+
+    const ctx = document.getElementById('projectsByLocationChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: locations,
+            datasets: [{
+                label: 'Number of Projects',
+                data: frequencies,
+                backgroundColor: '#1E2A56', // dark blue bars
+                borderColor: '#fff',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const completed = parseInt(document.getElementById('completed-projects').value, 10) || 0;
+    const ongoing = parseInt(document.getElementById('ongoing-projects').value, 10) || 0;
+
+    const ctx = document.getElementById('leaveByTypeChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Completed Projects', 'Ongoing Projects'],
+            datasets: [{
+                data: [completed, ongoing],
+                backgroundColor: ['#28a745', '#dc3545'], // green for completed, red for ongoing
+                borderColor: ['#fff', '#fff'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+});
+</script>
+
+<script>
+
+document.getElementById("downloadpaymentshistory").addEventListener("click", function () {
+    const projectId = document.getElementById("updateProjectId").value;
+
+    if (!projectId) {
+        alert("Project ID missing!");
+        return;
+    }
+
+    const btn = this;
+    const spinner = document.getElementById("downloadSpinner");
+    const text = document.getElementById("downloadText");
+
+    // Start spinner & disable button
+    spinner.classList.remove("d-none");
+    text.textContent = "Preparing File...";
+    btn.disabled = true;
+
+    // Trigger file download
+    window.location.href = `/download_payments_history/${projectId}`;
+
+    // Best available solution:
+    // Detect when user comes back to page after download dialog closes
+    const stopSpinner = () => {
+        spinner.classList.add("d-none");
+        text.textContent = "Download Payments History";
+        btn.disabled = false;
+        window.removeEventListener("focus", stopSpinner);
+    };
+
+    // When user returns focus → assume download triggered
+    window.addEventListener("focus", stopSpinner);
+
+    // Extra safety timeout (in case browser does not blur)
+    setTimeout(stopSpinner, 4000);
+});
+</script>
 
 <script>
 function downloadPortfolio() {
@@ -2056,8 +2298,20 @@ $(document).ready(function() {
         const installment2Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
         const installment2DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
         const installment2Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
-
+        const installment3Amount = $row.find('td:eq(32)').text().trim(); // Seventh column (Due Date)
+        const installment3DueDate = $row.find('td:eq(33)').text().trim(); // Seventh column (Due Date)
+        const installment3Date = $row.find('td:eq(34)').text().trim(); // Seventh column (Due Date)
+        const installment4Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
+        const installment4DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
+        const installment4Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
+        const installment5Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
+        const installment5DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
+        const installment5Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
+        const installment6Amount = $row.find('td:eq(32)').text().trim(); // Seventh column (Due Date)
+        const installment6DueDate = $row.find('td:eq(33)').text().trim(); // Seventh column (Due Date)
+        const installment6Date = $row.find('td:eq(34)').text().trim(); // Seventh column (Due Date)
         
+
         $('#updateCompletionStatus option[value="ph"]').text(completionStatus);
 
         // Debug: Check what values you're getting
@@ -2079,9 +2333,18 @@ $(document).ready(function() {
         $('#updateInstallment2Amount').val(installment2Amount);
         $('#updateInstallment2DueDate').val(installment2DueDate);
         $('#updateInstallment2Date').val(installment2Date);
-        
-        // Clear the paid date field
-        $('#updateInstallment1PaidDate').val('');
+        $('#updateInstallment3Amount').val(installment3Amount);
+        $('#updateInstallment3DueDate').val(installment3DueDate);
+        $('#updateInstallment3Date').val(installment3Date);
+        $('#updateInstallment4Amount').val(installment4Amount);
+        $('#updateInstallment4DueDate').val(installment4DueDate);
+        $('#updateInstallment4Date').val(installment4Date);        
+        $('#updateInstallment5Amount').val(installment5Amount);
+        $('#updateInstallment5DueDate').val(installment5DueDate);
+        $('#updateInstallment5Date').val(installment5Date);        
+        $('#updateInstallment6Amount').val(installment6Amount);
+        $('#updateInstallment6DueDate').val(installment6DueDate);
+        $('#updateInstallment6Date').val(installment6Date);
         
         // Show the modal
         $('#updateModal').modal('show');
@@ -2181,9 +2444,11 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const clientName = document.getElementById("client_name").value.trim();
     const projectName = document.getElementById("project_name").value.trim();
     const paymentMethod = document.getElementById("paymentMethod").value;
+    const projectadmin = document.getElementById("projectadministrator").value.trim();
 
-    if (clientName === "" || projectName === "") {
-        alert("Client Name and Project Name are required.");
+
+    if (clientName === "" || projectName === "" || projectadmin === "") {
+        alert("Client Name, Project Name and Administrator Name are required.");
         return; // STOP submission
     }
 
@@ -2206,6 +2471,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     // ----------------------------------------------------
     let form = document.getElementById("addProjectForm");
     let formData = new FormData(form);
+    document.getElementById("edsLoader").style.display = "block";
 
     fetch("/contract_log", {
         method: "POST",
@@ -2218,6 +2484,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
             let errorText = await response.text();
             console.error("Server error:", errorText);
             alert("❌ Failed to save: " + errorText);
+            document.getElementById("edsLoader").style.display = "none";
             throw new Error("Server returned an error");
         }
 
@@ -2232,10 +2499,12 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     .then(data => {
         console.log("Server response:", data);
         alert("✅ Project saved successfully!");
+        document.getElementById("edsLoader").style.display = "none";
     })
     .catch(error => {
         console.error("Error:", error);
         alert("❌ There was an error saving the project.");
+        document.getElementById("edsLoader").style.display = "none";
     });
 
 
@@ -2380,6 +2649,7 @@ document.addEventListener("DOMContentLoaded", function () {
         "clientname",
         "projectname",
         "projectadministratorname",
+        "projectstartdate",
         "projectcompletionstatus",
         "action"
     ];
@@ -2670,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $(document).ready(function () {
         // Initialize DataTable for the main employees table
         $('#allprojectsTable').DataTable({
-            paging: false,    // Enable pagination
+            paging: true,    // Enable pagination
             searching: true, // Enable search
             ordering: true,  // Enable sorting
             info: true,      // Show table information
@@ -2679,6 +2949,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
 
+        $('#alladminsTable').DataTable({
+            paging: true,    // Enable pagination
+            searching: true, // Enable search
+            ordering: true,  // Enable sorting
+            info: true,      // Show table information
+            pageLength: 8,       // Force max 5 entries per page
+            lengthChange: false, // Disable entries per page dropdown
+        });
     });
 </script>
 

@@ -29,6 +29,7 @@ import requests
 from openpyxl import Workbook
 from weasyprint import HTML
 import re
+from collections import Counter
 #from paynow import Paynow
 import time
 import random
@@ -296,9 +297,6 @@ def Dashboard():
 
             try:
 
-                today_date = datetime.now().strftime('%d %B %Y')
-                applied_date = datetime.now().strftime('%Y-%m-%d')
-
                 results = run1(userid)  
 
                 print("Back from adventures")
@@ -410,6 +408,7 @@ def download_contract(project_id):
 
             # Map project row to dictionary
             project = {
+                'project_id_num': row[0],
                 'client_name': row[1],
                 'client_idnumber': row[2],
                 'client_address': row[3],
@@ -594,13 +593,250 @@ def download_contract(project_id):
 
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
-            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]}_contract.pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]} {project["project_name"]} contract_{project["project_id_num"]} ConnectLink Properties.pdf'
             return response
 
         except Exception as e:
             return str(e), 500
 
 
+@app.route('/download_payments_history/<project_id>')
+def download_payments_history(project_id):
+    with get_db() as (cursor, connection):
+        try:
+            # Fetch full project row (as your system does)
+            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id = %s", (project_id,))
+            row = cursor.fetchone()
+            if not row:
+                return "Project not found", 404
+
+            # Fetch company details
+            cursor.execute("SELECT * FROM connectlinkdetails;")
+            details = cursor.fetchall()
+            details = pd.DataFrame(details, columns=[
+                'address','contact1','contact2','email','companyname','tinnumber'
+            ])
+
+            companyname = details.iat[0,4] if not details.empty else ""
+            address = details.iat[0,0] if not details.empty else ""
+            contact1 = details.iat[0,1] if not details.empty else ""
+            contact2 = details.iat[0,2] if not details.empty else ""
+            compemail = details.iat[0,3] if not details.empty else ""
+
+            # Payment fields (same index references as your system)
+            payments = [
+                {
+                    "name": "Installment 1",
+                    "amount": row[26],
+                    "due": row[27].strftime("%-d %B %Y") if row[27] else "-",
+                    "paid": row[28].strftime("%-d %B %Y") if row[28] else "Not Paid",
+                },
+                {
+                    "name": "Installment 2",
+                    "amount": row[29],
+                    "due": row[30].strftime("%-d %B %Y") if row[30] else "-",
+                    "paid": row[31].strftime("%-d %B %Y") if row[31] else "Not Paid",
+                },
+                {
+                    "name": "Installment 3",
+                    "amount": row[32],
+                    "due": row[33].strftime("%-d %B %Y") if row[33] else "-",
+                    "paid": row[34].strftime("%-d %B %Y") if row[34] else "Not Paid",
+                },
+                {
+                    "name": "Installment 4",
+                    "amount": row[35],
+                    "due": row[36].strftime("%-d %B %Y") if row[36] else "-",
+                    "paid": row[37].strftime("%-d %B %Y") if row[37] else "Not Paid",
+                },
+                {
+                    "name": "Installment 5",
+                    "amount": row[38],
+                    "due": row[39].strftime("%-d %B %Y") if row[39] else "-",
+                    "paid": row[40].strftime("%-d %B %Y") if row[40] else "Not Paid",
+                },
+                {
+                    "name": "Installment 6",
+                    "amount": row[41],
+                    "due": row[42].strftime("%-d %B %Y") if row[42] else "-",
+                    "paid": row[43].strftime("%-d %B %Y") if row[43] else "Not Paid",
+                }
+            ]
+
+            # Get logo as base64
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+            with open(logo_path, 'rb') as img:
+                logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+
+            # Build payments table rows
+            payment_rows = ""
+            for p in payments:
+                payment_rows += f"""
+                    <tr>
+                        <td style="border:1px solid #ccc;padding:8px;">{p['name']}</td>
+                        <td style="border:1px solid #ccc;padding:8px;">{p['amount']}</td>
+                        <td style="border:1px solid #ccc;padding:8px;">{p['due']}</td>
+                        <td style="border:1px solid #ccc;padding:8px;">{p['paid']}</td>
+                    </tr>
+                """
+
+            html = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+
+                <style>
+                    body {{
+                        font-family: 'Arial', sans-serif;
+                        margin: 40px;
+                        color: #1E2A56;
+                        background-color: #ffffff;
+                        line-height: 1.5;
+                    }}
+
+                    .header {{
+                        text-align: center;
+                        margin-bottom: 25px;
+                    }}
+
+                    .logo {{
+                        width: 170px;
+                        margin-bottom: 12px;
+                    }}
+
+                    h1 {{
+                        font-size: 24px;
+                        margin: 5px 0 0 0;
+                        font-weight: 800;
+                    }}
+
+                    .tagline {{
+                        font-size: 13px;
+                        color: #445;
+                        margin-top: 3px;
+                    }}
+
+                    .section-title {{
+                        font-size: 17px;
+                        margin-top: 35px;
+                        margin-bottom: 12px;
+                        padding-bottom: 6px;
+                        border-bottom: 2px solid #1E2A56;
+                        font-weight: 800;
+                    }}
+
+                    .info-box {{
+                        padding: 12px 16px;
+                        border: 1px solid #d3d6e4;
+                        border-radius: 8px;
+                        background: #f9faff;
+                        margin-bottom: 10px;
+                    }}
+
+                    .info-box p {{
+                        margin: 3px 0;
+                        font-size: 14px;
+                    }}
+
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                        font-size: 14px;
+                    }}
+
+                    th {{
+                        background: #1E2A56;
+                        color: #fff;
+                        padding: 10px;
+                        text-align: left;
+                        font-size: 14px;
+                    }}
+
+                    td {{
+                        padding: 10px;
+                        border-bottom: 1px solid #e0e3ef;
+                    }}
+
+                    tr:nth-child(even) {{
+                        background: #f4f6fb;
+                    }}
+
+                    .footer {{
+                        margin-top: 35px;
+                        text-align: right;
+                        font-size: 12px;
+                        color: #666;
+                    }}
+                </style>
+            </head>
+
+            <body>
+
+                <div class="header">
+                    <img src="data:image/png;base64,{logo_base64}" class="logo">
+                    <h3>Payments History</3>
+                    <div class="tagline">Official Client Payment Record</div>
+                </div>
+
+                <div class="section-title">Client Information</div>
+                <div class="info-box">
+                    <p><strong>Name:</strong> {row[1]}</p>
+                    <p><strong>Address:</strong> {row[3]}</p>
+                    <p><strong>Contact:</strong> 0{row[4]}</p>
+                    <p><strong>Email:</strong> {row[5]}</p>
+                </div>
+
+                <div class="section-title">Project Information</div>
+                <div class="info-box">
+                    <p><strong>Project Name:</strong> {row[10]}</p>
+                    <p><strong>Location:</strong> {row[11]}</p>
+                    <p><strong>Administrator:</strong> {row[13]}</p>
+                </div>
+
+                
+                <!-- DEPOSIT / BULLET PAYMENT -->
+                <div class="section-title">Payments Breakdown</div>
+
+                <div class="info-box">
+                    <p><strong>Deposit / Bullet Payment:</strong> USD {row[23] if row[23] else '—'}</p>
+                    <p><strong>Date Paid:</strong> {row[24].strftime('%d %B %Y') if row[24] else '—'}</p>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Installment</th>
+                            <th>Amount (USD)</th>
+                            <th>Due Date</th>
+                            <th>Date Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {payment_rows}
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    Generated on {datetime.now().strftime("%d %B %Y")}
+                </div>
+
+            </body>
+            </html>
+            """
+
+
+            pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+
+            response = make_response(pdf)
+            response.headers["Content-Type"] = "application/pdf"
+            response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[10]} payments history_{project_id}_ConnectLink Properties.pdf"
+
+            return response
+
+        except Exception as e:
+            return str(e), 500
 
 
 @app.route('/create-system-user', methods=['POST'])
@@ -618,7 +854,7 @@ def create_system_user():
         try:
             cursor.execute("""
                 INSERT INTO connectlinkusers (datecreated, name, email, password)
-                VALUES (%s, %s, %s, %s))
+                VALUES (%s, %s, %s, %s)
             """, ( created_date ,fullname, email, password))
 
             connection.commit()
@@ -779,7 +1015,23 @@ def run1(userid):
 
 
         datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus','latepaymentinterest'])
+        count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
+        count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
+        average_duration = round(pd.to_numeric(datamain["projectduration"], errors="coerce").mean(),0)
+        locations = datamain['projectlocation'].replace('', pd.NA)
+
+        locations2 = datamain['projectlocation'].dropna().astype(str)  # remove None/NaN, ensure string
+        location_counts = Counter(locations2)
+
+        # Convert to lists for Jinja
+        locations_list = list(location_counts.keys())
+        frequencies_list = list(location_counts.values())
+
+        # Get the most frequent location
+        most_frequent_location = locations.value_counts(dropna=True).idxmax()
+
         datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary3 download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button> <button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary3 update-project-btn">Update</button> </div>''', axis=1)        
+        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
 
         datamain = datamain[['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus', 'latepaymentinterest', 'Action']]
 
@@ -809,6 +1061,12 @@ def run1(userid):
             "tinnumber": tinnumber,
             'today_date': today_date,
             'num_projects': num_projects,
+            'count_ongoing': count_ongoing,
+            'count_completed': count_completed,
+            'average_duration': average_duration,
+            'most_frequent_location': most_frequent_location,
+            'locations': locations_list,
+            'frequencies': frequencies_list,
             'admin_options': admin_options
             }
 
@@ -861,6 +1119,57 @@ def last_day_of_month(d):
     """Return the last day of d's month."""
     last_day = calendar.monthrange(d.year, d.month)[1]
     return date(d.year, d.month, last_day)
+
+def clean_date_update(value):
+    return value if value not in ("", None) else None
+
+@app.route('/update_project', methods=['POST'])
+def update_project():
+
+    with get_db() as (cursor, connection):
+
+        project_id = request.form.get('project_id')
+        completion_status = request.form.get('completion_status')
+
+        installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
+        installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
+        installment3_date = clean_date_update(request.form.get('installment3_paid_date'))
+        installment4_date = clean_date_update(request.form.get('installment4_paid_date'))
+        installment5_date = clean_date_update(request.form.get('installment5_paid_date'))
+        installment6_date = clean_date_update(request.form.get('installment6_paid_date'))
+
+
+        # --- EXAMPLE SQL (modify for your DB) ---
+        query = """
+            UPDATE connectlinkdatabase
+            SET 
+                projectcompletionstatus = %s,
+                installment1date = %s,
+                installment2date = %s,
+                installment3date = %s,
+                installment4date = %s,
+                installment5date = %s,
+                installment6date = %s
+            WHERE id = %s
+        """
+        
+        values = (
+            completion_status,
+            installment1_date,
+            installment2_date,
+            installment3_date,
+            installment4_date,
+            installment5_date,
+            installment6_date,
+            project_id
+        )
+
+        cursor.execute(query, values)
+        connection.commit()
+
+        flash("Project updated successfully!", "success")
+        return redirect(url_for('Dashboard'))  # or wherever you want to go
+
 
 @app.route('/contract_log', methods=['POST'])
 def contract_log():
@@ -1115,9 +1424,9 @@ def contract_log():
                     response = {'status': 'error', 'message': 'Failed to save project.'}
                     return jsonify(response), 500
 
+                # At the end of your try block
+                return redirect(url_for('Dashboard'))  # or wherever you want to go
 
-                results = run1(userid)
-                return render_template('adminpage.html', **results)
 
             except Exception as e:
                 print("❌ UNCAUGHT ERROR in contract_log():", str(e))  # <-- PRINT REAL ERROR
