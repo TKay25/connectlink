@@ -165,9 +165,12 @@ def initialize_database_tables():
                 ALTER TABLE connectlinkdatabase DROP COLUMN depositrequired;
             """)'''
 
-            '''cursor.execute("""DELETE FROM connectlinkdatabase WHERE id = 17;""")'''
+            cursor.execute("""DELETE FROM connectlinkdatabase WHERE id BETWEEN 19 AND 20;""")
             '''cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
+
+
+
 
             tables = ['connectlinkdatabase', 'connectlinknotes', 'connectlinkadmin']
             for table in tables:
