@@ -1354,27 +1354,23 @@
                         <input type="hidden" id="updateProjectId" name="project_id">
                         
                         <div class="row mb-3">
-                            <div class="col-md-4">
+
+                            <div class="col-md-3">
                                 <label for="updateClientName" class="form-label fw-bold">Client Name</label>
                                 <input type="text" class="form-control" id="updateClientName" readonly>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="updateProjectName" class="form-label fw-bold">Project Name</label>
                                 <input type="text" class="form-control" id="updateProjectName" readonly>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="updateAdminName" class="form-label fw-bold">Administrator Name</label>
                                 <input type="text" class="form-control" id="updateAdminName" readonly>
                             </div>
-                        </div>
 
-                        
-                        <div class="row mb-3">
-
-                            <!-- Completion Status -->
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="updateCompletionStatus" class="form-label fw-bold">Project Completion Status</label>
                                 <select class="form-select" id="updateCompletionStatus" name="completion_status">
                                     <option value="ph" disabled selected hidden>ph</option>
@@ -1386,13 +1382,45 @@
                                 </select>
                             </div>
 
-                            <!-- Project Scope -->
+                        </div>
+                        
+                        <div class="row mb-3">
+
+                            <!-- Project Scope (wide) -->
                             <div class="col-md-8">
                                 <label for="updateProjectScope" class="form-label fw-bold">Project Scope</label>
                                 <textarea class="form-control" id="updateProjectScope" rows="3"></textarea>
                             </div>
 
+                            <!-- Deposit & Date Paid + Buttons (with border) -->
+                            <div class="col-md-4">
+                                <div style="
+                                    border: 2px solid #1E2A56;
+                                    border-radius: 8px;
+                                    padding: 12px;
+                                    height: 100%;
+                                ">
+
+                                    <div class="mb-2">
+                                        <label class="form-label fw-bold">Deposit Paid (USD)</label>
+                                        <input type="text" class="form-control" id="updateDepositPaid" readonly>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <label class="form-label fw-bold">Date Paid</label>
+                                        <input type="text" class="form-control" id="updateDatePaid" readonly>
+                                    </div>
+
+                                    <div class="d-flex flex-column">
+                                        <button class="btn btn-primary mb-2" id="getReceiptBtn">Get Receipt</button>
+                                        <button class="btn btn-success" id="sendReceiptBtn">Send Receipt to Client</button>
+                                    </div>
+
+                                </div>
+                            </div>
+
                         </div>
+
 
                                                 
                         <!-- Scrollable Container -->
