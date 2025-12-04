@@ -1354,22 +1354,27 @@
                         <input type="hidden" id="updateProjectId" name="project_id">
                         
                         <div class="row mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label for="updateClientName" class="form-label fw-bold">Client Name</label>
                                 <input type="text" class="form-control" id="updateClientName" readonly>
                             </div>
-                            <div class="col-md-6">
+
+                            <div class="col-md-4">
                                 <label for="updateProjectName" class="form-label fw-bold">Project Name</label>
                                 <input type="text" class="form-control" id="updateProjectName" readonly>
                             </div>
-                        </div>
-                        
-                        <div class="row mb-3">
-                            <div class="col-md-6">
+
+                            <div class="col-md-4">
                                 <label for="updateAdminName" class="form-label fw-bold">Administrator Name</label>
                                 <input type="text" class="form-control" id="updateAdminName" readonly>
                             </div>
-                            <div class="col-md-6">
+                        </div>
+
+                        
+                        <div class="row mb-3">
+
+                            <!-- Completion Status -->
+                            <div class="col-md-4">
                                 <label for="updateCompletionStatus" class="form-label fw-bold">Project Completion Status</label>
                                 <select class="form-select" id="updateCompletionStatus" name="completion_status">
                                     <option value="ph" disabled selected hidden>ph</option>
@@ -1380,7 +1385,15 @@
                                     <option value="Cancelled">Cancelled</option>
                                 </select>
                             </div>
+
+                            <!-- Project Scope -->
+                            <div class="col-md-8">
+                                <label for="updateProjectScope" class="form-label fw-bold">Project Scope</label>
+                                <textarea class="form-control" id="updateProjectScope" rows="3"></textarea>
+                            </div>
+
                         </div>
+
                                                 
                         <!-- Scrollable Container -->
                         <div style="max-height: 350px; overflow-y: auto; padding-right: 10px;">
