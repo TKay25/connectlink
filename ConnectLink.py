@@ -169,9 +169,12 @@ def initialize_database_tables():
             cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
 
-            cursor.execute("""SELECT pg_get_serial_sequence('connectlinkdatabase', 'id');""")
-            cursor.execute("""SELECT pg_get_serial_sequence('connectlinknotes', 'id');""")
-            cursor.execute("""SELECT pg_get_serial_sequence('connectlinkadmin', 'id');""")
+            tables = ['connectlinkdatabase', 'connectlinknotes', 'connectlinkadmin']
+            for table in tables:
+                cursor.execute(f"SELECT pg_get_serial_sequence('{table}', 'id');")
+                seq_name = cursor.fetchone()[0]  # fetch the first column of the first row
+                print(f"Sequence for {table}: {seq_name}")
+
 
 
             # Create connectlinkdatabase table
