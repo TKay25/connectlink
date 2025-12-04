@@ -1439,13 +1439,13 @@
                                         <!-- Amount -->
                                         <div class="d-flex align-items-center gap-2">
                                             <label for="updateInstallment1Amount" class="fw-bold mb-0">Amount (USD):</label>
-                                            <input type="text" class="form-control" id="updateInstallment1Amount" style="width: 120px;">
+                                            <input type="text" class="form-control" id="updateInstallment1Amount" style="width: 120px;" readonly>
                                         </div>
 
                                         <!-- Due Date -->
                                         <div class="d-flex align-items-center gap-2">
                                             <label for="updateInstallment1DueDate" class="fw-bold mb-0">Due Date:</label>
-                                            <input type="date" class="form-control" id="updateInstallment1DueDate" style="width: 120px;">
+                                            <input type="date" class="form-control" id="updateInstallment1DueDate" style="width: 120px;"  readonly>
                                         </div>
 
                                         <!-- Date Paid -->
@@ -1585,7 +1585,7 @@ DEPOS
                         <!-- End Scrollable Container -->
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary3" id="downloadpaymentshistory" style="width: max-content;">
+                        <button type="button" class="btn btn-primary" id="downloadpaymentshistory" style="width: max-content;">
                             <span id="downloadText">Download Payments History</span>
                             <span id="downloadSpinner" class="spinner-border spinner-border-sm d-none"></span>
                         </button>
@@ -2524,7 +2524,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     // ----------------------------------------------------
     let form = document.getElementById("addProjectForm");
     let formData = new FormData(form);
-    document.getElementById("edsLoader").style.display = "block";
+    document.getElementById("edsLoader").style.display = "flex";
 
     fetch("/contract_log", {
         method: "POST",
