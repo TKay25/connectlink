@@ -2337,8 +2337,11 @@ $(document).ready(function() {
         const id = $row.find('td:eq(0)').text().trim(); // First column (ID)
         const clientName = $row.find('td:eq(1)').text().trim(); // Second column (Client Name)
         const projectName = $row.find('td:eq(10)').text().trim(); // Third column (Project Name)
+        const projectScope = $row.find('td:eq(12)').text().trim(); // Third column (Project Name)
         const adminName = $row.find('td:eq(13)').text().trim(); // Fourth column (Admin Name)
         const completionStatus = $row.find('td:eq(44)').text().trim(); // Fifth column (Status)
+        const depositorbullet = $row.find('td:eq(23)').text().trim(); // Sixth column (Amount)
+        const datedepositorbullet = $row.find('td:eq(24)').text().trim(); // Sixth column (Amount)
         const installment1Amount = $row.find('td:eq(26)').text().trim(); // Sixth column (Amount)
         const installment1DueDate = $row.find('td:eq(27)').text().trim(); // Seventh column (Due Date)
         const installment1Date = $row.find('td:eq(28)').text().trim(); // Seventh column (Due Date)
@@ -2373,7 +2376,10 @@ $(document).ready(function() {
         $('#updateClientName').val(clientName);
         $('#updateProjectName').val(projectName);
         $('#updateAdminName').val(adminName);
+        $('#updateProjectScope').val(projectScope)
         $('#updateCompletionStatus').val(completionStatus);
+        $('#updateDepositPaid').val(depositorbullet);
+        $('#updateDatePaid').val(datedepositorbullet);
         $('#updateInstallment1Amount').val(installment1Amount);
         $('#updateInstallment1DueDate').val(installment1DueDate);
         $('#updateInstallment1Date').val(installment1Date);
