@@ -1387,13 +1387,13 @@
                         <div class="row mb-3">
 
                             <!-- Project Scope (wide) -->
-                            <div class="col-md-8">
+                            <div class="col-md-7">
                                 <label for="updateProjectScope" class="form-label fw-bold">Project Scope</label>
-                                <textarea class="form-control" id="updateProjectScope" rows="3"></textarea>
+                                <textarea class="form-control" id="updateProjectScope" rows="4"></textarea>
                             </div>
 
                             <!-- Deposit & Date Paid + Buttons (with border) -->
-                            <div class="col-md-4">
+                            <div class="col-md-5">
                                 <div style="
                                     border: 2px solid #1E2A56;
                                     border-radius: 8px;
@@ -1401,19 +1401,23 @@
                                     height: 100%;
                                 ">
 
-                                    <div class="mb-2">
-                                        <label class="form-label fw-bold">Deposit Paid (USD)</label>
-                                        <input type="text" class="form-control" id="updateDepositPaid" readonly>
+                                    <!-- Deposit + Date Paid side by side -->
+                                    <div class="row mb-3">
+                                        <div class="col-6">
+                                            <label class="form-label fw-bold">Deposit Paid (USD)</label>
+                                            <input type="text" class="form-control" id="updateDepositPaid" readonly>
+                                        </div>
+
+                                        <div class="col-6">
+                                            <label class="form-label fw-bold">Date Paid</label>
+                                            <input type="text" class="form-control" id="updateDatePaid" readonly>
+                                        </div>
                                     </div>
 
-                                    <div class="mb-2">
-                                        <label class="form-label fw-bold">Date Paid</label>
-                                        <input type="text" class="form-control" id="updateDatePaid" readonly>
-                                    </div>
-
-                                    <div class="d-flex flex-column">
-                                        <button class="btn btn-primary mb-2" id="getReceiptBtn">Get Receipt</button>
-                                        <button class="btn btn-success" id="sendReceiptBtn">Send Receipt to Client</button>
+                                    <!-- Buttons side by side -->
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-primary w-50" id="getReceiptBtn">Get Receipt</button>
+                                        <button class="btn btn-success w-50" id="sendReceiptBtn">Send Receipt</button>
                                     </div>
 
                                 </div>
