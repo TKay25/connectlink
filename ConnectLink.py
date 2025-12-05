@@ -1222,9 +1222,9 @@ def contract_log():
                 months_to_completion = request.form.get('months_to_completion')
                 project_description = request.form.get('project_description') or ""
 
-                ALLOWED_TAGS = bleach.sanitizer.ALLOWED_TAGS + [
+                ALLOWED_TAGS = set(bleach.sanitizer.ALLOWED_TAGS).union({
                     'p', 'br', 'ul', 'ol', 'li', 'span', 'strong', 'em'
-                ]
+                })
 
                 ALLOWED_ATTRIBUTES = {
                     '*': ['style'],
