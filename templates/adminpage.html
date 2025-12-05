@@ -878,6 +878,24 @@
             <div class="grid-item"></div>
         </div>
     </div>
+
+    <div class="eds-loader" id="edsLoader2" style="display: none;">
+        <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
+
+        <br><br>
+        <p style="font-weight: 700;color: white;font-size: 1.2rem;">Your changes are being saved {{user_name}}, Please Wait...</p>
+
+        <div class="loader-bar">
+            <div class="loader-progress"></div>
+        </div>
+        
+        <div class="eds-grid">
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+        </div>
+    </div>
     
     <div class="sidebar p-2">
         <br><br>
@@ -1404,14 +1422,14 @@
 
                                         <div class="col-6">
                                             <label class="form-label fw-bold">Date Paid</label>
-                                            <input type="text" class="form-control" id="updateDatePaid" readonly>
+                                            <input type="date" class="form-control" id="updateDatePaid" readonly>
                                         </div>
                                     </div>
 
                                     <!-- Buttons side by side -->
                                     <div class="d-flex gap-2">
                                         <button class="btn btn-primary w-50" id="getReceiptBtn">Get Receipt</button>
-                                        <button class="btn btn-primary w-50" id="sendReceiptBtn">Send Receipt to Client</button>
+                                        <button class="btn btn-primary w-100" id="sendReceiptBtn">Send Receipt to Client</button>
                                     </div>
 
                                 </div>
@@ -1419,7 +1437,7 @@
 
                             <div class="col-md-7">
                                 <label for="updateProjectScope" class="form-label fw-bold">Project Scope</label>
-                                <textarea class="form-control" id="updateProjectScope" rows="5"></textarea>
+                                <textarea class="form-control editable" id="updateProjectScope" rows="5" name="projscope"></textarea>
                             </div>
 
                         </div>
@@ -1439,13 +1457,13 @@
                                         <!-- Amount -->
                                         <div class="d-flex align-items-center gap-2">
                                             <label for="updateInstallment1Amount" class="fw-bold mb-0">Amount (USD):</label>
-                                            <input type="text" class="form-control" id="updateInstallment1Amount" style="width: 120px;">
+                                            <input type="text" class="form-control" id="updateInstallment1Amount" style="width: 120px;" readonly>
                                         </div>
 
                                         <!-- Due Date -->
                                         <div class="d-flex align-items-center gap-2">
                                             <label for="updateInstallment1DueDate" class="fw-bold mb-0">Due Date:</label>
-                                            <input type="text" class="form-control" id="updateInstallment1DueDate" style="width: 120px;">
+                                            <input type="date" class="form-control" id="updateInstallment1DueDate" style="width: 120px;"  readonly>
                                         </div>
 
                                         <!-- Date Paid -->
@@ -1456,8 +1474,8 @@
 
                                         <!-- Buttons -->
                                         <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-primary3">Get Receipt</button>
-                                            <button type="button" class="btn btn-primary3">Send Receipt to Client</button>
+                                            <button type="button" class="btn btn-primary w-75">Get Receipt</button>
+                                            <button type="button" class="btn btn-primary w-100">Send Receipt to Client</button>
                                         </div>
                                     </div>
 
@@ -1585,7 +1603,7 @@ DEPOS
                         <!-- End Scrollable Container -->
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary3" id="downloadpaymentshistory" style="width: max-content;">
+                        <button type="button" class="btn btn-primary" id="downloadpaymentshistory" style="width: max-content;">
                             <span id="downloadText">Download Payments History</span>
                             <span id="downloadSpinner" class="spinner-border spinner-border-sm d-none"></span>
                         </button>
@@ -1947,7 +1965,7 @@ DEPOS
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-    const loaderxyz = document.getElementById("edsLoader");
+    const loaderxyz = document.getElementById("edsLoader2");
     const formxyzg = document.getElementById("updateProjectForm");
 
     // Show loader when the form is submitted
@@ -2522,7 +2540,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     // ----------------------------------------------------
     let form = document.getElementById("addProjectForm");
     let formData = new FormData(form);
-    document.getElementById("edsLoader").style.display = "block";
+    document.getElementById("edsLoader").style.display = "flex";
 
     fetch("/contract_log", {
         method: "POST",
