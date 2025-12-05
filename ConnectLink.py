@@ -1571,18 +1571,43 @@ def download_deposit_receipt(project_id):
                     size: A5;
                     margin: 20mm 15mm;
                 }}
+
                 body {{
                     font-family: 'Arial', sans-serif;
                     color: #1E2A56;
                     line-height: 1.5;
                     margin: 0;
+                    position: relative;
                 }}
+
+                /* Watermark */
+                body::after {{
+                    content: "Deposit";
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) rotate(-30deg);
+                    font-size: 80px;
+                    color: rgba(200, 200, 200, 0.2);
+                    z-index: -1;
+                    pointer-events: none;
+                    white-space: nowrap;
+                }}
+
                 .header {{
                     text-align: center;
                     margin-bottom: 25px;
                 }}
-                .logo {{ width: 150px; margin-bottom: 10px; }}
-                h5 {{ font-size: 15px; margin: 0; font-weight: 800; }}
+                .logo {{
+                    width: 150px;
+                    margin-bottom: 10px;
+                }}
+                h5 {{
+                    font-size: 16px;
+                    margin: 5px 0;
+                    font-weight: 800;
+                }}
+
                 .section-title {{
                     font-size: 16px;
                     margin-top: 25px;
@@ -1590,17 +1615,31 @@ def download_deposit_receipt(project_id):
                     border-bottom: 2px solid #1E2A56;
                     font-weight: 800;
                 }}
+
                 .info-box {{
-                    padding: 12px;
+                    padding: 15px;
                     border: 1px solid #d3d6e4;
-                    border-radius: 6px;
-                    background: #f9faff;
-                    margin-bottom: 10px;
+                    border-radius: 8px;
+                    background: #f4f6fb;
+                    margin-bottom: 15px;
+                    box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
                 }}
-                .info-box p {{ margin: 4px 0; font-size: 14px; }}
+
+                .info-box p {{
+                    margin: 5px 0;
+                    font-size: 14px;
+                }}
+
+                .footer {{
+                    margin-top: 30px;
+                    text-align: right;
+                    font-size: 12px;
+                    color: #666;
+                }}
             </style>
         </head>
         <body>
+
             <div class="header">
                 <img src="data:image/png;base64,{logo_base64}" class="logo">
                 <h5>Deposit Receipt</h5>
@@ -1628,12 +1667,10 @@ def download_deposit_receipt(project_id):
                 <p><strong>Date Paid:</strong> {row[10].strftime('%d %B %Y') if row[10] else '—'}</p>
             </div>
 
-            <div style="margin-top: 30px; text-align: right; font-size: 12px; color: #666;">
-                Generated on {datetime.now().strftime("%d %B %Y")}
-            </div>
         </body>
         </html>
         """
+
 
         pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
