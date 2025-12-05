@@ -3,7 +3,7 @@ import os
 
 # Prevent Matplotlib from building font cache on startup (blocks Gunicorn port binding on Render)
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/.matplotlib")
-
+import bleach
 from db_helper import get_db, execute_query
 import numpy as np
 from mysql.connector import Error
@@ -1222,6 +1222,21 @@ def contract_log():
                 months_to_completion = request.form.get('months_to_completion')
                 project_description = request.form.get('project_description') or ""
 
+                ALLOWED_TAGS = bleach.sanitizer.ALLOWED_TAGS + [
+                    'p', 'br', 'ul', 'ol', 'li', 'span', 'strong', 'em'
+                ]
+
+                ALLOWED_ATTRIBUTES = {
+                    '*': ['style'],
+                    'span': ['class']
+                }
+
+                clean_html = bleach.clean(
+                    request.form.get("project_description", ""),
+                    tags=ALLOWED_TAGS,
+                    attributes=ALLOWED_ATTRIBUTES,
+                    strip=True
+                )
 
                 agreement_date = request.form.get('agreement_date')
                 total_contract_price = request.form.get('total_contract_price')
@@ -1398,7 +1413,7 @@ def contract_log():
                         relationship,
                         project_name,
                         project_location,
-                        project_description,
+                        clean_html,
                         project_administrator,
                         safe_date(project_start_date),
                         safe_int(months_to_completion),
