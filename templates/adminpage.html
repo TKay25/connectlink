@@ -1531,7 +1531,6 @@
                                             <input type="date" class="form-control" id="updateInstallment2Date" name="installment2_paid_date">
                                         </div>
                                     </div>
-DEPOS
                                 </div>
                             </div>
 
@@ -1639,6 +1638,39 @@ DEPOS
                         <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+        <!-- CHANGE INSTALLMENT DATE MODAL -->
+    <div class="modal fade" id="changeInstallmentDateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header" style="background:#1E2A56;color:white;">
+                    <h6 class="modal-title">FIRST INSTALLMENT DUE DATE CHANGE</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <input type="hidden" id="modalProjectId">
+                    <input type="hidden" id="modalInstallmentNumber">
+
+                    <label class="fw-bold">New Due Date</label>
+                    <input type="date" class="form-control" id="modalNewDueDate">
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+
+                    <button type="button" class="btn btn-primary" id="saveNewInstallmentDateBtn">
+                        <span id="saveDateText">Save Changes</span>
+                        <span id="saveDateSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                    </button>
+                </div>
+
             </div>
         </div>
     </div>
