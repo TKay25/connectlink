@@ -2025,28 +2025,27 @@
 
 
 <script>
-document.getElementById("getdepositReceiptBtn").addEventListener("click", async function() {
-    const projectId = document.getElementById("updateProjectId").value;
+document.getElementById("getdepositReceiptBtn").addEventListener("click", async function(e) {
+    e.preventDefault();
 
+    const projectId = document.getElementById("updateProjectId").value; // get project ID
     const btn = this;
     const spinner = document.getElementById("depositSpinner");
+    const textSpan = document.getElementById("depositText");
 
     // Show spinner
     btn.disabled = true;
     spinner.classList.remove("d-none");
+    textSpan.textContent = "Generating...";
 
     try {
-        const response = await fetch("/get_deposit_receipt", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ project_id: projectId })
+        const response = await fetch(`/download_deposit_receipt/${projectId}`, {
+            method: 'GET'
         });
 
         if (!response.ok) throw new Error("Failed to generate receipt");
 
-        const blob = await response.blob(); // Get PDF as Blob
+        const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -2058,12 +2057,15 @@ document.getElementById("getdepositReceiptBtn").addEventListener("click", async 
 
     } catch (err) {
         console.error(err);
-        alert("❌ Failed to download receipt");
+        alert("❌ Failed to download deposit receipt");
     } finally {
+        // Hide spinner
         btn.disabled = false;
         spinner.classList.add("d-none");
+        textSpan.textContent = "Get Receipt";
     }
 });
+
 
 
 </script>
