@@ -1493,9 +1493,14 @@
 
                                         <!-- Buttons -->
                                         <div class="row g-2">
-                                            <div class="col-md-4">
-                                                <button type="button" class="btn btn-primary w-100" id="changeInstallmentBtn">Change First Installment Due Date</button>
-                                            </div>
+                                            <button type="button" 
+                                                    class="btn btn-primary w-100" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#changeInstallmentDateModal"
+                                                    data-project-id="{{ project.id }}">
+                                                Change First Installment Due Date
+                                            </button>
+
 
                                             <div class="col-md-4">
                                                 <button type="button" class="btn btn-primary w-100">Get Receipt</button>
