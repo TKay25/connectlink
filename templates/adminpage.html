@@ -2069,6 +2069,7 @@ document.getElementById("getdepositReceiptBtn").addEventListener("click", async 
 
 </script>
 <script>
+document.addEventListener("DOMContentLoaded", function() {
 
 // When "Change First Installment Due Date" button is clicked, open modal and set project ID
 document.getElementById("changeInstallmentDateBtn").addEventListener("click", function() {
@@ -2135,6 +2136,7 @@ document.getElementById("saveNewInstallmentDateBtn").addEventListener("click", f
         saveText.textContent = "Save Changes";
     });
 });
+})
 </script>
 <script>
     var quillProjectScope = new Quill('#projectScopeEditor', {
