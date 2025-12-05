@@ -1569,7 +1569,7 @@ def download_deposit_receipt(project_id):
             <style>
                 @page {{
                     size: A5;
-                    margin: 20mm 15mm;
+                    margin: 10mm 7mm;
                 }}
 
                 body {{
@@ -1580,16 +1580,15 @@ def download_deposit_receipt(project_id):
                     position: relative;
                 }}
 
-                /* Watermark */
-                body::after {{
-                    content: "Deposit";
+                /* Watermark on top */
+                .watermark {{
                     position: absolute;
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%) rotate(-30deg);
                     font-size: 80px;
                     color: rgba(200, 200, 200, 0.2);
-                    z-index: -1;
+                    z-index: 9999; /* on top */
                     pointer-events: none;
                     white-space: nowrap;
                 }}
@@ -1597,6 +1596,8 @@ def download_deposit_receipt(project_id):
                 .header {{
                     text-align: center;
                     margin-bottom: 25px;
+                    position: relative;
+                    z-index: 1;
                 }}
                 .logo {{
                     width: 150px;
@@ -1614,6 +1615,8 @@ def download_deposit_receipt(project_id):
                     margin-bottom: 8px;
                     border-bottom: 2px solid #1E2A56;
                     font-weight: 800;
+                    position: relative;
+                    z-index: 1;
                 }}
 
                 .info-box {{
@@ -1623,6 +1626,8 @@ def download_deposit_receipt(project_id):
                     background: #f4f6fb;
                     margin-bottom: 15px;
                     box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+                    position: relative;
+                    z-index: 1;
                 }}
 
                 .info-box p {{
@@ -1635,10 +1640,14 @@ def download_deposit_receipt(project_id):
                     text-align: right;
                     font-size: 12px;
                     color: #666;
+                    position: relative;
+                    z-index: 1;
                 }}
             </style>
         </head>
         <body>
+
+            <div class="watermark">DEPOSIT</div>
 
             <div class="header">
                 <img src="data:image/png;base64,{logo_base64}" class="logo">
@@ -1670,6 +1679,7 @@ def download_deposit_receipt(project_id):
         </body>
         </html>
         """
+
 
 
         pdf = HTML(string=html, base_url=request.host_url).write_pdf()
