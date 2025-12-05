@@ -1537,6 +1537,22 @@ def update_first_installment_date():
         print("Error updating first installment date:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route('/get_deposit_receipt', methods=['POST'])
+def get_deposit_receipt():
+    data = request.get_json()
+    project_id = data.get('project_id')
+
+    if not project_id:
+        return {"error": "Project ID required"}, 400
+
+    # Example: generate PDF in-memory
+    pdf_bytes = generate_deposit_receipt_pdf(project_id)  # your PDF generator function
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        download_name=f"Deposit_Receipt_Project_{project_id}.pdf",
+        mimetype="application/pdf"
+    )
+
 @app.route('/logout')
 def logout():
     # Clear the session data to log the user out
