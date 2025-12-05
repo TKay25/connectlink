@@ -2059,7 +2059,7 @@ document.getElementById("saveNewInstallmentDateBtn").addEventListener("click", f
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert("✅ First installment date updated successfully!");
+            alert("✅ First installment date and all other installment dates updated successfully!");
 
             // Update main modal field
             document.getElementById("updateInstallment1DueDate").value = newDate;

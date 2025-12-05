@@ -1463,7 +1463,32 @@ def contract_log():
                 print("❌ UNCAUGHT ERROR in contract_log():", str(e))  # <-- PRINT REAL ERROR
                 return jsonify({'status': 'error', 'message': str(e)}), 400
 
+@app.route('/update_first_installment_date', methods=['POST'])
+def update_first_installment_date():
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        new_date_str = data.get('new_date')
 
+        if not project_id or not new_date_str:
+            return jsonify({"success": False, "message": "Project ID and new date are required"}), 400
+
+        # Convert string date to Python date
+        new_date = datetime.strptime(new_date_str, "%Y-%m-%d").date()
+
+        with get_db() as (cursor, conn):
+            cursor.execute("""
+                UPDATE connectlinkdatabase
+                SET installment1_due_date = %s
+                WHERE id = %s
+            """, (new_date, project_id))
+            conn.commit()
+
+        return jsonify({"success": True, "message": "First installment due date updated successfully"})
+
+    except Exception as e:
+        print("Error updating first installment date:", e)
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/logout')
 def logout():
