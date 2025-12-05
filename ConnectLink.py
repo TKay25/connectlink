@@ -1477,7 +1477,7 @@ def update_first_installment_date():
         """, (project_id,))
         result = cursor.fetchone()
 
-        months_to_pay = result[0]
+        months_to_pay = int(result[0])
 
         if not project_id or not new_date_str:
             return jsonify({"success": False, "message": "Project ID and new date are required"}), 400
@@ -1527,7 +1527,11 @@ def update_first_installment_date():
             ))
             connection.commit()
 
-        return jsonify({"success": True, "message": "First installment due date and all other installment dates updated successfully"})
+        return jsonify({
+            "success": True,
+            "message": "First installment and all other installment dates updated successfully",
+            "installment_dates": [str(d) if d else "" for d in installment_due_dates]
+        })
 
     except Exception as e:
         print("Error updating first installment date:", e)
