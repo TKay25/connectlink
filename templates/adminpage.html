@@ -2544,9 +2544,9 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const paymentMethod = document.getElementById("paymentMethod").value;
     const projectadmin = document.getElementById("projectadministrator").value.trim();
     // When submitting form, store Quill HTML into hidden input
-    document.getElementById("addProjectForm").addEventListener("submit", function() {
-        document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
-    });
+// Insert Quill content into hidden input BEFORE building formData
+    document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
+
 
     if (clientName === "" || projectName === "" || projectadmin === "") {
         alert("Client Name, Project Name and Administrator Name are required.");
