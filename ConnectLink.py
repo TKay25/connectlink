@@ -1470,6 +1470,9 @@ def update_first_installment_date():
         project_id = data.get('project_id')
         new_date_str = data.get('new_date')
 
+        print(project_id)
+        print(new_date_str)
+
         cursor.execute("""
             SELECT monthstopay
             FROM connectlinkdatabase
