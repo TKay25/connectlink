@@ -1564,11 +1564,15 @@ def download_deposit_receipt(project_id):
         <head>
             <meta charset="UTF-8">
             <style>
+                @page {{
+                    size: A5;
+                    margin: 20mm 15mm;
+                }}
                 body {{
                     font-family: 'Arial', sans-serif;
-                    margin: 40px;
                     color: #1E2A56;
                     line-height: 1.5;
+                    margin: 0;
                 }}
                 .header {{
                     text-align: center;
