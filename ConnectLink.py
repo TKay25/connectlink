@@ -1470,21 +1470,64 @@ def update_first_installment_date():
         project_id = data.get('project_id')
         new_date_str = data.get('new_date')
 
+        cursor.execute("""
+            SELECT monthstopay
+            FROM connectlinkdatabase
+            WHERE id = %s
+        """, (project_id,))
+        result = cursor.fetchone()
+
+        months_to_pay = result[0]
+
         if not project_id or not new_date_str:
             return jsonify({"success": False, "message": "Project ID and new date are required"}), 400
 
         # Convert string date to Python date
         new_date = datetime.strptime(new_date_str, "%Y-%m-%d").date()
 
-        with get_db() as (cursor, conn):
+        installment_due_dates = []
+
+        # Generate installment dates
+        for i in range(int(months_to_pay)):
+            next_date = add_months(new_date, i)
+            installment_due_dates.append(next_date)
+
+        # Fill up to 6 slots using same day logic for following months
+        while len(installment_due_dates) < 6:
+            next_date = add_months(new_date, len(installment_due_dates))
+            installment_due_dates.append(next_date)
+
+
+        installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate = installment_due_dates
+        installment1duedate = installment_due_dates[0] if int(months_to_pay) >= 1 else None
+        installment2duedate = installment_due_dates[1] if int(months_to_pay) >= 2 else None
+        installment3duedate = installment_due_dates[2] if int(months_to_pay) >= 3 else None
+        installment4duedate = installment_due_dates[3] if int(months_to_pay) >= 4 else None
+        installment5duedate = installment_due_dates[4] if int(months_to_pay) >= 5 else None
+        installment6duedate = installment_due_dates[5] if int(months_to_pay) >= 6 else None
+
+        with get_db() as (cursor, connection):
             cursor.execute("""
                 UPDATE connectlinkdatabase
-                SET installment1_due_date = %s
+                SET installment1duedate = %s,
+                    installment2duedate = %s,
+                    installment3duedate = %s,
+                    installment4duedate = %s,
+                    installment5duedate = %s,
+                    installment6duedate = %s
                 WHERE id = %s
-            """, (new_date, project_id))
-            conn.commit()
+            """, (
+                installment1duedate,
+                installment2duedate,
+                installment3duedate,
+                installment4duedate,
+                installment5duedate,
+                installment6duedate,
+                project_id
+            ))
+            connection.commit()
 
-        return jsonify({"success": True, "message": "First installment due date updated successfully"})
+        return jsonify({"success": True, "message": "First installment due date and all other installment dates updated successfully"})
 
     except Exception as e:
         print("Error updating first installment date:", e)
