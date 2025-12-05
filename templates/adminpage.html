@@ -2545,7 +2545,6 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const projectadmin = document.getElementById("projectadministrator").value.trim();
     // When submitting form, store Quill HTML into hidden input
 // Insert Quill content into hidden input BEFORE building formData
-    document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
 
 
     if (clientName === "" || projectName === "" || projectadmin === "") {
@@ -2566,6 +2565,8 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
             return;
         }
     }
+    
+    document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
 
     // ----------------------------------------------------
     // 2. Build FormData object and send to Flask route
