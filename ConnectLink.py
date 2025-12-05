@@ -1551,11 +1551,6 @@ def download_deposit_receipt(project_id):
         cursor.execute("SELECT * FROM connectlinkdetails;")
         details = cursor.fetchall()
         company = details[0] if details else {}
-        companyname = company.get('companyname', '') if company else ''
-        address = company.get('address', '') if company else ''
-        contact1 = company.get('contact1', '') if company else ''
-        contact2 = company.get('contact2', '') if company else ''
-        compemail = company.get('email', '') if company else ''
 
         # Get logo
         logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
