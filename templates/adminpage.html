@@ -13,6 +13,7 @@
         <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
         <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
         <style>
         /* Main Styling */
         body {
@@ -1239,11 +1240,29 @@
                                         </div>
                                     </div>
 
+                                    <div class="form-group mb-3">
+                                        <label class="form-label fw-bold">Project Scope: </label>
 
-                                    <div class="form-group">
-                                        <label>Project Scope:</label>
-                                        <textarea class="form-control editable-field" rows="3" id="project_description" name="project_description" required></textarea>
+                                        <!-- Quill toolbar -->
+                                        <div id="projectScopeToolbar">
+                                            <span class="ql-formats">
+                                                <button class="ql-bold"></button>
+                                                <button class="ql-italic"></button>
+                                                <button class="ql-underline"></button>
+                                            </span>
+                                            <span class="ql-formats">
+                                                <button class="ql-list" value="bullet"></button>
+                                                <button class="ql-list" value="ordered"></button>
+                                            </span>
+                                        </div>
+
+                                        <!-- Quill editable area -->
+                                        <div id="projectScopeEditor" class="editable-field" style="height: 130px; background: #fff;"></div>
+
+                                        <!-- Hidden input that will store final HTML for submitting -->
+                                        <input type="hidden" id="project_description" name="project_description" required>
                                     </div>
+
 
                                     <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
                                         <label for="project_start_date" class="col-auto col-form-label" style="padding-right: 0.5rem;">Project Start Date:</label>
@@ -1428,7 +1447,10 @@
 
                                     <!-- Buttons side by side -->
                                     <div class="d-flex gap-2">
-                                        <button class="btn btn-primary w-50" id="getReceiptBtn">Get Receipt</button>
+                                        <button class="btn btn-primary w-100" id="getdepositReceiptBtn">
+                                            <span id="depositText">Get Receipt</span>
+                                            <span id="depositSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                                        </button>
                                         <button class="btn btn-primary w-100" id="sendReceiptBtn">Send Receipt to Client</button>
                                     </div>
 
@@ -1473,9 +1495,22 @@
                                         </div>
 
                                         <!-- Buttons -->
-                                        <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-primary w-75">Get Receipt</button>
-                                            <button type="button" class="btn btn-primary w-100">Send Receipt to Client</button>
+                                        <div class="row g-2">
+                                            <button type="button"
+                                                    class="btn btn-primary"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#changeInstallmentDateModal" style="width: max-content;">
+                                                Change First Installment Due Date
+                                            </button>
+
+
+                                            <div class="col-md-4">
+                                                <button type="button" class="btn btn-primary w-100">Get Receipt</button>
+                                            </div>
+
+                                            <div class="col-md-4">
+                                                <button type="button" class="btn btn-primary w-100">Send Receipt to Client</button>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1503,7 +1538,6 @@
                                             <input type="date" class="form-control" id="updateInstallment2Date" name="installment2_paid_date">
                                         </div>
                                     </div>
-DEPOS
                                 </div>
                             </div>
 
@@ -1611,6 +1645,38 @@ DEPOS
                         <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+        <!-- CHANGE INSTALLMENT DATE MODAL -->
+    <div class="modal fade" id="changeInstallmentDateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header" style="background:#1E2A56;color:white;">
+                    <h6 class="modal-title">FIRST INSTALLMENT DUE DATE CHANGE</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <input type="hidden" id="modalProjectId">
+
+                    <label class="fw-bold">New Due Date</label>
+                    <input type="date" class="form-control editable-field" id="modalNewDueDate">
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+
+                    <button type="button" class="btn btn-primary" id="saveNewInstallmentDateBtn" style="width: max-content;">
+                        <span id="saveDateText">Save Changes</span>
+                        <span id="saveDateSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                    </button>
+                </div>
+
             </div>
         </div>
     </div>
@@ -1954,13 +2020,136 @@ DEPOS
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+document.getElementById("getdepositReceiptBtn").addEventListener("click", async function(e) {
+    e.preventDefault();
 
+    const projectId = document.getElementById("updateProjectId").value; // get project ID
+    const btn = this;
+    const spinner = document.getElementById("depositSpinner");
+    const textSpan = document.getElementById("depositText");
 
+    // Show spinner
+    btn.disabled = true;
+    spinner.classList.remove("d-none");
+    textSpan.textContent = "Generating...";
 
+    try {
+        const response = await fetch(`/download_deposit_receipt/${projectId}`, {
+            method: 'GET'
+        });
+
+        if (!response.ok) throw new Error("Failed to generate receipt");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Deposit_Receipt_Project_${projectId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ Failed to download deposit receipt");
+    } finally {
+        // Hide spinner
+        btn.disabled = false;
+        spinner.classList.add("d-none");
+        textSpan.textContent = "Get Receipt";
+    }
 });
+
+
+
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+// When "Change First Installment Due Date" button is clicked, open modal and set project ID
+document.getElementById("changeInstallmentDateBtn").addEventListener("click", function() {
+    const projectId = document.getElementById("updateProjectId").value; // From main modal
+    document.getElementById("modalProjectId").value = projectId;
+
+    // Optionally prefill the current first installment date
+    const currentDate = document.getElementById("updateInstallment1DueDate").value;
+    document.getElementById("modalNewDueDate").value = currentDate;
+
+    // Show the modal
+    var modal = new bootstrap.Modal(document.getElementById("changeInstallmentDateModal"));
+    modal.show();
+});
+
+// Handle Save Changes
+document.getElementById("saveNewInstallmentDateBtn").addEventListener("click", function() {
+    const projectId = document.getElementById("modalProjectId").value;
+    const newDate = document.getElementById("modalNewDueDate").value;
+    const saveText = document.getElementById("saveDateText");
+    const spinner = document.getElementById("saveDateSpinner");
+
+    if (!newDate) {
+        alert("Please select a new due date.");
+        return;
+    }
+
+    // Show spinner
+    spinner.classList.remove("d-none");
+    saveText.textContent = "Saving...";
+
+    fetch("/update_first_installment_date", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            new_date: newDate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("✅ First installment date and all other installment dates updated successfully!");
+
+            // Update main modal field
+            document.getElementById("updateInstallment1DueDate").value = newDate;
+
+            // Close modal
+            var modalInstance = bootstrap.Modal.getInstance(document.getElementById("changeInstallmentDateModal"));
+            modalInstance.hide();
+        } else {
+            alert("❌ Failed to update: " + data.message);
+        }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("❌ Error updating first installment date.");
+    })
+    .finally(() => {
+        // Reset button text and hide spinner
+        spinner.classList.add("d-none");
+        saveText.textContent = "Save Changes";
+    });
+});
+})
+</script>
+<script>
+    var quillProjectScope = new Quill('#projectScopeEditor', {
+        theme: 'snow',
+        modules: {
+            toolbar: '#projectScopeToolbar'
+        }
+    });
+
+    // When submitting form, store Quill HTML into hidden input
+    document.getElementById("addProjectForm").addEventListener("submit", function() {
+        document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
+    });
 </script>
 
 
@@ -2516,6 +2705,8 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const projectName = document.getElementById("project_name").value.trim();
     const paymentMethod = document.getElementById("paymentMethod").value;
     const projectadmin = document.getElementById("projectadministrator").value.trim();
+    // When submitting form, store Quill HTML into hidden input
+// Insert Quill content into hidden input BEFORE building formData
 
 
     if (clientName === "" || projectName === "" || projectadmin === "") {
@@ -2536,6 +2727,8 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
             return;
         }
     }
+    
+    document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
 
     // ----------------------------------------------------
     // 2. Build FormData object and send to Flask route
