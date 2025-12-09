@@ -1002,6 +1002,17 @@ def run1(userid):
         today_date = datetime.now().strftime('%d %B %Y')
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
+        usersdataquery = f"SELECT * FROM connectlinkusers;"
+        cursor.execute(usersdataquery)
+        usersdata = cursor.fetchall()
+        print(usersdata)
+
+        usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email'])
+        usersdatamain['Action'] = usersdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-danger-2 remove-admin-btn" data-ID="{x}">Remove</button></div>''')
+        usersdatamain = usersdatamain[['id', 'datecreated','name','email','Action']]
+        usersdatamain_html = usersdatamain.to_html(classes="table table-bordered table-theme", table_id="allusersTable", index=False,  escape=False,)
+
+
         ####### admins
 
         adminsdataquery = f"SELECT * FROM connectlinkadmin;"
