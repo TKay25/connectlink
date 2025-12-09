@@ -1008,7 +1008,7 @@ def run1(userid):
         print(usersdata)
 
         usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email'])
-        usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button data-bs-toggle="modal" data-bs-target="#removeUserModal class="btn btn-danger-2 remove-user-btn" data-id="{row['id']}" data-name="{row['name']}" data-email="{row['email']}">Remove</button></div>''', axis=1)
+        usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button data-bs-toggle="modal" data-bs-target="#removeUserModal" class="btn btn-danger-2 remove-user-btn" data-id="{row['id']}" data-name="{row['name']}" data-email="{row['email']}">Remove</button></div>''', axis=1)
         usersdatamain = usersdatamain[['id', 'datecreated','name','email','Action']]
         usersdatamain_html = usersdatamain.to_html(classes="table table-bordered table-theme", table_id="allusersTable", index=False,  escape=False,)
 
