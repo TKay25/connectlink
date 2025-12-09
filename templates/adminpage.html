@@ -916,8 +916,8 @@
         </button>
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
-                id="addnewprojectBtn" data-bs-toggle="modal" data-bs-target="#createUserModal">
-            <span><i class="bi bi-person-fill-add"></i> Create System User</span>
+                id="createuserBtn" data-bs-toggle="modal" data-bs-target="#systemUserModal">
+            <span><i class="bi bi-person-fill-add"></i> Manage System Users</span>
         </button>
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
@@ -927,6 +927,35 @@
         </button>
 
     </div>
+
+        <div class="modal fade" id="systemUserModal" tabindex="-1" aria-labelledby="systemUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            
+            <div class="modal-header">
+                <h6 class="modal-title" id="systemUserModalLabel"><i class="bi bi-person-fill-add"></i> SYSTEM USERS</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body" style="font-size: 14px;">
+
+
+
+
+
+
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">Create User</button>
+                <button class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
+            </div>
+
+            </div>
+        </div>
+    </div>
+
+
 
     <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -964,8 +993,8 @@
             </div>
 
             <div class="modal-footer">
-                <button class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary" type="submit" form="createUserForm">Create</button>
+                <button class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
             </div>
 
             </div>
