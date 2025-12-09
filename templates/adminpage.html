@@ -436,7 +436,7 @@
         .editable-field {
             border-radius: 8px;
             background-color: #e6f0ff; /* Light blue when not being edited */
-            border: rgba(0, 0, 0, 0.2) solid #1E2A56; /* Light border */
+            border: rgba(0, 0, 0, 0.2) solid #4655AC; /* Light border */
             transition: background-color 0.3s ease;
         }
 
@@ -1459,7 +1459,7 @@
 
                             <div class="col-md-7">
                                 <label for="updateProjectScope" class="form-label fw-bold">Project Scope</label>
-                                <textarea class="form-control editable" id="updateProjectScope" rows="5" name="projscope"></textarea>
+                                <textarea class="form-control editable-field id="updateProjectScope" rows="5" name="projscope"></textarea>
                             </div>
 
                         </div>
@@ -1895,7 +1895,7 @@
                         <div class="row mb-2">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold mb-1" style="font-size: 0.75rem;">Address</label>
-                                <input type="text" class="form-control form-control-sm editable" value="{{ address }}">
+                                <input type="text" class="form-control form-control-sm editable-field" value="{{ address }}">
                             </div>
                         </div>
 
