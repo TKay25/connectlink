@@ -1,5 +1,6 @@
 import uuid
 import os
+import html
 
 # Prevent Matplotlib from building font cache on startup (blocks Gunicorn port binding on Render)
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/.matplotlib")
