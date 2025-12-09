@@ -1897,7 +1897,7 @@
                     <input type="password" class="form-control" name="passcode" required>
                 </div>
 
-                <input type="hidden" name="user_id" id="modalUserId">
+                <input type="hidden" name="id" id="id">
                 </div>
 
                 <div class="modal-footer">
@@ -2045,20 +2045,27 @@
 
 <script>
 
-document.addEventListener("click", function (e) {
-    if (e.target.classList.contains("remove-user-btn")) {
-        let userId = e.target.getAttribute("data-id");
-        let row = e.target.closest("tr");
-
-        let userName = row.querySelector(".username").innerText;
-        let userEmail = row.querySelector(".email").innerText;
-
-        document.getElementById("modalUserId").value = userId;
-        document.getElementById("modalUserName").innerText = userName;
-        document.getElementById("modalUserEmail").innerText = userEmail;
-
-        new bootstrap.Modal(document.getElementById("removeUserModal")).show();
-    }
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('removeUserModal');
+    
+    modal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        
+        // Decode HTML entities when reading
+        const decodeHtml = (html) => {
+            const txt = document.createElement('textarea');
+            txt.innerHTML = html;
+            return txt.value;
+        };
+        
+        const userId = button.getAttribute('data-user-id');
+        const userName = decodeHtml(button.getAttribute('data-user-name') || '');
+        const userEmail = decodeHtml(button.getAttribute('data-user-email') || '');
+        
+        document.getElementById('modalUserId').value = userId;
+        document.getElementById('modalUserName').textContent = userName;
+        document.getElementById('modalUserEmail').textContent = userEmail;
+    });
 });
 
 document.getElementById("getdepositReceiptBtn").addEventListener("click", async function(e) {
