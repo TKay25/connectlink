@@ -1404,6 +1404,64 @@
         </div>
     </div>
 
+    <!-- Delete Project Modal -->
+    <div class="modal fade" id="deleteprojectModal" tabindex="-1" aria-labelledby="deleteprojectModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h6 class="modal-title" id="deleteprojectModalLabel">
+                        <i class="bi bi-exclamation-triangle"></i> PROJECT REMOVAL CONFIRMATION
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="deleteProjectForm">
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <strong>WARNING:</strong> This action cannot be undone! All project data including payments history will be permanently deleted.
+                        </div>
+                        
+                        <p>Are you sure you want to permanently delete the following project?</p>
+                        
+                        <div class="mb-3">
+                            <strong>Project ID:</strong> 
+                            <span id="deleteProjectIdDisplay" class="text-danger fw-bold"></span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Client Name:</strong> 
+                            <span id="deleteClientNameDisplay"></span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Project Name:</strong> 
+                            <span id="deleteProjectNameDisplay"></span>
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            <label for="adminPasscode" class="form-label fw-bold">
+                                <i class="bi bi-key"></i> Enter Admin Passcode to Confirm
+                            </label>
+                            <input type="password" class="form-control" id="adminPasscode" name="admin_passcode" required placeholder="Enter admin passcode">
+                        </div>
+                        
+                        <input type="hidden" id="deleteProjectId" name="project_id">
+                        <input type="hidden" id="deleteClientName" name="client_name">
+                        <input type="hidden" id="deleteProjectName" name="project_name">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger" id="confirmDeleteBtn">
+                            <span id="deleteBtnText">Delete Project Permanently</span>
+                            <span id="deleteSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Update Project Modal -->
     <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" style="max-width: 80%;">
