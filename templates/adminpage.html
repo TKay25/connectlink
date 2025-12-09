@@ -2044,6 +2044,23 @@
 
 
 <script>
+
+document.addEventListener("click", function (e) {
+    if (e.target.classList.contains("remove-user-btn")) {
+        let userId = e.target.getAttribute("data-id");
+        let row = e.target.closest("tr");
+
+        let userName = row.querySelector(".username").innerText;
+        let userEmail = row.querySelector(".email").innerText;
+
+        document.getElementById("modalUserId").value = userId;
+        document.getElementById("modalUserName").innerText = userName;
+        document.getElementById("modalUserEmail").innerText = userEmail;
+
+        new bootstrap.Modal(document.getElementById("removeUserModal")).show();
+    }
+});
+
 document.getElementById("getdepositReceiptBtn").addEventListener("click", async function(e) {
     e.preventDefault();
 
