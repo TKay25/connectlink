@@ -1008,7 +1008,8 @@ def run1(userid):
         print(usersdata)
 
         usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email'])
-        usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button data-bs-toggle="modal" data-bs-target="#removeUserModal" class="btn btn-danger-2 remove-user-btn" data-id="{row['id']}" data-name="{row['name']}" data-email="{row['email']}">Remove</button></div>''', axis=1)
+
+        usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button class="btn btn-danger-2" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="{row['id']}" data-user-name="{html.escape(str(row.get('name', '')))}"data-user-email="{html.escape(str(row.get('email', '')))}">Remove</button></div>''', axis=1)
         usersdatamain = usersdatamain[['id', 'datecreated','name','email','Action']]
         usersdatamain_html = usersdatamain.to_html(classes="table table-bordered table-theme", table_id="allusersTable", index=False,  escape=False,)
 
