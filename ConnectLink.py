@@ -297,6 +297,35 @@ def export_projects_portfolio():
             print("Error:", str(e))
             return f"Error occurred: {str(e)}", 500
 
+            
+@app.route('/remove-system-user', methods=['POST'])
+def remove_system_user():
+
+    with get_db() as (cursor, connection):
+
+        try:
+
+            data = request.get_json()
+            user_id = data.get('user_id')
+            passcode = data.get('passcode')
+            
+            cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (user_id,))
+            connection.commit()
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'User has been removed successfully'
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to remove user: {str(e)}'
+            }), 500
+
+
+
+
 @app.route('/dashboard')
 def Dashboard():
 
