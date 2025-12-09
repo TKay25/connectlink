@@ -928,7 +928,7 @@
 
     </div>
 
-        <div class="modal fade" id="systemUserModal" tabindex="-1" aria-labelledby="systemUserModalLabel" aria-hidden="true">
+    <div class="modal fade" id="systemUserModal" tabindex="-1" aria-labelledby="systemUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
             
@@ -938,12 +938,11 @@
             </div>
 
             <div class="modal-body" style="font-size: 14px;">
-
-
-
-
-
-
+                <div class="container mt-5">
+                    <div class="container2" style="max-height: 450px; overflow-y: auto;">
+                        {{ table_datamain_admins_html|safe }}
+                    </div>
+                </div>
             </div>
 
             <div class="modal-footer">
