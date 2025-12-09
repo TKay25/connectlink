@@ -1076,6 +1076,7 @@ def run1(userid):
         tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
         
         return {
+            "usersdatamain_html": usersdatamain_html,
             "table_datamain_html": table_datamain_html,
             'table_datamain_admins_html': table_datamain_admins_html,
             "companyname": companyname,
