@@ -3064,25 +3064,10 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
 
-
-
-
-
-
-
-   const table = document.getElementById("allprojectsTable");
+    const table = document.getElementById("allprojectsTable");
     if (!table) return;
 
-    // ---------------------------------------
-    // 1. If DataTable exists → destroy it first
-    // ---------------------------------------
-    if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
-        $('#allprojectsTable').DataTable().destroy();
-    }
-
-    // ---------------------------------------
-    // 2. Hide unwanted columns BEFORE re-init
-    // ---------------------------------------
+    // 1️⃣ Hide unwanted columns BEFORE DataTables initializes
     const columnsToShow = [
         "id",
         "clientname",
@@ -3112,14 +3097,23 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // ---------------------------------------
-    // 3. Initialize DataTables AFTER hiding cols
-    // ---------------------------------------
+    // 2️⃣ Initialize DataTables ONCE with all your settings
     $('#allprojectsTable').DataTable({
-        order: [[0, 'desc']]    // sort by ID DESC
+        order: [[0, 'desc']],   // sort ID desc
+        paging: false,
+        searching: true,
+        ordering: true,
+        info: true,
+        pageLength: 8,
+        lengthChange: false
     });
-    
+
 });
+
+
+
+
+
 </script>
 
 <script>
@@ -3376,16 +3370,6 @@ document.addEventListener('DOMContentLoaded', () => {
   </script>
 <script>
     $(document).ready(function () {
-        // Initialize DataTable for the main employees table
-        $('#allprojectsTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-        });
-
 
         $('#alladminsTable').DataTable({
             paging: true,    // Enable pagination
