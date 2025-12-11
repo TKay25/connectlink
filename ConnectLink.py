@@ -613,8 +613,14 @@ def download_contract(project_id):
                 <p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
 
                 <h4 class="section-title">OWNERSHIP</h4>
-                <p>Installed items remain property of ConnectLink Properties and ownership is only transferred upon full payment from the client. ConnectLink Properties reserves the right to remove 
-                installed items should the client fail to pay the balance within the timelines stated in this agreement.</p>
+                <p>Installed items remain property of ConnectLink Properties and ownership is only transferred upon full payment from the client. 
+                ConnectLink Properties reserves the right to remove installed items should the client fail to pay the balance within the timelines stated in this agreement.</p>
+
+                <h4 class="section-title">DESIGN CONFIRMATION</h4>
+                <p>Signing of the contract and payment of the deposit is taken as acknowledgement, confirmation and go ahead for the construction of the proposed design
+                sent to the client prior with the quotation.
+                Any other alterations may be communicated and adjusted <b>before</b> the signing of the contract.
+                All additions to the said design will be taken as variations and will incur an additional cost that may be added to the first quotation or charged on a seperate quotation altogether.</p>
 
                 <h4 class="section-title">DISPUTE RESOLUTION</h4>
                 <p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
