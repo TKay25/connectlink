@@ -622,6 +622,10 @@ def download_contract(project_id):
                 Any other alterations may be communicated and adjusted <b>before</b> the signing of the contract.
                 All additions to the said design will be taken as variations and will incur an additional cost that may be added to the first quotation or charged on a seperate quotation altogether.</p>
 
+                <h4 class="section-title">POWER PROVISION</h4>
+                <p>In the case of a power outage and there is need for electricity for the job to be carried out, the client is to provide a generator and fuel for the duration of the construction period
+                as needed at the client's own expense.</p>
+
                 <h4 class="section-title">DISPUTE RESOLUTION</h4>
                 <p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
 
