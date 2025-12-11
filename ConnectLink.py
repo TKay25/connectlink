@@ -597,30 +597,35 @@ def download_contract(project_id):
                 </table>
 
                 <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
-                <p>- If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of {project['latepaymentinterest']}% per annum.</p>
-                <p>- Interest is calculated daily and compounded monthly.</p>
+                <ul style="list-style-type:circle;">
+                    <li> If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of {project['latepaymentinterest']}% per annum.</li>
+                    <li> Interest is calculated daily and compounded monthly.</li>
+                </ul>
 
                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
                 <ol>
-                <li>The Contractor shall commence work within {project['days_difference']} days of receiving the first payment.</li>
-                <li>The Client shall make payments as per the payment schedule.</li>
-                <li>The Contractor shall complete the project within {project['project_duration']} days.</li>
-                <li>The Client is responsible for obtaining all required permits.</li>
-                <li>The Contractor is responsible for all materials and labor.</li>
+                    <li>The Contractor shall commence work within {project['days_difference']} days of receiving the first payment.</li>
+                    <li>The Client shall make payments as per the payment schedule.</li>
+                    <li>The Contractor shall complete the project within {project['project_duration']} days.</li>
+                    <li>The Client is responsible for obtaining all required permits.</li>
+                    <li>The Contractor is responsible for all materials and labor.</li>
                 </ol>
 
                 <h4 class="section-title">TERMINATION</h4>
                 <p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
 
                 <h4 class="section-title">OWNERSHIP</h4>
-                <p>Installed items remain property of ConnectLink Properties and ownership is only transferred upon full payment from the client. 
-                ConnectLink Properties reserves the right to remove installed items should the client fail to pay the balance within the timelines stated in this agreement.</p>
+                <ul style="list-style-type:circle;">
+                    <li>Installed items remain property of ConnectLink Properties and ownership is only transferred upon full payment from the client. </li>
+                    <li>ConnectLink Properties reserves the right to remove installed items should the client fail to pay the balance within the timelines stated in this agreement.</li>
+                </ul>
 
                 <h4 class="section-title">DESIGN CONFIRMATION</h4>
-                <p>Signing of the contract and payment of the deposit is taken as acknowledgement, confirmation and go ahead for the construction of the proposed design
-                sent to the client prior with the quotation.
-                Any other alterations may be communicated and adjusted <b>before</b> the signing of the contract.
-                All additions to the said design will be taken as variations and will incur an additional cost that may be added to the first quotation or charged on a seperate quotation altogether.</p>
+                <ul style="list-style-type:circle;">
+                    <li>Signing of the contract and payment of the deposit is taken as acknowledgement, confirmation and go ahead for the construction of the proposed design sent to the client prior with the quotation.</li>
+                    <li>Any other alterations may be communicated and adjusted <b>before</b> the signing of the contract.</li>
+                    <li>All additions to the said design will be taken as variations and will incur an additional cost that may be added to the first quotation or charged on a seperate quotation altogether.</li>
+                </ul>
 
                 <h4 class="section-title">POWER PROVISION</h4>
                 <p>In the case of a power outage and there is need for electricity for the job to be carried out, the client is to provide a generator and fuel for the duration of the construction period
