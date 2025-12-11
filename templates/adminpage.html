@@ -3070,9 +3070,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
-    const table = document.getElementById("allprojectsTable");
+   const table = document.getElementById("allprojectsTable");
     if (!table) return;
 
+    // ---------------------------------------
+    // 1. If DataTable exists → destroy it first
+    // ---------------------------------------
+    if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
+        $('#allprojectsTable').DataTable().destroy();
+    }
+
+    // ---------------------------------------
+    // 2. Hide unwanted columns BEFORE re-init
+    // ---------------------------------------
     const columnsToShow = [
         "id",
         "clientname",
@@ -3084,15 +3094,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ];
 
     const headerCells = table.querySelectorAll("thead th");
-    let colIndexMap = {};
 
-    // Map column names → column index
-    headerCells.forEach((th, index) => {
-        const key = th.innerText.trim().toLowerCase().replace(/\s+/g, "");
-        colIndexMap[key] = index;
-    });
-
-    // Loop through all columns and hide those NOT in columnsToShow
     headerCells.forEach((th, index) => {
         const field = th.innerText.trim().toLowerCase().replace(/\s+/g, "");
         if (!columnsToShow.includes(field)) {
@@ -3110,13 +3112,13 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    if (!table) return;
-
-    // Initialize DataTables with ID sorted DESC
-    new DataTable(table, {
-        order: [[0, 'desc']]
+    // ---------------------------------------
+    // 3. Initialize DataTables AFTER hiding cols
+    // ---------------------------------------
+    $('#allprojectsTable').DataTable({
+        order: [[0, 'desc']]    // sort by ID DESC
     });
-
+    
 });
 </script>
 
