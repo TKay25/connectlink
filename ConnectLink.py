@@ -647,7 +647,7 @@ def download_contract(project_id):
 
                     <div class="signature-line">
                         <span class="signature-label">Date:</span>
-                        <div class="field-value" style="width:220px;">{{ project['agreement_date'] }}</div>
+                        <div class="field-value" style="width:220px;">{ project['agreement_date'] }</div>
                     </div>
                 </div>
 
