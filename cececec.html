@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Deposit Receipt — with Decorative Stamp (SAMPLE)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    @page {
+      size: A5;
+      margin: 10mm 7mm;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: "Arial", sans-serif;
+      color: #1E2A56;
+      background: white;
+    }
+    .container {
+      position: relative;
+      min-height: 100%;
+      padding: 18mm 10mm;
+      box-sizing: border-box;
+    }
+
+    /* Watermark (light) */
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 72px;
+      color: rgba(200,200,200,0.18);
+      z-index: 1;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    /* Stamp wrapper — placed above content */
+    .stamp-wrap {
+      position: absolute;
+      bottom: 22mm;
+      right: 18mm;
+      width: 220px;         /* adjust size */
+      height: 220px;
+      z-index: 9999;
+      pointer-events: none;
+      transform: rotate(-14deg);
+      -webkit-transform: rotate(-14deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ensure SVG scales to wrapper box */
+    .stamp-wrap svg { width: 100%; height: 100%; display: block; }
+
+    .header {
+      text-align: center;
+      margin-bottom: 18px;
+      position: relative;
+      z-index: 2;
+    }
+    .logo {
+      width: 150px;
+      margin-bottom: 8px;
+    }
+    h5 {
+      font-size: 16px;
+      margin: 4px 0;
+      font-weight: 800;
+    }
+
+    .section-title {
+      font-size: 15px;
+      margin-top: 20px;
+      margin-bottom: 6px;
+      border-bottom: 2px solid #1E2A56;
+      font-weight: 800;
+      position: relative;
+      z-index: 2;
+    }
+
+    .info-box {
+      padding: 12px;
+      border: 1px solid #d3d6e4;
+      border-radius: 8px;
+      background: #f4f6fb;
+      margin-bottom: 12px;
+      box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+      position: relative;
+      z-index: 2;
+    }
+
+    .info-box p { margin: 5px 0; font-size: 14px; }
+
+    .footer {
+      margin-top: 20px;
+      text-align: right;
+      font-size: 12px;
+      color: #666;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Small print for the sample disclaimer inside page (optional) */
+    .sample-note {
+      font-size: 10px;
+      color: #b22222;
+      text-align: center;
+      margin-top: 8px;
+      opacity: 0.9;
+      z-index: 2;
+      position: relative;
+    }
+
+    /* Make sure print keeps the stamp visible */
+    @media print {
+      .stamp-wrap { opacity: 0.95; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- watermark -->
+    <div class="watermark">DEPOSIT</div>
+
+    <!-- Decorative stamp (SAMPLE) -->
+    <div class="stamp-wrap" aria-hidden="true">
+      <!-- Inline SVG generating a premium circular stamp with texture and text -->
+      <svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sample decorative stamp">
+        <defs>
+          <!-- ink gradient -->
+          <linearGradient id="gInk" x1="0" x2="1">
+            <stop offset="0" stop-color="#b22222"/>
+            <stop offset="1" stop-color="#7f0000"/>
+          </linearGradient>
+
+          <!-- subtle noise for ink texture -->
+          <filter id="noise" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="t"/>
+            <feColorMatrix type="saturate" values="0"/>
+            <feComponentTransfer>
+              <feFuncA type="table" tableValues="0 0.12"/>
+            </feComponentTransfer>
+            <feBlend mode="multiply" in="SourceGraphic" in2="t"/>
+          </filter>
+
+          <!-- slight inner blur to emulate ink bleed -->
+          <filter id="bleed" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="0.6" result="bb"/>
+            <feComposite in="SourceGraphic" in2="bb" operator="over"/>
+          </filter>
+
+          <!-- an inner subtle mask for worn look -->
+          <mask id="wearMask">
+            <rect x="0" y="0" width="500" height="500" fill="white"/>
+            <!-- random transparent splotches -->
+            <g fill="black" opacity="0.92">
+              <circle cx="80" cy="120" r="6"/>
+              <circle cx="360" cy="70" r="4"/>
+              <circle cx="420" cy="300" r="3"/>
+              <circle cx="200" cy="380" r="5"/>
+              <circle cx="120" cy="260" r="3"/>
+            </g>
+          </mask>
+
+        </defs>
+
+        <!-- outer ring shadow -->
+        <g filter="url(#bleed)">
+          <!-- faint outer ring -->
+          <circle cx="250" cy="250" r="196" fill="none" stroke="rgba(178,34,34,0.06)" stroke-width="36"/>
+        </g>
+
+        <!-- main outer ring -->
+        <circle cx="250" cy="250" r="196" fill="none" stroke="url(#gInk)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- inner ring -->
+        <circle cx="250" cy="250" r="148" fill="none" stroke="rgba(0,0,0,0.04)" stroke-width="6"/>
+
+        <!-- Connectlink text (center) -->
+        <g mask="url(#wearMask)" filter="url(#noise)">
+          <text x="50%" y="225" text-anchor="middle" font-family="Helvetica, Arial, sans-serif"
+                font-weight="800" font-size="62" fill="url(#gInk)" style="letter-spacing:2px;">
+            CONNECTLINK
+          </text>
+
+          <!-- date (filled by JS below) -->
+          <text id="stamp-date" x="50%" y="280" text-anchor="middle"
+                font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="34" fill="#7f0000" style="letter-spacing:1px;">
+            12 JAN 2025
+          </text>
+
+          <!-- phone -->
+          <text x="50%" y="320" text-anchor="middle"
+                font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="32" fill="#7f0000" style="letter-spacing:1px;">
+            123-456-7890
+          </text>
+
+          <!-- small decorative separators -->
+          <line x1="150" y1="200" x2="350" y2="200" stroke="rgba(127,0,0,0.08)" stroke-width="2" stroke-linecap="round"/>
+        </g>
+
+        <!-- radial worn speckles -->
+        <g fill="#fff" opacity="0.06">
+          <ellipse cx="120" cy="110" rx="2" ry="1.2"/>
+          <ellipse cx="360" cy="90" rx="1.6" ry="1"/>
+          <ellipse cx="280" cy="360" rx="1.8" ry="1.1"/>
+          <ellipse cx="200" cy="70" rx="1.5" ry="1"/>
+          <ellipse cx="340" cy="220" rx="1.7" ry="1"/>
+        </g>
+
+        <!-- subtle SAMPLE disclaimer banner (visible but small) -->
+        <g transform="translate(0,0)">
+          <rect x="40" y="380" width="420" height="40" rx="6" fill="rgba(255,255,255,0.0)"/>
+          <text x="50%" y="408" text-anchor="middle" font-family="Arial, Helvetica, sans-serif"
+                font-weight="700" font-size="18" fill="rgba(178,34,34,0.92)" transform="rotate(-14 250 400)"
+                opacity="0.95">
+            SAMPLE — NOT AN OFFICIAL SEAL
+          </text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Receipt content -->
+    <div class="header">
+      <img src="data:image/png;base64,{logo_base64}" class="logo" alt="Company logo">
+      <h5>Deposit Receipt</h5>
+    </div>
+
+    <div class="section-title">Client Information</div>
+    <div class="info-box">
+      <p><strong>Name:</strong> {row[1]}</p>
+      <p><strong>Address:</strong> {row[2]}</p>
+      <p><strong>Contact:</strong> 0{row[3]}</p>
+      <p><strong>Email:</strong> {row[4]}</p>
+    </div>
+
+    <div class="section-title">Project Information</div>
+    <div class="info-box">
+      <p><strong>Project Name:</strong> {row[5]}</p>
+      <p><strong>Location:</strong> {row[6]}</p>
+      <p><strong>Project Scope:</strong> {row[7]}</p>
+      <p><strong>Administrator:</strong> {row[8]}</p>
+    </div>
+
+    <div class="section-title">Deposit Details</div>
+    <div class="info-box">
+      <p><strong>Deposit Paid:</strong> USD {row[9] if row[9] else '—'}</p>
+      <p><strong>Date Paid:</strong> {row[10].strftime('%d %B %Y') if row[10] else '—'}</p>
+    </div>
+
+    <div class="footer">
+      <div class="sample-note">This stamp is decorative and marked SAMPLE — NOT AN OFFICIAL SEAL.</div>
+    </div>
+
+  </div>
+
+  <!-- tiny script to populate the stamp date using user's local time (keeps file self-contained) -->
+  <script>
+    (function fillStampDate(){
+      try {
+        const d = new Date();
+        // format: DD MMM YYYY (e.g., 09 DEC 2025)
+        const day = String(d.getDate()).padStart(2, '0');
+        const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        const mon = months[d.getMonth()];
+        const year = d.getFullYear();
+        const el = document.getElementById('stamp-date');
+        if (el) el.textContent = day + ' ' + mon + ' ' + year;
+      } catch(e) {
+        // silently fail — stamp already has fallback date inside SVG
+      }
+    })();
+  </script>
+</body>
+</html>
