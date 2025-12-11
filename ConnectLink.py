@@ -612,6 +612,10 @@ def download_contract(project_id):
                 <h4 class="section-title">TERMINATION</h4>
                 <p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
 
+                <h4 class="section-title">OWNERSHIP</h4>
+                <p>Installed items remain property of ConnectLink Properties and ownership is only transferred upon full payment from the client. ConnectLink Properties reserves the right to remove 
+                installed items should the client fail to pay the balance within the timelines stated in this agreement.</p>
+
                 <h4 class="section-title">DISPUTE RESOLUTION</h4>
                 <p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
 
