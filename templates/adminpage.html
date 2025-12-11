@@ -87,12 +87,12 @@
         .btn-danger-2{
             color: white;
             background-color: red;
-            width: 15%;
-            margin: 8px 0;
-            padding: 5px;
+            width: max-content;
+            margin: 2px 2px;
+            padding: 2px;
             border-radius: 8px;
             border: 3px solid red;
-            font-size: 0.9rem;
+            font-size: 0.7rem;
             transition: background 0.3s;
             text-align: center;
             font-weight: 500;
@@ -916,8 +916,8 @@
         </button>
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
-                id="addnewprojectBtn" data-bs-toggle="modal" data-bs-target="#createUserModal">
-            <span><i class="bi bi-person-fill-add"></i> Create System User</span>
+                id="createuserBtn" data-bs-toggle="modal" data-bs-target="#systemUserModal">
+            <span><i class="bi bi-person-fill-add"></i> Manage System Users</span>
         </button>
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
@@ -927,6 +927,34 @@
         </button>
 
     </div>
+
+    <div class="modal fade" id="systemUserModal" tabindex="-1" aria-labelledby="systemUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog" style="max-width:60%;">
+            <div class="modal-content">
+            
+            <div class="modal-header">
+                <h6 class="modal-title" id="systemUserModalLabel"><i class="bi bi-person-fill-add"></i> SYSTEM USERS</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body" style="font-size: 14px;">
+                <div class="container mt-5">
+                    <div class="container2" style="max-height: 450px; overflow-y: auto;">
+                        {{ usersdatamain_html|safe }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">Create User</button>
+                <button class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
+            </div>
+
+            </div>
+        </div>
+    </div>
+
+
 
     <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -964,8 +992,8 @@
             </div>
 
             <div class="modal-footer">
-                <button class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary" type="submit" form="createUserForm">Create</button>
+                <button class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
             </div>
 
             </div>
@@ -1376,6 +1404,64 @@
         </div>
     </div>
 
+    <!-- Delete Project Modal -->
+    <div class="modal fade" id="deleteprojectModal" tabindex="-1" aria-labelledby="deleteprojectModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h6 class="modal-title" id="deleteprojectModalLabel">
+                        <i class="bi bi-exclamation-triangle"></i> PROJECT REMOVAL CONFIRMATION
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="deleteProjectForm">
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <strong>WARNING:</strong> This action cannot be undone! All project data including payments history will be permanently deleted.
+                        </div>
+                        
+                        <p>Are you sure you want to permanently delete the following project?</p>
+                        
+                        <div class="mb-3">
+                            <strong>Project ID:</strong> 
+                            <span id="deleteProjectIdDisplay" class="text-danger fw-bold"></span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Client Name:</strong> 
+                            <span id="deleteClientNameDisplay"></span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <strong>Project Name:</strong> 
+                            <span id="deleteProjectNameDisplay"></span>
+                        </div>
+                        
+                        <div class="form-group mt-4">
+                            <label for="adminPasscode" class="form-label fw-bold">
+                                <i class="bi bi-key"></i> Enter Admin Passcode to Confirm
+                            </label>
+                            <input type="password" class="form-control" id="adminPasscode" name="admin_passcode" required placeholder="Enter admin passcode">
+                        </div>
+                        
+                        <input type="hidden" id="deleteProjectId" name="project_id">
+                        <input type="hidden" id="deleteClientName" name="client_name">
+                        <input type="hidden" id="deleteProjectName" name="project_name">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger" id="confirmDeleteBtn">
+                            <span id="deleteBtnText">Delete Project Permanently</span>
+                            <span id="deleteSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Update Project Modal -->
     <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg" style="max-width: 80%;">
@@ -1642,6 +1728,7 @@
                             <span id="downloadSpinner" class="spinner-border spinner-border-sm d-none"></span>
                         </button>
                         <button type="submit" class="btn btn-primary" style="width: max-content;">Save Changes</button>
+                        <button type="button" class="btn btn-danger  delete-project-btn" data-bs-toggle="modal" data-bs-target="#deleteprojectModal" style="width: max-content;">Delete Project</button>
                         <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
                     </div>
                 </form>
@@ -1785,7 +1872,7 @@
                     </button>
 
                     <div class="container mt-5">
-                        <div class="container2" style="overflow-y: auto;">
+                        <div class="container2" style="max-height: 450px; overflow-y: auto;">
                             {{ table_datamain_html |safe }}
                         </div>
                     </div>
@@ -1836,9 +1923,6 @@
                     </div>
                 </div>
 
-
-
-
                 <div class="tab-pane fade" id="settings">
                     <h4>Payments</h4>
                     <p>Manage Payments</p>
@@ -1846,6 +1930,41 @@
             </div>
         </div>
     </main>
+
+            <!-- Remove User Modal -->
+    <div class="modal fade" id="removeUserModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">USER REMOVAL CONFIRMATION</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <form id="removeUserForm">
+                    <div class="modal-body">
+                        <p>Are you sure you want to remove the following user?</p>
+                        
+                        <div class="alert alert-info">
+                            <strong>Name:</strong> <span id="modalUserName">Loading...</span><br>
+                            <strong>Email:</strong> <span id="modalUserEmail">Loading...</span>
+                        </div>
+
+                        <div class="form-group mt-3">
+                            <label for="passcodeInput" class="form-label">Enter Admin Passcode to Confirm</label>
+                            <input type="password" class="form-control" id="passcodeInput" name="passcode" required>
+                        </div>
+
+                        <input type="hidden" name="user_id" id="modalUserId">
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">Remove User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <div class="modal fade" id="editContractorModal" tabindex="-1" aria-labelledby="editContractorModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -1957,49 +2076,6 @@
         </div>
     </div>
 
-    <div class="modal fade" id="exportleaveapplicationsreportModal" tabindex="-1" aria-labelledby="exportleaveapplicationsreportModalLabel" >
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="exportleaveapplicationsreportModalLabel"><i class="bi bi-files-alt"></i>    EXPORT PAYMENTS REPORT</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p style="font-weight: 500;">Select file format to Export Leave Applications Report for <b>{{company_name}}</b> :</p>
-                    <div class="d-flex justify-content-around">
-                        <button class="btn btn-primary2 mt-3"  data-bs-dismiss="modal" id="formatexcelapplicationsexport"><i class="bi bi-filetype-xlsx"></i>    Excel Workbook</button>
-                        <button class="btn btn-primary2 mt-3"  data-bs-dismiss="modal" id="formatpdfapplicationsexport"><i class="bi bi-filetype-pdf"></i>    PDF</button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    
-
-
-    <div class="modal fade" id="SubmitLeaveApplicationModal" tabindex="-1" role="dialog" aria-labelledby="SubmitLeaveApplicationModalLabel">
-        <div class="modal-dialog" role="document"  style="max-width: 40%;">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="SubmitLeaveApplicationModalLabel"><i class="bi bi-file-earmark-medical-fill"></i>    LEAVE APPLICATION SUBMISSION CONFIRMATION</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="confirmationSubmitLeaveApplication" style="text-align: center;color: #1E2A56;font-weight: 500;"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal" id="confirmSubmit">Yes</button>
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">No</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <input type="hidden" id="locations-data" value='{{ locations|tojson }}'>
     <input type="hidden" id="frequencies-data" value='{{ frequencies|tojson }}'>
 
@@ -2022,8 +2098,97 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
-
 <script>
+// Function to decode HTML entities (needed because we use html.escape())
+function decodeHtmlEntities(text) {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+}
+
+// Handle modal show event
+document.getElementById('removeUserModal').addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    
+    // Extract data from button attributes
+    const userId = button.getAttribute('data-user-id');
+    const userNameEncoded = button.getAttribute('data-user-name') || '';
+    const userEmailEncoded = button.getAttribute('data-user-email') || '';
+    
+    // Decode the HTML entities
+    const userName = decodeHtmlEntities(userNameEncoded);
+    const userEmail = decodeHtmlEntities(userEmailEncoded);
+    
+    // Populate modal fields
+    document.getElementById('modalUserId').value = userId;
+    document.getElementById('modalUserName').textContent = userName;
+    document.getElementById('modalUserEmail').textContent = userEmail;
+});
+
+// Handle form submission (using your pattern)
+document.getElementById("removeUserForm").addEventListener("submit", async function(e) {
+    e.preventDefault(); // Stop normal form submit
+
+    const passcode = document.getElementById("passcodeInput").value.trim();
+    const userId = document.getElementById("modalUserId").value;
+
+    // Validate passcode (use the same as your create user)
+    if (passcode !== "conlink01admin01") {
+        alert("Invalid Admin Permission Passcode.");
+        return;
+    }
+
+    // Collect form data
+    const data = {
+        user_id: userId,
+        passcode: passcode
+    };
+
+    // Send to Flask route
+    try {
+        const response = await fetch("/remove-system-user", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.status === "success") {
+            alert("User removed successfully!");
+            
+            // Reset form
+            this.reset();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById("removeUserModal"));
+            modal.hide();
+            
+            // Optional: Remove the row from table or refresh page
+            // location.reload(); // Refresh page
+            
+        } else {
+            alert("Error: " + result.message);
+        }
+
+    } catch (error) {
+        console.error("Request failed", error);
+        alert("Failed to remove user.");
+    }
+});
+
+// Optional: Clear form when modal is hidden
+document.getElementById('removeUserModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('removeUserForm').reset();
+    document.getElementById('modalUserId').value = '';
+    document.getElementById('modalUserName').textContent = 'Loading...';
+    document.getElementById('modalUserEmail').textContent = 'Loading...';
+});
+</script>
+<script>
+
 document.getElementById("getdepositReceiptBtn").addEventListener("click", async function(e) {
     e.preventDefault();
 

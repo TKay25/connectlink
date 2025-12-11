@@ -1,5 +1,6 @@
 import uuid
 import os
+import html
 
 # Prevent Matplotlib from building font cache on startup (blocks Gunicorn port binding on Render)
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/.matplotlib")
@@ -295,6 +296,35 @@ def export_projects_portfolio():
         except Exception as e:
             print("Error:", str(e))
             return f"Error occurred: {str(e)}", 500
+
+            
+@app.route('/remove-system-user', methods=['POST'])
+def remove_system_user():
+
+    with get_db() as (cursor, connection):
+
+        try:
+
+            data = request.get_json()
+            user_id = data.get('user_id')
+            passcode = data.get('passcode')
+            
+            cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (user_id,))
+            connection.commit()
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'User has been removed successfully'
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to remove user: {str(e)}'
+            }), 500
+
+
+
 
 @app.route('/dashboard')
 def Dashboard():
@@ -1002,6 +1032,18 @@ def run1(userid):
         today_date = datetime.now().strftime('%d %B %Y')
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
+        usersdataquery = f"SELECT * FROM connectlinkusers;"
+        cursor.execute(usersdataquery)
+        usersdata = cursor.fetchall()
+        print(usersdata)
+
+        usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email'])
+
+        usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button class="btn btn-danger-2" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="{row['id']}" data-user-name="{html.escape(str(row.get('name', '')))}"data-user-email="{html.escape(str(row.get('email', '')))}">Remove</button></div>''', axis=1)
+        usersdatamain = usersdatamain[['id', 'datecreated','name','email','Action']]
+        usersdatamain_html = usersdatamain.to_html(classes="table table-bordered table-theme", table_id="allusersTable", index=False,  escape=False,)
+
+
         ####### admins
 
         adminsdataquery = f"SELECT * FROM connectlinkadmin;"
@@ -1065,6 +1107,7 @@ def run1(userid):
         tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
         
         return {
+            "usersdatamain_html": usersdatamain_html,
             "table_datamain_html": table_datamain_html,
             'table_datamain_admins_html': table_datamain_admins_html,
             "companyname": companyname,
