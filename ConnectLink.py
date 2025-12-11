@@ -532,8 +532,8 @@ def download_contract(project_id):
                     ul {{ margin-top: 5px; margin-bottom: 20px; }}
                     li {{ margin-bottom: 6px; }}
                     .signature-block {{ margin-top: 60px; }}
-                    .signature-line {{ margin-top: 30px; margin-bottom: 35px; }}
-                    .signature-label {{ display: block; font-weight: 700; margin-bottom: 5px; }}
+                    .signature-line {{ display:flex; align-items:center; margin-top: 30px; margin-bottom: 35px; }}
+                    .signature-label {{ font-weight: 700; margin-bottom: 5px; }}
                     .watermark {{ position: fixed; top: 40%; left: 15%; opacity: 0.1; font-size: 80px; color: #1E2A56; transform: rotate(-45deg); z-index: -1000; }}
                     @page {{ size: A4; margin: 50px 40px; }}
                     </style>
@@ -633,10 +633,22 @@ def download_contract(project_id):
                 <p>This Agreement is governed by the laws of Zimbabwe.</p>
 
                 <h4 class="section-title">SIGNATURES</h4>
+
                 <div class="signature-block">
-                <div class="signature-line"><span class="signature-label">Client Signature:</span><div class="field-value" style="width:350px;"></div></div>
-                <div class="signature-line"><span class="signature-label">Contractor Signature:</span><div class="field-value" style="width:350px;"></div></div>
-                <div class="signature-line"><span class="signature-label">Date: </span><div class="field-value" style="width:220px;">{project['agreement_date']}</div></div>
+                    <div class="signature-line">
+                        <span class="signature-label">Client Signature:</span>
+                        <div class="field-value" style="width:350px;"></div>
+                    </div>
+
+                    <div class="signature-line">
+                        <span class="signature-label">Contractor Signature:</span>
+                        <div class="field-value" style="width:350px;"></div>
+                    </div>
+
+                    <div class="signature-line">
+                        <span class="signature-label">Date:</span>
+                        <div class="field-value" style="width:220px;">{{ project['agreement_date'] }}</div>
+                    </div>
                 </div>
 
                 </div>
