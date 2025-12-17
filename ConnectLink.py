@@ -532,8 +532,8 @@ def download_contract(project_id):
                     ul {{ margin-top: 5px; margin-bottom: 20px; }}
                     li {{ margin-bottom: 6px; }}
                     .signature-block {{ margin-top: 60px; }}
-                    .signature-line {{ margin-top: 30px; margin-bottom: 35px; }}
-                    .signature-label {{ display: block; font-weight: 700; margin-bottom: 5px; }}
+                    .signature-line {{ display:flex; align-items:center; margin-top: 30px; margin-bottom: 35px; }}
+                    .signature-label {{ font-weight: 700; margin-bottom: 5px; }}
                     .watermark {{ position: fixed; top: 40%; left: 15%; opacity: 0.1; font-size: 80px; color: #1E2A56; transform: rotate(-45deg); z-index: -1000; }}
                     @page {{ size: A4; margin: 50px 40px; }}
                     </style>
@@ -597,20 +597,39 @@ def download_contract(project_id):
                 </table>
 
                 <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
-                <p>- If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of {project['latepaymentinterest']}% per annum.</p>
-                <p>- Interest is calculated daily and compounded monthly.</p>
+                <ul style="list-style-type:circle;">
+                    <li> If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of {project['latepaymentinterest']}% per annum.</li>
+                    <li> Interest is calculated daily and compounded monthly.</li>
+                </ul>
 
                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
                 <ol>
-                <li>The Contractor shall commence work within {project['days_difference']} days of receiving the first payment.</li>
-                <li>The Client shall make payments as per the payment schedule.</li>
-                <li>The Contractor shall complete the project within {project['project_duration']} days.</li>
-                <li>The Client is responsible for obtaining all required permits.</li>
-                <li>The Contractor is responsible for all materials and labor.</li>
+                    <li>The Contractor shall commence work within {project['days_difference']} days of receiving the first payment.</li>
+                    <li>The Client shall make payments as per the payment schedule.</li>
+                    <li>The Contractor shall complete the project within {project['project_duration']} days.</li>
+                    <li>The Client is responsible for obtaining all required permits.</li>
+                    <li>The Contractor is responsible for all materials and labor.</li>
                 </ol>
 
                 <h4 class="section-title">TERMINATION</h4>
                 <p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
+
+                <h4 class="section-title">OWNERSHIP</h4>
+                <ul style="list-style-type:circle;">
+                    <li>Installed items remain property of ConnectLink Properties and ownership is only transferred upon full payment from the client. </li>
+                    <li>ConnectLink Properties reserves the right to remove installed items should the client fail to pay the balance within the timelines stated in this agreement.</li>
+                </ul>
+
+                <h4 class="section-title">DESIGN CONFIRMATION</h4>
+                <ul style="list-style-type:circle;">
+                    <li>Signing of the contract and payment of the deposit is taken as acknowledgement, confirmation and go ahead for the construction of the proposed design sent to the client prior with the quotation.</li>
+                    <li>Any other alterations may be communicated and adjusted <b>before</b> the signing of the contract.</li>
+                    <li>All additions to the said design will be taken as variations and will incur an additional cost that may be added to the first quotation or charged on a seperate quotation altogether.</li>
+                </ul>
+
+                <h4 class="section-title">POWER PROVISION</h4>
+                <p>In the case of a power outage and there is need for electricity for the job to be carried out, the client is to provide a generator and fuel for the duration of the construction period
+                as needed at the client's own expense.</p>
 
                 <h4 class="section-title">DISPUTE RESOLUTION</h4>
                 <p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
@@ -619,10 +638,22 @@ def download_contract(project_id):
                 <p>This Agreement is governed by the laws of Zimbabwe.</p>
 
                 <h4 class="section-title">SIGNATURES</h4>
+
                 <div class="signature-block">
-                <div class="signature-line"><span class="signature-label">Client Signature:</span><div class="field-value" style="width:350px;"></div></div>
-                <div class="signature-line"><span class="signature-label">Contractor Signature:</span><div class="field-value" style="width:350px;"></div></div>
-                <div class="signature-line"><span class="signature-label">Date: </span><div class="field-value" style="width:220px;">{project['agreement_date']}</div></div>
+                    <div class="signature-line">
+                        <span class="signature-label">Client Signature:</span>
+                        <div class="field-value" style="width:350px;"></div>
+                    </div>
+
+                    <div class="signature-line">
+                        <span class="signature-label">Contractor Signature:</span>
+                        <div class="field-value" style="width:350px;"></div>
+                    </div>
+
+                    <div class="signature-line">
+                        <span class="signature-label">Date:</span>
+                        <div class="field-value" style="width:220px;">{ project['agreement_date'] }</div>
+                    </div>
                 </div>
 
                 </div>
@@ -1069,7 +1100,6 @@ def run1(userid):
 
 
         datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus','latepaymentinterest'])
-        datamain = datamain.sort_values('id', ascending=False)
 
         count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
         count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
@@ -1090,6 +1120,7 @@ def run1(userid):
         datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
 
         datamain = datamain[['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus', 'latepaymentinterest', 'Action']]
+        datamain = datamain.sort_values('id', ascending=False)
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
 

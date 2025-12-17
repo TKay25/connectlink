@@ -1872,7 +1872,7 @@
                     </button>
 
                     <div class="container mt-5">
-                        <div class="container2" style="max-height: 450px; overflow-y: auto;">
+                        <div class="container2" style="max-height: 500px; overflow-y: auto;">
                             {{ table_datamain_html |safe }}
                         </div>
                     </div>
@@ -3064,15 +3064,10 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
 
-
-
-
-
-
-
     const table = document.getElementById("allprojectsTable");
     if (!table) return;
 
+    // 1️⃣ Hide unwanted columns BEFORE DataTables initializes
     const columnsToShow = [
         "id",
         "clientname",
@@ -3084,15 +3079,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ];
 
     const headerCells = table.querySelectorAll("thead th");
-    let colIndexMap = {};
 
-    // Map column names → column index
-    headerCells.forEach((th, index) => {
-        const key = th.innerText.trim().toLowerCase().replace(/\s+/g, "");
-        colIndexMap[key] = index;
-    });
-
-    // Loop through all columns and hide those NOT in columnsToShow
     headerCells.forEach((th, index) => {
         const field = th.innerText.trim().toLowerCase().replace(/\s+/g, "");
         if (!columnsToShow.includes(field)) {
@@ -3110,7 +3097,23 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // 2️⃣ Initialize DataTables ONCE with all your settings
+    $('#allprojectsTable').DataTable({
+        order: [[0, 'desc']],   // sort ID desc
+        paging: false,
+        searching: true,
+        ordering: true,
+        info: true,
+        pageLength: 8,
+        lengthChange: false
+    });
+
 });
+
+
+
+
+
 </script>
 
 <script>
@@ -3367,16 +3370,6 @@ document.addEventListener('DOMContentLoaded', () => {
   </script>
 <script>
     $(document).ready(function () {
-        // Initialize DataTable for the main employees table
-        $('#allprojectsTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-        });
-
 
         $('#alladminsTable').DataTable({
             paging: true,    // Enable pagination
