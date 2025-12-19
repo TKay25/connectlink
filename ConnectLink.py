@@ -166,7 +166,7 @@ def initialize_database_tables():
                 ALTER TABLE connectlinkdatabase DROP COLUMN depositrequired;
             """)'''
 
-            '''cursor.execute("""DELETE FROM connectlinkdatabase WHERE id BETWEEN 37 AND 39;""")'''
+            cursor.execute("""DELETE FROM connectlinkdatabase WHERE id BETWEEN 37 AND 39;""")
             '''cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
 
