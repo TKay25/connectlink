@@ -2133,7 +2133,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const months = parseInt(monthsToPay.value);
         manualInstallments.innerHTML = '';
 
-        if (!months || months <= 0) return;
+
+        if (!months || months <= 0) {
+            alert('You need to enter a valid number of Months To Pay before you can manually set installment due dates. Kindly fix.');
+            manualInstallments.style.display = 'none';
+            dueDateType.value = 'auto';
+            return;
+        }
 
         for (let i = 2; i <= months; i++) {
             const wrapper = document.createElement('div');
