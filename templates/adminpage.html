@@ -1399,6 +1399,8 @@
                                             </div>
                                         </div>
 
+                                        <div id="manualInstallments" style="display:none; margin-top: 1rem;"></div>
+
                                     </div>
 
                                 </div>
@@ -2097,6 +2099,56 @@
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+    const dueDateType = document.getElementById('due_date_type');
+    const monthsToPay = document.getElementById('monthstopay');
+    const manualInstallments = document.getElementById('manualInstallments');
+
+    function generateManualInstallments() {
+        const months = parseInt(monthsToPay.value);
+        manualInstallments.innerHTML = '';
+
+        if (isNaN(months) || months <= 0) return;
+
+        for (let i = 1; i <= months; i++) {
+            const div = document.createElement('div');
+            div.className = 'form-group row align-items-center';
+            div.style.marginBottom = '0.5rem';
+
+            div.innerHTML = `
+                <label class="col-auto col-form-label" style="padding-right: 0.5rem;">
+                    Installment ${i} Due Date:
+                </label>
+                <div class="col">
+                    <input 
+                        type="date"
+                        class="form-control editable-field"
+                        name="installment_due_dates[]"
+                        required
+                    >
+                </div>
+            `;
+
+            manualInstallments.appendChild(div);
+        }
+    }
+
+    dueDateType.addEventListener('change', function () {
+        if (this.value === 'manual') {
+            manualInstallments.style.display = 'block';
+            generateManualInstallments();
+        } else {
+            manualInstallments.style.display = 'none';
+            manualInstallments.innerHTML = '';
+        }
+    });
+
+    monthsToPay.addEventListener('input', function () {
+        if (dueDateType.value === 'manual') {
+            generateManualInstallments();
+        }
+    });
+</script>
 
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
