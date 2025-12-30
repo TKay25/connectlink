@@ -565,7 +565,7 @@ def webhook():
 
                                                             sections = [
                                                                 {
-                                                                    "title": "User Options",
+                                                                    "title": "System Operator Options",
                                                                     "rows": [
                                                                         {"id": "Apply", "title": "Apply for Leave"},
                                                                         {"id": "Track", "title": "Track My Application"},
@@ -584,6 +584,7 @@ def webhook():
                                                             sections)
 
 
+                                                            return jsonify({"status": "received"}), 200
 
 
 
@@ -626,16 +627,6 @@ def webhook():
 
                                                 return jsonify({"status": "received"}), 200
                                             
-
-
-                                        finally:
-
-                                            if connection:
-                                                print('DONE')
-
-
-                                            cursor.execute(query)
-                                            rows = cursor.fetchall()
 
 
             except Exception as e:
