@@ -563,13 +563,38 @@ def webhook():
 
                                                             sections = [
                                                                 {
-                                                                    "title": "System Operator Options",
+                                                                    "title": "🏗️ Project & Property",
                                                                     "rows": [
-                                                                        {"id": "Apply", "title": "Apply for Leave"},
-                                                                        {"id": "Track", "title": "Track My Application"},
-                                                                        {"id": "Checkbal", "title": "Check Days Balance"},
-                                                                        {"id": "myhist", "title": "My Applications History"},
-                                                                        {"id": "Myinfo", "title": "My Info"}
+                                                                        {"id": "view_projects", "title": "View My Projects"},
+                                                                        {"id": "project_status", "title": "Project Progress Status"},
+                                                                        {"id": "site_updates", "title": "Latest Site Updates"},
+                                                                        {"id": "completion_date", "title": "Expected Completion Date"}
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "title": "💰 Payments & Installments",
+                                                                    "rows": [
+                                                                        {"id": "payment_schedule", "title": "My Payment Schedule"},
+                                                                        {"id": "next_installment", "title": "Next Installment Due"},
+                                                                        {"id": "payment_history", "title": "Payment History"},
+                                                                        {"id": "request_statement", "title": "Request Statement"}
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "title": "📄 Contracts & Documents",
+                                                                    "rows": [
+                                                                        {"id": "view_contract", "title": "View Contract"},
+                                                                        {"id": "download_receipt", "title": "Download Receipt"},
+                                                                        {"id": "upload_document", "title": "Upload Document"}
+                                                                    ]
+                                                                },
+                                                                {
+                                                                    "title": "👤 My Account",
+                                                                    "rows": [
+                                                                        {"id": "myinfo", "title": "My Information"},
+                                                                        {"id": "update_contact", "title": "Update Contact Details"},
+                                                                        {"id": "support", "title": "Contact Support"},
+                                                                        {"id": "main_menu", "title": "Main Menu"}
                                                                     ]
                                                                 }
                                                             ]
