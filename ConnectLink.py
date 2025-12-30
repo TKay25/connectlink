@@ -354,7 +354,35 @@ def webhookchatbot():
                                                                 send_whatsapp_message(f"+263710910052", f"Oops, {admin_name} from ConnectLink Properties! \n\n Your Leave Application` has NOT been submitted successfully! Error; {e}")                      
 
 
+                                                    else:
 
+                                                        text = message.get("text", {}).get("body", "").lower()
+                                                        print(f"📨 Message from {sender_id}: {text}")
+                                                        
+                                                        print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
+
+                                                            
+                                                        if "hello" in text.lower():
+
+                                                            sections = [
+                                                                {
+                                                                    "title": "User Options",
+                                                                    "rows": [
+                                                                        {"id": "Apply", "title": "Apply for Leave"},
+                                                                        {"id": "Track", "title": "Track My Application"},
+                                                                        {"id": "Checkbal", "title": "Check Days Balance"},
+                                                                        {"id": "myhist", "title": "My Applications History"},
+                                                                        {"id": "Myinfo", "title": "My Info"}
+                                                                    ]
+                                                                }
+                                                            ]
+
+
+                                                            send_whatsapp_list_message(
+                                                                sender_id, 
+                                                                f"Hello {admin_name} from  LMS Bot Here 😎. How can I assist you?", 
+                                                            "User Options",
+                                                            sections)
 
 
 
