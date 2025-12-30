@@ -1814,7 +1814,7 @@
             </ul>
             <div class="tab-content mt-4">
 
-                <div class="tab-pane fade show active" id="dashboard-tab">
+                <div class="tab-pane fade" id="dashboard-tab">
 
                     <input type="hidden" id="completed-projects" value="{{ count_completed|default(0)|int }}">
                     <input type="hidden" id="ongoing-projects" value="{{ count_ongoing|default(0)|int }}">
@@ -1881,7 +1881,7 @@
                     </div>
 
                 </div>
-                <div class="tab-pane fade" id="projects-tab">
+                <div class="tab-pane fade show active" id="projects-tab">
                     <button class="btn btn-primary mt-3"
                             id="exportprojectportBtn"
                             style="width: max-content;"
@@ -1902,6 +1902,7 @@
                         </div>
                     </div>
                 </div>
+
                 <div class="tab-pane fade" id="contractor-details-tab">
                     <div class="container mt-3" style="color: #1E2A56; font-size: 0.82rem;">
 
@@ -2952,6 +2953,8 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     // ----------------------------------------------------
 
     const clientName = document.getElementById("client_name").value.trim();
+    const clientID = document.getElementById("client_national_id").value.trim();
+    const clientWHATSAPP = document.getElementById("client_whatsapp_number").value.trim();
     const projectName = document.getElementById("project_name").value.trim();
     const paymentMethod = document.getElementById("paymentMethod").value;
     const projectadmin = document.getElementById("projectadministrator").value.trim();
@@ -2959,8 +2962,13 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
 // Insert Quill content into hidden input BEFORE building formData
 
 
-    if (clientName === "" || projectName === "" || projectadmin === "") {
-        alert("Client Name, Project Name and Administrator Name are required.");
+    if (clientName === "" || clientID === "" || clientWHATSAPP === "") {
+        alert("All client details are required, kindly provide them to save the project.");
+        return; // STOP submission
+    }
+
+    if (clientName === "" || clientID === "" || clientWHATSAPP === "") {
+        alert("All project details are required, kindly provide them to save the project.");
         return; // STOP submission
     }
 
