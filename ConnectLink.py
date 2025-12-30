@@ -54,7 +54,7 @@ def webhookchatbot():
 
         if request.method == "GET":
             print("ouch")
-            VERIFY_TOKEN = "977519838770637"
+            VERIFY_TOKEN = "2012753506232550"
             if request.args.get("hub.verify_token") == VERIFY_TOKEN:
                 return request.args.get("hub.challenge")
             return "Verification failed", 403
