@@ -47,8 +47,8 @@ user_sessions = {}
 database = 'connectlinkdata'
 
 
-@app.route("/webhook", methods=["GET", "POST"])
-def webhook():
+@app.route("/webhookchatbot", methods=["GET", "POST"])
+def webhookchatbot():
 
     with get_db() as (cursor, connection):
 
