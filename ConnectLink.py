@@ -577,7 +577,7 @@ def webhook():
 
                                                             send_whatsapp_list_message(
                                                                 sender_id, 
-                                                                f"Hello {admin_name} from  LMS Bot Here 😎. How can I assist you?", 
+                                                                f"Hello {admin_name}, {bot} ChatBot Here 😎. How can I assist you?", 
                                                             "System Operator Options",
                                                             sections)
 
