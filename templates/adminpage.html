@@ -973,6 +973,11 @@
                     </div>
 
                     <div class="mb-3">
+                        <label class="form-label" style="font-weight: bold;">WhatsApp Number</label>
+                        <input type="number" class="form-control editable-field" name="userwhatsapp" required>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label" style="font-weight: bold;">Email</label>
                         <input type="email" class="form-control editable-field" name="useremail" required>
                     </div>
@@ -2565,7 +2570,8 @@ document.getElementById("createUserForm").addEventListener("submit", async funct
     const data = {
         fullname: this.userfullname.value,
         email: this.useremail.value,
-        password: this.userpassword.value
+        password: this.userpassword.value,
+        whatsapp: this.userwhatsapp.value
     };
 
     // Send to Flask route
