@@ -627,6 +627,9 @@ def webhook():
 
                                                 return jsonify({"status": "received"}), 200
                                             
+                                        except Exception as e:
+                                            print(e)
+                                            
 
 
             except Exception as e:
