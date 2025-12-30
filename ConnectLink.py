@@ -71,7 +71,7 @@ def initialize_database_tables():
             columns = get_table_columns("connectlinkdatabase")
             print(columns)
 
-            cursor.execute{"""UPDATE connectlinkusers SET whatsapp = 774822568 WHERE id = 3"""}
+            cursor.execute("""UPDATE connectlinkusers SET whatsapp = 774822568 WHERE id = 3""")
 
             cursor.execute("""
                 SELECT table_name
