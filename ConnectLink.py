@@ -800,7 +800,7 @@ def login():
                     user_row = rows[0]
 
                     table_df = pd.DataFrame([user_row], columns=[
-                        'id', 'datecreated', 'name', 'password', 'email'
+                        'id', 'datecreated', 'name', 'password', 'email', 'whatsapp'
                     ])
 
                     if table_df.iat[0, 3] == password:
@@ -1487,7 +1487,7 @@ def run1(userid):
         usersdata = cursor.fetchall()
         print(usersdata)
 
-        usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email'])
+        usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email','whatsapp'])
 
         usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button class="btn btn-danger-2" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="{row['id']}" data-user-name="{html.escape(str(row.get('name', '')))}"data-user-email="{html.escape(str(row.get('email', '')))}">Remove</button></div>''', axis=1)
         usersdatamain = usersdatamain[['id', 'datecreated','name','email','Action']]
