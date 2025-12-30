@@ -573,7 +573,7 @@ def webhook():
                                                                     ]
                                                                 },
                                                                 {
-                                                                    "title": "💰 Payments & Installments",
+                                                                    "title": "💰 Payments & Instalments",
                                                                     "rows": [
 
                                                                         {"id": "payment_schedule", "title": "Push Payment Reminders"},
