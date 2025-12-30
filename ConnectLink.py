@@ -354,8 +354,10 @@ def webhook():
                         "interactive": {
                             "type": "list",
                             "header": {
-                                "type": "text",
-                                "text": list_title
+                                "type": "image",
+                                "image": {
+                                    "link": "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg"
+                                }
                             },
                             "body": {
                                 "text": text
