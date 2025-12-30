@@ -47,6 +47,201 @@ user_sessions = {}
 database = 'connectlinkdata'
 
 
+def initialize_database_tables():
+    """Initialize all required database tables on startup"""
+    try:
+        with get_db() as (cursor, connection):
+
+            def get_table_columns(table_name):
+                try:
+                    with get_db() as (cursor, connection):
+                        cursor.execute("""
+                            SELECT column_name
+                            FROM information_schema.columns
+                            WHERE table_name = %s
+                            ORDER BY ordinal_position;
+                        """, (table_name,))
+
+                        columns = [row[0] for row in cursor.fetchall()]
+                        return columns
+
+                except Exception as e:
+                    print(f"Error fetching columns: {e}")
+                    return []
+            columns = get_table_columns("connectlinkdatabase")
+            print(columns)
+
+            cursor.execute{"""UPDATE connectlinkusers SET whatsapp = 774822568 WHERE id = 3"""}
+
+            cursor.execute("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                ORDER BY table_name;
+            """)
+
+            tables = cursor.fetchall()
+
+            print("Tables in database:")
+            for table in tables:
+                print(table[0])
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS connectlinkdetails (
+                    address VARCHAR (200),
+                    contact1 INT,
+                    contact2 INT,
+                    email VARCHAR (100)
+                );
+            """)
+
+            comp_details_alters = [
+                "ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS whatsapp INT;",
+                "ALTER TABLE connectlinkdetails ADD COLUMN IF NOT EXISTS tinnumber VARCHAR(100);"
+            ]
+
+            for sql_stmt in comp_details_alters:
+                cursor.execute(sql_stmt) 
+
+
+            '''cursor.execute("""
+                INSERT INTO connectlinkdetails (address, contact1, contact2, email, companyname, tinnumber)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                "38A Coronation Avenue Greendale Harare",
+                773368558 ,
+                718047602,
+                "info@connectlinkproperties.co.zw",
+                "ConnectLink Properties",
+                ""
+            ))'''          
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS connectlinknotes (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP,
+                    capturer VARCHAR (100),
+                    capturerid INT,
+                    projectid INT,
+                    note VARCHAR (1000)
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS connectlinkusers (
+                    id SERIAL PRIMARY KEY,
+                    datecreated date,
+                    name VARCHAR (200),
+                    password varchar (100),
+                    email VARCHAR (100)
+                );
+            """)
+            current_date = datetime.now().strftime('%Y-%m-%d')
+
+            '''cursor.execute("""
+                INSERT INTO connectlinkusers (datecreated, name, password, email)
+                VALUES (%s, %s, %s, %s);
+            """, (current_date, "ConnectLinkAdmin01", "ConnectLinkAdmin01", "Admin01@connectlinkproperties.co.zw"))
+
+            '''
+            # Create connectlinkadmin table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS connectlinkadmin (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR (200),
+                    contact INT
+                );
+            """)
+
+            '''cursor.execute("""
+                ALTER TABLE connectlinkdatabase DROP COLUMN depositrequired;
+            """)'''
+
+            cursor.execute("""DELETE FROM connectlinkdatabase WHERE id BETWEEN 37 AND 39;""")
+            '''cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
+            cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
+
+
+
+
+            tables = ['connectlinkdatabase', 'connectlinknotes', 'connectlinkadmin']
+            for table in tables:
+                cursor.execute(f"SELECT pg_get_serial_sequence('{table}', 'id');")
+                seq_name = cursor.fetchone()[0]  # fetch the first column of the first row
+                print(f"Sequence for {table}: {seq_name}")
+
+
+
+            # Create connectlinkdatabase table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS connectlinkdatabase (
+                    id SERIAL PRIMARY KEY,
+                    clientname VARCHAR (100),
+                    clientidnumber varchar (100),
+                    clientaddress VARCHAR (200),
+                    clientwanumber INT,
+                    clientemail VARCHAR (100),
+                    clientnextofkinname VARCHAR (100),
+                    clientnextofkinaddress VARCHAR (100),
+                    clientnextofkinphone INT,
+                    nextofkinrelationship VARCHAR (100),
+                    projectname VARCHAR (100),
+                    projectlocation VARCHAR (100),
+                    projectdescription VARCHAR (500),
+                    projectadministratorname VARCHAR (100),
+                    projectstartdate date,
+                    projectduration INT,
+                    contractagreementdate date,
+                    totalcontractamount NUMERIC (12, 2),
+                    paymentmethod VARCHAR (100),
+                    monthstopay INT,
+                    datecaptured date,
+                    capturer VARCHAR (100),
+                    capturerid INT
+                );
+            """)
+
+            payment_alters = [
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS depositorbullet NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS datedepositorbullet date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS monthlyinstallment NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment1amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment1duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment1date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment2amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment2duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment2date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment3amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment3duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment3date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment4amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment4duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment4date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment5amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment5duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment5date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);"
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS latepaymentinterest INT;"
+                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);"
+                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);"
+                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;"
+                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientnextofkinnumber INT;"
+
+            ]
+
+            for sql_stmt in payment_alters:
+                cursor.execute(sql_stmt)
+            
+            connection.commit()
+            print("✅ Database tables initialized successfully!")
+    except Exception as e:
+        print(f"❌ Error initializing database tables: {e}")
+
+initialize_database_tables()
+
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
 
@@ -204,11 +399,13 @@ def webhook():
 
                                         try:
                                             
-                                            query = f"""
-                                                SELECT * FROM connectlinkusers
+                                            query = """
+                                                SELECT *
+                                                FROM connectlinkusers
                                                 WHERE whatsapp::TEXT LIKE %s
                                             """
-                                            cursor.execute(query, (f"%{sender_number}",))
+
+                                            cursor.execute(query, (f"%{sender_number}%",))
                                             result = cursor.fetchone()
 
                                             print(result)
@@ -475,200 +672,6 @@ def webhook():
 
 
 
-def initialize_database_tables():
-    """Initialize all required database tables on startup"""
-    try:
-        with get_db() as (cursor, connection):
-
-            def get_table_columns(table_name):
-                try:
-                    with get_db() as (cursor, connection):
-                        cursor.execute("""
-                            SELECT column_name
-                            FROM information_schema.columns
-                            WHERE table_name = %s
-                            ORDER BY ordinal_position;
-                        """, (table_name,))
-
-                        columns = [row[0] for row in cursor.fetchall()]
-                        return columns
-
-                except Exception as e:
-                    print(f"Error fetching columns: {e}")
-                    return []
-            columns = get_table_columns("connectlinkdatabase")
-            print(columns)
-
-
-
-            cursor.execute("""
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema = 'public'
-                ORDER BY table_name;
-            """)
-
-            tables = cursor.fetchall()
-
-            print("Tables in database:")
-            for table in tables:
-                print(table[0])
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS connectlinkdetails (
-                    address VARCHAR (200),
-                    contact1 INT,
-                    contact2 INT,
-                    email VARCHAR (100)
-                );
-            """)
-
-            comp_details_alters = [
-                "ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS whatsapp INT;",
-                "ALTER TABLE connectlinkdetails ADD COLUMN IF NOT EXISTS tinnumber VARCHAR(100);"
-            ]
-
-            for sql_stmt in comp_details_alters:
-                cursor.execute(sql_stmt) 
-
-
-            '''cursor.execute("""
-                INSERT INTO connectlinkdetails (address, contact1, contact2, email, companyname, tinnumber)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (
-                "38A Coronation Avenue Greendale Harare",
-                773368558 ,
-                718047602,
-                "info@connectlinkproperties.co.zw",
-                "ConnectLink Properties",
-                ""
-            ))'''          
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS connectlinknotes (
-                    id SERIAL PRIMARY KEY,
-                    timestamp TIMESTAMP,
-                    capturer VARCHAR (100),
-                    capturerid INT,
-                    projectid INT,
-                    note VARCHAR (1000)
-                );
-            """)
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS connectlinkusers (
-                    id SERIAL PRIMARY KEY,
-                    datecreated date,
-                    name VARCHAR (200),
-                    password varchar (100),
-                    email VARCHAR (100)
-                );
-            """)
-            current_date = datetime.now().strftime('%Y-%m-%d')
-
-            '''cursor.execute("""
-                INSERT INTO connectlinkusers (datecreated, name, password, email)
-                VALUES (%s, %s, %s, %s);
-            """, (current_date, "ConnectLinkAdmin01", "ConnectLinkAdmin01", "Admin01@connectlinkproperties.co.zw"))
-
-            '''
-            # Create connectlinkadmin table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS connectlinkadmin (
-                    id SERIAL PRIMARY KEY,
-                    name VARCHAR (200),
-                    contact INT
-                );
-            """)
-
-            '''cursor.execute("""
-                ALTER TABLE connectlinkdatabase DROP COLUMN depositrequired;
-            """)'''
-
-            cursor.execute("""DELETE FROM connectlinkdatabase WHERE id BETWEEN 37 AND 39;""")
-            '''cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
-            cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
-
-
-
-
-            tables = ['connectlinkdatabase', 'connectlinknotes', 'connectlinkadmin']
-            for table in tables:
-                cursor.execute(f"SELECT pg_get_serial_sequence('{table}', 'id');")
-                seq_name = cursor.fetchone()[0]  # fetch the first column of the first row
-                print(f"Sequence for {table}: {seq_name}")
-
-
-
-            # Create connectlinkdatabase table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS connectlinkdatabase (
-                    id SERIAL PRIMARY KEY,
-                    clientname VARCHAR (100),
-                    clientidnumber varchar (100),
-                    clientaddress VARCHAR (200),
-                    clientwanumber INT,
-                    clientemail VARCHAR (100),
-                    clientnextofkinname VARCHAR (100),
-                    clientnextofkinaddress VARCHAR (100),
-                    clientnextofkinphone INT,
-                    nextofkinrelationship VARCHAR (100),
-                    projectname VARCHAR (100),
-                    projectlocation VARCHAR (100),
-                    projectdescription VARCHAR (500),
-                    projectadministratorname VARCHAR (100),
-                    projectstartdate date,
-                    projectduration INT,
-                    contractagreementdate date,
-                    totalcontractamount NUMERIC (12, 2),
-                    paymentmethod VARCHAR (100),
-                    monthstopay INT,
-                    datecaptured date,
-                    capturer VARCHAR (100),
-                    capturerid INT
-                );
-            """)
-
-            payment_alters = [
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS depositorbullet NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS datedepositorbullet date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS monthlyinstallment NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment1amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment1duedate date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment1date date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment2amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment2duedate date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment2date date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment3amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment3duedate date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment3date date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment4amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment4duedate date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment4date date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment5amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment5duedate date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment5date date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6duedate date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6date date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);"
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS latepaymentinterest INT;"
-                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);"
-                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);"
-                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;"
-                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientnextofkinnumber INT;"
-
-            ]
-
-            for sql_stmt in payment_alters:
-                cursor.execute(sql_stmt)
-            
-            connection.commit()
-            print("✅ Database tables initialized successfully!")
-    except Exception as e:
-        print(f"❌ Error initializing database tables: {e}")
-
-initialize_database_tables()
 
 @app.route('/export-projects-portfolio')
 def export_projects_portfolio():
