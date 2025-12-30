@@ -1507,7 +1507,7 @@ def run1(userid):
         usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email','whatsapp'])
 
         usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button class="btn btn-danger-2" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="{row['id']}" data-user-name="{html.escape(str(row.get('name', '')))}"data-user-email="{html.escape(str(row.get('email', '')))}">Remove</button></div>''', axis=1)
-        usersdatamain = usersdatamain[['id', 'datecreated','name','email','Action']]
+        usersdatamain = usersdatamain[['id', 'datecreated','name','email','whatsapp','Action']]
         usersdatamain_html = usersdatamain.to_html(classes="table table-bordered table-theme", table_id="allusersTable", index=False,  escape=False,)
 
 
