@@ -586,7 +586,7 @@ def webhook():
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "payments_instalments",
-                                                                        "title": "💰 Payments & Instalments"
+                                                                        "title": "💰 Payments"
                                                                     }
                                                                 },
                                                                 {
