@@ -275,6 +275,37 @@ def webhook():
                     power = "Echelon Equipment Pvt Ltd"
                     bot = "ConnectLink Properties"
 
+                def send_whatsapp_button_image_message(recipient, text, image_url, buttons):
+                    headers = {
+                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                        "Content-Type": "application/json"
+                    }
+
+                    payload = {
+                        "messaging_product": "whatsapp",
+                        "to": recipient,
+                        "type": "interactive",
+                        "interactive": {
+                            "type": "button",
+                            "header": {
+                                "type": "image",
+                                "image": {
+                                    "link": "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg"
+                                }
+                            },
+                            "body": {
+                                "text": text
+                            },
+                            "action": {
+                                "buttons": buttons
+                            }
+                        }
+                    }
+
+                    response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
+                    print("📡 Button message response:", response.json())
+                    return response
+
                 def send_whatsapp_message(to, text, buttons=None):
 
                     print("send mess initialised")
@@ -523,26 +554,8 @@ def webhook():
                                                                     for col, val in zip(columns, row):
                                                                         message_text += f"*{col}:* {val}\n"
 
-                                                                    sections = [
-                                                                        {
-                                                                            "title": "User Options",
-                                                                            "rows": [
-                                                                                {"id": "Editname", "title": "Edit My Name"},
-                                                                                {"id": "Editwhatsapp", "title": "Change My WhatsApp #"},
-                                                                                {"id": "Editemail", "title": "Change My Email"},
-                                                                                {"id": "Editwebpass", "title": "Change Web Password"},
-                                                                                {"id": "Editaddress", "title": "Edit My Address"},
-                                                                                {"id": "MyInfo", "title": "My Info"},
-                                                                                {"id": "Menu", "title": "Main Menu"}
-                                                                            ]
-                                                                        }
-                                                                    ]
 
-                                                                    send_whatsapp_list_message(
-                                                                        sender_id, 
-                                                                        f"Hey there !\n Your information in's Leave Management System is as follows;\n\n {message_text}", 
-                                                                    "User Options",
-                                                                    sections)
+
 
                                                             except Exception as e:
 
@@ -561,40 +574,39 @@ def webhook():
                                                             
                                                         if "hello" in text.lower():
 
-                                                            sections = [
+                                                            buttons = [
                                                                 {
-                                                                    "title": "🏗️ Project & Property",
-                                                                    "rows": [
-                                                                        {"id": "new_project", "title": "Add Project"},
-                                                                        {"id": "view_projects", "title": "Download Projects"},
-                                                                        {"id": "site_updates", "title": "Get Notes"},
-                                                                        {"id": "enquiries", "title": "Customer Enquiries"}
-
-                                                                    ]
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "project_property",
+                                                                        "title": "🏗️ Projects"
+                                                                    }
                                                                 },
                                                                 {
-                                                                    "title": "💰 Payments & Instalments",
-                                                                    "rows": [
-
-                                                                        {"id": "payment_schedule", "title": "Push Payment Reminders"},
-                                                                        {"id": "request_statement", "title": "Get Installments Report"}
-                                                                    ]
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "payments_instalments",
+                                                                        "title": "💰 Payments & Instalments"
+                                                                    }
                                                                 },
                                                                 {
-                                                                    "title": "👤 User Management",
-                                                                    "rows": [
-                                                                        {"id": "myinfo", "title": "Add System Operator"},
-                                                                        {"id": "update_contact", "title": "Remove System Operator"}
-                                                                    ]
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "user_management",
+                                                                        "title": "👤 User Management"
+                                                                    }
                                                                 }
                                                             ]
 
 
-                                                            send_whatsapp_list_message(
-                                                                sender_id, 
-                                                                f"Hello {admin_name}, {bot} ChatBot Here 😎. How can I assist you?", 
-                                                            "System Operator Options",
-                                                            sections)
+
+                                                            send_whatsapp_button_image_message(
+                                                                sender_id,
+                                                                f"👋 *Hey there {admin_name}*\n\nPlease choose a section to continue:",
+                                                                "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                buttons
+                                                            )
+
 
 
                                                             return jsonify({"status": "received"}), 200
