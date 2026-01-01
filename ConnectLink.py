@@ -838,7 +838,7 @@ def webhook():
 
                                                 return jsonify({"status": "received"}), 200
                                                                                         
-                                            if not result:
+                                            elif not result:
 
                                                 query = f"""
                                                     SELECT * FROM connectlinkdatabase
@@ -857,7 +857,7 @@ def webhook():
                                                         "Oops, you are."
                                                     )
 
-                                                if not result2:
+                                                elif not result2:
 
                                                     try:
                                                     
