@@ -1809,7 +1809,11 @@
                 </li>
 
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dashboard-tab"><i class="bi bi-person-badge-fill"></i>    PROJECTS SUMMARY</button>
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#enquiries-tab"><i class="bi bi-person-badge-fill"></i>    ENQUIRIES</button>
+                </li>
+
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dashboard-tab"><i class="bi bi-person-badge-fill"></i>    SUMMARY</button>
                 </li>
 
                 <li class="nav-item">
@@ -1886,6 +1890,26 @@
                     </div>
 
                 </div>
+
+
+                <div class="tab-pane fade" id="enquiries-tab">
+                    <button class="btn btn-primary mt-3"
+                            id="exportprojectportBtn"
+                            style="width: max-content;"
+                            onclick="downloadPortfolio()">
+                        <i class="bi bi-download"></i> Download Enquiries File
+                    </button>
+
+                    <div class="container mt-5">
+                        <div class="container2" style="max-height: 500px; overflow-y: auto;">
+                            {{ table_datamain_html |safe }}
+                        </div>
+                    </div>
+                </div>
+
+
+
+
                 <div class="tab-pane fade show active" id="projects-tab">
                     <button class="btn btn-primary mt-3"
                             id="exportprojectportBtn"
