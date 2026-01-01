@@ -841,9 +841,37 @@ def webhook():
 
                                                 if not result2:
 
+                                                    buttons = [
+                                                        {
+                                                            "type": "reply",
+                                                            "reply": {
+                                                                "id": "enquirylog",
+                                                                "title": "Enquiries"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "reply",
+                                                            "reply": {
+                                                                "id": "contact",
+                                                                "title": "Contact Us"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "reply",
+                                                            "reply": {
+                                                                "id": "about",
+                                                                "title": "About Us"
+                                                            }
+                                                        }
+                                                    ]
+
+
                                                     send_whatsapp_message(
                                                         sender_id, 
-                                                        "Oops, you are."
+                                                        "👋 Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                        buttons,
+                                                        footer_text="ConnectLink Properties • Client Panel"
+
                                                     )
 
 
