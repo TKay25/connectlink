@@ -421,6 +421,24 @@ def webhook():
                 print("📥 Full incoming data:", json.dumps(data, indent=2))
 
                 if data and "entry" in data:
+
+                    profile_name = None
+
+                    try:
+                        profile_name = (
+                            data.get("entry", [{}])[0]
+                                .get("changes", [{}])[0]
+                                .get("value", {})
+                                .get("contacts", [{}])[0]
+                                .get("profile", {})
+                                .get("name")
+                        )
+                    except Exception as e:
+                        print("❌ Error extracting profile name:", e)
+
+                    print("👤 Contact profile name:", profile_name)
+
+
                     for entry in data["entry"]:
                         for change in entry["changes"]:
                             if "messages" in change["value"]:
@@ -868,7 +886,7 @@ def webhook():
 
                                                     send_whatsapp_button_image_message(
                                                         sender_id, 
-                                                        "👋 Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                        f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
                                                         "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                         buttons,
                                                         footer_text="ConnectLink Properties • Client Panel"
