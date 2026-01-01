@@ -503,8 +503,41 @@ def webhook():
                                                             continue
 
 
-                                                        if button_id == "projects":
+                                                        if button_id == "enquiries":
 
+                                                            buttons = [
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "quotations",
+                                                                        "title": "🏗️ Quotations"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "general_enquiries",
+                                                                        "title": "❓ General Enquiries"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "main_menu",
+                                                                        "title": " Main Menu"
+                                                                    }
+                                                                }
+                                                            ]
+
+
+
+
+
+                                                            send_whatsapp_message(
+                                                                sender_id, 
+                                                                "Kindly select an enquiries option below.",
+                                                                buttons
+                                                            )
 
 
                                                             continue
