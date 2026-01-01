@@ -504,7 +504,38 @@ def webhook():
 
                                                         if button_id == "projects":
 
+                                                            buttons = [
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "portfolio",
+                                                                        "title": "🏗️ Projects Portfolio"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "payments",
+                                                                        "title": "Payments"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "main_menu",
+                                                                        "title": " Main Menu"
+                                                                    }
+                                                                }
+                                                            ]
 
+
+                                                            send_whatsapp_message(
+                                                                sender_id, 
+                                                                "Kindly select a Quotation enquiries option below.",
+                                                                buttons,
+                                                                footer_text="ConnectLink Properties • Admin Panel"
+
+                                                            )
 
                                                             continue
 
