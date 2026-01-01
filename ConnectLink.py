@@ -311,7 +311,7 @@ def webhook():
                     print("📡 Button message response:", response.json())
                     return response
 
-                def send_whatsapp_message(to, text, buttons=None):
+                def send_whatsapp_message(to, text, buttons=None, footer_text = None):
 
                     print("send mess initialised")
 
@@ -335,6 +335,12 @@ def webhook():
                                 }
                             }
                         }
+
+                    if footer_text:
+                        data["interactive"]["footer"] = {
+                            "text": footer_text
+                        }
+
                     else:
                         # Send a normal text message
                         print("inside else")
@@ -533,7 +539,9 @@ def webhook():
                                                             send_whatsapp_message(
                                                                 sender_id, 
                                                                 "Kindly select a Quotation enquiries option below.",
-                                                                buttons
+                                                                buttons,
+                                                                footer_text="ConnectLink Properties • Admin Panel"
+
                                                             )
 
 
@@ -569,7 +577,8 @@ def webhook():
                                                             send_whatsapp_message(
                                                                 sender_id, 
                                                                 "Kindly select an enquiries option below.",
-                                                                buttons
+                                                                buttons,
+                                                                footer_text="ConnectLink Properties • Admin Panel"
                                                             )
 
 
