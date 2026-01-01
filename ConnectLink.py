@@ -275,7 +275,7 @@ def webhook():
                     power = "Echelon Equipment Pvt Ltd"
                     bot = "ConnectLink Properties"
 
-                def send_whatsapp_button_image_message(recipient, text, image_url, buttons):
+                def send_whatsapp_button_image_message(recipient, text, image_url, buttons, footer_text=None):
                     headers = {
                         "Authorization": f"Bearer {ACCESS_TOKEN}",
                         "Content-Type": "application/json"
@@ -301,6 +301,11 @@ def webhook():
                             }
                         }
                     }
+
+                    if footer_text:
+                        payload["interactive"]["footer"] = {
+                            "text": footer_text
+                        }
 
                     response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
                     print("📡 Button message response:", response.json())
@@ -491,12 +496,19 @@ def webhook():
 
 
 
-                                                        if selected_option in ["Annual","Sick","Study","Parental", "Bereavement","Other"] :
-                                                            button_id_leave_type = str(selected_option)
+                                                        if button_id == "projects":
 
 
 
                                                             continue
+
+
+                                                        if button_id == "projects":
+
+
+
+                                                            continue
+
 
                                                         elif "reminder" in button_id.lower():
 
@@ -578,15 +590,15 @@ def webhook():
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
-                                                                        "id": "project_property",
+                                                                        "id": "projects",
                                                                         "title": "🏗️ Projects"
                                                                     }
                                                                 },
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
-                                                                        "id": "payments_instalments",
-                                                                        "title": "💰 Payments"
+                                                                        "id": "enquiries",
+                                                                        "title": "❓ Enquiries"
                                                                     }
                                                                 },
                                                                 {
@@ -604,7 +616,9 @@ def webhook():
                                                                 sender_id,
                                                                 f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
                                                                 "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
-                                                                buttons
+                                                                buttons,
+                                                                footer_text="ConnectLink Properties • Admin Panel"
+
                                                             )
 
 
