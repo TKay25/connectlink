@@ -501,6 +501,44 @@ def webhook():
                                                             print("📋 User submitted flow response:", form_response)
 
 
+                                                        if button_id == "portfolio":
+
+                                                            buttons = [
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "getportfolio",
+                                                                        "title": "🏗️ Get Master File"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "getnotes",
+                                                                        "title": "Get Notes"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "main_menu",
+                                                                        "title": " Main Menu"
+                                                                    }
+                                                                }
+                                                            ]
+
+
+                                                            send_whatsapp_message(
+                                                                sender_id, 
+                                                                "Kindly select a portfolio option below.",
+                                                                buttons,
+                                                                footer_text="ConnectLink Properties • Admin Panel"
+
+                                                            )
+
+                                                            continue
+
+
 
                                                         if button_id == "projects":
 
@@ -531,7 +569,7 @@ def webhook():
 
                                                             send_whatsapp_message(
                                                                 sender_id, 
-                                                                "Kindly select a Quotation enquiries option below.",
+                                                                "Kindly select a projects option below.",
                                                                 buttons,
                                                                 footer_text="ConnectLink Properties • Admin Panel"
 
