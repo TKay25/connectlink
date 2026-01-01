@@ -1013,7 +1013,7 @@ def webhook():
 
                                                                 continue
 
-                                                            elif button_id == "enquiries":
+                                                            elif button_id == "enquirylog":
 
                                                                 buttons = [
                                                                     {
@@ -1044,7 +1044,7 @@ def webhook():
                                                                     sender_id, 
                                                                     "Kindly select an enquiries option below.",
                                                                     buttons,
-                                                                    footer_text="ConnectLink Properties • Admin Panel"
+                                                                    footer_text="ConnectLink Properties • Client Panel"
                                                                 )
 
 
