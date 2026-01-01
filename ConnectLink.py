@@ -859,45 +859,326 @@ def webhook():
 
                                                 if not result2:
 
-                                                    buttons = [
-                                                        {
-                                                            "type": "reply",
-                                                            "reply": {
-                                                                "id": "enquirylog",
-                                                                "title": "Enquiries"
-                                                            }
-                                                        },
-                                                        {
-                                                            "type": "reply",
-                                                            "reply": {
-                                                                "id": "contact",
-                                                                "title": "Contact Us"
-                                                            }
-                                                        },
-                                                        {
-                                                            "type": "reply",
-                                                            "reply": {
-                                                                "id": "about",
-                                                                "title": "About Us"
-                                                            }
-                                                        }
-                                                    ]
+                                                    try:
+                                                    
+                                                        if message.get("type") == "interactive":
+                                                            interactive = message.get("interactive", {})
 
 
-                                                    send_whatsapp_button_image_message(
-                                                        sender_id, 
-                                                        f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
-                                                        "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
-                                                        buttons,
-                                                        footer_text="ConnectLink Properties • Client Panel"
+                                                            if interactive.get("type") == "list_reply":
+                                                                selected_option = interactive.get("list_reply", {}).get("id")
+                                                                print(f"📋 User selected: {selected_option}")
+                                                                button_id = ""
 
-                                                    )
-
-
-
+                                                            elif interactive.get("type") == "button_reply":
+                                                                button_id = interactive.get("button_reply", {}).get("id")
+                                                                print(f"🔘 Button clicked: {button_id}")
+                                                                selected_option = ""
 
 
-                                                return jsonify({"status": "received"}), 200
+                                                            elif interactive.get("type") == "nfm_reply":
+
+                                                                url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                headers = {
+                                                                    "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                    "Content-Type": "application/json"
+                                                                }
+
+
+                                                                response_str = interactive.get("nfm_reply", {}).get("response_json", "{}")
+                                                                selected_option = ""
+                                                                button_id = ""
+                                                                
+                                                                try:
+                                                                    form_response = json.loads(response_str)  # convert string → dict
+                                                                except Exception as e:
+                                                                    print("❌ Error parsing nfm_reply response_json:", e)
+                                                                    form_response = {}
+
+                                                                print("📋 User submitted flow response:", form_response)
+
+
+                                                            if button_id == "portfolio":
+
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "getportfolio",
+                                                                            "title": "🏗️ Get Master File"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "getnotes",
+                                                                            "title": "Get Notes"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "main_menu",
+                                                                            "title": " Main Menu"
+                                                                        }
+                                                                    }
+                                                                ]
+
+
+                                                                send_whatsapp_message(
+                                                                    sender_id, 
+                                                                    "Kindly select a portfolio option below.",
+                                                                    buttons,
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
+
+                                                                )
+
+                                                                continue
+
+
+
+                                                            if button_id == "projects":
+
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "portfolio",
+                                                                            "title": "🏗️ Projects Portfolio"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "payments",
+                                                                            "title": "Payments"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "main_menu",
+                                                                            "title": " Main Menu"
+                                                                        }
+                                                                    }
+                                                                ]
+
+
+                                                                send_whatsapp_message(
+                                                                    sender_id, 
+                                                                    "Kindly select a projects option below.",
+                                                                    buttons,
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
+
+                                                                )
+
+                                                                continue
+
+
+                                                            elif button_id == "quotations":
+
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "by_date_logged",
+                                                                            "title": "🏗️ By Date"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "all_quot",
+                                                                            "title": "All"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "main_menu",
+                                                                            "title": " Main Menu"
+                                                                        }
+                                                                    }
+                                                                ]
+
+
+                                                                send_whatsapp_message(
+                                                                    sender_id, 
+                                                                    "Kindly select a Quotation enquiries option below.",
+                                                                    buttons,
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
+
+                                                                )
+
+
+                                                                continue
+
+                                                            elif button_id == "enquiries":
+
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "quotations",
+                                                                            "title": "🏗️ Quotation Equiries"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "general_enquiries",
+                                                                            "title": "❓ General Enquiries"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "main_menu",
+                                                                            "title": " Main Menu"
+                                                                        }
+                                                                    }
+                                                                ]
+
+
+                                                                send_whatsapp_message(
+                                                                    sender_id, 
+                                                                    "Kindly select an enquiries option below.",
+                                                                    buttons,
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
+                                                                )
+
+
+                                                                continue
+
+                                                            elif button_id == "main_menu":
+
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "projects",
+                                                                            "title": "🏗️ Projects"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "enquiries",
+                                                                            "title": "❓ Enquiries"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "user_management",
+                                                                            "title": "👤 User Management"
+                                                                        }
+                                                                    }
+                                                                ]
+
+
+
+                                                                send_whatsapp_button_image_message(
+                                                                    sender_id,
+                                                                    f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
+                                                                    "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                    buttons,
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
+
+                                                                )
+
+
+
+
+
+                                                            elif "reminder" in button_id.lower():
+
+                                                                app_id = button_id.split("_")[1]
+                                                                print(app_id)
+
+                                                                try:
+                                                                
+                                                                    print ("eissssssssshhhhhhhhhhhhhhhhhhhhhhhhhhhh")
+
+
+                                                                    try:
+
+                                                                        buttons = [
+                                                                            {"type": "reply", "reply": {"id": f"Approve5appwa_{app_id}", "title": "Approve"}},
+                                                                            {"type": "reply", "reply": {"id": f"Disapproveappwa_{app_id}", "title": "Disapprove"}},
+                                                                        ]
+                                                                        send_whatsapp_message(
+                                                                            f"26", 
+                                                                            f"Hey! 😊. A gentle reminder, you have a new `` Leave Application from `{admin_name}` for ` days` from `` to ``.\n\n" 
+                                                                            f"If you approve this leave application, \n\n"  
+                                                                            f"Select an option below to either approve or disapprove the application."         
+                                                                            , 
+                                                                            buttons
+                                                                        )
+
+                                                                    except Exception as e:
+                                                                        print(e)
+
+
+
+                                                                except Exception as e:
+                                                                    print(e)
+                                                                    return jsonify({"message": "Error approving leave application.", "error": str(e)}), 500
+                                                            
+
+
+                                                        else:
+
+                                                            text = message.get("text", {}).get("body", "").lower()
+                                                            print(f"📨 Message from {sender_id}: {text}")
+                                                            
+                                                            print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
+
+                                                                
+                                                            if "hello" in text.lower():
+
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "enquirylog",
+                                                                            "title": "Enquiries"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "contact",
+                                                                            "title": "Contact Us"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "about",
+                                                                            "title": "About Us"
+                                                                        }
+                                                                    }
+                                                                ]
+
+
+                                                                send_whatsapp_button_image_message(
+                                                                    sender_id, 
+                                                                    f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                                    "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                    buttons,
+                                                                    footer_text="ConnectLink Properties • Client Panel"
+
+                                                                )
+
+                                                                continue
+
+                                                    except Exception as e:
+                                                        print(e)
+
+
+
+                                            return jsonify({"status": "received"}), 200
                                             
                                         except Exception as e:
                                             print(e)
