@@ -503,6 +503,42 @@ def webhook():
                                                             continue
 
 
+                                                        elif button_id == "quotations":
+
+                                                            buttons = [
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "by_date_logged",
+                                                                        "title": "🏗️ By Date"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "all_quot",
+                                                                        "title": "All"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "main_menu",
+                                                                        "title": " Main Menu"
+                                                                    }
+                                                                }
+                                                            ]
+
+
+                                                            send_whatsapp_message(
+                                                                sender_id, 
+                                                                "Kindly select a Quotation enquiries option below.",
+                                                                buttons
+                                                            )
+
+
+                                                            continue
+
                                                         elif button_id == "enquiries":
 
                                                             buttons = [
