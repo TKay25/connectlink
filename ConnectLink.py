@@ -622,24 +622,26 @@ def webhook():
 
                                                 return jsonify({"status": "received"}), 200
                                                                                         
-                                            if not found:
+                                            if not result:
 
                                                 query = f"""
                                                     SELECT * FROM connectlinkdatabase
                                                     WHERE clientwanumber::TEXT LIKE %s
                                                 """
                                                 cursor.execute(query, (f"%{sender_number}",))
-                                                result = cursor.fetchone()
+                                                result2 = cursor.fetchone()
+
+                                                if result2:
 
 
 
 
-                                                send_whatsapp_message(
-                                                    sender_id, 
-                                                    "Oops, you are."
-                                                )
+                                                    send_whatsapp_message(
+                                                        sender_id, 
+                                                        "Oops, you are."
+                                                    )
 
-                                                if not found:
+                                                if not result2:
 
                                                     send_whatsapp_message(
                                                         sender_id, 
