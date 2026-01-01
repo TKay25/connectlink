@@ -866,9 +866,10 @@ def webhook():
                                                     ]
 
 
-                                                    send_whatsapp_message(
+                                                    send_whatsapp_button_image_message(
                                                         sender_id, 
                                                         "👋 Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                        "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                         buttons,
                                                         footer_text="ConnectLink Properties • Client Panel"
 
