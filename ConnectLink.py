@@ -1056,74 +1056,37 @@ def webhook():
                                                                     {
                                                                         "type": "reply",
                                                                         "reply": {
-                                                                            "id": "projects",
-                                                                            "title": "🏗️ Projects"
+                                                                            "id": "enquirylog",
+                                                                            "title": "Enquiries"
                                                                         }
                                                                     },
                                                                     {
                                                                         "type": "reply",
                                                                         "reply": {
-                                                                            "id": "enquiries",
-                                                                            "title": "❓ Enquiries"
+                                                                            "id": "contact",
+                                                                            "title": "Contact Us"
                                                                         }
                                                                     },
                                                                     {
                                                                         "type": "reply",
                                                                         "reply": {
-                                                                            "id": "user_management",
-                                                                            "title": "👤 User Management"
+                                                                            "id": "about",
+                                                                            "title": "About Us"
                                                                         }
                                                                     }
                                                                 ]
 
 
-
                                                                 send_whatsapp_button_image_message(
-                                                                    sender_id,
-                                                                    f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
+                                                                    sender_id, 
+                                                                    f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
                                                                     "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                     buttons,
-                                                                    footer_text="ConnectLink Properties • Admin Panel"
+                                                                    footer_text="ConnectLink Properties • Client Panel"
 
                                                                 )
 
-
-
-
-
-                                                            elif "reminder" in button_id.lower():
-
-                                                                app_id = button_id.split("_")[1]
-                                                                print(app_id)
-
-                                                                try:
-                                                                
-                                                                    print ("eissssssssshhhhhhhhhhhhhhhhhhhhhhhhhhhh")
-
-
-                                                                    try:
-
-                                                                        buttons = [
-                                                                            {"type": "reply", "reply": {"id": f"Approve5appwa_{app_id}", "title": "Approve"}},
-                                                                            {"type": "reply", "reply": {"id": f"Disapproveappwa_{app_id}", "title": "Disapprove"}},
-                                                                        ]
-                                                                        send_whatsapp_message(
-                                                                            f"26", 
-                                                                            f"Hey! 😊. A gentle reminder, you have a new `` Leave Application from `{admin_name}` for ` days` from `` to ``.\n\n" 
-                                                                            f"If you approve this leave application, \n\n"  
-                                                                            f"Select an option below to either approve or disapprove the application."         
-                                                                            , 
-                                                                            buttons
-                                                                        )
-
-                                                                    except Exception as e:
-                                                                        print(e)
-
-
-
-                                                                except Exception as e:
-                                                                    print(e)
-                                                                    return jsonify({"message": "Error approving leave application.", "error": str(e)}), 500
+                                                                continue
                                                             
 
 
