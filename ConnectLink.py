@@ -503,14 +503,14 @@ def webhook():
                                                             continue
 
 
-                                                        if button_id == "enquiries":
+                                                        elif button_id == "enquiries":
 
                                                             buttons = [
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "quotations",
-                                                                        "title": "🏗️ Quotations"
+                                                                        "title": "🏗️ Quotation Equiries"
                                                                     }
                                                                 },
                                                                 {
@@ -530,9 +530,6 @@ def webhook():
                                                             ]
 
 
-
-
-
                                                             send_whatsapp_message(
                                                                 sender_id, 
                                                                 "Kindly select an enquiries option below.",
@@ -541,6 +538,46 @@ def webhook():
 
 
                                                             continue
+
+                                                        elif button_id == "main_menu":
+
+                                                            buttons = [
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "projects",
+                                                                        "title": "🏗️ Projects"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "enquiries",
+                                                                        "title": "❓ Enquiries"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "user_management",
+                                                                        "title": "👤 User Management"
+                                                                    }
+                                                                }
+                                                            ]
+
+
+
+                                                            send_whatsapp_button_image_message(
+                                                                sender_id,
+                                                                f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
+                                                                "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                buttons,
+                                                                footer_text="ConnectLink Properties • Admin Panel"
+
+                                                            )
+
+
+
 
 
                                                         elif "reminder" in button_id.lower():
