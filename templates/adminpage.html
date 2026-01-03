@@ -2216,7 +2216,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
-
 document.addEventListener('DOMContentLoaded', function() {
     // Apply filter button (AJAX version)
     const columnsToShow = [
@@ -2282,26 +2281,31 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const columnsToShowIndices = columnsToShow.map(col => columnMapping[col]);
     
-    // Initialize DataTable ONCE - make it a global variable
-    window.dataTable = $('#allprojectsTable').DataTable({
-        order: [[0, 'desc']],
-        paging: false,
-        searching: true,
-        ordering: true,
-        info: true,
-        pageLength: 7,
-        lengthChange: false,
-        columnDefs: [
-            {
-                targets: '_all',
-                visible: false
-            },
-            {
-                targets: columnsToShowIndices,
-                visible: true
-            }
-        ]
-    });
+    // Function to initialize DataTable with column visibility - USE THE SAME FUNCTION FOR BOTH CASES!
+    function initializeDataTable() {
+        return $('#allprojectsTable').DataTable({
+            order: [[0, 'desc']],
+            paging: false,
+            searching: true,
+            ordering: true,
+            info: true,
+            pageLength: 7,
+            lengthChange: false,
+            columnDefs: [
+                {
+                    targets: '_all',
+                    visible: false
+                },
+                {
+                    targets: columnsToShowIndices,
+                    visible: true
+                }
+            ]
+        });
+    }
+    
+    // Initialize DataTable ONCE - using the function
+    window.dataTable = initializeDataTable();
 
     document.getElementById('applyFilterBtn').addEventListener('click', function() {
         const selectedMonth = document.getElementById('monthFilter').value;
@@ -2327,18 +2331,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     // DESTROY existing DataTable instance before reinitializing
                     if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
                         dataTable.destroy();
+                        $('#allprojectsTable').empty(); // Clear the table
                     }
                     
-                    // Reinitialize DataTable with fresh data
-                    window.dataTable = $('#allprojectsTable').DataTable({
-                        order: [[0, 'desc']],
-                        paging: false,
-                        searching: true,
-                        ordering: true,
-                        info: true,
-                        pageLength: 7,
-                        lengthChange: false
-                    });
+                    // Reinitialize DataTable with fresh data - USE THE SAME FUNCTION!
+                    window.dataTable = initializeDataTable();
                 } else {
                     alert('Error loading data: ' + data.message);
                 }
@@ -3519,10 +3516,6 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
     });
-
-
-    const table = document.getElementById("allprojectsTable");
-    if (!table) return;
 
  
 });
