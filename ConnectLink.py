@@ -2049,6 +2049,43 @@ def add_note():
             return jsonify({'success': False, 'error': str(e)}), 500
     
 
+@app.route('/get_filtered_projects/<month_filter>')
+def get_filtered_projects(month_filter):
+    with get_db() as (cursor, connection):
+        try:
+            if month_filter == 'all' or not month_filter:
+                query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC"
+                cursor.execute(query)
+            else:
+                # Filter by month/year
+                query = """
+                    SELECT * FROM connectlinkdatabase 
+                    WHERE TO_CHAR(projectstartdate, 'YYYY-MM') = %s
+                    ORDER BY id DESC
+                """
+                cursor.execute(query, (month_filter,))
+            
+            projects = cursor.fetchall()
+            
+            # Convert to DataFrame and HTML (similar to your existing code)
+            datamain = pd.DataFrame(projects, columns=[...])  # Your column names
+            
+            datamain['Action'] = datamain.apply(lambda row: f'''...''', axis=1)
+            datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+            
+            html_table = datamain.to_html(classes="table table-bordered table-theme", 
+                                         table_id="allprojectsTable", 
+                                         index=False,  
+                                         escape=False)
+            
+            return jsonify({
+                'status': 'success',
+                'html': html_table
+            })
+            
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)})
+
 
 def run1(userid):
 
