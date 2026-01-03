@@ -1750,7 +1750,17 @@
                             <span id="downloadSpinner" class="spinner-border spinner-border-sm d-none"></span>
                         </button>
                         <button type="submit" class="btn btn-primary" style="width: max-content;">Save Changes</button>
-                        <button type="button" class="btn btn-danger  delete-project-btn" data-bs-toggle="modal" data-bs-target="#deleteprojectModal" style="width: max-content;">Delete Project</button>
+                        <!-- In your update modal footer -->
+                        <button type="button" 
+                                class="btn btn-danger delete-project-btn" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#deleteprojectModal"
+                                data-project-id=""
+                                data-client-name=""
+                                data-project-name=""
+                                style="width: max-content;">
+                            Delete Project
+                        </button>
                         <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
                     </div>
                 </form>
