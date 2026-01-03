@@ -1956,6 +1956,36 @@
                     </button>
 
                     <div class="container mt-5">
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-md-3">
+                                <div class="input-group">
+                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56;">
+                                        <i class="bi bi-calendar-month"></i>
+                                    </span>
+                                    <select class="form-select" id="monthFilter" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;">
+                                        {% for month in month_options %}
+                                            <option value="{{ month.value }}" 
+                                                    {% if loop.first %}selected{% endif %}>
+                                                {{ month.display }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <button class="btn btn-primary" id="applyFilterBtn" style="width: 100%;">
+                                    <i class="bi bi-funnel"></i> Apply Filter
+                                </button>
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <button class="btn btn-primary" id="clearFilterBtn" style="width: 100%; background-color: white; color: #1E2A56; border: 2px solid #1E2A56;">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div class="container2" style="max-height: 500px; overflow-y: auto;">
                             {{ table_datamain_html |safe }}
                         </div>

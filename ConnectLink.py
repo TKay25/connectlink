@@ -2132,7 +2132,28 @@ def run1(userid):
         compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
         tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
         
+        cursor.execute("""
+            SELECT DISTINCT 
+                TO_CHAR(projectstartdate, 'Mon-YYYY') as month_display,
+                TO_CHAR(projectstartdate, 'YYYY-MM') as month_value,
+                MAX(projectstartdate) as max_date
+            FROM connectlinkdatabase 
+            WHERE projectstartdate IS NOT NULL
+            GROUP BY TO_CHAR(projectstartdate, 'Mon-YYYY'), TO_CHAR(projectstartdate, 'YYYY-MM')
+            ORDER BY MAX(projectstartdate) DESC
+        """)
+        
+        month_options = cursor.fetchall()
+        month_options_list = [
+            {'display': row[0], 'value': row[1], 'date': row[2]} 
+            for row in month_options
+        ]
+        
+        # Add "All" option at the end
+        month_options_list.append({'display': 'All', 'value': 'all', 'date': None})
+
         return {
+            'month_options': month_options_list,
             "usersdatamain_html": usersdatamain_html,
             "table_datamain_html": table_datamain_html,
             'table_datamain_admins_html': table_datamain_admins_html,
