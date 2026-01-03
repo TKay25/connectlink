@@ -2219,6 +2219,97 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     // Apply filter button (AJAX version)
+
+    const columnsToShow = [
+        "id",
+        "momid", 
+        "clientname",
+        "projectname",
+        "projectadministratorname",
+        "projectstartdate",
+        "action"
+    ];
+    
+    // Map column names to their indices (you'll need to know your actual column order)
+    // This mapping depends on your table structure
+    const columnMapping = {
+        "id": 0,
+        "clientname": 1,
+        "clientidnumber": 2,
+        "clientaddress": 3,
+        "clientwanumber": 4,
+        "clientemail": 5,
+        "clientnextofkinname": 6,
+        "clientnextofkinaddress": 7,
+        "clientnextofkinphone": 8,
+        "nextofkinrelationship": 9,
+        "projectname": 10,
+        "projectlocation": 11,
+        "projectdescription": 12,
+        "projectadministratorname": 13,
+        "projectstartdate": 14,
+        "projectduration": 15,
+        "contractagreementdate": 16,
+        "totalcontractamount": 17,
+        "paymentmethod": 18,
+        "monthstopay": 19,
+        "datecaptured": 20,
+        "capturer": 21,
+        "capturerid": 22,
+        "depositorbullet": 23,
+        "datedepositorbullet": 24,
+        "monthlyinstallment": 25,
+        "installment1amount": 26,
+        "installment1duedate": 27,
+        "installment1date": 28,
+        "installment2amount": 29,
+        "installment2duedate": 30,
+        "installment2date": 31,
+        "installment3amount": 32,
+        "installment3duedate": 33,
+        "installment3date": 34,
+        "installment4amount": 35,
+        "installment4duedate": 36,
+        "installment4date": 37,
+        "installment5amount": 38,
+        "installment5duedate": 39,
+        "installment5date": 40,
+        "installment6amount": 41,
+        "installment6duedate": 42,
+        "installment6date": 43,
+        "projectcompletionstatus": 44,
+        "latepaymentinterest": 45,
+        "momid": 46, // Assuming momid is the 47th column
+        "action": 47 // Action column added at the end
+    };
+    
+    // Get indices of columns to show
+    const columnsToShowIndices = columnsToShow.map(col => columnMapping[col]);
+    
+    // Initialize DataTable with column visibility
+    const dataTable = $('#allprojectsTable').DataTable({
+        order: [[0, 'desc']],
+        paging: false,
+        searching: true,
+        ordering: true,
+        info: true,
+        pageLength: 7,
+        lengthChange: false,
+        columnDefs: [
+            {
+                // Hide all columns by default
+                targets: '_all',
+                visible: false
+            },
+            {
+                // Show only the columns in columnsToShowIndices
+                targets: columnsToShowIndices,
+                visible: true
+            }
+        ]
+    });
+
+
     document.getElementById('applyFilterBtn').addEventListener('click', function() {
         const selectedMonth = document.getElementById('monthFilter').value;
         
