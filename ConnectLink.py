@@ -116,7 +116,7 @@ def initialize_database_tables():
                 ""
             ))''' 
 
-            cursor.execute("""DROP TABLE connectlinkdatabasedeleted;""")         
+            '''cursor.execute("""DROP TABLE connectlinkdatabasedeleted;""")'''        
 
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinknotes (
