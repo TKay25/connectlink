@@ -1607,137 +1607,44 @@ def delete_project():
     try:
         data = request.get_json()
         project_id = data.get('project_id')
-        client_name = data.get('client_name')
-        project_name = data.get('project_name')
         admin_passcode = data.get('admin_passcode')
         
-        # Validate admin passcode
         if admin_passcode != "conlink01admin01":
             return jsonify({'status': 'error', 'message': 'Invalid admin passcode'})
         
-        # Get user info from session
         user_name = session.get('user_name', 'Unknown')
         userid = session.get('userid', 0)
         
         with get_db() as (cursor, connection):
             try:
-                # 1. First, fetch the project data from connectlinkdatabase
-                cursor.execute("SELECT * FROM connectlinkdatabase WHERE id = %s", (project_id,))
-                project_data = cursor.fetchone()
-                
-                if not project_data:
-                    return jsonify({'status': 'error', 'message': 'Project not found'})
-                
-                print(f"DEBUG: Project data length: {len(project_data)}")
-                
-                # 2. Safe function to get data by index with default values
-                def safe_get(index, default=None):
-                    try:
-                        return project_data[index] if len(project_data) > index else default
-                    except (IndexError, TypeError):
-                        return default
-                
-                # 3. Insert the project data into connectlinkdatabasedeletedprojects
-                # Include all 46 columns from your table structure
+                # Use PostgreSQL's INSERT...SELECT to copy data directly
                 cursor.execute("""
-                    INSERT INTO connectlinkdatabasedeletedprojects (
-                        id, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
-                        clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
-                        projectname, projectlocation, projectdescription, projectadministratorname,
-                        projectstartdate, projectduration, contractagreementdate, totalcontractamount,
-                        paymentmethod, monthstopay, datecaptured, capturer, capturerid,
-                        deletedby, deleterid, depositorbullet, datedepositorbullet,
-                        monthlyinstallment, installment1amount, installment1duedate, installment1date,
-                        installment2amount, installment2duedate, installment2date,
-                        installment3amount, installment3duedate, installment3date,
-                        installment4amount, installment4duedate, installment4date,
-                        installment5amount, installment5duedate, installment5date,
-                        installment6amount, installment6duedate, installment6date,
-                        projectcompletionstatus, latepaymentinterest
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                    )
-                """, (
-                    # id to capturerid (indices 0-22)
-                    safe_get(0),  # id
-                    safe_get(1),  # clientname
-                    safe_get(2),  # clientidnumber
-                    safe_get(3),  # clientaddress
-                    safe_get(4),  # clientwanumber
-                    safe_get(5),  # clientemail
-                    safe_get(6),  # clientnextofkinname
-                    safe_get(7),  # clientnextofkinaddress
-                    safe_get(8),  # clientnextofkinphone
-                    safe_get(9),  # nextofkinrelationship
-                    safe_get(10),  # projectname
-                    safe_get(11),  # projectlocation
-                    safe_get(12),  # projectdescription
-                    safe_get(13),  # projectadministratorname
-                    safe_get(14),  # projectstartdate
-                    safe_get(15),  # projectduration
-                    safe_get(16),  # contractagreementdate
-                    safe_get(17),  # totalcontractamount
-                    safe_get(18),  # paymentmethod
-                    safe_get(19),  # monthstopay
-                    safe_get(20),  # datecaptured
-                    safe_get(21),  # capturer
-                    safe_get(22),  # capturerid
-                    
-                    # Deletion metadata (not from project_data)
-                    user_name,  # deletedby
-                    userid,  # deleterid
-                    
-                    # depositorbullet to installment6date (indices 23-43)
-                    safe_get(23),  # depositorbullet
-                    safe_get(24),  # datedepositorbullet
-                    safe_get(25),  # monthlyinstallment
-                    safe_get(26),  # installment1amount
-                    safe_get(27),  # installment1duedate
-                    safe_get(28),  # installment1date
-                    safe_get(29),  # installment2amount
-                    safe_get(30),  # installment2duedate
-                    safe_get(31),  # installment2date
-                    safe_get(32),  # installment3amount
-                    safe_get(33),  # installment3duedate
-                    safe_get(34),  # installment3date
-                    safe_get(35),  # installment4amount
-                    safe_get(36),  # installment4duedate
-                    safe_get(37),  # installment4date
-                    safe_get(38),  # installment5amount
-                    safe_get(39),  # installment5duedate
-                    safe_get(40),  # installment5date
-                    safe_get(41),  # installment6amount
-                    safe_get(42),  # installment6duedate
-                    safe_get(43),  # installment6date
-                    
-                    # Status and interest (indices 44-45)
-                    safe_get(44),  # projectcompletionstatus
-                    safe_get(45),  # latepaymentinterest
-                ))
+                    INSERT INTO connectlinkdatabasedeletedprojects 
+                    SELECT 
+                        d.*,
+                        %s as deletedby,
+                        %s as deleterid
+                    FROM connectlinkdatabase d
+                    WHERE d.id = %s
+                """, (user_name, userid, project_id))
                 
-                # 4. Now delete from the original table
+                # Then delete
                 cursor.execute("DELETE FROM connectlinkdatabase WHERE id = %s", (project_id,))
                 
                 connection.commit()
                 
-                print(f"✅ Project deleted and archived: {project_id} - {project_name} for client {client_name}")
-                
                 return jsonify({
                     'status': 'success',
-                    'message': f'Project "{project_name}" for client "{client_name}" has been deleted and archived.'
+                    'message': 'Project has been deleted and archived successfully.'
                 })
                 
             except Exception as e:
                 connection.rollback()
-                print(f"❌ Error deleting project: {str(e)}")
-                import traceback
-                traceback.print_exc()
+                print(f"❌ Error: {str(e)}")
                 return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'})
                 
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
-
 
 @app.route('/download_payments_history/<project_id>')
 def download_payments_history(project_id):
