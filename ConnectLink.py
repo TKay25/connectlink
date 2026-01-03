@@ -114,7 +114,9 @@ def initialize_database_tables():
                 "info@connectlinkproperties.co.zw",
                 "ConnectLink Properties",
                 ""
-            ))'''          
+            ))''' 
+
+            cursor.execute("""DROP TABLE connectlinkdatabasedeleted;""")         
 
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinknotes (
@@ -172,8 +174,8 @@ def initialize_database_tables():
 
 
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS connectlinkdatabasedeleted (
-                    id SERIAL PRIMARY KEY,
+                CREATE TABLE IF NOT EXISTS connectlinkdatabasedeletedprojects (
+                    id INTEGER PRIMARY KEY,  -- Use INTEGER instead of SERIAL
                     clientname VARCHAR (100),
                     clientidnumber varchar (100),
                     clientaddress VARCHAR (200),
@@ -197,7 +199,30 @@ def initialize_database_tables():
                     capturer VARCHAR (100),
                     capturerid INT,
                     deletedby VARCHAR (100),
-                    deleterid INT
+                    deleterid INT,
+                    depositorbullet NUMERIC(12,2),
+                    datedepositorbullet date,
+                    monthlyinstallment NUMERIC(12,2),
+                    installment1amount NUMERIC(12,2),
+                    installment1duedate date,
+                    installment1date date,
+                    installment2amount NUMERIC(12,2),
+                    installment2duedate date,
+                    installment2date date,
+                    installment3amount NUMERIC(12,2),
+                    installment3duedate date,
+                    installment3date date,
+                    installment4amount NUMERIC(12,2),
+                    installment4duedate date,
+                    installment4date date,
+                    installment5amount NUMERIC(12,2),
+                    installment5duedate date,
+                    installment5date date,
+                    installment6amount NUMERIC(12,2),
+                    installment6duedate date,
+                    installment6date date,
+                    projectcompletionstatus varchar(100),
+                    latepaymentinterest INT
                 );
             """)
 
@@ -252,35 +277,12 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6amount NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6duedate date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6date date;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);"
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS latepaymentinterest INT;"
-                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);"
-                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);"
-                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;"
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS latepaymentinterest INT;",
+                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);",
+                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);",
+                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientnextofkinnumber INT;"
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS depositorbullet NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS datedepositorbullet date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS monthlyinstallment NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment1amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment1duedate date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment1date date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment2amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment2duedate date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment2date date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment3amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment3duedate date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment3date date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment4amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment4duedate date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment4date date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment5amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment5duedate date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment5date date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment6amount NUMERIC(12,2);",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment6duedate date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS installment6date date;",
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);"
-                "ALTER TABLE connectlinkdatabasedeleted ADD COLUMN IF NOT EXISTS latepaymentinterest INT;"
 
             ]
 
@@ -1194,7 +1196,7 @@ def export_projects_portfolio():
             cols_2 = [desc[0] for desc in cursor.description]
             df_notes = pd.DataFrame(rows_2, columns=cols_2)
 
-            cursor.execute("SELECT * FROM connectlinkdatabasedeleted ORDER BY id DESC")
+            cursor.execute("SELECT * FROM connectlinkdatabasedeletedprojects ORDER BY id DESC")
             rows_3 = cursor.fetchall()
 
             cols_3 = [desc[0] for desc in cursor.description]
@@ -1627,7 +1629,7 @@ def delete_project():
                 
                 # 2. Insert the project data into connectlinkdatabasedeleted
                 cursor.execute("""
-                    INSERT INTO connectlinkdatabasedeleted (
+                    INSERT INTO connectlinkdatabasedeletedprojects (
                         clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
                         clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
                         projectname, projectlocation, projectdescription, projectadministratorname,
