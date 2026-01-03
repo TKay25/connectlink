@@ -2216,61 +2216,189 @@
 <script>
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Apply filter button (AJAX version)
-    document.getElementById('applyFilterBtn').addEventListener('click', function() {
-        const selectedMonth = document.getElementById('monthFilter').value;
+    console.log('=== PROJECTS FILTER INITIALIZATION ===');
+    
+    // Initialize DataTable first
+    let dataTable = null;
+    try {
+        dataTable = $('#allprojectsTable').DataTable({
+            order: [[0, 'desc']],
+            paging: false,
+            searching: true,
+            ordering: true,
+            info: true,
+            pageLength: 8,
+            lengthChange: false,
+            destroy: true // Allow reinitialization
+        });
+        console.log('✅ DataTable initialized successfully');
+    } catch (error) {
+        console.error('❌ DataTable initialization error:', error);
+    }
+    
+    // Get DOM elements
+    const applyBtn = document.getElementById('applyFilterBtn');
+    const clearBtn = document.getElementById('clearFilterBtn');
+    const monthFilter = document.getElementById('monthFilter');
+    const tableContainer = document.querySelector('.container2');
+    
+    // Validate elements exist
+    if (!applyBtn || !monthFilter || !tableContainer) {
+        console.error('❌ Missing required elements:', {
+            applyBtn: !!applyBtn,
+            monthFilter: !!monthFilter,
+            tableContainer: !!tableContainer
+        });
+        return;
+    }
+    
+    console.log('✅ All DOM elements found');
+    
+    // Save original table HTML for restoring
+    const originalTableHTML = tableContainer.innerHTML;
+    
+    // Apply Filter Button Click Handler
+    applyBtn.addEventListener('click', function() {
+        console.log('--- APPLY FILTER CLICKED ---');
+        const selectedMonth = monthFilter.value;
+        console.log('Selected month value:', selectedMonth);
+        console.log('Selected month text:', monthFilter.options[monthFilter.selectedIndex].text);
         
-        // Show loading
-        const tableContainer = document.querySelector('.container2');
-        tableContainer.innerHTML = `
-            <div class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Loading filtered projects...</p>
-            </div>
-        `;
-        
-        // Fetch filtered data
-        fetch(`/get_filtered_projects/${selectedMonth}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    tableContainer.innerHTML = data.html;
-                    
-                    // Reinitialize DataTable
-                    $('#allprojectsTable').DataTable({
-                        order: [[0, 'desc']],
-                        paging: false,
-                        searching: true,
-                        ordering: true,
-                        info: true,
-                        pageLength: 7,
-                        lengthChange: false
-                    });
-                } else {
-                    alert('Error loading data: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to load filtered projects');
-            });
+        applyFilter(selectedMonth);
     });
     
-    // Initialize with latest month
-    function initializeWithLatestMonth() {
-        const latestMonth = document.querySelector('#monthFilter option').value;
-        if (latestMonth && latestMonth !== 'all') {
-            document.getElementById('monthFilter').value = latestMonth;
-            // Trigger filter after a short delay
-            setTimeout(() => {
-                document.getElementById('applyFilterBtn').click();
-            }, 500);
+    // Clear Filter Button Click Handler
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            console.log('--- CLEAR FILTER CLICKED ---');
+            monthFilter.value = 'all';
+            applyFilter('all');
+        });
+    }
+    
+    // Auto-apply latest month on page load (optional)
+    function applyDefaultFilter() {
+        if (monthFilter.options.length > 0) {
+            const firstOption = monthFilter.options[0];
+            if (firstOption.value !== 'all') {
+                console.log('Applying default filter for latest month:', firstOption.value);
+                // Don't auto-apply - let user see all first
+                // applyFilter(firstOption.value);
+            }
         }
     }
     
-    initializeWithLatestMonth();
+    // Main filter function
+    function applyFilter(monthValue) {
+        console.log('Applying filter for:', monthValue);
+        
+        // Show loading indicator
+        showLoading();
+        
+        // Use AJAX for server-side filtering
+        fetchFilteredData(monthValue);
+    }
+    
+    function showLoading() {
+        tableContainer.innerHTML = `
+            <div class="text-center py-5" style="color: #1E2A56;">
+                <div class="spinner-border" role="status" style="color: #1E2A56;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3">Loading filtered projects...</p>
+            </div>
+        `;
+    }
+    
+    function fetchFilteredData(monthValue) {
+        console.log('Fetching data for month:', monthValue);
+        
+        fetch(`/get_filtered_projects/${monthValue}`)
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Received data:', data);
+                
+                if (data.status === 'success') {
+                    // Update table
+                    tableContainer.innerHTML = data.html;
+                    console.log('✅ Table updated successfully');
+                    
+                    // Reinitialize DataTable
+                    setTimeout(() => {
+                        reinitializeDataTable();
+                    }, 100);
+                    
+                    // Update clear button visibility
+                    if (clearBtn) {
+                        clearBtn.style.display = monthValue === 'all' ? 'none' : 'inline-block';
+                    }
+                    
+                } else {
+                    console.error('❌ Server returned error:', data.message);
+                    alert('Error: ' + data.message);
+                    restoreOriginalTable();
+                }
+            })
+            .catch(error => {
+                console.error('❌ Fetch error:', error);
+                alert('Failed to load filtered projects. Please try again.');
+                restoreOriginalTable();
+            });
+    }
+    
+    function reinitializeDataTable() {
+        try {
+            if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
+                $('#allprojectsTable').DataTable().destroy();
+            }
+            
+            dataTable = $('#allprojectsTable').DataTable({
+                order: [[0, 'desc']],
+                paging: false,
+                searching: true,
+                ordering: true,
+                info: true,
+                pageLength: 8,
+                lengthChange: false
+            });
+            
+            console.log('✅ DataTable reinitialized');
+            
+            // Reattach click handlers for dynamic buttons
+            reattachEventHandlers();
+            
+        } catch (error) {
+            console.error('❌ DataTable reinitialization error:', error);
+        }
+    }
+    
+    function restoreOriginalTable() {
+        tableContainer.innerHTML = originalTableHTML;
+        reinitializeDataTable();
+    }
+    
+    function reattachEventHandlers() {
+        // Reattach click handlers for buttons in the new table
+        console.log('Reattaching event handlers...');
+        
+        // Example: Reattach download contract button handlers
+        document.querySelectorAll('.download-contract-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                console.log('Download contract clicked:', this.dataset.id);
+                // Your existing download logic
+            });
+        });
+    }
+    
+    // Initialize
+    applyDefaultFilter();
+    console.log('=== FILTER SYSTEM READY ===');
 });
 
 </script>
