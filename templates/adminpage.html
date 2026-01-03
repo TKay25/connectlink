@@ -1974,7 +1974,7 @@
                             </div>
                             
                             <div class="col-md-2">
-                                <button class="btn btn-primary" id="applyFilterBtn" style="width: 100%;">
+                                <button class="btn btn-primary" id="applyFilterBtn" style="width: max-content;">
                                     <i class="bi bi-funnel"></i> Apply Filter
                                 </button>
                             </div>
@@ -1986,7 +1986,7 @@
                             </div>
                         </div>
 
-                        <div class="container2" style="max-height: 430px; overflow-y: auto;">
+                        <div class="container2 mainalldata" style="max-height: 430px; overflow-y: auto;">
                             {{ table_datamain_html |safe }}
                         </div>
                     </div>
@@ -2221,7 +2221,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedMonth = document.getElementById('monthFilter').value;
         
         // Show loading
-        const tableContainer = document.querySelector('.container2');
+        const tableContainer = document.querySelector('.mainalldata');
         tableContainer.innerHTML = `
             <div class="text-center py-4">
                 <div class="spinner-border text-primary" role="status">
