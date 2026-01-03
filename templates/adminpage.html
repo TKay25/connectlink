@@ -1935,6 +1935,13 @@
                         <i class="bi bi-download"></i> Installments Due
                     </button>
 
+                    <button class="btn btn-primary mt-3"
+                            id="installmentsdueBtn"
+                            style="width: max-content;"
+                            onclick="downloadinstallmentsdue()">
+                        <i class="bi bi-download"></i> Deleted Projects
+                    </button>
+
                     <div class="container mt-5">
                         <div class="container2" style="max-height: 500px; overflow-y: auto;">
                             {{ table_datamain_html |safe }}
