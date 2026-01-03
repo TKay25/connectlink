@@ -1617,37 +1617,38 @@ def delete_project():
         
         with get_db() as (cursor, connection):
             try:
-                # Get column names from connectlinkdatabase (excluding any auto-added columns)
+                # Get ALL column names from connectlinkdatabase EXCEPT id
                 cursor.execute("""
                     SELECT column_name 
                     FROM information_schema.columns 
                     WHERE table_name = 'connectlinkdatabase' 
-                    AND column_name NOT IN ('id')  -- exclude any problematic columns
+                    AND column_name != 'id'
                     ORDER BY ordinal_position
                 """)
                 columns = [row[0] for row in cursor.fetchall()]
                 
-                # Build the column list for SELECT
+                print(f"DEBUG: Found {len(columns)} columns excluding id")
+                
+                # Build the column list for SELECT (exclude id from source)
                 select_columns = ', '.join([f'd.{col}' for col in columns])
                 
-                # Build the column list for INSERT (same order as SELECT)
-                insert_columns = ', '.join(columns + ['deletedby', 'deleterid'])
+                # Build the column list for INSERT - MUST include id first!
+                insert_columns = ', '.join(['id'] + columns + ['deletedby', 'deleterid'])
                 
-                # Build placeholders for the extra values
-                placeholders = ', '.join(['%s'] * (len(columns) + 2))
-                
-                # Execute the copy with explicit columns
+                # Execute the copy - use project_id as the id value
                 cursor.execute(f"""
                     INSERT INTO connectlinkdatabasedeletedprojects ({insert_columns})
-                    SELECT {select_columns}, %s, %s
+                    SELECT %s, {select_columns}, %s, %s
                     FROM connectlinkdatabase d
                     WHERE d.id = %s
-                """, (user_name, userid, project_id))
+                """, (project_id, user_name, userid, project_id))
                 
                 # Then delete
                 cursor.execute("DELETE FROM connectlinkdatabase WHERE id = %s", (project_id,))
                 
                 connection.commit()
+                
+                print(f"✅ Project {project_id} deleted and archived successfully")
                 
                 return jsonify({
                     'status': 'success',
@@ -1663,7 +1664,6 @@ def delete_project():
                 
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
-
 
 @app.route('/download_payments_history/<project_id>')
 def download_payments_history(project_id):
