@@ -2190,7 +2190,8 @@ def run1(userid):
         most_frequent_location = locations.value_counts(dropna=True).idxmax()
 
         datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary3 download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button> <button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary3 update-project-btn">Update</button> </div>''', axis=1)        
-        
+        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate'])
+
         datamain['momid'] = datamain.groupby(datamain['projectstartdate'].dt.strftime('%Y-%m'))['projectstartdate'].rank(method='first', ascending=True).astype(int)
 
         datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
