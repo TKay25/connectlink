@@ -1464,7 +1464,20 @@
                             <label for="adminPasscode" class="form-label fw-bold">
                                 <i class="bi bi-key"></i> Enter Admin Passcode to Confirm
                             </label>
-                            <input type="password" class="form-control" id="adminPasscode" name="admin_passcode" required placeholder="Enter admin passcode">
+                            
+                            <div style="position: relative; margin-bottom: 10px;">
+                                <input type="password" 
+                                    class="form-control editable-field" 
+                                    id="adminPasscode" 
+                                    name="admin_passcode" 
+                                    required 
+                                    placeholder="Enter admin passcode"
+                                    style="width: 100%; padding-right: 40px; padding: 10px 15px; border-radius: 8px; border: 2px solid #1E2A56; background-color: #e6f0ff; color: #1E2A56; transition: all 0.3s ease;">
+                                
+                                <i id="toggleAdminPassword" 
+                                class="bi bi-eye" 
+                                style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #1E2A56; font-size: 1.1rem;"></i>
+                            </div>
                         </div>
                         
                         <input type="hidden" id="deleteProjectId" name="project_id">
@@ -2170,6 +2183,31 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+    // Password toggle for admin passcode in delete modal
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleAdminPassword = document.getElementById('toggleAdminPassword');
+        const adminPasscodeInput = document.getElementById('adminPasscode');
+        
+        if (toggleAdminPassword && adminPasscodeInput) {
+            toggleAdminPassword.addEventListener('click', function() {
+                // Toggle password visibility
+                const type = adminPasscodeInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                adminPasscodeInput.setAttribute('type', type);
+                
+                // Toggle eye icon
+                if (type === 'text') {
+                    this.classList.remove('bi-eye');
+                    this.classList.add('bi-eye-slash');
+                } else {
+                    this.classList.remove('bi-eye-slash');
+                    this.classList.add('bi-eye');
+                }
+            });
+        }
+    });
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
