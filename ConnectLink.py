@@ -1605,29 +1605,112 @@ def delete_project():
         if admin_passcode != "conlink01admin01":
             return jsonify({'status': 'error', 'message': 'Invalid admin passcode'})
         
-        # Delete from database
-        with get_db() as (cursor, connection):
-
-            try:
-            
-                cursor.execute("DELETE FROM connectlinkdatabase WHERE id = %s", (project_id,))
-                connection.commit()
-                connection.close()
-                
-                # Log the deletion (optional)
-                print(f"Project deleted: {project_id} - {project_name} for client {client_name}")
-
-            except Exception as e:
-                return jsonify({"status": "error", "message": str(e)})
-
-        return jsonify({
-            'status': 'success',
-            'message': f'Project "{project_name}" for client "{client_name}" has been deleted.'
-        })
+        # Get user info from session
+        user_name = session.get('user_name', 'Unknown')
+        userid = session.get('userid', 0)
         
+        with get_db() as (cursor, connection):
+            try:
+                # 1. First, fetch the project data from connectlinkdatabase
+                cursor.execute("SELECT * FROM connectlinkdatabase WHERE id = %s", (project_id,))
+                project_data = cursor.fetchone()
+                
+                if not project_data:
+                    return jsonify({'status': 'error', 'message': 'Project not found'})
+                
+                # 2. Insert the project data into connectlinkdatabasedeleted
+                cursor.execute("""
+                    INSERT INTO connectlinkdatabasedeleted (
+                        clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                        clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
+                        projectname, projectlocation, projectdescription, projectadministratorname,
+                        projectstartdate, projectduration, contractagreementdate, totalcontractamount,
+                        paymentmethod, monthstopay, datecaptured, capturer, capturerid,
+                        deletedby, deleterid, depositorbullet, datedepositorbullet,
+                        monthlyinstallment, installment1amount, installment1duedate, installment1date,
+                        installment2amount, installment2duedate, installment2date,
+                        installment3amount, installment3duedate, installment3date,
+                        installment4amount, installment4duedate, installment4date,
+                        installment5amount, installment5duedate, installment5date,
+                        installment6amount, installment6duedate, installment6date,
+                        projectcompletionstatus, latepaymentinterest
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    )
+                """, (
+                    project_data[1],  # clientname
+                    project_data[2],  # clientidnumber
+                    project_data[3],  # clientaddress
+                    project_data[4],  # clientwanumber
+                    project_data[5],  # clientemail
+                    project_data[6],  # clientnextofkinname
+                    project_data[7],  # clientnextofkinaddress
+                    project_data[8],  # clientnextofkinphone
+                    project_data[9],  # nextofkinrelationship
+                    project_data[10],  # projectname
+                    project_data[11],  # projectlocation
+                    project_data[12],  # projectdescription
+                    project_data[13],  # projectadministratorname
+                    project_data[14],  # projectstartdate
+                    project_data[15],  # projectduration
+                    project_data[16],  # contractagreementdate
+                    project_data[17],  # totalcontractamount
+                    project_data[18],  # paymentmethod
+                    project_data[19],  # monthstopay
+                    project_data[20],  # datecaptured
+                    project_data[21],  # capturer
+                    project_data[22],  # capturerid
+                    user_name,  # deletedby
+                    userid,  # deleterid
+                    project_data[23] if len(project_data) > 23 else None,  # depositorbullet
+                    project_data[24] if len(project_data) > 24 else None,  # datedepositorbullet
+                    project_data[25] if len(project_data) > 25 else None,  # monthlyinstallment
+                    project_data[26] if len(project_data) > 26 else None,  # installment1amount
+                    project_data[27] if len(project_data) > 27 else None,  # installment1duedate
+                    project_data[28] if len(project_data) > 28 else None,  # installment1date
+                    project_data[29] if len(project_data) > 29 else None,  # installment2amount
+                    project_data[30] if len(project_data) > 30 else None,  # installment2duedate
+                    project_data[31] if len(project_data) > 31 else None,  # installment2date
+                    project_data[32] if len(project_data) > 32 else None,  # installment3amount
+                    project_data[33] if len(project_data) > 33 else None,  # installment3duedate
+                    project_data[34] if len(project_data) > 34 else None,  # installment3date
+                    project_data[35] if len(project_data) > 35 else None,  # installment4amount
+                    project_data[36] if len(project_data) > 36 else None,  # installment4duedate
+                    project_data[37] if len(project_data) > 37 else None,  # installment4date
+                    project_data[38] if len(project_data) > 38 else None,  # installment5amount
+                    project_data[39] if len(project_data) > 39 else None,  # installment5duedate
+                    project_data[40] if len(project_data) > 40 else None,  # installment5date
+                    project_data[41] if len(project_data) > 41 else None,  # installment6amount
+                    project_data[42] if len(project_data) > 42 else None,  # installment6duedate
+                    project_data[43] if len(project_data) > 43 else None,  # installment6date
+                    project_data[44] if len(project_data) > 44 else None,  # projectcompletionstatus
+                    project_data[45] if len(project_data) > 45 else None,  # latepaymentinterest
+                ))
+                
+                # 3. Now delete from the original table
+                cursor.execute("DELETE FROM connectlinkdatabase WHERE id = %s", (project_id,))
+                
+                connection.commit()
+                
+                # Log the deletion
+                print(f"Project deleted and archived: {project_id} - {project_name} for client {client_name}")
+                
+                return jsonify({
+                    'status': 'success',
+                    'message': f'Project "{project_name}" for client "{client_name}" has been deleted and archived.'
+                })
+                
+            except Exception as e:
+                connection.rollback()
+                print(f"Error deleting project: {str(e)}")
+                return jsonify({'status': 'error', 'message': str(e)})
+                
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
 
+
+        
 @app.route('/download_payments_history/<project_id>')
 def download_payments_history(project_id):
     with get_db() as (cursor, connection):
