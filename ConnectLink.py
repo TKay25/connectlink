@@ -1630,7 +1630,7 @@ def delete_project():
                 # 2. Insert the project data into connectlinkdatabasedeleted
                 cursor.execute("""
                     INSERT INTO connectlinkdatabasedeletedprojects (
-                        clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                        id, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
                         clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
                         projectname, projectlocation, projectdescription, projectadministratorname,
                         projectstartdate, projectduration, contractagreementdate, totalcontractamount,
@@ -1645,9 +1645,10 @@ def delete_project():
                         projectcompletionstatus, latepaymentinterest
                     ) VALUES (
                         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
                 """, (
+                    project_data[0],  # clientname
                     project_data[1],  # clientname
                     project_data[2],  # clientidnumber
                     project_data[3],  # clientaddress
