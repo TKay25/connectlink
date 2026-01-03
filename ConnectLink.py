@@ -1626,6 +1626,8 @@ def delete_project():
                 
                 if not project_data:
                     return jsonify({'status': 'error', 'message': 'Project not found'})
+
+                print(project_data)
                 
                 # 2. Insert the project data into connectlinkdatabasedeleted
                 cursor.execute("""
