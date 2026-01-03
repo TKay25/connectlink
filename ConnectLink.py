@@ -1540,6 +1540,41 @@ def download_contract(project_id):
         except Exception as e:
             return str(e), 500
 
+@app.route('/delete_project', methods=['POST'])
+def delete_project():
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        client_name = data.get('client_name')
+        project_name = data.get('project_name')
+        admin_passcode = data.get('admin_passcode')
+        
+        # Validate admin passcode
+        if admin_passcode != "conlink01admin01":
+            return jsonify({'status': 'error', 'message': 'Invalid admin passcode'})
+        
+        # Delete from database
+        with get_db() as (cursor, connection):
+
+            try:
+            
+                cursor.execute("DELETE FROM connectlinkdatabase WHERE id = %s", (project_id,))
+                connection.commit()
+                connection.close()
+                
+                # Log the deletion (optional)
+                print(f"Project deleted: {project_id} - {project_name} for client {client_name}")
+
+            except Exception as e:
+                return jsonify({"status": "error", "message": str(e)})
+
+        return jsonify({
+            'status': 'success',
+            'message': f'Project "{project_name}" for client "{client_name}" has been deleted.'
+        })
+        
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/download_payments_history/<project_id>')
 def download_payments_history(project_id):
