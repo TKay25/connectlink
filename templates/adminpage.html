@@ -2219,7 +2219,6 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     // Apply filter button (AJAX version)
-
     const columnsToShow = [
         "id",
         "momid", 
@@ -2230,8 +2229,6 @@ document.addEventListener('DOMContentLoaded', function() {
         "action"
     ];
     
-    // Map column names to their indices (you'll need to know your actual column order)
-    // This mapping depends on your table structure
     const columnMapping = {
         "id": 0,
         "clientname": 1,
@@ -2279,15 +2276,14 @@ document.addEventListener('DOMContentLoaded', function() {
         "installment6date": 43,
         "projectcompletionstatus": 44,
         "latepaymentinterest": 45,
-        "momid": 46, // Assuming momid is the 47th column
-        "action": 47 // Action column added at the end
+        "momid": 46,
+        "action": 47
     };
     
-    // Get indices of columns to show
     const columnsToShowIndices = columnsToShow.map(col => columnMapping[col]);
     
-    // Initialize DataTable with column visibility
-    const dataTable = $('#allprojectsTable').DataTable({
+    // Initialize DataTable ONCE - make it a global variable
+    window.dataTable = $('#allprojectsTable').DataTable({
         order: [[0, 'desc']],
         paging: false,
         searching: true,
@@ -2297,18 +2293,15 @@ document.addEventListener('DOMContentLoaded', function() {
         lengthChange: false,
         columnDefs: [
             {
-                // Hide all columns by default
                 targets: '_all',
                 visible: false
             },
             {
-                // Show only the columns in columnsToShowIndices
                 targets: columnsToShowIndices,
                 visible: true
             }
         ]
     });
-
 
     document.getElementById('applyFilterBtn').addEventListener('click', function() {
         const selectedMonth = document.getElementById('monthFilter').value;
@@ -2331,8 +2324,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.status === 'success') {
                     tableContainer.innerHTML = data.html;
                     
-                    // Reinitialize DataTable
-                    $('#allprojectsTable').DataTable({
+                    // DESTROY existing DataTable instance before reinitializing
+                    if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
+                        dataTable.destroy();
+                    }
+                    
+                    // Reinitialize DataTable with fresh data
+                    window.dataTable = $('#allprojectsTable').DataTable({
                         order: [[0, 'desc']],
                         paging: false,
                         searching: true,
@@ -2356,7 +2354,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const latestMonth = document.querySelector('#monthFilter option').value;
         if (latestMonth && latestMonth !== 'all') {
             document.getElementById('monthFilter').value = latestMonth;
-            // Trigger filter after a short delay
             setTimeout(() => {
                 document.getElementById('applyFilterBtn').click();
             }, 500);
@@ -3556,17 +3553,6 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     }
-
-    // 2️⃣ Initialize DataTables ONCE with all your settings
-    $('#allprojectsTable').DataTable({
-        order: [[0, 'desc']],   // sort ID desc
-        paging: false,
-        searching: true,
-        ordering: true,
-        info: true,
-        pageLength: 7,
-        lengthChange: false
-    });
 
 });
 
