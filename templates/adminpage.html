@@ -2637,7 +2637,105 @@ document.getElementById("createUserForm").addEventListener("submit", async funct
 </script>
 
 <script>
+
+    // Add this to your existing JavaScript
 $(document).ready(function() {
+    // Handle Delete button click in the update modal
+    $(document).on('click', '.delete-project-btn', function() {
+        // Get project details from the update modal fields
+        const projectId = $('#updateProjectId').val();
+        const clientName = $('#updateClientName').val();
+        const projectName = $('#updateProjectName').val();
+        
+        // Debug log to ensure we're getting the values
+        console.log('Delete clicked:', { projectId, clientName, projectName });
+        
+        // Populate the delete modal fields
+        $('#deleteProjectId').val(projectId);
+        $('#updateProjectIdDelete').text(projectId); // For the display span
+        $('#deleteClientNameDisplay').text(clientName);
+        $('#deleteProjectNameDisplay').text(projectName);
+        
+        // Also populate hidden fields for form submission
+        $('#deleteClientName').val(clientName);
+        $('#deleteProjectName').val(projectName);
+    });
+    
+    // Handle form submission for delete project
+    $('#deleteProjectForm').submit(async function(e) {
+        e.preventDefault();
+        
+        const btn = $('#confirmDeleteBtn');
+        const btnText = $('#deleteBtnText');
+        const spinner = $('#deleteSpinner');
+        
+        // Show loading state
+        btn.prop('disabled', true);
+        spinner.removeClass('d-none');
+        btnText.text('Deleting...');
+        
+        try {
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Add admin passcode validation
+            if (data.admin_passcode !== "conlink01admin01") {
+                alert("Invalid admin passcode!");
+                return;
+            }
+            
+            const response = await fetch('/delete_project', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                alert('✅ Project deleted successfully!');
+                
+                // Close both modals
+                $('#deleteprojectModal').modal('hide');
+                $('#updateModal').modal('hide');
+                
+                // Refresh the page to update the table
+                setTimeout(() => {
+                    location.reload();
+                }, 500);
+                
+            } else {
+                alert('❌ Error: ' + result.message);
+            }
+            
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert('❌ Failed to delete project');
+        } finally {
+            // Reset button state
+            btn.prop('disabled', false);
+            spinner.addClass('d-none');
+            btnText.text('Delete Project Permanently');
+        }
+    });
+    
+    // Clear form when delete modal is closed
+    $('#deleteprojectModal').on('hidden.bs.modal', function() {
+        $('#deleteProjectForm')[0].reset();
+        $('#deleteClientNameDisplay').text('');
+        $('#deleteProjectNameDisplay').text('');
+        $('#updateProjectIdDelete').text('');
+    });
+
+
+
+
+
+
+
+
     // Function to load notes for a project
     function loadNotes(projectId, projectName, clientName, clientWaNumber, clientNextOfKinNumber) {
         // Set project ID in hidden field
