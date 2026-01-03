@@ -1192,7 +1192,13 @@ def export_projects_portfolio():
             rows_2 = cursor.fetchall()
 
             cols_2 = [desc[0] for desc in cursor.description]
-            df_portfolio = pd.DataFrame(rows_2, columns=cols_2)
+            df_notes = pd.DataFrame(rows_2, columns=cols_2)
+
+            cursor.execute("SELECT * FROM connectlinkdatabasedeleted ORDER BY id DESC")
+            rows_3 = cursor.fetchall()
+
+            cols_3 = [desc[0] for desc in cursor.description]
+            df_portfolio_deleted = pd.DataFrame(rows_3, columns=cols_3)
 
 
             # ========= CREATE EXCEL FILE IN MEMORY =========
@@ -1200,7 +1206,8 @@ def export_projects_portfolio():
 
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
                 df_projects.to_excel(writer, index=False, sheet_name="Projects Database")
-                df_portfolio.to_excel(writer, index=False, sheet_name="Notes")
+                df_notes.to_excel(writer, index=False, sheet_name="Notes")
+                df_portfolio_deleted.to_excel(writer, index=False, sheet_name="Deleted Projects")
 
 
             output.seek(0)
@@ -1710,7 +1717,7 @@ def delete_project():
         return jsonify({'status': 'error', 'message': str(e)})
 
 
-        
+
 @app.route('/download_payments_history/<project_id>')
 def download_payments_history(project_id):
     with get_db() as (cursor, connection):
