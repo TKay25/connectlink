@@ -3524,36 +3524,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const table = document.getElementById("allprojectsTable");
     if (!table) return;
 
-    // 1️⃣ Hide unwanted columns BEFORE DataTables initializes
-    const columnsToShow = [
-        "id",
-        "momid",
-        "clientname",
-        "projectname",
-        "projectadministratorname",
-        "projectstartdate",
-        "action"
-    ];
-
-    const headerCells = table.querySelectorAll("thead th");
-
-    headerCells.forEach((th, index) => {
-        const field = th.innerText.trim().toLowerCase().replace(/\s+/g, "");
-        if (!columnsToShow.includes(field)) {
-            hideColumn(table, index);
-        }
-    });
-
-    function hideColumn(table, columnIndex) {
-        const rows = table.querySelectorAll("tr");
-        rows.forEach(row => {
-            const cells = row.children;
-            if (cells[columnIndex]) {
-                cells[columnIndex].style.display = "none";
-            }
-        });
-    }
-
+ 
 });
 
 
