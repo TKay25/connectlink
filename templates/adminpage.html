@@ -2216,6 +2216,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
+    // Apply filter button (AJAX version)
 document.addEventListener('DOMContentLoaded', function() {
     // Apply filter button (AJAX version)
     const columnsToShow = [
@@ -2281,7 +2282,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const columnsToShowIndices = columnsToShow.map(col => columnMapping[col]);
     
-    // Function to initialize DataTable with column visibility - USE THE SAME FUNCTION FOR BOTH CASES!
+    // Function to initialize DataTable with column visibility
     function initializeDataTable() {
         return $('#allprojectsTable').DataTable({
             order: [[0, 'desc']],
@@ -2304,7 +2305,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Initialize DataTable ONCE - using the function
+    // Initialize DataTable ONCE
     window.dataTable = initializeDataTable();
 
     document.getElementById('applyFilterBtn').addEventListener('click', function() {
@@ -2328,13 +2329,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.status === 'success') {
                     tableContainer.innerHTML = data.html;
                     
-                    // DESTROY existing DataTable instance before reinitializing
+                    // Check if DataTable already exists and destroy it
                     if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
-                        dataTable.destroy();
-                        $('#allprojectsTable').empty(); // Clear the table
+                        window.dataTable.destroy();
+                        // DO NOT USE .empty() - KEEP THE TABLE HTML!
                     }
                     
-                    // Reinitialize DataTable with fresh data - USE THE SAME FUNCTION!
+                    // Reinitialize DataTable with fresh data
                     window.dataTable = initializeDataTable();
                 } else {
                     alert('Error loading data: ' + data.message);
@@ -2359,6 +2360,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     initializeWithLatestMonth();
 });
+
 
 </script>
 <script>
