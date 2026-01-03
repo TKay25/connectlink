@@ -2053,6 +2053,17 @@ def add_note():
 def get_filtered_projects(month_filter):
     with get_db() as (cursor, connection):
         try:
+            # Get column names dynamically
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'connectlinkdatabase' 
+                ORDER BY ordinal_position
+            """)
+            columns = [row[0] for row in cursor.fetchall()]
+            
+            print(f"DEBUG: Found {len(columns)} columns: {columns}")
+            
             if month_filter == 'all' or not month_filter:
                 query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC"
                 cursor.execute(query)
@@ -2061,29 +2072,70 @@ def get_filtered_projects(month_filter):
                 query = """
                     SELECT * FROM connectlinkdatabase 
                     WHERE TO_CHAR(projectstartdate, 'YYYY-MM') = %s
-                    ORDER BY id DESC
+                    ORDER BY id ASC
                 """
                 cursor.execute(query, (month_filter,))
             
             projects = cursor.fetchall()
+            print(f"DEBUG: Retrieved {len(projects)} rows")
             
-            # Convert to DataFrame and HTML (similar to your existing code)
-            datamain = pd.DataFrame(projects, columns=[...])  # Your column names
+            if not projects:
+                # Return empty table HTML
+                empty_df = pd.DataFrame(columns=columns)
+                empty_html = empty_df.to_html(classes="table table-bordered table-theme", 
+                                              table_id="allprojectsTable", 
+                                              index=False)
+                return jsonify({
+                    'status': 'success',
+                    'html': empty_html,
+                    'count': 0
+                })
             
-            datamain['Action'] = datamain.apply(lambda row: f'''...''', axis=1)
-            datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+            # Convert to DataFrame with ALL columns
+            datamain = pd.DataFrame(projects, columns=columns)
             
-            html_table = datamain.to_html(classes="table table-bordered table-theme", 
-                                         table_id="allprojectsTable", 
-                                         index=False,  
-                                         escape=False)
+            # Format date column for display
+            if 'projectstartdate' in datamain.columns:
+                datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+            
+            # Add Action column (same as in your run1 function)
+            datamain['Action'] = datamain.apply(lambda row: f'''
+                <div style="display: flex; gap: 10px;">
+                    <a href="/download_contract/{row['id']}" class="btn btn-primary3 download-contract-btn" 
+                       data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a>
+                    <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" 
+                            data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button>
+                    <button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" 
+                            data-bs-target="#notesModal" data-id="{row['id']}" 
+                            data-project-name="{row.get('projectname', '')}" 
+                            data-client-name="{row.get('clientname', '')}">Notes</button>
+                    <button class="btn btn-primary3 update-project-btn">Update</button>
+                </div>
+            ''', axis=1)
+            
+            # Reorder columns to match your original table
+            # Put Action column at the end
+            cols_order = [col for col in datamain.columns if col != 'Action'] + ['Action']
+            datamain = datamain[cols_order]
+            
+            # Convert to HTML
+            html_table = datamain.to_html(
+                classes="table table-bordered table-theme", 
+                table_id="allprojectsTable", 
+                index=False,  
+                escape=False
+            )
             
             return jsonify({
                 'status': 'success',
-                'html': html_table
+                'html': html_table,
+                'count': len(projects)
             })
             
         except Exception as e:
+            print(f"❌ Error in get_filtered_projects: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return jsonify({'status': 'error', 'message': str(e)})
 
 
