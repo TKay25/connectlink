@@ -256,6 +256,7 @@ def initialize_database_tables():
             """)
 
             payment_alters = [
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS momid INT;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS depositorbullet NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS datedepositorbullet date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS monthlyinstallment NUMERIC(12,2);",
@@ -2255,6 +2256,58 @@ def update_project():
         return redirect(url_for('Dashboard'))  # or wherever you want to go
 
 
+def get_mom_id_for_project(project_start_date):
+    """Get MOM ID for a project based on month/year and existing momid values"""
+    with get_db() as (cursor, connection):
+        try:
+            # Extract month and year from the project start date
+            month = project_start_date.month
+            year = project_start_date.year
+            
+            print(f"DEBUG: Looking for projects in month {month}, year {year}")
+            
+            # Get all projects in the same month and year
+            cursor.execute("""
+                SELECT id, clientname, projectname, projectstartdate, momid
+                FROM connectlinkdatabase 
+                WHERE EXTRACT(MONTH FROM projectstartdate) = %s 
+                AND EXTRACT(YEAR FROM projectstartdate) = %s
+                ORDER BY projectstartdate
+            """, (month, year))
+            
+            projects_in_month = cursor.fetchall()
+            
+            print(f"DEBUG: Found {len(projects_in_month)} projects in {month}/{year}")
+            
+            if projects_in_month:
+                # Debug print all projects found
+                for project in projects_in_month:
+                    print(f"  - Project ID: {project[0]}, Name: {project[2]}, Date: {project[3]}, MOM ID: {project[4]}")
+                
+                # Find the highest momid value (excluding NULLs)
+                momid_values = [project[4] for project in projects_in_month if project[4] is not None]
+                
+                if momid_values:
+                    highest_momid = max(momid_values)
+                    print(f"DEBUG: Highest MOM ID found: {highest_momid}")
+                    momcurrentid = highest_momid + 1
+                else:
+                    # No momid values found, start from 1
+                    print(f"DEBUG: No MOM IDs found in this month/year, starting from 1")
+                    momcurrentid = 1
+            else:
+                # No projects in this month/year, start from 1
+                print(f"DEBUG: No projects found in {month}/{year}, starting from 1")
+                momcurrentid = 1
+            
+            print(f"DEBUG: New MOM ID assigned: {momcurrentid}")
+            return momcurrentid
+            
+        except Exception as e:
+            print(f"❌ Error getting MOM ID: {str(e)}")
+            # Return a default value or re-raise the exception
+            return 1
+
 @app.route('/contract_log', methods=['POST'])
 def contract_log():
         
@@ -2289,6 +2342,12 @@ def contract_log():
                 project_name = request.form.get('project_name')
                 project_location = request.form.get('project_location')
                 project_start_date = request.form.get('project_start_date')
+
+                project_start_date_date = datetime.strptime(project_start_date, "%Y-%m-%d").date()
+                momcurrentid = get_mom_id_for_project(project_start_date_date)
+
+
+
                 months_to_completion = request.form.get('months_to_completion')
                 project_description = request.form.get('project_description') or ""
 
@@ -2456,14 +2515,14 @@ def contract_log():
 
                     insert_query = """
                         INSERT INTO connectlinkdatabase (
-                            clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                            momid, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
                             clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
                             paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
                             installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate
                         ) VALUES (
-                            %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
@@ -2472,6 +2531,7 @@ def contract_log():
                     """
 
                     params = (
+                        momcurrentid,
                         client_name,
                         client_national_id,
                         client_address,
