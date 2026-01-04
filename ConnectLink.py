@@ -1501,7 +1501,7 @@ def download_contract(project_id):
                         height: auto;
                     }}
                     
-                    h2.title {{
+                    h3.title {{
                         text-align: center;
                         font-weight: 900;
                         margin-bottom: 10px;
@@ -1529,6 +1529,7 @@ def download_contract(project_id):
                         margin-top: 35px;
                         margin-bottom: 25px;
                         font-weight: 700;
+                        font-size:13px
                         letter-spacing: 0.8px;
                         box-shadow: 0 3px 6px rgba(0,0,0,0.1);
                     }}
@@ -1723,7 +1724,7 @@ def download_contract(project_id):
                     <!-- Page 1 -->
                     <img class="logo" src="data:image/png;base64,{logo_base64}" alt="ConnectLink Logo">
                     
-                    <h2 class="title">Construction Agreement</h2>
+                    <h3 class="title">Construction Agreement</h3>
                     <div class="subtitle-line"></div>
                     
                     <div class="highlight-box">
@@ -1738,6 +1739,7 @@ def download_contract(project_id):
                     
                     <div class="section-header">CLIENT DETAILS</div>
                     <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
+                    <div class="field-row"><div class="field-label">National ID:</div><div class="field-value">{project['client_idnumber']}</div></div>
                     <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['client_address']}</div></div>
                     <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['client_whatsapp']}</div></div>
                     <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['client_email']}</div></div>
