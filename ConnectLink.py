@@ -2233,7 +2233,7 @@ def export_installments_schedule_excel():
                         # Check if overdue
                         is_overdue = False
                         if pd.notna(due_date):
-                            is_overdue = due_date.date() < today
+                            is_overdue = due_date < today
                         
                         installment_data = {
                             'number': i,
