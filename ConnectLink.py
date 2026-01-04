@@ -1582,7 +1582,7 @@ def download_contract(project_id):
                         border: 1.5px solid #1E2A56;
                         border-radius: 10px;
                         padding: 10px;
-                        font-size: 11px
+                        font-size: 11px;
                         min-height: 100px;
                         background: #fafbff;
                         margin-bottom: 15px;
@@ -1669,7 +1669,7 @@ def download_contract(project_id):
                     }}
                     
                     .signature-space {{
-                        height: 40px;
+                        height: 30px;
                         border-bottom: 1px solid #1E2A56;
                         margin-top: 3px;
                     }}
