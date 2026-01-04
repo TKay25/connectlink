@@ -1441,7 +1441,7 @@ def download_contract(project_id):
                 <style>
                     @page {{
                         size: A4;
-                        margin: 30px 40px 90px 40px; /* Extra bottom margin for signature area */
+                        margin: 30px 40px 40px 20px; /* Extra bottom margin for signature area */
                         
                         @bottom-left {{
                             content: "Page " counter(page) " of " counter(pages);
