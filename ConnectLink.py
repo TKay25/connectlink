@@ -1748,6 +1748,11 @@ def download_contract(project_id):
                     <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
                     <div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
                     
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 2 -->
+
                     <div class="section-header">CONTRACTOR DETAILS</div>
                     <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
                     <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
@@ -1755,10 +1760,7 @@ def download_contract(project_id):
                     <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
                     <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
                     
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 2 -->
+
                     <h4 class="section-title">PROJECT DETAILS</h4>
                     <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
                     <div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
@@ -1766,6 +1768,11 @@ def download_contract(project_id):
                     <div class="section-header">PROJECT SCOPE</div>
                     <div class="scope-box">{project['project_description']}</div>
                     
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 3 -->
+
                     <h4 class="section-title">PAYMENT TERMS</h4>
                     <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>
                     <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['depositorbullet']}</div></div>
@@ -1788,10 +1795,7 @@ def download_contract(project_id):
                         </tbody>
                     </table>
                     
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 3 -->
+
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
                     
                     <div class="section-header">LATE PAYMENT AND INTEREST</div>
