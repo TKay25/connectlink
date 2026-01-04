@@ -1441,18 +1441,19 @@ def download_contract(project_id):
                 <style>
                     @page {{
                         size: A4;
-                        margin: 60px 40px 90px 40px; /* Extra bottom margin for signature area */
+                        margin: 40px 40px 90px 40px; /* Extra bottom margin for signature area */
                         
                         @bottom-left {{
                             content: "Page " counter(page) " of " counter(pages);
                             font-family: 'Roboto', sans-serif;
                             font-size: 10px;
+                            width: 30%;
                             color: #666;
                         }}
                         
                         @bottom-center {{
                             content: "";
-                            width: 100%;
+                            width: 70%;
                             border-top: 1px solid #1E2A56;
                             margin-top: 20px;
                             padding-top: 10px;
@@ -1568,6 +1569,7 @@ def download_contract(project_id):
                     
                     .highlight-box {{
                         background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%);
+                        font-size: 11px;
                         border: 1.5px solid #1E2A56;
                         border-radius: 12px;
                         padding: 20px;
@@ -1658,14 +1660,14 @@ def download_contract(project_id):
                     
                     .signature-label {{
                         font-weight: 700;
-                        font-size: 12px;
+                        font-size: 11px;
                         margin-bottom: 5px;
                         display: block;
                         color: #2A3A78;
                     }}
                     
                     .signature-space {{
-                        height: 50px;
+                        height: 40px;
                         border-bottom: 1px solid #1E2A56;
                         margin-top: 5px;
                     }}
