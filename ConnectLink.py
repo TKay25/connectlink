@@ -1661,7 +1661,7 @@ def download_contract(project_id):
                     
                     .signature-label {{
                         font-weight: 700;
-                        font-size: 11px;
+                        font-size: 10px;
                         margin-bottom: 5px;
                         display: block;
                         color: #2A3A78;
@@ -1674,7 +1674,7 @@ def download_contract(project_id):
                     }}
                     
                     .signature-date {{
-                        font-size: 11px;
+                        font-size: 10px;
                         color: #666;
                         margin-top: 5px;
                     }}
