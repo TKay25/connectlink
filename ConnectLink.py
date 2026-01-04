@@ -1940,7 +1940,7 @@ def download_contract(project_id):
                             <div class="signature-date">Date: {project['agreement_date']}</div>
                         </div>
                     </div>
-                    <div class="footer-note" style="margin-top: 5px;font-weight:bold;">
+                    <div class="footer-note" style="margin-top: 5px;font-weight:bold;color: black;">
                         This is a legally binding document. Please read carefully before signing.
                     </div>   
                 </div>
