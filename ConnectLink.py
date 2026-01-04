@@ -668,7 +668,7 @@ def webhook():
 
                                                         elif selected_option == "payments_schedule":
 
-                                                            """Export installments schedule as PDF and send via WhatsApp - PostgreSQL version"""
+                                                            """Export installments schedule as PDF with executive summary AND cross-tab table"""
                                                             try:
                                                                 
                                                                 # Get today's date for filtering
@@ -681,7 +681,7 @@ def webhook():
                                                                     SELECT 
                                                                         id,
                                                                         clientname,
-                                                                        projectname,            
+                                                                        projectname,
                                                                         projectstartdate,
                                                                         projectadministratorname,
                                                                         totalcontractamount,
@@ -723,7 +723,9 @@ def webhook():
                                                                 # Convert to DataFrame
                                                                 df = pd.DataFrame(rows, columns=colnames)
                                                                 
-                                                                # Process data for PDF
+                                                                # ================================================
+                                                                # PROCESS DATA FOR EXECUTIVE SUMMARY
+                                                                # ================================================
                                                                 projects_data = []
                                                                 summary_data = {
                                                                     'total_projects': 0,
@@ -840,20 +842,127 @@ def webhook():
                                                                 sorted_months = sorted(summary_data['monthly_totals'].items(), key=lambda x: x[0])
                                                                 summary_data['monthly_totals_sorted'] = [value for _, value in sorted_months]
                                                                 
-                                                                # Prepare PDF data
+                                                                # ================================================
+                                                                # PROCESS DATA FOR CROSS-TAB TABLE
+                                                                # ================================================
+                                                                monthly_data = []
+                                                                
+                                                                for _, row in df.iterrows():
+                                                                    # Check installments 1-6
+                                                                    for i in range(1, 7):
+                                                                        amount = row.get(f'installment{i}amount')
+                                                                        due_date = row.get(f'installment{i}duedate')
+                                                                        payment_date = row.get(f'installment{i}date')
+                                                                        
+                                                                        if amount and float(amount) > 0 and pd.isna(payment_date):  # Pending only
+                                                                            if pd.notna(due_date):
+                                                                                due_month = due_date.strftime('%Y-%m')
+                                                                                
+                                                                                # Check if overdue
+                                                                                is_overdue = due_date < today
+                                                                                
+                                                                                monthly_data.append({
+                                                                                    'clientname': str(row.get('clientname', '')),
+                                                                                    'projectname': str(row.get('projectname', '')),
+                                                                                    'due_date': due_date,
+                                                                                    'due_month': due_month,
+                                                                                    'amount': float(amount),
+                                                                                    'installment_num': i,
+                                                                                    'is_overdue': is_overdue
+                                                                                })
+                                                                
+                                                                # Create DataFrame from monthly data
+                                                                monthly_df = pd.DataFrame(monthly_data)
+                                                                
+                                                                # Create pivot table: Client Name as rows, Due Months as columns
+                                                                pivot_table = monthly_df.pivot_table(
+                                                                    index='clientname',
+                                                                    columns='due_month',
+                                                                    values='amount',
+                                                                    aggfunc='sum',
+                                                                    fill_value=0
+                                                                ).reset_index()
+                                                                
+                                                                # Sort months chronologically
+                                                                month_columns = [col for col in pivot_table.columns if col != 'clientname']
+                                                                month_columns_sorted = sorted(month_columns, key=lambda x: x)
+                                                                
+                                                                # Format month column names to "YYYY-MM" format
+                                                                month_columns_formatted = []
+                                                                for month in month_columns_sorted:
+                                                                    try:
+                                                                        # Convert YYYY-MM to "2025-01" format
+                                                                        formatted = f"{month}"
+                                                                        month_columns_formatted.append(formatted)
+                                                                    except:
+                                                                        month_columns_formatted.append(month)
+                                                                
+                                                                pivot_table = pivot_table[['clientname'] + month_columns_sorted]
+                                                                
+                                                                # Rename columns to formatted month names
+                                                                column_mapping = {old: new for old, new in zip(month_columns_sorted, month_columns_formatted)}
+                                                                pivot_table = pivot_table.rename(columns=column_mapping)
+                                                                
+                                                                # Add total column for each client
+                                                                pivot_table['Total Pending'] = pivot_table[month_columns_formatted].sum(axis=1)
+                                                                
+                                                                # Sort by client name
+                                                                pivot_table = pivot_table.sort_values('clientname')
+                                                                
+                                                                # Add TOTAL ROW at the bottom
+                                                                total_row = {'clientname': 'TOTAL'}
+                                                                for col in month_columns_formatted:
+                                                                    total_row[col] = pivot_table[col].sum()
+                                                                total_row['Total Pending'] = pivot_table['Total Pending'].sum()
+                                                                
+                                                                # Append total row
+                                                                cross_tab_data = pd.concat([pivot_table, pd.DataFrame([total_row])], ignore_index=True)
+                                                                
+                                                                # Prepare cross-tab data for PDF template
+                                                                cross_tab_rows = []
+                                                                for _, row in cross_tab_data.iterrows():
+                                                                    row_data = {}
+                                                                    columns = ['clientname'] + month_columns_formatted + ['Total Pending']
+                                                                    for col in columns:
+                                                                        value = row[col] if col in row else ''
+                                                                        
+                                                                        # Format currency values
+                                                                        if col != 'clientname':
+                                                                            if isinstance(value, (int, float)):
+                                                                                if value == 0:
+                                                                                    row_data[col] = ""
+                                                                                else:
+                                                                                    row_data[col] = f"${value:,.2f}"
+                                                                            else:
+                                                                                row_data[col] = value
+                                                                        else:
+                                                                            row_data[col] = value
+                                                                    
+                                                                    # Mark TOTAL row
+                                                                    if row['clientname'] == 'TOTAL':
+                                                                        row_data['is_total'] = True
+                                                                    else:
+                                                                        row_data['is_total'] = False
+                                                                    
+                                                                    cross_tab_rows.append(row_data)
+                                                                
+                                                                # Prepare final PDF data
                                                                 pdf_data = {
                                                                     'report_date': today_str,
                                                                     'generated_on': datetime.now().strftime('%d %B %Y %H:%M:%S'),
-                                                                    'projects': projects_data,
+                                                                    'company_name': 'ConnectLink Properties',  # Replace with actual
+                                                                    'company_logo': '',  # Add logo if available
+                                                                    'report_title': 'INSTALLMENT PAYMENTS SCHEDULE',
                                                                     'summary': summary_data,
-                                                                    'company_name': 'Your Company Name',  # Replace with actual company name
-                                                                    'company_logo': '',  # Add logo URL or path if available
-                                                                    'report_title': 'INSTALLMENT PAYMENTS SCHEDULE'
+                                                                    'projects': projects_data,
+                                                                    'cross_tab_columns': ['Client Name'] + month_columns_formatted + ['Total Pending'],
+                                                                    'cross_tab_rows': cross_tab_rows,
+                                                                    'total_clients': len(pivot_table) - 1  # Excluding TOTAL row
                                                                 }
                                                                 
                                                                 # Generate PDF
-                                                                def generate_installments_pdf():
-                                                                    """Generate PDF from template"""
+                                                                def generate_complete_pdf():
+                                                                    """Generate PDF with both executive summary AND cross-tab table"""
                                                                     html_template = """
                                                                     <!DOCTYPE html>
                                                                     <html>
@@ -862,7 +971,7 @@ def webhook():
                                                                         <style>
                                                                             @page {
                                                                                 size: A4;
-                                                                                margin: 2cm;
+                                                                                margin: 1.5cm;
                                                                                 @top-center {
                                                                                     content: "INSTALLMENT PAYMENTS SCHEDULE";
                                                                                     font-size: 16px;
@@ -886,7 +995,7 @@ def webhook():
                                                                             
                                                                             .header {
                                                                                 text-align: center;
-                                                                                margin-bottom: 30px;
+                                                                                margin-bottom: 25px;
                                                                                 padding-bottom: 20px;
                                                                                 border-bottom: 3px solid #3498db;
                                                                             }
@@ -971,6 +1080,7 @@ def webhook():
                                                                                 padding: 15px;
                                                                                 border-radius: 6px 6px 0 0;
                                                                                 margin-bottom: 0;
+                                                                                font-size: 16px;
                                                                             }
                                                                             
                                                                             .project-details {
@@ -1063,46 +1173,80 @@ def webhook():
                                                                                 font-weight: bold;
                                                                             }
                                                                             
-                                                                            .monthly-summary {
-                                                                                margin-top: 30px;
+                                                                            /* Cross-tab table styles */
+                                                                            .crosstab-section {
+                                                                                margin-top: 50px;
                                                                                 page-break-before: always;
                                                                             }
                                                                             
-                                                                            .monthly-table {
+                                                                            .crosstab-table {
                                                                                 width: 100%;
                                                                                 border-collapse: collapse;
-                                                                                margin-top: 15px;
+                                                                                margin-top: 20px;
+                                                                                font-size: 10px;
                                                                             }
                                                                             
-                                                                            .monthly-table th {
-                                                                                background: #34495e;
+                                                                            .crosstab-table th {
+                                                                                background: #2c3e50;
                                                                                 color: white;
-                                                                                padding: 12px;
-                                                                                text-align: left;
-                                                                            }
-                                                                            
-                                                                            .monthly-table td {
-                                                                                padding: 12px;
-                                                                                border-bottom: 1px solid #dee2e6;
-                                                                            }
-                                                                            
-                                                                            .footer {
-                                                                                margin-top: 50px;
-                                                                                padding-top: 20px;
-                                                                                border-top: 2px solid #ecf0f1;
+                                                                                padding: 8px 6px;
                                                                                 text-align: center;
-                                                                                font-size: 11px;
-                                                                                color: #7f8c8d;
+                                                                                font-weight: 600;
+                                                                                text-transform: uppercase;
+                                                                                border: 1px solid #34495e;
+                                                                                vertical-align: middle;
+                                                                                font-size: 9px;
+                                                                            }
+                                                                            
+                                                                            .crosstab-table td {
+                                                                                padding: 6px;
+                                                                                border: 1px solid #dee2e6;
+                                                                                text-align: right;
+                                                                                vertical-align: middle;
+                                                                                font-size: 9.5px;
+                                                                            }
+                                                                            
+                                                                            .crosstab-table td:first-child {
+                                                                                text-align: left;
+                                                                                font-weight: 500;
+                                                                                background: #f8f9fa;
+                                                                                position: sticky;
+                                                                                left: 0;
+                                                                                z-index: 10;
+                                                                                width: 150px;
+                                                                            }
+                                                                            
+                                                                            .crosstab-table tr:nth-child(even):not(.total-row) {
+                                                                                background: #f8f9fa;
+                                                                            }
+                                                                            
+                                                                            .crosstab-table tr:hover:not(.total-row) {
+                                                                                background: #e8f4f8;
                                                                             }
                                                                             
                                                                             .total-row {
                                                                                 background: #2c3e50 !important;
                                                                                 color: white;
                                                                                 font-weight: bold;
+                                                                                font-size: 11px;
+                                                                            }
+                                                                            
+                                                                            .total-row td {
+                                                                                border-top: 2px solid #1a252f;
+                                                                                border-bottom: 2px solid #1a252f;
                                                                             }
                                                                             
                                                                             .currency {
                                                                                 font-family: 'Courier New', monospace;
+                                                                            }
+                                                                            
+                                                                            .footer {
+                                                                                margin-top: 40px;
+                                                                                padding-top: 15px;
+                                                                                border-top: 2px solid #ecf0f1;
+                                                                                text-align: center;
+                                                                                font-size: 11px;
+                                                                                color: #7f8c8d;
                                                                             }
                                                                             
                                                                             .note {
@@ -1117,11 +1261,35 @@ def webhook():
                                                                                 border-bottom: 2px solid #3498db;
                                                                                 padding-bottom: 8px;
                                                                                 margin-top: 40px;
+                                                                                font-size: 18px;
                                                                             }
                                                                             
                                                                             h3 {
                                                                                 color: #34495e;
                                                                                 margin: 25px 0 15px 0;
+                                                                                font-size: 16px;
+                                                                            }
+                                                                            
+                                                                            .section-title {
+                                                                                color: #2c3e50;
+                                                                                background: #f8f9fa;
+                                                                                padding: 12px 15px;
+                                                                                border-left: 4px solid #3498db;
+                                                                                margin: 30px 0 20px 0;
+                                                                                font-size: 16px;
+                                                                                font-weight: 600;
+                                                                            }
+                                                                            
+                                                                            /* Zero value styling */
+                                                                            .zero-value {
+                                                                                color: #bdc3c7;
+                                                                            }
+                                                                            
+                                                                            .crosstab-container {
+                                                                                overflow-x: auto;
+                                                                                margin-top: 15px;
+                                                                                border: 1px solid #dee2e6;
+                                                                                border-radius: 6px;
                                                                             }
                                                                         </style>
                                                                     </head>
@@ -1151,139 +1319,67 @@ def webhook():
                                                                                     <div class="summary-label">Future Amount</div>
                                                                                     <div class="summary-value green">${{ "%.2f"|format(summary.total_future) }}</div>
                                                                                 </div>
+                                                                                <div class="summary-item">
+                                                                                    <div class="summary-label">Total Clients</div>
+                                                                                    <div class="summary-value blue">{{ total_clients }}</div>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                         
-                                                                        <h2>PROJECT DETAILS</h2>
-                                                                        
-                                                                        {% for project in projects %}
-                                                                        <div class="project-section">
-                                                                            <div class="project-header">
-                                                                                <strong>{{ project.client_name }}</strong> - {{ project.project_name }}
-                                                                                <span style="float: right;">MOM ID: {{ project.mom_id }}</span>
-                                                                            </div>
+                                                                        <div class="crosstab-section">
+                                                                            <div class="section-title">CROSS-TAB SUMMARY BY MONTH</div>
+                                                                            <p class="note">All amounts in USD. Blank cells indicate no payment due for that month.</p>
                                                                             
-                                                                            <div class="project-details">
-                                                                                <div class="project-grid">
-                                                                                    <div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Administrator</div>
-                                                                                            <div class="field-value">{{ project.administrator }}</div>
-                                                                                        </div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Start Date</div>
-                                                                                            <div class="field-value">{{ project.start_date }}</div>
-                                                                                        </div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Client Phone</div>
-                                                                                            <div class="field-value">{{ project.client_phone }}</div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Total Contract</div>
-                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.total_contract) }}</div>
-                                                                                        </div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Deposit Paid</div>
-                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.deposit_paid) }}</div>
-                                                                                        </div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Months to Pay</div>
-                                                                                            <div class="field-value">{{ project.months_to_pay }}</div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Total Paid</div>
-                                                                                            <div class="field-value amount green">${{ "%.2f"|format(project.total_paid) }}</div>
-                                                                                        </div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Balance Due</div>
-                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.balance_due) }}</div>
-                                                                                        </div>
-                                                                                        <div class="project-field">
-                                                                                            <div class="field-label">Pending Amount</div>
-                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.total_pending) }}</div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                                
-                                                                                <h3>Installment Schedule</h3>
-                                                                                <table class="installments-table">
+                                                                            <div class="crosstab-container">
+                                                                                <table class="crosstab-table">
                                                                                     <thead>
                                                                                         <tr>
-                                                                                            <th>#</th>
-                                                                                            <th>Due Date</th>
-                                                                                            <th>Amount</th>
-                                                                                            <th>Status</th>
-                                                                                            <th>Month</th>
+                                                                                            {% for column in cross_tab_columns %}
+                                                                                            <th{% if column == 'Client Name' %} style="text-align: left; min-width: 150px;"{% endif %}>
+                                                                                                {{ column }}
+                                                                                            </th>
+                                                                                            {% endfor %}
                                                                                         </tr>
                                                                                     </thead>
                                                                                     <tbody>
-                                                                                        {% for installment in project.installments %}
-                                                                                        <tr>
-                                                                                            <td>{{ installment.number }}</td>
-                                                                                            <td>{{ installment.due_date }}</td>
-                                                                                            <td class="amount">${{ "%.2f"|format(installment.amount) }}</td>
-                                                                                            <td>
-                                                                                                <span class="status-badge status-{{ installment.status|lower }}">
-                                                                                                    {{ installment.status }}
-                                                                                                </span>
+                                                                                        {% for row in cross_tab_rows %}
+                                                                                        <tr class="{% if row.is_total %}total-row{% endif %}">
+                                                                                            {% for column in cross_tab_columns %}
+                                                                                            <td class="{% if column != 'Client Name' %}currency{% endif %} {% if row[column] == '' %}zero-value{% endif %}">
+                                                                                                {{ row[column] }}
                                                                                             </td>
-                                                                                            <td>{{ installment.due_month }}</td>
+                                                                                            {% endfor %}
                                                                                         </tr>
                                                                                         {% endfor %}
                                                                                     </tbody>
                                                                                 </table>
-                                                                                
-                                                                                <div class="project-grid" style="margin-top: 20px;">
-                                                                                    <div class="summary-item">
-                                                                                        <div class="summary-label">Overdue Amount</div>
-                                                                                        <div class="summary-value red">${{ "%.2f"|format(project.overdue_amount) }}</div>
-                                                                                    </div>
-                                                                                    <div class="summary-item">
-                                                                                        <div class="summary-label">Future Amount</div>
-                                                                                        <div class="summary-value green">${{ "%.2f"|format(project.future_amount) }}</div>
+                                                                            </div>
+                                                                            
+                                                                            <div class="summary-grid" style="margin-top: 30px;">
+                                                                                <div class="summary-item">
+                                                                                    <div class="summary-label">Monthly Summary</div>
+                                                                                    <div class="summary-value" style="font-size: 16px; margin-top: 10px;">
+                                                                                        {% for month in summary.monthly_totals_sorted %}
+                                                                                        <div style="margin-bottom: 5px;">
+                                                                                            {{ month.month_name }}: 
+                                                                                            <span style="float: right;">
+                                                                                                ${{ "%.2f"|format(month.total) }}
+                                                                                                {% if month.overdue > 0 %}
+                                                                                                <span style="color: #e74c3c; font-size: 12px; margin-left: 5px;">
+                                                                                                    (Overdue: ${{ "%.2f"|format(month.overdue) }})
+                                                                                                </span>
+                                                                                                {% endif %}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        {% endfor %}
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
-                                                                        {% endfor %}
-                                                                        
-                                                                        <div class="monthly-summary">
-                                                                            <h2>MONTHLY SUMMARY</h2>
-                                                                            <table class="monthly-table">
-                                                                                <thead>
-                                                                                    <tr>
-                                                                                        <th>Month</th>
-                                                                                        <th>Total Pending</th>
-                                                                                        <th>Overdue Amount</th>
-                                                                                        <th>Future Amount</th>
-                                                                                    </tr>
-                                                                                </thead>
-                                                                                <tbody>
-                                                                                    {% for month in summary.monthly_totals_sorted %}
-                                                                                    <tr>
-                                                                                        <td>{{ month.month_name }}</td>
-                                                                                        <td class="currency">${{ "%.2f"|format(month.total) }}</td>
-                                                                                        <td class="currency red">${{ "%.2f"|format(month.overdue) }}</td>
-                                                                                        <td class="currency green">${{ "%.2f"|format(month.future) }}</td>
-                                                                                    </tr>
-                                                                                    {% endfor %}
-                                                                                    <tr class="total-row">
-                                                                                        <td><strong>GRAND TOTAL</strong></td>
-                                                                                        <td><strong>${{ "%.2f"|format(summary.total_pending) }}</strong></td>
-                                                                                        <td><strong>${{ "%.2f"|format(summary.total_overdue) }}</strong></td>
-                                                                                        <td><strong>${{ "%.2f"|format(summary.total_future) }}</strong></td>
-                                                                                    </tr>
-                                                                                </tbody>
-                                                                            </table>
-                                                                        </div>
                                                                         
                                                                         <div class="footer">
                                                                             <p>Generated by ConnectLink System • {{ report_date }}</p>
-                                                                            <p class="note">This is an automated report. For any discrepancies, please contact the system administrator.</p>
+                                                                            <p class="note">This report shows detailed project information and a cross-tab summary of pending installment payments.</p>
                                                                         </div>
                                                                     </body>
                                                                     </html>
@@ -1301,7 +1397,7 @@ def webhook():
                                                                 def upload_pdf_to_whatsapp(pdf_bytes, phone_number):
                                                                     """Upload PDF to WhatsApp Cloud API"""
                                                                     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                                                                    filename = f'installment_schedule_{timestamp}.pdf'
+                                                                    filename = f'complete_installment_schedule_{timestamp}.pdf'
                                                                     
                                                                     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
                                                                     headers = {
@@ -1320,12 +1416,15 @@ def webhook():
                                                                 
                                                                 def send_whatsapp_pdf_by_media_id(recipient_number, media_id):
                                                                     """Send PDF via WhatsApp using media ID"""
-                                                                    filename = 'Installment_Payment_Schedule.pdf'
+                                                                    filename = 'Complete_Installment_Schedule.pdf'
                                                                     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
                                                                     headers = {
                                                                         "Authorization": f"Bearer {ACCESS_TOKEN}",
                                                                         "Content-Type": "application/json"
                                                                     }
+                                                                    
+                                                                    # Format month list for WhatsApp message
+                                                                    month_list = ', '.join(month_columns_formatted[:5]) + ('...' if len(month_columns_formatted) > 5 else '')
                                                                     
                                                                     # First send a text message
                                                                     text_payload = {
@@ -1333,13 +1432,21 @@ def webhook():
                                                                         "to": recipient_number,
                                                                         "type": "text",
                                                                         "text": {
-                                                                            "body": f"📊 *INSTALLMENT PAYMENTS SCHEDULE*\n\n"
-                                                                                f"Date: {today_str}\n"
-                                                                                f"Total Projects: {summary_data['total_projects']}\n"
-                                                                                f"Total Pending: ${summary_data['total_pending']:,.2f}\n"
-                                                                                f"Overdue Amount: ${summary_data['total_overdue']:,.2f}\n\n"
-                                                                                f"Please find the detailed schedule attached.\n"
-                                                                                f"Generated by ConnectLink System"
+                                                                            "body": f"📊 *COMPLETE INSTALLMENT PAYMENTS SCHEDULE*\n\n"
+                                                                                f"📅 Report Date: {today_str}\n"
+                                                                                f"🏗️ Total Projects: {summary_data['total_projects']}\n"
+                                                                                f"👥 Total Clients: {pdf_data['total_clients']}\n"
+                                                                                f"💰 Total Pending: ${summary_data['total_pending']:,.2f}\n"
+                                                                                f"🔴 Overdue Amount: ${summary_data['total_overdue']:,.2f}\n"
+                                                                                f"🟢 Future Amount: ${summary_data['total_future']:,.2f}\n"
+                                                                                f"📈 Months Covered: {len(month_columns_formatted)} ({month_list})\n\n"
+                                                                                f"📑 *REPORT INCLUDES:*\n"
+                                                                                f"1. Executive Summary\n"
+                                                                                f"2. Detailed Project Breakdowns\n"
+                                                                                f"3. Cross-Tab Monthly Summary\n"
+                                                                                f"4. Overdue/Future Analysis\n\n"
+                                                                                f"Please find the complete schedule attached.\n"
+                                                                                f"_Generated by ConnectLink System_"
                                                                         }
                                                                     }
                                                                     
@@ -1355,7 +1462,10 @@ def webhook():
                                                                         "document": {
                                                                             "id": media_id,
                                                                             "filename": filename,
-                                                                            "caption": f"Installment Payment Schedule - {today_str}"
+                                                                            "caption": f"Complete Installment Schedule - {today_str}\n"
+                                                                                    f"Projects: {summary_data['total_projects']} | "
+                                                                                    f"Pending: ${summary_data['total_pending']:,.2f} | "
+                                                                                    f"Overdue: ${summary_data['total_overdue']:,.2f}"
                                                                         }
                                                                     }
                                                                     
@@ -1364,24 +1474,25 @@ def webhook():
                                                                     return response.json()
                                                                 
                                                                 # Generate PDF
-                                                                pdf_bytes = generate_installments_pdf()
+                                                                pdf_bytes = generate_complete_pdf()
                                                                 
-                                                                # Get administrator phone numbers (you need to implement this based on your data)
-                                                                # For demo, let's send to a hardcoded number or get from request
-                                                                
+                                                                # Get recipient phone number (you need to implement this based on your needs)
+                                                                # For example, you might want to send to an administrator or get from request                                                                
                                                                 # Upload and send via WhatsApp
                                                                 media_id = upload_pdf_to_whatsapp(pdf_bytes, sender_id)
                                                                 whatsapp_response = send_whatsapp_pdf_by_media_id(sender_id, media_id)
                                                                 
                                                                 return jsonify({
                                                                     'status': 'success',
-                                                                    'message': 'Installment schedule PDF generated and sent successfully',
+                                                                    'message': 'Complete installment schedule PDF generated and sent successfully',
                                                                     'whatsapp_response': whatsapp_response,
                                                                     'summary': {
                                                                         'total_projects': summary_data['total_projects'],
+                                                                        'total_clients': pdf_data['total_clients'],
                                                                         'total_pending': f"${summary_data['total_pending']:,.2f}",
                                                                         'total_overdue': f"${summary_data['total_overdue']:,.2f}",
-                                                                        'total_future': f"${summary_data['total_future']:,.2f}"
+                                                                        'total_future': f"${summary_data['total_future']:,.2f}",
+                                                                        'months_covered': month_columns_formatted
                                                                     }
                                                                 })
                                                                 
@@ -1389,7 +1500,6 @@ def webhook():
                                                                 print(f"Error generating PDF: {str(e)}")
                                                                 traceback.print_exc()
                                                                 return jsonify({'status': 'error', 'message': f'Failed to generate schedule: {str(e)}'}), 500
-
 
                                 
 
