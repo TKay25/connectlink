@@ -1942,17 +1942,17 @@
                     </button>
 
                     <button class="btn btn-primary mt-1"
-                            id="installmentsdueBtn"
+                            id="installmentscheduleBtn"
                             style="width: max-content;"
-                            onclick="downloadinstallmentsdue()">
-                        <i class="bi bi-download"></i> Installments Schedule
+                            onclick="downloadinstallmentschedule()">
+                        <i class="bi bi-download"></i> Download Installments Schedule
                     </button>
 
                     <button class="btn btn-primary mt-1"
                             id="installmentsdueBtn"
                             style="width: max-content;"
                             onclick="downloadinstallmentsdue()">
-                        <i class="bi bi-download"></i> Installments Overdue
+                        <i class="bi bi-download"></i> Download Installments Overdue
                     </button>
 
                     <button class="btn btn-primary mt-1"
@@ -2772,6 +2772,38 @@ function downloadPortfolio() {
     setTimeout(() => {
         btn.disabled = false;
         btn.innerHTML = `<i class="bi bi-journal-text"></i> Download Master File`;
+    }, 2500); // 2.5 seconds works well
+}
+
+
+function downloadinstallmentschedule() {
+
+    const btn = document.getElementById("installmentscheduleBtn");
+
+    // Show spinner
+    btn.disabled = true;
+    btn.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        Downloading...
+    `;
+
+    // Create hidden link for download
+    const link = document.createElement("a");
+    link.href = "/export-installments-schedule";
+    link.download = "";
+    link.style.display = "none";
+    document.body.appendChild(link);
+
+    // Click the link to start download
+    link.click();
+
+    // Remove link
+    document.body.removeChild(link);
+
+    // Reset button after short delay
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="bi bi-journal-text"></i> Download Installlments Schedule`;
     }, 2500); // 2.5 seconds works well
 }
 </script>
