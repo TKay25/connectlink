@@ -1820,10 +1820,7 @@ def download_contract(project_id):
                         <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
                     </ol>
                     
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 4 -->
+
                     <div class="section-header">OWNERSHIP CLAUSE</div>
                     <div class="terms-box">
                         <ul style="list-style-type: circle;">
@@ -1841,19 +1838,20 @@ def download_contract(project_id):
                             <li>All additions or variations to the approved design will be treated as change orders and will incur additional costs, billed separately or added to the original quotation.</li>
                         </ul>
                     </div>
-                    
+
                     <div class="section-header">POWER PROVISION</div>
                     <div class="terms-box">
-                        <p>In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
+                        <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
                     </div>
                     
                     <!-- Page break -->
                     <div class="page-break"></div>
                     
-                    <!-- Page 5 -->
+                    <!-- Page 4 -->
+
                     <div class="section-header">TERMINATION</div>
                     <div class="terms-box">
-                        <p>This Agreement may be terminated by either party if the other party:</p>
+                        <p style="font-size:11px;">This Agreement may be terminated by either party if the other party:</p>
                         <ol>
                             <li>Fails to perform any material obligation under this Agreement and such failure continues for 30 days after written notice.</li>
                             <li>Becomes insolvent, bankrupt, or enters into receivership.</li>
@@ -1863,22 +1861,19 @@ def download_contract(project_id):
                     
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
-                        <p>Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
+                        <p style="font-size:11px;">Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
                     </div>
                     
                     <div class="section-header">GOVERNING LAW</div>
                     <div class="terms-box">
-                        <p>This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
+                        <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
                     </div>
                     
                     <div class="section-header">ENTIRE AGREEMENT</div>
                     <div class="terms-box">
-                        <p>This document constitutes the entire agreement between the parties and supersedes all prior discussions, negotiations, and agreements. No modification shall be valid unless in writing and signed by both parties.</p>
+                        <p style="font-size:11px;">This document constitutes the entire agreement between the parties and supersedes all prior discussions, negotiations, and agreements. No modification shall be valid unless in writing and signed by both parties.</p>
                     </div>
                     
-                    <div class="footer-note">
-                        This is a legally binding document. Please read carefully before signing.
-                    </div>
                 </div>
                 
                 <!-- Signature Area (will appear at bottom of each page) -->
@@ -1894,6 +1889,9 @@ def download_contract(project_id):
                             <span class="signature-label">CONTRACTOR SIGNATURE</span>
                             <div class="signature-space"></div>
                             <div class="signature-date">Date: {project['agreement_date']}</div>
+                        </div>
+                        <div class="footer-note" style="margin-top: 5px;">
+                            This is a legally binding document. Please read carefully before signing.
                         </div>
                     </div>
                     
