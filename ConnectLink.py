@@ -30,6 +30,7 @@ import requests
 from openpyxl import Workbook
 from weasyprint import HTML
 import re
+import traceback
 from collections import Counter
 #from paynow import Paynow
 import time
@@ -2129,6 +2130,217 @@ def get_filtered_projects(month_filter):
             import traceback
             traceback.print_exc()
             return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/export-installments-schedule-excel', methods=['GET'])
+def export_installments_schedule_excel():
+    """Export installments schedule as Excel - PostgreSQL version"""
+    try:
+        with get_db() as (cursor, connection):
+            # Query for installment projects with pending payments
+            query = """
+            SELECT 
+                id,
+                clientname,
+                projectname,
+                projectstartdate,
+                projectadministratorname,
+                totalcontractamount,
+                depositorbullet,
+                clientwanumber,
+                momid,
+                monthstopay,
+                installment1amount, installment1duedate, installment1date,
+                installment2amount, installment2duedate, installment2date,
+                installment3amount, installment3duedate, installment3date,
+                installment4amount, installment4duedate, installment4date,
+                installment5amount, installment5duedate, installment5date,
+                installment6amount, installment6duedate, installment6date
+            FROM connectlinkdatabase 
+            WHERE paymentmethod = 'Installments'
+            AND (
+                (installment1amount > 0 AND installment1date IS NULL) OR
+                (installment2amount > 0 AND installment2date IS NULL) OR
+                (installment3amount > 0 AND installment3date IS NULL) OR
+                (installment4amount > 0 AND installment4date IS NULL) OR
+                (installment5amount > 0 AND installment5date IS NULL) OR
+                (installment6amount > 0 AND installment6date IS NULL)
+            )
+            ORDER BY 
+                DATE_TRUNC('month', projectstartdate) DESC,
+                projectstartdate ASC,
+                momid ASC;
+            """
+            
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            
+            if not rows:
+                return jsonify({'status': 'error', 'message': 'No pending installments found'}), 404
+            
+            # Get column names
+            colnames = [desc[0] for desc in cursor.description]
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(rows, columns=colnames)
+        
+        # Process data
+        data = []
+        for _, row in df.iterrows():
+            # Format dates
+            project_start = row.get('projectstartdate')
+            month_year = project_start.strftime('%Y-%m') if pd.notna(project_start) else 'No Date'
+            
+            project_data = {
+                'Month-Year': month_year,
+                'MOM ID': int(row.get('momid', 0)) if pd.notna(row.get('momid')) else 0,
+                'Client Name': str(row.get('clientname', '')),
+                'Project Name': str(row.get('projectname', '')),
+                'Client Phone': str(row.get('clientwanumber', '')),
+                'Administrator': str(row.get('projectadministratorname', '')),
+                'Total Contract': float(row.get('totalcontractamount', 0)) if pd.notna(row.get('totalcontractamount')) else 0.0,
+                'Deposit Paid': float(row.get('depositorbullet', 0)) if pd.notna(row.get('depositorbullet')) else 0.0,
+                'Months To Pay': int(row.get('monthstopay', 0)) if pd.notna(row.get('monthstopay')) else 0,
+                'Project Start': project_start.strftime('%d-%b-%Y') if pd.notna(project_start) else ''
+            }
+            
+            # Check installments 1-6
+            pending_installments = []
+            total_pending = 0.0
+            total_paid = 0.0
+            
+            for i in range(1, 7):
+                amount = row.get(f'installment{i}amount')
+                due_date = row.get(f'installment{i}duedate')
+                payment_date = row.get(f'installment{i}date')
+                
+                if amount and float(amount) > 0:
+                    if pd.isna(payment_date):  # Pending
+                        due_str = due_date.strftime('%d-%b-%Y') if pd.notna(due_date) else 'No Due Date'
+                        pending_installments.append({
+                            'number': i,
+                            'due_date': due_str,
+                            'amount': float(amount),
+                            'status': 'PENDING'
+                        })
+                        total_pending += float(amount)
+                    else:  # Paid
+                        pending_installments.append({
+                            'number': i,
+                            'due_date': 'PAID',
+                            'amount': float(amount),
+                            'status': 'PAID'
+                        })
+                        total_paid += float(amount)
+            
+            # Sort by installment number
+            pending_installments.sort(key=lambda x: x['number'])
+            
+            # Add installment columns (up to 6 installments)
+            for idx, inst in enumerate(pending_installments[:6], 1):
+                project_data[f'Inst {idx}'] = f"#{inst['number']}"
+                project_data[f'Due {idx}'] = inst['due_date']
+                project_data[f'Amount {idx}'] = inst['amount']
+                project_data[f'Status {idx}'] = inst['status']
+            
+            # Add totals
+            project_data['Total Pending'] = total_pending
+            project_data['Total Paid'] = total_paid
+            project_data['Balance Due'] = float(row.get('totalcontractamount', 0) or 0) - total_paid - float(row.get('depositorbullet', 0) or 0)
+            
+            data.append(project_data)
+        
+        # Create DataFrame
+        result_df = pd.DataFrame(data)
+        
+        # Create Excel file
+        output = io.BytesIO()
+        
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            if result_df.empty:
+                empty_df = pd.DataFrame({'Message': ['No pending installments found']})
+                empty_df.to_excel(writer, sheet_name='No Data', index=False)
+            else:
+                # Sort by Month-Year and MOM ID
+                result_df = result_df.sort_values(['Month-Year', 'MOM ID'])
+                
+                # Group by Month-Year into separate sheets
+                for month_year in sorted(result_df['Month-Year'].unique()):
+                    if month_year != 'No Date':
+                        month_df = result_df[result_df['Month-Year'] == month_year].copy()
+                        month_df = month_df.drop('Month-Year', axis=1)
+                        
+                        # Format currency columns
+                        currency_cols = ['Total Contract', 'Deposit Paid', 'Total Pending', 'Total Paid', 'Balance Due']
+                        for col in currency_cols:
+                            if col in month_df.columns:
+                                month_df[col] = month_df[col].apply(
+                                    lambda x: f"${x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else ""
+                                )
+                        
+                        # Format installment amounts
+                        for col in month_df.columns:
+                            if 'Amount' in col and col.startswith('Amount'):
+                                month_df[col] = month_df[col].apply(
+                                    lambda x: f"${x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else ""
+                                )
+                        
+                        # Write to sheet (max 31 chars for sheet name)
+                        sheet_name = str(month_year)[:31]
+                        month_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                
+                # Create Summary sheet
+                if not result_df.empty:
+                    # Convert currency columns back to numeric for calculations
+                    numeric_df = result_df.copy()
+                    for col in ['Total Contract', 'Deposit Paid', 'Total Pending', 'Total Paid', 'Balance Due']:
+                        if col in numeric_df.columns:
+                            # Remove $ and commas, convert to float
+                            numeric_df[col] = numeric_df[col].replace(r'[\$,]', '', regex=True).replace('', '0').astype(float)
+                    
+                    # Monthly summary
+                    monthly_summary = numeric_df.groupby('Month-Year').agg({
+                        'Client Name': 'count',
+                        'Total Contract': 'sum',
+                        'Deposit Paid': 'sum',
+                        'Total Pending': 'sum',
+                        'Total Paid': 'sum',
+                        'Balance Due': 'sum'
+                    }).reset_index()
+                    
+                    monthly_summary = monthly_summary.rename(columns={
+                        'Client Name': 'Projects',
+                        'Total Contract': 'Contract Value',
+                        'Deposit Paid': 'Deposit Collected',
+                        'Total Pending': 'Pending Amount',
+                        'Total Paid': 'Paid Amount',
+                        'Balance Due': 'Balance Due'
+                    })
+                    
+                    # Format currency in summary
+                    for col in ['Contract Value', 'Deposit Collected', 'Pending Amount', 'Paid Amount', 'Balance Due']:
+                        if col in monthly_summary.columns:
+                            monthly_summary[col] = monthly_summary[col].apply(lambda x: f"${x:,.2f}")
+                    
+                    monthly_summary.to_excel(writer, sheet_name='Monthly Summary', index=False)
+        
+        output.seek(0)
+        
+        # Create filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'installment_schedule_{timestamp}.xlsx'
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except Exception as e:
+        print(f"PostgreSQL Error: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': f'Failed to generate schedule: {str(e)}'}), 500
+
 
 
 def run1(userid):

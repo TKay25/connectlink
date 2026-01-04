@@ -2776,35 +2776,31 @@ function downloadPortfolio() {
 }
 
 
-function downloadinstallmentschedule() {
-
+function downloadInstallmentSchedule() {
     const btn = document.getElementById("installmentscheduleBtn");
-
-    // Show spinner
+    const originalHTML = btn.innerHTML;
+    
+    // Show loading
     btn.disabled = true;
     btn.innerHTML = `
         <span class="spinner-border spinner-border-sm me-2"></span>
-        Downloading...
+        Generating...
     `;
-
-    // Create hidden link for download
+    
+    // Use the simple version (easier to read)
     const link = document.createElement("a");
-    link.href = "/export-installments-schedule";
+    link.href = "/export_installments_schedule_excel";  // Use simple version
     link.download = "";
     link.style.display = "none";
     document.body.appendChild(link);
-
-    // Click the link to start download
     link.click();
-
-    // Remove link
     document.body.removeChild(link);
-
-    // Reset button after short delay
+    
+    // Reset button
     setTimeout(() => {
         btn.disabled = false;
-        btn.innerHTML = `<i class="bi bi-journal-text"></i> Download Installlments Schedule`;
-    }, 2500); // 2.5 seconds works well
+        btn.innerHTML = originalHTML;
+    }, 3000);
 }
 </script>
 
