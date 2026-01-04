@@ -668,733 +668,732 @@ def webhook():
 
                                                         elif selected_option == "payments_schedule":
 
-                                                            def export_installments_schedule_pdf():
-                                                                """Export installments schedule as PDF and send via WhatsApp - PostgreSQL version"""
-                                                                try:
-                                                                    from datetime import date
-                                                                    import io
-                                                                    from weasyprint import HTML
-                                                                    import requests
-                                                                    import pandas as pd
+                                                            """Export installments schedule as PDF and send via WhatsApp - PostgreSQL version"""
+                                                            try:
+                                                                from datetime import date
+                                                                import io
+                                                                from weasyprint import HTML
+                                                                import requests
+                                                                import pandas as pd
+                                                                
+                                                                # Get today's date for filtering
+                                                                today = date.today()
+                                                                today_str = today.strftime('%d %B %Y')
+                                                                
+                                                                with get_db() as (cursor, connection):
+                                                                    # Query for installment projects with pending payments
+                                                                    query = """
+                                                                    SELECT 
+                                                                        id,
+                                                                        clientname,
+                                                                        projectname,            
+                                                                        projectstartdate,
+                                                                        projectadministratorname,
+                                                                        totalcontractamount,
+                                                                        depositorbullet,
+                                                                        clientwanumber,
+                                                                        momid,
+                                                                        monthstopay,
+                                                                        installment1amount, installment1duedate, installment1date,
+                                                                        installment2amount, installment2duedate, installment2date,
+                                                                        installment3amount, installment3duedate, installment3date,
+                                                                        installment4amount, installment4duedate, installment4date,
+                                                                        installment5amount, installment5duedate, installment5date,
+                                                                        installment6amount, installment6duedate, installment6date
+                                                                    FROM connectlinkdatabase 
+                                                                    WHERE paymentmethod = 'Installments'
+                                                                    AND (
+                                                                        (installment1amount > 0 AND installment1date IS NULL) OR
+                                                                        (installment2amount > 0 AND installment2date IS NULL) OR
+                                                                        (installment3amount > 0 AND installment3date IS NULL) OR
+                                                                        (installment4amount > 0 AND installment4date IS NULL) OR
+                                                                        (installment5amount > 0 AND installment5date IS NULL) OR
+                                                                        (installment6amount > 0 AND installment6date IS NULL)
+                                                                    )
+                                                                    ORDER BY 
+                                                                        DATE_TRUNC('month', projectstartdate) DESC,
+                                                                        projectstartdate ASC,
+                                                                        momid ASC;
+                                                                    """
                                                                     
-                                                                    # Get today's date for filtering
-                                                                    today = date.today()
-                                                                    today_str = today.strftime('%d %B %Y')
+                                                                    cursor.execute(query)
+                                                                    rows = cursor.fetchall()
                                                                     
-                                                                    with get_db() as (cursor, connection):
-                                                                        # Query for installment projects with pending payments
-                                                                        query = """
-                                                                        SELECT 
-                                                                            id,
-                                                                            clientname,
-                                                                            projectname,            
-                                                                            projectstartdate,
-                                                                            projectadministratorname,
-                                                                            totalcontractamount,
-                                                                            depositorbullet,
-                                                                            clientwanumber,
-                                                                            momid,
-                                                                            monthstopay,
-                                                                            installment1amount, installment1duedate, installment1date,
-                                                                            installment2amount, installment2duedate, installment2date,
-                                                                            installment3amount, installment3duedate, installment3date,
-                                                                            installment4amount, installment4duedate, installment4date,
-                                                                            installment5amount, installment5duedate, installment5date,
-                                                                            installment6amount, installment6duedate, installment6date
-                                                                        FROM connectlinkdatabase 
-                                                                        WHERE paymentmethod = 'Installments'
-                                                                        AND (
-                                                                            (installment1amount > 0 AND installment1date IS NULL) OR
-                                                                            (installment2amount > 0 AND installment2date IS NULL) OR
-                                                                            (installment3amount > 0 AND installment3date IS NULL) OR
-                                                                            (installment4amount > 0 AND installment4date IS NULL) OR
-                                                                            (installment5amount > 0 AND installment5date IS NULL) OR
-                                                                            (installment6amount > 0 AND installment6date IS NULL)
-                                                                        )
-                                                                        ORDER BY 
-                                                                            DATE_TRUNC('month', projectstartdate) DESC,
-                                                                            projectstartdate ASC,
-                                                                            momid ASC;
-                                                                        """
-                                                                        
-                                                                        cursor.execute(query)
-                                                                        rows = cursor.fetchall()
-                                                                        
-                                                                        if not rows:
-                                                                            return jsonify({'status': 'error', 'message': 'No pending installments found'}), 404
-                                                                        
-                                                                        # Get column names
-                                                                        colnames = [desc[0] for desc in cursor.description]
-                                                                        
-                                                                    # Convert to DataFrame
-                                                                    df = pd.DataFrame(rows, columns=colnames)
+                                                                    if not rows:
+                                                                        return jsonify({'status': 'error', 'message': 'No pending installments found'}), 404
                                                                     
-                                                                    # Process data for PDF
-                                                                    projects_data = []
-                                                                    summary_data = {
-                                                                        'total_projects': 0,
-                                                                        'total_pending': 0.0,
-                                                                        'total_overdue': 0.0,
-                                                                        'total_future': 0.0,
-                                                                        'monthly_totals': {}
-                                                                    }
+                                                                    # Get column names
+                                                                    colnames = [desc[0] for desc in cursor.description]
                                                                     
-                                                                    for _, row in df.iterrows():
-                                                                        project_start = row.get('projectstartdate')
-                                                                        start_date_str = project_start.strftime('%d %b %Y') if pd.notna(project_start) else 'Not Started'
+                                                                # Convert to DataFrame
+                                                                df = pd.DataFrame(rows, columns=colnames)
+                                                                
+                                                                # Process data for PDF
+                                                                projects_data = []
+                                                                summary_data = {
+                                                                    'total_projects': 0,
+                                                                    'total_pending': 0.0,
+                                                                    'total_overdue': 0.0,
+                                                                    'total_future': 0.0,
+                                                                    'monthly_totals': {}
+                                                                }
+                                                                
+                                                                for _, row in df.iterrows():
+                                                                    project_start = row.get('projectstartdate')
+                                                                    start_date_str = project_start.strftime('%d %b %Y') if pd.notna(project_start) else 'Not Started'
+                                                                    
+                                                                    # Calculate installment details
+                                                                    installments = []
+                                                                    total_pending = 0.0
+                                                                    total_paid = 0.0
+                                                                    overdue_amount = 0.0
+                                                                    future_amount = 0.0
+                                                                    
+                                                                    for i in range(1, 7):
+                                                                        amount = row.get(f'installment{i}amount')
+                                                                        due_date = row.get(f'installment{i}duedate')
+                                                                        payment_date = row.get(f'installment{i}date')
                                                                         
-                                                                        # Calculate installment details
-                                                                        installments = []
-                                                                        total_pending = 0.0
-                                                                        total_paid = 0.0
-                                                                        overdue_amount = 0.0
-                                                                        future_amount = 0.0
-                                                                        
-                                                                        for i in range(1, 7):
-                                                                            amount = row.get(f'installment{i}amount')
-                                                                            due_date = row.get(f'installment{i}duedate')
-                                                                            payment_date = row.get(f'installment{i}date')
-                                                                            
-                                                                            if amount and float(amount) > 0:
-                                                                                if pd.isna(payment_date):  # Pending
-                                                                                    due_str = due_date.strftime('%d %b %Y') if pd.notna(due_date) else 'No Due Date'
-                                                                                    due_month = due_date.strftime('%B %Y') if pd.notna(due_date) else 'No Month'
+                                                                        if amount and float(amount) > 0:
+                                                                            if pd.isna(payment_date):  # Pending
+                                                                                due_str = due_date.strftime('%d %b %Y') if pd.notna(due_date) else 'No Due Date'
+                                                                                due_month = due_date.strftime('%B %Y') if pd.notna(due_date) else 'No Month'
+                                                                                
+                                                                                # Check if overdue
+                                                                                is_overdue = False
+                                                                                if pd.notna(due_date):
+                                                                                    is_overdue = due_date < today
+                                                                                
+                                                                                status = 'OVERDUE' if is_overdue else 'PENDING'
+                                                                                status_color = 'red' if is_overdue else 'orange'
+                                                                                
+                                                                                installment_data = {
+                                                                                    'number': i,
+                                                                                    'due_date': due_str,
+                                                                                    'amount': float(amount),
+                                                                                    'status': status,
+                                                                                    'status_color': status_color,
+                                                                                    'due_month': due_month
+                                                                                }
+                                                                                
+                                                                                installments.append(installment_data)
+                                                                                total_pending += float(amount)
+                                                                                
+                                                                                if is_overdue:
+                                                                                    overdue_amount += float(amount)
+                                                                                else:
+                                                                                    future_amount += float(amount)
                                                                                     
-                                                                                    # Check if overdue
-                                                                                    is_overdue = False
-                                                                                    if pd.notna(due_date):
-                                                                                        is_overdue = due_date < today
+                                                                                # Add to monthly totals for summary
+                                                                                if pd.notna(due_date):
+                                                                                    month_key = due_date.strftime('%Y-%m')
+                                                                                    if month_key not in summary_data['monthly_totals']:
+                                                                                        summary_data['monthly_totals'][month_key] = {
+                                                                                            'month_name': due_date.strftime('%B %Y'),
+                                                                                            'total': 0.0,
+                                                                                            'overdue': 0.0,
+                                                                                            'future': 0.0
+                                                                                        }
                                                                                     
-                                                                                    status = 'OVERDUE' if is_overdue else 'PENDING'
-                                                                                    status_color = 'red' if is_overdue else 'orange'
-                                                                                    
-                                                                                    installment_data = {
-                                                                                        'number': i,
-                                                                                        'due_date': due_str,
-                                                                                        'amount': float(amount),
-                                                                                        'status': status,
-                                                                                        'status_color': status_color,
-                                                                                        'due_month': due_month
-                                                                                    }
-                                                                                    
-                                                                                    installments.append(installment_data)
-                                                                                    total_pending += float(amount)
-                                                                                    
+                                                                                    summary_data['monthly_totals'][month_key]['total'] += float(amount)
                                                                                     if is_overdue:
-                                                                                        overdue_amount += float(amount)
+                                                                                        summary_data['monthly_totals'][month_key]['overdue'] += float(amount)
                                                                                     else:
-                                                                                        future_amount += float(amount)
-                                                                                        
-                                                                                    # Add to monthly totals for summary
-                                                                                    if pd.notna(due_date):
-                                                                                        month_key = due_date.strftime('%Y-%m')
-                                                                                        if month_key not in summary_data['monthly_totals']:
-                                                                                            summary_data['monthly_totals'][month_key] = {
-                                                                                                'month_name': due_date.strftime('%B %Y'),
-                                                                                                'total': 0.0,
-                                                                                                'overdue': 0.0,
-                                                                                                'future': 0.0
-                                                                                            }
-                                                                                        
-                                                                                        summary_data['monthly_totals'][month_key]['total'] += float(amount)
-                                                                                        if is_overdue:
-                                                                                            summary_data['monthly_totals'][month_key]['overdue'] += float(amount)
-                                                                                        else:
-                                                                                            summary_data['monthly_totals'][month_key]['future'] += float(amount)
-                                                                                else:  # Paid
-                                                                                    installments.append({
-                                                                                        'number': i,
-                                                                                        'due_date': payment_date.strftime('%d %b %Y') if pd.notna(payment_date) else 'Paid',
-                                                                                        'amount': float(amount),
-                                                                                        'status': 'PAID',
-                                                                                        'status_color': 'green',
-                                                                                        'due_month': 'Completed'
-                                                                                    })
-                                                                                    total_paid += float(amount)
-                                                                        
-                                                                        # Sort installments by number
-                                                                        installments.sort(key=lambda x: x['number'])
-                                                                        
-                                                                        # Prepare project data for PDF
-                                                                        project_data = {
-                                                                            'client_name': str(row.get('clientname', '')),
-                                                                            'project_name': str(row.get('projectname', '')),
-                                                                            'mom_id': int(row.get('momid', 0)) if pd.notna(row.get('momid')) else 0,
-                                                                            'start_date': start_date_str,
-                                                                            'administrator': str(row.get('projectadministratorname', '')),
-                                                                            'total_contract': float(row.get('totalcontractamount', 0)) if pd.notna(row.get('totalcontractamount')) else 0.0,
-                                                                            'deposit_paid': float(row.get('depositorbullet', 0)) if pd.notna(row.get('depositorbullet')) else 0.0,
-                                                                            'client_phone': str(row.get('clientwanumber', '')),
-                                                                            'months_to_pay': int(row.get('monthstopay', 0)) if pd.notna(row.get('monthstopay')) else 0,
-                                                                            'installments': installments,
-                                                                            'total_pending': total_pending,
-                                                                            'total_paid': total_paid,
-                                                                            'overdue_amount': overdue_amount,
-                                                                            'future_amount': future_amount,
-                                                                            'balance_due': float(row.get('totalcontractamount', 0) or 0) - total_paid - float(row.get('depositorbullet', 0) or 0)
-                                                                        }
-                                                                        
-                                                                        projects_data.append(project_data)
-                                                                        
-                                                                        # Update summary totals
-                                                                        summary_data['total_projects'] += 1
-                                                                        summary_data['total_pending'] += total_pending
-                                                                        summary_data['total_overdue'] += overdue_amount
-                                                                        summary_data['total_future'] += future_amount
+                                                                                        summary_data['monthly_totals'][month_key]['future'] += float(amount)
+                                                                            else:  # Paid
+                                                                                installments.append({
+                                                                                    'number': i,
+                                                                                    'due_date': payment_date.strftime('%d %b %Y') if pd.notna(payment_date) else 'Paid',
+                                                                                    'amount': float(amount),
+                                                                                    'status': 'PAID',
+                                                                                    'status_color': 'green',
+                                                                                    'due_month': 'Completed'
+                                                                                })
+                                                                                total_paid += float(amount)
                                                                     
-                                                                    # Sort monthly totals chronologically
-                                                                    sorted_months = sorted(summary_data['monthly_totals'].items(), key=lambda x: x[0])
-                                                                    summary_data['monthly_totals_sorted'] = [value for _, value in sorted_months]
+                                                                    # Sort installments by number
+                                                                    installments.sort(key=lambda x: x['number'])
                                                                     
-                                                                    # Prepare PDF data
-                                                                    pdf_data = {
-                                                                        'report_date': today_str,
-                                                                        'generated_on': datetime.now().strftime('%d %B %Y %H:%M:%S'),
-                                                                        'projects': projects_data,
-                                                                        'summary': summary_data,
-                                                                        'company_name': 'Your Company Name',  # Replace with actual company name
-                                                                        'company_logo': '',  # Add logo URL or path if available
-                                                                        'report_title': 'INSTALLMENT PAYMENTS SCHEDULE'
+                                                                    # Prepare project data for PDF
+                                                                    project_data = {
+                                                                        'client_name': str(row.get('clientname', '')),
+                                                                        'project_name': str(row.get('projectname', '')),
+                                                                        'mom_id': int(row.get('momid', 0)) if pd.notna(row.get('momid')) else 0,
+                                                                        'start_date': start_date_str,
+                                                                        'administrator': str(row.get('projectadministratorname', '')),
+                                                                        'total_contract': float(row.get('totalcontractamount', 0)) if pd.notna(row.get('totalcontractamount')) else 0.0,
+                                                                        'deposit_paid': float(row.get('depositorbullet', 0)) if pd.notna(row.get('depositorbullet')) else 0.0,
+                                                                        'client_phone': str(row.get('clientwanumber', '')),
+                                                                        'months_to_pay': int(row.get('monthstopay', 0)) if pd.notna(row.get('monthstopay')) else 0,
+                                                                        'installments': installments,
+                                                                        'total_pending': total_pending,
+                                                                        'total_paid': total_paid,
+                                                                        'overdue_amount': overdue_amount,
+                                                                        'future_amount': future_amount,
+                                                                        'balance_due': float(row.get('totalcontractamount', 0) or 0) - total_paid - float(row.get('depositorbullet', 0) or 0)
                                                                     }
                                                                     
-                                                                    # Generate PDF
-                                                                    def generate_installments_pdf():
-                                                                        """Generate PDF from template"""
-                                                                        html_template = """
-                                                                        <!DOCTYPE html>
-                                                                        <html>
-                                                                        <head>
-                                                                            <meta charset="UTF-8">
-                                                                            <style>
-                                                                                @page {
-                                                                                    size: A4;
-                                                                                    margin: 2cm;
-                                                                                    @top-center {
-                                                                                        content: "INSTALLMENT PAYMENTS SCHEDULE";
-                                                                                        font-size: 16px;
-                                                                                        font-weight: bold;
-                                                                                        color: #2c3e50;
-                                                                                    }
-                                                                                    @bottom-center {
-                                                                                        content: "Page " counter(page) " of " counter(pages);
-                                                                                        font-size: 10px;
-                                                                                        color: #7f8c8d;
-                                                                                    }
-                                                                                }
-                                                                                
-                                                                                body {
-                                                                                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                                                                                    line-height: 1.6;
-                                                                                    color: #333;
-                                                                                    margin: 0;
-                                                                                    padding: 0;
-                                                                                }
-                                                                                
-                                                                                .header {
-                                                                                    text-align: center;
-                                                                                    margin-bottom: 30px;
-                                                                                    padding-bottom: 20px;
-                                                                                    border-bottom: 3px solid #3498db;
-                                                                                }
-                                                                                
-                                                                                .company-name {
-                                                                                    font-size: 24px;
-                                                                                    font-weight: bold;
-                                                                                    color: #2c3e50;
-                                                                                    margin-bottom: 5px;
-                                                                                }
-                                                                                
-                                                                                .report-title {
-                                                                                    font-size: 20px;
-                                                                                    color: #3498db;
-                                                                                    margin-bottom: 10px;
-                                                                                    text-transform: uppercase;
-                                                                                    letter-spacing: 2px;
-                                                                                }
-                                                                                
-                                                                                .report-date {
-                                                                                    font-size: 14px;
-                                                                                    color: #7f8c8d;
-                                                                                    margin-bottom: 20px;
-                                                                                }
-                                                                                
-                                                                                .summary-section {
-                                                                                    background: #f8f9fa;
-                                                                                    padding: 20px;
-                                                                                    border-radius: 8px;
-                                                                                    margin-bottom: 30px;
-                                                                                    border-left: 4px solid #3498db;
-                                                                                }
-                                                                                
-                                                                                .summary-grid {
-                                                                                    display: grid;
-                                                                                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                                                                                    gap: 15px;
-                                                                                    margin-top: 15px;
-                                                                                }
-                                                                                
-                                                                                .summary-item {
-                                                                                    background: white;
-                                                                                    padding: 15px;
-                                                                                    border-radius: 6px;
-                                                                                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                                                                                }
-                                                                                
-                                                                                .summary-label {
-                                                                                    font-size: 12px;
-                                                                                    color: #7f8c8d;
-                                                                                    text-transform: uppercase;
-                                                                                    letter-spacing: 1px;
-                                                                                    margin-bottom: 5px;
-                                                                                }
-                                                                                
-                                                                                .summary-value {
-                                                                                    font-size: 20px;
+                                                                    projects_data.append(project_data)
+                                                                    
+                                                                    # Update summary totals
+                                                                    summary_data['total_projects'] += 1
+                                                                    summary_data['total_pending'] += total_pending
+                                                                    summary_data['total_overdue'] += overdue_amount
+                                                                    summary_data['total_future'] += future_amount
+                                                                
+                                                                # Sort monthly totals chronologically
+                                                                sorted_months = sorted(summary_data['monthly_totals'].items(), key=lambda x: x[0])
+                                                                summary_data['monthly_totals_sorted'] = [value for _, value in sorted_months]
+                                                                
+                                                                # Prepare PDF data
+                                                                pdf_data = {
+                                                                    'report_date': today_str,
+                                                                    'generated_on': datetime.now().strftime('%d %B %Y %H:%M:%S'),
+                                                                    'projects': projects_data,
+                                                                    'summary': summary_data,
+                                                                    'company_name': 'Your Company Name',  # Replace with actual company name
+                                                                    'company_logo': '',  # Add logo URL or path if available
+                                                                    'report_title': 'INSTALLMENT PAYMENTS SCHEDULE'
+                                                                }
+                                                                
+                                                                # Generate PDF
+                                                                def generate_installments_pdf():
+                                                                    """Generate PDF from template"""
+                                                                    html_template = """
+                                                                    <!DOCTYPE html>
+                                                                    <html>
+                                                                    <head>
+                                                                        <meta charset="UTF-8">
+                                                                        <style>
+                                                                            @page {
+                                                                                size: A4;
+                                                                                margin: 2cm;
+                                                                                @top-center {
+                                                                                    content: "INSTALLMENT PAYMENTS SCHEDULE";
+                                                                                    font-size: 16px;
                                                                                     font-weight: bold;
                                                                                     color: #2c3e50;
                                                                                 }
-                                                                                
-                                                                                .summary-value.red {
-                                                                                    color: #e74c3c;
-                                                                                }
-                                                                                
-                                                                                .summary-value.green {
-                                                                                    color: #27ae60;
-                                                                                }
-                                                                                
-                                                                                .summary-value.blue {
-                                                                                    color: #3498db;
-                                                                                }
-                                                                                
-                                                                                .project-section {
-                                                                                    margin-bottom: 40px;
-                                                                                    page-break-inside: avoid;
-                                                                                }
-                                                                                
-                                                                                .project-header {
-                                                                                    background: #3498db;
-                                                                                    color: white;
-                                                                                    padding: 15px;
-                                                                                    border-radius: 6px 6px 0 0;
-                                                                                    margin-bottom: 0;
-                                                                                }
-                                                                                
-                                                                                .project-details {
-                                                                                    background: #f8f9fa;
-                                                                                    padding: 20px;
-                                                                                    border: 1px solid #dee2e6;
-                                                                                    border-top: none;
-                                                                                    border-radius: 0 0 6px 6px;
-                                                                                }
-                                                                                
-                                                                                .project-grid {
-                                                                                    display: grid;
-                                                                                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                                                                                    gap: 15px;
-                                                                                    margin-bottom: 20px;
-                                                                                }
-                                                                                
-                                                                                .project-field {
-                                                                                    margin-bottom: 8px;
-                                                                                }
-                                                                                
-                                                                                .field-label {
-                                                                                    font-size: 12px;
-                                                                                    color: #7f8c8d;
-                                                                                    text-transform: uppercase;
-                                                                                    margin-bottom: 3px;
-                                                                                }
-                                                                                
-                                                                                .field-value {
-                                                                                    font-size: 14px;
-                                                                                    font-weight: 500;
-                                                                                    color: #2c3e50;
-                                                                                }
-                                                                                
-                                                                                .installments-table {
-                                                                                    width: 100%;
-                                                                                    border-collapse: collapse;
-                                                                                    margin-top: 20px;
-                                                                                    font-size: 12px;
-                                                                                }
-                                                                                
-                                                                                .installments-table th {
-                                                                                    background: #2c3e50;
-                                                                                    color: white;
-                                                                                    padding: 10px;
-                                                                                    text-align: left;
-                                                                                    font-weight: 600;
-                                                                                    text-transform: uppercase;
-                                                                                }
-                                                                                
-                                                                                .installments-table td {
-                                                                                    padding: 10px;
-                                                                                    border-bottom: 1px solid #dee2e6;
-                                                                                }
-                                                                                
-                                                                                .installments-table tr:nth-child(even) {
-                                                                                    background: #f8f9fa;
-                                                                                }
-                                                                                
-                                                                                .status-badge {
-                                                                                    display: inline-block;
-                                                                                    padding: 3px 10px;
-                                                                                    border-radius: 20px;
-                                                                                    font-size: 11px;
-                                                                                    font-weight: 600;
-                                                                                    text-transform: uppercase;
-                                                                                    letter-spacing: 0.5px;
-                                                                                }
-                                                                                
-                                                                                .status-overdue {
-                                                                                    background: #ffebee;
-                                                                                    color: #e74c3c;
-                                                                                    border: 1px solid #e74c3c;
-                                                                                }
-                                                                                
-                                                                                .status-pending {
-                                                                                    background: #fff3e0;
-                                                                                    color: #f39c12;
-                                                                                    border: 1px solid #f39c12;
-                                                                                }
-                                                                                
-                                                                                .status-paid {
-                                                                                    background: #e8f5e9;
-                                                                                    color: #27ae60;
-                                                                                    border: 1px solid #27ae60;
-                                                                                }
-                                                                                
-                                                                                .amount {
-                                                                                    font-family: 'Courier New', monospace;
-                                                                                    font-weight: bold;
-                                                                                }
-                                                                                
-                                                                                .monthly-summary {
-                                                                                    margin-top: 30px;
-                                                                                    page-break-before: always;
-                                                                                }
-                                                                                
-                                                                                .monthly-table {
-                                                                                    width: 100%;
-                                                                                    border-collapse: collapse;
-                                                                                    margin-top: 15px;
-                                                                                }
-                                                                                
-                                                                                .monthly-table th {
-                                                                                    background: #34495e;
-                                                                                    color: white;
-                                                                                    padding: 12px;
-                                                                                    text-align: left;
-                                                                                }
-                                                                                
-                                                                                .monthly-table td {
-                                                                                    padding: 12px;
-                                                                                    border-bottom: 1px solid #dee2e6;
-                                                                                }
-                                                                                
-                                                                                .footer {
-                                                                                    margin-top: 50px;
-                                                                                    padding-top: 20px;
-                                                                                    border-top: 2px solid #ecf0f1;
-                                                                                    text-align: center;
-                                                                                    font-size: 11px;
+                                                                                @bottom-center {
+                                                                                    content: "Page " counter(page) " of " counter(pages);
+                                                                                    font-size: 10px;
                                                                                     color: #7f8c8d;
                                                                                 }
-                                                                                
-                                                                                .total-row {
-                                                                                    background: #2c3e50 !important;
-                                                                                    color: white;
-                                                                                    font-weight: bold;
-                                                                                }
-                                                                                
-                                                                                .currency {
-                                                                                    font-family: 'Courier New', monospace;
-                                                                                }
-                                                                                
-                                                                                .note {
-                                                                                    font-size: 11px;
-                                                                                    color: #7f8c8d;
-                                                                                    font-style: italic;
-                                                                                    margin-top: 5px;
-                                                                                }
-                                                                                
-                                                                                h2 {
-                                                                                    color: #2c3e50;
-                                                                                    border-bottom: 2px solid #3498db;
-                                                                                    padding-bottom: 8px;
-                                                                                    margin-top: 40px;
-                                                                                }
-                                                                                
-                                                                                h3 {
-                                                                                    color: #34495e;
-                                                                                    margin: 25px 0 15px 0;
-                                                                                }
-                                                                            </style>
-                                                                        </head>
-                                                                        <body>
-                                                                            <div class="header">
-                                                                                <div class="company-name">{{ company_name }}</div>
-                                                                                <div class="report-title">{{ report_title }}</div>
-                                                                                <div class="report-date">Generated on: {{ generated_on }}</div>
-                                                                            </div>
+                                                                            }
                                                                             
-                                                                            <div class="summary-section">
-                                                                                <h3>EXECUTIVE SUMMARY</h3>
-                                                                                <div class="summary-grid">
-                                                                                    <div class="summary-item">
-                                                                                        <div class="summary-label">Total Projects</div>
-                                                                                        <div class="summary-value blue">{{ summary.total_projects }}</div>
-                                                                                    </div>
-                                                                                    <div class="summary-item">
-                                                                                        <div class="summary-label">Total Pending</div>
-                                                                                        <div class="summary-value">${{ "%.2f"|format(summary.total_pending) }}</div>
-                                                                                    </div>
-                                                                                    <div class="summary-item">
-                                                                                        <div class="summary-label">Overdue Amount</div>
-                                                                                        <div class="summary-value red">${{ "%.2f"|format(summary.total_overdue) }}</div>
-                                                                                    </div>
-                                                                                    <div class="summary-item">
-                                                                                        <div class="summary-label">Future Amount</div>
-                                                                                        <div class="summary-value green">${{ "%.2f"|format(summary.total_future) }}</div>
-                                                                                    </div>
+                                                                            body {
+                                                                                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                                                                                line-height: 1.6;
+                                                                                color: #333;
+                                                                                margin: 0;
+                                                                                padding: 0;
+                                                                            }
+                                                                            
+                                                                            .header {
+                                                                                text-align: center;
+                                                                                margin-bottom: 30px;
+                                                                                padding-bottom: 20px;
+                                                                                border-bottom: 3px solid #3498db;
+                                                                            }
+                                                                            
+                                                                            .company-name {
+                                                                                font-size: 24px;
+                                                                                font-weight: bold;
+                                                                                color: #2c3e50;
+                                                                                margin-bottom: 5px;
+                                                                            }
+                                                                            
+                                                                            .report-title {
+                                                                                font-size: 20px;
+                                                                                color: #3498db;
+                                                                                margin-bottom: 10px;
+                                                                                text-transform: uppercase;
+                                                                                letter-spacing: 2px;
+                                                                            }
+                                                                            
+                                                                            .report-date {
+                                                                                font-size: 14px;
+                                                                                color: #7f8c8d;
+                                                                                margin-bottom: 20px;
+                                                                            }
+                                                                            
+                                                                            .summary-section {
+                                                                                background: #f8f9fa;
+                                                                                padding: 20px;
+                                                                                border-radius: 8px;
+                                                                                margin-bottom: 30px;
+                                                                                border-left: 4px solid #3498db;
+                                                                            }
+                                                                            
+                                                                            .summary-grid {
+                                                                                display: grid;
+                                                                                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                                                                                gap: 15px;
+                                                                                margin-top: 15px;
+                                                                            }
+                                                                            
+                                                                            .summary-item {
+                                                                                background: white;
+                                                                                padding: 15px;
+                                                                                border-radius: 6px;
+                                                                                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                                                                            }
+                                                                            
+                                                                            .summary-label {
+                                                                                font-size: 12px;
+                                                                                color: #7f8c8d;
+                                                                                text-transform: uppercase;
+                                                                                letter-spacing: 1px;
+                                                                                margin-bottom: 5px;
+                                                                            }
+                                                                            
+                                                                            .summary-value {
+                                                                                font-size: 20px;
+                                                                                font-weight: bold;
+                                                                                color: #2c3e50;
+                                                                            }
+                                                                            
+                                                                            .summary-value.red {
+                                                                                color: #e74c3c;
+                                                                            }
+                                                                            
+                                                                            .summary-value.green {
+                                                                                color: #27ae60;
+                                                                            }
+                                                                            
+                                                                            .summary-value.blue {
+                                                                                color: #3498db;
+                                                                            }
+                                                                            
+                                                                            .project-section {
+                                                                                margin-bottom: 40px;
+                                                                                page-break-inside: avoid;
+                                                                            }
+                                                                            
+                                                                            .project-header {
+                                                                                background: #3498db;
+                                                                                color: white;
+                                                                                padding: 15px;
+                                                                                border-radius: 6px 6px 0 0;
+                                                                                margin-bottom: 0;
+                                                                            }
+                                                                            
+                                                                            .project-details {
+                                                                                background: #f8f9fa;
+                                                                                padding: 20px;
+                                                                                border: 1px solid #dee2e6;
+                                                                                border-top: none;
+                                                                                border-radius: 0 0 6px 6px;
+                                                                            }
+                                                                            
+                                                                            .project-grid {
+                                                                                display: grid;
+                                                                                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                                                                                gap: 15px;
+                                                                                margin-bottom: 20px;
+                                                                            }
+                                                                            
+                                                                            .project-field {
+                                                                                margin-bottom: 8px;
+                                                                            }
+                                                                            
+                                                                            .field-label {
+                                                                                font-size: 12px;
+                                                                                color: #7f8c8d;
+                                                                                text-transform: uppercase;
+                                                                                margin-bottom: 3px;
+                                                                            }
+                                                                            
+                                                                            .field-value {
+                                                                                font-size: 14px;
+                                                                                font-weight: 500;
+                                                                                color: #2c3e50;
+                                                                            }
+                                                                            
+                                                                            .installments-table {
+                                                                                width: 100%;
+                                                                                border-collapse: collapse;
+                                                                                margin-top: 20px;
+                                                                                font-size: 12px;
+                                                                            }
+                                                                            
+                                                                            .installments-table th {
+                                                                                background: #2c3e50;
+                                                                                color: white;
+                                                                                padding: 10px;
+                                                                                text-align: left;
+                                                                                font-weight: 600;
+                                                                                text-transform: uppercase;
+                                                                            }
+                                                                            
+                                                                            .installments-table td {
+                                                                                padding: 10px;
+                                                                                border-bottom: 1px solid #dee2e6;
+                                                                            }
+                                                                            
+                                                                            .installments-table tr:nth-child(even) {
+                                                                                background: #f8f9fa;
+                                                                            }
+                                                                            
+                                                                            .status-badge {
+                                                                                display: inline-block;
+                                                                                padding: 3px 10px;
+                                                                                border-radius: 20px;
+                                                                                font-size: 11px;
+                                                                                font-weight: 600;
+                                                                                text-transform: uppercase;
+                                                                                letter-spacing: 0.5px;
+                                                                            }
+                                                                            
+                                                                            .status-overdue {
+                                                                                background: #ffebee;
+                                                                                color: #e74c3c;
+                                                                                border: 1px solid #e74c3c;
+                                                                            }
+                                                                            
+                                                                            .status-pending {
+                                                                                background: #fff3e0;
+                                                                                color: #f39c12;
+                                                                                border: 1px solid #f39c12;
+                                                                            }
+                                                                            
+                                                                            .status-paid {
+                                                                                background: #e8f5e9;
+                                                                                color: #27ae60;
+                                                                                border: 1px solid #27ae60;
+                                                                            }
+                                                                            
+                                                                            .amount {
+                                                                                font-family: 'Courier New', monospace;
+                                                                                font-weight: bold;
+                                                                            }
+                                                                            
+                                                                            .monthly-summary {
+                                                                                margin-top: 30px;
+                                                                                page-break-before: always;
+                                                                            }
+                                                                            
+                                                                            .monthly-table {
+                                                                                width: 100%;
+                                                                                border-collapse: collapse;
+                                                                                margin-top: 15px;
+                                                                            }
+                                                                            
+                                                                            .monthly-table th {
+                                                                                background: #34495e;
+                                                                                color: white;
+                                                                                padding: 12px;
+                                                                                text-align: left;
+                                                                            }
+                                                                            
+                                                                            .monthly-table td {
+                                                                                padding: 12px;
+                                                                                border-bottom: 1px solid #dee2e6;
+                                                                            }
+                                                                            
+                                                                            .footer {
+                                                                                margin-top: 50px;
+                                                                                padding-top: 20px;
+                                                                                border-top: 2px solid #ecf0f1;
+                                                                                text-align: center;
+                                                                                font-size: 11px;
+                                                                                color: #7f8c8d;
+                                                                            }
+                                                                            
+                                                                            .total-row {
+                                                                                background: #2c3e50 !important;
+                                                                                color: white;
+                                                                                font-weight: bold;
+                                                                            }
+                                                                            
+                                                                            .currency {
+                                                                                font-family: 'Courier New', monospace;
+                                                                            }
+                                                                            
+                                                                            .note {
+                                                                                font-size: 11px;
+                                                                                color: #7f8c8d;
+                                                                                font-style: italic;
+                                                                                margin-top: 5px;
+                                                                            }
+                                                                            
+                                                                            h2 {
+                                                                                color: #2c3e50;
+                                                                                border-bottom: 2px solid #3498db;
+                                                                                padding-bottom: 8px;
+                                                                                margin-top: 40px;
+                                                                            }
+                                                                            
+                                                                            h3 {
+                                                                                color: #34495e;
+                                                                                margin: 25px 0 15px 0;
+                                                                            }
+                                                                        </style>
+                                                                    </head>
+                                                                    <body>
+                                                                        <div class="header">
+                                                                            <div class="company-name">{{ company_name }}</div>
+                                                                            <div class="report-title">{{ report_title }}</div>
+                                                                            <div class="report-date">Generated on: {{ generated_on }}</div>
+                                                                        </div>
+                                                                        
+                                                                        <div class="summary-section">
+                                                                            <h3>EXECUTIVE SUMMARY</h3>
+                                                                            <div class="summary-grid">
+                                                                                <div class="summary-item">
+                                                                                    <div class="summary-label">Total Projects</div>
+                                                                                    <div class="summary-value blue">{{ summary.total_projects }}</div>
+                                                                                </div>
+                                                                                <div class="summary-item">
+                                                                                    <div class="summary-label">Total Pending</div>
+                                                                                    <div class="summary-value">${{ "%.2f"|format(summary.total_pending) }}</div>
+                                                                                </div>
+                                                                                <div class="summary-item">
+                                                                                    <div class="summary-label">Overdue Amount</div>
+                                                                                    <div class="summary-value red">${{ "%.2f"|format(summary.total_overdue) }}</div>
+                                                                                </div>
+                                                                                <div class="summary-item">
+                                                                                    <div class="summary-label">Future Amount</div>
+                                                                                    <div class="summary-value green">${{ "%.2f"|format(summary.total_future) }}</div>
                                                                                 </div>
                                                                             </div>
+                                                                        </div>
+                                                                        
+                                                                        <h2>PROJECT DETAILS</h2>
+                                                                        
+                                                                        {% for project in projects %}
+                                                                        <div class="project-section">
+                                                                            <div class="project-header">
+                                                                                <strong>{{ project.client_name }}</strong> - {{ project.project_name }}
+                                                                                <span style="float: right;">MOM ID: {{ project.mom_id }}</span>
+                                                                            </div>
                                                                             
-                                                                            <h2>PROJECT DETAILS</h2>
-                                                                            
-                                                                            {% for project in projects %}
-                                                                            <div class="project-section">
-                                                                                <div class="project-header">
-                                                                                    <strong>{{ project.client_name }}</strong> - {{ project.project_name }}
-                                                                                    <span style="float: right;">MOM ID: {{ project.mom_id }}</span>
-                                                                                </div>
-                                                                                
-                                                                                <div class="project-details">
-                                                                                    <div class="project-grid">
-                                                                                        <div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Administrator</div>
-                                                                                                <div class="field-value">{{ project.administrator }}</div>
-                                                                                            </div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Start Date</div>
-                                                                                                <div class="field-value">{{ project.start_date }}</div>
-                                                                                            </div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Client Phone</div>
-                                                                                                <div class="field-value">{{ project.client_phone }}</div>
-                                                                                            </div>
+                                                                            <div class="project-details">
+                                                                                <div class="project-grid">
+                                                                                    <div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Administrator</div>
+                                                                                            <div class="field-value">{{ project.administrator }}</div>
                                                                                         </div>
-                                                                                        <div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Total Contract</div>
-                                                                                                <div class="field-value amount">${{ "%.2f"|format(project.total_contract) }}</div>
-                                                                                            </div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Deposit Paid</div>
-                                                                                                <div class="field-value amount">${{ "%.2f"|format(project.deposit_paid) }}</div>
-                                                                                            </div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Months to Pay</div>
-                                                                                                <div class="field-value">{{ project.months_to_pay }}</div>
-                                                                                            </div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Start Date</div>
+                                                                                            <div class="field-value">{{ project.start_date }}</div>
                                                                                         </div>
-                                                                                        <div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Total Paid</div>
-                                                                                                <div class="field-value amount green">${{ "%.2f"|format(project.total_paid) }}</div>
-                                                                                            </div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Balance Due</div>
-                                                                                                <div class="field-value amount">${{ "%.2f"|format(project.balance_due) }}</div>
-                                                                                            </div>
-                                                                                            <div class="project-field">
-                                                                                                <div class="field-label">Pending Amount</div>
-                                                                                                <div class="field-value amount">${{ "%.2f"|format(project.total_pending) }}</div>
-                                                                                            </div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Client Phone</div>
+                                                                                            <div class="field-value">{{ project.client_phone }}</div>
                                                                                         </div>
                                                                                     </div>
-                                                                                    
-                                                                                    <h3>Installment Schedule</h3>
-                                                                                    <table class="installments-table">
-                                                                                        <thead>
-                                                                                            <tr>
-                                                                                                <th>#</th>
-                                                                                                <th>Due Date</th>
-                                                                                                <th>Amount</th>
-                                                                                                <th>Status</th>
-                                                                                                <th>Month</th>
-                                                                                            </tr>
-                                                                                        </thead>
-                                                                                        <tbody>
-                                                                                            {% for installment in project.installments %}
-                                                                                            <tr>
-                                                                                                <td>{{ installment.number }}</td>
-                                                                                                <td>{{ installment.due_date }}</td>
-                                                                                                <td class="amount">${{ "%.2f"|format(installment.amount) }}</td>
-                                                                                                <td>
-                                                                                                    <span class="status-badge status-{{ installment.status|lower }}">
-                                                                                                        {{ installment.status }}
-                                                                                                    </span>
-                                                                                                </td>
-                                                                                                <td>{{ installment.due_month }}</td>
-                                                                                            </tr>
-                                                                                            {% endfor %}
-                                                                                        </tbody>
-                                                                                    </table>
-                                                                                    
-                                                                                    <div class="project-grid" style="margin-top: 20px;">
-                                                                                        <div class="summary-item">
-                                                                                            <div class="summary-label">Overdue Amount</div>
-                                                                                            <div class="summary-value red">${{ "%.2f"|format(project.overdue_amount) }}</div>
+                                                                                    <div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Total Contract</div>
+                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.total_contract) }}</div>
                                                                                         </div>
-                                                                                        <div class="summary-item">
-                                                                                            <div class="summary-label">Future Amount</div>
-                                                                                            <div class="summary-value green">${{ "%.2f"|format(project.future_amount) }}</div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Deposit Paid</div>
+                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.deposit_paid) }}</div>
+                                                                                        </div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Months to Pay</div>
+                                                                                            <div class="field-value">{{ project.months_to_pay }}</div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Total Paid</div>
+                                                                                            <div class="field-value amount green">${{ "%.2f"|format(project.total_paid) }}</div>
+                                                                                        </div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Balance Due</div>
+                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.balance_due) }}</div>
+                                                                                        </div>
+                                                                                        <div class="project-field">
+                                                                                            <div class="field-label">Pending Amount</div>
+                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.total_pending) }}</div>
                                                                                         </div>
                                                                                     </div>
                                                                                 </div>
-                                                                            </div>
-                                                                            {% endfor %}
-                                                                            
-                                                                            <div class="monthly-summary">
-                                                                                <h2>MONTHLY SUMMARY</h2>
-                                                                                <table class="monthly-table">
+                                                                                
+                                                                                <h3>Installment Schedule</h3>
+                                                                                <table class="installments-table">
                                                                                     <thead>
                                                                                         <tr>
+                                                                                            <th>#</th>
+                                                                                            <th>Due Date</th>
+                                                                                            <th>Amount</th>
+                                                                                            <th>Status</th>
                                                                                             <th>Month</th>
-                                                                                            <th>Total Pending</th>
-                                                                                            <th>Overdue Amount</th>
-                                                                                            <th>Future Amount</th>
                                                                                         </tr>
                                                                                     </thead>
                                                                                     <tbody>
-                                                                                        {% for month in summary.monthly_totals_sorted %}
+                                                                                        {% for installment in project.installments %}
                                                                                         <tr>
-                                                                                            <td>{{ month.month_name }}</td>
-                                                                                            <td class="currency">${{ "%.2f"|format(month.total) }}</td>
-                                                                                            <td class="currency red">${{ "%.2f"|format(month.overdue) }}</td>
-                                                                                            <td class="currency green">${{ "%.2f"|format(month.future) }}</td>
+                                                                                            <td>{{ installment.number }}</td>
+                                                                                            <td>{{ installment.due_date }}</td>
+                                                                                            <td class="amount">${{ "%.2f"|format(installment.amount) }}</td>
+                                                                                            <td>
+                                                                                                <span class="status-badge status-{{ installment.status|lower }}">
+                                                                                                    {{ installment.status }}
+                                                                                                </span>
+                                                                                            </td>
+                                                                                            <td>{{ installment.due_month }}</td>
                                                                                         </tr>
                                                                                         {% endfor %}
-                                                                                        <tr class="total-row">
-                                                                                            <td><strong>GRAND TOTAL</strong></td>
-                                                                                            <td><strong>${{ "%.2f"|format(summary.total_pending) }}</strong></td>
-                                                                                            <td><strong>${{ "%.2f"|format(summary.total_overdue) }}</strong></td>
-                                                                                            <td><strong>${{ "%.2f"|format(summary.total_future) }}</strong></td>
-                                                                                        </tr>
                                                                                     </tbody>
                                                                                 </table>
+                                                                                
+                                                                                <div class="project-grid" style="margin-top: 20px;">
+                                                                                    <div class="summary-item">
+                                                                                        <div class="summary-label">Overdue Amount</div>
+                                                                                        <div class="summary-value red">${{ "%.2f"|format(project.overdue_amount) }}</div>
+                                                                                    </div>
+                                                                                    <div class="summary-item">
+                                                                                        <div class="summary-label">Future Amount</div>
+                                                                                        <div class="summary-value green">${{ "%.2f"|format(project.future_amount) }}</div>
+                                                                                    </div>
+                                                                                </div>
                                                                             </div>
-                                                                            
-                                                                            <div class="footer">
-                                                                                <p>Generated by ConnectLink System • {{ report_date }}</p>
-                                                                                <p class="note">This is an automated report. For any discrepancies, please contact the system administrator.</p>
-                                                                            </div>
-                                                                        </body>
-                                                                        </html>
-                                                                        """
+                                                                        </div>
+                                                                        {% endfor %}
                                                                         
-                                                                        # Render template with data
-                                                                        from jinja2 import Template
-                                                                        template = Template(html_template)
-                                                                        html_content = template.render(**pdf_data)
+                                                                        <div class="monthly-summary">
+                                                                            <h2>MONTHLY SUMMARY</h2>
+                                                                            <table class="monthly-table">
+                                                                                <thead>
+                                                                                    <tr>
+                                                                                        <th>Month</th>
+                                                                                        <th>Total Pending</th>
+                                                                                        <th>Overdue Amount</th>
+                                                                                        <th>Future Amount</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                    {% for month in summary.monthly_totals_sorted %}
+                                                                                    <tr>
+                                                                                        <td>{{ month.month_name }}</td>
+                                                                                        <td class="currency">${{ "%.2f"|format(month.total) }}</td>
+                                                                                        <td class="currency red">${{ "%.2f"|format(month.overdue) }}</td>
+                                                                                        <td class="currency green">${{ "%.2f"|format(month.future) }}</td>
+                                                                                    </tr>
+                                                                                    {% endfor %}
+                                                                                    <tr class="total-row">
+                                                                                        <td><strong>GRAND TOTAL</strong></td>
+                                                                                        <td><strong>${{ "%.2f"|format(summary.total_pending) }}</strong></td>
+                                                                                        <td><strong>${{ "%.2f"|format(summary.total_overdue) }}</strong></td>
+                                                                                        <td><strong>${{ "%.2f"|format(summary.total_future) }}</strong></td>
+                                                                                    </tr>
+                                                                                </tbody>
+                                                                            </table>
+                                                                        </div>
                                                                         
-                                                                        # Generate PDF
-                                                                        pdf_bytes = HTML(string=html_content).write_pdf()
-                                                                        return pdf_bytes
+                                                                        <div class="footer">
+                                                                            <p>Generated by ConnectLink System • {{ report_date }}</p>
+                                                                            <p class="note">This is an automated report. For any discrepancies, please contact the system administrator.</p>
+                                                                        </div>
+                                                                    </body>
+                                                                    </html>
+                                                                    """
                                                                     
-                                                                    def upload_pdf_to_whatsapp(pdf_bytes, phone_number):
-                                                                        """Upload PDF to WhatsApp Cloud API"""
-                                                                        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                                                                        filename = f'installment_schedule_{timestamp}.pdf'
-                                                                        
-                                                                        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
-                                                                        headers = {
-                                                                            "Authorization": f"Bearer {ACCESS_TOKEN}"
-                                                                        }
-                                                                        
-                                                                        files = {
-                                                                            "file": (filename, io.BytesIO(pdf_bytes), "application/pdf"),
-                                                                            "type": (None, "application/pdf"),
-                                                                            "messaging_product": (None, "whatsapp")
-                                                                        }
-                                                                        
-                                                                        response = requests.post(url, headers=headers, files=files)
-                                                                        response.raise_for_status()
-                                                                        return response.json()["id"]
-                                                                    
-                                                                    def send_whatsapp_pdf_by_media_id(recipient_number, media_id):
-                                                                        """Send PDF via WhatsApp using media ID"""
-                                                                        filename = 'Installment_Payment_Schedule.pdf'
-                                                                        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-                                                                        headers = {
-                                                                            "Authorization": f"Bearer {ACCESS_TOKEN}",
-                                                                            "Content-Type": "application/json"
-                                                                        }
-                                                                        
-                                                                        # First send a text message
-                                                                        text_payload = {
-                                                                            "messaging_product": "whatsapp",
-                                                                            "to": recipient_number,
-                                                                            "type": "text",
-                                                                            "text": {
-                                                                                "body": f"📊 *INSTALLMENT PAYMENTS SCHEDULE*\n\n"
-                                                                                    f"Date: {today_str}\n"
-                                                                                    f"Total Projects: {summary_data['total_projects']}\n"
-                                                                                    f"Total Pending: ${summary_data['total_pending']:,.2f}\n"
-                                                                                    f"Overdue Amount: ${summary_data['total_overdue']:,.2f}\n\n"
-                                                                                    f"Please find the detailed schedule attached.\n"
-                                                                                    f"Generated by ConnectLink System"
-                                                                            }
-                                                                        }
-                                                                        
-                                                                        # Send text message
-                                                                        response = requests.post(url, headers=headers, json=text_payload)
-                                                                        response.raise_for_status()
-                                                                        
-                                                                        # Then send the PDF
-                                                                        pdf_payload = {
-                                                                            "messaging_product": "whatsapp",
-                                                                            "to": recipient_number,
-                                                                            "type": "document",
-                                                                            "document": {
-                                                                                "id": media_id,
-                                                                                "filename": filename,
-                                                                                "caption": f"Installment Payment Schedule - {today_str}"
-                                                                            }
-                                                                        }
-                                                                        
-                                                                        response = requests.post(url, headers=headers, json=pdf_payload)
-                                                                        response.raise_for_status()
-                                                                        return response.json()
+                                                                    # Render template with data
+                                                                    from jinja2 import Template
+                                                                    template = Template(html_template)
+                                                                    html_content = template.render(**pdf_data)
                                                                     
                                                                     # Generate PDF
-                                                                    pdf_bytes = generate_installments_pdf()
+                                                                    pdf_bytes = HTML(string=html_content).write_pdf()
+                                                                    return pdf_bytes
+                                                                
+                                                                def upload_pdf_to_whatsapp(pdf_bytes, phone_number):
+                                                                    """Upload PDF to WhatsApp Cloud API"""
+                                                                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                                                                    filename = f'installment_schedule_{timestamp}.pdf'
                                                                     
-                                                                    # Get administrator phone numbers (you need to implement this based on your data)
-                                                                    # For demo, let's send to a hardcoded number or get from request
+                                                                    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}"
+                                                                    }
                                                                     
-                                                                    # Upload and send via WhatsApp
-                                                                    media_id = upload_pdf_to_whatsapp(pdf_bytes, sender_id)
-                                                                    whatsapp_response = send_whatsapp_pdf_by_media_id(sender_id, media_id)
+                                                                    files = {
+                                                                        "file": (filename, io.BytesIO(pdf_bytes), "application/pdf"),
+                                                                        "type": (None, "application/pdf"),
+                                                                        "messaging_product": (None, "whatsapp")
+                                                                    }
                                                                     
-                                                                    return jsonify({
-                                                                        'status': 'success',
-                                                                        'message': 'Installment schedule PDF generated and sent successfully',
-                                                                        'whatsapp_response': whatsapp_response,
-                                                                        'summary': {
-                                                                            'total_projects': summary_data['total_projects'],
-                                                                            'total_pending': f"${summary_data['total_pending']:,.2f}",
-                                                                            'total_overdue': f"${summary_data['total_overdue']:,.2f}",
-                                                                            'total_future': f"${summary_data['total_future']:,.2f}"
+                                                                    response = requests.post(url, headers=headers, files=files)
+                                                                    response.raise_for_status()
+                                                                    return response.json()["id"]
+                                                                
+                                                                def send_whatsapp_pdf_by_media_id(recipient_number, media_id):
+                                                                    """Send PDF via WhatsApp using media ID"""
+                                                                    filename = 'Installment_Payment_Schedule.pdf'
+                                                                    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    }
+                                                                    
+                                                                    # First send a text message
+                                                                    text_payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": recipient_number,
+                                                                        "type": "text",
+                                                                        "text": {
+                                                                            "body": f"📊 *INSTALLMENT PAYMENTS SCHEDULE*\n\n"
+                                                                                f"Date: {today_str}\n"
+                                                                                f"Total Projects: {summary_data['total_projects']}\n"
+                                                                                f"Total Pending: ${summary_data['total_pending']:,.2f}\n"
+                                                                                f"Overdue Amount: ${summary_data['total_overdue']:,.2f}\n\n"
+                                                                                f"Please find the detailed schedule attached.\n"
+                                                                                f"Generated by ConnectLink System"
                                                                         }
-                                                                    })
+                                                                    }
                                                                     
-                                                                except Exception as e:
-                                                                    print(f"Error generating PDF: {str(e)}")
-                                                                    traceback.print_exc()
-                                                                    return jsonify({'status': 'error', 'message': f'Failed to generate schedule: {str(e)}'}), 500
+                                                                    # Send text message
+                                                                    response = requests.post(url, headers=headers, json=text_payload)
+                                                                    response.raise_for_status()
+                                                                    
+                                                                    # Then send the PDF
+                                                                    pdf_payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": recipient_number,
+                                                                        "type": "document",
+                                                                        "document": {
+                                                                            "id": media_id,
+                                                                            "filename": filename,
+                                                                            "caption": f"Installment Payment Schedule - {today_str}"
+                                                                        }
+                                                                    }
+                                                                    
+                                                                    response = requests.post(url, headers=headers, json=pdf_payload)
+                                                                    response.raise_for_status()
+                                                                    return response.json()
+                                                                
+                                                                # Generate PDF
+                                                                pdf_bytes = generate_installments_pdf()
+                                                                
+                                                                # Get administrator phone numbers (you need to implement this based on your data)
+                                                                # For demo, let's send to a hardcoded number or get from request
+                                                                
+                                                                # Upload and send via WhatsApp
+                                                                media_id = upload_pdf_to_whatsapp(pdf_bytes, sender_id)
+                                                                whatsapp_response = send_whatsapp_pdf_by_media_id(sender_id, media_id)
+                                                                
+                                                                return jsonify({
+                                                                    'status': 'success',
+                                                                    'message': 'Installment schedule PDF generated and sent successfully',
+                                                                    'whatsapp_response': whatsapp_response,
+                                                                    'summary': {
+                                                                        'total_projects': summary_data['total_projects'],
+                                                                        'total_pending': f"${summary_data['total_pending']:,.2f}",
+                                                                        'total_overdue': f"${summary_data['total_overdue']:,.2f}",
+                                                                        'total_future': f"${summary_data['total_future']:,.2f}"
+                                                                    }
+                                                                })
+                                                                
+                                                            except Exception as e:
+                                                                print(f"Error generating PDF: {str(e)}")
+                                                                traceback.print_exc()
+                                                                return jsonify({'status': 'error', 'message': f'Failed to generate schedule: {str(e)}'}), 500
 
 
                                 
