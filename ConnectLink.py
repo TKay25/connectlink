@@ -1441,7 +1441,7 @@ def download_contract(project_id):
                 <style>
                     @page {{
                         size: A4;
-                        margin: 40px 40px 90px 40px; /* Extra bottom margin for signature area */
+                        margin: 30px 40px 90px 40px; /* Extra bottom margin for signature area */
                         
                         @bottom-left {{
                             content: "Page " counter(page) " of " counter(pages);
@@ -1507,7 +1507,7 @@ def download_contract(project_id):
                         margin-bottom: 10px;
                         text-transform: uppercase;
                         letter-spacing: 1.6px;
-                        font-size: 24px;
+                        font-size: 20px;
                         color: #1E2A56;
                     }}
                     
@@ -1523,7 +1523,7 @@ def download_contract(project_id):
                         text-align: center;
                         background: linear-gradient(90deg, #1E2A56, #2A3A78);
                         color: white;
-                        padding: 8px 12px;
+                        padding: 8px 10px;
                         border-radius: 8px;
                         font-size: 13px;
                         margin-top: 20px;
@@ -1537,7 +1537,7 @@ def download_contract(project_id):
                         background: #f0f5ff;
                         padding: 8px 10px;
                         border-left: 4px solid #1E2A56;
-                        margin: 30px 0 20px 0;
+                        margin: 20px 0 20px 0;
                         font-weight: 700;
                         color: #1E2A56;
                         font-size: 12px;
@@ -1574,14 +1574,15 @@ def download_contract(project_id):
                         border: 1.5px solid #1E2A56;
                         border-radius: 12px;
                         padding: 20px;
-                        margin: 15px 0;
+                        margin: 10px 0;
                         box-shadow: 0 4px 12px rgba(26, 42, 86, 0.08);
                     }}
                     
                     .scope-box {{
                         border: 1.5px solid #1E2A56;
                         border-radius: 10px;
-                        padding: 12px;
+                        padding: 10px;
+                        font-size: 11px
                         min-height: 100px;
                         background: #fafbff;
                         margin-bottom: 15px;
@@ -1895,9 +1896,6 @@ def download_contract(project_id):
                         </div>
                     </div>
                     
-                    <div class="footer-note" style="margin-top: 20px;">
-                        All payments to be made to: {project['companyname']}
-                    </div>
                 </div>
             </body>
             </html>
