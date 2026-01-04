@@ -1563,8 +1563,8 @@ def download_contract(project_id):
                         flex: 1;
                         border-bottom: 1px solid #d1d9f0;
                         padding-bottom: 5px;
-                        font-size: 13px;
-                        min-height: 22px;
+                        font-size: 11px;
+                        min-height: 17px;
                         color: #1E2A56;
                     }}
                     
@@ -1585,13 +1585,13 @@ def download_contract(project_id):
                         min-height: 100px;
                         background: #fafbff;
                         margin-bottom: 15px;
-                        line-height: 1.5;
+                        line-height: 1.3;
                     }}
                     
                     .payment-table {{
                         width: 100%;
                         border-collapse: collapse;
-                        margin: 20px 0;
+                        margin: 10px 0;
                         border: 1.5px solid #1E2A56;
                         box-shadow: 0 3px 8px rgba(0,0,0,0.05);
                     }}
@@ -1600,15 +1600,15 @@ def download_contract(project_id):
                         background: linear-gradient(90deg, #1E2A56, #2A3A78);
                         color: white;
                         text-align: left;
-                        padding: 12px;
+                        padding: 10px;
                         font-weight: 700;
-                        font-size: 13px;
+                        font-size: 11px;
                     }}
                     
                     .payment-table td {{
                         border: 1px solid #d1d9f0;
                         padding: 10px;
-                        font-size: 13px;
+                        font-size: 11px;
                     }}
                     
                     .payment-table tr:nth-child(even) {{
@@ -1616,22 +1616,22 @@ def download_contract(project_id):
                     }}
                     
                     ul, ol {{
-                        margin: 15px 0;
-                        padding-left: 25px;
-                        line-height: 1.6;
+                        margin: 10px 0;
+                        padding-left: 20px;
+                        line-height: 1.4;
                     }}
                     
                     li {{
                         margin-bottom: 10px;
-                        font-size: 13px;
+                        font-size: 11px;
                         color: #1E2A56;
                     }}
                     
                     .terms-box {{
                         background: #f8faff;
                         border-left: 4px solid #1E2A56;
-                        padding: 15px;
-                        margin: 20px 0;
+                        padding: 10px;
+                        margin: 10px 0;
                         border-radius: 0 8px 8px 0;
                     }}
                     
@@ -1656,7 +1656,7 @@ def download_contract(project_id):
                     
                     .signature-line {{
                         flex: 1;
-                        margin: 0 15px;
+                        margin: 0 10px;
                     }}
                     
                     .signature-label {{
@@ -1670,7 +1670,7 @@ def download_contract(project_id):
                     .signature-space {{
                         height: 40px;
                         border-bottom: 1px solid #1E2A56;
-                        margin-top: 5px;
+                        margin-top: 3px;
                     }}
                     
                     .signature-date {{
@@ -1683,14 +1683,14 @@ def download_contract(project_id):
                         text-align: center;
                         font-size: 10px;
                         color: #888;
-                        margin-top: 15px;
+                        margin-top: 10px;
                         font-style: italic;
                     }}
                     
                     /* Page number styling */
                     .page-number {{
                         position: fixed;
-                        bottom: 20px;
+                        bottom: 15px;
                         left: 40px;
                         font-size: 10px;
                         color: #666;
@@ -1698,7 +1698,7 @@ def download_contract(project_id):
                     
                     .total-pages {{
                         position: fixed;
-                        bottom: 20px;
+                        bottom: 15px;
                         right: 40px;
                         font-size: 10px;
                         color: #666;
