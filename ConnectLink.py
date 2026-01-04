@@ -677,7 +677,7 @@ def webhook():
                                                                         {
                                                                             "id": "getportfolio",
                                                                             "title": "Get Master File",
-                                                                            "description": "Download complete portfolio"
+                                                                            "description": "Download full portfolio"
                                                                         },
                                                                         {
                                                                             "id": "getnotes",
@@ -686,8 +686,8 @@ def webhook():
                                                                         },
                                                                         {
                                                                             "id": "payments_schedule",
-                                                                            "title": "Payments Schedule",
-                                                                            "description": "Installments schedule report"
+                                                                            "title": "Get Payments Schedule",
+                                                                            "description": "Access Installments schedule report"
                                                                         },
                                                                         {
                                                                             "id": "main_menu",
