@@ -670,11 +670,6 @@ def webhook():
 
                                                             """Export installments schedule as PDF and send via WhatsApp - PostgreSQL version"""
                                                             try:
-                                                                from datetime import date
-                                                                import io
-                                                                from weasyprint import HTML
-                                                                import requests
-                                                                import pandas as pd
                                                                 
                                                                 # Get today's date for filtering
                                                                 today = date.today()
