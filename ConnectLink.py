@@ -1443,14 +1443,6 @@ def download_contract(project_id):
                         size: A4;
                         margin: 30px 40px 60px 30px; /* Extra bottom margin for signature area */
                         
-                        @bottom-left {{
-                            content: "Page " counter(page) " of " counter(pages);
-                            font-family: 'Roboto', sans-serif;
-                            font-size: 10px;
-                            width: 30%;
-                            color: #666;
-                        }}
-                        
                         @bottom-center {{
                             content: "";
                             width: 70%;
