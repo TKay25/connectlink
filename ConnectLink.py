@@ -2131,6 +2131,7 @@ def get_filtered_projects(month_filter):
             traceback.print_exc()
             return jsonify({'status': 'error', 'message': str(e)})
 
+
 @app.route('/export-installments-schedule-excel', methods=['GET'])
 def export_installments_schedule_excel():
     """Export installments schedule as Excel - PostgreSQL version"""
@@ -2183,8 +2184,11 @@ def export_installments_schedule_excel():
         # Convert to DataFrame
         df = pd.DataFrame(rows, columns=colnames)
         
-        # Process data
+        # Process data for detailed sheets
         data = []
+        # New: Collect data for monthly cross-tab
+        monthly_data = []
+        
         for _, row in df.iterrows():
             # Format dates
             project_start = row.get('projectstartdate')
@@ -2216,13 +2220,26 @@ def export_installments_schedule_excel():
                 if amount and float(amount) > 0:
                     if pd.isna(payment_date):  # Pending
                         due_str = due_date.strftime('%d-%b-%Y') if pd.notna(due_date) else 'No Due Date'
+                        due_month = due_date.strftime('%Y-%m') if pd.notna(due_date) else 'No Month'
+                        
                         pending_installments.append({
                             'number': i,
                             'due_date': due_str,
+                            'due_month': due_month,
                             'amount': float(amount),
                             'status': 'PENDING'
                         })
                         total_pending += float(amount)
+                        
+                        # Collect for monthly cross-tab
+                        if due_month != 'No Month':
+                            monthly_data.append({
+                                'clientname': str(row.get('clientname', '')),
+                                'projectname': str(row.get('projectname', '')),
+                                'due_month': due_month,
+                                'amount': float(amount),
+                                'installment_num': i
+                            })
                     else:  # Paid
                         pending_installments.append({
                             'number': i,
@@ -2249,8 +2266,9 @@ def export_installments_schedule_excel():
             
             data.append(project_data)
         
-        # Create DataFrame
+        # Create DataFrames
         result_df = pd.DataFrame(data)
+        monthly_df = pd.DataFrame(monthly_data)
         
         # Create Excel file
         output = io.BytesIO()
@@ -2288,7 +2306,60 @@ def export_installments_schedule_excel():
                         sheet_name = str(month_year)[:31]
                         month_df.to_excel(writer, sheet_name=sheet_name, index=False)
                 
-                # Create Summary sheet
+                # ================================================
+                # NEW: MONTHLY CROSS-TAB SUMMARY (Clients vs Months)
+                # ================================================
+                if not monthly_df.empty:
+                    # Create pivot table: Client Name as rows, Due Months as columns
+                    pivot_table = monthly_df.pivot_table(
+                        index='clientname',
+                        columns='due_month',
+                        values='amount',
+                        aggfunc='sum',
+                        fill_value=0
+                    ).reset_index()
+                    
+                    # Sort months chronologically
+                    month_columns = [col for col in pivot_table.columns if col != 'clientname']
+                    month_columns_sorted = sorted(month_columns, key=lambda x: x)
+                    pivot_table = pivot_table[['clientname'] + month_columns_sorted]
+                    
+                    # Add total column for each client
+                    pivot_table['Total Pending'] = pivot_table[month_columns_sorted].sum(axis=1)
+                    
+                    # Sort by client name
+                    pivot_table = pivot_table.sort_values('clientname')
+                    
+                    # Format currency in pivot table
+                    pivot_formatted = pivot_table.copy()
+                    for col in month_columns_sorted + ['Total Pending']:
+                        pivot_formatted[col] = pivot_formatted[col].apply(
+                            lambda x: f"${x:,.2f}" if pd.notna(x) and x != 0 else ""
+                        )
+                    
+                    # Write cross-tab summary
+                    pivot_formatted.to_excel(writer, sheet_name='Monthly Cross-Tab', index=False)
+                    
+                    # Create monthly totals summary
+                    monthly_totals = monthly_df.groupby('due_month').agg({
+                        'clientname': 'nunique',
+                        'amount': 'sum'
+                    }).reset_index()
+                    
+                    monthly_totals = monthly_totals.rename(columns={
+                        'clientname': 'Unique Clients',
+                        'amount': 'Total Pending'
+                    }).sort_values('due_month')
+                    
+                    monthly_totals['Total Pending'] = monthly_totals['Total Pending'].apply(
+                        lambda x: f"${x:,.2f}"
+                    )
+                    
+                    monthly_totals.to_excel(writer, sheet_name='Month Totals', index=False)
+                
+                # ================================================
+                # Original Summary sheet
+                # ================================================
                 if not result_df.empty:
                     # Convert currency columns back to numeric for calculations
                     numeric_df = result_df.copy()
@@ -2340,8 +2411,6 @@ def export_installments_schedule_excel():
         print(f"PostgreSQL Error: {str(e)}")
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f'Failed to generate schedule: {str(e)}'}), 500
-
-
 
 def run1(userid):
 
