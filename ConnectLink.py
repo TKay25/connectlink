@@ -1771,11 +1771,7 @@ def download_contract(project_id):
                     
                     <div class="section-header">PROJECT SCOPE</div>
                     <div class="scope-box">{project['project_description']}</div>
-                    
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 3 -->
+                
 
                     <h4 class="section-title">PAYMENT TERMS</h4>
                     <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>
@@ -1799,7 +1795,11 @@ def download_contract(project_id):
                         </tbody>
                     </table>
                     
-
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 3 -->
+                    
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
                     
                     <div class="section-header">LATE PAYMENT AND INTEREST</div>
