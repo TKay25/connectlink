@@ -1944,7 +1944,7 @@
                     <button class="btn btn-primary mt-1"
                             id="installmentscheduleBtn"
                             style="width: max-content;"
-                            onclick="downloadinstallmentschedule()">
+                            onclick="downloadInstallmentSchedule()">
                         <i class="bi bi-download"></i> Download Installments Schedule
                     </button>
 
@@ -2776,32 +2776,62 @@ function downloadPortfolio() {
 }
 
 
-function downloadinstallmentschedule() {
+async function downloadInstallmentSchedule() {
     const btn = document.getElementById("installmentscheduleBtn");
     const originalHTML = btn.innerHTML;
     
-    // Show loading
-    btn.disabled = true;
-    btn.innerHTML = `
-        <span class="spinner-border spinner-border-sm me-2"></span>
-        Generating...
-    `;
-    
-    // Use the simple version (easier to read)
-    const link = document.createElement("a");
-    link.href = "/export_installments_schedule_excel";  // Use simple version
-    link.download = "";
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Reset button
-    setTimeout(() => {
+    try {
+        // Show loading
+        btn.disabled = true;
+        btn.innerHTML = `
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            Generating Report...
+        `;
+        
+        // Use fetch instead of direct link click
+        const response = await fetch('/export-installments-schedule-excel');
+        
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+        
+        // Get the blob from response
+        const blob = await response.blob();
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // Get filename from content-disposition header or use default
+        const contentDisposition = response.headers.get('content-disposition');
+        let filename = 'installment_schedule.xlsx';
+        
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+            if (filenameMatch) {
+                filename = filenameMatch[1];
+            }
+        }
+        
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+    } catch (error) {
+        console.error('Download error:', error);
+        alert(`Failed to download: ${error.message}`);
+    } finally {
+        // Reset button
         btn.disabled = false;
         btn.innerHTML = originalHTML;
-    }, 3000);
+    }
 }
+
 </script>
 
 
