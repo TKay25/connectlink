@@ -1496,7 +1496,7 @@ def download_contract(project_id):
                     
                     .logo {{
                         display: block;
-                        margin: 0 auto 20px auto;
+                        margin: 0 auto 15px auto;
                         width: 200px;
                         height: auto;
                     }}
@@ -1644,8 +1644,9 @@ def download_contract(project_id):
                         left: 40px;
                         right: 40px;
                         padding-top: 4px;
-                        border-top: 1px solid #1E2A56;
-                        background: white;
+                        border: 1px solid #1E2A56;
+                        border-radius: 8px;
+                        background: #f8faff;
                         z-index: 100;
                     }}
                     
