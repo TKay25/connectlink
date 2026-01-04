@@ -1890,11 +1890,10 @@ def download_contract(project_id):
                             <div class="signature-space"></div>
                             <div class="signature-date">Date: {project['agreement_date']}</div>
                         </div>
-                        <div class="footer-note" style="margin-top: 5px;">
-                            This is a legally binding document. Please read carefully before signing.
-                        </div>
                     </div>
-                    
+                    <div class="footer-note" style="margin-top: 5px;">
+                        This is a legally binding document. Please read carefully before signing.
+                    </div>   
                 </div>
             </body>
             </html>
