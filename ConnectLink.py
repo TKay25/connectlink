@@ -1831,16 +1831,16 @@ def download_contract(project_id):
                         </ul>
                     </div>
 
-                    <div class="section-header">POWER PROVISION</div>
-                    <div class="terms-box">
-                        <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
-                    </div>
-                    
                     <!-- Page break -->
                     <div class="page-break"></div>
                     
                     <!-- Page 4 -->
 
+                    <div class="section-header">POWER PROVISION</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
+                    </div>
+                    
                     <div class="section-header">TERMINATION</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">This Agreement may be terminated by either party if the other party:</p>
