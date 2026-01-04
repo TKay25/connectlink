@@ -2791,7 +2791,10 @@ async function downloadInstallmentSchedule() {
         
         // Get filename from content-disposition header or use default
         const contentDisposition = response.headers.get('content-disposition');
-        let filename = 'installment_schedule.xlsx';
+        // Add to your function:
+        const now = new Date();
+        const timestamp = now.toISOString().slice(0, 19).replace(/[:T]/g, '-'); // "2024-01-04-14-30-45"
+        const filename = `installments_${timestamp}.xlsx`;
         
         if (contentDisposition) {
             const filenameMatch = contentDisposition.match(/filename="(.+)"/);
