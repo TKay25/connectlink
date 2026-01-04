@@ -1799,7 +1799,7 @@ def download_contract(project_id):
                     <div class="page-break"></div>
                     
                     <!-- Page 3 -->
-                    
+
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
                     
                     <div class="section-header">LATE PAYMENT AND INTEREST</div>
@@ -1908,7 +1908,7 @@ def download_contract(project_id):
                     size: A4;
                     margin: 20px 20px 90px 20px;
                     
-                    @bottom-left {
+                    @bottom-right {
                         content: "Page " counter(page) " of " counter(pages);
                         font-family: 'Roboto', sans-serif;
                         font-size: 10px;
