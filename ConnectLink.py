@@ -437,42 +437,96 @@ def webhook():
                         print("❌ WhatsApp API Error:", e)
                         return {"error": str(e)}
 
-                def send_whatsapp_list_message(recipient, text, list_title, sections):
-
-                    headers = {
-                        "Authorization": f"Bearer {ACCESS_TOKEN}",
-                        "Content-Type": "application/json"
-                    }
-                    
-                    payload = {
-                        "messaging_product": "whatsapp",
-                        "recipient_type": "individual",
-                        "to": recipient,
-                        "type": "interactive",
-                        "interactive": {
-                            "type": "list",
-                            "header": {
-                                "type": "text",
-                                "text": list_title
-                            },
-                            "body": {
-                                "text": text
-                            },
-                            "action": {
-                                "button": "Select Option",
-                                "sections": sections
+                def send_whatsapp_button_message(recipient, text, buttons, footer_text=None):
+                    """Send WhatsApp interactive button message with footer"""
+                    try:
+                        headers = {
+                            "Authorization": f"Bearer {ACCESS_TOKEN}",
+                            "Content-Type": "application/json"
+                        }
+                        
+                        payload = {
+                            "messaging_product": "whatsapp",
+                            "recipient_type": "individual",
+                            "to": recipient,
+                            "type": "interactive",
+                            "interactive": {
+                                "type": "button",
+                                "body": {
+                                    "text": text
+                                },
+                                "action": {
+                                    "buttons": buttons
+                                }
                             }
                         }
-                    }
+                        
+                        # Add footer text if provided
+                        if footer_text:
+                            payload["interactive"]["footer"] = {"text": footer_text}
+                        
+                        response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
+
+                        print("✅ Sending button message to:", recipient)
+                        print("📩 Message body:", text)
+                        print("📌 Footer:", footer_text)
+                        print("📡 WhatsApp API Response Status:", response.status_code)
+                        
+                        if response.status_code != 200:
+                            print("❌ Error response:", response.json())
+                        
+                        return response
+                        
+                    except Exception as e:
+                        print(f"❌ Error sending WhatsApp button message: {str(e)}")
+                        return None
                     
-                    response = requests.post(WHATSAPP_API_URL,headers=headers,json=payload)
+                def send_whatsapp_list_message(recipient, text, header_text, sections, footer_text=None):
+                    """Send WhatsApp interactive list message"""
+                    try:
+                        headers = {
+                            "Authorization": f"Bearer {ACCESS_TOKEN}",
+                            "Content-Type": "application/json"
+                        }
+                        
+                        payload = {
+                            "messaging_product": "whatsapp",
+                            "recipient_type": "individual",
+                            "to": recipient,
+                            "type": "interactive",
+                            "interactive": {
+                                "type": "list",
+                                "header": {
+                                    "type": "text",
+                                    "text": header_text[:60]  # Max 60 chars
+                                },
+                                "body": {
+                                    "text": text[:1024]  # Max 1024 chars
+                                },
+                                "action": {
+                                    "button": "Select Option",
+                                    "sections": sections
+                                }
+                            }
+                        }
+                        
+                        # Add footer text if provided
+                        if footer_text:
+                            payload["interactive"]["footer"] = {"text": footer_text[:60]}  # Max 60 chars
+                        
+                        response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
+                        
+                        print("✅ Sending list message to:", recipient)
+                        print("📩 Message body:", text)
+                        print("📌 Footer:", footer_text)
+                        print("📡 WhatsApp API Response Status:", response.status_code)
+                        
+                        return response
+                        
+                    except Exception as e:
+                        print(f"❌ Error sending WhatsApp list message: {str(e)}")
+                        return None
 
-                    print("✅ Sending message to:", recipient)
-                    print("📩 Message body:", text)
-                    print("📡 WhatsApp API Response Status:", response.status_code)  
-
-                    print("List message response:", response.json())
-                    return response
 
                 print("📥 Full incoming data:", json.dumps(data, indent=2))
 
@@ -616,37 +670,40 @@ def webhook():
 
                                                         elif button_id == "projects":
 
-                                                            buttons = [
+                                                            sections = [
                                                                 {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "portfolio",
-                                                                        "title": "🏗️ Projects Portfolio"
-                                                                    }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "payments",
-                                                                        "title": "Payments"
-                                                                    }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "main_menu",
-                                                                        "title": " Main Menu"
-                                                                    }
+                                                                    "title": "Portfolio Options",
+                                                                    "rows": [
+                                                                        {
+                                                                            "id": "getportfolio",
+                                                                            "title": "Get Master File",
+                                                                            "description": "Download complete portfolio"
+                                                                        },
+                                                                        {
+                                                                            "id": "getnotes",
+                                                                            "title": "Get Notes",
+                                                                            "description": "Access project notes"
+                                                                        },
+                                                                        {
+                                                                            "id": "payments_schedule",
+                                                                            "title": "Payments Schedule",
+                                                                            "description": "Installments schedule report"
+                                                                        },
+                                                                        {
+                                                                            "id": "main_menu",
+                                                                            "title": "Main Menu",
+                                                                            "description": "Return to main menu"
+                                                                        }
+                                                                    ]
                                                                 }
                                                             ]
 
-
-                                                            send_whatsapp_message(
-                                                                sender_id, 
-                                                                "Kindly select a projects option below.",
-                                                                buttons,
+                                                            send_whatsapp_list_message(
+                                                                sender_id,
+                                                                "Kindly select a portfolio option below.",
+                                                                "ConnectLink Admin",
+                                                                sections,
                                                                 footer_text="ConnectLink Properties • Admin Panel"
-
                                                             )
 
                                                             continue
@@ -659,7 +716,7 @@ def webhook():
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "by_date_logged",
-                                                                        "title": "🏗️ By Date"
+                                                                        "title": "By Date"
                                                                     }
                                                                 },
                                                                 {
@@ -697,21 +754,21 @@ def webhook():
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "quotations",
-                                                                        "title": "🏗️ Quotation Equiries"
+                                                                        "title": "Quotation Equiries"
                                                                     }
                                                                 },
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "general_enquiries",
-                                                                        "title": "❓ General Enquiries"
+                                                                        "title": "General Enquiries"
                                                                     }
                                                                 },
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "main_menu",
-                                                                        "title": " Main Menu"
+                                                                        "title": "Main Menu"
                                                                     }
                                                                 }
                                                             ]
@@ -734,21 +791,21 @@ def webhook():
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "projects",
-                                                                        "title": "🏗️ Projects"
+                                                                        "title": "Projects"
                                                                     }
                                                                 },
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "enquiries",
-                                                                        "title": "❓ Enquiries"
+                                                                        "title": "Enquiries"
                                                                     }
                                                                 },
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "user_management",
-                                                                        "title": "👤 User Management"
+                                                                        "title": "User Management"
                                                                     }
                                                                 }
                                                             ]
@@ -849,21 +906,21 @@ def webhook():
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "projects",
-                                                                        "title": "🏗️ Projects"
+                                                                        "title": "Projects"
                                                                     }
                                                                 },
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "enquiries",
-                                                                        "title": "❓ Enquiries"
+                                                                        "title": "Enquiries"
                                                                     }
                                                                 },
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "user_management",
-                                                                        "title": "👤 User Management"
+                                                                        "title": "User Management"
                                                                     }
                                                                 }
                                                             ]
@@ -961,7 +1018,7 @@ def webhook():
                                                                         "type": "reply",
                                                                         "reply": {
                                                                             "id": "getportfolio",
-                                                                            "title": "🏗️ Get Master File"
+                                                                            "title": "Get Master File"
                                                                         }
                                                                     },
                                                                     {
@@ -975,7 +1032,7 @@ def webhook():
                                                                         "type": "reply",
                                                                         "reply": {
                                                                             "id": "main_menu",
-                                                                            "title": " Main Menu"
+                                                                            "title": "Main Menu"
                                                                         }
                                                                     }
                                                                 ]
