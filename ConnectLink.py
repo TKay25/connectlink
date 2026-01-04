@@ -1430,170 +1430,492 @@ def download_contract(project_id):
             with open(logo_path, 'rb') as img_file:
                 logo_base64 = base64.b64encode(img_file.read()).decode('utf-8')
 
-            # HTML string (full template)
+                        # HTML string (full template)
             html = f"""
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Construction Agreement</title>
-                    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
-                    <style>
-                    body {{ font-family: 'Roboto', sans-serif; background: #eef2fa; color: #1E2A56; }}
-                    .agreement-container {{
-                        width: 100%; /* or max-width: 800px */
-                        margin: auto;
-                        padding: 40px;
-                        border: 3px solid #1E2A56;
-                        border-radius: 14px;
-                        background: #fff;
-                        box-shadow: 0 8px 28px rgba(0,0,0,0.12);
-                        box-sizing: border-box; /* include padding/border in width */
-                        overflow-wrap: break-word; /* wrap long words */
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Construction Agreement</title>
+                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
+                <style>
+                    @page {{
+                        size: A4;
+                        margin: 60px 40px 90px 40px; /* Extra bottom margin for signature area */
+                        
+                        @bottom-left {{
+                            content: "Page " counter(page) " of " counter(pages);
+                            font-family: 'Roboto', sans-serif;
+                            font-size: 10px;
+                            color: #666;
+                        }}
+                        
+                        @bottom-center {{
+                            content: "";
+                            width: 100%;
+                            border-top: 1px solid #1E2A56;
+                            margin-top: 20px;
+                            padding-top: 10px;
+                        }}
                     }}
-                    .logo {{ display: block; margin: 0 auto 20px auto; width: 230px; }}
-                    h2.title {{ text-align: center; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }}
-                    .subtitle-line {{ width: 120px; height: 3px; background: #1E2A56; margin: 10px auto 30px auto; border-radius: 10px; }}
-                    h4.section-title {{ text-align: center; background-color: #1E2A56; color: white; padding: 5px 7px; border-radius: 6px; font-size: 1rem; margin-top: 40px; margin-bottom: 20px; font-weight: 800; letter-spacing: 0.5px; }}
-                    p, li {{ font-size: 0.85rem; color: #1E2A56; }}
-                    .field-row {{ display: flex; align-items: center; margin-bottom: 12px; }}
-                    .field-label {{ font-weight: 700; width: 170px; font-size: 14px; flex-shrink: 0; }}
-                    .field-value {{ flex: 1; border-bottom: 1.5px solid #1E2A56; padding-bottom: 2px; font-size: 14px; min-height: 20px; }}
-                    .scope-box {{ border: 1.5px solid #1E2A56; border-radius: 10px; padding: 10px; min-height: 80px; background: #fafbff; margin-bottom: 10px; }}
-                    ul {{ margin-top: 5px; margin-bottom: 20px; }}
-                    li {{ margin-bottom: 6px; }}
-                    .signature-block {{ margin-top: 60px; }}
-                    .signature-line {{ display:flex; align-items:center; margin-top: 30px; margin-bottom: 35px; }}
-                    .signature-label {{ font-weight: 700; margin-bottom: 5px; }}
-                    .watermark {{ position: fixed; top: 40%; left: 15%; opacity: 0.1; font-size: 80px; color: #1E2A56; transform: rotate(-45deg); z-index: -1000; }}
-                    @page {{ size: A4; margin: 50px 40px; }}
-                    </style>
-                </head>
-                <body>
-                <div class="watermark">CONFIDENTIAL</div>
+                    
+                    body {{ 
+                        font-family: 'Roboto', sans-serif; 
+                        background: #fff; 
+                        color: #1E2A56;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    
+                    .page-break {{
+                        page-break-after: always;
+                        margin-top: 40px;
+                    }}
+                    
+                    .agreement-container {{
+                        width: 100%;
+                        max-width: 800px;
+                        margin: 0 auto;
+                        padding: 30px;
+                        box-sizing: border-box;
+                        position: relative;
+                    }}
+                    
+                    .watermark {{
+                        position: fixed;
+                        top: 40%;
+                        left: 15%;
+                        opacity: 0.05;
+                        font-size: 100px;
+                        color: #1E2A56;
+                        transform: rotate(-45deg);
+                        z-index: -1000;
+                        font-weight: 900;
+                    }}
+                    
+                    .logo {{
+                        display: block;
+                        margin: 0 auto 20px auto;
+                        width: 200px;
+                        height: auto;
+                    }}
+                    
+                    h2.title {{
+                        text-align: center;
+                        font-weight: 900;
+                        margin-bottom: 10px;
+                        text-transform: uppercase;
+                        letter-spacing: 1.5px;
+                        font-size: 24px;
+                        color: #1E2A56;
+                    }}
+                    
+                    .subtitle-line {{
+                        width: 150px;
+                        height: 4px;
+                        background: linear-gradient(90deg, #1E2A56, #3A4B8C);
+                        margin: 10px auto 30px auto;
+                        border-radius: 10px;
+                    }}
+                    
+                    h4.section-title {{
+                        text-align: center;
+                        background: linear-gradient(90deg, #1E2A56, #2A3A78);
+                        color: white;
+                        padding: 8px 15px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        margin-top: 35px;
+                        margin-bottom: 25px;
+                        font-weight: 700;
+                        letter-spacing: 0.8px;
+                        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+                    }}
+                    
+                    .section-header {{
+                        background: #f0f5ff;
+                        padding: 12px 15px;
+                        border-left: 4px solid #1E2A56;
+                        margin: 30px 0 20px 0;
+                        font-weight: 700;
+                        color: #1E2A56;
+                        border-radius: 0 8px 8px 0;
+                    }}
+                    
+                    .field-row {{
+                        display: flex;
+                        align-items: flex-start;
+                        margin-bottom: 15px;
+                        page-break-inside: avoid;
+                    }}
+                    
+                    .field-label {{
+                        font-weight: 700;
+                        width: 180px;
+                        font-size: 13px;
+                        flex-shrink: 0;
+                        color: #2A3A78;
+                    }}
+                    
+                    .field-value {{
+                        flex: 1;
+                        border-bottom: 1px solid #d1d9f0;
+                        padding-bottom: 5px;
+                        font-size: 13px;
+                        min-height: 22px;
+                        color: #1E2A56;
+                    }}
+                    
+                    .highlight-box {{
+                        background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%);
+                        border: 1.5px solid #1E2A56;
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin: 15px 0;
+                        box-shadow: 0 4px 12px rgba(26, 42, 86, 0.08);
+                    }}
+                    
+                    .scope-box {{
+                        border: 1.5px solid #1E2A56;
+                        border-radius: 10px;
+                        padding: 15px;
+                        min-height: 100px;
+                        background: #fafbff;
+                        margin-bottom: 15px;
+                        line-height: 1.5;
+                    }}
+                    
+                    .payment-table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                        border: 1.5px solid #1E2A56;
+                        box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+                    }}
+                    
+                    .payment-table th {{
+                        background: linear-gradient(90deg, #1E2A56, #2A3A78);
+                        color: white;
+                        text-align: left;
+                        padding: 12px;
+                        font-weight: 700;
+                        font-size: 13px;
+                    }}
+                    
+                    .payment-table td {{
+                        border: 1px solid #d1d9f0;
+                        padding: 10px;
+                        font-size: 13px;
+                    }}
+                    
+                    .payment-table tr:nth-child(even) {{
+                        background-color: #f9faff;
+                    }}
+                    
+                    ul, ol {{
+                        margin: 15px 0;
+                        padding-left: 25px;
+                        line-height: 1.6;
+                    }}
+                    
+                    li {{
+                        margin-bottom: 10px;
+                        font-size: 13px;
+                        color: #1E2A56;
+                    }}
+                    
+                    .terms-box {{
+                        background: #f8faff;
+                        border-left: 4px solid #1E2A56;
+                        padding: 15px;
+                        margin: 20px 0;
+                        border-radius: 0 8px 8px 0;
+                    }}
+                    
+                    /* Signature area at bottom of each page */
+                    .signature-area {{
+                        position: fixed;
+                        bottom: 40px;
+                        left: 40px;
+                        right: 40px;
+                        padding-top: 20px;
+                        border-top: 1px solid #1E2A56;
+                        background: white;
+                        z-index: 100;
+                    }}
+                    
+                    .signature-block {{
+                        display: flex;
+                        justify-content: space-between;
+                        margin-top: 30px;
+                    }}
+                    
+                    .signature-line {{
+                        flex: 1;
+                        margin: 0 15px;
+                    }}
+                    
+                    .signature-label {{
+                        font-weight: 700;
+                        font-size: 12px;
+                        margin-bottom: 5px;
+                        display: block;
+                        color: #2A3A78;
+                    }}
+                    
+                    .signature-space {{
+                        height: 50px;
+                        border-bottom: 1px solid #1E2A56;
+                        margin-top: 5px;
+                    }}
+                    
+                    .signature-date {{
+                        font-size: 11px;
+                        color: #666;
+                        margin-top: 5px;
+                    }}
+                    
+                    .footer-note {{
+                        text-align: center;
+                        font-size: 10px;
+                        color: #888;
+                        margin-top: 15px;
+                        font-style: italic;
+                    }}
+                    
+                    /* Page number styling */
+                    .page-number {{
+                        position: fixed;
+                        bottom: 20px;
+                        left: 40px;
+                        font-size: 10px;
+                        color: #666;
+                    }}
+                    
+                    .total-pages {{
+                        position: fixed;
+                        bottom: 20px;
+                        right: 40px;
+                        font-size: 10px;
+                        color: #666;
+                    }}
+                    
+                    /* Print styles */
+                    @media print {{
+                        .signature-area {{
+                            position: fixed;
+                            bottom: 40px;
+                        }}
+                        
+                        .page-break {{
+                            page-break-after: always;
+                        }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="watermark">CONNECTLINK</div>
+                
                 <div class="agreement-container">
-
-                <img class="logo" src="data:image/png;base64,{logo_base64}" alt="ConnectLink Logo">
-
-                <h2 class="title">Construction Agreement</h2>
-                <div class="subtitle-line"></div>
-
-                <p>This Construction Agreement ("Agreement") is made and entered into on <strong class="field-value">{project['agreement_date']}</strong> ("Effective Date") by and between:</p>
-
-                <h4 class="section-title">CLIENT DETAILS</h4>
-                <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
-                <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['client_address']}</div></div>
-                <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['client_whatsapp']}</div></div>
-                <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['client_email']}</div></div>
-
-                <h4 class="section-title">NEXT OF KIN DETAILS</h4>
-                <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['next_of_kin_name']}</div></div>
-                <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['next_of_kin_address']}</div></div>
-                <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
-                <div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
-
-                <h4 class="section-title">CONTRACTOR DETAILS</h4>
-                <div class="field-row"><div class="field-label">Name:</div><div class="field-value">{project['companyname']}</div></div>
-                <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
-                <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['companycontact1']} ; 0{project['companycontact2']}</div></div>
-                <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
-                <div class="field-row"><div class="field-label">Administrator Name:</div><div class="field-value">{project['project_administrator']}</div></div>
-
-                <h4 class="section-title">PROJECT DETAILS</h4>
-                <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
-                <div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
-                <p><strong>Project Scope:</strong></p>
-                <div class="scope-box">{project['project_description']}</div>
-
-                <h4 class="section-title">PAYMENT TERMS</h4>
-                <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value">USD {project['total_contract_price']}</div></div>
-                <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value">USD {project['depositorbullet']}</div></div>
-
-                <p><strong>Payment Schedule:</strong></p>
-                <table style="width:70%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #1E2A56;">
-                <thead>
-                <tr>
-                <th style="text-align:left; border: 1px solid #1E2A56; padding: 8px; background-color: #f0f2f8;">Installment Due Date</th>
-                <th style="border: 1px solid #1E2A56; padding: 8px; background-color: #f0f2f8;">Installment (USD)</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment1duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment1amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment2duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment2amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment3duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment3amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment4duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment4amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment5duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment5amount']}</td></tr>
-                <tr><td style="border: 1px solid #1E2A56; padding: 8px;font-size:13px;">{project['installment6duedate']}</td><td style="border: 1px solid #1E2A56; padding: 8px;">{project['installment6amount']}</td></tr>               
-                </tbody>
-                </table>
-
-                <h4 class="section-title">LATE PAYMENT AND INTEREST</h4>
-                <ul style="list-style-type:circle;">
-                    <li> If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of {project['latepaymentinterest']}% per annum.</li>
-                    <li> Interest is calculated daily and compounded monthly.</li>
-                </ul>
-
-                <h4 class="section-title">TERMS AND CONDITIONS</h4>
-                <ol>
-                    <li>The Contractor shall commence work within {project['days_difference']} days of receiving the first payment.</li>
-                    <li>The Client shall make payments as per the payment schedule.</li>
-                    <li>The Contractor shall complete the project within {project['project_duration']} days.</li>
-                    <li>The Client is responsible for obtaining all required permits.</li>
-                    <li>The Contractor is responsible for all materials and labor.</li>
-                </ol>
-
-                <h4 class="section-title">TERMINATION</h4>
-                <p>This Agreement may be terminated if either party fails to comply with the terms herein.</p>
-
-                <h4 class="section-title">OWNERSHIP</h4>
-                <ul style="list-style-type:circle;">
-                    <li>Installed items remain property of ConnectLink Properties and ownership is only transferred upon full payment from the client. </li>
-                    <li>ConnectLink Properties reserves the right to remove installed items should the client fail to pay the balance within the timelines stated in this agreement.</li>
-                </ul>
-
-                <h4 class="section-title">DESIGN CONFIRMATION</h4>
-                <ul style="list-style-type:circle;">
-                    <li>Signing of the contract and payment of the deposit is taken as acknowledgement, confirmation and go ahead for the construction of the proposed design sent to the client prior with the quotation.</li>
-                    <li>Any other alterations may be communicated and adjusted <b>before</b> the signing of the contract.</li>
-                    <li>All additions to the said design will be taken as variations and will incur an additional cost that may be added to the first quotation or charged on a seperate quotation altogether.</li>
-                </ul>
-
-                <h4 class="section-title">POWER PROVISION</h4>
-                <p>In the case of a power outage and there is need for electricity for the job to be carried out, the client is to provide a generator and fuel for the duration of the construction period
-                as needed at the client's own expense.</p>
-
-                <h4 class="section-title">DISPUTE RESOLUTION</h4>
-                <p>Any disputes shall be resolved through arbitration under the Arbitration Act of Zimbabwe.</p>
-
-                <h4 class="section-title">GOVERNING LAW</h4>
-                <p>This Agreement is governed by the laws of Zimbabwe.</p>
-
-                <h4 class="section-title">SIGNATURES</h4>
-
-                <div class="signature-block">
-                    <div class="signature-line">
-                        <span class="signature-label">Client Signature:</span>
-                        <div class="field-value" style="width:350px;"></div>
+                    <!-- Page 1 -->
+                    <img class="logo" src="data:image/png;base64,{logo_base64}" alt="ConnectLink Logo">
+                    
+                    <h2 class="title">Construction Agreement</h2>
+                    <div class="subtitle-line"></div>
+                    
+                    <div class="highlight-box">
+                        <p style="text-align: center; font-weight: 700; margin: 0;">
+                            This Construction Agreement ("Agreement") is made and entered into on 
+                            <span style="color: #1E2A56; text-decoration: underline;">{project['agreement_date']}</span> 
+                            ("Effective Date") by and between the parties below:
+                        </p>
                     </div>
-
-                    <div class="signature-line">
-                        <span class="signature-label">Contractor Signature:</span>
-                        <div class="field-value" style="width:350px;"></div>
+                    
+                    <h4 class="section-title">PARTIES TO THE AGREEMENT</h4>
+                    
+                    <div class="section-header">CLIENT DETAILS</div>
+                    <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
+                    <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['client_address']}</div></div>
+                    <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['client_whatsapp']}</div></div>
+                    <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['client_email']}</div></div>
+                    
+                    <div class="section-header">NEXT OF KIN DETAILS</div>
+                    <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['next_of_kin_name']}</div></div>
+                    <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['next_of_kin_address']}</div></div>
+                    <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
+                    <div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
+                    
+                    <div class="section-header">CONTRACTOR DETAILS</div>
+                    <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
+                    <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
+                    <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
+                    <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
+                    <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
+                    
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 2 -->
+                    <h4 class="section-title">PROJECT DETAILS</h4>
+                    <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
+                    <div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
+                    
+                    <div class="section-header">PROJECT SCOPE</div>
+                    <div class="scope-box">{project['project_description']}</div>
+                    
+                    <h4 class="section-title">PAYMENT TERMS</h4>
+                    <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>
+                    <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['depositorbullet']}</div></div>
+                    
+                    <div class="section-header">PAYMENT SCHEDULE</div>
+                    <table class="payment-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60%;">Installment Due Date</th>
+                                <th style="width: 40%;">Amount (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>{project['installment1duedate']}</td><td style="font-weight: 700;">{project['installment1amount']}</td></tr>
+                            <tr><td>{project['installment2duedate']}</td><td style="font-weight: 700;">{project['installment2amount']}</td></tr>
+                            <tr><td>{project['installment3duedate']}</td><td style="font-weight: 700;">{project['installment3amount']}</td></tr>
+                            <tr><td>{project['installment4duedate']}</td><td style="font-weight: 700;">{project['installment4amount']}</td></tr>
+                            <tr><td>{project['installment5duedate']}</td><td style="font-weight: 700;">{project['installment5amount']}</td></tr>
+                            <tr><td>{project['installment6duedate']}</td><td style="font-weight: 700;">{project['installment6amount']}</td></tr>
+                        </tbody>
+                    </table>
+                    
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 3 -->
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+                    
+                    <div class="section-header">LATE PAYMENT AND INTEREST</div>
+                    <div class="terms-box">
+                        <ul style="list-style-type: circle;">
+                            <li>If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of <strong>{project['latepaymentinterest']}%</strong> per annum.</li>
+                            <li>Interest is calculated daily and compounded monthly from the due date until full payment is received.</li>
+                            <li>All payments shall first be applied to interest due, then to the principal amount.</li>
+                        </ul>
                     </div>
-
-                    <div class="signature-line">
-                        <span class="signature-label">Date:</span>
-                        <div class="field-value" style="width:220px;">{ project['agreement_date'] }</div>
+                    
+                    <div class="section-header">PROJECT TIMELINE</div>
+                    <ol>
+                        <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of receiving the first payment.</li>
+                        <li>The Contractor shall complete the project within <strong>{project['project_duration']} days</strong> from commencement date.</li>
+                        <li>The Client shall make payments strictly as per the payment schedule outlined above.</li>
+                        <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
+                        <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
+                    </ol>
+                    
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 4 -->
+                    <div class="section-header">OWNERSHIP CLAUSE</div>
+                    <div class="terms-box">
+                        <ul style="list-style-type: circle;">
+                            <li>All installed items, materials, and equipment remain the property of <strong>ConnectLink Properties</strong> until full and final payment is received from the Client.</li>
+                            <li>ConnectLink Properties reserves the right to remove, repossess, or withhold any installed items should the Client fail to make payments within the stipulated timelines.</li>
+                            <li>Ownership transfers to the Client only upon settlement of the entire contract amount.</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="section-header">DESIGN CONFIRMATION</div>
+                    <div class="terms-box">
+                        <ul style="list-style-type: circle;">
+                            <li>Signing of this contract and payment of the deposit constitutes acknowledgement, confirmation, and authorization to proceed with construction of the proposed design submitted with the quotation.</li>
+                            <li>Any alterations or modifications must be communicated and agreed upon <strong>before</strong> signing this contract.</li>
+                            <li>All additions or variations to the approved design will be treated as change orders and will incur additional costs, billed separately or added to the original quotation.</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="section-header">POWER PROVISION</div>
+                    <div class="terms-box">
+                        <p>In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
+                    </div>
+                    
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+                    <div class="section-header">TERMINATION</div>
+                    <div class="terms-box">
+                        <p>This Agreement may be terminated by either party if the other party:</p>
+                        <ol>
+                            <li>Fails to perform any material obligation under this Agreement and such failure continues for 30 days after written notice.</li>
+                            <li>Becomes insolvent, bankrupt, or enters into receivership.</li>
+                            <li>Breaches any term of this Agreement causing substantial harm to the other party.</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="section-header">DISPUTE RESOLUTION</div>
+                    <div class="terms-box">
+                        <p>Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
+                    </div>
+                    
+                    <div class="section-header">GOVERNING LAW</div>
+                    <div class="terms-box">
+                        <p>This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
+                    </div>
+                    
+                    <div class="section-header">ENTIRE AGREEMENT</div>
+                    <div class="terms-box">
+                        <p>This document constitutes the entire agreement between the parties and supersedes all prior discussions, negotiations, and agreements. No modification shall be valid unless in writing and signed by both parties.</p>
+                    </div>
+                    
+                    <div class="footer-note">
+                        This is a legally binding document. Please read carefully before signing.
                     </div>
                 </div>
-
+                
+                <!-- Signature Area (will appear at bottom of each page) -->
+                <div class="signature-area">
+                    <div class="signature-block">
+                        <div class="signature-line">
+                            <span class="signature-label">CLIENT SIGNATURE</span>
+                            <div class="signature-space"></div>
+                            <div class="signature-date">Date: _________________</div>
+                        </div>
+                        
+                        <div class="signature-line">
+                            <span class="signature-label">WITNESS SIGNATURE</span>
+                            <div class="signature-space"></div>
+                            <div class="signature-date">Date: _________________</div>
+                        </div>
+                        
+                        <div class="signature-line">
+                            <span class="signature-label">CONTRACTOR SIGNATURE</span>
+                            <div class="signature-space"></div>
+                            <div class="signature-date">Date: {project['agreement_date']}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="footer-note" style="margin-top: 20px;">
+                        All payments to be made to: {project['companyname']} | Bank: [Bank Name] | Account: [Account Number] | Branch: [Branch Code]
+                    </div>
                 </div>
-                </body>
-                </html>
-                """
+            </body>
+            </html>
+            """
 
-            # Generate PDF
-            pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+            # Generate PDF with better options
+            pdf_options = {
+                'page-size': 'A4',
+                'margin-top': '20px',
+                'margin-right': '20px',
+                'margin-bottom': '90px',  # Extra space for signature area
+                'margin-left': '20px',
+                'encoding': "UTF-8",
+                'no-outline': None,
+                'enable-local-file-access': None,
+                'print-media-type': None,
+                'dpi': 300,
+                'zoom': 1.0,
+            }
+
+            pdf = HTML(string=html, base_url=request.host_url).write_pdf(pdf_options)
 
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
