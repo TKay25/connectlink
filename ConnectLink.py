@@ -1547,14 +1547,14 @@ def download_contract(project_id):
                     .field-row {{
                         display: flex;
                         align-items: flex-start;
-                        margin-bottom: 15px;
+                        margin-bottom: 8px;
                         page-break-inside: avoid;
                     }}
                     
                     .field-label {{
                         font-weight: 700;
                         width: 180px;
-                        font-size: 13px;
+                        font-size: 12px;
                         flex-shrink: 0;
                         color: #2A3A78;
                     }}
