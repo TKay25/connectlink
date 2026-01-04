@@ -1506,7 +1506,7 @@ def download_contract(project_id):
                         font-weight: 900;
                         margin-bottom: 10px;
                         text-transform: uppercase;
-                        letter-spacing: 1.5px;
+                        letter-spacing: 1.6px;
                         font-size: 24px;
                         color: #1E2A56;
                     }}
@@ -1523,24 +1523,24 @@ def download_contract(project_id):
                         text-align: center;
                         background: linear-gradient(90deg, #1E2A56, #2A3A78);
                         color: white;
-                        padding: 8px 15px;
+                        padding: 8px 12px;
                         border-radius: 8px;
-                        font-size: 16px;
-                        margin-top: 35px;
-                        margin-bottom: 25px;
+                        font-size: 13px;
+                        margin-top: 20px;
+                        margin-bottom: 15px;
                         font-weight: 700;
-                        font-size:13px
                         letter-spacing: 0.8px;
                         box-shadow: 0 3px 6px rgba(0,0,0,0.1);
                     }}
                     
                     .section-header {{
                         background: #f0f5ff;
-                        padding: 12px 15px;
+                        padding: 8px 10px;
                         border-left: 4px solid #1E2A56;
                         margin: 30px 0 20px 0;
                         font-weight: 700;
                         color: #1E2A56;
+                        font-size: 12px;
                         border-radius: 0 8px 8px 0;
                     }}
                     
@@ -1581,7 +1581,7 @@ def download_contract(project_id):
                     .scope-box {{
                         border: 1.5px solid #1E2A56;
                         border-radius: 10px;
-                        padding: 15px;
+                        padding: 12px;
                         min-height: 100px;
                         background: #fafbff;
                         margin-bottom: 15px;
