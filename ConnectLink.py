@@ -1632,10 +1632,10 @@ def download_contract(project_id):
                     .signature-area {{
                         font-size: 8px;
                         position: fixed;
-                        bottom: 0px;
+                        bottom: 5px;
                         left: 40px;
                         right: 40px;
-                        padding-top: 4px;
+                        padding-top: 8px;
                         border: 1px solid #1E2A56;
                         border-radius: 8px;
                         background: #f8faff;
@@ -1702,7 +1702,7 @@ def download_contract(project_id):
                     @media print {{
                         .signature-area {{
                             position: fixed;
-                            bottom: 0px;
+                            bottom: 5px;
                         }}
                         
                         .page-break {{
