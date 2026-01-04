@@ -1634,11 +1634,12 @@ def download_contract(project_id):
                     
                     /* Signature area at bottom of each page */
                     .signature-area {{
+                        font-size: 8px;
                         position: fixed;
-                        bottom: 40px;
+                        bottom: 0px;
                         left: 40px;
                         right: 40px;
-                        padding-top: 20px;
+                        padding-top: 4px;
                         border-top: 1px solid #1E2A56;
                         background: white;
                         z-index: 100;
@@ -1704,7 +1705,7 @@ def download_contract(project_id):
                     @media print {{
                         .signature-area {{
                             position: fixed;
-                            bottom: 40px;
+                            bottom: 0px;
                         }}
                         
                         .page-break {{
@@ -1876,13 +1877,7 @@ def download_contract(project_id):
                         <div class="signature-line">
                             <span class="signature-label">CLIENT SIGNATURE</span>
                             <div class="signature-space"></div>
-                            <div class="signature-date">Date: _________________</div>
-                        </div>
-                        
-                        <div class="signature-line">
-                            <span class="signature-label">WITNESS SIGNATURE</span>
-                            <div class="signature-space"></div>
-                            <div class="signature-date">Date: _________________</div>
+                            <div class="signature-date">Date: {project['agreement_date']}</div>
                         </div>
                         
                         <div class="signature-line">
@@ -1893,7 +1888,7 @@ def download_contract(project_id):
                     </div>
                     
                     <div class="footer-note" style="margin-top: 20px;">
-                        All payments to be made to: {project['companyname']} | Bank: [Bank Name] | Account: [Account Number] | Branch: [Branch Code]
+                        All payments to be made to: {project['companyname']}
                     </div>
                 </div>
             </body>
