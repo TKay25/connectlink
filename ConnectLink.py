@@ -1652,7 +1652,7 @@ def download_contract(project_id):
                     .signature-block {{
                         display: flex;
                         justify-content: space-between;
-                        margin-top: 30px;
+                        margin-top: 8px;
                     }}
                     
                     .signature-line {{
@@ -1763,7 +1763,7 @@ def download_contract(project_id):
                     <div class="page-break"></div>
                     
                     <!-- Page 2 -->
-                    
+
                     <h4 class="section-title">PROJECT DETAILS</h4>
                     <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
                     <div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
