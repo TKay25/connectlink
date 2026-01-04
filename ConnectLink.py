@@ -2331,7 +2331,6 @@ def export_installments_schedule_excel():
                         
                         # Write to sheet (max 31 chars for sheet name)
                         sheet_name = str(month_year)[:31]
-                        month_df.to_excel(writer, sheet_name=sheet_name, index=False)
                 
                 # ================================================
                 # MONTHLY CROSS-TAB SUMMARY (Clients vs Months)
@@ -2419,9 +2418,7 @@ def export_installments_schedule_excel():
                     # Format currency
                     for col in ['Total Pending', 'overdue_amount', 'future_amount']:
                         monthly_totals[col] = monthly_totals[col].apply(lambda x: f"${x:,.2f}")
-                    
-                    monthly_totals.to_excel(writer, sheet_name='Month Totals', index=False)
-                    
+                                        
                     # Create summary by status (overdue vs pending)
                     status_summary = monthly_df.groupby('status').agg({
                         'clientname': 'nunique',
