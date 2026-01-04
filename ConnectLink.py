@@ -28,7 +28,7 @@ import base64
 import json
 import requests
 from openpyxl import Workbook
-from weasyprint import HTML
+from weasyprint import HTML, CSS
 import re
 import traceback
 from collections import Counter
@@ -1901,21 +1901,37 @@ def download_contract(project_id):
             """
 
             # Generate PDF with better options
-            pdf_options = {
-                'page-size': 'A4',
-                'margin-top': '20px',
-                'margin-right': '20px',
-                'margin-bottom': '90px',  # Extra space for signature area
-                'margin-left': '20px',
-                'encoding': "UTF-8",
-                'no-outline': None,
-                'enable-local-file-access': None,
-                'print-media-type': None,
-                'dpi': 300,
-                'zoom': 1.0,
-            }
+            css = CSS(string='''
+                @page {
+                    size: A4;
+                    margin: 20px 20px 90px 20px;
+                    
+                    @bottom-left {
+                        content: "Page " counter(page) " of " counter(pages);
+                        font-family: 'Roboto', sans-serif;
+                        font-size: 10px;
+                        color: #666;
+                    }
+                    
+                    @bottom-center {
+                        content: "";
+                        width: 100%;
+                        border-top: 1px solid #1E2A56;
+                        margin-top: 20px;
+                        padding-top: 10px;
+                    }
+                }
+                
+                body {
+                    font-family: 'Roboto', sans-serif;
+                    margin: 0;
+                    padding: 0;
+                }
+            ''')
 
-            pdf = HTML(string=html, base_url=request.host_url).write_pdf(pdf_options)
+            html_obj = HTML(string=html, base_url=request.host_url)
+
+            pdf = html_obj.write_pdf(stylesheets=[css])
 
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
