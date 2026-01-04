@@ -1751,10 +1751,6 @@ def download_contract(project_id):
                     <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
                     <div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
                     
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 2 -->
 
                     <div class="section-header">CONTRACTOR DETAILS</div>
                     <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
@@ -1763,7 +1759,11 @@ def download_contract(project_id):
                     <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
                     <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
                     
-
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 2 -->
+                    
                     <h4 class="section-title">PROJECT DETAILS</h4>
                     <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
                     <div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
