@@ -670,11 +670,6 @@ def webhook():
 
                                                             """Export installments schedule as PDF with cross-tab table ONLY"""
                                                             try:
-                                                                from datetime import date
-                                                                import io
-                                                                from weasyprint import HTML
-                                                                import requests
-                                                                import pandas as pd
                                                                 
                                                                 # Get today's date for filtering
                                                                 today = date.today()
