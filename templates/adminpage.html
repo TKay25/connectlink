@@ -2302,66 +2302,85 @@
 <script>
 
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('enquirySearch');
-            const categoryFilter = document.getElementById('categoryFilter');
-            const statusFilter = document.getElementById('statusFilter');
-            const clearBtn = document.getElementById('clearFilters');
-            const resultsCount = document.getElementById('resultsCount');
-            const enquiryRows = document.querySelectorAll('.enquiry-row');
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('enquirySearch');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const clearBtn = document.getElementById('clearFilters');
+    const resultsCount = document.getElementById('resultsCount');
+    const enquiryRows = document.querySelectorAll('.enquiry-row');
+    
+    console.log('Enquiry rows found:', enquiryRows.length);
+    
+    function filterEnquiries() {
+        console.log('Filtering...');
+        const searchTerm = searchInput.value.toLowerCase();
+        const categoryValue = categoryFilter.value;
+        const statusValue = statusFilter.value;
+        
+        let visibleCount = 0;
+        
+        enquiryRows.forEach(row => {
+            const category = row.getAttribute('data-category');
+            const status = row.getAttribute('data-status');
+            const client = row.getAttribute('data-client') || '';
+            const username = row.getAttribute('data-username') || '';
+            const message = row.getAttribute('data-message') || '';
             
-            function updateResultsCount(visibleCount) {
-                resultsCount.textContent = `Showing ${visibleCount} of ${enquiryRows.length} enquiries`;
+            console.log('Row data:', {category, status, client, username});
+            
+            // Check filters
+            const categoryMatch = !categoryValue || category === categoryValue;
+            const statusMatch = !statusValue || status === statusValue;
+            
+            // Check search
+            const searchMatch = !searchTerm || 
+                client.toString().includes(searchTerm) ||
+                username.toLowerCase().includes(searchTerm) ||
+                message.toLowerCase().includes(searchTerm);
+            
+            if (categoryMatch && statusMatch && searchMatch) {
+                row.style.display = '';
+                visibleCount++;
+                console.log('Showing row');
+            } else {
+                row.style.display = 'none';
+                console.log('Hiding row');
             }
-            
-            function filterEnquiries() {
-                const searchTerm = searchInput.value.toLowerCase();
-                const categoryValue = categoryFilter.value;
-                const statusValue = statusFilter.value;
-                
-                let visibleCount = 0;
-                
-                enquiryRows.forEach(row => {
-                    const category = row.getAttribute('data-category');
-                    const status = row.getAttribute('data-status');
-                    const client = row.getAttribute('data-client');
-                    const username = row.getAttribute('data-username') || '';
-                    const message = row.getAttribute('data-message') || '';
-                    
-                    // Check filters
-                    const categoryMatch = !categoryValue || category === categoryValue;
-                    const statusMatch = !statusValue || status === statusValue;
-                    
-                    // Check search
-                    const searchMatch = !searchTerm || 
-                        client.includes(searchTerm) ||
-                        username.toLowerCase().includes(searchTerm) ||
-                        message.toLowerCase().includes(searchTerm);
-                    
-                    if (categoryMatch && statusMatch && searchMatch) {
-                        row.style.display = '';
-                        visibleCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-                
-                updateResultsCount(visibleCount);
-            }
-            
-            // Event listeners
-            searchInput.addEventListener('input', filterEnquiries);
-            categoryFilter.addEventListener('change', filterEnquiries);
-            statusFilter.addEventListener('change', filterEnquiries);
-            clearBtn.addEventListener('click', function() {
-                searchInput.value = '';
-                categoryFilter.value = '';
-                statusFilter.value = '';
-                filterEnquiries();
-            });
-            
-            // Initialize count
-            updateResultsCount(enquiryRows.length);
+        });
+        
+        resultsCount.textContent = `Showing ${visibleCount} of ${enquiryRows.length} enquiries`;
+        console.log('Visible count:', visibleCount);
+    }
+    
+    // Event listeners
+    if (searchInput) {
+        searchInput.addEventListener('input', filterEnquiries);
+        console.log('Search input listener added');
+    }
+    
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', filterEnquiries);
+        console.log('Category filter listener added');
+    }
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterEnquiries);
+        console.log('Status filter listener added');
+    }
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            categoryFilter.value = '';
+            statusFilter.value = '';
+            filterEnquiries();
+            console.log('Filters cleared');
+        });
+    }
+    
+    // Initial filter
+    filterEnquiries();
 
 // Message expand/collapse
 document.addEventListener('click', function(e) {
