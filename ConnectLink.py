@@ -3423,40 +3423,38 @@ def webhook():
                                                         
                                                         print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
 
-                                                            
-                                                        if "hello" in text.lower():
-
-                                                            buttons = [
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "projects",
-                                                                        "title": "Projects"
-                                                                    }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "enquiries",
-                                                                        "title": "Enquiries"
-                                                                    }
+                                                        
+                                                        buttons = [
+                                                            {
+                                                                "type": "reply",
+                                                                "reply": {
+                                                                    "id": "projects",
+                                                                    "title": "Projects"
                                                                 }
-                                                            ]
+                                                            },
+                                                            {
+                                                                "type": "reply",
+                                                                "reply": {
+                                                                    "id": "enquiries",
+                                                                    "title": "Enquiries"
+                                                                }
+                                                            }
+                                                        ]
 
 
 
-                                                            send_whatsapp_button_image_message(
-                                                                sender_id,
-                                                                f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
-                                                                "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
-                                                                buttons,
-                                                                footer_text="ConnectLink Properties • Admin Panel"
+                                                        send_whatsapp_button_image_message(
+                                                            sender_id,
+                                                            f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
+                                                            "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                            buttons,
+                                                            footer_text="ConnectLink Properties • Admin Panel"
 
-                                                            )
+                                                        )
 
 
 
-                                                            return jsonify({"status": "received"}), 200
+                                                        return jsonify({"status": "received"}), 200
 
 
 
