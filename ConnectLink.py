@@ -905,7 +905,7 @@ def webhook():
                                                                 pdf_data = {
                                                                     'report_date': today_str,
                                                                     'generated_on': datetime.now().strftime('%d %B %Y %H:%M:%S'),
-                                                                    'company_name': 'Your Company Name',  # Replace with actual
+                                                                    'company_name': 'ConnectLink Properties',  # Replace with actual
                                                                     'company_logo': '',  # Add logo if available
                                                                     'report_title': 'INSTALLMENT PAYMENTS SCHEDULE - CROSS TAB VIEW',
                                                                     'summary': summary_data,
