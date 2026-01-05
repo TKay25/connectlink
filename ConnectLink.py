@@ -3845,7 +3845,7 @@ def webhook():
 
                                                                                 _Sending payment history documents now..._
                                                                                             """
-                                                                            send_whatsapp_message(sender_id, summary)
+                                                                            # send_whatsapp_message(sender_id, summary)
                                                                             
                                                                             # Process each project's payment history
                                                                             for i, row in enumerate(rows):
@@ -3889,8 +3889,6 @@ def webhook():
                                                                             # Final message with buttons
                                                                             final_msg = f"""
                                                                                 ✅ *ALL PAYMENT HISTORIES SENT!*
-
-                                                                                Successfully sent {len(rows)} payment history document(s).
 
                                                                                 _Keep your records safe for reference!_
                                                                                             """
