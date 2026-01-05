@@ -131,6 +131,17 @@ def initialize_database_tables():
             """)
 
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS connectlinkenquiries (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP,
+                    clientwhatsapp INT,
+                    enqcategory VARCHAR (100),
+                    enq VARCHAR (1000),
+                    plan BYTEA
+                );
+            """)
+
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkusers (
                     id SERIAL PRIMARY KEY,
                     datecreated date,
