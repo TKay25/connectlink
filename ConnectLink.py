@@ -3764,84 +3764,6 @@ def webhook():
 
                                                             elif button_id == "contracts":
                                                                 """Generate and send actual contract PDFs using the template"""
-                                                                try:
-                                                                    # Extract last 9 digits from sender_id
-                                                                    if sender_id and len(sender_id) >= 9:
-                                                                        client_whatsapp = int(sender_id[-9:])
-                                                                    else:
-                                                                        client_whatsapp = int(sender_id) if sender_id and sender_id.isdigit() else None
-                                                                    
-                                                                    if not client_whatsapp:
-                                                                        return jsonify({'status': 'error', 'message': 'Invalid WhatsApp number'}), 400
-                                                                    
-                                                                    with get_db() as (cursor, connection):
-                                                                        # Get ALL user's contracts
-                                                                        cursor.execute("""
-                                                                            SELECT * FROM connectlinkdatabase 
-                                                                            WHERE clientwanumber = %s
-                                                                            ORDER BY projectstartdate DESC
-                                                                        """, (client_whatsapp,))
-                                                                        
-                                                                        rows = cursor.fetchall()
-                                                                        
-                                                                        if not rows:
-                                                                            message = f"📋 No contracts found for your WhatsApp number."
-                                                                            send_whatsapp_message(sender_id, message)
-                                                                            return jsonify({'status': 'success', 'message': 'No contracts found'})
-                                                                        
-                                                                        # Send summary message
-                                                                        summary = f"""
-                                                                            📋 *YOUR CONTRACTS - CONNECTLINK PROPERTIES*
-
-                                                                            Found {len(rows)} contract(s) for your WhatsApp number.
-
-                                                                            _Sending contract documents now..._
-                                                                                        """
-                                                                        send_whatsapp_message(sender_id, summary)
-                                                                        
-                                                                        # Process each contract
-                                                                        for i, row in enumerate(rows):
-                                                                            try:
-                                                                                print(f"📄 Generating contract {i+1}/{len(rows)}")
-                                                                                
-                                                                                # Generate PDF using your template
-                                                                                pdf_bytes = generate_contract_pdf(row, cursor)
-                                                                                
-                                                                                if pdf_bytes:
-                                                                                    # Send contract via WhatsApp
-                                                                                    filename = f"Contract_{row[1]}_{row[10]}_{row[0]}.pdf"
-                                                                                    send_pdf_via_whatsapp(sender_id, pdf_bytes, filename, f"Contract: {row[10]}")
-                                                                                    
-                                                                                    # Send progress update
-                                                                                    if i < len(rows) - 1:
-                                                                                        time.sleep(2)  # Delay between sends
-                                                                                
-                                                                            except Exception as e:
-                                                                                print(f"❌ Error with contract {i+1}: {e}")
-                                                                                error_msg = f"⚠️ Could not send contract {i+1}. Will try next one."
-                                                                                send_whatsapp_message(sender_id, error_msg)
-                                                                                continue
-                                                                        
-                                                                        # Final message
-                                                                        final_msg = f"""
-                                                                            ✅ *ALL CONTRACTS SENT!*
-
-                                                                            Successfully sent {len(rows)} contract document(s).
-
-                                                                            _Thank you for choosing Connectlink Properties!_
-                                                                                        """
-                                                                        send_whatsapp_message(sender_id, final_msg)
-                                                                        
-                                                                        return jsonify({
-                                                                            'status': 'success', 
-                                                                            'message': f'Sent {len(rows)} contracts',
-                                                                            'count': len(rows)
-                                                                        })
-                                                                        
-                                                                except Exception as e:
-                                                                    print(f"❌ Error in contracts handler: {str(e)}")
-                                                                    return jsonify({'status': 'error', 'message': str(e)}), 500
-
 
                                                                 def generate_contract_pdf(row, cursor):
                                                                     """Generate contract PDF using the template"""
@@ -4484,6 +4406,88 @@ def webhook():
                                                                         return False
 
 
+
+
+
+
+
+                                                                try:
+                                                                    # Extract last 9 digits from sender_id
+                                                                    if sender_id and len(sender_id) >= 9:
+                                                                        client_whatsapp = int(sender_id[-9:])
+                                                                    else:
+                                                                        client_whatsapp = int(sender_id) if sender_id and sender_id.isdigit() else None
+                                                                    
+                                                                    if not client_whatsapp:
+                                                                        return jsonify({'status': 'error', 'message': 'Invalid WhatsApp number'}), 400
+                                                                    
+                                                                    with get_db() as (cursor, connection):
+                                                                        # Get ALL user's contracts
+                                                                        cursor.execute("""
+                                                                            SELECT * FROM connectlinkdatabase 
+                                                                            WHERE clientwanumber = %s
+                                                                            ORDER BY projectstartdate DESC
+                                                                        """, (client_whatsapp,))
+                                                                        
+                                                                        rows = cursor.fetchall()
+                                                                        
+                                                                        if not rows:
+                                                                            message = f"📋 No contracts found for your WhatsApp number."
+                                                                            send_whatsapp_message(sender_id, message)
+                                                                            return jsonify({'status': 'success', 'message': 'No contracts found'})
+                                                                        
+                                                                        # Send summary message
+                                                                        summary = f"""
+                                                                            📋 *YOUR CONTRACTS - CONNECTLINK PROPERTIES*
+
+                                                                            Found {len(rows)} contract(s) for your WhatsApp number.
+
+                                                                            _Sending contract documents now..._
+                                                                                        """
+                                                                        send_whatsapp_message(sender_id, summary)
+                                                                        
+                                                                        # Process each contract
+                                                                        for i, row in enumerate(rows):
+                                                                            try:
+                                                                                print(f"📄 Generating contract {i+1}/{len(rows)}")
+                                                                                
+                                                                                # Generate PDF using your template
+                                                                                pdf_bytes = generate_contract_pdf(row, cursor)
+                                                                                
+                                                                                if pdf_bytes:
+                                                                                    # Send contract via WhatsApp
+                                                                                    filename = f"Contract_{row[1]}_{row[10]}_{row[0]}.pdf"
+                                                                                    send_pdf_via_whatsapp(sender_id, pdf_bytes, filename, f"Contract: {row[10]}")
+                                                                                    
+                                                                                    # Send progress update
+                                                                                    if i < len(rows) - 1:
+                                                                                        time.sleep(2)  # Delay between sends
+                                                                                
+                                                                            except Exception as e:
+                                                                                print(f"❌ Error with contract {i+1}: {e}")
+                                                                                error_msg = f"⚠️ Could not send contract {i+1}. Will try next one."
+                                                                                send_whatsapp_message(sender_id, error_msg)
+                                                                                continue
+                                                                        
+                                                                        # Final message
+                                                                        final_msg = f"""
+                                                                            ✅ *ALL CONTRACTS SENT!*
+
+                                                                            Successfully sent {len(rows)} contract document(s).
+
+                                                                            _Thank you for choosing Connectlink Properties!_
+                                                                                        """
+                                                                        send_whatsapp_message(sender_id, final_msg)
+                                                                        
+                                                                        return jsonify({
+                                                                            'status': 'success', 
+                                                                            'message': f'Sent {len(rows)} contracts',
+                                                                            'count': len(rows)
+                                                                        })
+                                                                        
+                                                                except Exception as e:
+                                                                    print(f"❌ Error in contracts handler: {str(e)}")
+                                                                    return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
                                                         else:
