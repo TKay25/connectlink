@@ -651,6 +651,8 @@ def webhook():
                                                             # Get data from the form screen
                                                             enquiry_data = {}
                                                             attachment_data = None
+
+                                                            print("here")
                                                             
                                                             for screen in screens:
                                                                 if screen.get('id') == 'ENQUIRY_SCREEN':
@@ -661,18 +663,18 @@ def webhook():
                                                                             if child.get('type') == 'Form' and child.get('name') == 'enquiry_form':
                                                                                 form_data = child.get('data', {})
                                                                                 
-                                                                                # Extract form values
                                                                                 enquiry_type = form_data.get('enquiry_type')
                                                                                 user_message = form_data.get('user_message', '')
                                                                                 attachment = form_data.get('user_attachment')
                                                                                 
+                                                                                print("here 2")
+
                                                                                 enquiry_data = {
                                                                                     'enquiry_type': enquiry_type,
                                                                                     'details': user_message,
                                                                                     'has_attachment': bool(attachment)
                                                                                 }
                                                                                 
-                                                                                # Process attachment if exists
                                                                                 if attachment:
                                                                                     # Handle base64 encoded attachment
                                                                                     if isinstance(attachment, str) and attachment.startswith('data:'):
@@ -692,6 +694,8 @@ def webhook():
                                                             # Validate required fields
                                                             if not enquiry_data.get('enquiry_type'):
                                                                 return jsonify({'status': 'error', 'message': 'Enquiry type is required'}), 400
+
+                                                            print("here 3")
                                                             
                                                             # Map enquiry type IDs to display names
                                                             enquiry_type_map = {
@@ -714,6 +718,8 @@ def webhook():
                                                                     VALUES (%s, %s, %s, %s, %s)
                                                                     RETURNING id;
                                                                 """
+
+                                                                print("yesss")
                                                                 
                                                                 timestamp = datetime.now()
                                                                 client_whatsapp = int(sender_id) if sender_id.isdigit() else None
