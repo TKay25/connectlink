@@ -4732,6 +4732,15 @@ def run1(userid):
         today_date = datetime.now().strftime('%d %B %Y')
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
+        enquiriesdataquery = f"SELECT * FROM connectlinkenquiries;"
+        cursor.execute(enquiriesdataquery)
+        enquiriesdata = cursor.fetchall()
+        print(enquiriesdata)
+
+        enquiriesdatamain = pd.DataFrame(usersdata)
+        enquiriesdatamain_html = enquiriesdatamain.to_html(classes="table table-bordered table-theme", table_id="allenquiriesTable", index=False,  escape=False,)
+
+
         usersdataquery = f"SELECT * FROM connectlinkusers;"
         cursor.execute(usersdataquery)
         usersdata = cursor.fetchall()
@@ -4850,7 +4859,8 @@ def run1(userid):
             'most_frequent_location': most_frequent_location,
             'locations': locations_list,
             'frequencies': frequencies_list,
-            'admin_options': admin_options
+            'admin_options': admin_options,
+            "enquiriesdatamain_html" : enquiriesdatamain_html
             }
 
 
