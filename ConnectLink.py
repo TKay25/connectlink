@@ -2513,39 +2513,7 @@ def webhook():
 
 
 
-                                                        elif "reminder" in button_id.lower():
 
-                                                            app_id = button_id.split("_")[1]
-                                                            print(app_id)
-
-                                                            try:
-                                                            
-                                                                print ("eissssssssshhhhhhhhhhhhhhhhhhhhhhhhhhhh")
-
-
-                                                                try:
-
-                                                                    buttons = [
-                                                                        {"type": "reply", "reply": {"id": f"Approve5appwa_{app_id}", "title": "Approve"}},
-                                                                        {"type": "reply", "reply": {"id": f"Disapproveappwa_{app_id}", "title": "Disapprove"}},
-                                                                    ]
-                                                                    send_whatsapp_message(
-                                                                        f"26", 
-                                                                        f"Hey! 😊. A gentle reminder, you have a new `` Leave Application from `{admin_name}` for ` days` from `` to ``.\n\n" 
-                                                                        f"If you approve this leave application, \n\n"  
-                                                                        f"Select an option below to either approve or disapprove the application."         
-                                                                        , 
-                                                                        buttons
-                                                                    )
-
-                                                                except Exception as e:
-                                                                    print(e)
-
-
-
-                                                            except Exception as e:
-                                                                print(e)
-                                                                return jsonify({"message": "Error approving leave application.", "error": str(e)}), 500
                                                         
 
 
@@ -2699,115 +2667,51 @@ def webhook():
                                                                 print("📋 User submitted flow response:", form_response)
 
 
-                                                            if button_id == "portfolio":
 
-                                                                buttons = [
+                                                            if button_id == "enquirylog":
+
+                                                                sections = [
                                                                     {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "getportfolio",
-                                                                            "title": "Get Master File"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "getnotes",
-                                                                            "title": "Get Notes"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "main_menu",
-                                                                            "title": "Main Menu"
-                                                                        }
+                                                                        "title": "Enquiries Options",
+                                                                        "rows": [
+                                                                            {
+                                                                                "id": "kitchen_cabinets",
+                                                                                "title": "Kitchen & Cabinets",
+                                                                                "description": "Kitchen and Cabinets enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "building",
+                                                                                "title": "Building",
+                                                                                "description": "Building Construction enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "renovation",
+                                                                                "title": "Renovation",
+                                                                                "description": "Renovation Enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "otherenq",
+                                                                                "title": "Other",
+                                                                                "description": "Other Enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "main_menu",
+                                                                                "title": "Main Menu",
+                                                                                "description": "Return to main menu"
+                                                                            }
+                                                                        ]
                                                                     }
                                                                 ]
 
-
-                                                                send_whatsapp_message(
-                                                                    sender_id, 
-                                                                    "Kindly select a portfolio option below.",
-                                                                    buttons,
-                                                                    footer_text="ConnectLink Properties • Admin Panel"
-
-                                                                )
-
-                                                                continue
-
-
-                                                            elif button_id == "quotations":
-
-                                                                buttons = [
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "by_date_logged",
-                                                                            "title": "🏗️ By Date"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "all_quot",
-                                                                            "title": "All"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "main_menu",
-                                                                            "title": " Main Menu"
-                                                                        }
-                                                                    }
-                                                                ]
-
-
-                                                                send_whatsapp_message(
-                                                                    sender_id, 
-                                                                    "Kindly select a Quotation enquiries option below.",
-                                                                    buttons,
-                                                                    footer_text="ConnectLink Properties • Admin Panel"
-
-                                                                )
-
-
-                                                                continue
-
-                                                            elif button_id == "enquirylog":
-
-                                                                buttons = [
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "quotations",
-                                                                            "title": "🏗️ Quotation Equiries"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "general_enquiries",
-                                                                            "title": "❓ General Enquiries"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "main_menu",
-                                                                            "title": " Main Menu"
-                                                                        }
-                                                                    }
-                                                                ]
-
-
-                                                                send_whatsapp_message(
-                                                                    sender_id, 
-                                                                    "Kindly select an enquiries option below.",
-                                                                    buttons,
+                                                                send_whatsapp_list_message(
+                                                                    sender_id,
+                                                                    "Kindly select an enquiry option below.",
+                                                                    "ConnectLink Enquiries",
+                                                                    sections,
                                                                     footer_text="ConnectLink Properties • Client Panel"
                                                                 )
+
+
 
 
                                                                 continue
