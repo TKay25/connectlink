@@ -916,6 +916,11 @@ def webhook():
                                                                 
                                                                 # Generate PDF
                                                                 def generate_portfolio_pdf():
+
+                                                                    from weasyprint import HTML
+                                                                    import io
+
+                                                                    
                                                                     """Generate PDF with project-by-project portfolio"""
                                                                     html_template = """
                                                                     <!DOCTYPE html>
@@ -2320,6 +2325,10 @@ def webhook():
                                                                 
                                                                 # Generate PDF
                                                                 def generate_cross_tab_pdf():
+
+                                                                    from weasyprint import HTML
+                                                                    import io
+
                                                                     """Generate PDF with cross-tab table ONLY"""
                                                                     html_template = """
                                                                     <!DOCTYPE html>
