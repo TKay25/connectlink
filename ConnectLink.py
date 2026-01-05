@@ -1547,13 +1547,48 @@ def webhook():
                                                                 pdf_bytes = generate_portfolio_pdf()
                                                                 
                                                                 # Get recipient phone number (you need to implement this based on your needs)
-                                                                # For example, you might want to send to an administrator or get from request
-                                                                recipient_number = "1234567890"  # Replace with actual recipient
-                                                                
+                                                                # For example, you might want to send to an administrator or get from request                                                                
                                                                 # Upload and send via WhatsApp
-                                                                media_id = upload_pdf_to_whatsapp(pdf_bytes, recipient_number)
-                                                                whatsapp_response = send_whatsapp_pdf_by_media_id(recipient_number, media_id)
+                                                                media_id = upload_pdf_to_whatsapp(pdf_bytes, sender_id)
+                                                                whatsapp_response = send_whatsapp_pdf_by_media_id(sender_id, media_id)
                                                                 
+
+                                                                sections = [
+                                                                    {
+                                                                        "title": "Portfolio Options",
+                                                                        "rows": [
+                                                                            {
+                                                                                "id": "getportfolio",
+                                                                                "title": "Get Master File",
+                                                                                "description": "Download full portfolio"
+                                                                            },
+                                                                            {
+                                                                                "id": "getnotes",
+                                                                                "title": "Get Notes",
+                                                                                "description": "Access project notes"
+                                                                            },
+                                                                            {
+                                                                                "id": "payments_schedule",
+                                                                                "title": "Get Payments Schedule",
+                                                                                "description": "Access Installments schedule report"
+                                                                            },
+                                                                            {
+                                                                                "id": "main_menu",
+                                                                                "title": "Main Menu",
+                                                                                "description": "Return to main menu"
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                ]
+
+                                                                send_whatsapp_list_message(
+                                                                    sender_id,
+                                                                    "Kindly select a portfolio option below.",
+                                                                    "ConnectLink Admin",
+                                                                    sections,
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
+                                                                )
+
                                                                 return jsonify({
                                                                     'status': 'success',
                                                                     'message': 'Installment portfolio PDF generated and sent successfully',
@@ -1572,11 +1607,6 @@ def webhook():
                                                                 print(f"Error generating portfolio PDF: {str(e)}")
                                                                 traceback.print_exc()
                                                                 return jsonify({'status': 'error', 'message': f'Failed to generate portfolio: {str(e)}'}), 500
-
-
-
-
-
 
 
                                                         elif selected_option == "payments_schedule":
