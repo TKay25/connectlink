@@ -1950,7 +1950,21 @@
                                             </td>
                                             <td>{{ enquiry.username }}</td>
                                             <td><span class="badge bg-secondary">{{ enquiry.category }}</span></td>
-                                            <td>{{ enquiry.message[:50] }}{% if enquiry.message|length > 50 %}...{% endif %}</td>
+                                            <td>
+                                                <div class="message-container">
+                                                    <span class="message-preview">
+                                                        {{ enquiry['message'][:10] if enquiry['message'] and enquiry['message']|length > 10 else enquiry['message'] or 'No message' }}
+                                                        {% if enquiry['message'] and enquiry['message']|length > 10 %}
+                                                        ... <a href="javascript:void(0)" class="expand-message" data-id="{{ enquiry['id'] }}">[Show More]</a>
+                                                        {% endif %}
+                                                    </span>
+                                                    <div class="message-full" id="message-full-{{ enquiry['id'] }}" style="display: none;">
+                                                        {{ enquiry['message'] or 'No message' }}
+                                                        <br>
+                                                        <a href="javascript:void(0)" class="collapse-message" data-id="{{ enquiry['id'] }}">[Show Less]</a>
+                                                    </div>
+                                                </div>
+                                            </td>
                                             <td>
                                                 <select class="form-select status-select" data-id="{{ enquiry.id }}">
                                                     <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
@@ -2249,6 +2263,85 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+<script>
+// Message expand/collapse
+document.addEventListener('click', function(e) {
+    // Expand message
+    if (e.target.classList.contains('expand-message')) {
+        const enquiryId = e.target.getAttribute('data-id');
+        document.querySelector(`#message-full-${enquiryId}`).style.display = 'block';
+        e.target.parentElement.style.display = 'none';
+    }
+    
+    // Collapse message
+    if (e.target.classList.contains('collapse-message')) {
+        const enquiryId = e.target.getAttribute('data-id');
+        document.querySelector(`#message-full-${enquiryId}`).style.display = 'none';
+        document.querySelector(`#enquiry-row-${enquiryId} .message-preview`).style.display = 'block';
+    }
+    
+    // Status update
+    if (e.target.classList.contains('status-select')) {
+        const select = e.target;
+        const enquiryId = select.getAttribute('data-id');
+        const newStatus = select.value;
+        
+        fetch(`/api/enquiries/${enquiryId}/status`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: newStatus})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('Status updated successfully', 'success');
+            } else {
+                showToast('Error: ' + data.message, 'error');
+            }
+        });
+    }
+});
+
+function viewEnquiry(id) {
+    window.open(`/api/enquiries/${id}`, '_blank');
+}
+
+function showToast(message, type) {
+    // Your existing toast function
+    alert(type + ': ' + message);
+}
+
+// Optional: Add some CSS for better message display
+const style = document.createElement('style');
+style.textContent = `
+    .message-container {
+        max-width: 300px;
+    }
+    .message-preview, .message-full {
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+    .expand-message, .collapse-message {
+        color: #3498db;
+        cursor: pointer;
+        font-size: 12px;
+        text-decoration: none;
+    }
+    .expand-message:hover, .collapse-message:hover {
+        text-decoration: underline;
+    }
+    .message-full {
+        background: #f8f9fa;
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        margin-top: 5px;
+    }
+`;
+document.head.appendChild(style);
+</script>
+
 <script>
     // Apply filter button (AJAX version)
 document.addEventListener('DOMContentLoaded', function() {
