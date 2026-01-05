@@ -3761,6 +3761,398 @@ def webhook():
 
                                                                 continue
 
+                                                            elif button_id == "paymenthist":
+
+                                                                def send_payment_history_via_whatsapp(sender_id):
+                                                                    """Send payment history PDF to WhatsApp using existing pattern"""
+                                                                    try:
+                                                                        # Extract last 9 digits from sender_id (same as contracts)
+                                                                        if sender_id and len(sender_id) >= 9:
+                                                                            client_whatsapp = int(sender_id[-9:])
+                                                                        else:
+                                                                            client_whatsapp = int(sender_id) if sender_id and sender_id.isdigit() else None
+                                                                        
+                                                                        if not client_whatsapp:
+                                                                            return jsonify({'status': 'error', 'message': 'Invalid WhatsApp number'}), 400
+                                                                        
+                                                                        with get_db() as (cursor, connection):
+                                                                            # Get ALL user's projects
+                                                                            cursor.execute("""
+                                                                                SELECT * FROM connectlinkdatabase 
+                                                                                WHERE clientwanumber = %s
+                                                                                ORDER BY projectstartdate DESC
+                                                                            """, (client_whatsapp,))
+                                                                            
+                                                                            rows = cursor.fetchall()
+                                                                            
+                                                                            if not rows:
+                                                                                message = f"📋 No payment records found for your WhatsApp number."
+                                                                                send_whatsapp_message(sender_id, message)
+                                                                                return jsonify({'status': 'success', 'message': 'No payment records found'})
+                                                                            
+                                                                            # Send summary message
+                                                                            summary = f"""
+                                                                📊 *YOUR PAYMENT HISTORY - CONNECTLINK PROPERTIES*
+
+                                                                Found {len(rows)} project(s) with payment records.
+
+                                                                _Sending payment history documents now..._
+                                                                            """
+                                                                            send_whatsapp_message(sender_id, summary)
+                                                                            
+                                                                            # Process each project's payment history
+                                                                            for i, row in enumerate(rows):
+                                                                                try:
+                                                                                    print(f"📄 Generating payment history {i+1}/{len(rows)}")
+                                                                                    
+                                                                                    # Generate payment history PDF using your template
+                                                                                    pdf_bytes = generate_payment_history_pdf(row, cursor)
+                                                                                    
+                                                                                    if pdf_bytes:
+                                                                                        # Send payment history via WhatsApp
+                                                                                        client_name = row[1]  # clientname
+                                                                                        project_name = row[10]  # projectname
+                                                                                        project_id = row[0]  # momid
+                                                                                        
+                                                                                        filename = f"Payment_History_{client_name}_{project_name}_{project_id}.pdf"
+                                                                                        
+                                                                                        # Create caption for the PDF
+                                                                                        caption = f"""💰 *PAYMENT HISTORY*
+
+                                                                                            Client: {client_name}
+                                                                                            Project: {project_name}
+                                                                                            Project ID: {project_id}
+
+                                                                                            This document contains your complete payment history including installments, due dates, and payment status."""
+                                                                                        
+                                                                                        send_pdf_via_whatsapp(sender_id, pdf_bytes, filename, caption)
+                                                                                        
+                                                                                        # Send progress update (optional)
+                                                                                        if i < len(rows) - 1:
+                                                                                            progress = f"✅ Sent payment history {i+1} of {len(rows)}"
+                                                                                            send_whatsapp_message(sender_id, progress)
+                                                                                            time.sleep(2)  # Delay between sends
+                                                                                
+                                                                                except Exception as e:
+                                                                                    print(f"❌ Error with payment history {i+1}: {e}")
+                                                                                    error_msg = f"⚠️ Could not send payment history for project {i+1}. Will try next one."
+                                                                                    send_whatsapp_message(sender_id, error_msg)
+                                                                                    continue
+                                                                            
+                                                                            # Final message with buttons
+                                                                            final_msg = f"""
+                                                                                ✅ *ALL PAYMENT HISTORIES SENT!*
+
+                                                                                Successfully sent {len(rows)} payment history document(s).
+
+                                                                                _Keep your records safe for reference!_
+                                                                                            """
+                                                                            
+                                                                            buttons = [
+                                                                                {
+                                                                                    "type": "reply",
+                                                                                    "reply": {
+                                                                                        "id": "contracts",
+                                                                                        "title": "My Contracts"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "type": "reply",
+                                                                                    "reply": {
+                                                                                        "id": "paymenthist",
+                                                                                        "title": "My Payments History"
+                                                                                    }
+                                                                                },
+                                                                                {
+                                                                                    "type": "reply",
+                                                                                    "reply": {
+                                                                                        "id": "enquirylog",
+                                                                                        "title": "Enquiries"
+                                                                                    }
+                                                                                }
+                                                                            ]
+                                                                            
+                                                                            send_whatsapp_button_message(
+                                                                                sender_id, 
+                                                                                f"{final_msg} \n\n How else can we assist you today?",
+                                                                                buttons,
+                                                                                footer_text="ConnectLink Properties • Client Panel"
+                                                                            )
+                                                                            
+                                                                            return jsonify({
+                                                                                'status': 'success', 
+                                                                                'message': f'Sent {len(rows)} payment histories',
+                                                                                'count': len(rows)
+                                                                            })
+                                                                            
+                                                                    except Exception as e:
+                                                                        print(f"❌ Error in payment history handler: {str(e)}")
+                                                                        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+                                                                def generate_payment_history_pdf(row, cursor):
+                                                                    """Generate payment history PDF using your HTML template"""
+                                                                    try:
+                                                                        from weasyprint import HTML
+                                                                        from weasyprint import CSS
+                                                                        import base64
+                                                                        import os
+                                                                        from datetime import datetime
+                                                                        
+                                                                        # Get company details
+                                                                        cursor.execute("SELECT * FROM connectlinkdetails;")
+                                                                        details = cursor.fetchall()
+                                                                        details = pd.DataFrame(details, columns=[
+                                                                            'address','contact1','contact2','email','companyname','tinnumber'
+                                                                        ])
+                                                                        
+                                                                        companyname = details.iat[0,4] if not details.empty else "ConnectLink Properties"
+                                                                        address = details.iat[0,0] if not details.empty else ""
+                                                                        contact1 = details.iat[0,1] if not details.empty else ""
+                                                                        contact2 = details.iat[0,2] if not details.empty else ""
+                                                                        compemail = details.iat[0,3] if not details.empty else ""
+                                                                        
+                                                                        # Get logo as base64
+                                                                        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+                                                                        logo_base64 = ""
+                                                                        if os.path.exists(logo_path):
+                                                                            with open(logo_path, 'rb') as img:
+                                                                                logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+                                                                        
+                                                                        # Prepare payment data
+                                                                        payments = [
+                                                                            {
+                                                                                "name": "Installment 1",
+                                                                                "amount": row[26] if len(row) > 26 else 0,
+                                                                                "due": row[27].strftime("%d %B %Y") if len(row) > 27 and row[27] else "-",
+                                                                                "paid": row[28].strftime("%d %B %Y") if len(row) > 28 and row[28] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 2",
+                                                                                "amount": row[29] if len(row) > 29 else 0,
+                                                                                "due": row[30].strftime("%d %B %Y") if len(row) > 30 and row[30] else "-",
+                                                                                "paid": row[31].strftime("%d %B %Y") if len(row) > 31 and row[31] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 3",
+                                                                                "amount": row[32] if len(row) > 32 else 0,
+                                                                                "due": row[33].strftime("%d %B %Y") if len(row) > 33 and row[33] else "-",
+                                                                                "paid": row[34].strftime("%d %B %Y") if len(row) > 34 and row[34] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 4",
+                                                                                "amount": row[35] if len(row) > 35 else 0,
+                                                                                "due": row[36].strftime("%d %B %Y") if len(row) > 36 and row[36] else "-",
+                                                                                "paid": row[37].strftime("%d %B %Y") if len(row) > 37 and row[37] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 5",
+                                                                                "amount": row[38] if len(row) > 38 else 0,
+                                                                                "due": row[39].strftime("%d %B %Y") if len(row) > 39 and row[39] else "-",
+                                                                                "paid": row[40].strftime("%d %B %Y") if len(row) > 40 and row[40] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 6",
+                                                                                "amount": row[41] if len(row) > 41 else 0,
+                                                                                "due": row[42].strftime("%d %B %Y") if len(row) > 42 and row[42] else "-",
+                                                                                "paid": row[43].strftime("%d %B %Y") if len(row) > 43 and row[43] else "Not Paid",
+                                                                            }
+                                                                        ]
+                                                                        
+                                                                        # Build payments table rows
+                                                                        payment_rows = ""
+                                                                        for p in payments:
+                                                                            payment_rows += f"""
+                                                                                <tr>
+                                                                                    <td style="border:1px solid #ccc;padding:8px;">{p['name']}</td>
+                                                                                    <td style="border:1px solid #ccc;padding:8px;">{p['amount']}</td>
+                                                                                    <td style="border:1px solid #ccc;padding:8px;">{p['due']}</td>
+                                                                                    <td style="border:1px solid #ccc;padding:8px;">{p['paid']}</td>
+                                                                                </tr>
+                                                                            """
+                                                                        
+                                                                        # Format dates
+                                                                        project_start_date = row[14].strftime("%d %B %Y") if row[14] else ""
+                                                                        agreement_date = row[16].strftime("%d %B %Y") if row[16] else ""
+                                                                        deposit_payment_date = row[24].strftime("%d %B %Y") if len(row) > 24 and row[24] else "—"
+                                                                        
+                                                                        # Generate HTML using your template
+                                                                        html = f"""
+                                                                        <!DOCTYPE html>
+                                                                        <html lang="en">
+                                                                        <head>
+                                                                            <meta charset="UTF-8">
+                                                                            
+                                                                            <style>
+                                                                                body {{
+                                                                                    font-family: 'Arial', sans-serif;
+                                                                                    margin: 40px;
+                                                                                    color: #1E2A56;
+                                                                                    background-color: #ffffff;
+                                                                                    line-height: 1.5;
+                                                                                }}
+
+                                                                                .header {{
+                                                                                    text-align: center;
+                                                                                    margin-bottom: 25px;
+                                                                                }}
+
+                                                                                .logo {{
+                                                                                    width: 170px;
+                                                                                    margin-bottom: 12px;
+                                                                                }}
+
+                                                                                h1 {{
+                                                                                    font-size: 24px;
+                                                                                    margin: 5px 0 0 0;
+                                                                                    font-weight: 800;
+                                                                                }}
+
+                                                                                .tagline {{
+                                                                                    font-size: 13px;
+                                                                                    color: #445;
+                                                                                    margin-top: 3px;
+                                                                                }}
+
+                                                                                .section-title {{
+                                                                                    font-size: 17px;
+                                                                                    margin-top: 35px;
+                                                                                    margin-bottom: 12px;
+                                                                                    padding-bottom: 6px;
+                                                                                    border-bottom: 2px solid #1E2A56;
+                                                                                    font-weight: 800;
+                                                                                }}
+
+                                                                                .info-box {{
+                                                                                    padding: 12px 16px;
+                                                                                    border: 1px solid #d3d6e4;
+                                                                                    border-radius: 8px;
+                                                                                    background: #f9faff;
+                                                                                    margin-bottom: 10px;
+                                                                                }}
+
+                                                                                .info-box p {{
+                                                                                    margin: 3px 0;
+                                                                                    font-size: 14px;
+                                                                                }}
+
+                                                                                table {{
+                                                                                    width: 100%;
+                                                                                    border-collapse: collapse;
+                                                                                    margin-top: 10px;
+                                                                                    font-size: 14px;
+                                                                                }}
+
+                                                                                th {{
+                                                                                    background: #1E2A56;
+                                                                                    color: #fff;
+                                                                                    padding: 10px;
+                                                                                    text-align: left;
+                                                                                    font-size: 14px;
+                                                                                }}
+
+                                                                                td {{
+                                                                                    padding: 10px;
+                                                                                    border-bottom: 1px solid #e0e3ef;
+                                                                                }}
+
+                                                                                tr:nth-child(even) {{
+                                                                                    background: #f4f6fb;
+                                                                                }}
+
+                                                                                .footer {{
+                                                                                    margin-top: 35px;
+                                                                                    text-align: right;
+                                                                                    font-size: 12px;
+                                                                                    color: #666;
+                                                                                }}
+                                                                            </style>
+                                                                        </head>
+
+                                                                        <body>
+
+                                                                            <div class="header">
+                                                                                <img src="data:image/png;base64,{logo_base64}" class="logo">
+                                                                                <h3>Payments History</h3>
+                                                                                <div class="tagline">Official Client Payment Record</div>
+                                                                            </div>
+
+                                                                            <div class="section-title">Client Information</div>
+                                                                            <div class="info-box">
+                                                                                <p><strong>Name:</strong> {row[1]}</p>
+                                                                                <p><strong>Address:</strong> {row[3]}</p>
+                                                                                <p><strong>Contact:</strong> 0{row[4]}</p>
+                                                                                <p><strong>Email:</strong> {row[5]}</p>
+                                                                            </div>
+
+                                                                            <div class="section-title">Project Information</div>
+                                                                            <div class="info-box">
+                                                                                <p><strong>Project Name:</strong> {row[10]}</p>
+                                                                                <p><strong>Location:</strong> {row[11]}</p>
+                                                                                <p><strong>Administrator:</strong> {row[13]}</p>
+                                                                                <p><strong>Start Date:</strong> {project_start_date}</p>
+                                                                                <p><strong>Agreement Date:</strong> {agreement_date}</p>
+                                                                            </div>
+
+                                                                            
+                                                                            <!-- DEPOSIT / BULLET PAYMENT -->
+                                                                            <div class="section-title">Payments Breakdown</div>
+
+                                                                            <div class="info-box">
+                                                                                <p><strong>Deposit / Bullet Payment:</strong> USD {row[23] if len(row) > 23 and row[23] else '—'}</p>
+                                                                                <p><strong>Date Paid:</strong> {deposit_payment_date}</p>
+                                                                                <p><strong>Total Contract Price:</strong> USD {row[17] if len(row) > 17 else '—'}</p>
+                                                                                <p><strong>Late Payment Interest:</strong> {row[45] if len(row) > 45 else 0}% per annum</p>
+                                                                            </div>
+
+                                                                            <table>
+                                                                                <thead>
+                                                                                    <tr>
+                                                                                        <th>Installment</th>
+                                                                                        <th>Amount (USD)</th>
+                                                                                        <th>Due Date</th>
+                                                                                        <th>Date Paid</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                    {payment_rows}
+                                                                                </tbody>
+                                                                            </table>
+
+                                                                            <div class="footer">
+                                                                                <p><strong>Generated on:</strong> {datetime.now().strftime("%d %B %Y")}</p>
+                                                                                <p><strong>Company:</strong> {companyname}</p>
+                                                                                <p><strong>Contact:</strong> 0{contact1} / 0{contact2}</p>
+                                                                                <p><strong>Email:</strong> {compemail}</p>
+                                                                            </div>
+
+                                                                        </body>
+                                                                        </html>
+                                                                        """
+                                                                        
+                                                                        # Generate PDF
+                                                                        css = CSS(string='''
+                                                                            @page {
+                                                                                size: A4;
+                                                                                margin: 20px;
+                                                                            }
+                                                                        ''')
+                                                                        
+                                                                        html_obj = HTML(string=html)
+                                                                        pdf_bytes = html_obj.write_pdf(stylesheets=[css])
+                                                                        
+                                                                        return pdf_bytes
+                                                                        
+                                                                    except Exception as e:
+                                                                        print(f"❌ Error generating payment history PDF: {e}")
+                                                                        return None
+
+
+                                                                # Add this to your WhatsApp webhook handler for the "paymenthist" button
+                                                                # In your WhatsApp message handler, add:
+                                                                    # Trigger payment history sending
+                                                                send_payment_history_via_whatsapp(sender_id)
+                                                                return jsonify({'status': 'processing'})
 
                                                             elif button_id == "contracts":
                                                                 """Generate and send actual contract PDFs using the template"""
@@ -4449,7 +4841,7 @@ def webhook():
 
                                                                             _Sending contract documents now..._
                                                                                         """
-                                                                        send_whatsapp_message(sender_id, summary)
+                                                                        # send_whatsapp_message(sender_id, summary)
                                                                         
                                                                         # Process each contract
                                                                         for i, row in enumerate(rows):
@@ -4476,9 +4868,7 @@ def webhook():
                                                                         
                                                                         # Final message
                                                                         final_msg = f"""
-                                                                            ✅ *ALL CONTRACTS SENT!*
-
-                                                                            Successfully sent {len(rows)} contract document(s).
+                                                                            ✅ See below {len(rows)} contract document(s).
 
                                                                             _Thank you for choosing Connectlink Properties!_
                                                                                         """
