@@ -4841,6 +4841,7 @@ def run1(userid):
         
         # Add "All" option at the end
         month_options_list.append({'display': 'All', 'value': 'all', 'date': None})
+        enquiries_data = get_enquiries_data()
 
         return {
             'month_options': month_options_list,
@@ -4862,8 +4863,76 @@ def run1(userid):
             'locations': locations_list,
             'frequencies': frequencies_list,
             'admin_options': admin_options,
-            "enquiriesdatamain_html" : enquiriesdatamain_html
+            "enquiriesdatamain_html" : enquiriesdatamain_html,
+            "enquiries_data": enquiries_data  # Pure Python list, NO HTML
             }
+
+def get_enquiries_data():
+    """Get enquiries data for template"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get enquiries
+            cursor.execute("""
+                SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                       plan IS NOT NULL as has_plan, status, username
+                FROM connectlinkenquiries 
+                ORDER BY timestamp DESC 
+                LIMIT 15
+            """)
+            enquiries = cursor.fetchall()
+            
+            # Convert to list of dicts
+            enquiries_list = []
+            for enquiry in enquiries:
+                enquiries_list.append({
+                    'id': enquiry[0],
+                    'timestamp': enquiry[1].strftime('%d/%m %H:%M') if enquiry[1] else '',
+                    'username': enquiry[7],
+                    'clientwhatsapp': enquiry[2],
+                    'category': enquiry[3],
+                    'message': enquiry[4],
+                    'has_plan': enquiry[5],
+                    'status': enquiry[6] or 'pending'
+                })
+            
+            return enquiries_list
+            
+    except Exception as e:
+        print(f"Error getting enquiries: {str(e)}")
+        return []
+
+
+# Status update endpoint remains the same
+@app.route('/api/enquiries/<int:enquiry_id>/status', methods=['PUT'])
+def update_enquiry_status(enquiry_id):
+    """Update enquiry status"""
+    try:
+        data = request.json
+        new_status = data.get('status')
+        
+        if not new_status:
+            return jsonify({'status': 'error', 'message': 'Status is required'}), 400
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE connectlinkenquiries 
+                SET status = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING id;
+            """, (new_status, enquiry_id))
+            
+            connection.commit()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Enquiry status updated successfully',
+                'enquiry_id': enquiry_id,
+                'new_status': new_status
+            })
+            
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Failed to update status: {str(e)}'}), 500
+
 
 
 @app.route('/')
