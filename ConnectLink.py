@@ -666,6 +666,16 @@ def webhook():
 
                                                             continue
 
+                                                        elif selected_option == "getportfolio":
+
+
+
+
+
+
+
+
+
                                                         elif selected_option == "payments_schedule":
 
                                                             """Export installments schedule as PDF with cross-tab table ONLY"""
@@ -1190,10 +1200,6 @@ def webhook():
                                                                                 <div class="summary-item">
                                                                                     <div class="summary-label">Future Amount</div>
                                                                                     <div class="summary-value green">${{ "%.2f"|format(summary.total_future) }}</div>
-                                                                                </div>
-                                                                                <div class="summary-item">
-                                                                                    <div class="summary-label">Months Covered</div>
-                                                                                    <div class="summary-value">{{ total_months }}</div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
