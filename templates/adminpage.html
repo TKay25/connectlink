@@ -1951,9 +1951,9 @@
                                             <td>{{ enquiry.message[:50] }}{% if enquiry.message|length > 50 %}...{% endif %}</td>
                                             <td>
                                                 <select class="form-select status-select" data-id="{{ enquiry.id }}">
-                                                    <option value="pending" {% if enquiry.status = 'pending' %}selected{% endif %}>Pending</option>
-                                                    <option value="in_progress" {% if enquiry.status = 'in_progress' %}selected{% endif %}>In Progress</option>
-                                                    <option value="completed" {% if enquiry.status = 'completed' %}selected{% endif %}>Completed</option>
+                                                    <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
+                                                    <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                                    <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
                                                 </select>
                                             </td>
                                             <td>
