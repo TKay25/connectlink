@@ -1966,7 +1966,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <select class="form-select status-select" data-id="{{ enquiry.id }}">
+                                                <select class="form-select status-select" style="font-size: 11px;" data-id="{{ enquiry.id }}">
                                                     <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
                                                     <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
                                                     <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
@@ -1974,7 +1974,7 @@
                                             </td>
                                             <td>
                                                 {% if enquiry.has_plan %}
-                                                <a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success">
+                                                <a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success" style="font-size: 11px;">
                                                     PDF
                                                 </a>
                                                 {% endif %}
@@ -2331,7 +2331,7 @@ style.textContent = `
     .expand-message, .collapse-message {
         color: #3498db;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 11px;
         text-decoration: none;
     }
     .expand-message:hover, .collapse-message:hover {
@@ -2339,7 +2339,7 @@ style.textContent = `
     }
     .message-full {
         background: #f8f9fa;
-        padding: 8px;
+        padding: 4px;
         border-radius: 4px;
         border: 1px solid #dee2e6;
         margin-top: 5px;
