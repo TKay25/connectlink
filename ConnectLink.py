@@ -3763,6 +3763,53 @@ def webhook():
 
                                                             elif button_id == "paymenthist":
 
+                                                                def send_pdf_via_whatsapp(recipient_number, pdf_bytes, filename, caption):
+                                                                    """Send PDF via WhatsApp"""
+                                                                    try:
+                                                                        import io
+
+                                                                        # Upload to WhatsApp
+                                                                        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+                                                                        headers = {
+                                                                            "Authorization": f"Bearer {ACCESS_TOKEN}"
+                                                                        }
+                                                                        
+                                                                        files = {
+                                                                            "file": (filename, io.BytesIO(pdf_bytes), "application/pdf"),
+                                                                            "type": (None, "application/pdf"),
+                                                                            "messaging_product": (None, "whatsapp")
+                                                                        }
+                                                                        
+                                                                        response = requests.post(url, headers=headers, files=files)
+                                                                        response.raise_for_status()
+                                                                        media_id = response.json()["id"]
+                                                                        
+                                                                        # Send PDF
+                                                                        doc_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                        doc_headers = {
+                                                                            "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                            "Content-Type": "application/json"
+                                                                        }
+                                                                        
+                                                                        doc_payload = {
+                                                                            "messaging_product": "whatsapp",
+                                                                            "to": recipient_number,
+                                                                            "type": "document",
+                                                                            "document": {
+                                                                                "id": media_id,
+                                                                                "filename": filename,
+                                                                                "caption": caption
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        response = requests.post(doc_url, headers=doc_headers, json=doc_payload)
+                                                                        response.raise_for_status()
+                                                                        return True
+                                                                        
+                                                                    except Exception as e:
+                                                                        print(f"❌ Error sending PDF: {e}")
+                                                                        return False
+
                                                                 def send_payment_history_via_whatsapp(sender_id):
                                                                     """Send payment history PDF to WhatsApp using existing pattern"""
                                                                     try:
@@ -3792,12 +3839,12 @@ def webhook():
                                                                             
                                                                             # Send summary message
                                                                             summary = f"""
-                                                                📊 *YOUR PAYMENT HISTORY - CONNECTLINK PROPERTIES*
+                                                                                📊 *YOUR PAYMENT HISTORY - CONNECTLINK PROPERTIES*
 
-                                                                Found {len(rows)} project(s) with payment records.
+                                                                                Found {len(rows)} project(s) with payment records.
 
-                                                                _Sending payment history documents now..._
-                                                                            """
+                                                                                _Sending payment history documents now..._
+                                                                                            """
                                                                             send_whatsapp_message(sender_id, summary)
                                                                             
                                                                             # Process each project's payment history
@@ -4803,11 +4850,6 @@ def webhook():
                                                                         return False
 
 
-
-
-
-
-
                                                                 try:
                                                                     # Extract last 9 digits from sender_id
                                                                     if sender_id and len(sender_id) >= 9:
@@ -4868,7 +4910,7 @@ def webhook():
                                                                         
                                                                         # Final message
                                                                         final_msg = f"""
-                                                                            ✅ See below {len(rows)} contract document(s).
+                                                                            ✅ See attached {len(rows)} contract document(s).
 
                                                                             _Thank you for choosing Connectlink Properties!_
                                                                                         """
