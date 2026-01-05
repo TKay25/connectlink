@@ -2935,6 +2935,378 @@ def webhook():
 
                                                                 continue
 
+                                                            elif button_id == "about":
+
+                                                                def generate_company_profile_pdf():
+                                                                    """Generate Connectlink Properties company profile as PDF"""
+                                                                    try:
+                                                                        from weasyprint import HTML
+                                                                        import io
+                                                                        
+                                                                        html_content = """
+                                                                        <!DOCTYPE html>
+                                                                        <html>
+                                                                        <head>
+                                                                            <meta charset="UTF-8">
+                                                                            <style>
+                                                                                @page {
+                                                                                    size: A4;
+                                                                                    margin: 2cm;
+                                                                                    @bottom-center {
+                                                                                        content: "Connectlink Properties • Page " counter(page) " of " counter(pages);
+                                                                                        font-size: 10px;
+                                                                                        color: #666;
+                                                                                    }
+                                                                                }
+                                                                                
+                                                                                body {
+                                                                                    font-family: 'Helvetica', 'Arial', sans-serif;
+                                                                                    line-height: 1.6;
+                                                                                    color: #333;
+                                                                                    margin: 0;
+                                                                                    padding: 0;
+                                                                                }
+                                                                                
+                                                                                .header {
+                                                                                    text-align: center;
+                                                                                    margin-bottom: 30px;
+                                                                                    padding-bottom: 20px;
+                                                                                    border-bottom: 3px solid #1E2A56;
+                                                                                }
+                                                                                
+                                                                                .company-name {
+                                                                                    font-size: 28px;
+                                                                                    font-weight: bold;
+                                                                                    color: #1E2A56;
+                                                                                    margin-bottom: 5px;
+                                                                                }
+                                                                                
+                                                                                .tagline {
+                                                                                    font-size: 16px;
+                                                                                    color: #666;
+                                                                                    font-style: italic;
+                                                                                }
+                                                                                
+                                                                                .contact-info {
+                                                                                    background: #f8f9fa;
+                                                                                    padding: 15px;
+                                                                                    border-radius: 8px;
+                                                                                    margin: 20px 0;
+                                                                                    text-align: center;
+                                                                                    border-left: 4px solid #1E2A56;
+                                                                                }
+                                                                                
+                                                                                .section {
+                                                                                    margin-bottom: 25px;
+                                                                                    page-break-inside: avoid;
+                                                                                }
+                                                                                
+                                                                                .section-title {
+                                                                                    color: #1E2A56;
+                                                                                    border-bottom: 2px solid #1E2A56;
+                                                                                    padding-bottom: 8px;
+                                                                                    margin-bottom: 15px;
+                                                                                    font-size: 20px;
+                                                                                }
+                                                                                
+                                                                                .services-grid {
+                                                                                    display: grid;
+                                                                                    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                                                                                    gap: 15px;
+                                                                                    margin-top: 15px;
+                                                                                }
+                                                                                
+                                                                                .service-card {
+                                                                                    background: #f8f9fa;
+                                                                                    padding: 15px;
+                                                                                    border-radius: 6px;
+                                                                                    border: 1px solid #dee2e6;
+                                                                                }
+                                                                                
+                                                                                .service-title {
+                                                                                    color: #1E2A56;
+                                                                                    font-weight: bold;
+                                                                                    margin-bottom: 8px;
+                                                                                    font-size: 16px;
+                                                                                }
+                                                                                
+                                                                                .highlight {
+                                                                                    background: #e8f4f8;
+                                                                                    padding: 20px;
+                                                                                    border-radius: 8px;
+                                                                                    margin: 20px 0;
+                                                                                    border-left: 4px solid #27ae60;
+                                                                                }
+                                                                                
+                                                                                .mission-box {
+                                                                                    background: #f0f7ff;
+                                                                                    padding: 20px;
+                                                                                    border-radius: 8px;
+                                                                                    margin: 20px 0;
+                                                                                    border: 2px solid #1E2A56;
+                                                                                }
+                                                                                
+                                                                                .address-box {
+                                                                                    background: #f8f9fa;
+                                                                                    padding: 15px;
+                                                                                    border-radius: 6px;
+                                                                                    margin-top: 20px;
+                                                                                    font-size: 14px;
+                                                                                }
+                                                                                
+                                                                                .footer {
+                                                                                    margin-top: 40px;
+                                                                                    padding-top: 20px;
+                                                                                    border-top: 1px solid #dee2e6;
+                                                                                    text-align: center;
+                                                                                    font-size: 12px;
+                                                                                    color: #666;
+                                                                                }
+                                                                                
+                                                                                h3 {
+                                                                                    color: #1E2A56;
+                                                                                    margin: 25px 0 10px 0;
+                                                                                }
+                                                                                
+                                                                                ul {
+                                                                                    padding-left: 20px;
+                                                                                }
+                                                                                
+                                                                                li {
+                                                                                    margin-bottom: 5px;
+                                                                                }
+                                                                            </style>
+                                                                        </head>
+                                                                        <body>
+                                                                            <div class="header">
+                                                                                <div class="company-name">CONNECTLINK PROPERTIES</div>
+                                                                                <div class="tagline">From Concept to Creation – Let's Build Together!</div>
+                                                                            </div>
+                                                                            
+                                                                            <div class="contact-info">
+                                                                                <strong>📍 Address:</strong> Colonnade Building, Corner Mutare Rd & Steven Drive, Msasa, Harare<br>
+                                                                                <strong>📞 Phone:</strong> 0773 368 558 | 0718 047 602<br>
+                                                                                <strong>📧 Email:</strong> info@connectlinkproperties.co.zw<br>
+                                                                                <strong>🌐 Website:</strong> www.connectlinkproperties.co.zw
+                                                                            </div>
+                                                                            
+                                                                            <div class="section">
+                                                                                <div class="section-title">OUR STORY</div>
+                                                                                <p>Connectlink Properties is a Zimbabwean-based real estate development company specializing in construction, property development, project management, and custom cabinetry. With over a decade of experience, we have established a commendable reputation for delivering quality services with integrity, professionalism, and client satisfaction.</p>
+                                                                                
+                                                                                <div class="mission-box">
+                                                                                    <strong>🎯 OUR MISSION:</strong> To empower every citizen of Zimbabwe to achieve their dream of owning a property through innovative solutions and commitment to excellence.
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section">
+                                                                                <div class="section-title">CORE SERVICES</div>
+                                                                                <div class="services-grid">
+                                                                                    <div class="service-card">
+                                                                                        <div class="service-title">🏗️ CONSTRUCTION</div>
+                                                                                        <ul>
+                                                                                            <li>Brickwork & Roofing</li>
+                                                                                            <li>Tiling & Renovations</li>
+                                                                                            <li>Electrical & Plumbing</li>
+                                                                                            <li>Painting & Finishes</li>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                    
+                                                                                    <div class="service-card">
+                                                                                        <div class="service-title">🏠 PROPERTY DEVELOPMENTS</div>
+                                                                                        <ul>
+                                                                                            <li>Residential & Commercial</li>
+                                                                                            <li>Site Selection & Planning</li>
+                                                                                            <li>Property Management</li>
+                                                                                            <li>Real Estate Services</li>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                    
+                                                                                    <div class="service-card">
+                                                                                        <div class="service-title">🍳 KITCHENS & CABINETS</div>
+                                                                                        <ul>
+                                                                                            <li>Custom Kitchen Units</li>
+                                                                                            <li>Walk-in Closets</li>
+                                                                                            <li>Built-in Cupboards</li>
+                                                                                            <li>Granite Works</li>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                    
+                                                                                    <div class="service-card">
+                                                                                        <div class="service-title">📺 TV UNITS & VANITIES</div>
+                                                                                        <ul>
+                                                                                            <li>TV Mounting & Units</li>
+                                                                                            <li>Bathroom Vanities</li>
+                                                                                            <li>Mirror Installation</li>
+                                                                                            <li>Storage Solutions</li>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                    
+                                                                                    <div class="service-card">
+                                                                                        <div class="service-title">🛣️ CIVIL WORKS</div>
+                                                                                        <ul>
+                                                                                            <li>Road Construction</li>
+                                                                                            <li>Sewer Reticulation</li>
+                                                                                            <li>Water Systems</li>
+                                                                                            <li>Concrete Structures</li>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                    
+                                                                                    <div class="service-card">
+                                                                                        <div class="service-title">📊 PROJECT MANAGEMENT</div>
+                                                                                        <ul>
+                                                                                            <li>Architectural Drawings</li>
+                                                                                            <li>Land Survey</li>
+                                                                                            <li>Development Permits</li>
+                                                                                            <li>Consultancy Services</li>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section">
+                                                                                <div class="section-title">WHY CHOOSE US</div>
+                                                                                <div class="highlight">
+                                                                                    <strong>✓ Flexible Solutions:</strong> Tailored services to meet specific client needs<br>
+                                                                                    <strong>✓ Professional Team:</strong> Qualified engineers and tradesmen<br>
+                                                                                    <strong>✓ Quality Assurance:</strong> Materials and workmanship meeting global standards<br>
+                                                                                    <strong>✓ Client-Centric Approach:</strong> From concept to completion with full transparency<br>
+                                                                                    <strong>✓ Proven Track Record:</strong> Portfolio includes residential, commercial & institutional developments
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section">
+                                                                                <div class="section-title">CONTACT & LOCATIONS</div>
+                                                                                <div class="address-box">
+                                                                                    <strong>Main Office:</strong> Colonnade Building, Corner Mutare Rd & Steven Drive, Msasa, Harare<br>
+                                                                                    <strong>Branch Office:</strong> 38A Coronation Ave, Greendale, Harare<br>
+                                                                                    <strong>Business Hours:</strong> Monday - Friday: 8:00 AM - 5:00 PM | Saturday: 9:00 AM - 1:00 PM<br>
+                                                                                    <strong>Emergency Services:</strong> Available 24/7 for urgent matters
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <div class="footer">
+                                                                                <p>© 2024 Connectlink Properties. All Rights Reserved.</p>
+                                                                                <p>Follow us: 📱 WhatsApp Business | 📘 Facebook | 📸 Instagram | 💼 LinkedIn</p>
+                                                                                <p>Registered in Zimbabwe • VAT Registered • Professional Engineers Registration</p>
+                                                                            </div>
+                                                                        </body>
+                                                                        </html>
+                                                                        """
+                                                                        
+                                                                        # Generate PDF
+                                                                        pdf_bytes = HTML(string=html_content).write_pdf()
+                                                                        return pdf_bytes
+                                                                        
+                                                                    except Exception as e:
+                                                                        print(f"Error generating company profile PDF: {str(e)}")
+                                                                        return None
+
+
+                                                                def send_company_profile_whatsapp(recipient_number):
+                                                                    """Send company profile PDF via WhatsApp"""
+                                                                    try:
+                                                                        # Generate PDF
+                                                                        pdf_bytes = generate_company_profile_pdf()
+                                                                        
+                                                                        if not pdf_bytes:
+                                                                            return {'status': 'error', 'message': 'Failed to generate PDF'}
+                                                                        
+                                                                        # Upload to WhatsApp
+                                                                        filename = 'Connectlink_Properties_Profile.pdf'
+                                                                        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+                                                                        headers = {
+                                                                            "Authorization": f"Bearer {ACCESS_TOKEN}"
+                                                                        }
+                                                                        
+                                                                        files = {
+                                                                            "file": (filename, io.BytesIO(pdf_bytes), "application/pdf"),
+                                                                            "type": (None, "application/pdf"),
+                                                                            "messaging_product": (None, "whatsapp")
+                                                                        }
+                                                                        
+                                                                        response = requests.post(url, headers=headers, files=files)
+                                                                        response.raise_for_status()
+                                                                        media_id = response.json()["id"]
+                                                                        
+                                                                        # Send with WhatsApp message
+                                                                        message = f"""
+                                                                            🏢 *CONNECTLINK PROPERTIES - COMPANY PROFILE*
+
+                                                                            Thank you for your interest in Connectlink Properties! 
+
+                                                                            📋 *What's included in this document:*
+                                                                            • Our Story & Mission
+                                                                            • Core Services Overview
+                                                                            • Why Choose Us
+                                                                            • Contact Information
+                                                                            • Service Specializations
+
+                                                                            🏗️ *Our Expertise:*
+                                                                            • Construction & Civil Works
+                                                                            • Property Development
+                                                                            • Kitchens & Cabinets
+                                                                            • Project Management
+                                                                            • TV Units & Bathroom Vanities
+
+                                                                            📍 *Locations:* Msasa & Greendale, Harare
+                                                                            📞 *Contact:* 0773 368 558 | 0718 047 602
+                                                                            📧 *Email:* info@connectlinkproperties.co.zw
+
+                                                                            _From Concept to Creation – Let's Build Together!_
+
+                                                                            Please find our detailed company profile attached.
+                                                                                    """
+                                                                        
+                                                                        # First send text
+                                                                        text_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                        text_headers = {
+                                                                            "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                            "Content-Type": "application/json"
+                                                                        }
+                                                                        
+                                                                        text_payload = {
+                                                                            "messaging_product": "whatsapp",
+                                                                            "to": recipient_number,
+                                                                            "type": "text",
+                                                                            "text": {"body": message.strip()}
+                                                                        }
+                                                                        
+                                                                        requests.post(text_url, headers=text_headers, json=text_payload)
+                                                                        
+                                                                        # Then send PDF
+                                                                        doc_payload = {
+                                                                            "messaging_product": "whatsapp",
+                                                                            "to": recipient_number,
+                                                                            "type": "document",
+                                                                            "document": {
+                                                                                "id": media_id,
+                                                                                "filename": filename,
+                                                                                "caption": "Connectlink Properties Company Profile"
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        response = requests.post(text_url, headers=text_headers, json=doc_payload)
+                                                                        response.raise_for_status()
+                                                                        
+                                                                        return {
+                                                                            'status': 'success',
+                                                                            'message': 'Company profile sent successfully',
+                                                                            'whatsapp_response': response.json()
+                                                                        }
+                                                                        
+                                                                    except Exception as e:
+                                                                        print(f"Error sending company profile: {str(e)}")
+                                                                        return {'status': 'error', 'message': f'Failed to send: {str(e)}'}
+
+
+                                                                # Usage example
+
+                                                                result = send_company_profile_whatsapp(sender_id)
+
+                                                                continue
+
+
                                                             elif button_id == "main_menu":
 
                                                                 buttons = [
