@@ -2769,8 +2769,8 @@ def webhook():
                                                                 with get_db() as (cursor, connection):
                                                                     insert_query = """
                                                                         INSERT INTO connectlinkenquiries 
-                                                                        (timestamp, clientwhatsapp, enqcategory, enq, plan)
-                                                                        VALUES (%s, %s, %s, %s, %s)
+                                                                        (timestamp, clientwhatsapp, enqcategory, enq, plan, username)
+                                                                        VALUES (%s, %s, %s, %s, %s, %s)
                                                                         RETURNING id;
                                                                     """
                                                                     
@@ -2791,7 +2791,8 @@ def webhook():
                                                                             client_whatsapp,
                                                                             enquiry_type_display,
                                                                             user_message or '',
-                                                                            attachment_data
+                                                                            attachment_data,
+                                                                            profile_name
                                                                         )
                                                                     )
                                                                     
@@ -2802,7 +2803,7 @@ def webhook():
                                                                     
                                                                     # Send confirmation message to user
                                                                     confirmation_message = f"""
-                                                                        ✅ *Your Enquiry has been successfully submitted to ConnectLink Properties Admin!*
+                                                                        ✅ *Your Enquiry has been successfully submitted to ConnectLink Properties Admin, {profile_name}!*
 
                                                                         📋 *Reference ID:* #{enquiry_id}
                                                                         📅 *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
@@ -4737,7 +4738,8 @@ def run1(userid):
         enquiriesdata = cursor.fetchall()
         print(enquiriesdata)
 
-        enquiriesdatamain = pd.DataFrame(enquiriesdata)
+        enquiriesdatamain = pd.DataFrame(enquiriesdata, columns=['ID','Timestamp','Contact','Enquiry','Description','Document','Username'])
+        eqnuiriesdatamain = eqnuiriesdatamain[['ID','Timestamp','Username','Contact','Enquiry','Description','Document']]
         enquiriesdatamain_html = enquiriesdatamain.to_html(classes="table table-bordered table-theme", table_id="allenquiriesTable", index=False,  escape=False,)
 
 
