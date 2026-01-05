@@ -1916,9 +1916,9 @@
 
                 <div class="tab-pane fade" id="enquiries-tab">
                     <button class="btn btn-primary mt-3"
-                            id="exportprojectportBtn"
+                            id="exportenquiriesBtn"
                             style="width: max-content;"
-                            onclick="downloadPortfolio()">
+                            onclick="downloadenquiries()">
                         <i class="bi bi-download"></i> Download Enquiries File
                     </button>
 
@@ -2999,6 +2999,40 @@ document.getElementById("downloadpaymentshistory").addEventListener("click", fun
 </script>
 
 <script>
+
+function downloadenquiries() {
+    const btn = document.getElementById("exportenquiriesBtn");
+    const statusFilter = document.getElementById("statusFilter")?.value || 'all';
+    
+    // Show spinner
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2"></span>
+        Downloading...
+    `;
+    
+    // Create hidden link for download with status filter
+    const link = document.createElement("a");
+    link.href = `/export-enquiries?status=${statusFilter}`;
+    link.download = "";
+    link.style.display = "none";
+    document.body.appendChild(link);
+    
+    // Click the link to start download
+    link.click();
+    
+    // Remove link
+    document.body.removeChild(link);
+    
+    // Reset button after short delay
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }, 2500);
+}
+
+
 function downloadPortfolio() {
     const btn = document.getElementById("exportprojectportBtn");
 

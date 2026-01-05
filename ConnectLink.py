@@ -6044,6 +6044,131 @@ def login():
 
     return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
 
+@app.route('/export-enquiries')
+def export_enquiries():
+    with get_db() as (cursor, connection):
+        try:
+            today_date = datetime.now().strftime('%d %B %Y %H:%M:%S')
+            
+            # ========= GET ENQUIRIES DATA =========
+            cursor.execute("SELECT * FROM connectlinkenquiries ORDER BY id DESC")
+            rows = cursor.fetchall()
+            
+            if not rows:
+                # Return empty Excel file
+                output = io.BytesIO()
+                df_empty = pd.DataFrame(columns=['No enquiries found'])
+                df_empty.to_excel(output, index=False, sheet_name="Enquiries")
+                output.seek(0)
+                
+                return send_file(
+                    output,
+                    as_attachment=True,
+                    download_name=f"ConnectLink Properties Enquiries as at {today_date}.xlsx",
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            cols = [desc[0] for desc in cursor.description]
+            df_enquiries = pd.DataFrame(rows, columns=cols)
+            
+            # ========= STATISTICS WITH YOUR STATUS VALUES =========
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_enquiries,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                    COUNT(DISTINCT DATE(timestamp)) as active_days,
+                    MIN(timestamp) as first_enquiry,
+                    MAX(timestamp) as latest_enquiry
+                FROM connectlinkenquiries
+            """)
+            stats = cursor.fetchone()
+            
+            # Create statistics DataFrame
+            stats_data = {
+                'Metric': [
+                    'Total Enquiries', 
+                    'Pending Enquiries', 
+                    'In Progress Enquiries', 
+                    'Completed Enquiries',
+                    'Pending %', 
+                    'In Progress %', 
+                    'Completed %',
+                    'Active Days with Enquiries',
+                    'First Enquiry Date', 
+                    'Latest Enquiry Date'
+                ],
+                'Value': [
+                    stats[0] if stats else 0,
+                    stats[1] if stats else 0,
+                    stats[2] if stats else 0,
+                    stats[3] if stats else 0,
+                    f"{(stats[1] / stats[0] * 100):.1f}%" if stats and stats[0] > 0 else "0%",
+                    f"{(stats[2] / stats[0] * 100):.1f}%" if stats and stats[0] > 0 else "0%",
+                    f"{(stats[3] / stats[0] * 100):.1f}%" if stats and stats[0] > 0 else "0%",
+                    stats[4] if stats else 0,
+                    stats[5].strftime('%d %B %Y') if stats and stats[5] else 'N/A',
+                    stats[6].strftime('%d %B %Y') if stats and stats[6] else 'N/A'
+                ]
+            }
+            df_stats = pd.DataFrame(stats_data)
+            
+            # ========= CREATE EXCEL FILE IN MEMORY =========
+            output = io.BytesIO()
+            
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                # Sheet 1: Enquiries Data
+                df_enquiries.to_excel(writer, index=False, sheet_name="Enquiries")
+                
+                # Sheet 2: Statistics Summary
+                df_stats.to_excel(writer, index=False, sheet_name="Statistics")
+                
+                # Sheet 3: Status Summary
+                if 'status' in df_enquiries.columns:
+                    status_summary = df_enquiries['status'].value_counts().reset_index()
+                    status_summary.columns = ['Status', 'Count']
+                    status_summary['Status'] = status_summary['Status'].map({
+                        'pending': 'Pending',
+                        'in_progress': 'In Progress',
+                        'completed': 'Completed'
+                    })
+                    status_summary.to_excel(writer, index=False, sheet_name="Status Summary")
+                
+                # Sheet 4: Enquiries by Date
+                if 'timestamp' in df_enquiries.columns:
+                    df_enquiries['date'] = pd.to_datetime(df_enquiries['timestamp']).dt.date
+                    date_summary = df_enquiries.groupby('date').size().reset_index(name='Count')
+                    date_summary = date_summary.sort_values('date', ascending=False)
+                    date_summary.to_excel(writer, index=False, sheet_name="Enquiries by Date")
+                    
+                    # Add status breakdown by date
+                    status_by_date = df_enquiries.pivot_table(
+                        index='date',
+                        columns='status',
+                        aggfunc='size',
+                        fill_value=0
+                    ).reset_index()
+                    
+                    # Rename columns for better readability
+                    status_by_date.columns = ['Date', 'Completed', 'In Progress', 'Pending']
+                    status_by_date = status_by_date.sort_values('Date', ascending=False)
+                    status_by_date.to_excel(writer, index=False, sheet_name="Status by Date")
+            
+            output.seek(0)
+            
+            # ========= SEND THE FILE =========
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=f"ConnectLink Properties Enquiries as at {today_date}.xlsx",
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            
+        except Exception as e:
+            print(f"Error exporting enquiries: {str(e)}")
+            return f"Error occurred: {str(e)}", 500
+
 @app.route('/download_contract/<project_id>')
 def download_contract(project_id):
     with get_db() as (cursor, connection):
