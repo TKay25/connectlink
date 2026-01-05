@@ -2764,6 +2764,7 @@ def webhook():
                                                                 else:
                                                                     print("No attachment found in the response")
 
+
                                                                 # Save to database
                                                                 with get_db() as (cursor, connection):
                                                                     insert_query = """
@@ -2801,25 +2802,55 @@ def webhook():
                                                                     
                                                                     # Send confirmation message to user
                                                                     confirmation_message = f"""
-                                                                ✅ *Enquiry Submitted Successfully!*
+                                                                        ✅ *Your Enquiry has been successfully submitted to ConnectLink Properties Admin!*
 
-                                                                📋 *Reference ID:* #{enquiry_id}
-                                                                📅 *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
-                                                                🏷️ *Category:* {enquiry_type_display}
-                                                                {'📎 *Attachment:* Yes' if has_attachment else ''}
+                                                                        📋 *Reference ID:* #{enquiry_id}
+                                                                        📅 *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
+                                                                        🏷️ *Category:* {enquiry_type_display}
+                                                                        {'📎 *Attachment:* Yes' if has_attachment else ''}
 
-                                                                Thank you for your enquiry. Our team will contact you within 24 hours.
+                                                                        Thank you for your enquiry. Our team will contact you within 24 hours.
 
-                                                                _For urgent matters, please call our office._
-                                                                """
+                                                                        _For urgent matters, please call our office._
+                                                                        """
                                                                     
                                                                     print(f"✅ Sending confirmation to {sender_id}")
                                                                     
                                                                     # Send WhatsApp confirmation
-                                                                    send_whatsapp_message_enq(
-                                                                        sender_id,
-                                                                        confirmation_message
+                                                                    buttons = [
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "enquirylog",
+                                                                                "title": "Enquiries"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "contact",
+                                                                                "title": "Contact Us"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "about",
+                                                                                "title": "About Us"
+                                                                            }
+                                                                        }
+                                                                    ]
+
+
+                                                                    send_whatsapp_button_image_message(
+                                                                        sender_id, 
+                                                                        f"👋 Hey {profile_name}. \n\n {confirmation_message} \n\n How else can we assist you today?.",
+                                                                        "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                        buttons,
+                                                                        footer_text="ConnectLink Properties • Client Panel"
+
                                                                     )
+
                                                                     
                                                                     # Also notify admin/team
                                                                     admin_notification = f"""
@@ -2840,7 +2871,7 @@ def webhook():
                                                                     
                                                                     for admin_number in admin_numbers:
                                                                         print(f"✅ Notifying admin: {admin_number}")
-                                                                        send_whatsapp_message_enq(
+                                                                        send_whatsapp_message(
                                                                             admin_number,
                                                                             admin_notification
                                                                         )
@@ -2858,34 +2889,6 @@ def webhook():
                                                                     })
 
 
-                                                                def send_whatsapp_message_enq(recipient_number, message):
-                                                                    """Send WhatsApp message using Cloud API"""
-                                                                    try:
-                                                                        print(f"📤 Sending WhatsApp to {recipient_number}")
-                                                                        
-                                                                        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-                                                                        headers = {
-                                                                            "Authorization": f"Bearer {ACCESS_TOKEN}",
-                                                                            "Content-Type": "application/json"
-                                                                        }
-                                                                        
-                                                                        payload = {
-                                                                            "messaging_product": "whatsapp",
-                                                                            "to": recipient_number,
-                                                                            "type": "text",
-                                                                            "text": {
-                                                                                "body": message.strip()
-                                                                            }
-                                                                        }
-                                                                        
-                                                                        response = requests.post(url, headers=headers, json=payload)
-                                                                        response.raise_for_status()
-                                                                        print(f"✅ Message sent to {recipient_number}")
-                                                                        return response.json()
-                                                                        
-                                                                    except Exception as e:
-                                                                        print(f"❌ Error sending WhatsApp message to {recipient_number}: {e}")
-                                                                        return None
 
                                                             if button_id == "enquirylog":
 
