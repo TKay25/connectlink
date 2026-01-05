@@ -1371,7 +1371,45 @@ def webhook():
                                                                         'months_covered': month_columns_formatted
                                                                     }
                                                                 })
-                                                                
+                                                                    
+                                                                sections = [
+                                                                    {
+                                                                        "title": "Portfolio Options",
+                                                                        "rows": [
+                                                                            {
+                                                                                "id": "getportfolio",
+                                                                                "title": "Get Master File",
+                                                                                "description": "Download full portfolio"
+                                                                            },
+                                                                            {
+                                                                                "id": "getnotes",
+                                                                                "title": "Get Notes",
+                                                                                "description": "Access project notes"
+                                                                            },
+                                                                            {
+                                                                                "id": "payments_schedule",
+                                                                                "title": "Get Payments Schedule",
+                                                                                "description": "Access Installments schedule report"
+                                                                            },
+                                                                            {
+                                                                                "id": "main_menu",
+                                                                                "title": "Main Menu",
+                                                                                "description": "Return to main menu"
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                ]
+
+                                                                send_whatsapp_list_message(
+                                                                    sender_id,
+                                                                    "Kindly select a portfolio option below.",
+                                                                    "ConnectLink Admin",
+                                                                    sections,
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
+                                                                )
+
+                                                                continue
+
                                                             except Exception as e:
                                                                 print(f"Error generating PDF: {str(e)}")
                                                                 traceback.print_exc()
