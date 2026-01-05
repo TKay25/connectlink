@@ -4737,7 +4737,7 @@ def run1(userid):
         enquiriesdata = cursor.fetchall()
         print(enquiriesdata)
 
-        enquiriesdatamain = pd.DataFrame(enquiriesdatamain)
+        enquiriesdatamain = pd.DataFrame(enquiriesdata)
         enquiriesdatamain_html = enquiriesdatamain.to_html(classes="table table-bordered table-theme", table_id="allenquiriesTable", index=False,  escape=False,)
 
 
