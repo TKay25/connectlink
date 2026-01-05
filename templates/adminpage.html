@@ -1975,7 +1975,13 @@
                                     </thead>
                                     <tbody>
                                         {% for enquiry in enquiries_data %}
-                                        <tr id="enquiry-row-{{ enquiry.id }}">
+                                        <tr class="enquiry-row"  id="enquiry-row-{{ enquiry.id }}"
+                                            data-id="{{ enquiry.id }}"
+                                            data-category="{{ enquiry.category }}"
+                                            data-status="{{ enquiry.status }}"
+                                            data-client="{{ enquiry.clientwhatsapp }}"
+                                            data-username="{{ enquiry.username }}"
+                                            data-message="{{ enquiry.message }}">
                                             <td>#{{ enquiry.id }}</td>
                                             <td>{{ enquiry.timestamp }}</td>
                                             <td>
