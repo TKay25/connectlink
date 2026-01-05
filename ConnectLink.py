@@ -931,12 +931,7 @@ def webhook():
                                                                             @page {
                                                                                 size: A4;
                                                                                 margin: 1.5cm;
-                                                                                @top-center {
-                                                                                    content: "INSTALLMENT PROJECTS PORTFOLIO";
-                                                                                    font-size: 16px;
-                                                                                    font-weight: bold;
-                                                                                    color: #2c3e50;
-                                                                                }
+
                                                                                 @bottom-center {
                                                                                     content: "Page " counter(page) " of " counter(pages);
                                                                                     font-size: 10px;
