@@ -3339,6 +3339,105 @@ def webhook():
 
                                                                 continue
 
+                                                            elif button_id == "contact":
+
+                                                                def get_whatsapp_contact_message():
+                                                                    """Generate WhatsApp contact message with clickable links"""
+                                                                    
+                                                                    message = f"""
+                                                                🏢 *CONNECTLINK PROPERTIES - CONTACT US*
+
+                                                                We're here to help you bring your vision to life! Whether you're planning a construction project, need custom cabinetry, or looking for property development services, our team is ready to assist you.
+
+                                                                📞 *CONTACT INFORMATION:*
+
+                                                                📱 *WhatsApp Chat:* 
+
+                                                                • Customer Support: https://wa.me/263773368558
+
+                                                                📍 *OFFICE LOCATIONS:*
+                                                                • *Main Office:* Colonnade Building, Corner Mutare Rd & Steven Drive, Msasa, Harare
+                                                                • *Branch Office:* 38A Coronation Ave, Greendale, Harare
+
+                                                                📧 *EMAIL:*
+                                                                • General: info@connectlinkproperties.co.zw
+
+                                                                🌐 *WEBSITE:* www.connectlinkproperties.co.zw
+
+                                                                🕒 *BUSINESS HOURS:*
+                                                                • Monday - Friday: 8:00 AM - 5:00 PM
+                                                                • Saturday: 9:00 AM - 1:00 PM
+                                                                • Sunday: Closed (Emergency services available)
+
+                                                                🏗️ *OUR SERVICES:*
+                                                                • Construction & Civil Works
+                                                                • Property Development
+                                                                • Kitchens & Cabinets
+                                                                • Project Management
+                                                                • TV Units & Bathroom Vanities
+
+                                                                📋 *QUICK LINKS:*
+                                                                • Get Quote: https://wa.me/263773368558?text=Hello!%20I%27d%20like%20a%20quote%20for%20
+                                                                • Book Consultation: https://wa.me/263718047602?text=Hello!%20I%27d%20like%20to%20book%20a%20consultation%20
+                                                                • View Portfolio: https://wa.me/263773368558?text=Hello!%20Please%20send%20me%20your%20portfolio%20
+
+                                                                💡 *TIPS FOR ENQUIRIES:*
+                                                                2. Attach any plans or reference images
+                                                                3. Specify your preferred contact time
+                                                                4. Mention your location for accurate service planning
+
+                                                                📸 *FOLLOW US:*
+                                                                • Facebook: Connectlink Properties
+                                                                • Instagram: @connectlinkproperties
+                                                                • LinkedIn: Connectlink Properties Zimbabwe
+
+                                                                _From Concept to Creation – Let's Build Together!_
+
+                                                                🔗 *CLICK ANY LINK ABOVE TO START A CHAT*
+                                                                Simply tap on any WhatsApp link to begin a conversation with our team. We typically respond within 1-2 business hours.
+
+                                                                Thank you for considering Connectlink Properties for your project needs! We look forward to helping you create something amazing.
+                                                                    """
+                                                                    
+                                                                    return message.strip()
+
+
+                                                                # Function to send the contact message
+                                                                def send_contact_message(recipient_number):
+                                                                    """Send contact information via WhatsApp"""
+                                                                    try:
+                                                                        message = get_whatsapp_contact_message()
+                                                                        
+                                                                        url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                        headers = {
+                                                                            "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                            "Content-Type": "application/json"
+                                                                        }
+                                                                        
+                                                                        payload = {
+                                                                            "messaging_product": "whatsapp",
+                                                                            "to": sender_id,
+                                                                            "type": "text",
+                                                                            "text": {
+                                                                                "body": message
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        response = requests.post(url, headers=headers, json=payload)
+                                                                        response.raise_for_status()
+                                                                        
+                                                                        return {
+                                                                            'status': 'success',
+                                                                            'message': 'Contact information sent successfully',
+                                                                            'response': response.json()
+                                                                        }
+                                                                        
+                                                                    except Exception as e:
+                                                                        print(f"Error sending contact message: {str(e)}")
+                                                                        return {'status': 'error', 'message': f'Failed to send: {str(e)}'}
+
+                                                                send_contact_message(sender_id)
+
 
                                                             elif button_id == "main_menu":
 
@@ -3445,6 +3544,8 @@ def webhook():
                 return jsonify({"error": "internal error"}), 200
             
     return jsonify({"error": "internal error"}), 200
+
+
 
 
 
