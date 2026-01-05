@@ -3770,7 +3770,6 @@ def webhook():
                                                                     try:
 
                                                                         from weasyprint import HTML
-                                                                        import io
                                                                         # Format agreement date
                                                                         agreement_date = row[16] 
                                                                         formatted_agreement_date = agreement_date.strftime("%d %B %Y") if agreement_date else ""
