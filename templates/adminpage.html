@@ -3435,35 +3435,37 @@ $(document).ready(function() {
     $(document).on('click', '.update-project-btn', function () {
         // Get the table row that contains this button
         const $row = $(this).closest('tr');
-        
+        const table = window.dataTable;
+        const rowData = table.row($row).data(); // This gets ALL data including hidden
+
         // Get data from table cells - adjust indices based on your table structure
         // You'll need to check what column index each data is in
-        const id = $row.find('td:eq(0)').text().trim(); // First column (ID)
-        const clientName = $row.find('td:eq(1)').text().trim(); // Second column (Client Name)
-        const projectName = $row.find('td:eq(2)').text().trim(); // Third column (Project Name)
-        const projectScope = $row.find('td:eq(12)').text().trim(); // Third column (Project Name)
-        const adminName = $row.find('td:eq(13)').text().trim(); // Fourth column (Admin Name)
-        const completionStatus = $row.find('td:eq(44)').text().trim(); // Fifth column (Status)
-        const depositorbullet = $row.find('td:eq(23)').text().trim(); // Sixth column (Amount)
-        const datedepositorbullet = $row.find('td:eq(24)').text().trim(); // Sixth column (Amount)
-        const installment1Amount = $row.find('td:eq(26)').text().trim(); // Sixth column (Amount)
-        const installment1DueDate = $row.find('td:eq(27)').text().trim(); // Seventh column (Due Date)
-        const installment1Date = $row.find('td:eq(28)').text().trim(); // Seventh column (Due Date)
-        const installment2Amount = $row.find('td:eq(29)').text().trim(); // Seventh column (Due Date)
-        const installment2DueDate = $row.find('td:eq(30)').text().trim(); // Seventh column (Due Date)
-        const installment2Date = $row.find('td:eq(31)').text().trim(); // Seventh column (Due Date)
-        const installment3Amount = $row.find('td:eq(32)').text().trim(); // Seventh column (Due Date)
-        const installment3DueDate = $row.find('td:eq(33)').text().trim(); // Seventh column (Due Date)
-        const installment3Date = $row.find('td:eq(34)').text().trim(); // Seventh column (Due Date)
-        const installment4Amount = $row.find('td:eq(35)').text().trim(); // Seventh column (Due Date)
-        const installment4DueDate = $row.find('td:eq(36)').text().trim(); // Seventh column (Due Date)
-        const installment4Date = $row.find('td:eq(37)').text().trim(); // Seventh column (Due Date)
-        const installment5Amount = $row.find('td:eq(38)').text().trim(); // Seventh column (Due Date)
-        const installment5DueDate = $row.find('td:eq(39)').text().trim(); // Seventh column (Due Date)
-        const installment5Date = $row.find('td:eq(40)').text().trim(); // Seventh column (Due Date)
-        const installment6Amount = $row.find('td:eq(41)').text().trim(); // Seventh column (Due Date)
-        const installment6DueDate = $row.find('td:eq(42)').text().trim(); // Seventh column (Due Date)
-        const installment6Date = $row.find('td:eq(43)').text().trim(); // Seventh column (Due Date)
+        const id = rowData[0]; // First column (ID)
+        const clientName = rowData[1]; // Second column (Client Name)
+        const projectName = rowData[10]; // Tenth column (Project Name)
+        const projectScope = rowData[12]; // Project Scope
+        const adminName = rowData[13]; // Admin Name
+        const completionStatus = rowData[44]; // Status
+        const depositorbullet = rowData[23]; // Deposit amount
+        const datedepositorbullet = rowData[24]; // Deposit date
+        const installment1Amount = rowData[26]; // Installment 1 amount
+        const installment1DueDate = rowData[27]; // Installment 1 due date
+        const installment1Date = rowData[28]; // Installment 1 paid date
+        const installment2Amount = rowData[29]; // Installment 2 amount
+        const installment2DueDate = rowData[30]; // Installment 2 due date
+        const installment2Date = rowData[31]; // Installment 2 paid date
+        const installment3Amount = rowData[32]; // Installment 3 amount
+        const installment3DueDate = rowData[33]; // Installment 3 due date
+        const installment3Date = rowData[34]; // Installment 3 paid date
+        const installment4Amount = rowData[35]; // Installment 4 amount
+        const installment4DueDate = rowData[36]; // Installment 4 due date
+        const installment4Date = rowData[37]; // Installment 4 paid date
+        const installment5Amount = rowData[38]; // Installment 5 amount
+        const installment5DueDate = rowData[39]; // Installment 5 due date
+        const installment5Date = rowData[40]; // Installment 5 paid date
+        const installment6Amount = rowData[41]; // Installment 6 amount
+        const installment6DueDate = rowData[42]; // Installment 6 due date
+        const installment6Date = rowData[43]; // Installment 6 paid date
         
 
         $('#updateCompletionStatus option[value="ph"]').text(completionStatus);
