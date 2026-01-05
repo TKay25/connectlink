@@ -641,9 +641,29 @@ def webhook():
                                                                 form_response = {}
 
                                                             print("📋 User submitted flow response:", form_response)
-                                                            flow_data = request.json
+                                                            flow_data = form_response
 
-                                                            screens = flow_data.get('screens', [])
+                                                            print("📋 Full flow_data:", json.dumps(flow_data, indent=2))  # Debug print
+
+                                                            # Check if we have version in flow_data (indicates it's a flow response)
+                                                            if 'version' not in flow_data:
+                                                                print("❌ No version in flow_data - not a valid flow response")
+                                                                # Try alternative structure
+                                                                if 'screens' in flow_data:
+                                                                    screens = flow_data.get('screens', [])
+                                                                elif 'data' in flow_data and 'screens' in flow_data['data']:
+                                                                    # Sometimes it's nested under 'data'
+                                                                    screens = flow_data['data'].get('screens', [])
+                                                                else:
+                                                                    # Try to get from request.json as fallback
+                                                                    flow_data = request.json
+                                                                    screens = flow_data.get('screens', [])
+                                                            else:
+                                                                # Standard flow response structure
+                                                                screens = flow_data.get('screens', [])
+
+                                                            print(f"🔍 Found {len(screens)} screens")
+                                                            print(screens)
                                                             
                                                             if not screens:
                                                                 return jsonify({'status': 'error', 'message': 'No screens in flow response'}), 400
