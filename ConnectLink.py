@@ -1404,10 +1404,6 @@ def webhook():
                                                                                         <div class="summary-label">Overdue Amount</div>
                                                                                         <div class="summary-value red">${{ "%.2f"|format(project.overdue_amount) }}</div>
                                                                                     </div>
-                                                                                    <div class="summary-item" style="padding: 10px;">
-                                                                                        <div class="summary-label">Future Amount</div>
-                                                                                        <div class="summary-value green">${{ "%.2f"|format(project.future_amount) }}</div>
-                                                                                    </div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
