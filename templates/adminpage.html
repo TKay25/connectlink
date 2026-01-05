@@ -1925,7 +1925,7 @@
 
                     <div class="container mt-5">
                         <div class="container2" style="max-height: 500px; overflow-y: auto;">
-                            {{ table_datamain |safe }}
+                            {{ enquiriesdatamain_html |safe }}
                         </div>
                     </div>
                 </div>
@@ -3802,7 +3802,27 @@ document.addEventListener('DOMContentLoaded', () => {
             pageLength: 8,       // Force max 5 entries per page
             lengthChange: false, // Disable entries per page dropdown
         });
+
+
+
+        $('#allenquiriesTable').DataTable({
+            paging: false,    // Enable pagination
+            searching: true, // Enable search
+            ordering: true,  // Enable sorting
+            info: true,      // Show table information
+            pageLength: 8,       // Force max 5 entries per page
+            lengthChange: false, // Disable entries per page dropdown
+        });
+
     });
+
+
+
+
+
+
+
+
 </script>
 
 
