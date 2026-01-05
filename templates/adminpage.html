@@ -3440,7 +3440,7 @@ $(document).ready(function() {
 
         // Get data from table cells - adjust indices based on your table structure
         // You'll need to check what column index each data is in
-        const id = rowData[0]; // First column (ID)
+        const momid = rowData[0]; // First column (ID)
         const clientName = rowData[1]; // Second column (Client Name)
         const projectName = rowData[10]; // Tenth column (Project Name)
         const projectScope = rowData[12]; // Project Scope
@@ -3466,7 +3466,8 @@ $(document).ready(function() {
         const installment6Amount = rowData[41]; // Installment 6 amount
         const installment6DueDate = rowData[42]; // Installment 6 due date
         const installment6Date = rowData[43]; // Installment 6 paid date
-        
+        const id = rowData[46]; // First column (ID)
+
 
         $('#updateCompletionStatus option[value="ph"]').text(completionStatus);
 
