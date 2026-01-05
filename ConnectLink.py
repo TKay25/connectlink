@@ -6071,49 +6071,6 @@ def export_enquiries():
             cols = [desc[0] for desc in cursor.description]
             df_enquiries = pd.DataFrame(rows, columns=cols)
             
-            # ========= STATISTICS WITH YOUR STATUS VALUES =========
-            cursor.execute("""
-                SELECT 
-                    COUNT(*) as total_enquiries,
-                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                    SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
-                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-                    COUNT(DISTINCT DATE(timestamp)) as active_days,
-                    MIN(timestamp) as first_enquiry,
-                    MAX(timestamp) as latest_enquiry
-                FROM connectlinkenquiries
-            """)
-            stats = cursor.fetchone()
-            
-            # Create statistics DataFrame
-            stats_data = {
-                'Metric': [
-                    'Total Enquiries', 
-                    'Pending Enquiries', 
-                    'In Progress Enquiries', 
-                    'Completed Enquiries',
-                    'Pending %', 
-                    'In Progress %', 
-                    'Completed %',
-                    'Active Days with Enquiries',
-                    'First Enquiry Date', 
-                    'Latest Enquiry Date'
-                ],
-                'Value': [
-                    stats[0] if stats else 0,
-                    stats[1] if stats else 0,
-                    stats[2] if stats else 0,
-                    stats[3] if stats else 0,
-                    f"{(stats[1] / stats[0] * 100):.1f}%" if stats and stats[0] > 0 else "0%",
-                    f"{(stats[2] / stats[0] * 100):.1f}%" if stats and stats[0] > 0 else "0%",
-                    f"{(stats[3] / stats[0] * 100):.1f}%" if stats and stats[0] > 0 else "0%",
-                    stats[4] if stats else 0,
-                    stats[5].strftime('%d %B %Y') if stats and stats[5] else 'N/A',
-                    stats[6].strftime('%d %B %Y') if stats and stats[6] else 'N/A'
-                ]
-            }
-            df_stats = pd.DataFrame(stats_data)
-            
             # ========= CREATE EXCEL FILE IN MEMORY =========
             output = io.BytesIO()
             
@@ -6121,39 +6078,107 @@ def export_enquiries():
                 # Sheet 1: Enquiries Data
                 df_enquiries.to_excel(writer, index=False, sheet_name="Enquiries")
                 
-                # Sheet 2: Statistics Summary
-                df_stats.to_excel(writer, index=False, sheet_name="Statistics")
-                
-                # Sheet 3: Status Summary
+                # Sheet 2: Status Summary
                 if 'status' in df_enquiries.columns:
-                    status_summary = df_enquiries['status'].value_counts().reset_index()
-                    status_summary.columns = ['Status', 'Count']
-                    status_summary['Status'] = status_summary['Status'].map({
+                    status_counts = df_enquiries['status'].value_counts()
+                    
+                    # Map status to readable names
+                    status_map = {
                         'pending': 'Pending',
                         'in_progress': 'In Progress',
                         'completed': 'Completed'
-                    })
-                    status_summary.to_excel(writer, index=False, sheet_name="Status Summary")
+                    }
+                    
+                    # Create status summary
+                    status_summary = []
+                    for status, count in status_counts.items():
+                        readable_status = status_map.get(status, status.title())
+                        status_summary.append({
+                            'Status': readable_status,
+                            'Count': count
+                        })
+                    
+                    df_status_summary = pd.DataFrame(status_summary)
+                    df_status_summary.to_excel(writer, index=False, sheet_name="Status Summary", startrow=1)
+                    
+                    # Add header
+                    worksheet = writer.sheets['Status Summary']
+                    worksheet['A1'] = 'Status Distribution'
+                    worksheet['A1'].font = pd.ExcelWriter.fonts.Font(bold=True, size=12)
                 
-                # Sheet 4: Enquiries by Date
+                # Sheet 3: Enquiries by Date (Fixed)
                 if 'timestamp' in df_enquiries.columns:
-                    df_enquiries['date'] = pd.to_datetime(df_enquiries['timestamp']).dt.date
-                    date_summary = df_enquiries.groupby('date').size().reset_index(name='Count')
-                    date_summary = date_summary.sort_values('date', ascending=False)
-                    date_summary.to_excel(writer, index=False, sheet_name="Enquiries by Date")
+                    try:
+                        # Convert timestamp to date
+                        df_enquiries['date'] = pd.to_datetime(df_enquiries['timestamp']).dt.date
+                        
+                        # Simple date count
+                        date_summary = df_enquiries.groupby('date').size().reset_index(name='Count')
+                        date_summary = date_summary.sort_values('date', ascending=False)
+                        date_summary.to_excel(writer, index=False, sheet_name="Enquiries by Date")
+                        
+                        # Alternative: Status by Date (without pivot_table issues)
+                        if 'status' in df_enquiries.columns:
+                            # Group by date and status
+                            status_date_group = df_enquiries.groupby(['date', 'status']).size().reset_index(name='Count')
+                            
+                            # Pivot manually to avoid column mismatch
+                            dates = status_date_group['date'].unique()
+                            statuses = ['pending', 'in_progress', 'completed']
+                            
+                            # Create empty DataFrame
+                            status_by_date = pd.DataFrame({'Date': dates})
+                            
+                            # Fill with counts for each status
+                            for status in statuses:
+                                status_counts = []
+                                for date in dates:
+                                    count = status_date_group[
+                                        (status_date_group['date'] == date) & 
+                                        (status_date_group['status'] == status)
+                                    ]['Count'].sum()
+                                    status_counts.append(count)
+                                
+                                readable_status = status_map.get(status, status.title())
+                                status_by_date[readable_status] = status_counts
+                            
+                            status_by_date = status_by_date.sort_values('Date', ascending=False)
+                            status_by_date.to_excel(writer, index=False, sheet_name="Status by Date")
+                            
+                    except Exception as e:
+                        print(f"Error creating date sheets: {e}")
+                        # Continue without these sheets
+                
+                # Sheet 4: Statistics
+                if 'status' in df_enquiries.columns:
+                    total = len(df_enquiries)
+                    pending = len(df_enquiries[df_enquiries['status'] == 'pending'])
+                    in_progress = len(df_enquiries[df_enquiries['status'] == 'in_progress'])
+                    completed = len(df_enquiries[df_enquiries['status'] == 'completed'])
                     
-                    # Add status breakdown by date
-                    status_by_date = df_enquiries.pivot_table(
-                        index='date',
-                        columns='status',
-                        aggfunc='size',
-                        fill_value=0
-                    ).reset_index()
+                    stats_data = {
+                        'Metric': [
+                            'Total Enquiries',
+                            'Pending Enquiries',
+                            'In Progress Enquiries',
+                            'Completed Enquiries',
+                            'Pending Percentage',
+                            'In Progress Percentage',
+                            'Completed Percentage'
+                        ],
+                        'Value': [
+                            total,
+                            pending,
+                            in_progress,
+                            completed,
+                            f"{(pending/total*100):.1f}%" if total > 0 else "0%",
+                            f"{(in_progress/total*100):.1f}%" if total > 0 else "0%",
+                            f"{(completed/total*100):.1f}%" if total > 0 else "0%"
+                        ]
+                    }
                     
-                    # Rename columns for better readability
-                    status_by_date.columns = ['Date', 'Completed', 'In Progress', 'Pending']
-                    status_by_date = status_by_date.sort_values('Date', ascending=False)
-                    status_by_date.to_excel(writer, index=False, sheet_name="Status by Date")
+                    df_stats = pd.DataFrame(stats_data)
+                    df_stats.to_excel(writer, index=False, sheet_name="Statistics")
             
             output.seek(0)
             
