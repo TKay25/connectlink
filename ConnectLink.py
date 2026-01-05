@@ -3304,6 +3304,39 @@ def webhook():
 
                                                                 result = send_company_profile_whatsapp(sender_id)
 
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "enquirylog",
+                                                                            "title": "Enquiries"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "contact",
+                                                                            "title": "Contact Us"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "about",
+                                                                            "title": "About Us"
+                                                                        }
+                                                                    }
+                                                                ]
+
+
+                                                                send_whatsapp_button_message(
+                                                                    sender_id, 
+                                                                    f"How can we assist you today, {profile_name}?.",
+                                                                    buttons,
+                                                                    footer_text="ConnectLink Properties • Client Panel"
+
+                                                                )
+
                                                                 continue
 
 
