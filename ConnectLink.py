@@ -4902,6 +4902,43 @@ def get_enquiries_data():
         return []
 
 
+@app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
+def download_enquiry_plan(enquiry_id):
+    """Download the plan PDF attachment"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT plan, timestamp, clientwhatsapp
+                FROM connectlinkenquiries 
+                WHERE id = %s AND plan IS NOT NULL;
+            """, (enquiry_id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                return jsonify({'status': 'error', 'message': 'Plan not found'}), 404
+            
+            plan_data = row[0]  # BYTEA data
+            timestamp = row[1]
+            client_whatsapp = row[2]
+            
+            if not plan_data:
+                return jsonify({'status': 'error', 'message': 'Plan data is empty'}), 404
+            
+            # Create filename
+            filename = f"enquiry_plan_{enquiry_id}_{client_whatsapp}_{timestamp.strftime('%Y%m%d')}.pdf"
+            
+            # Return PDF file
+            return send_file(
+                io.BytesIO(plan_data),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/pdf'
+            )
+            
+    except Exception as e:
+        print(f"Error downloading plan: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Failed to download plan: {str(e)}'}), 500
+
 # Status update endpoint remains the same
 @app.route('/api/enquiries/<int:enquiry_id>/status', methods=['PUT'])
 def update_enquiry_status(enquiry_id):
