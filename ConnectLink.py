@@ -2844,7 +2844,7 @@ def webhook():
 
                                                                     send_whatsapp_button_image_message(
                                                                         sender_id, 
-                                                                        f"👋 Hey {profile_name}. \n\n {confirmation_message} \n\n How else can we assist you today?.",
+                                                                        f"{confirmation_message} \n\n How else can we assist you today?.",
                                                                         "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                         buttons,
                                                                         footer_text="ConnectLink Properties • Client Panel"
@@ -2867,7 +2867,7 @@ def webhook():
                                                                         """
                                                                     
                                                                     # Send to admin/team
-                                                                    admin_numbers = ["263774822568"]
+                                                                    admin_numbers = ["263774822568","263777665277"]
                                                                     
                                                                     for admin_number in admin_numbers:
                                                                         print(f"✅ Notifying admin: {admin_number}")
