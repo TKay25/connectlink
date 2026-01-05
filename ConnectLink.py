@@ -3295,13 +3295,6 @@ def webhook():
                                                                                 "id": "enquiries",
                                                                                 "title": "Enquiries"
                                                                             }
-                                                                        },
-                                                                        {
-                                                                            "type": "reply",
-                                                                            "reply": {
-                                                                                "id": "user_management",
-                                                                                "title": "User Management"
-                                                                            }
                                                                         }
                                                                     ]
 
@@ -3356,13 +3349,6 @@ def webhook():
                                                                     "reply": {
                                                                         "id": "enquiries",
                                                                         "title": "Enquiries"
-                                                                    }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "user_management",
-                                                                        "title": "User Management"
                                                                     }
                                                                 }
                                                             ]
@@ -3439,13 +3425,6 @@ def webhook():
                                                                     "reply": {
                                                                         "id": "enquiries",
                                                                         "title": "Enquiries"
-                                                                    }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "user_management",
-                                                                        "title": "User Management"
                                                                     }
                                                                 }
                                                             ]
