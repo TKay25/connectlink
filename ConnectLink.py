@@ -3770,6 +3770,7 @@ def webhook():
                                                                     try:
 
                                                                         from weasyprint import HTML
+                                                                        import io
                                                                         # Format agreement date
                                                                         agreement_date = row[16] 
                                                                         formatted_agreement_date = agreement_date.strftime("%d %B %Y") if agreement_date else ""
@@ -4341,6 +4342,8 @@ def webhook():
                                                                 def send_pdf_via_whatsapp(recipient_number, pdf_bytes, filename, caption):
                                                                     """Send PDF via WhatsApp"""
                                                                     try:
+                                                                        import io
+
                                                                         # Upload to WhatsApp
                                                                         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
                                                                         headers = {
