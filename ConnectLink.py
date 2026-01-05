@@ -3465,14 +3465,1074 @@ def webhook():
                                                 result2 = cursor.fetchone()
 
                                                 if result2:
+                                                        
+                                                    try:
+
+                                                        if message.get("type") == "interactive":
+                                                            interactive = message.get("interactive", {})
+
+
+                                                            if interactive.get("type") == "list_reply":
+                                                                selected_option = interactive.get("list_reply", {}).get("id")
+                                                                print(f"📋 User selected: {selected_option}")
+                                                                button_id = ""
+
+                                                            elif interactive.get("type") == "button_reply":
+                                                                button_id = interactive.get("button_reply", {}).get("id")
+                                                                print(f"🔘 Button clicked: {button_id}")
+                                                                selected_option = ""
+
+
+                                                            elif interactive.get("type") == "nfm_reply":
+
+                                                                url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                headers = {
+                                                                    "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                    "Content-Type": "application/json"
+                                                                }
+
+                                                                response_str = interactive.get("nfm_reply", {}).get("response_json", "{}")
+                                                                selected_option = ""
+                                                                button_id = ""
+
+                                                                print("📋 Raw nfm_reply response_json:", response_str)
+
+                                                                try:
+                                                                    form_response = json.loads(response_str)
+                                                                    print("✅ Parsed form_response:", form_response)
+                                                                except Exception as e:
+                                                                    print("❌ Error parsing nfm_reply response_json:", e)
+                                                                    form_response = {}
+
+                                                                print("🔍 Parsing form fields from form_response:")
+
+                                                                # The form_response is already in the clean format we need
+                                                                enquiry_type = form_response.get("enquiry_type")
+                                                                user_message = form_response.get("details", "")
+                                                                attachment_list = form_response.get("attachment", [])
+                                                                flow_token = form_response.get("flow_token", "")
+
+                                                                print("Values from form_response:")
+                                                                print("enquiry_type:", enquiry_type, type(enquiry_type))
+                                                                print("user_message:", user_message, type(user_message))
+                                                                print("attachment_list:", attachment_list, type(attachment_list))
+                                                                print("flow_token:", flow_token)
+
+                                                                # Validate required fields
+                                                                if not enquiry_type:
+                                                                    print("❌ No enquiry_type found in form response")
+                                                                    print("❌ Full form_response:", json.dumps(form_response, indent=2))
+                                                                    return jsonify({'status': 'error', 'message': 'Enquiry type is required'}), 400
+
+                                                                # Map enquiry type IDs to display names
+                                                                enquiry_type_map = {
+                                                                    'kitchen_cabinets': 'Kitchen & Cabinets',
+                                                                    'building': 'Building',
+                                                                    'renovation': 'Renovation',
+                                                                    'otherenq': 'Other'
+                                                                }
+
+                                                                enquiry_type_display = enquiry_type_map.get(enquiry_type, enquiry_type)
+
+                                                                print(f"✅ Enquiry type display: {enquiry_type_display}")
+
+                                                                # Process attachment if exists
+                                                                attachment_data = None
+                                                                has_attachment = False
+
+                                                                if attachment_list and isinstance(attachment_list, list) and len(attachment_list) > 0:
+                                                                    print("Processing attachment...")
+                                                                    has_attachment = True
+                                                                    
+                                                                    # The attachment is an object with id, mime_type, sha256, file_name
+                                                                    attachment_info = attachment_list[0]
+                                                                    attachment_id = attachment_info.get('id')
+                                                                    file_name = attachment_info.get('file_name', 'document.pdf')
+                                                                    
+                                                                    print(f"Attachment info: ID={attachment_id}, File={file_name}")
+                                                                    
+                                                                    # We need to download the actual file using the attachment ID
+                                                                    # WhatsApp provides a separate endpoint for downloading media
+                                                                    if attachment_id:
+                                                                        try:
+                                                                            # First, get the media URL
+                                                                            media_url = f"https://graph.facebook.com/v19.0/{attachment_id}"
+                                                                            headers = {
+                                                                                "Authorization": f"Bearer {ACCESS_TOKEN}"
+                                                                            }
+                                                                            
+                                                                            print(f"📥 Downloading media from: {media_url}")
+                                                                            response = requests.get(media_url, headers=headers)
+                                                                            response.raise_for_status()
+                                                                            media_info = response.json()
+                                                                            
+                                                                            print(f"Media info: {media_info}")
+                                                                            
+                                                                            # Get the actual download URL
+                                                                            download_url = media_info.get('url')
+                                                                            if download_url:
+                                                                                # Download the file
+                                                                                print(f"📥 Downloading file from: {download_url}")
+                                                                                file_response = requests.get(download_url, headers=headers)
+                                                                                file_response.raise_for_status()
+                                                                                
+                                                                                attachment_data = file_response.content
+                                                                                print(f"✅ Attachment downloaded, size: {len(attachment_data)} bytes")
+                                                                            else:
+                                                                                print("❌ No download URL found in media info")
+                                                                                attachment_data = None
+                                                                                
+                                                                        except Exception as e:
+                                                                            print(f"❌ Error downloading attachment: {e}")
+                                                                            attachment_data = None
+                                                                else:
+                                                                    print("No attachment found in the response")
+
+
+                                                                # Save to database
+                                                                with get_db() as (cursor, connection):
+                                                                    insert_query = """
+                                                                        INSERT INTO connectlinkenquiries 
+                                                                        (timestamp, clientwhatsapp, enqcategory, enq, plan, username)
+                                                                        VALUES (%s, %s, %s, %s, %s, %s)
+                                                                        RETURNING id;
+                                                                    """
+                                                                    
+                                                                    timestamp = datetime.now()
+                                                                    client_whatsapp = int(sender_id[-9:]) if sender_id.isdigit() else None
+                                                                    
+                                                                    print(f"✅ Saving to database:")
+                                                                    print(f"  - timestamp: {timestamp}")
+                                                                    print(f"  - clientwhatsapp: {client_whatsapp}")
+                                                                    print(f"  - enqcategory: {enquiry_type_display}")
+                                                                    print(f"  - enq: {user_message}")
+                                                                    print(f"  - plan: {'Yes' if attachment_data else 'No'}")
+                                                                    
+                                                                    cursor.execute(
+                                                                        insert_query,
+                                                                        (
+                                                                            timestamp,
+                                                                            client_whatsapp,
+                                                                            enquiry_type_display,
+                                                                            user_message or '',
+                                                                            attachment_data,
+                                                                            profile_name
+                                                                        )
+                                                                    )
+                                                                    
+                                                                    enquiry_id = cursor.fetchone()[0]
+                                                                    connection.commit()
+                                                                    
+                                                                    print(f"✅ Enquiry saved with ID: {enquiry_id}")
+                                                                    
+                                                                    # Send confirmation message to user
+                                                                    confirmation_message = f"""
+                                                                        ✅ *Your Enquiry has been successfully submitted to ConnectLink Properties Admin, {profile_name}!*
+
+                                                                        📋 *Reference ID:* #{enquiry_id}
+                                                                        📅 *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
+                                                                        🏷️ *Category:* {enquiry_type_display}
+                                                                        {'📎 *Attachment:* Yes' if has_attachment else ''}
+
+                                                                        Thank you for your enquiry. Our team will contact you within 24 hours.
+
+                                                                        _For urgent matters, please call our office._
+                                                                        """
+                                                                    
+                                                                    print(f"✅ Sending confirmation to {sender_id}")
+                                                                    
+                                                                    # Send WhatsApp confirmation
+                                                                    buttons = [
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "enquirylog",
+                                                                                "title": "Enquiries"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "contact",
+                                                                                "title": "Contact Us"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "about",
+                                                                                "title": "About Us"
+                                                                            }
+                                                                        }
+                                                                    ]
+
+
+                                                                    send_whatsapp_button_image_message(
+                                                                        sender_id, 
+                                                                        f"{confirmation_message} \n\n How else can we assist you today?.",
+                                                                        "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                        buttons,
+                                                                        footer_text="ConnectLink Properties • Client Panel"
+
+                                                                    )
+
+                                                                    
+                                                                    # Also notify admin/team
+                                                                    admin_notification = f"""
+                                                                        🔔 *NEW ENQUIRY RECEIVED*
+
+                                                                        📋 *Reference ID:* #{enquiry_id}
+                                                                        📱 *Client WhatsApp:* {sender_id}
+                                                                        📅 *Timestamp:* {timestamp.strftime('%d %B %Y %H:%M')}
+                                                                        🏷️ *Category:* {enquiry_type_display}
+                                                                        📝 *Details:* {user_message or 'No additional details'}
+                                                                        📎 *Attachment:* {'Yes' if has_attachment else 'No'}
+
+                                                                        Please follow up with the client.
+                                                                        """
+                                                                    
+                                                                    # Send to admin/team
+                                                                    admin_numbers = ["263774822568"]
+                                                                    
+                                                                    for admin_number in admin_numbers:
+                                                                        print(f"✅ Notifying admin: {admin_number}")
+                                                                        send_whatsapp_message(
+                                                                            admin_number,
+                                                                            admin_notification
+                                                                        )
+                                                                    
+                                                                    return jsonify({
+                                                                        'status': 'success',
+                                                                        'message': 'Enquiry saved successfully',
+                                                                        'enquiry_id': enquiry_id,
+                                                                        'data': {
+                                                                            'enquiry_type': enquiry_type,
+                                                                            'details': user_message,
+                                                                            'has_attachment': has_attachment,
+                                                                            'attachment_info': attachment_list[0] if attachment_list else None
+                                                                        }
+                                                                    })
+
+
+
+                                                            if button_id == "enquirylog":
+
+                                                                payload = {
+                                                                    "messaging_product": "whatsapp",
+                                                                    "to": sender_id,
+                                                                    "type": "template",
+                                                                    "template": {
+                                                                        "name": "enquiries",  # your template name
+                                                                        "language": {"code": "en"},
+                                                                        "components": [
+                                                                            {
+                                                                                "type": "button",
+                                                                                "index": "0",
+                                                                                "sub_type": "flow",
+                                                                                "parameters": [
+                                                                                    {
+                                                                                        "type": "action",
+                                                                                        "action": {
+                                                                                        "flow_token": "unused"
+                                                                                        }
+                                                                                    }
+                                                                                ]
+                                                                                        # button index in your template
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                }
+
+                                                                response = requests.post(
+                                                                    f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages",
+                                                                    headers={
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    },
+                                                                    json=payload
+                                                                ) 
+
+                                                                print(response.status_code)
+                                                                print(response.text)
+
+
+
+                                                                continue
+
+
+                                                            elif button_id == "contracts":
+                                                                """Generate and send actual contract PDFs using the template"""
+                                                                try:
+                                                                    # Extract last 9 digits from sender_id
+                                                                    if sender_id and len(sender_id) >= 9:
+                                                                        client_whatsapp = int(sender_id[-9:])
+                                                                    else:
+                                                                        client_whatsapp = int(sender_id) if sender_id and sender_id.isdigit() else None
+                                                                    
+                                                                    if not client_whatsapp:
+                                                                        return jsonify({'status': 'error', 'message': 'Invalid WhatsApp number'}), 400
+                                                                    
+                                                                    with get_db() as (cursor, connection):
+                                                                        # Get ALL user's contracts
+                                                                        cursor.execute("""
+                                                                            SELECT * FROM connectlinkdatabase 
+                                                                            WHERE clientwanumber = %s
+                                                                            ORDER BY projectstartdate DESC
+                                                                        """, (client_whatsapp,))
+                                                                        
+                                                                        rows = cursor.fetchall()
+                                                                        
+                                                                        if not rows:
+                                                                            message = f"📋 No contracts found for your WhatsApp number."
+                                                                            send_whatsapp_message(sender_id, message)
+                                                                            return jsonify({'status': 'success', 'message': 'No contracts found'})
+                                                                        
+                                                                        # Send summary message
+                                                                        summary = f"""
+                                                            📋 *YOUR CONTRACTS - CONNECTLINK PROPERTIES*
+
+                                                            Found {len(rows)} contract(s) for your WhatsApp number.
+
+                                                            _Sending contract documents now..._
+                                                                        """
+                                                                        send_whatsapp_message(sender_id, summary)
+                                                                        
+                                                                        # Process each contract
+                                                                        for i, row in enumerate(rows):
+                                                                            try:
+                                                                                print(f"📄 Generating contract {i+1}/{len(rows)}")
+                                                                                
+                                                                                # Generate PDF using your template
+                                                                                pdf_bytes = generate_contract_pdf(row, cursor)
+                                                                                
+                                                                                if pdf_bytes:
+                                                                                    # Send contract via WhatsApp
+                                                                                    filename = f"Contract_{row[1]}_{row[10]}_{row[0]}.pdf"
+                                                                                    send_pdf_via_whatsapp(sender_id, pdf_bytes, filename, f"Contract: {row[10]}")
+                                                                                    
+                                                                                    # Send progress update
+                                                                                    if i < len(rows) - 1:
+                                                                                        time.sleep(2)  # Delay between sends
+                                                                                
+                                                                            except Exception as e:
+                                                                                print(f"❌ Error with contract {i+1}: {e}")
+                                                                                error_msg = f"⚠️ Could not send contract {i+1}. Will try next one."
+                                                                                send_whatsapp_message(sender_id, error_msg)
+                                                                                continue
+                                                                        
+                                                                        # Final message
+                                                                        final_msg = f"""
+                                                            ✅ *ALL CONTRACTS SENT!*
+
+                                                            Successfully sent {len(rows)} contract document(s).
+
+                                                            _Thank you for choosing Connectlink Properties!_
+                                                                        """
+                                                                        send_whatsapp_message(sender_id, final_msg)
+                                                                        
+                                                                        return jsonify({
+                                                                            'status': 'success', 
+                                                                            'message': f'Sent {len(rows)} contracts',
+                                                                            'count': len(rows)
+                                                                        })
+                                                                        
+                                                                except Exception as e:
+                                                                    print(f"❌ Error in contracts handler: {str(e)}")
+                                                                    return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+                                                            def generate_contract_pdf(row, cursor):
+                                                                """Generate contract PDF using the template"""
+                                                                try:
+                                                                    # Format agreement date
+                                                                    agreement_date = row[16] 
+                                                                    formatted_agreement_date = agreement_date.strftime("%d %B %Y") if agreement_date else ""
+
+                                                                    # Get company details
+                                                                    cursor.execute("SELECT * FROM connectlinkdetails;")
+                                                                    detailscompdata = cursor.fetchall()
+                                                                    detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber'])
+                                                                    companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
+                                                                    address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
+                                                                    contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
+                                                                    contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
+                                                                    compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
+
+                                                                    # Calculate days difference
+                                                                    def days_between(date1, date2):
+                                                                        if date1 and date2:
+                                                                            delta = date1 - date2
+                                                                            return abs(delta.days)
+                                                                        return 0
+
+                                                                    date_str1 = row[14]  # projectstartdate
+                                                                    date_str2 = row[24] if len(row) > 24 else None  # datedepositorbullet
+                                                                    days_difference = days_between(date_str1, date_str2)
+
+                                                                    # Prepare project data
+                                                                    project = {
+                                                                        'project_id_num': row[0],
+                                                                        'client_name': row[1],
+                                                                        'client_idnumber': row[2],
+                                                                        'client_address': row[3],
+                                                                        'client_whatsapp': row[4],
+                                                                        'client_email': row[5],
+                                                                        'next_of_kin_name': row[6] if len(row) > 6 else "",
+                                                                        'next_of_kin_address': row[7] if len(row) > 7 else "",
+                                                                        'next_of_kin_phone': row[8] if len(row) > 8 else "",
+                                                                        'relationship': row[9] if len(row) > 9 else "",
+                                                                        'project_name': row[10],
+                                                                        'project_location': row[11],
+                                                                        'project_description': row[12],
+                                                                        'project_administrator': row[13],
+                                                                        'project_start_date': row[14],
+                                                                        'project_duration': row[15],
+                                                                        'agreement_date': formatted_agreement_date,
+                                                                        'total_contract_price': row[17],
+                                                                        'depositorbullet': row[23] if len(row) > 23 else 0,
+                                                                        'datedepositorbullet': row[24] if len(row) > 24 else None,
+                                                                        'monthlyinstallment': row[25] if len(row) > 25 else 0,
+                                                                        'installment1amount': row[26] if len(row) > 26 else 0,
+                                                                        'installment1duedate': row[27].strftime("%-d %B %Y") if len(row) > 27 and row[27] else "",
+                                                                        'installment2amount': row[29] if len(row) > 29 else 0,
+                                                                        'installment2duedate': row[30].strftime("%-d %B %Y") if len(row) > 30 and row[30] else "",
+                                                                        'installment3amount': row[32] if len(row) > 32 else 0,
+                                                                        'installment3duedate': row[33].strftime("%-d %B %Y") if len(row) > 33 and row[33] else "",
+                                                                        'installment4amount': row[35] if len(row) > 35 else 0,
+                                                                        'installment4duedate': row[36].strftime("%-d %B %Y") if len(row) > 36 and row[36] else "",
+                                                                        'installment5amount': row[38] if len(row) > 38 else 0,
+                                                                        'installment5duedate': row[39].strftime("%-d %B %Y") if len(row) > 39 and row[39] else "",
+                                                                        'installment6amount': row[41] if len(row) > 41 else 0,
+                                                                        'installment6duedate': row[42].strftime("%-d %B %Y") if len(row) > 42 and row[42] else "",
+                                                                        'latepaymentinterest': row[45] if len(row) > 45 else 0,
+                                                                        'companyname': companyname,
+                                                                        'companyaddress': address,
+                                                                        'companycontact1': contact1,
+                                                                        'companycontact2': contact2,
+                                                                        'companyemail': compemail,
+                                                                        'days_difference': days_difference,
+                                                                        'generated_on': datetime.now().strftime('%d %B %Y')
+                                                                    }
+
+                                                                    # Generate HTML using your exact template
+                                                                    html = generate_contract_html(project)
+                                                                    
+                                                                    
+                                                                    # Add logo (adjust path as needed)
+                                                                    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+                                                                    logo_base64 = ""
+                                                                    if os.path.exists(logo_path):
+                                                                        with open(logo_path, 'rb') as img_file:
+                                                                            logo_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+
+                                                                    # Replace logo placeholder
+                                                                    html = html.replace('{logo_base64}', logo_base64)
+                                                                    
+                                                                    # Generate PDF
+                                                                    css = CSS(string='''
+                                                                        @page {
+                                                                            size: A4;
+                                                                            margin: 20px 20px 90px 20px;
+                                                                        }
+                                                                    ''')
+                                                                    
+                                                                    html_obj = HTML(string=html)
+                                                                    pdf_bytes = html_obj.write_pdf(stylesheets=[css])
+                                                                    
+                                                                    return pdf_bytes
+                                                                    
+                                                                except Exception as e:
+                                                                    print(f"❌ Error generating PDF: {e}")
+                                                                    return None
+
+
+                                                            def generate_contract_html(project):
+                                                                """Generate HTML from your template"""
+                                                                # Your complete HTML template here (the one you provided)
+                                                                # I'll include a shortened version - use your actual full template
+                                                                html_template = f"""
+                                                                    <!DOCTYPE html>
+                                                                    <html lang="en">
+                                                                    <head>
+                                                                        <meta charset="UTF-8">
+                                                                        <title>Construction Agreement</title>
+                                                                        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
+                                                                        <style>
+                                                                            @page {{
+                                                                                size: A4;
+                                                                                margin: 30px 40px 60px 30px; /* Extra bottom margin for signature area */
+                                                                                
+                                                                                @bottom-center {{
+                                                                                    content: "";
+                                                                                    width: 70%;
+                                                                                    border-top: 1px solid #1E2A56;
+                                                                                    margin-top: 20px;
+                                                                                    padding-top: 10px;
+                                                                                }}
+                                                                            }}
+                                                                            
+                                                                            body {{ 
+                                                                                font-family: 'Roboto', sans-serif; 
+                                                                                background: #fff; 
+                                                                                color: #1E2A56;
+                                                                                margin: 0;
+                                                                                padding: 0;
+                                                                            }}
+                                                                            
+                                                                            .page-break {{
+                                                                                page-break-after: always;
+                                                                                margin-top: 40px;
+                                                                            }}
+                                                                            
+                                                                            .agreement-container {{
+                                                                                width: 100%;
+                                                                                max-width: 800px;
+                                                                                margin: 0 auto;
+                                                                                padding: 30px;
+                                                                                box-sizing: border-box;
+                                                                                position: relative;
+                                                                            }}
+                                                                            
+                                                                            .watermark {{
+                                                                                position: fixed;
+                                                                                top: 40%;
+                                                                                left: 15%;
+                                                                                opacity: 0.05;
+                                                                                font-size: 100px;
+                                                                                color: #1E2A56;
+                                                                                transform: rotate(-45deg);
+                                                                                z-index: -1000;
+                                                                                font-weight: 900;
+                                                                            }}
+                                                                            
+                                                                            .logo {{
+                                                                                display: block;
+                                                                                margin: 0 auto 15px auto;
+                                                                                width: 200px;
+                                                                                height: auto;
+                                                                            }}
+                                                                            
+                                                                            h3.title {{
+                                                                                text-align: center;
+                                                                                font-weight: 900;
+                                                                                margin-bottom: 10px;
+                                                                                text-transform: uppercase;
+                                                                                letter-spacing: 1.6px;
+                                                                                font-size: 20px;
+                                                                                color: #1E2A56;
+                                                                            }}
+                                                                            
+                                                                            .subtitle-line {{
+                                                                                width: 150px;
+                                                                                height: 4px;
+                                                                                background: linear-gradient(90deg, #1E2A56, #3A4B8C);
+                                                                                margin: 10px auto 30px auto;
+                                                                                border-radius: 10px;
+                                                                            }}
+                                                                            
+                                                                            h4.section-title {{
+                                                                                text-align: center;
+                                                                                background: linear-gradient(90deg, #1E2A56, #2A3A78);
+                                                                                color: white;
+                                                                                padding: 8px 10px;
+                                                                                border-radius: 8px;
+                                                                                font-size: 13px;
+                                                                                margin-top: 20px;
+                                                                                margin-bottom: 15px;
+                                                                                font-weight: 700;
+                                                                                letter-spacing: 0.8px;
+                                                                                box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+                                                                            }}
+                                                                            
+                                                                            .section-header {{
+                                                                                background: #f0f5ff;
+                                                                                padding: 8px 10px;
+                                                                                border-left: 4px solid #1E2A56;
+                                                                                margin: 20px 0 20px 0;
+                                                                                font-weight: 700;
+                                                                                color: #1E2A56;
+                                                                                font-size: 12px;
+                                                                                border-radius: 0 8px 8px 0;
+                                                                            }}
+                                                                            
+                                                                            .field-row {{
+                                                                                display: flex;
+                                                                                align-items: flex-start;
+                                                                                margin-bottom: 8px;
+                                                                                page-break-inside: avoid;
+                                                                            }}
+                                                                            
+                                                                            .field-label {{
+                                                                                font-weight: 700;
+                                                                                width: 180px;
+                                                                                font-size: 12px;
+                                                                                flex-shrink: 0;
+                                                                                color: #2A3A78;
+                                                                            }}
+                                                                            
+                                                                            .field-value {{
+                                                                                flex: 1;
+                                                                                border-bottom: 1px solid #d1d9f0;
+                                                                                padding-bottom: 5px;
+                                                                                font-size: 11px;
+                                                                                min-height: 17px;
+                                                                                color: #1E2A56;
+                                                                            }}
+                                                                            
+                                                                            .highlight-box {{
+                                                                                background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%);
+                                                                                font-size: 11px;
+                                                                                border: 1.5px solid #1E2A56;
+                                                                                border-radius: 12px;
+                                                                                padding: 20px;
+                                                                                margin: 10px 0;
+                                                                                box-shadow: 0 4px 12px rgba(26, 42, 86, 0.08);
+                                                                            }}
+                                                                            
+                                                                            .scope-box {{
+                                                                                border: 1.5px solid #1E2A56;
+                                                                                border-radius: 10px;
+                                                                                padding: 10px;
+                                                                                font-size: 11px;
+                                                                                min-height: 100px;
+                                                                                background: #fafbff;
+                                                                                margin-bottom: 15px;
+                                                                                line-height: 1.3;
+                                                                            }}
+                                                                            
+                                                                            .payment-table {{
+                                                                                width: 100%;
+                                                                                border-collapse: collapse;
+                                                                                margin: 10px 0;
+                                                                                border: 1.5px solid #1E2A56;
+                                                                                box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+                                                                            }}
+                                                                            
+                                                                            .payment-table th {{
+                                                                                background: linear-gradient(90deg, #1E2A56, #2A3A78);
+                                                                                color: white;
+                                                                                text-align: left;
+                                                                                padding: 10px;
+                                                                                font-weight: 700;
+                                                                                font-size: 11px;
+                                                                            }}
+                                                                            
+                                                                            .payment-table td {{
+                                                                                border: 1px solid #d1d9f0;
+                                                                                padding: 10px;
+                                                                                font-size: 11px;
+                                                                            }}
+                                                                            
+                                                                            .payment-table tr:nth-child(even) {{
+                                                                                background-color: #f9faff;
+                                                                            }}
+                                                                            
+                                                                            ul, ol {{
+                                                                                margin: 10px 0;
+                                                                                padding-left: 20px;
+                                                                                line-height: 1.4;
+                                                                            }}
+                                                                            
+                                                                            li {{
+                                                                                margin-bottom: 10px;
+                                                                                font-size: 11px;
+                                                                                color: #1E2A56;
+                                                                            }}
+                                                                            
+                                                                            .terms-box {{
+                                                                                background: #f8faff;
+                                                                                border-left: 4px solid #1E2A56;
+                                                                                padding: 10px;
+                                                                                margin: 10px 0;
+                                                                                border-radius: 0 8px 8px 0;
+                                                                            }}
+                                                                            
+                                                                            /* Signature area at bottom of each page */
+                                                                            .signature-area {{
+                                                                                font-size: 8px;
+                                                                                position: fixed;
+                                                                                bottom: 5px;
+                                                                                left: 40px;
+                                                                                right: 40px;
+                                                                                padding-top: 8px;
+                                                                                border: 1px solid #1E2A56;
+                                                                                border-radius: 8px;
+                                                                                background: #f8faff;
+                                                                                z-index: 100;
+                                                                            }}
+                                                                            
+                                                                            .signature-block {{
+                                                                                display: flex;
+                                                                                justify-content: space-between;
+                                                                                margin-top: 8px;
+                                                                            }}
+                                                                            
+                                                                            .signature-line {{
+                                                                                flex: 1;
+                                                                                margin: 0 10px;
+                                                                            }}
+                                                                            
+                                                                            .signature-label {{
+                                                                                font-weight: 700;
+                                                                                font-size: 10px;
+                                                                                margin-bottom: 5px;
+                                                                                display: block;
+                                                                                color: #2A3A78;
+                                                                            }}
+                                                                            
+                                                                            .signature-space {{
+                                                                                height: 30px;
+                                                                                border-bottom: 1px solid #1E2A56;
+                                                                                margin-top: 3px;
+                                                                            }}
+                                                                            
+                                                                            .signature-date {{
+                                                                                font-size: 10px;
+                                                                                color: #666;
+                                                                                margin-top: 5px;
+                                                                            }}
+                                                                            
+                                                                            .footer-note {{
+                                                                                text-align: center;
+                                                                                font-size: 10px;
+                                                                                color: #888;
+                                                                                margin-top: 10px;
+                                                                                font-style: italic;
+                                                                            }}
+                                                                            
+                                                                            /* Page number styling */
+                                                                            .page-number {{
+                                                                                position: fixed;
+                                                                                bottom: 15px;
+                                                                                left: 40px;
+                                                                                font-size: 10px;
+                                                                                color: #666;
+                                                                            }}
+                                                                            
+                                                                            .total-pages {{
+                                                                                position: fixed;
+                                                                                bottom: 15px;
+                                                                                right: 40px;
+                                                                                font-size: 10px;
+                                                                                color: #666;
+                                                                            }}
+                                                                            
+                                                                            /* Print styles */
+                                                                            @media print {{
+                                                                                .signature-area {{
+                                                                                    position: fixed;
+                                                                                    bottom: 5px;
+                                                                                }}
+                                                                                
+                                                                                .page-break {{
+                                                                                    page-break-after: always;
+                                                                                }}
+                                                                            }}
+                                                                        </style>
+                                                                    </head>
+                                                                    <body>
+                                                                        <div class="watermark">CONNECTLINK</div>
+                                                                        
+                                                                        <div class="agreement-container">
+                                                                            <!-- Page 1 -->
+                                                                            <img class="logo" src="data:image/png;base64,{{logo_base64}}" alt="ConnectLink Logo">
+                                                                            
+                                                                            <h3 class="title">Construction Agreement</h3>
+                                                                            <div class="subtitle-line"></div>
+                                                                            
+                                                                            <div class="highlight-box">
+                                                                                <p style="text-align: center; font-weight: 700; margin: 0;">
+                                                                                    This Construction Agreement ("Agreement") is made and entered into on 
+                                                                                    <span style="color: #1E2A56; text-decoration: underline;">{project['agreement_date']}</span> 
+                                                                                    ("Effective Date") by and between the parties below:
+                                                                                </p>
+                                                                            </div>
+                                                                            
+                                                                            <h4 class="section-title">PARTIES TO THE AGREEMENT</h4>
+                                                                            
+                                                                            <div class="section-header">CLIENT DETAILS</div>
+                                                                            <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">National ID:</div><div class="field-value">{project['client_idnumber']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['client_address']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['client_whatsapp']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['client_email']}</div></div>
+                                                                            
+                                                                            <div class="section-header">NEXT OF KIN DETAILS</div>
+                                                                            <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['next_of_kin_name']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['next_of_kin_address']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
+                                                                            
+
+                                                                            <div class="section-header">CONTRACTOR DETAILS</div>
+                                                                            <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
+                                                                            
+                                                                            <!-- Page break -->
+                                                                            <div class="page-break"></div>
+                                                                            
+                                                                            <!-- Page 2 -->
+
+                                                                            <h4 class="section-title">PROJECT DETAILS</h4>
+                                                                            <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
+                                                                            
+                                                                            <div class="section-header">PROJECT SCOPE</div>
+                                                                            <div class="scope-box">{project['project_description']}</div>
+                                                                        
+
+                                                                            <h4 class="section-title">PAYMENT TERMS</h4>
+                                                                            <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>
+                                                                            <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['depositorbullet']}</div></div>
+                                                                            
+                                                                            <div class="section-header">PAYMENT SCHEDULE</div>
+                                                                            <table class="payment-table">
+                                                                                <thead>
+                                                                                    <tr>
+                                                                                        <th style="width: 60%;">Installment Due Date</th>
+                                                                                        <th style="width: 40%;">Amount (USD)</th>
+                                                                                    </tr>
+                                                                                </thead>
+                                                                                <tbody>
+                                                                                    <tr><td>{project['installment1duedate']}</td><td style="font-weight: 700;">{project['installment1amount']}</td></tr>
+                                                                                    <tr><td>{project['installment2duedate']}</td><td style="font-weight: 700;">{project['installment2amount']}</td></tr>
+                                                                                    <tr><td>{project['installment3duedate']}</td><td style="font-weight: 700;">{project['installment3amount']}</td></tr>
+                                                                                    <tr><td>{project['installment4duedate']}</td><td style="font-weight: 700;">{project['installment4amount']}</td></tr>
+                                                                                    <tr><td>{project['installment5duedate']}</td><td style="font-weight: 700;">{project['installment5amount']}</td></tr>
+                                                                                    <tr><td>{project['installment6duedate']}</td><td style="font-weight: 700;">{project['installment6amount']}</td></tr>
+                                                                                </tbody>
+                                                                            </table>
+                                                                            
+                                                                            <!-- Page break -->
+                                                                            <div class="page-break"></div>
+                                                                            
+                                                                            <!-- Page 3 -->
+
+                                                                            <h4 class="section-title">TERMS AND CONDITIONS</h4>
+                                                                            
+                                                                            <div class="section-header">LATE PAYMENT AND INTEREST</div>
+                                                                            <div class="terms-box">
+                                                                                <ul style="list-style-type: circle;">
+                                                                                    <li>If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of <strong>{project['latepaymentinterest']}%</strong> per annum.</li>
+                                                                                    <li>Interest is calculated daily and compounded monthly from the due date until full payment is received.</li>
+                                                                                    <li>All payments shall first be applied to interest due, then to the principal amount.</li>
+                                                                                </ul>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section-header">PROJECT TIMELINE</div>
+                                                                            <ol>
+                                                                                <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of receiving the first payment.</li>
+                                                                                <li>The Contractor shall complete the project within <strong>{project['project_duration']} days</strong> from commencement date.</li>
+                                                                                <li>The Client shall make payments strictly as per the payment schedule outlined above.</li>
+                                                                                <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
+                                                                                <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
+                                                                            </ol>
+                                                                            
+
+                                                                            <div class="section-header">OWNERSHIP CLAUSE</div>
+                                                                            <div class="terms-box">
+                                                                                <ul style="list-style-type: circle;">
+                                                                                    <li>All installed items, materials, and equipment remain the property of <strong>ConnectLink Properties</strong> until full and final payment is received from the Client.</li>
+                                                                                    <li>ConnectLink Properties reserves the right to remove, repossess, or withhold any installed items should the Client fail to make payments within the stipulated timelines.</li>
+                                                                                    <li>Ownership transfers to the Client only upon settlement of the entire contract amount.</li>
+                                                                                </ul>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section-header">DESIGN CONFIRMATION</div>
+                                                                            <div class="terms-box">
+                                                                                <ul style="list-style-type: circle;">
+                                                                                    <li>Signing of this contract and payment of the deposit constitutes acknowledgement, confirmation, and authorization to proceed with construction of the proposed design submitted with the quotation.</li>
+                                                                                    <li>Any alterations or modifications must be communicated and agreed upon <strong>before</strong> signing this contract.</li>
+                                                                                    <li>All additions or variations to the approved design will be treated as change orders and will incur additional costs, billed separately or added to the original quotation.</li>
+                                                                                </ul>
+                                                                            </div>
+
+                                                                            <!-- Page break -->
+                                                                            <div class="page-break"></div>
+                                                                            
+                                                                            <!-- Page 4 -->
+
+                                                                            <div class="section-header">POWER PROVISION</div>
+                                                                            <div class="terms-box">
+                                                                                <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section-header">TERMINATION</div>
+                                                                            <div class="terms-box">
+                                                                                <p style="font-size:11px;">This Agreement may be terminated by either party if the other party:</p>
+                                                                                <ol>
+                                                                                    <li>Fails to perform any material obligation under this Agreement and such failure continues for 30 days after written notice.</li>
+                                                                                    <li>Becomes insolvent, bankrupt, or enters into receivership.</li>
+                                                                                    <li>Breaches any term of this Agreement causing substantial harm to the other party.</li>
+                                                                                </ol>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section-header">DISPUTE RESOLUTION</div>
+                                                                            <div class="terms-box">
+                                                                                <p style="font-size:11px;">Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section-header">GOVERNING LAW</div>
+                                                                            <div class="terms-box">
+                                                                                <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
+                                                                            </div>
+                                                                            
+                                                                            <div class="section-header">ENTIRE AGREEMENT</div>
+                                                                            <div class="terms-box">
+                                                                                <p style="font-size:11px;">This document constitutes the entire agreement between the parties and supersedes all prior discussions, negotiations, and agreements. No modification shall be valid unless in writing and signed by both parties.</p>
+                                                                            </div>
+                                                                            
+                                                                        </div>
+                                                                        
+                                                                        <!-- Signature Area (will appear at bottom of each page) -->
+                                                                        <div class="signature-area">
+                                                                            <div class="signature-block">
+                                                                                <div class="signature-line">
+                                                                                    <span class="signature-label">CLIENT SIGNATURE</span>
+                                                                                    <div class="signature-space"></div>
+                                                                                    <div class="signature-date">Date: {project['agreement_date']}</div>
+                                                                                </div>
+                                                                                
+                                                                                <div class="signature-line">
+                                                                                    <span class="signature-label">CONTRACTOR SIGNATURE</span>
+                                                                                    <div class="signature-space"></div>
+                                                                                    <div class="signature-date">Date: {project['agreement_date']}</div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="footer-note" style="margin-top: 5px;font-weight:bold;color: black;">
+                                                                                This is a legally binding document. Please read carefully before signing.
+                                                                            </div>   
+                                                                        </div>
+                                                                    </body>
+                                                                    </html>
+                                                                """
+                                                                return html_template
+
+
+                                                            def send_pdf_via_whatsapp(recipient_number, pdf_bytes, filename, caption):
+                                                                """Send PDF via WhatsApp"""
+                                                                try:
+                                                                    # Upload to WhatsApp
+                                                                    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}"
+                                                                    }
+                                                                    
+                                                                    files = {
+                                                                        "file": (filename, io.BytesIO(pdf_bytes), "application/pdf"),
+                                                                        "type": (None, "application/pdf"),
+                                                                        "messaging_product": (None, "whatsapp")
+                                                                    }
+                                                                    
+                                                                    response = requests.post(url, headers=headers, files=files)
+                                                                    response.raise_for_status()
+                                                                    media_id = response.json()["id"]
+                                                                    
+                                                                    # Send PDF
+                                                                    doc_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                    doc_headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    }
+                                                                    
+                                                                    doc_payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": recipient_number,
+                                                                        "type": "document",
+                                                                        "document": {
+                                                                            "id": media_id,
+                                                                            "filename": filename,
+                                                                            "caption": caption
+                                                                        }
+                                                                    }
+                                                                    
+                                                                    response = requests.post(doc_url, headers=doc_headers, json=doc_payload)
+                                                                    response.raise_for_status()
+                                                                    return True
+                                                                    
+                                                                except Exception as e:
+                                                                    print(f"❌ Error sending PDF: {e}")
+                                                                    return False
+
+
+                                                            def send_whatsapp_message(recipient_number, message):
+                                                                """Send text message via WhatsApp"""
+                                                                try:
+                                                                    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    }
+                                                                    
+                                                                    payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": recipient_number,
+                                                                        "type": "text",
+                                                                        "text": {"body": message}
+                                                                    }
+                                                                    
+                                                                    response = requests.post(url, headers=headers, json=payload)
+                                                                    return response.status_code == 200
+                                                                    
+                                                                except Exception as e:
+                                                                    print(f"❌ Error sending message: {e}")
+                                                                    return False
 
 
 
 
-                                                    send_whatsapp_message(
-                                                        sender_id, 
-                                                        "Oops, you are."
-                                                    )
+                                                        else:
+
+                                                            text = message.get("text", {}).get("body", "").lower()
+                                                            print(f"📨 Message from {sender_id}: {text}")
+                                                            
+                                                            print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
+
+                                                            
+                                                            buttons = [
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "contracts",
+                                                                        "title": "My Contracts"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "paymenthist",
+                                                                        "title": "My Payments History"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "enquirylog",
+                                                                        "title": "Enquiries"
+                                                                    }
+                                                                }
+                                                            ]
+
+
+                                                            send_whatsapp_button_image_message(
+                                                                sender_id, 
+                                                                f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                                "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                buttons,
+                                                                footer_text="ConnectLink Properties • Client Panel"
+
+                                                            )
+
+                                                            continue
+
+
+                                                    except Exception as e:
+                                                        print(e)
+
+
 
                                                 elif not result2:
 
@@ -4267,44 +5327,42 @@ def webhook():
                                                             
                                                             print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
 
-                                                                
-                                                            if "hello" in text.lower():
-
-                                                                buttons = [
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "enquirylog",
-                                                                            "title": "Enquiries"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "contact",
-                                                                            "title": "Contact Us"
-                                                                        }
-                                                                    },
-                                                                    {
-                                                                        "type": "reply",
-                                                                        "reply": {
-                                                                            "id": "about",
-                                                                            "title": "About Us"
-                                                                        }
+                                                            
+                                                            buttons = [
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "enquirylog",
+                                                                        "title": "Enquiries"
                                                                     }
-                                                                ]
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "contact",
+                                                                        "title": "Contact Us"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "about",
+                                                                        "title": "About Us"
+                                                                    }
+                                                                }
+                                                            ]
 
 
-                                                                send_whatsapp_button_image_message(
-                                                                    sender_id, 
-                                                                    f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
-                                                                    "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
-                                                                    buttons,
-                                                                    footer_text="ConnectLink Properties • Client Panel"
+                                                            send_whatsapp_button_image_message(
+                                                                sender_id, 
+                                                                f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                                "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                buttons,
+                                                                footer_text="ConnectLink Properties • Client Panel"
 
-                                                                )
+                                                            )
 
-                                                                continue
+                                                            continue
 
                                                     except Exception as e:
                                                         print(e)
