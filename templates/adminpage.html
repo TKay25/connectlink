@@ -3250,8 +3250,8 @@ $(document).ready(function() {
         $('#notesProjectId').val(projectId);        
         $('#modalProjectName').text(projectName);
         $('#modalClientName').text(clientName);
-        $('#modalclientWaNumber').text(clientName);
-        $('#modalClientName').text(clientName);
+        $('#modalclientWaNumber').text(clientWaNumber);
+        $('#modalclientNextOfKinNumber').text(clientNextOfKinNumber);
 
         // Clear the textarea
         $('#newNoteText').val('');
@@ -3329,8 +3329,8 @@ $('#addNoteBtn').click(function() {
     const noteText = $('#newNoteText').val().trim();
     const clientName = $('#modalClientName').text(); // Get client name from modal
     const projectName = $('#modalProjectName').text(); // Get project name from modal
-    const clientWaNumber = $('#notesModal').data('clientWaNumber') || '';
-    const clientNextOfKinNumber = $('#notesModal').data('clientNextOfKinNumber') || '';
+    const clientWaNumber = $('#notesModal').data('modalclientWaNumber') || '';
+    const clientNextOfKinNumber = $('#notesModal').data('modalclientNextOfKinNumber') || '';
 
     if (!projectId) {
         alert('No project selected');
