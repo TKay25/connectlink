@@ -4739,7 +4739,7 @@ def run1(userid):
         print(enquiriesdata)
 
         enquiriesdatamain = pd.DataFrame(enquiriesdata, columns=['ID','Timestamp','Contact','Enquiry','Description','Document','Username'])
-        eqnuiriesdatamain = eqnuiriesdatamain[['ID','Timestamp','Username','Contact','Enquiry','Description','Document']]
+        enquiriesdatamain = enquiriesdatamain[['ID','Timestamp','Username','Contact','Enquiry','Description','Document']]
         enquiriesdatamain_html = enquiriesdatamain.to_html(classes="table table-bordered table-theme", table_id="allenquiriesTable", index=False,  escape=False,)
 
 
