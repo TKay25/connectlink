@@ -4482,7 +4482,42 @@ def webhook():
 
                                                                             _Thank you for choosing Connectlink Properties!_
                                                                                         """
-                                                                        send_whatsapp_message(sender_id, final_msg)
+                                                                        # send_whatsapp_message(sender_id, final_msg)
+
+
+                                                                        
+                                                                        buttons = [
+                                                                            {
+                                                                                "type": "reply",
+                                                                                "reply": {
+                                                                                    "id": "contracts",
+                                                                                    "title": "My Contracts"
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "type": "reply",
+                                                                                "reply": {
+                                                                                    "id": "paymenthist",
+                                                                                    "title": "My Payments History"
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "type": "reply",
+                                                                                "reply": {
+                                                                                    "id": "enquirylog",
+                                                                                    "title": "Enquiries"
+                                                                                }
+                                                                            }
+                                                                        ]
+
+
+                                                                        send_whatsapp_button_message(
+                                                                            sender_id, 
+                                                                            f"{final_msg} \n\n How else can we assist you today {profile_name}?.",
+                                                                            buttons,
+                                                                            footer_text="ConnectLink Properties • Client Panel"
+
+                                                                        )
                                                                         
                                                                         return jsonify({
                                                                             'status': 'success', 
