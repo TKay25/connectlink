@@ -3343,28 +3343,13 @@ def webhook():
 
                                                                 """Send simplified contact info via WhatsApp"""
                                                                     # Create message
-                                                                message = """🏢 *CONNECTLINK PROPERTIES*
-
-                                                                    📱 *Contact Us on WhatsApp:*
-                                                                    https://wa.me/263773368558
-
-                                                                    📍 *Office Locations:*
-                                                                    • Main: Colonnade Building, Msasa, Harare
-                                                                    • Branch: 38A Coronation Ave, Greendale, Harare
-
-                                                                    📧 *Email:* info@connectlinkproperties.co.zw
-                                                                    🌐 *Website:* www.connectlinkproperties.co.zw
-
-                                                                    🕒 *Hours:* Mon-Fri 8AM-5PM, Sat 9AM-1PM
-
-                                                                    🏗️ *Our Services:*
-                                                                    • Construction
-                                                                    • Property Development  
-                                                                    • Kitchens & Cabinets
-                                                                    • Project Management
-
-                                                                    _Tap the link above to chat with us!_
-                                                                    """
+                                                                message = (
+                                                                    "🏢 *CONNECTLINK PROPERTIES*\n\n"
+                                                                    "📱 WhatsApp: https://wa.me/263773368558\n"
+                                                                    "📍 Offices: 38A Coronation Avenue, Greendale, Harare\n"
+                                                                    "📧 Email: info@connectlinkproperties.co.zw\n"
+                                                                    "🌐 Website: www.connectlinkproperties.co.zw"
+                                                                )
                                                                     
                                                                     # Send message
                                                                 buttons = [
