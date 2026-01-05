@@ -2295,21 +2295,21 @@ document.addEventListener('click', function(e) {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                showToast('Status updated successfully', 'success');
+                // Show success from Flask response
+                alert('✅ ' + data.message);  // Shows "Enquiry status updated successfully"
+                // Or use your toast function
+                showToast(data.message, 'success');
             } else {
-                showToast('Error: ' + data.message, 'error');
+                // Show error from Flask response
+                alert('❌ ' + data.message);
+                showToast(data.message, 'error');
             }
-        });
+        })
     }
 });
 
 function viewEnquiry(id) {
     window.open(`/api/enquiries/${id}`, '_blank');
-}
-
-function showToast(message, type) {
-    // Your existing toast function
-    alert(type + ': ' + message);
 }
 
 // Optional: Add some CSS for better message display
