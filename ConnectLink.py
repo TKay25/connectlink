@@ -6104,7 +6104,6 @@ def export_enquiries():
                     # Add header
                     worksheet = writer.sheets['Status Summary']
                     worksheet['A1'] = 'Status Distribution'
-                    worksheet['A1'].font = pd.ExcelWriter.fonts.Font(bold=True, size=12)
                 
                 # Sheet 3: Enquiries by Date (Fixed)
                 if 'timestamp' in df_enquiries.columns:
