@@ -4953,7 +4953,7 @@ def update_enquiry_status(enquiry_id):
         with get_db() as (cursor, connection):
             cursor.execute("""
                 UPDATE connectlinkenquiries 
-                SET status = %s, updated_at = CURRENT_TIMESTAMP
+                SET status = %s
                 WHERE id = %s
                 RETURNING id;
             """, (new_status, enquiry_id))
