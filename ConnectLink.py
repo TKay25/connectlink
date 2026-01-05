@@ -1357,21 +1357,7 @@ def webhook():
                                                                 # Upload and send via WhatsApp
                                                                 media_id = upload_pdf_to_whatsapp(pdf_bytes, sender_id)
                                                                 whatsapp_response = send_whatsapp_pdf_by_media_id(sender_id, media_id)
-                                                                
-                                                                return jsonify({
-                                                                    'status': 'success',
-                                                                    'message': 'Cross-tab installment schedule PDF generated and sent successfully',
-                                                                    'whatsapp_response': whatsapp_response,
-                                                                    'summary': {
-                                                                        'total_projects': summary_data['total_projects'],
-                                                                        'total_clients': pdf_data['total_clients'],
-                                                                        'total_pending': f"${summary_data['total_pending']:,.2f}",
-                                                                        'total_overdue': f"${summary_data['total_overdue']:,.2f}",
-                                                                        'total_future': f"${summary_data['total_future']:,.2f}",
-                                                                        'months_covered': month_columns_formatted
-                                                                    }
-                                                                })
-                                                                    
+   
                                                                 sections = [
                                                                     {
                                                                         "title": "Portfolio Options",
@@ -1407,6 +1393,21 @@ def webhook():
                                                                     sections,
                                                                     footer_text="ConnectLink Properties • Admin Panel"
                                                                 )
+
+                                                                return jsonify({
+                                                                    'status': 'success',
+                                                                    'message': 'Cross-tab installment schedule PDF generated and sent successfully',
+                                                                    'whatsapp_response': whatsapp_response,
+                                                                    'summary': {
+                                                                        'total_projects': summary_data['total_projects'],
+                                                                        'total_clients': pdf_data['total_clients'],
+                                                                        'total_pending': f"${summary_data['total_pending']:,.2f}",
+                                                                        'total_overdue': f"${summary_data['total_overdue']:,.2f}",
+                                                                        'total_future': f"${summary_data['total_future']:,.2f}",
+                                                                        'months_covered': month_columns_formatted
+                                                                    }
+                                                                })
+                                                                 
 
                                                                 continue
 
