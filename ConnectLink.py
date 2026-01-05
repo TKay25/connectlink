@@ -3464,7 +3464,7 @@ def webhook():
                                                 cursor.execute(query, (f"%{sender_number}",))
                                                 result2 = cursor.fetchone()
 
-                                                profile_name = result2[3]
+                                                profile_name = result2[1]
 
                                                 if result2:
                                                         
@@ -3768,6 +3768,9 @@ def webhook():
                                                                 def generate_contract_pdf(row, cursor):
                                                                     """Generate contract PDF using the template"""
                                                                     try:
+
+                                                                        from weasyprint import HTML
+                                                                        import io
                                                                         # Format agreement date
                                                                         agreement_date = row[16] 
                                                                         formatted_agreement_date = agreement_date.strftime("%d %B %Y") if agreement_date else ""
