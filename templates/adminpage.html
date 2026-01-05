@@ -3407,12 +3407,17 @@ $('#addNoteBtn').click(function() {
     
     // Update the notes button click handler if you removed onclick attribute
     $(document).on('click', '.notes-btn', function() {
-        const projectId = $(this).data('id');
-        const projectName = $(this).data('project-name'); // pass project name as data attribute
-        const clientName = $(this).data('client-name');   // pass client name as data attribute
-        const clientWaNumber = $(this).data('client-wa-number'); // Add this
-        const clientNextOfKinNumber = $(this).data('client-next-of-kin-number'); // Add this
+        const $row = $(this).closest('tr');
+        const rowData = window.dataTable.row($row).data();
+        
+        // Get data from DataTables row data (includes hidden columns)
+        const projectId = rowData[0]; // Assuming 'id' is column 0
+        const projectName = rowData[10]; // Assuming 'projectname' is column 10
+        const clientName = rowData[1]; // Assuming 'clientname' is column 1
+        const clientWaNumber = rowData[4]; // Assuming 'clientwanumber' is column 4
+        const clientNextOfKinNumber = rowData[8]; // Assuming 'clientnextofkinphone' is column 8
 
+        
         console.log('Button data:', {
             projectId, projectName, clientName, 
             clientWaNumber, clientNextOfKinNumber
