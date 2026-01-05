@@ -342,6 +342,8 @@ def webhook():
                     power = "Echelon Equipment Pvt Ltd"
                     bot = "ConnectLink Properties"
 
+
+
                 def send_whatsapp_button_image_message(recipient, text, image_url, buttons, footer_text=None):
                     headers = {
                         "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -2681,47 +2683,43 @@ def webhook():
 
                                                             if button_id == "enquirylog":
 
-                                                                sections = [
-                                                                    {
-                                                                        "title": "Enquiries Options",
-                                                                        "rows": [
+                                                                payload = {
+                                                                    "messaging_product": "whatsapp",
+                                                                    "to": sender_id,
+                                                                    "type": "template",
+                                                                    "template": {
+                                                                        "name": "enquiries",  # your template name
+                                                                        "language": {"code": "en"},
+                                                                        "components": [
                                                                             {
-                                                                                "id": "kitchen_cabinets",
-                                                                                "title": "Kitchen & Cabinets",
-                                                                                "description": "Kitchen and Cabinets enquiries"
-                                                                            },
-                                                                            {
-                                                                                "id": "building",
-                                                                                "title": "Building",
-                                                                                "description": "Building Construction enquiries"
-                                                                            },
-                                                                            {
-                                                                                "id": "renovation",
-                                                                                "title": "Renovation",
-                                                                                "description": "Renovation Enquiries"
-                                                                            },
-                                                                            {
-                                                                                "id": "otherenq",
-                                                                                "title": "Other",
-                                                                                "description": "Other Enquiries"
-                                                                            },
-                                                                            {
-                                                                                "id": "main_menu",
-                                                                                "title": "Main Menu",
-                                                                                "description": "Return to main menu"
+                                                                                "type": "button",
+                                                                                "index": "0",
+                                                                                "sub_type": "flow",
+                                                                                "parameters": [
+                                                                                    {
+                                                                                        "type": "action",
+                                                                                        "action": {
+                                                                                        "flow_token": "unused"
+                                                                                        }
+                                                                                    }
+                                                                                ]
+                                                                                        # button index in your template
                                                                             }
                                                                         ]
                                                                     }
-                                                                ]
+                                                                }
 
-                                                                send_whatsapp_list_message(
-                                                                    sender_id,
-                                                                    "Kindly select an enquiry option below.",
-                                                                    "ConnectLink Enquiries",
-                                                                    sections,
-                                                                    footer_text="ConnectLink Properties • Client Panel"
-                                                                )
+                                                                response = requests.post(
+                                                                    f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages",
+                                                                    headers={
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    },
+                                                                    json=payload
+                                                                ) 
 
+                                                                print(response.status_code)
+                                                                print(response.text)
 
 
 
