@@ -641,200 +641,6 @@ def webhook():
                                                                 form_response = {}
 
                                                             print("📋 User submitted flow response:", form_response)
-                                                            flow_data = form_response
-
-                                                            print("📋 Full flow_data:", json.dumps(flow_data, indent=2))  # Debug print
-
-                                                            # Check if we have version in flow_data (indicates it's a flow response)
-                                                            if 'version' not in flow_data:
-                                                                print("❌ No version in flow_data - not a valid flow response")
-                                                                # Try alternative structure
-                                                                if 'screens' in flow_data:
-                                                                    screens = flow_data.get('screens', [])
-                                                                elif 'data' in flow_data and 'screens' in flow_data['data']:
-                                                                    # Sometimes it's nested under 'data'
-                                                                    screens = flow_data['data'].get('screens', [])
-                                                                else:
-                                                                    # Try to get from request.json as fallback
-                                                                    flow_data = request.json
-                                                                    screens = flow_data.get('screens', [])
-                                                            else:
-                                                                # Standard flow response structure
-                                                                screens = flow_data.get('screens', [])
-
-                                                            print(f"🔍 Found {len(screens)} screens")
-                                                            print(screens)
-                                                            
-                                                            if not screens:
-                                                                return jsonify({'status': 'error', 'message': 'No screens in flow response'}), 400
-
-                                                            # Get data from the form screen
-                                                            enquiry_data = {}
-                                                            attachment_data = None
-
-                                                            print("here")
-                                                            
-                                                            for screen in screens:
-                                                                if screen.get('id') == 'ENQUIRY_SCREEN':
-                                                                    layout = screen.get('layout', {})
-                                                                    if layout.get('type') == 'SingleColumnLayout':
-                                                                        children = layout.get('children', [])
-                                                                        for child in children:
-                                                                            if child.get('type') == 'Form' and child.get('name') == 'enquiry_form':
-                                                                                form_data = child.get('data', {})
-                                                                                
-                                                                                enquiry_type = form_data.get('enquiry_type')
-                                                                                user_message = form_data.get('user_message', '')
-                                                                                attachment = form_data.get('user_attachment')
-                                                                                
-                                                                                print("here 2")
-
-                                                                                enquiry_data = {
-                                                                                    'enquiry_type': enquiry_type,
-                                                                                    'details': user_message,
-                                                                                    'has_attachment': bool(attachment)
-                                                                                }
-                                                                                
-                                                                                if attachment:
-                                                                                    # Handle base64 encoded attachment
-                                                                                    if isinstance(attachment, str) and attachment.startswith('data:'):
-                                                                                        # Extract base64 data
-                                                                                        try:
-                                                                                            # Format: data:application/pdf;base64,JVBERi0xLjQK...
-                                                                                            parts = attachment.split(',')
-                                                                                            if len(parts) == 2:
-                                                                                                attachment_data = base64.b64decode(parts[1])
-                                                                                        except Exception as e:
-                                                                                            print(f"Error decoding attachment: {e}")
-                                                                                            attachment_data = None
-                                                                                    elif isinstance(attachment, dict):
-                                                                                        # Handle JSON attachment object
-                                                                                        attachment_data = json.dumps(attachment).encode('utf-8')
-                                                            
-                                                            # Validate required fields
-                                                            if not enquiry_data.get('enquiry_type'):
-                                                                return jsonify({'status': 'error', 'message': 'Enquiry type is required'}), 400
-
-                                                            print("here 3")
-                                                            
-                                                            # Map enquiry type IDs to display names
-                                                            enquiry_type_map = {
-                                                                'kitchen_cabinets': 'Kitchen & Cabinets',
-                                                                'building': 'Building',
-                                                                'renovation': 'Renovation',
-                                                                'otherenq': 'Other'
-                                                            }
-                                                            
-                                                            enquiry_type_display = enquiry_type_map.get(
-                                                                enquiry_data['enquiry_type'], 
-                                                                enquiry_data['enquiry_type']
-                                                            )
-                                                            
-                                                            # Save to database
-                                                            with get_db() as (cursor, connection):
-                                                                insert_query = """
-                                                                    INSERT INTO connectlinkenquiries 
-                                                                    (timestamp, clientwhatsapp, enqcategory, enq, plan)
-                                                                    VALUES (%s, %s, %s, %s, %s)
-                                                                    RETURNING id;
-                                                                """
-
-                                                                print("yesss")
-                                                                
-                                                                timestamp = datetime.now()
-                                                                client_whatsapp = int(sender_id) if sender_id.isdigit() else None
-                                                                
-                                                                cursor.execute(
-                                                                    insert_query,
-                                                                    (
-                                                                        timestamp,
-                                                                        client_whatsapp,
-                                                                        enquiry_type_display,
-                                                                        enquiry_data.get('details', ''),
-                                                                        attachment_data
-                                                                    )
-                                                                )
-                                                                
-                                                                enquiry_id = cursor.fetchone()[0]
-                                                                connection.commit()
-                                                                
-                                                                # Send confirmation message to user
-                                                                confirmation_message = f"""
-
-                                                                    ✅ *Enquiry Submitted Successfully!*
-
-                                                                    📋 *Reference ID:* #{enquiry_id}
-                                                                    📅 *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
-                                                                    🏷️ *Category:* {enquiry_type_display}
-
-                                                                    Thank you for your enquiry. Our team will contact you within 24 hours.
-
-                                                                    _For urgent matters, please call our office._
-                                                                    """
-                                                                                
-                                                                # Send WhatsApp confirmation
-                                                                send_whatsapp_message(
-                                                                    sender_id,
-                                                                    confirmation_message
-                                                                )
-                                                                
-                                                                # Also notify admin/team
-                                                                admin_notification = f"""
-                                                                    🔔 *NEW ENQUIRY RECEIVED*
-
-                                                                    📋 *Reference ID:* #{enquiry_id}
-                                                                    📱 *Client WhatsApp:* {sender_id}
-                                                                    📅 *Timestamp:* {timestamp.strftime('%d %B %Y %H:%M')}
-                                                                    🏷️ *Category:* {enquiry_type_display}
-                                                                    📝 *Details:* {enquiry_data.get('details', 'No additional details')}
-                                                                    📎 *Attachment:* {'Yes' if enquiry_data.get('has_attachment') else 'No'}
-
-                                                                    Please follow up with the client.
-                                                                    """
-                                                                
-                                                                # Send to admin/team (you can define admin numbers)
-                                                                admin_numbers = ["263774822568"]  # Replace with actual admin numbers
-                                                                
-                                                                for admin_number in admin_numbers:
-                                                                    send_whatsapp_message_enq(
-                                                                        admin_number,
-                                                                        admin_notification
-                                                                    )
-                                                                
-                                                                return jsonify({
-                                                                    'status': 'success',
-                                                                    'message': 'Enquiry saved successfully',
-                                                                    'enquiry_id': enquiry_id,
-                                                                    'data': enquiry_data
-                                                                })
-
-
-                                                        def send_whatsapp_message_enq(recipient_number, message):
-                                                            """Send WhatsApp message using Cloud API"""
-                                                            try:
-                                                                url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-                                                                headers = {
-                                                                    "Authorization": f"Bearer {ACCESS_TOKEN}",
-                                                                    "Content-Type": "application/json"
-                                                                }
-                                                                
-                                                                payload = {
-                                                                    "messaging_product": "whatsapp",
-                                                                    "to": recipient_number,
-                                                                    "type": "text",
-                                                                    "text": {
-                                                                        "body": message.strip()
-                                                                    }
-                                                                }
-                                                                
-                                                                response = requests.post(url, headers=headers, json=payload)
-                                                                response.raise_for_status()
-                                                                return response.json()
-                                                                
-                                                            except Exception as e:
-                                                                print(f"Error sending WhatsApp message: {e}")
-                                                                return None
-
 
 
                                                         if button_id == "portfolio":
@@ -2873,6 +2679,200 @@ def webhook():
                                                                     form_response = {}
 
                                                                 print("📋 User submitted flow response:", form_response)
+
+                                                                flow_data = form_response
+
+                                                                print("📋 Full flow_data:", json.dumps(flow_data, indent=2))  # Debug print
+
+                                                                # Check if we have version in flow_data (indicates it's a flow response)
+                                                                if 'version' not in flow_data:
+                                                                    print("❌ No version in flow_data - not a valid flow response")
+                                                                    # Try alternative structure
+                                                                    if 'screens' in flow_data:
+                                                                        screens = flow_data.get('screens', [])
+                                                                    elif 'data' in flow_data and 'screens' in flow_data['data']:
+                                                                        # Sometimes it's nested under 'data'
+                                                                        screens = flow_data['data'].get('screens', [])
+                                                                    else:
+                                                                        # Try to get from request.json as fallback
+                                                                        flow_data = request.json
+                                                                        screens = flow_data.get('screens', [])
+                                                                else:
+                                                                    # Standard flow response structure
+                                                                    screens = flow_data.get('screens', [])
+
+                                                                print(f"🔍 Found {len(screens)} screens")
+                                                                print(screens)
+                                                                
+                                                                if not screens:
+                                                                    return jsonify({'status': 'error', 'message': 'No screens in flow response'}), 400
+
+                                                                # Get data from the form screen
+                                                                enquiry_data = {}
+                                                                attachment_data = None
+
+                                                                print("here")
+                                                                
+                                                                for screen in screens:
+                                                                    if screen.get('id') == 'ENQUIRY_SCREEN':
+                                                                        layout = screen.get('layout', {})
+                                                                        if layout.get('type') == 'SingleColumnLayout':
+                                                                            children = layout.get('children', [])
+                                                                            for child in children:
+                                                                                if child.get('type') == 'Form' and child.get('name') == 'enquiry_form':
+                                                                                    form_data = child.get('data', {})
+                                                                                    
+                                                                                    enquiry_type = form_data.get('enquiry_type')
+                                                                                    user_message = form_data.get('user_message', '')
+                                                                                    attachment = form_data.get('user_attachment')
+                                                                                    
+                                                                                    print("here 2")
+
+                                                                                    enquiry_data = {
+                                                                                        'enquiry_type': enquiry_type,
+                                                                                        'details': user_message,
+                                                                                        'has_attachment': bool(attachment)
+                                                                                    }
+                                                                                    
+                                                                                    if attachment:
+                                                                                        # Handle base64 encoded attachment
+                                                                                        if isinstance(attachment, str) and attachment.startswith('data:'):
+                                                                                            # Extract base64 data
+                                                                                            try:
+                                                                                                # Format: data:application/pdf;base64,JVBERi0xLjQK...
+                                                                                                parts = attachment.split(',')
+                                                                                                if len(parts) == 2:
+                                                                                                    attachment_data = base64.b64decode(parts[1])
+                                                                                            except Exception as e:
+                                                                                                print(f"Error decoding attachment: {e}")
+                                                                                                attachment_data = None
+                                                                                        elif isinstance(attachment, dict):
+                                                                                            # Handle JSON attachment object
+                                                                                            attachment_data = json.dumps(attachment).encode('utf-8')
+                                                                
+                                                                # Validate required fields
+                                                                if not enquiry_data.get('enquiry_type'):
+                                                                    return jsonify({'status': 'error', 'message': 'Enquiry type is required'}), 400
+
+                                                                print("here 3")
+                                                                
+                                                                # Map enquiry type IDs to display names
+                                                                enquiry_type_map = {
+                                                                    'kitchen_cabinets': 'Kitchen & Cabinets',
+                                                                    'building': 'Building',
+                                                                    'renovation': 'Renovation',
+                                                                    'otherenq': 'Other'
+                                                                }
+                                                                
+                                                                enquiry_type_display = enquiry_type_map.get(
+                                                                    enquiry_data['enquiry_type'], 
+                                                                    enquiry_data['enquiry_type']
+                                                                )
+                                                                
+                                                                # Save to database
+                                                                with get_db() as (cursor, connection):
+                                                                    insert_query = """
+                                                                        INSERT INTO connectlinkenquiries 
+                                                                        (timestamp, clientwhatsapp, enqcategory, enq, plan)
+                                                                        VALUES (%s, %s, %s, %s, %s)
+                                                                        RETURNING id;
+                                                                    """
+
+                                                                    print("yesss")
+                                                                    
+                                                                    timestamp = datetime.now()
+                                                                    client_whatsapp = int(sender_id) if sender_id.isdigit() else None
+                                                                    
+                                                                    cursor.execute(
+                                                                        insert_query,
+                                                                        (
+                                                                            timestamp,
+                                                                            client_whatsapp,
+                                                                            enquiry_type_display,
+                                                                            enquiry_data.get('details', ''),
+                                                                            attachment_data
+                                                                        )
+                                                                    )
+                                                                    
+                                                                    enquiry_id = cursor.fetchone()[0]
+                                                                    connection.commit()
+                                                                    
+                                                                    # Send confirmation message to user
+                                                                    confirmation_message = f"""
+
+                                                                        ✅ *Enquiry Submitted Successfully!*
+
+                                                                        📋 *Reference ID:* #{enquiry_id}
+                                                                        📅 *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
+                                                                        🏷️ *Category:* {enquiry_type_display}
+
+                                                                        Thank you for your enquiry. Our team will contact you within 24 hours.
+
+                                                                        _For urgent matters, please call our office._
+                                                                        """
+                                                                                    
+                                                                    # Send WhatsApp confirmation
+                                                                    send_whatsapp_message(
+                                                                        sender_id,
+                                                                        confirmation_message
+                                                                    )
+                                                                    
+                                                                    # Also notify admin/team
+                                                                    admin_notification = f"""
+                                                                        🔔 *NEW ENQUIRY RECEIVED*
+
+                                                                        📋 *Reference ID:* #{enquiry_id}
+                                                                        📱 *Client WhatsApp:* {sender_id}
+                                                                        📅 *Timestamp:* {timestamp.strftime('%d %B %Y %H:%M')}
+                                                                        🏷️ *Category:* {enquiry_type_display}
+                                                                        📝 *Details:* {enquiry_data.get('details', 'No additional details')}
+                                                                        📎 *Attachment:* {'Yes' if enquiry_data.get('has_attachment') else 'No'}
+
+                                                                        Please follow up with the client.
+                                                                        """
+                                                                    
+                                                                    # Send to admin/team (you can define admin numbers)
+                                                                    admin_numbers = ["263774822568"]  # Replace with actual admin numbers
+                                                                    
+                                                                    for admin_number in admin_numbers:
+                                                                        send_whatsapp_message_enq(
+                                                                            admin_number,
+                                                                            admin_notification
+                                                                        )
+                                                                    
+                                                                    return jsonify({
+                                                                        'status': 'success',
+                                                                        'message': 'Enquiry saved successfully',
+                                                                        'enquiry_id': enquiry_id,
+                                                                        'data': enquiry_data
+                                                                    })
+
+
+                                                            def send_whatsapp_message_enq(recipient_number, message):
+                                                                """Send WhatsApp message using Cloud API"""
+                                                                try:
+                                                                    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    }
+                                                                    
+                                                                    payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": recipient_number,
+                                                                        "type": "text",
+                                                                        "text": {
+                                                                            "body": message.strip()
+                                                                        }
+                                                                    }
+                                                                    
+                                                                    response = requests.post(url, headers=headers, json=payload)
+                                                                    response.raise_for_status()
+                                                                    return response.json()
+                                                                    
+                                                                except Exception as e:
+                                                                    print(f"Error sending WhatsApp message: {e}")
+                                                                    return None
 
 
 
