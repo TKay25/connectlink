@@ -268,6 +268,7 @@ def initialize_database_tables():
             """)
 
             payment_alters = [
+                "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS username VARCHAR (100);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS momid INT;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS depositorbullet NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS datedepositorbullet date;",
