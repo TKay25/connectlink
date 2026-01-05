@@ -7037,8 +7037,7 @@ def add_note():
         try:
             client_name = request.form.get('client_name')
             client_number = int(float(request.form.get('client_wa_number')))
-            nextofkin_number = int(float(request.form.get('client_next_of_kin_number')))
-            project_name = request.form.get('project_name')
+            nextofkin_number = int(float(v)) if (v := request.form.get('client_next_of_kin_number', '').strip()) and v and v.lower() not in ['none', 'null', 'nan'] and v.replace('.', '', 1).isdigit() else None            project_name = request.form.get('project_name')
             project_id = request.form.get('project_id')
             note_text = request.form.get('note_text')
             
