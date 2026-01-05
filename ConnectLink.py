@@ -2866,82 +2866,482 @@ def webhook():
                                                             continue
 
 
-                                                        elif button_id == "quotations":
-
-                                                            buttons = [
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "by_date_logged",
-                                                                        "title": "By Date"
-                                                                    }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "all_quot",
-                                                                        "title": "All"
-                                                                    }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "main_menu",
-                                                                        "title": " Main Menu"
-                                                                    }
-                                                                }
-                                                            ]
-
-
-                                                            send_whatsapp_message(
-                                                                sender_id, 
-                                                                "Kindly select a Quotation enquiries option below.",
-                                                                buttons,
-                                                                footer_text="ConnectLink Properties • Admin Panel"
-
-                                                            )
-
-
-                                                            continue
-
                                                         elif button_id == "enquiries":
 
-                                                            buttons = [
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "quotations",
-                                                                        "title": "Quotation Equiries"
+                                                            """Generate and send enquiries PDF via WhatsApp"""
+                                                            try:
+                                                                with get_db() as (cursor, connection):
+                                                                    # Get all enquiries with username
+                                                                    cursor.execute("""
+                                                                        SELECT 
+                                                                            id,
+                                                                            timestamp,
+                                                                            clientwhatsapp,
+                                                                            enqcategory,
+                                                                            enq,
+                                                                            plan IS NOT NULL as has_plan,
+                                                                            status,
+                                                                            username
+                                                                        FROM connectlinkenquiries 
+                                                                        ORDER BY timestamp DESC
+                                                                    """)
+                                                                    rows = cursor.fetchall()
+                                                                    
+                                                                    # Get column names
+                                                                    colnames = [desc[0] for desc in cursor.description]
+                                                                    
+                                                                    # Convert to list of dictionaries
+                                                                    enquiries = []
+                                                                    for row in rows:
+                                                                        enquiry_dict = {}
+                                                                        for i, col in enumerate(colnames):
+                                                                            enquiry_dict[col] = row[i]
+                                                                        enquiries.append(enquiry_dict)
+                                                                    
+                                                                    # Get statistics
+                                                                    cursor.execute("""
+                                                                        SELECT 
+                                                                            COUNT(*) as total,
+                                                                            COUNT(DISTINCT clientwhatsapp) as unique_clients,
+                                                                            SUM(CASE WHEN plan IS NOT NULL THEN 1 ELSE 0 END) as with_attachments,
+                                                                            SUM(CASE WHEN status = 'pending' OR status IS NULL THEN 1 ELSE 0 END) as pending_count,
+                                                                            SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_count,
+                                                                            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+                                                                            COUNT(DISTINCT username) as unique_users
+                                                                        FROM connectlinkenquiries;
+                                                                    """)
+                                                                    stats = cursor.fetchone()
+                                                                    
+                                                                    # Generate HTML for PDF
+                                                                    html_content = f"""
+                                                                    <!DOCTYPE html>
+                                                                    <html>
+                                                                    <head>
+                                                                        <meta charset="UTF-8">
+                                                                        <style>
+                                                                            @page {{
+                                                                                size: A4 landscape;
+                                                                                margin: 1.5cm;
+                                                                                @top-center {{
+                                                                                    content: "ENQUIRIES MANAGEMENT REPORT";
+                                                                                    font-size: 16px;
+                                                                                    font-weight: bold;
+                                                                                    color: #1E2A56;
+                                                                                }}
+                                                                                @bottom-center {{
+                                                                                    content: "Connectlink Properties • Page " counter(page) " of " counter(pages);
+                                                                                    font-size: 10px;
+                                                                                    color: #666;
+                                                                                }}
+                                                                            }}
+                                                                            
+                                                                            body {{
+                                                                                font-family: 'Helvetica', 'Arial', sans-serif;
+                                                                                line-height: 1.4;
+                                                                                color: #333;
+                                                                                margin: 0;
+                                                                                padding: 0;
+                                                                            }}
+                                                                            
+                                                                            .header {{
+                                                                                text-align: center;
+                                                                                margin-bottom: 25px;
+                                                                                padding-bottom: 15px;
+                                                                                border-bottom: 3px solid #1E2A56;
+                                                                            }}
+                                                                            
+                                                                            .report-title {{
+                                                                                font-size: 22px;
+                                                                                font-weight: bold;
+                                                                                color: #1E2A56;
+                                                                                margin-bottom: 5px;
+                                                                            }}
+                                                                            
+                                                                            .report-date {{
+                                                                                font-size: 14px;
+                                                                                color: #666;
+                                                                            }}
+                                                                            
+                                                                            .stats-grid {{
+                                                                                display: grid;
+                                                                                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                                                                                gap: 10px;
+                                                                                margin: 20px 0;
+                                                                            }}
+                                                                            
+                                                                            .stat-card {{
+                                                                                background: #f8f9fa;
+                                                                                padding: 12px;
+                                                                                border-radius: 6px;
+                                                                                text-align: center;
+                                                                                border-left: 4px solid #1E2A56;
+                                                                            }}
+                                                                            
+                                                                            .stat-value {{
+                                                                                font-size: 18px;
+                                                                                font-weight: bold;
+                                                                                color: #1E2A56;
+                                                                            }}
+                                                                            
+                                                                            .stat-label {{
+                                                                                font-size: 11px;
+                                                                                color: #666;
+                                                                                margin-top: 3px;
+                                                                            }}
+                                                                            
+                                                                            table {{
+                                                                                width: 100%;
+                                                                                border-collapse: collapse;
+                                                                                margin-top: 20px;
+                                                                                font-size: 10px;
+                                                                            }}
+                                                                            
+                                                                            th {{
+                                                                                background-color: #1E2A56;
+                                                                                color: white;
+                                                                                padding: 8px 6px;
+                                                                                text-align: center;
+                                                                                font-weight: bold;
+                                                                                border: 1px solid #1E2A56;
+                                                                                white-space: nowrap;
+                                                                            }}
+                                                                            
+                                                                            td {{
+                                                                                padding: 6px;
+                                                                                border: 1px solid #dee2e6;
+                                                                                vertical-align: top;
+                                                                            }}
+                                                                            
+                                                                            tr:nth-child(even) {{
+                                                                                background: #f8f9fa;
+                                                                            }}
+                                                                            
+                                                                            .status-pending {{
+                                                                                background: #fff3e0;
+                                                                                color: #f39c12;
+                                                                                padding: 3px 8px;
+                                                                                border-radius: 12px;
+                                                                                font-size: 9px;
+                                                                                font-weight: bold;
+                                                                            }}
+                                                                            
+                                                                            .status-in-progress {{
+                                                                                background: #e3f2fd;
+                                                                                color: #2196f3;
+                                                                                padding: 3px 8px;
+                                                                                border-radius: 12px;
+                                                                                font-size: 9px;
+                                                                                font-weight: bold;
+                                                                            }}
+                                                                            
+                                                                            .status-completed {{
+                                                                                background: #e8f5e9;
+                                                                                color: #27ae60;
+                                                                                padding: 3px 8px;
+                                                                                border-radius: 12px;
+                                                                                font-size: 9px;
+                                                                                font-weight: bold;
+                                                                            }}
+                                                                            
+                                                                            .category-badge {{
+                                                                                background: #e3f2fd;
+                                                                                color: #2196f3;
+                                                                                padding: 3px 8px;
+                                                                                border-radius: 12px;
+                                                                                font-size: 9px;
+                                                                                font-weight: bold;
+                                                                            }}
+                                                                            
+                                                                            .whatsapp-link {{
+                                                                                color: #25D366;
+                                                                                text-decoration: none;
+                                                                                font-weight: bold;
+                                                                            }}
+                                                                            
+                                                                            .username-badge {{
+                                                                                background: #f0f7ff;
+                                                                                color: #1E2A56;
+                                                                                padding: 3px 8px;
+                                                                                border-radius: 12px;
+                                                                                font-size: 9px;
+                                                                                font-weight: bold;
+                                                                            }}
+                                                                            
+                                                                            .message-cell {{
+                                                                                max-width: 200px;
+                                                                                overflow-wrap: break-word;
+                                                                            }}
+                                                                            
+                                                                            .footer {{
+                                                                                margin-top: 30px;
+                                                                                padding-top: 15px;
+                                                                                border-top: 1px solid #dee2e6;
+                                                                                text-align: center;
+                                                                                font-size: 10px;
+                                                                                color: #666;
+                                                                            }}
+                                                                        </style>
+                                                                    </head>
+                                                                    <body>
+                                                                        <div class="header">
+                                                                            <div class="report-title">ENQUIRIES MANAGEMENT REPORT</div>
+                                                                            <div class="report-date">Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</div>
+                                                                        </div>
+                                                                        
+                                                                        <div class="stats-grid">
+                                                                            <div class="stat-card">
+                                                                                <div class="stat-value">{stats[0] if stats else 0}</div>
+                                                                                <div class="stat-label">Total Enquiries</div>
+                                                                            </div>
+                                                                            <div class="stat-card">
+                                                                                <div class="stat-value">{stats[1] if stats else 0}</div>
+                                                                                <div class="stat-label">Unique Clients</div>
+                                                                            </div>
+                                                                            <div class="stat-card">
+                                                                                <div class="stat-value">{stats[2] if stats else 0}</div>
+                                                                                <div class="stat-label">With Attachments</div>
+                                                                            </div>
+                                                                            <div class="stat-card">
+                                                                                <div class="stat-value">{stats[6] if stats else 0}</div>
+                                                                                <div class="stat-label">Enquirers</div>
+                                                                            </div>
+                                                                            <div class="stat-card">
+                                                                                <div class="stat-value">{stats[3] if stats else 0}</div>
+                                                                                <div class="stat-label">Pending</div>
+                                                                            </div>
+                                                                            <div class="stat-card">
+                                                                                <div class="stat-value">{stats[4] if stats else 0}</div>
+                                                                                <div class="stat-label">In Progress</div>
+                                                                            </div>
+                                                                            <div class="stat-card">
+                                                                                <div class="stat-value">{stats[5] if stats else 0}</div>
+                                                                                <div class="stat-label">Completed</div>
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        <table>
+                                                                            <thead>
+                                                                                <tr>
+                                                                                    <th>ID</th>
+                                                                                    <th>Date & Time</th>
+                                                                                    <th>Client WhatsApp</th>
+                                                                                    <th>Enquirer</th>
+                                                                                    <th>Category</th>
+                                                                                    <th>Message</th>
+                                                                                    <th>Status</th>
+                                                                                    <th>Attachment</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                    """
+                                                                    
+                                                                    for enquiry in enquiries:
+                                                                        # Format data
+                                                                        timestamp = enquiry.get('timestamp')
+                                                                        date_str = timestamp.strftime('%d/%m %H:%M') if timestamp else ''
+                                                                        whatsapp_num = enquiry.get('clientwhatsapp', '')
+                                                                        username = enquiry.get('username', 'Unknown')
+                                                                        category = enquiry.get('enqcategory', '')
+                                                                        message = enquiry.get('enq', 'No message')
+                                                                        status = enquiry.get('status', 'pending')
+                                                                        has_plan = enquiry.get('has_plan', False)
+                                                                        
+                                                                        # Truncate message if too long
+                                                                        if message and len(message) > 100:
+                                                                            message_display = message[:97] + '...'
+                                                                        else:
+                                                                            message_display = message or 'No message'
+                                                                        
+                                                                        # Status class
+                                                                        status_class = ''
+                                                                        status_text = ''
+                                                                        if status == 'pending':
+                                                                            status_class = 'status-pending'
+                                                                            status_text = 'Pending'
+                                                                        elif status == 'in_progress':
+                                                                            status_class = 'status-in-progress'
+                                                                            status_text = 'In Progress'
+                                                                        elif status == 'completed':
+                                                                            status_class = 'status-completed'
+                                                                            status_text = 'Completed'
+                                                                        else:
+                                                                            status_class = 'status-pending'
+                                                                            status_text = 'Pending'
+                                                                        
+                                                                        html_content += f"""
+                                                                                <tr>
+                                                                                    <td align="center"><strong>#{enquiry['id']}</strong></td>
+                                                                                    <td align="center">{date_str}</td>
+                                                                                    <td align="center">
+                                                                                        <span class="whatsapp-link">+263{whatsapp_num}</span>
+                                                                                    </td>
+                                                                                    <td align="center">
+                                                                                        <span class="username-badge">{username}</span>
+                                                                                    </td>
+                                                                                    <td align="center">
+                                                                                        <span class="category-badge">{category}</span>
+                                                                                    </td>
+                                                                                    <td class="message-cell">{message_display}</td>
+                                                                                    <td align="center">
+                                                                                        <span class="{status_class}">{status_text}</span>
+                                                                                    </td>
+                                                                                    <td align="center">
+                                                                                        {'📎 Yes' if has_plan else 'No'}
+                                                                                    </td>
+                                                                                </tr>
+                                                                        """
+                                                                    
+                                                                    html_content += f"""
+                                                                            </tbody>
+                                                                        </table>
+                                                                        
+                                                                        <div class="footer">
+                                                                            <p>Connectlink Properties Enquiries Management System</p>
+                                                                            <p>Total Records: {len(enquiries)} • Generated Automatically</p>
+                                                                        </div>
+                                                                    </body>
+                                                                    </html>
+                                                                    """
+                                                                    
+                                                                    # Generate PDF
+                                                                    from weasyprint import HTML
+                                                                    import io
+                                                                    
+                                                                    pdf_bytes = HTML(string=html_content).write_pdf()
+                                                                    
+                                                                    # Send via WhatsApp
+                                                                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                                                                    filename = f'enquiries_report_{timestamp}.pdf'
+                                                                    
+                                                                    # Upload to WhatsApp
+                                                                    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}"
                                                                     }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "general_enquiries",
-                                                                        "title": "General Enquiries"
+                                                                    
+                                                                    files = {
+                                                                        "file": (filename, io.BytesIO(pdf_bytes), "application/pdf"),
+                                                                        "type": (None, "application/pdf"),
+                                                                        "messaging_product": (None, "whatsapp")
                                                                     }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "main_menu",
-                                                                        "title": "Main Menu"
+                                                                    
+                                                                    response = requests.post(url, headers=headers, files=files)
+                                                                    response.raise_for_status()
+                                                                    media_id = response.json()["id"]
+                                                                    
+                                                                    # Send message first
+                                                                    message = f"""
+                                                                        📋 *ENQUIRIES MANAGEMENT REPORT*
+
+                                                                        Your enquiries report has been generated!
+
+                                                                        📄 *File:* {filename}
+                                                                        📅 *Generated:* {datetime.now().strftime('%d %B %Y %H:%M')}
+                                                                        📊 *Statistics:*
+                                                                        • Total Enquiries: {stats[0] if stats else 0}
+                                                                        • Unique Clients: {stats[1] if stats else 0}
+                                                                        • Enquirers: {stats[6] if stats else 0}
+                                                                        • With Attachments: {stats[2] if stats else 0}
+                                                                        • Pending: {stats[3] if stats else 0}
+                                                                        • In Progress: {stats[4] if stats else 0}
+                                                                        • Completed: {stats[5] if stats else 0}
+
+                                                                        Please find the detailed enquiries report attached.
+
+                                                                        _This document contains all client enquiries received._
+                                                                                    """
+                                                                    
+                                                                    text_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                    text_headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
                                                                     }
-                                                                }
-                                                            ]
+                                                                    
+                                                                    text_payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": sender_id,
+                                                                        "type": "text",
+                                                                        "text": {"body": message}
+                                                                    }
+                                                                    
+                                                                    requests.post(text_url, headers=text_headers, json=text_payload)
+                                                                    
+                                                                    # Send PDF
+                                                                    doc_payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": sender_id,
+                                                                        "type": "document",
+                                                                        "document": {
+                                                                            "id": media_id,
+                                                                            "filename": filename,
+                                                                            "caption": f"Enquiries Report - {len(enquiries)} records"
+                                                                        }
+                                                                    }
+                                                                    
+                                                                    response = requests.post(text_url, headers=text_headers, json=doc_payload)
+                                                                    response.raise_for_status()
+
+                                                                    buttons = [
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "projects",
+                                                                                "title": "Projects"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "enquiries",
+                                                                                "title": "Enquiries"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "user_management",
+                                                                                "title": "User Management"
+                                                                            }
+                                                                        }
+                                                                    ]
 
 
-                                                            send_whatsapp_message(
-                                                                sender_id, 
-                                                                "Kindly select an enquiries option below.",
-                                                                buttons,
-                                                                footer_text="ConnectLink Properties • Admin Panel"
-                                                            )
+
+                                                                    send_whatsapp_button_message(
+                                                                        sender_id,
+                                                                        f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
+                                                                        buttons,
+                                                                        footer_text="ConnectLink Properties • Admin Panel"
+
+                                                                    )
+                                                                    
+                                                                    return jsonify({
+                                                                        'status': 'success',
+                                                                        'message': 'Enquiries PDF sent successfully',
+                                                                        'filename': filename,
+                                                                        'total_enquiries': len(enquiries),
+                                                                        'statistics': {
+                                                                            'total': stats[0] if stats else 0,
+                                                                            'unique_clients': stats[1] if stats else 0,
+                                                                            'enquirers': stats[6] if stats else 0,
+                                                                            'with_attachments': stats[2] if stats else 0,
+                                                                            'pending': stats[3] if stats else 0,
+                                                                            'in_progress': stats[4] if stats else 0,
+                                                                            'completed': stats[5] if stats else 0
+                                                                        }
+                                                                    })
+                                                                    
+                                                            except Exception as e:
+                                                                print(f"Error generating enquiries PDF: {str(e)}")
+                                                                return jsonify({
+                                                                    'status': 'error',
+                                                                    'message': f'Failed to generate enquiries PDF: {str(e)}'
+                                                                }), 500
 
 
                                                             continue
 
-                                                        elif button_id == "main_menu":
+                                                        elif button_id == "main_menu" or selected_option == "main_menu":
 
                                                             buttons = [
                                                                 {
