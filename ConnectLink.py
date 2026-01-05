@@ -1477,6 +1477,7 @@ def webhook():
                                                                     return pdf_bytes
                                                                 
                                                                 def upload_pdf_to_whatsapp(pdf_bytes, phone_number):
+                                                                    import io
                                                                     """Upload PDF to WhatsApp Cloud API"""
                                                                     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                                                                     filename = f'installment_portfolio_{timestamp}.pdf'
@@ -2024,6 +2025,8 @@ def webhook():
 
 
                                                             def upload_pdf_to_whatsapp(pdf_bytes, filename):
+
+                                                                import io
                                                                 """Upload PDF to WhatsApp and return media ID"""
                                                                 url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
                                                                 headers = {
@@ -2686,6 +2689,8 @@ def webhook():
                                                                     return pdf_bytes
                                                                 
                                                                 def upload_pdf_to_whatsapp(pdf_bytes, phone_number):
+
+                                                                    import io
                                                                     """Upload PDF to WhatsApp Cloud API"""
                                                                     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                                                                     filename = f'installment_schedule_crosstab_{timestamp}.pdf'
@@ -5583,6 +5588,8 @@ def webhook():
 
 
                                                                 def send_company_profile_whatsapp(recipient_number):
+
+                                                                    import io
                                                                     """Send company profile PDF via WhatsApp"""
                                                                     try:
                                                                         # Generate PDF
