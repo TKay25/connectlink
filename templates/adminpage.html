@@ -2283,28 +2283,34 @@ document.addEventListener('click', function(e) {
     
     // Status update
     if (e.target.classList.contains('status-select')) {
+        // Store the select element
         const select = e.target;
-        const enquiryId = select.getAttribute('data-id');
-        const newStatus = select.value;
         
-        fetch(`/api/enquiries/${enquiryId}/status`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({status: newStatus})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Show success from Flask response
-                alert('✅ ' + data.message);  // Shows "Enquiry status updated successfully"
-                // Or use your toast function
-                showToast(data.message, 'success');
-            } else {
-                // Show error from Flask response
-                alert('❌ ' + data.message);
-                showToast(data.message, 'error');
-            }
-        })
+        // Add a change event listener that triggers on click away
+        select.addEventListener('change', function handleChange() {
+            const enquiryId = select.getAttribute('data-id');
+            const newStatus = select.value;
+            
+            fetch(`/api/enquiries/${enquiryId}/status`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: newStatus})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('✅ ' + data.message);
+                } else {
+                    alert('❌ ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Network error: ' + error);
+            });
+            
+            // Remove the listener to prevent multiple calls
+            select.removeEventListener('change', handleChange);
+        });
     }
 });
 
