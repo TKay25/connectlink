@@ -1618,6 +1618,465 @@ def webhook():
                                                                 traceback.print_exc()
                                                                 return jsonify({'status': 'error', 'message': f'Failed to generate portfolio: {str(e)}'}), 500
 
+                                                        elif selected_option == "getnotes":
+
+                                                            def generate_notes_pdf(project_id=None, client_id=None):
+                                                                """Generate PDF of project notes"""
+                                                                try:
+                                                                    from weasyprint import HTML
+                                                                    import io
+                                                                    
+                                                                    with get_db() as (cursor, connection):
+                                                                        # Build query based on filters
+                                                                        query = """
+                                                                            SELECT 
+                                                                                n.id,
+                                                                                n.timestamp,
+                                                                                n.capturer,
+                                                                                n.capturerid,
+                                                                                n.projectid,
+                                                                                n.note,
+                                                                                n.projectname,
+                                                                                n.clientname,
+                                                                                n.clientwanumber,
+                                                                                n.clientnextofkinnumber,
+                                                                                p.projectname as full_project_name,
+                                                                                p.clientname as full_client_name
+                                                                            FROM connectlinknotes n
+                                                                            LEFT JOIN connectlinkdatabase p ON n.projectid = p.id
+                                                                            WHERE 1=1
+                                                                        """
+                                                                        params = []
+                                                                        
+                                                                        if project_id:
+                                                                            query += " AND n.projectid = %s"
+                                                                            params.append(project_id)
+                                                                        
+                                                                        if client_id:
+                                                                            query += " AND n.clientwanumber = %s"
+                                                                            params.append(client_id)
+                                                                        
+                                                                        query += " ORDER BY n.timestamp DESC"
+                                                                        
+                                                                        cursor.execute(query, params)
+                                                                        rows = cursor.fetchall()
+                                                                        
+                                                                        if not rows:
+                                                                            return None
+                                                                        
+                                                                        # Get statistics
+                                                                        cursor.execute("""
+                                                                            SELECT 
+                                                                                COUNT(*) as total_notes,
+                                                                                COUNT(DISTINCT projectid) as projects_with_notes,
+                                                                                COUNT(DISTINCT clientname) as clients_with_notes,
+                                                                                MIN(timestamp) as earliest_note,
+                                                                                MAX(timestamp) as latest_note
+                                                                            FROM connectlinknotes
+                                                                            WHERE 1=1
+                                                                        """)
+                                                                        stats = cursor.fetchone()
+                                                                        
+                                                                        # Generate HTML
+                                                                        html_content = f"""
+                                                                        <!DOCTYPE html>
+                                                                        <html>
+                                                                        <head>
+                                                                            <meta charset="UTF-8">
+                                                                            <style>
+                                                                                @page {{
+                                                                                    size: A4;
+                                                                                    margin: 2cm;
+                                                                                    @top-center {{
+                                                                                        content: "PROJECT NOTES REPORT";
+                                                                                        font-size: 16px;
+                                                                                        font-weight: bold;
+                                                                                        color: #1E2A56;
+                                                                                    }}
+                                                                                    @bottom-center {{
+                                                                                        content: "Page " counter(page) " of " counter(pages);
+                                                                                        font-size: 10px;
+                                                                                        color: #666;
+                                                                                    }}
+                                                                                }}
+                                                                                
+                                                                                body {{
+                                                                                    font-family: 'Helvetica', 'Arial', sans-serif;
+                                                                                    line-height: 1.6;
+                                                                                    color: #333;
+                                                                                    margin: 0;
+                                                                                    padding: 0;
+                                                                                }}
+                                                                                
+                                                                                .header {{
+                                                                                    text-align: center;
+                                                                                    margin-bottom: 30px;
+                                                                                    padding-bottom: 20px;
+                                                                                    border-bottom: 3px solid #1E2A56;
+                                                                                }}
+                                                                                
+                                                                                .report-title {{
+                                                                                    font-size: 24px;
+                                                                                    font-weight: bold;
+                                                                                    color: #1E2A56;
+                                                                                    margin-bottom: 5px;
+                                                                                }}
+                                                                                
+                                                                                .report-date {{
+                                                                                    font-size: 14px;
+                                                                                    color: #666;
+                                                                                    margin-bottom: 10px;
+                                                                                }}
+                                                                                
+                                                                                .stats-grid {{
+                                                                                    display: grid;
+                                                                                    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                                                                                    gap: 15px;
+                                                                                    margin: 20px 0;
+                                                                                }}
+                                                                                
+                                                                                .stat-card {{
+                                                                                    background: #f8f9fa;
+                                                                                    padding: 15px;
+                                                                                    border-radius: 6px;
+                                                                                    text-align: center;
+                                                                                    border-left: 4px solid #1E2A56;
+                                                                                }}
+                                                                                
+                                                                                .stat-value {{
+                                                                                    font-size: 20px;
+                                                                                    font-weight: bold;
+                                                                                    color: #1E2A56;
+                                                                                }}
+                                                                                
+                                                                                .stat-label {{
+                                                                                    font-size: 12px;
+                                                                                    color: #666;
+                                                                                    margin-top: 5px;
+                                                                                }}
+                                                                                
+                                                                                .note-card {{
+                                                                                    margin-bottom: 20px;
+                                                                                    padding: 15px;
+                                                                                    border: 1px solid #dee2e6;
+                                                                                    border-radius: 8px;
+                                                                                    background: #fff;
+                                                                                    page-break-inside: avoid;
+                                                                                }}
+                                                                                
+                                                                                .note-header {{
+                                                                                    display: flex;
+                                                                                    justify-content: space-between;
+                                                                                    margin-bottom: 10px;
+                                                                                    padding-bottom: 8px;
+                                                                                    border-bottom: 1px solid #eee;
+                                                                                }}
+                                                                                
+                                                                                .note-id {{
+                                                                                    font-weight: bold;
+                                                                                    color: #1E2A56;
+                                                                                }}
+                                                                                
+                                                                                .note-date {{
+                                                                                    color: #666;
+                                                                                    font-size: 12px;
+                                                                                }}
+                                                                                
+                                                                                .note-project {{
+                                                                                    background: #e3f2fd;
+                                                                                    color: #2196f3;
+                                                                                    padding: 3px 8px;
+                                                                                    border-radius: 4px;
+                                                                                    font-size: 12px;
+                                                                                    margin-right: 8px;
+                                                                                }}
+                                                                                
+                                                                                .note-client {{
+                                                                                    background: #e8f5e9;
+                                                                                    color: #27ae60;
+                                                                                    padding: 3px 8px;
+                                                                                    border-radius: 4px;
+                                                                                    font-size: 12px;
+                                                                                }}
+                                                                                
+                                                                                .note-capturer {{
+                                                                                    color: #666;
+                                                                                    font-size: 13px;
+                                                                                    margin-top: 5px;
+                                                                                }}
+                                                                                
+                                                                                .note-content {{
+                                                                                    margin-top: 10px;
+                                                                                    padding: 10px;
+                                                                                    background: #f8f9fa;
+                                                                                    border-radius: 6px;
+                                                                                    line-height: 1.5;
+                                                                                }}
+                                                                                
+                                                                                .client-info {{
+                                                                                    background: #f0f7ff;
+                                                                                    padding: 15px;
+                                                                                    border-radius: 8px;
+                                                                                    margin: 15px 0;
+                                                                                    border-left: 4px solid #2196f3;
+                                                                                }}
+                                                                                
+                                                                                .footer {{
+                                                                                    margin-top: 40px;
+                                                                                    padding-top: 20px;
+                                                                                    border-top: 1px solid #dee2e6;
+                                                                                    text-align: center;
+                                                                                    font-size: 12px;
+                                                                                    color: #666;
+                                                                                }}
+                                                                            </style>
+                                                                        </head>
+                                                                        <body>
+                                                                            <div class="header">
+                                                                                <div class="report-title">PROJECT NOTES REPORT</div>
+                                                                                <div class="report-date">Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</div>
+                                                                                <div style="font-size: 14px; color: #666;">
+                                                                                    Connectlink Properties • Notes Management System
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <div class="stats-grid">
+                                                                                <div class="stat-card">
+                                                                                    <div class="stat-value">{stats[0] if stats else 0}</div>
+                                                                                    <div class="stat-label">Total Notes</div>
+                                                                                </div>
+                                                                                <div class="stat-card">
+                                                                                    <div class="stat-value">{stats[1] if stats else 0}</div>
+                                                                                    <div class="stat-label">Projects</div>
+                                                                                </div>
+                                                                                <div class="stat-card">
+                                                                                    <div class="stat-value">{stats[2] if stats else 0}</div>
+                                                                                    <div class="stat-label">Clients</div>
+                                                                                </div>
+                                                                                <div class="stat-card">
+                                                                                    <div class="stat-value">
+                                                                                        {stats[4].strftime('%d/%m/%Y') if stats and stats[4] else 'N/A'}
+                                                                                    </div>
+                                                                                    <div class="stat-label">Latest Note</div>
+                                                                                </div>
+                                                                            </div>
+                                                                        """
+                                                                        
+                                                                        # Group notes by project/client
+                                                                        notes_by_project = {}
+                                                                        for row in rows:
+                                                                            project_id = row[4]
+                                                                            if project_id not in notes_by_project:
+                                                                                notes_by_project[project_id] = []
+                                                                            notes_by_project[project_id].append(row)
+                                                                        
+                                                                        # Add notes content
+                                                                        for project_id, project_notes in notes_by_project.items():
+                                                                            if project_notes:
+                                                                                first_note = project_notes[0]
+                                                                                html_content += f"""
+                                                                                <div style="margin-top: 30px;">
+                                                                                    <h3 style="color: #1E2A56; border-bottom: 2px solid #1E2A56; padding-bottom: 5px;">
+                                                                                        📋 Project: {first_note[10] or first_note[6] or f'ID: {project_id}'}
+                                                                                    </h3>
+                                                                                    <div class="client-info">
+                                                                                        <strong>Client:</strong> {first_note[11] or first_note[7] or 'N/A'}<br>
+                                                                                        <strong>Contact:</strong> {first_note[8] or 'N/A'}<br>
+                                                                                        <strong>Next of Kin:</strong> {first_note[9] or 'N/A'}
+                                                                                    </div>
+                                                                                """
+                                                                                
+                                                                                for note in project_notes:
+                                                                                    html_content += f"""
+                                                                                    <div class="note-card">
+                                                                                        <div class="note-header">
+                                                                                            <div>
+                                                                                                <span class="note-id">Note #{note[0]}</span>
+                                                                                                <span class="note-date">{note[1].strftime('%d %b %Y %H:%M') if note[1] else ''}</span>
+                                                                                            </div>
+                                                                                            <div>
+                                                                                                <span class="note-project">Project: {project_id}</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        
+                                                                                        <div class="note-capturer">
+                                                                                            📝 Added by: {note[2] or 'Unknown'} 
+                                                                                            {f'(ID: {note[3]})' if note[3] else ''}
+                                                                                        </div>
+                                                                                        
+                                                                                        <div class="note-content">
+                                                                                            {note[5] or 'No content'}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    """
+                                                                                
+                                                                                html_content += "</div>"
+                                                                        
+                                                                        html_content += """
+                                                                            <div class="footer">
+                                                                                <p>© Connectlink Properties • Notes Management System</p>
+                                                                                <p>Generated automatically • Confidential</p>
+                                                                            </div>
+                                                                        </body>
+                                                                        </html>
+                                                                        """
+                                                                        
+                                                                        # Generate PDF
+                                                                        pdf_bytes = HTML(string=html_content).write_pdf()
+                                                                        return pdf_bytes
+                                                                        
+                                                                except Exception as e:
+                                                                    print(f"Error generating notes PDF: {str(e)}")
+                                                                    return None
+
+
+                                                            def send_notes_pdf_whatsapp(recipient_number, project_id=None, client_id=None):
+                                                                """Send notes PDF via WhatsApp"""
+                                                                try:
+                                                                    # Generate PDF
+                                                                    pdf_bytes = generate_notes_pdf(project_id, client_id)
+                                                                    
+                                                                    if not pdf_bytes:
+                                                                        # Send error message
+                                                                        message = "📋 *PROJECT NOTES*\n\nNo notes found for your request."
+                                                                        send_whatsapp_text(recipient_number, message)
+                                                                        return {'status': 'error', 'message': 'No notes found'}
+                                                                    
+                                                                    # Upload to WhatsApp
+                                                                    filename = f"project_notes_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+                                                                    media_id = upload_pdf_to_whatsapp(pdf_bytes, filename)
+                                                                    
+                                                                    # Send text message first
+                                                                    message = f"""
+                                                                        📋 *PROJECT NOTES REPORT*
+
+                                                                        Your notes report has been generated successfully!
+
+                                                                        📄 *File:* {filename}
+                                                                        📅 *Generated:* {datetime.now().strftime('%d %B %Y %H:%M')}
+                                                                        🏢 *System:* Connectlink Properties Notes
+
+                                                                        Please find the detailed notes report attached.
+
+                                                                        _This document contains project communications and notes._
+                                                                                """
+
+        
+                                                                    send_whatsapp_text(recipient_number, message)
+                                                                    
+                                                                    # Send PDF
+                                                                    doc_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    }
+                                                                    
+                                                                    doc_payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": recipient_number,
+                                                                        "type": "document",
+                                                                        "document": {
+                                                                            "id": media_id,
+                                                                            "filename": filename,
+                                                                            "caption": f"Project Notes Report - {datetime.now().strftime('%d %B %Y')}"
+                                                                        }
+                                                                    }
+                                                                    
+                                                                    response = requests.post(doc_url, headers=headers, json=doc_payload)
+                                                                    response.raise_for_status()
+                                                                    
+                                                                    return {
+                                                                        'status': 'success',
+                                                                        'message': 'Notes PDF sent successfully',
+                                                                        'filename': filename
+                                                                    }
+                                                                    
+                                                                except Exception as e:
+                                                                    print(f"Error sending notes PDF: {str(e)}")
+                                                                    return {'status': 'error', 'message': f'Failed to send: {str(e)}'}
+
+
+                                                            # Helper functions
+                                                            def send_whatsapp_text(recipient_number, message):
+                                                                """Send text message via WhatsApp"""
+                                                                try:
+                                                                    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    }
+                                                                    
+                                                                    payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": recipient_number,
+                                                                        "type": "text",
+                                                                        "text": {"body": message}
+                                                                    }
+                                                                    
+                                                                    requests.post(url, headers=headers, json=payload)
+                                                                except Exception as e:
+                                                                    print(f"Error sending text: {e}")
+
+
+                                                            def upload_pdf_to_whatsapp(pdf_bytes, filename):
+                                                                """Upload PDF to WhatsApp and return media ID"""
+                                                                url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+                                                                headers = {
+                                                                    "Authorization": f"Bearer {ACCESS_TOKEN}"
+                                                                }
+                                                                
+                                                                files = {
+                                                                    "file": (filename, io.BytesIO(pdf_bytes), "application/pdf"),
+                                                                    "type": (None, "application/pdf"),
+                                                                    "messaging_product": (None, "whatsapp")
+                                                                }
+                                                                
+                                                                response = requests.post(url, headers=headers, files=files)
+                                                                response.raise_for_status()
+                                                                return response.json()["id"]
+
+
+                                                            # Handle the "getnotes" option
+                                                            result = send_notes_pdf_whatsapp(sender_id)
+
+                                                            sections = [
+                                                                {
+                                                                    "title": "Portfolio Options",
+                                                                    "rows": [
+                                                                        {
+                                                                            "id": "getportfolio",
+                                                                            "title": "Get Master File",
+                                                                            "description": "Download full portfolio"
+                                                                        },
+                                                                        {
+                                                                            "id": "getnotes",
+                                                                            "title": "Get Notes",
+                                                                            "description": "Access project notes"
+                                                                        },
+                                                                        {
+                                                                            "id": "payments_schedule",
+                                                                            "title": "Get Payments Schedule",
+                                                                            "description": "Access Installments schedule report"
+                                                                        },
+                                                                        {
+                                                                            "id": "main_menu",
+                                                                            "title": "Main Menu",
+                                                                            "description": "Return to main menu"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+
+                                                            send_whatsapp_list_message(
+                                                                sender_id,
+                                                                "Kindly select a portfolio option below.",
+                                                                "ConnectLink Admin",
+                                                                sections,
+                                                                footer_text="ConnectLink Properties • Admin Panel"
+                                                            )
+                                                        
+                                                            return jsonify(result)
+
 
                                                         elif selected_option == "payments_schedule":
 
