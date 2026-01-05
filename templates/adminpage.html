@@ -1931,10 +1931,11 @@
                                             <th>ID</th>
                                             <th>Date</th>
                                             <th>Client</th>
+                                            <th>Username</th>
                                             <th>Category</th>
                                             <th>Message</th>
                                             <th>Status</th>
-                                            <th>Actions</th>
+                                            <th>Document</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1947,6 +1948,7 @@
                                                     +263{{ enquiry.clientwhatsapp }}
                                                 </a>
                                             </td>
+                                            <td>{{ enquiry.username }}</td>
                                             <td><span class="badge bg-secondary">{{ enquiry.category }}</span></td>
                                             <td>{{ enquiry.message[:50] }}{% if enquiry.message|length > 50 %}...{% endif %}</td>
                                             <td>
