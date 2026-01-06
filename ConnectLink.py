@@ -5384,26 +5384,19 @@ def webhook():
                                                                 if selected_option == "kitchen_cabinets":
 
                                                                     send_whatsapp_message(
-                                                                        sender_id, 
-                                                                        f"""Good day {profile_name},
-
-                                                                            At Connectlink Kitchens and Cabinets, we specialise in the design and installation of kitchen cabinets, built-in wardrobes, bathroom vanities and TV units.
-
-                                                                            We are offering the above services on credit as follows:
-
-                                                                            Pay a 30% deposit
-
-                                                                            Installation within 10 working days
-
-                                                                            Pay the balance over 3 months
-
-                                                                            We offer free 3D designs and quotations. Simply send your house plan or measurements by clicking the “Fill Enquiries Form” below, or we can arrange a site visit.
-
-                                                                            For site visits within a 20km radius of Harare CBD, a USD $10 fee applies for on-site measurements.""",
+                                                                        sender_id,
+                                                                        f"Good day {profile_name},\n\n"
+                                                                        "At Connectlink Kitchens and Cabinets, we specialise in the design and installation of kitchen cabinets, built-in wardrobes, bathroom vanities and TV units.\n\n"
+                                                                        "We are offering these services on credit:\n"
+                                                                        "- 30% deposit\n"
+                                                                        "- Installation within 10 working days\n"
+                                                                        "- Balance payable over 3 months\n\n"
+                                                                        "We offer free 3D designs and quotations. Send your house plan or measurements via the Fill Enquiries Form below, or request a site visit.\n\n"
+                                                                        "Site visits within 20km of Harare CBD cost USD $10.",
                                                                         buttons,
                                                                         footer_text="ConnectLink Properties • Client Panel"
-
                                                                     )
+
 
                                                                 payload = {
                                                                     "messaging_product": "whatsapp",
