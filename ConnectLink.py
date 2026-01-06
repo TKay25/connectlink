@@ -4343,6 +4343,8 @@ def webhook():
                                                                 # In your WhatsApp message handler, add:
                                                                     # Trigger payment history sending
                                                                 send_payment_history_via_whatsapp(sender_id)
+
+                                                                
                                                                 return jsonify({'status': 'processing'})
 
                                                             elif button_id == "contracts":
@@ -5104,6 +5106,46 @@ def webhook():
                                                                 except Exception as e:
                                                                     print(f"❌ Error in contracts handler: {str(e)}")
                                                                     return jsonify({'status': 'error', 'message': str(e)}), 500
+
+                                                            elif button_id == "main_menu" or selected_option == "main_menu":
+
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "contracts",
+                                                                            "title": "My Contracts"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "paymenthist",
+                                                                            "title": "My Payments History"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "enquirylog",
+                                                                            "title": "Enquiries"
+                                                                        }
+                                                                    }
+                                                                ]
+
+
+                                                                send_whatsapp_button_image_message(
+                                                                    sender_id, 
+                                                                    f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                                    "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
+                                                                    buttons,
+                                                                    footer_text="ConnectLink Properties • Client Panel"
+
+                                                                )
+
+                                                                continue
+
+
 
 
                                                         else:
