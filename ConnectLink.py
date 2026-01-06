@@ -5073,7 +5073,7 @@ def webhook():
                                                                     SELECT * FROM appenqtemp
                                                                     WHERE wanumber::TEXT LIKE %s
                                                                 """
-                                                                cursor.execute(query, (f"%{sender_id}",))
+                                                                cursor.execute(query, (f"%{sender_id[-9:]}",))
                                                                 resultenqtemp = cursor.fetchone()
 
                                                                 enquiry_type = resultenqtemp[2]
