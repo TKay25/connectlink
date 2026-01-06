@@ -5084,7 +5084,7 @@ def webhook():
                                                                         DELETE FROM appenqtemp
                                                                         WHERE wanumber::TEXT LIKE %s
                                                                     """
-                                                                    cursor.execute(query, (f"%{sender_id}",))
+                                                                    cursor.execute(query, (f"%{sender_id[-9:]}",))
                                                                     connection.commit
 
                                                                 # The form_response is already in the clean format we need
@@ -5347,7 +5347,8 @@ def webhook():
                                                                         RETURNING id;
                                                                     """
                                                                     
-                                                                    client_whatsapp = int(sender_id[-9:]) if sender_id.isdigit() else None
+                                                                    digits = "".join(filter(str.isdigit, sender_id))
+                                                                    client_whatsapp = int(digits[-9:]) if len(digits) >= 9 else None
                                                                     
                                                                     cursor.execute(
                                                                         insert_query,
