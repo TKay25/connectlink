@@ -3471,10 +3471,11 @@ def webhook():
                                                 cursor.execute(query, (f"%{sender_number}",))
                                                 result2 = cursor.fetchone()
 
-                                                profile_name = result2[1]
 
                                                 if result2:
                                                         
+                                                    profile_name = result2[1]
+
                                                     try:
 
                                                         if message.get("type") == "interactive":
