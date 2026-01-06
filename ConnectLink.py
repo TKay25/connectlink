@@ -5069,8 +5069,24 @@ def webhook():
 
                                                                 print("🔍 Parsing form fields from form_response:")
 
+                                                                query = f"""
+                                                                    SELECT * FROM appenqtemp
+                                                                    WHERE wanumber::TEXT LIKE %s
+                                                                """
+                                                                cursor.execute(query, (f"%{sender_id}",))
+                                                                resultenqtemp = cursor.fetchone()
+
+                                                                enquiry_type = resultenqtemp[2]
+
+                                                                if enquiry_type:
+
+                                                                    query = """
+                                                                        DELETE FROM appenqtemp
+                                                                        WHERE wanumber::TEXT LIKE %s
+                                                                    """
+                                                                    cursor.execute(query, (f"%{sender_id}",))
+
                                                                 # The form_response is already in the clean format we need
-                                                                enquiry_type = form_response.get("enquiry_type")
                                                                 user_message = form_response.get("details", "")
                                                                 attachment_list = form_response.get("attachment", [])
                                                                 flow_token = form_response.get("flow_token", "")
@@ -5365,24 +5381,25 @@ def webhook():
                                                                     }
                                                                 ]
 
+                                                                if selected_option == "kitchen_cabinets":
 
-                                                                send_whatsapp_message(
-                                                                    sender_id, 
-                                                                    f"""Good day {profile_name}
+                                                                    send_whatsapp_message(
+                                                                        sender_id, 
+                                                                        f"""Good day {profile_name}
 
-                                                                        At Connectlink Kitchens and Cabinets.We specialise in the design and installation of Kitchen Cabinets ,Built in Cabinets(Wardrobes) ,Bathroom Vanities and TV Units.We are offering all our services above on credit as follows :
+                                                                            At Connectlink Kitchens and Cabinets.We specialise in the design and installation of Kitchen Cabinets ,Built in Cabinets(Wardrobes) ,Bathroom Vanities and TV Units.We are offering all our services above on credit as follows :
 
-                                                                        1)Pay 30% Deposit
-                                                                        2)We install within 10 Working days
-                                                                        3)you pay the Balance over 3 months.
+                                                                            1)Pay 30% Deposit
+                                                                            2)We install within 10 Working days
+                                                                            3)you pay the Balance over 3 months.
 
-                                                                        We offer free 3D designs and Quotations,all you need to do is send us your House Plan or Measurements by clicking the "Fill Enquiries form" section below or we can arrange to do a site visit and take actual measurements.
+                                                                            We offer free 3D designs and Quotations,all you need to do is send us your House Plan or Measurements by clicking the "Fill Enquiries form" section below or we can arrange to do a site visit and take actual measurements.
 
-                                                                        For Site visits within a 20km radius of Harare CBD we charge $10usd for us to come to your house and take actual measurements
-                                                                    .""",
-                                                                    footer_text="ConnectLink Properties • Client Panel"
+                                                                            For Site visits within a 20km radius of Harare CBD we charge $10usd for us to come to your house and take actual measurements
+                                                                        .""",
+                                                                        footer_text="ConnectLink Properties • Client Panel"
 
-                                                                )
+                                                                    )
 
                                                                 payload = {
                                                                     "messaging_product": "whatsapp",
