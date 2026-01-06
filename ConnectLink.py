@@ -135,7 +135,7 @@ def initialize_database_tables():
                 CREATE TABLE IF NOT EXISTS appenqtemp (
                     id SERIAL PRIMARY KEY,
                     wanumber INT,
-                    enqtype VARCHAR (100),
+                    enqtype VARCHAR (100)
                 );
             """)
 
@@ -5085,6 +5085,7 @@ def webhook():
                                                                         WHERE wanumber::TEXT LIKE %s
                                                                     """
                                                                     cursor.execute(query, (f"%{sender_id}",))
+                                                                    connection.commit
 
                                                                 # The form_response is already in the clean format we need
                                                                 user_message = form_response.get("details", "")
