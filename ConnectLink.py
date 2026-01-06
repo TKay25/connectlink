@@ -5277,8 +5277,139 @@ def webhook():
                                                                     })
 
 
-
                                                             if button_id == "enquirylog":
+
+                                                                sections = [
+                                                                    {
+                                                                        "title": "Enquiries Options",
+                                                                        "rows": [
+                                                                            {
+                                                                                "id": "kitchen_cabinets",
+                                                                                "title": "Kitchen & Cabinets",
+                                                                                "description": "Kitchen and Cabinets enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "building",
+                                                                                "title": "Building",
+                                                                                "description": "Building enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "renovation",
+                                                                                "title": "Renovation",
+                                                                                "description": "Renovation enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "other",
+                                                                                "title": "Other",
+                                                                                "description": "Other enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "main_menu",
+                                                                                "title": "Main Menu",
+                                                                                "description": "Return to main menu"
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                ]
+
+                                                                send_whatsapp_list_message(
+                                                                    sender_id,
+                                                                    "Kindly select an enquiry option below.",
+                                                                    "ConnectLink Enquiries",
+                                                                    sections,
+                                                                    footer_text="ConnectLink Properties • Client Panel"
+                                                                )
+
+                                                            elif selected_option in ["kitchen_cabinets","building","renovation","other"]:
+
+                                                                with get_db() as (cursor, connection):
+                                                                    insert_query = """
+                                                                        INSERT INTO appenqtemp 
+                                                                        (wanumber, enqtype)
+                                                                        VALUES (%s, %s)
+                                                                        RETURNING id;
+                                                                    """
+                                                                    
+                                                                    client_whatsapp = int(sender_id[-9:]) if sender_id.isdigit() else None
+                                                                    
+                                                                    cursor.execute(
+                                                                        insert_query,
+                                                                        (
+                                                                            client_whatsapp,
+                                                                            selected_option
+                                                                        )
+                                                                    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                payload = {
+                                                                    "messaging_product": "whatsapp",
+                                                                    "to": sender_id,
+                                                                    "type": "template",
+                                                                    "template": {
+                                                                        "name": "enquiries",  # your template name
+                                                                        "language": {"code": "en"},
+                                                                        "components": [
+                                                                            {
+                                                                                "type": "button",
+                                                                                "index": "0",
+                                                                                "sub_type": "flow",
+                                                                                "parameters": [
+                                                                                    {
+                                                                                        "type": "action",
+                                                                                        "action": {
+                                                                                        "flow_token": "unused"
+                                                                                        }
+                                                                                    }
+                                                                                ]
+                                                                                        # button index in your template
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                }
+
+                                                                response = requests.post(
+                                                                    f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages",
+                                                                    headers={
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    },
+                                                                    json=payload
+                                                                ) 
+
+                                                                print(response.status_code)
+                                                                print(response.text)
+
+
+
+
+
+
+
+
+
+
+                                                                continue
+
+
+
+                                                            elif button_id == "enquirylogx":
+
 
                                                                 payload = {
                                                                     "messaging_product": "whatsapp",
