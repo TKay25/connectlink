@@ -5341,21 +5341,48 @@ def webhook():
                                                                     )
 
 
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "enquirylog",
+                                                                            "title": "Enquiries"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "contact",
+                                                                            "title": "Contact Us"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "about",
+                                                                            "title": "About Us"
+                                                                        }
+                                                                    }
+                                                                ]
 
 
+                                                                send_whatsapp_message(
+                                                                    sender_id, 
+                                                                    f"""Good day {profile_name}
 
+                                                                        At Connectlink Kitchens and Cabinets.We specialise in the design and installation of Kitchen Cabinets ,Built in Cabinets(Wardrobes) ,Bathroom Vanities and TV Units.We are offering all our services above on credit as follows :
 
+                                                                        1)Pay 30% Deposit
+                                                                        2)We install within 10 Working days
+                                                                        3)you pay the Balance over 3 months.
 
+                                                                        We offer free 3D designs and Quotations,all you need to do is send us your House Plan or Measurements by clicking the "Fill Enquiries form" section below or we can arrange to do a site visit and take actual measurements.
 
+                                                                        For Site visits within a 20km radius of Harare CBD we charge $10usd for us to come to your house and take actual measurements
+                                                                    .""",
+                                                                    footer_text="ConnectLink Properties • Client Panel"
 
-
-
-
-
-
-
-
-
+                                                                )
 
                                                                 payload = {
                                                                     "messaging_product": "whatsapp",
