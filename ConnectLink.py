@@ -3525,8 +3525,26 @@ def webhook():
 
                                                                 print("🔍 Parsing form fields from form_response:")
 
+
+                                                                query = f"""
+                                                                    SELECT * FROM appenqtemp
+                                                                    WHERE wanumber::TEXT LIKE %s
+                                                                """
+                                                                cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                resultenqtemp = cursor.fetchone()
+
+                                                                enquiry_type = resultenqtemp[2]
+
+                                                                if enquiry_type:
+
+                                                                    query = """
+                                                                        DELETE FROM appenqtemp
+                                                                        WHERE wanumber::TEXT LIKE %s
+                                                                    """
+                                                                    cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                    connection.commit
+
                                                                 # The form_response is already in the clean format we need
-                                                                enquiry_type = form_response.get("enquiry_type")
                                                                 user_message = form_response.get("details", "")
                                                                 attachment_list = form_response.get("attachment", [])
                                                                 flow_token = form_response.get("flow_token", "")
@@ -3733,8 +3751,112 @@ def webhook():
                                                                     })
 
 
-
                                                             if button_id == "enquirylog":
+
+                                                                sections = [
+                                                                    {
+                                                                        "title": "Enquiries Options",
+                                                                        "rows": [
+                                                                            {
+                                                                                "id": "kitchen_cabinets",
+                                                                                "title": "Kitchen & Cabinets",
+                                                                                "description": "Kitchen and Cabinets enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "building",
+                                                                                "title": "Building",
+                                                                                "description": "Building enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "renovation",
+                                                                                "title": "Renovation",
+                                                                                "description": "Renovation enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "other",
+                                                                                "title": "Other",
+                                                                                "description": "Other enquiries"
+                                                                            },
+                                                                            {
+                                                                                "id": "main_menu",
+                                                                                "title": "Main Menu",
+                                                                                "description": "Return to main menu"
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                ]
+
+                                                                send_whatsapp_list_message(
+                                                                    sender_id,
+                                                                    "Kindly select an enquiry option below.",
+                                                                    "ConnectLink Enquiries",
+                                                                    sections,
+                                                                    footer_text="ConnectLink Properties • Client Panel"
+                                                                )
+
+                                                            elif selected_option in ["kitchen_cabinets","building","renovation","other"]:
+
+                                                                with get_db() as (cursor, connection):
+                                                                    insert_query = """
+                                                                        INSERT INTO appenqtemp 
+                                                                        (wanumber, enqtype)
+                                                                        VALUES (%s, %s)
+                                                                        RETURNING id;
+                                                                    """
+                                                                    
+                                                                    digits = "".join(filter(str.isdigit, sender_id))
+                                                                    client_whatsapp = int(digits[-9:]) if len(digits) >= 9 else None
+                                                                    
+                                                                    cursor.execute(
+                                                                        insert_query,
+                                                                        (
+                                                                            client_whatsapp,
+                                                                            selected_option
+                                                                        )
+                                                                    )
+
+                                                                    connection.commit()
+
+                                                                buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "enquirylog",
+                                                                            "title": "Enquiries"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "contact",
+                                                                            "title": "Contact Us"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "about",
+                                                                            "title": "About Us"
+                                                                        }
+                                                                    }
+                                                                ]
+
+                                                                if selected_option == "kitchen_cabinets":
+
+                                                                    send_whatsapp_message(
+                                                                        sender_id,
+                                                                        f"Good day {profile_name},\n\n"
+                                                                        "At Connectlink Kitchens and Cabinets, we specialise in the design and installation of kitchen cabinets, built-in wardrobes, bathroom vanities and TV units.\n\n"
+                                                                        "We are offering these services on credit:\n"
+                                                                        "- 30% deposit\n"
+                                                                        "- Installation within 10 working days\n"
+                                                                        "- Balance payable over 3 months\n\n"
+                                                                        "We offer free 3D designs and quotations. Send your house plan or measurements via the Fill Enquiries Form below, or request a site visit.\n\n"
+                                                                        "Site visits within 20km of Harare CBD cost USD $10.",
+                                                                        buttons,
+                                                                        footer_text="ConnectLink Properties • Client Panel"
+                                                                    )
+
 
                                                                 payload = {
                                                                     "messaging_product": "whatsapp",
@@ -3773,6 +3895,13 @@ def webhook():
 
                                                                 print(response.status_code)
                                                                 print(response.text)
+
+
+
+
+
+
+
 
 
 
