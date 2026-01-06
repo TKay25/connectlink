@@ -5398,6 +5398,7 @@ def webhook():
 
                                                                             For Site visits within a 20km radius of Harare CBD we charge $10usd for us to come to your house and take actual measurements
                                                                         .""",
+                                                                        buttons,
                                                                         footer_text="ConnectLink Properties • Client Panel"
 
                                                                     )
