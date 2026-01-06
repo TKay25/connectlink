@@ -5358,6 +5358,8 @@ def webhook():
                                                                         )
                                                                     )
 
+                                                                    connection.commit()
+
                                                                 buttons = [
                                                                     {
                                                                         "type": "reply",
