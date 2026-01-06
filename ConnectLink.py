@@ -5357,7 +5357,6 @@ def webhook():
                                                                         )
                                                                     )
 
-
                                                                 buttons = [
                                                                     {
                                                                         "type": "reply",
@@ -5388,17 +5387,19 @@ def webhook():
                                                                         sender_id, 
                                                                         f"""Good day {profile_name},
 
-                                                                            At Connectlink Kitchens and Cabinets, we specialize in the design and installation of kitchen cabinets, built-in wardrobes, bathroom vanities, and TV units.
+                                                                            At Connectlink Kitchens and Cabinets, we specialise in the design and installation of kitchen cabinets, built-in wardrobes, bathroom vanities and TV units.
 
-                                                                            We offer our services on credit:
+                                                                            We are offering the above services on credit as follows:
 
-                                                                            • 30% deposit
-                                                                            • Installation within 10 working days
-                                                                            • Balance payable over 3 months
+                                                                            Pay a 30% deposit
 
-                                                                            We provide free 3D designs and quotations. Simply send your house plan or measurements via the Fill Enquiries Form, or we can arrange a site visit.
+                                                                            Installation within 10 working days
 
-                                                                            For site visits within 20km of Harare CBD, a USD $10 fee applies for on-site measurements.""",
+                                                                            Pay the balance over 3 months
+
+                                                                            We offer free 3D designs and quotations. Simply send your house plan or measurements by clicking the “Fill Enquiries Form” below, or we can arrange a site visit.
+
+                                                                            For site visits within a 20km radius of Harare CBD, a USD $10 fee applies for on-site measurements.""",
                                                                         buttons,
                                                                         footer_text="ConnectLink Properties • Client Panel"
 
