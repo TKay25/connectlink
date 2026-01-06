@@ -81,6 +81,7 @@ def initialize_database_tables():
                 ORDER BY table_name;
             """)
 
+
             tables = cursor.fetchall()
 
             print("Tables in database:")
@@ -127,6 +128,14 @@ def initialize_database_tables():
                     capturerid INT,
                     projectid INT,
                     note VARCHAR (1000)
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS appenqtemp (
+                    id SERIAL PRIMARY KEY,
+                    wanumber INT,
+                    enqtype VARCHAR (100),
                 );
             """)
 
