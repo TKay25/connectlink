@@ -3441,7 +3441,7 @@ $('#addNoteBtn').click(function() {
         const rowData = window.dataTable.row($row).data();
         
         // Get data from DataTables row data (includes hidden columns)
-        const projectId = rowData[0]; // Assuming 'id' is column 0
+        const projectId = rowData[46]; // Assuming 'id' is column 0
         const projectName = rowData[10]; // Assuming 'projectname' is column 10
         const clientName = rowData[1]; // Assuming 'clientname' is column 1
         const clientWaNumber = rowData[4]; // Assuming 'clientwanumber' is column 4
