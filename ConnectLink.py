@@ -8344,7 +8344,7 @@ def get_project(project_id):
                 return jsonify({})
 
             # Map columns to dict
-            columns = ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+            columns = ['id', 'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
                     'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
                     'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname',
                     'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount',
