@@ -2475,110 +2475,106 @@ document.head.appendChild(style);
     // Apply filter button (AJAX version)
 document.addEventListener('DOMContentLoaded', function() {
     // FIRST, check the actual table structure
-    const table = document.getElementById('allprojectsTable');
-    if (table) {
-        const headerRow = table.querySelector('thead tr');
-        const columns = headerRow ? headerRow.querySelectorAll('th').length : 0;
-        console.log('Actual number of columns in table:', columns);
-        
-        // List all column headers
-        if (headerRow) {
-            headerRow.querySelectorAll('th').forEach((th, index) => {
-                console.log(`Column ${index}:`, th.textContent.trim());
-            });
-        }
+   function getLatestMonthFromTable() {
+        const rows = document.querySelectorAll('#allprojectsTable tbody tr');
+        let latestDate = null;
+        let latestMonthValue = null;
+
+        rows.forEach(row => {
+            const dateCell = row.children[14]; // projectstartdate column
+            if (!dateCell) return;
+
+            const text = dateCell.textContent.trim();
+            const parsed = new Date(text);
+
+            if (!isNaN(parsed)) {
+                if (!latestDate || parsed > latestDate) {
+                    latestDate = parsed;
+                    const month = parsed.toLocaleString('en-US', { month: 'short' });
+                    const year = parsed.getFullYear();
+                    latestMonthValue = `${month}-${year}`;
+                }
+            }
+        });
+
+        return latestMonthValue;
     }
-    
-    // HARD-CODED VERSION - Use the exact column indices from your table
-    // Based on your columnMapping, you want to show:
-    // id(0), momid(46), clientname(1), projectname(10), projectadministratorname(13), projectstartdate(14), action(47)
-    // Hide everything else: indices 2-9, 11-12, 15-45
-    
-    window.dataTable = $('#allprojectsTable').DataTable({
-        order: [[0, 'desc']],
-        paging: false,
-        searching: true,
-        ordering: true,
-        info: true,
-        pageLength: 7,
-        lengthChange: false,
-        columnDefs: [
-            // Hide columns 2-45 (everything except the 7 we want)
-            { targets: [2,3,4,5,6,7,8,9,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46], visible: false },
-            // Show columns 0,1,10,13,14,46,47
-            { targets: [0,1,10,13,14,47], visible: true }
-        ]
-    });
-    
-    console.log('DataTable initialized with column visibility settings');
-    
-    // Keep your filter code but FIX the reinitialization
-    document.getElementById('applyFilterBtn').addEventListener('click', function() {
-        const selectedMonth = document.getElementById('monthFilter').value;
-        
-        console.log('Applying filter for month:', selectedMonth);
-        
-        // Show loading
+
+    function initDataTable() {
+        window.dataTable = $('#allprojectsTable').DataTable({
+            order: [[0, 'desc']],
+            paging: false,
+            searching: true,
+            ordering: true,
+            info: true,
+            pageLength: 7,
+            lengthChange: false,
+            columnDefs: [
+                { targets: [2,3,4,5,6,7,8,9,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46], visible: false },
+                { targets: [0,1,10,13,14,47], visible: true }
+            ]
+        });
+    }
+
+    function applyMonthFilter(selectedMonth) {
+
+        console.log('Filtering:', selectedMonth);
+
         const tableContainer = document.querySelector('.mainalldata');
+
         tableContainer.innerHTML = `
             <div class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
+                <div class="spinner-border text-primary"></div>
                 <p class="mt-2">Loading filtered projects...</p>
             </div>
         `;
-        
-        // Fetch filtered data
+
         fetch(`/get_filtered_projects/${selectedMonth}`)
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                console.log('Filter response received');
-                
+
                 if (data.status === 'success') {
+
                     tableContainer.innerHTML = data.html;
-                    
-                    // Check the new table structure
-                    const newTable = document.getElementById('allprojectsTable');
-                    if (newTable) {
-                        const newHeaderRow = newTable.querySelector('thead tr');
-                        const newColumns = newHeaderRow ? newHeaderRow.querySelectorAll('th').length : 0;
-                        console.log('New table columns after filter:', newColumns);
-                    }
-                    
-                    // Destroy old DataTable
+
                     if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
                         window.dataTable.destroy();
                     }
-                    
-                    // Reinitialize with SAME column settings
-                    window.dataTable = $('#allprojectsTable').DataTable({
-                        order: [[0, 'desc']],
-                        paging: false,
-                        searching: true,
-                        ordering: true,
-                        info: true,
-                        pageLength: 7,
-                        lengthChange: false,
-                        columnDefs: [
-                            // SAME COLUMN SETTINGS
-                            { targets: [2,3,4,5,6,7,8,9,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46], visible: false },
-                            { targets: [0,1,10,13,14,47], visible: true }
-                        ]
-                    });
-                    
-                    console.log('DataTable reinitialized after filter');
+
+                    initDataTable();
                 } else {
-                    alert('Error loading data: ' + data.message);
+                    alert(data.message || 'Filter failed');
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
+            .catch(err => {
+                console.error(err);
                 alert('Failed to load filtered projects');
             });
-    });
-});
+    }
 
+    // ===== INITIAL TABLE LOAD =====
+    initDataTable();
+
+    // ===== AUTO FILTER LATEST MONTH =====
+    const latestMonth = getLatestMonthFromTable();
+
+    if (latestMonth) {
+        const dropdown = document.getElementById('monthFilter');
+        if (dropdown) {
+            [...dropdown.options].forEach(opt => {
+                if (opt.value === latestMonth) opt.selected = true;
+            });
+        }
+
+        applyMonthFilter(latestMonth);
+    }
+
+    // ===== BUTTON FILTER =====
+    document.getElementById('applyFilterBtn').addEventListener('click', function() {
+        applyMonthFilter(document.getElementById('monthFilter').value);
+    });
+
+});
 
 </script>
 <script>
