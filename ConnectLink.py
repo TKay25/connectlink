@@ -8357,6 +8357,7 @@ def get_project(project_id):
                     'projectcompletionstatus','latepaymentinterest']
 
             project_dict = dict(zip(columns, row))
+            print(project_dict)
             return jsonify(project_dict)
 
         except Exception as e:
