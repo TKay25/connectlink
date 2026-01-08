@@ -3857,6 +3857,25 @@ def webhook():
                                                                         footer_text="ConnectLink Properties • Client Panel"
                                                                     )
 
+                                                                if selected_option == "building":
+
+                                                                    send_whatsapp_message(
+                                                                        sender_id,
+                                                                        f"Good day {profile_name},\n\n"
+                                                                        "At Connectlink Properties, we are a fully fledged construction company providing turnkey construction services countrywide.\n\n"
+                                                                        "Our offices are located at 38A Coronation, Greendale, Harare.\n\n"
+                                                                        "Our payment terms are:\n"
+                                                                        "- Minimum deposit: 30%\n"
+                                                                        "- Balance payable over 3–6 months\n\n"
+                                                                        "Our residential project turnaround times are:\n"
+                                                                        "- 90 days (no special foundation)\n"
+                                                                        "- 110 days (special foundation)\n"
+                                                                        "- 120 days (double storey)\n\n"
+                                                                        "We deliver quality, reliability and professional project management from foundation to finish. Contact us today to start building your dream home.",
+                                                                        buttons,
+                                                                        footer_text="ConnectLink Properties • Client Panel"
+                                                                    )
+
 
                                                                 payload = {
                                                                     "messaging_product": "whatsapp",
