@@ -2476,6 +2476,14 @@ document.head.appendChild(style);
 document.addEventListener('DOMContentLoaded', function() {
     // FIRST, check the actual table structure
     const table = document.getElementById('allprojectsTable');
+
+    const monthSelect = document.getElementById('monthFilter');
+    if (monthSelect && monthSelect.options.length > 0) {
+        const lastOption = monthSelect.options[monthSelect.options.length - 1];
+        lastOption.selected = true;
+        applyMonthFilter(lastOption.value);
+    }
+
     if (table) {
         const headerRow = table.querySelector('thead tr');
         const columns = headerRow ? headerRow.querySelectorAll('th').length : 0;
