@@ -2475,29 +2475,28 @@ document.head.appendChild(style);
     // Apply filter button (AJAX version)
 document.addEventListener('DOMContentLoaded', function() {
     // FIRST, check the actual table structure
-   function getLatestMonthFromTable() {
+    function getLatestMonthYearFromTable() {
         const rows = document.querySelectorAll('#allprojectsTable tbody tr');
-        let latestDate = null;
-        let latestMonthValue = null;
+        let latest = null;
 
         rows.forEach(row => {
-            const dateCell = row.children[14]; // projectstartdate column
-            if (!dateCell) return;
+            const cell = row.children[14]; // projectstartdate column
+            if (!cell) return;
 
-            const text = dateCell.textContent.trim();
-            const parsed = new Date(text);
-
-            if (!isNaN(parsed)) {
-                if (!latestDate || parsed > latestDate) {
-                    latestDate = parsed;
-                    const month = parsed.toLocaleString('en-US', { month: 'short' });
-                    const year = parsed.getFullYear();
-                    latestMonthValue = `${month}-${year}`;
+            const d = new Date(cell.textContent.trim());
+            if (!isNaN(d)) {
+                if (!latest || d > latest) {
+                    latest = d;
                 }
             }
         });
 
-        return latestMonthValue;
+        if (!latest) return null;
+
+        return {
+            month: latest.getMonth(),
+            year: latest.getFullYear()
+        };
     }
 
     function initDataTable() {
@@ -2556,7 +2555,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initDataTable();
 
     // ===== AUTO FILTER LATEST MONTH =====
-    const latestMonth = getLatestMonthFromTable();
+    const latestMonth = getLatestMonthYearFromTable();
 
     if (latestMonth) {
         const dropdown = document.getElementById('monthFilter');
