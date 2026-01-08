@@ -2476,25 +2476,6 @@ document.head.appendChild(style);
 document.addEventListener('DOMContentLoaded', function() {
     // FIRST, check the actual table structure
     const table = document.getElementById('allprojectsTable');
-
-    function applyMonthFilter(selectedMonth) {
-    console.log('Applying filter for month:', selectedMonth);
-
-    const tableContainer = document.querySelector('.mainalldata');
-    tableContainer.innerHTML = `
-        <div class="text-center py-4">
-            <div class="spinner-border text-primary"></div>
-            <p class="mt-2">Loading filtered projects...</p>
-        </div>
-    `;
-    }
-    const monthSelect = document.getElementById('monthFilter');
-    if (monthSelect && monthSelect.options.length > 0) {
-        const lastOption = monthSelect.options[monthSelect.options.length - 1];
-        lastOption.selected = true;
-        applyMonthFilter(lastOption.value);
-    }
-
     if (table) {
         const headerRow = table.querySelector('thead tr');
         const columns = headerRow ? headerRow.querySelectorAll('th').length : 0;
