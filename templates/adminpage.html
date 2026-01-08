@@ -2475,6 +2475,20 @@ document.head.appendChild(style);
     // Apply filter button (AJAX version)
 document.addEventListener('DOMContentLoaded', function() {
     // FIRST, check the actual table structure
+
+    function parseMonthYear(text) {
+        const parts = text.trim().split('-'); // Jan-2025
+        if (parts.length !== 2) return null;
+
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const month = monthNames.indexOf(parts[0]);
+        const year = parseInt(parts[1]);
+
+        if (month === -1 || isNaN(year)) return null;
+
+        return { month, year };
+    }
+
     function getLatestMonthYearFromTable() {
         const rows = document.querySelectorAll('#allprojectsTable tbody tr');
         let latest = null;
@@ -2483,20 +2497,45 @@ document.addEventListener('DOMContentLoaded', function() {
             const cell = row.children[14]; // projectstartdate column
             if (!cell) return;
 
-            const d = new Date(cell.textContent.trim());
-            if (!isNaN(d)) {
-                if (!latest || d > latest) {
-                    latest = d;
-                }
+            const parsed = parseMonthYear(cell.textContent);
+
+            if (!parsed) return;
+
+            if (!latest || 
+                parsed.year > latest.year || 
+                (parsed.year === latest.year && parsed.month > latest.month)
+            ) {
+                latest = parsed;
             }
         });
 
-        if (!latest) return null;
+        return latest;
+    }
 
-        return {
-            month: latest.getMonth(),
-            year: latest.getFullYear()
-        };
+    function applyLatestMonthFilter() {
+        const target = getLatestMonthYearFromTable();
+        if (!target) return;
+
+        const rows = document.querySelectorAll('#allprojectsTable tbody tr');
+
+        rows.forEach(row => {
+            const cell = row.children[14];
+            if (!cell) return;
+
+            const parsed = parseMonthYear(cell.textContent);
+
+            if (
+                parsed &&
+                parsed.month === target.month &&
+                parsed.year === target.year
+            ) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        initDataTable();
     }
 
     function initDataTable() {
@@ -2514,6 +2553,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ]
         });
     }
+
+    applyLatestMonthFilter
 
     function applyMonthFilter(selectedMonth) {
 
@@ -2550,28 +2591,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Failed to load filtered projects');
             });
     }
-
-    // ===== INITIAL TABLE LOAD =====
-    initDataTable();
-
-    // ===== AUTO FILTER LATEST MONTH =====
-    const latestMonth = getLatestMonthYearFromTable();
-
-    if (latestMonth) {
-        const dropdown = document.getElementById('monthFilter');
-        if (dropdown) {
-            [...dropdown.options].forEach(opt => {
-                if (opt.value === latestMonth) opt.selected = true;
-            });
-        }
-
-        applyMonthFilter(latestMonth);
-    }
-
-    // ===== BUTTON FILTER =====
-    document.getElementById('applyFilterBtn').addEventListener('click', function() {
-        applyMonthFilter(document.getElementById('monthFilter').value);
-    });
 
 });
 
