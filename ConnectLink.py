@@ -3857,7 +3857,7 @@ def webhook():
                                                                         footer_text="ConnectLink Properties • Client Panel"
                                                                     )
 
-                                                                if selected_option == "building":
+                                                                elif selected_option == "building":
 
                                                                     send_whatsapp_message(
                                                                         sender_id,
