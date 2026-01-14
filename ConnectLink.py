@@ -3862,15 +3862,15 @@ def webhook():
                                                                     send_whatsapp_message(
                                                                         sender_id,
                                                                         f"Good day {profile_name},\n\n"
-                                                                        "At Connectlink Properties, we are a fully fledged construction company providing turnkey construction services countrywide.\n\n"
+                                                                        "At Connectlink Properties, we are a full-service construction company offering turnkey building solutions nationwide.\n\n"
                                                                         "Our payment terms are:\n"
                                                                         "- Minimum deposit: 30%\n"
                                                                         "- Balance payable over 3–6 months\n\n"
-                                                                        "Our residential project turnaround times are:\n"
-                                                                        "- 90 days (no special foundation)\n"
+                                                                        "Our project turnaround times are:\n"
+                                                                        "- 90 days (standard foundation)\n"
                                                                         "- 110 days (special foundation)\n"
                                                                         "- 120 days (double storey)\n\n"
-                                                                        "We deliver quality, reliability and professional project management from foundation to finish. Send your house plan or measurements via the Fill Enquiries Form below, or request a site visit.",
+                                                                        "We deliver quality, reliability and professional project management from foundation to finish. Send your house plan or measurements via the Enquiries Form below, or request a site visit.",
                                                                         buttons,
                                                                         footer_text="ConnectLink Properties • Client Panel"
                                                                     )
