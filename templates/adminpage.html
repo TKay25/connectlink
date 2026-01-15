@@ -1814,169 +1814,319 @@
         </div>
     </div>
 
-
     <!-- View Interim Enquiries Modal -->
     <div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h6 class="modal-title" id="viewEnquiriesModalLabel">
-                        <i class="bi bi-search"></i> INTERIM ENQUIRIES REPORT
-                    </h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Filters Section -->
-                    <div class="card mb-4">
-                        <div class="card-header bg-light">
-                            <h6 class="mb-0"><i class="bi bi-funnel"></i> Filter Options</h6>
+        <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-lg-down modal-xxl">
+            <div class="modal-content" style="min-height: 85vh;">
+                <div class="modal-header bg-primary text-white py-3">
+                    <div class="d-flex align-items-center w-100">
+                        <div class="me-3">
+                            <i class="bi bi-search display-6"></i>
                         </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Date Range</label>
-                                    <div class="input-group">
-                                        <input type="date" class="form-control" id="enquiryDateFrom">
-                                        <span class="input-group-text">to</span>
-                                        <input type="date" class="form-control" id="enquiryDateTo">
+                        <div class="flex-grow-1">
+                            <h5 class="modal-title mb-0" id="viewEnquiriesModalLabel">
+                                INTERIM ENQUIRIES MANAGEMENT SYSTEM
+                            </h5>
+                            <small class="opacity-75">View and manage all temporary enquiries</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-light btn-sm" onclick="loadEnquiriesData()">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-body p-0">
+                    <!-- Top Stats Bar -->
+                    <div class="bg-light border-bottom py-3 px-4">
+                        <div class="row g-4">
+                            <div class="col-lg-3 col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-primary rounded-circle p-3 me-3">
+                                        <i class="bi bi-inbox text-white fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="mb-0 text-primary" id="totalEnquiries">0</h3>
+                                        <small class="text-muted">Total Enquiries</small>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Status</label>
-                                    <select class="form-select" id="enquiryStatusFilter">
-                                        <option value="all">All Statuses</option>
-                                        <option value="pending">Pending</option>
-                                        <option value="responded">Responded</option>
-                                        <option value="resolved">Resolved</option>
-                                        <option value="closed">Closed</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Source</label>
-                                    <select class="form-select" id="enquirySourceFilter">
-                                        <option value="all">All Sources</option>
-                                        <option value="website">Website</option>
-                                        <option value="email">Email</option>
-                                        <option value="phone">Phone</option>
-                                        <option value="referral">Referral</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label fw-bold">Priority</label>
-                                    <select class="form-select" id="enquiryPriorityFilter">
-                                        <option value="all">All Priorities</option>
-                                        <option value="high">High</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="low">Low</option>
-                                    </select>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-success rounded-circle p-3 me-3">
+                                        <i class="bi bi-cup-straw text-white fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="mb-0 text-success" id="kitchenCount">0</h3>
+                                        <small class="text-muted">Kitchen & Cabinets</small>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="mt-3 d-flex justify-content-between">
-                                <button class="btn btn-outline-secondary" id="resetFiltersBtn">
-                                    <i class="bi bi-arrow-clockwise"></i> Reset Filters
-                                </button>
-                                <button class="btn btn-primary" id="applyFiltersBtn">
-                                    <i class="bi bi-filter"></i> Apply Filters
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Statistics Summary -->
-                    <div class="row mb-4">
-                        <div class="col-md-3 col-6">
-                            <div class="card border-primary">
-                                <div class="card-body text-center py-3">
-                                    <h4 class="text-primary mb-1" id="totalEnquiriesCount">0</h4>
-                                    <small class="text-muted">Total Enquiries</small>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-warning rounded-circle p-3 me-3">
+                                        <i class="bi bi-building text-white fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="mb-0 text-warning" id="buildingCount">0</h3>
+                                        <small class="text-muted">Building</small>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <div class="card border-warning">
-                                <div class="card-body text-center py-3">
-                                    <h4 class="text-warning mb-1" id="pendingEnquiriesCount">0</h4>
-                                    <small class="text-muted">Pending</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <div class="card border-success">
-                                <div class="card-body text-center py-3">
-                                    <h4 class="text-success mb-1" id="respondedEnquiriesCount">0</h4>
-                                    <small class="text-muted">Responded</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <div class="card border-info">
-                                <div class="card-body text-center py-3">
-                                    <h4 class="text-info mb-1" id="resolvedEnquiriesCount">0</h4>
-                                    <small class="text-muted">Resolved</small>
+                            <div class="col-lg-3 col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <div class="bg-info rounded-circle p-3 me-3">
+                                        <i class="bi bi-house-up text-white fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="mb-0 text-info" id="renovationCount">0</h3>
+                                        <small class="text-muted">Renovation</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Enquiries Table -->
-                    <div class="table-responsive">
-                        <table class="table table-hover table-striped">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th><input type="checkbox" id="selectAllEnquiries"></th>
-                                    <th>ID</th>
-                                    <th>Date</th>
-                                    <th>Name</th>
-                                    <th>Email</th>
-                                    <th>Status</th>
-                                    <th>Priority</th>
-                                    <th>Source</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="enquiriesTableBody">
-                                <!-- Enquiries will be loaded here dynamically -->
-                                <tr id="noEnquiriesRow" class="d-none">
-                                    <td colspan="9" class="text-center py-4">
-                                        <i class="bi bi-inbox display-4 text-muted"></i>
-                                        <p class="mt-2">No enquiries found matching your criteria</p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <!-- Main Content Area -->
+                    <div class="container-fluid py-4">
+                        <div class="row g-4">
+                            <!-- Left Sidebar - Filters & Quick Actions -->
+                            <div class="col-lg-3">
+                                <div class="sticky-top" style="top: 20px;">
+                                    <!-- Filter Card -->
+                                    <div class="card border-0 shadow-sm mb-4">
+                                        <div class="card-header bg-white border-0 py-3">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-funnel text-primary me-2"></i>
+                                                FILTER ENQUIRIES
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="mb-4">
+                                                <label class="form-label fw-bold text-dark mb-2">
+                                                    <i class="bi bi-tag me-1"></i> Enquiry Type
+                                                </label>
+                                                <div class="d-grid gap-2">
+                                                    <button class="btn btn-outline-primary text-start d-flex justify-content-between align-items-center active" onclick="filterByType('all')">
+                                                        <span>All Types</span>
+                                                        <span class="badge bg-primary" id="allCount">0</span>
+                                                    </button>
+                                                    <button class="btn btn-outline-success text-start d-flex justify-content-between align-items-center" onclick="filterByType('kitchen_cabinets')">
+                                                        <span>Kitchen & Cabinets</span>
+                                                        <span class="badge bg-success" id="kitchenBadge">0</span>
+                                                    </button>
+                                                    <button class="btn btn-outline-warning text-start d-flex justify-content-between align-items-center" onclick="filterByType('building')">
+                                                        <span>Building</span>
+                                                        <span class="badge bg-warning" id="buildingBadge">0</span>
+                                                    </button>
+                                                    <button class="btn btn-outline-info text-start d-flex justify-content-between align-items-center" onclick="filterByType('renovation')">
+                                                        <span>Renovation</span>
+                                                        <span class="badge bg-info" id="renovationBadge">0</span>
+                                                    </button>
+                                                    <button class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center" onclick="filterByType('otherenq')">
+                                                        <span>Other</span>
+                                                        <span class="badge bg-secondary" id="otherBadge">0</span>
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                    <!-- Bulk Actions -->
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <div class="bulk-actions d-none" id="bulkActionsSection">
-                            <button class="btn btn-sm btn-outline-secondary me-2" id="markAsRespondedBtn">
-                                <i class="bi bi-check-circle"></i> Mark as Responded
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" id="deleteSelectedBtn">
-                                <i class="bi bi-trash"></i> Delete Selected
-                            </button>
-                        </div>
-                        <div class="ms-auto">
-                            <span id="selectedCount" class="badge bg-primary me-2 d-none">0 selected</span>
-                            <button class="btn btn-success" id="exportReportBtn">
-                                <i class="bi bi-file-earmark-excel"></i> Export to Excel
-                            </button>
-                        </div>
-                    </div>
+                                            <div class="mb-4">
+                                                <label class="form-label fw-bold text-dark mb-2">
+                                                    <i class="bi bi-whatsapp text-success me-1"></i> WhatsApp Search
+                                                </label>
+                                                <div class="input-group input-group-lg">
+                                                    <span class="input-group-text bg-white border-end-0">
+                                                        <i class="bi bi-search text-muted"></i>
+                                                    </span>
+                                                    <input type="text" 
+                                                        class="form-control border-start-0 ps-0" 
+                                                        id="whatsappFilter" 
+                                                        placeholder="Enter number..."
+                                                        onkeyup="applyFilters()">
+                                                </div>
+                                            </div>
 
-                    <!-- Loading Spinner -->
-                    <div class="text-center py-4" id="enquiriesLoading">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                                            <div class="mb-4">
+                                                <label class="form-label fw-bold text-dark mb-2">
+                                                    <i class="bi bi-hash me-1"></i> ID Search
+                                                </label>
+                                                <div class="input-group input-group-lg">
+                                                    <span class="input-group-text bg-white border-end-0">
+                                                        <i class="bi bi-hash text-muted"></i>
+                                                    </span>
+                                                    <input type="text" 
+                                                        class="form-control border-start-0 ps-0" 
+                                                        id="idFilter" 
+                                                        placeholder="Search by ID..."
+                                                        onkeyup="applyFilters()">
+                                                </div>
+                                            </div>
+
+                                            <div class="d-grid gap-2">
+                                                <button class="btn btn-primary btn-lg" onclick="loadEnquiriesData()">
+                                                    <i class="bi bi-arrow-clockwise me-2"></i> Refresh Data
+                                                </button>
+                                                <button class="btn btn-outline-secondary btn-lg" onclick="resetFilters()">
+                                                    <i class="bi bi-x-circle me-2"></i> Clear Filters
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Export Card -->
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-header bg-white border-0 py-3">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-download text-primary me-2"></i>
+                                                EXPORT DATA
+                                            </h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="d-grid gap-2">
+                                                <button class="btn btn-success btn-lg mb-2" onclick="exportToExcel()">
+                                                    <i class="bi bi-file-earmark-excel me-2"></i> Excel Export
+                                                </button>
+                                                <button class="btn btn-primary btn-lg mb-2" onclick="exportToCSV()">
+                                                    <i class="bi bi-filetype-csv me-2"></i> CSV Export
+                                                </button>
+                                                <button class="btn btn-secondary btn-lg" onclick="printReport()">
+                                                    <i class="bi bi-printer me-2"></i> Print Report
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Main Table Area -->
+                            <div class="col-lg-9">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-header bg-white border-0 py-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">
+                                                <i class="bi bi-table text-primary me-2"></i>
+                                                ENQUIRIES LIST
+                                            </h6>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="text-muted small" id="resultsInfo">
+                                                    Showing 0 of 0 entries
+                                                </span>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                        <i class="bi bi-gear me-1"></i> Options
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        <li><a class="dropdown-item" href="#" onclick="exportToExcel()">
+                                                            <i class="bi bi-file-earmark-excel text-success me-2"></i> Export Excel
+                                                        </a></li>
+                                                        <li><a class="dropdown-item" href="#" onclick="exportToCSV()">
+                                                            <i class="bi bi-filetype-csv text-primary me-2"></i> Export CSV
+                                                        </a></li>
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li><a class="dropdown-item" href="#" onclick="printReport()">
+                                                            <i class="bi bi-printer text-secondary me-2"></i> Print
+                                                        </a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card-body p-0">
+                                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                                            <table class="table table-hover align-middle mb-0">
+                                                <thead class="bg-light sticky-top" style="top: 0;">
+                                                    <tr>
+                                                        <th class="bg-light border-bottom-0 py-3 px-4" style="width: 10%; min-width: 100px;">
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                                                <label class="form-check-label fw-bold text-dark small">ID</label>
+                                                            </div>
+                                                        </th>
+                                                        <th class="bg-light border-bottom-0 py-3 px-4" style="width: 40%; min-width: 300px;">
+                                                            <i class="bi bi-whatsapp text-success me-2"></i>WHATSAPP NUMBER
+                                                        </th>
+                                                        <th class="bg-light border-bottom-0 py-3 px-4" style="width: 25%; min-width: 200px;">
+                                                            <i class="bi bi-tag me-2"></i>ENQUIRY TYPE
+                                                        </th>
+                                                        <th class="bg-light border-bottom-0 py-3 px-4 text-end" style="width: 25%; min-width: 200px;">
+                                                            <i class="bi bi-gear me-2"></i>ACTIONS
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="enquiriesTableBody">
+                                                    <!-- Loading Row -->
+                                                    <tr id="loadingRow">
+                                                        <td colspan="4" class="text-center py-5">
+                                                            <div class="d-flex flex-column align-items-center">
+                                                                <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                                                                    <span class="visually-hidden">Loading...</span>
+                                                                </div>
+                                                                <p class="mt-3 text-muted">Loading enquiries data...</p>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        
+                                        <!-- No Data Message -->
+                                        <div class="text-center py-5 d-none" id="noDataMessage">
+                                            <div class="d-flex flex-column align-items-center justify-content-center py-5">
+                                                <div class="bg-light rounded-circle p-5 mb-4">
+                                                    <i class="bi bi-inbox display-4 text-muted"></i>
+                                                </div>
+                                                <h4 class="text-muted mb-3">No Enquiries Found</h4>
+                                                <p class="text-muted mb-4">There are no interim enquiries matching your criteria</p>
+                                                <button class="btn btn-primary" onclick="resetFilters()">
+                                                    <i class="bi bi-arrow-clockwise me-2"></i> Reset Filters
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Footer with Bulk Actions -->
+                                    <div class="card-footer bg-white border-top py-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="d-flex align-items-center gap-3" id="bulkActions" style="display: none !important;">
+                                                <span class="text-muted" id="selectedCount">0 selected</span>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSelectedEnquiries()">
+                                                    <i class="bi bi-trash me-1"></i> Delete Selected
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                                                    <i class="bi bi-x-circle me-1"></i> Clear Selection
+                                                </button>
+                                            </div>
+                                            <div class="text-end">
+                                                <button class="btn btn-primary" onclick="loadEnquiriesData()">
+                                                    <i class="bi bi-arrow-clockwise me-2"></i> Refresh
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <p class="mt-2">Loading enquiries...</p>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="refreshEnquiriesBtn">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh Data
-                    </button>
+
+                <div class="modal-footer border-top py-3">
+                    <div class="d-flex justify-content-between align-items-center w-100">
+                        <div class="text-muted small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Total Records: <span id="totalRecords" class="fw-bold">0</span>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
+                                <i class="bi bi-x-lg me-2"></i> Close Window
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="loadEnquiriesData()">
+                                <i class="bi bi-arrow-clockwise me-2"></i> Reload Data
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
