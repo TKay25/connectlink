@@ -1813,7 +1813,6 @@
             </div>
         </div>
     </div>
-
 <!-- View Interim Enquiries Modal -->
 <div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-fullscreen" style="max-width: 1400px;">
@@ -1888,19 +1887,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-auto ms-auto">
-                            <div class="d-flex align-items-center">
-                                <button class="btn btn-outline-primary btn-sm me-2" onclick="exportToExcel()">
-                                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
-                                </button>
-                                <button class="btn btn-outline-success btn-sm me-2" onclick="exportToCSV()">
-                                    <i class="bi bi-filetype-csv me-1"></i> CSV
-                                </button>
-                                <button class="btn btn-outline-secondary btn-sm" onclick="printReport()">
-                                    <i class="bi bi-printer me-1"></i> Print
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -1912,23 +1898,23 @@
                             <!-- Quick Filters -->
                             <div class="mb-4">
                                 <h6 class="text-dark mb-3 fw-bold">
-                                    <i class="bi bi-lightning text-primary me-2 fs-5"></i>
+                                    <i class="bi bi-lightning text-primary me-2"></i>
                                     Quick Filters
                                 </h6>
                                 <div class="d-flex flex-wrap gap-2">
-                                    <button class="btn btn-sm btn-outline-primary" onclick="filterByType('all')">
+                                    <button class="btn btn-sm btn-outline-primary active" onclick="filterByType('all')" id="filterAll">
                                         All
                                     </button>
-                                    <button class="btn btn-sm btn-outline-success" onclick="filterByType('kitchen_cabinets')">
+                                    <button class="btn btn-sm btn-outline-success" onclick="filterByType('kitchen_cabinets')" id="filterKitchen">
                                         Kitchen
                                     </button>
-                                    <button class="btn btn-sm btn-outline-warning" onclick="filterByType('building')">
+                                    <button class="btn btn-sm btn-outline-warning" onclick="filterByType('building')" id="filterBuilding">
                                         Building
                                     </button>
-                                    <button class="btn btn-sm btn-outline-info" onclick="filterByType('renovation')">
+                                    <button class="btn btn-sm btn-outline-info" onclick="filterByType('renovation')" id="filterRenovation">
                                         Renovation
                                     </button>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="filterByType('otherenq')">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="filterByType('otherenq')" id="filterOther">
                                         Other
                                     </button>
                                 </div>
@@ -1937,7 +1923,7 @@
                             <!-- Search Filters -->
                             <div class="mb-4">
                                 <h6 class="text-dark mb-3 fw-bold">
-                                    <i class="bi bi-search text-primary me-2 fs-5"></i>
+                                    <i class="bi bi-search text-primary me-2"></i>
                                     Search Filters
                                 </h6>
                                 <div class="mb-3">
@@ -1970,20 +1956,12 @@
                                                placeholder="Search ID..." onkeyup="applyFilters()">
                                     </div>
                                 </div>
-                                <div class="d-grid gap-2">
-                                    <button class="btn btn-sm btn-primary" onclick="applyFilters()">
-                                        <i class="bi bi-filter me-1"></i> Apply Filters
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="resetFilters()">
-                                        <i class="bi bi-x-circle me-1"></i> Clear Filters
-                                    </button>
-                                </div>
                             </div>
 
                             <!-- Bulk Actions -->
                             <div class="mb-4">
                                 <h6 class="text-dark mb-3 fw-bold">
-                                    <i class="bi bi-check2-square text-primary me-2 fs-5"></i>
+                                    <i class="bi bi-check2-square text-primary me-2"></i>
                                     Bulk Actions
                                 </h6>
                                 <div class="d-grid gap-2">
@@ -1999,6 +1977,25 @@
                                 </div>
                                 <div class="mt-2 text-center small text-muted" id="selectedInfo">
                                     0 selected
+                                </div>
+                            </div>
+
+                            <!-- Export Section -->
+                            <div class="mb-4">
+                                <h6 class="text-dark mb-3 fw-bold">
+                                    <i class="bi bi-download text-primary me-2"></i>
+                                    Export Data
+                                </h6>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-sm btn-success" onclick="exportToExcel()">
+                                        <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" onclick="exportToCSV()">
+                                        <i class="bi bi-filetype-csv me-1"></i> Export CSV
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" onclick="printReport()">
+                                        <i class="bi bi-printer me-1"></i> Print Report
+                                    </button>
                                 </div>
                             </div>
 
@@ -2026,7 +2023,7 @@
                                                onchange="toggleSelectAll()">
                                     </div>
                                     <h6 class="mb-0 text-dark fw-bold">
-                                        <i class="bi bi-table text-primary me-2 fs-5"></i>
+                                        <i class="bi bi-table text-primary me-2"></i>
                                         Enquiries List
                                     </h6>
                                     <span class="badge bg-light text-dark ms-3" id="filteredCount">0</span>
@@ -2058,15 +2055,15 @@
                                             <span class="small text-muted">ENQUIRY ID</span>
                                         </th>
                                         <th class="px-4 py-3" style="min-width: 350px;">
-                                            <i class="bi bi-whatsapp text-success me-1 fs-5"></i>
+                                            <i class="bi bi-whatsapp text-success me-1"></i>
                                             <span class="small text-muted">WHATSAPP NUMBER</span>
                                         </th>
                                         <th class="px-4 py-3" style="width: 200px;">
-                                            <i class="bi bi-tag me-1 fs-5"></i>
+                                            <i class="bi bi-tag me-1"></i>
                                             <span class="small text-muted">ENQUIRY TYPE</span>
                                         </th>
                                         <th class="px-4 py-3 text-center" style="width: 150px;">
-                                            <i class="bi bi-gear me-1 fs-5"></i>
+                                            <i class="bi bi-gear me-1"></i>
                                             <span class="small text-muted">ACTIONS</span>
                                         </th>
                                     </tr>
@@ -2123,8 +2120,6 @@
         </div>
     </div>
 </div>
-
-
 
     <main class="main-content" id="main-content">
         <header>
@@ -2623,7 +2618,7 @@
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
 <script>
-// Global variables
+    // Global variables
 let allEnquiriesData = [];
 let filteredEnquiriesData = [];
 let selectedEnquiries = new Set();
@@ -2654,24 +2649,77 @@ const enquiryTypeConfig = {
 
 // Load enquiries data
 function loadEnquiriesData() {
+    console.log('Loading enquiries data...');
     showLoading(true);
     selectedEnquiries.clear();
     updateSelectionInfo();
     
     fetch('/get_temp_enquiries')
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            allEnquiriesData = data;
-            updateStatistics(data);
+            console.log('Data received:', data);
+            
+            if (!Array.isArray(data)) {
+                throw new Error('Data is not an array');
+            }
+            
+            // Process data - ensure WhatsApp numbers are strings
+            allEnquiriesData = data.map(enquiry => ({
+                id: enquiry.id,
+                wanumber: enquiry.wanumber ? enquiry.wanumber.toString() : '',
+                enqtype: enquiry.enqtype || 'otherenq'
+            }));
+            
+            console.log('Processed data:', allEnquiriesData);
+            
+            updateStatistics(allEnquiriesData);
             applyFilters();
             updateLastUpdated();
             showLoading(false);
         })
         .catch(error => {
-            console.error('Error:', error);
-            showError('Failed to load data. Please try again.');
+            console.error('Fetch error:', error);
+            showError('Failed to load data. Check console for details.');
             showLoading(false);
         });
+}
+
+// Show/hide loading
+function showLoading(show) {
+    const loadingRow = document.getElementById('loadingRow');
+    const noDataMessage = document.getElementById('noDataMessage');
+    
+    if (show) {
+        loadingRow.classList.remove('d-none');
+        noDataMessage.classList.add('d-none');
+    } else {
+        loadingRow.classList.add('d-none');
+    }
+}
+
+// Show error
+function showError(message) {
+    const tableBody = document.getElementById('enquiriesTableBody');
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-5">
+                <div class="d-flex flex-column align-items-center">
+                    <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3"></i>
+                    <h5 class="text-danger mb-2">Error</h5>
+                    <p class="text-muted mb-3">${message}</p>
+                    <button class="btn btn-sm btn-primary" onclick="loadEnquiriesData()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Try Again
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
 }
 
 // Update statistics
@@ -2684,20 +2732,13 @@ function updateStatistics(data) {
         otherenq: 0
     };
     
-    const uniqueNumbers = new Set();
-    
     data.forEach(enquiry => {
         const type = enquiry.enqtype || 'otherenq';
         if (counts.hasOwnProperty(type)) {
             counts[type]++;
         }
-        
-        if (enquiry.wanumber) {
-            uniqueNumbers.add(enquiry.wanumber);
-        }
     });
     
-    // Update display
     document.getElementById('totalEnquiries').textContent = counts.total;
     document.getElementById('kitchenCount').textContent = counts.kitchen_cabinets;
     document.getElementById('buildingCount').textContent = counts.building;
@@ -2738,6 +2779,35 @@ function applyFilters() {
     updateFilteredCount();
 }
 
+// Filter by type
+function filterByType(type) {
+    // Update active button
+    document.querySelectorAll('#filterAll, #filterKitchen, #filterBuilding, #filterRenovation, #filterOther').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    document.getElementById(`filter${type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}`)?.classList.add('active');
+    
+    document.getElementById('enquiryTypeFilter').value = type;
+    applyFilters();
+}
+
+// Reset filters
+function resetFilters() {
+    document.getElementById('enquiryTypeFilter').value = 'all';
+    document.getElementById('whatsappFilter').value = '';
+    document.getElementById('idFilter').value = '';
+    document.getElementById('globalSearch').value = '';
+    
+    // Reset quick filter buttons
+    document.querySelectorAll('#filterAll, #filterKitchen, #filterBuilding, #filterRenovation, #filterOther').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.getElementById('filterAll').classList.add('active');
+    
+    applyFilters();
+}
+
 // Apply global search
 function applyGlobalSearch() {
     const searchTerm = document.getElementById('globalSearch').value.toLowerCase();
@@ -2759,55 +2829,6 @@ function applyGlobalSearch() {
     updateFilteredCount();
 }
 
-// Filter by type
-function filterByType(type) {
-    document.getElementById('enquiryTypeFilter').value = type;
-    applyFilters();
-}
-
-// Reset filters
-function resetFilters() {
-    document.getElementById('enquiryTypeFilter').value = 'all';
-    document.getElementById('whatsappFilter').value = '';
-    document.getElementById('idFilter').value = '';
-    document.getElementById('globalSearch').value = '';
-    applyFilters();
-}
-
-// Show/hide loading
-function showLoading(show) {
-    const loadingRow = document.getElementById('loadingRow');
-    const noDataMessage = document.getElementById('noDataMessage');
-    const tableBody = document.getElementById('enquiriesTableBody');
-    
-    if (show) {
-        loadingRow.classList.remove('d-none');
-        noDataMessage.classList.add('d-none');
-        tableBody.innerHTML = '';
-    } else {
-        loadingRow.classList.add('d-none');
-    }
-}
-
-// Show error
-function showError(message) {
-    const tableBody = document.getElementById('enquiriesTableBody');
-    tableBody.innerHTML = `
-        <tr>
-            <td colspan="5" class="text-center py-5">
-                <div class="d-flex flex-column align-items-center">
-                    <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3"></i>
-                    <h5 class="text-danger mb-2">Error Loading Data</h5>
-                    <p class="text-muted mb-3">${message}</p>
-                    <button class="btn btn-sm btn-primary" onclick="loadEnquiriesData()">
-                        <i class="bi bi-arrow-clockwise me-1"></i> Try Again
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `;
-}
-
 // Render table
 function renderTable() {
     const tableBody = document.getElementById('enquiriesTableBody');
@@ -2816,6 +2837,7 @@ function renderTable() {
     if (filteredEnquiriesData.length === 0) {
         tableBody.innerHTML = '';
         noDataMessage.classList.remove('d-none');
+        updateShowingRecords();
         return;
     }
     
@@ -2847,10 +2869,10 @@ function renderTable() {
                 </td>
                 <td class="px-4 py-3">
                     <div class="d-flex align-items-center">
-                        <i class="bi bi-whatsapp text-success me-3 fs-5"></i>
+                        <i class="bi bi-whatsapp text-success me-3"></i>
                         <div class="flex-grow-1">
                             <div class="fw-bold">${formatWhatsAppNumber(enquiry.wanumber)}</div>
-                            <small class="text-muted d-block">Click icons to copy or message</small>
+                            <small class="text-muted d-block">Click to copy or message</small>
                         </div>
                         ${enquiry.wanumber ? `
                             <div class="d-flex gap-1">
@@ -2859,7 +2881,7 @@ function renderTable() {
                                         title="Copy Number">
                                     <i class="bi bi-copy"></i>
                                 </button>
-                                <a href="https://wa.me/${enquiry.wanumber.replace(/\D/g, '')}" 
+                                <a href="https://wa.me/${enquiry.wanumber}" 
                                    target="_blank" 
                                    class="btn btn-sm btn-success"
                                    title="Message on WhatsApp">
@@ -2871,7 +2893,7 @@ function renderTable() {
                 </td>
                 <td class="px-4 py-3">
                     <div class="d-flex align-items-center">
-                        <i class="bi ${typeConfig.icon} me-3 fs-5" style="color: ${typeConfig.color}"></i>
+                        <i class="bi ${typeConfig.icon} me-3" style="color: ${typeConfig.color}"></i>
                         <span class="badge rounded-pill px-3 py-1" 
                               style="background-color: ${typeConfig.color}; color: white;">
                             ${typeConfig.label}
@@ -2902,12 +2924,20 @@ function renderTable() {
 
 // Format WhatsApp number
 function formatWhatsAppNumber(number) {
-    if (!number) return 'Not Provided';
-    const cleaned = number.replace(/\D/g, '');
+    if (!number || number === '') return 'Not Provided';
+    
+    const numStr = number.toString();
+    const cleaned = numStr.replace(/\D/g, '');
+    
     if (cleaned.length === 10) {
         return `+91 ${cleaned.substring(0,5)} ${cleaned.substring(5)}`;
     }
-    return number;
+    
+    if (cleaned.length === 12 && cleaned.startsWith('91')) {
+        return `+${cleaned.substring(0,2)} ${cleaned.substring(2,7)} ${cleaned.substring(7)}`;
+    }
+    
+    return numStr;
 }
 
 // Toggle select all
@@ -2925,6 +2955,7 @@ function toggleSelectAll() {
     });
     
     updateSelectionInfo();
+    renderTable();
 }
 
 // Toggle individual selection
@@ -2979,9 +3010,10 @@ function copyWhatsAppNumber(number) {
         return;
     }
     
-    navigator.clipboard.writeText(number)
+    const numberStr = number.toString();
+    
+    navigator.clipboard.writeText(numberStr)
         .then(() => {
-            // Show temporary feedback
             const button = event.target.closest('button');
             const originalHTML = button.innerHTML;
             button.innerHTML = '<i class="bi bi-check"></i>';
@@ -3053,6 +3085,8 @@ function deleteSelectedEnquiries() {
             alert(`${selectedEnquiries.size} enquiry(s) deleted`);
             selectedEnquiries.clear();
             loadEnquiriesData();
+        } else {
+            alert('Error: ' + data.message);
         }
     })
     .catch(error => {
@@ -3075,6 +3109,8 @@ function deleteEnquiry(id) {
         if (data.success) {
             alert('Enquiry deleted');
             loadEnquiriesData();
+        } else {
+            alert('Error: ' + data.message);
         }
     })
     .catch(error => {
@@ -3133,7 +3169,7 @@ function viewEnquiryDetails(id) {
                         </div>
                         <div class="mb-3">
                             <label class="form-label small text-muted">WhatsApp Number</label>
-                            <div class="fw-bold">${enquiry.wanumber || 'Not provided'}</div>
+                            <div class="fw-bold">${formatWhatsAppNumber(enquiry.wanumber)}</div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -3167,14 +3203,20 @@ function copyEnquiryDetails(id) {
     const details = `ID: ${enquiry.id}\nType: ${enquiryTypeConfig[enquiry.enqtype]?.label || 'Other'}\nWhatsApp: ${enquiry.wanumber || 'N/A'}`;
     
     navigator.clipboard.writeText(details)
-        .then(() => alert('Details copied!'))
+        .then(() => alert('Details copied to clipboard!'))
         .catch(err => console.error('Copy failed:', err));
 }
 
-// Export functions
+// Export to Excel (requires SheetJS)
 function exportToExcel() {
     if (filteredEnquiriesData.length === 0) {
         alert('No data to export');
+        return;
+    }
+    
+    if (typeof XLSX === 'undefined') {
+        alert('Excel export requires SheetJS library. Exporting as CSV instead.');
+        exportToCSV();
         return;
     }
     
@@ -3187,16 +3229,13 @@ function exportToExcel() {
         ])
     ];
     
-    if (typeof XLSX !== 'undefined') {
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Enquiries');
-        XLSX.writeFile(wb, `enquiries_${new Date().toISOString().split('T')[0]}.xlsx`);
-    } else {
-        exportToCSV();
-    }
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Enquiries');
+    XLSX.writeFile(wb, `enquiries_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
+// Export to CSV
 function exportToCSV() {
     if (filteredEnquiriesData.length === 0) {
         alert('No data to export');
@@ -3219,10 +3258,13 @@ function exportToCSV() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `enquiries_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
 }
 
+// Print report
 function printReport() {
     if (filteredEnquiriesData.length === 0) {
         alert('No data to print');
@@ -3235,7 +3277,7 @@ function printReport() {
     let html = `
         <html>
         <head>
-            <title>Enquiries Report</title>
+            <title>Enquiries Report - ${date}</title>
             <style>
                 body { font-family: Arial; margin: 20px; }
                 h1 { border-bottom: 2px solid #007bff; padding-bottom: 10px; }
@@ -3286,16 +3328,8 @@ function printReport() {
 document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('viewEnquiriesModal');
     if (modal) {
-        modal.addEventListener('shown.bs.modal', loadEnquiriesData);
-    }
-    
-    // Update button click handler
-    const btn = document.getElementById('exportenquiriesBtn');
-    if (btn) {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            const modal = new bootstrap.Modal(document.getElementById('viewEnquiriesModal'));
-            modal.show();
+        modal.addEventListener('shown.bs.modal', function() {
+            loadEnquiriesData();
         });
     }
 });
