@@ -3797,6 +3797,23 @@ def webhook():
                                                             elif selected_option in ["kitchen_cabinets","building","renovation","other"]:
 
                                                                 with get_db() as (cursor, connection):
+
+                                                                    query = f"""
+                                                                        SELECT * FROM appenqtemp
+                                                                        WHERE wanumber::TEXT LIKE %s
+                                                                    """
+                                                                    cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                    resultenqtemp = cursor.fetchone()
+
+                                                                    if resultenqtemp:
+
+                                                                        query = """
+                                                                            DELETE FROM appenqtemp
+                                                                            WHERE wanumber::TEXT LIKE %s
+                                                                        """
+                                                                        cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                        connection.commit()
+
                                                                     insert_query = """
                                                                         INSERT INTO appenqtemp 
                                                                         (wanumber, enqtype)
@@ -3913,15 +3930,6 @@ def webhook():
 
                                                                 print(response.status_code)
                                                                 print(response.text)
-
-
-
-
-
-
-
-
-
 
                                                                 continue
 
@@ -5529,6 +5537,23 @@ def webhook():
                                                             elif selected_option in ["kitchen_cabinets","building","renovation","other"]:
 
                                                                 with get_db() as (cursor, connection):
+
+                                                                    query = f"""
+                                                                        SELECT * FROM appenqtemp
+                                                                        WHERE wanumber::TEXT LIKE %s
+                                                                    """
+                                                                    cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                    resultenqtemp = cursor.fetchone()
+
+                                                                    if resultenqtemp:
+
+                                                                        query = """
+                                                                            DELETE FROM appenqtemp
+                                                                            WHERE wanumber::TEXT LIKE %s
+                                                                        """
+                                                                        cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                        connection.commit()
+
                                                                     insert_query = """
                                                                         INSERT INTO appenqtemp 
                                                                         (wanumber, enqtype)
