@@ -8106,6 +8106,8 @@ def get_temp_enquiries():
             usersdataquerytempenq = "SELECT * FROM appenqtemp;"
             cursor.execute(usersdataquerytempenq)
             usersdataquerytempenqfetch = cursor.fetchall()
+
+            print(usersdataquerytempenqfetch)
             
             # Convert to list of dictionaries
             result = []
@@ -8117,6 +8119,7 @@ def get_temp_enquiries():
                 })
             
             print(f"API: Fetched {len(result)} enquiries")
+            print(result)
             return jsonify(result)
             
         except Exception as e:
