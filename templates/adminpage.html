@@ -1813,297 +1813,359 @@
             </div>
         </div>
     </div>
-
-    <!-- View Interim Enquiries Modal -->
-    <div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-lg-down modal-xxl">
-            <div class="modal-content" style="min-height: 85vh;">
-                <div class="modal-header bg-primary text-white py-3">
-                    <div class="d-flex align-items-center w-100">
-                        <div class="me-3">
-                            <i class="bi bi-search display-6"></i>
+<!-- View Interim Enquiries Modal -->
+<div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-xl modal-dialog-centered">
+        <div class="modal-content" style="min-height: 90vh; max-width: 95vw;">
+            <div class="modal-header bg-primary text-white py-3 px-4">
+                <div class="d-flex align-items-center w-100">
+                    <div class="me-3">
+                        <i class="bi bi-search display-6"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h4 class="modal-title mb-0" id="viewEnquiriesModalLabel">
+                            INTERIM ENQUIRIES MANAGEMENT SYSTEM
+                        </h4>
+                        <small class="opacity-75">View and manage all temporary enquiries</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-light btn-lg px-3 py-2" onclick="loadEnquiriesData()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-body p-0">
+                <!-- Top Stats Bar - Wider -->
+                <div class="bg-light border-bottom py-4 px-5">
+                    <div class="row g-4">
+                        <div class="col-xl-2 col-lg-4 col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary rounded-circle p-3 me-3">
+                                    <i class="bi bi-inbox text-white fs-4"></i>
+                                </div>
+                                <div>
+                                    <h2 class="mb-0 text-primary" id="totalEnquiries">0</h2>
+                                    <small class="text-muted">Total Enquiries</small>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex-grow-1">
-                            <h5 class="modal-title mb-0" id="viewEnquiriesModalLabel">
-                                INTERIM ENQUIRIES MANAGEMENT SYSTEM
-                            </h5>
-                            <small class="opacity-75">View and manage all temporary enquiries</small>
+                        <div class="col-xl-2 col-lg-4 col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-success rounded-circle p-3 me-3">
+                                    <i class="bi bi-cup-straw text-white fs-4"></i>
+                                </div>
+                                <div>
+                                    <h2 class="mb-0 text-success" id="kitchenCount">0</h2>
+                                    <small class="text-muted">Kitchen & Cabinets</small>
+                                </div>
+                            </div>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <button type="button" class="btn btn-light btn-sm" onclick="loadEnquiriesData()">
-                                <i class="bi bi-arrow-clockwise"></i>
-                            </button>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <div class="col-xl-2 col-lg-4 col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-warning rounded-circle p-3 me-3">
+                                    <i class="bi bi-building text-white fs-4"></i>
+                                </div>
+                                <div>
+                                    <h2 class="mb-0 text-warning" id="buildingCount">0</h2>
+                                    <small class="text-muted">Building</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-2 col-lg-4 col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-info rounded-circle p-3 me-3">
+                                    <i class="bi bi-house-up text-white fs-4"></i>
+                                </div>
+                                <div>
+                                    <h2 class="mb-0 text-info" id="renovationCount">0</h2>
+                                    <small class="text-muted">Renovation</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-2 col-lg-4 col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-secondary rounded-circle p-3 me-3">
+                                    <i class="bi bi-three-dots text-white fs-4"></i>
+                                </div>
+                                <div>
+                                    <h2 class="mb-0 text-secondary" id="otherCount">0</h2>
+                                    <small class="text-muted">Other</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-2 col-lg-4 col-md-6">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-dark rounded-circle p-3 me-3">
+                                    <i class="bi bi-whatsapp text-white fs-4"></i>
+                                </div>
+                                <div>
+                                    <h2 class="mb-0 text-dark" id="uniqueContacts">0</h2>
+                                    <small class="text-muted">Unique Contacts</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="modal-body p-0">
-                    <!-- Top Stats Bar -->
-                    <div class="bg-light border-bottom py-3 px-4">
-                        <div class="row g-4">
-                            <div class="col-lg-3 col-md-6">
-                                <div class="d-flex align-items-center">
-                                    <div class="bg-primary rounded-circle p-3 me-3">
-                                        <i class="bi bi-inbox text-white fs-4"></i>
-                                    </div>
-                                    <div>
-                                        <h3 class="mb-0 text-primary" id="totalEnquiries">0</h3>
-                                        <small class="text-muted">Total Enquiries</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-md-6">
-                                <div class="d-flex align-items-center">
-                                    <div class="bg-success rounded-circle p-3 me-3">
-                                        <i class="bi bi-cup-straw text-white fs-4"></i>
-                                    </div>
-                                    <div>
-                                        <h3 class="mb-0 text-success" id="kitchenCount">0</h3>
-                                        <small class="text-muted">Kitchen & Cabinets</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-md-6">
-                                <div class="d-flex align-items-center">
-                                    <div class="bg-warning rounded-circle p-3 me-3">
-                                        <i class="bi bi-building text-white fs-4"></i>
-                                    </div>
-                                    <div>
-                                        <h3 class="mb-0 text-warning" id="buildingCount">0</h3>
-                                        <small class="text-muted">Building</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-md-6">
-                                <div class="d-flex align-items-center">
-                                    <div class="bg-info rounded-circle p-3 me-3">
-                                        <i class="bi bi-house-up text-white fs-4"></i>
-                                    </div>
-                                    <div>
-                                        <h3 class="mb-0 text-info" id="renovationCount">0</h3>
-                                        <small class="text-muted">Renovation</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Main Content Area -->
-                    <div class="container-fluid py-4">
-                        <div class="row g-4">
-                            <!-- Left Sidebar - Filters & Quick Actions -->
-                            <div class="col-lg-3">
-                                <div class="sticky-top" style="top: 20px;">
-                                    <!-- Filter Card -->
-                                    <div class="card border-0 shadow-sm mb-4">
-                                        <div class="card-header bg-white border-0 py-3">
-                                            <h6 class="mb-0">
-                                                <i class="bi bi-funnel text-primary me-2"></i>
-                                                FILTER ENQUIRIES
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="mb-4">
-                                                <label class="form-label fw-bold text-dark mb-2">
-                                                    <i class="bi bi-tag me-1"></i> Enquiry Type
-                                                </label>
-                                                <div class="d-grid gap-2">
-                                                    <button class="btn btn-outline-primary text-start d-flex justify-content-between align-items-center active" onclick="filterByType('all')">
-                                                        <span>All Types</span>
-                                                        <span class="badge bg-primary" id="allCount">0</span>
-                                                    </button>
-                                                    <button class="btn btn-outline-success text-start d-flex justify-content-between align-items-center" onclick="filterByType('kitchen_cabinets')">
-                                                        <span>Kitchen & Cabinets</span>
-                                                        <span class="badge bg-success" id="kitchenBadge">0</span>
-                                                    </button>
-                                                    <button class="btn btn-outline-warning text-start d-flex justify-content-between align-items-center" onclick="filterByType('building')">
-                                                        <span>Building</span>
-                                                        <span class="badge bg-warning" id="buildingBadge">0</span>
-                                                    </button>
-                                                    <button class="btn btn-outline-info text-start d-flex justify-content-between align-items-center" onclick="filterByType('renovation')">
-                                                        <span>Renovation</span>
-                                                        <span class="badge bg-info" id="renovationBadge">0</span>
-                                                    </button>
-                                                    <button class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center" onclick="filterByType('otherenq')">
-                                                        <span>Other</span>
-                                                        <span class="badge bg-secondary" id="otherBadge">0</span>
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div class="mb-4">
-                                                <label class="form-label fw-bold text-dark mb-2">
-                                                    <i class="bi bi-whatsapp text-success me-1"></i> WhatsApp Search
-                                                </label>
-                                                <div class="input-group input-group-lg">
-                                                    <span class="input-group-text bg-white border-end-0">
-                                                        <i class="bi bi-search text-muted"></i>
-                                                    </span>
-                                                    <input type="text" 
-                                                        class="form-control border-start-0 ps-0" 
-                                                        id="whatsappFilter" 
-                                                        placeholder="Enter number..."
-                                                        onkeyup="applyFilters()">
-                                                </div>
-                                            </div>
-
-                                            <div class="mb-4">
-                                                <label class="form-label fw-bold text-dark mb-2">
-                                                    <i class="bi bi-hash me-1"></i> ID Search
-                                                </label>
-                                                <div class="input-group input-group-lg">
-                                                    <span class="input-group-text bg-white border-end-0">
-                                                        <i class="bi bi-hash text-muted"></i>
-                                                    </span>
-                                                    <input type="text" 
-                                                        class="form-control border-start-0 ps-0" 
-                                                        id="idFilter" 
-                                                        placeholder="Search by ID..."
-                                                        onkeyup="applyFilters()">
-                                                </div>
-                                            </div>
-
-                                            <div class="d-grid gap-2">
-                                                <button class="btn btn-primary btn-lg" onclick="loadEnquiriesData()">
-                                                    <i class="bi bi-arrow-clockwise me-2"></i> Refresh Data
+                <!-- Main Content Area - Properly Spaced -->
+                <div class="container-fluid py-4 px-5">
+                    <div class="row g-5">
+                        <!-- Left Sidebar - Filters & Actions -->
+                        <div class="col-lg-4 col-xl-3">
+                            <div class="sticky-top" style="top: 20px; z-index: 100;">
+                                <!-- Filter Card -->
+                                <div class="card border shadow-lg mb-4">
+                                    <div class="card-header bg-white border-bottom py-4">
+                                        <h5 class="mb-0 text-dark">
+                                            <i class="bi bi-funnel text-primary me-2"></i>
+                                            FILTER OPTIONS
+                                        </h5>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="mb-4">
+                                            <label class="form-label fw-bold text-dark mb-3 d-flex align-items-center">
+                                                <i class="bi bi-tag-fill text-primary me-2"></i>
+                                                ENQUIRY TYPE
+                                            </label>
+                                            <div class="d-grid gap-3">
+                                                <button class="btn btn-primary text-start d-flex justify-content-between align-items-center py-3 px-4" 
+                                                        onclick="filterByType('all')">
+                                                    <span class="fw-bold">All Types</span>
+                                                    <span class="badge bg-white text-primary fs-6 px-3 py-2" id="allCount">0</span>
                                                 </button>
-                                                <button class="btn btn-outline-secondary btn-lg" onclick="resetFilters()">
-                                                    <i class="bi bi-x-circle me-2"></i> Clear Filters
+                                                <button class="btn btn-outline-success text-start d-flex justify-content-between align-items-center py-3 px-4" 
+                                                        onclick="filterByType('kitchen_cabinets')">
+                                                    <span>Kitchen & Cabinets</span>
+                                                    <span class="badge bg-success text-white fs-6 px-3 py-2" id="kitchenBadge">0</span>
+                                                </button>
+                                                <button class="btn btn-outline-warning text-start d-flex justify-content-between align-items-center py-3 px-4" 
+                                                        onclick="filterByType('building')">
+                                                    <span>Building</span>
+                                                    <span class="badge bg-warning text-white fs-6 px-3 py-2" id="buildingBadge">0</span>
+                                                </button>
+                                                <button class="btn btn-outline-info text-start d-flex justify-content-between align-items-center py-3 px-4" 
+                                                        onclick="filterByType('renovation')">
+                                                    <span>Renovation</span>
+                                                    <span class="badge bg-info text-white fs-6 px-3 py-2" id="renovationBadge">0</span>
+                                                </button>
+                                                <button class="btn btn-outline-secondary text-start d-flex justify-content-between align-items-center py-3 px-4" 
+                                                        onclick="filterByType('otherenq')">
+                                                    <span>Other</span>
+                                                    <span class="badge bg-secondary text-white fs-6 px-3 py-2" id="otherBadge">0</span>
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <!-- Export Card -->
-                                    <div class="card border-0 shadow-sm">
-                                        <div class="card-header bg-white border-0 py-3">
-                                            <h6 class="mb-0">
-                                                <i class="bi bi-download text-primary me-2"></i>
-                                                EXPORT DATA
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="d-grid gap-2">
-                                                <button class="btn btn-success btn-lg mb-2" onclick="exportToExcel()">
-                                                    <i class="bi bi-file-earmark-excel me-2"></i> Excel Export
-                                                </button>
-                                                <button class="btn btn-primary btn-lg mb-2" onclick="exportToCSV()">
-                                                    <i class="bi bi-filetype-csv me-2"></i> CSV Export
-                                                </button>
-                                                <button class="btn btn-secondary btn-lg" onclick="printReport()">
-                                                    <i class="bi bi-printer me-2"></i> Print Report
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Main Table Area -->
-                            <div class="col-lg-9">
-                                <div class="card border-0 shadow-sm h-100">
-                                    <div class="card-header bg-white border-0 py-3">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h6 class="mb-0">
-                                                <i class="bi bi-table text-primary me-2"></i>
-                                                ENQUIRIES LIST
-                                            </h6>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="text-muted small" id="resultsInfo">
-                                                    Showing 0 of 0 entries
+                                        <div class="mb-4">
+                                            <label class="form-label fw-bold text-dark mb-3 d-flex align-items-center">
+                                                <i class="bi bi-whatsapp text-success me-2"></i>
+                                                WHATSAPP SEARCH
+                                            </label>
+                                            <div class="input-group input-group-lg shadow-sm">
+                                                <span class="input-group-text bg-white border-end-0 py-3">
+                                                    <i class="bi bi-search text-muted fs-5"></i>
                                                 </span>
-                                                <div class="dropdown">
-                                                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                                        <i class="bi bi-gear me-1"></i> Options
-                                                    </button>
-                                                    <ul class="dropdown-menu">
-                                                        <li><a class="dropdown-item" href="#" onclick="exportToExcel()">
-                                                            <i class="bi bi-file-earmark-excel text-success me-2"></i> Export Excel
-                                                        </a></li>
-                                                        <li><a class="dropdown-item" href="#" onclick="exportToCSV()">
-                                                            <i class="bi bi-filetype-csv text-primary me-2"></i> Export CSV
-                                                        </a></li>
-                                                        <li><hr class="dropdown-divider"></li>
-                                                        <li><a class="dropdown-item" href="#" onclick="printReport()">
-                                                            <i class="bi bi-printer text-secondary me-2"></i> Print
-                                                        </a></li>
-                                                    </ul>
-                                                </div>
+                                                <input type="text" 
+                                                       class="form-control border-start-0 ps-0 py-3" 
+                                                       id="whatsappFilter" 
+                                                       placeholder="Enter WhatsApp number..."
+                                                       onkeyup="applyFilters()">
                                             </div>
                                         </div>
-                                    </div>
-                                    
-                                    <div class="card-body p-0">
-                                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                                            <table class="table table-hover align-middle mb-0">
-                                                <thead class="bg-light sticky-top" style="top: 0;">
-                                                    <tr>
-                                                        <th class="bg-light border-bottom-0 py-3 px-4" style="width: 10%; min-width: 100px;">
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                                                <label class="form-check-label fw-bold text-dark small">ID</label>
-                                                            </div>
-                                                        </th>
-                                                        <th class="bg-light border-bottom-0 py-3 px-4" style="width: 40%; min-width: 300px;">
-                                                            <i class="bi bi-whatsapp text-success me-2"></i>WHATSAPP NUMBER
-                                                        </th>
-                                                        <th class="bg-light border-bottom-0 py-3 px-4" style="width: 25%; min-width: 200px;">
-                                                            <i class="bi bi-tag me-2"></i>ENQUIRY TYPE
-                                                        </th>
-                                                        <th class="bg-light border-bottom-0 py-3 px-4 text-end" style="width: 25%; min-width: 200px;">
-                                                            <i class="bi bi-gear me-2"></i>ACTIONS
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="enquiriesTableBody">
-                                                    <!-- Loading Row -->
-                                                    <tr id="loadingRow">
-                                                        <td colspan="4" class="text-center py-5">
-                                                            <div class="d-flex flex-column align-items-center">
-                                                                <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
-                                                                    <span class="visually-hidden">Loading...</span>
-                                                                </div>
-                                                                <p class="mt-3 text-muted">Loading enquiries data...</p>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+
+                                        <div class="mb-4">
+                                            <label class="form-label fw-bold text-dark mb-3 d-flex align-items-center">
+                                                <i class="bi bi-hash text-primary me-2"></i>
+                                                ID SEARCH
+                                            </label>
+                                            <div class="input-group input-group-lg shadow-sm">
+                                                <span class="input-group-text bg-white border-end-0 py-3">
+                                                    <i class="bi bi-hash text-muted fs-5"></i>
+                                                </span>
+                                                <input type="text" 
+                                                       class="form-control border-start-0 ps-0 py-3" 
+                                                       id="idFilter" 
+                                                       placeholder="Search by ID..."
+                                                       onkeyup="applyFilters()">
+                                            </div>
                                         </div>
-                                        
-                                        <!-- No Data Message -->
-                                        <div class="text-center py-5 d-none" id="noDataMessage">
-                                            <div class="d-flex flex-column align-items-center justify-content-center py-5">
-                                                <div class="bg-light rounded-circle p-5 mb-4">
-                                                    <i class="bi bi-inbox display-4 text-muted"></i>
-                                                </div>
-                                                <h4 class="text-muted mb-3">No Enquiries Found</h4>
-                                                <p class="text-muted mb-4">There are no interim enquiries matching your criteria</p>
-                                                <button class="btn btn-primary" onclick="resetFilters()">
-                                                    <i class="bi bi-arrow-clockwise me-2"></i> Reset Filters
+
+                                        <div class="d-grid gap-3 mt-5">
+                                            <button class="btn btn-primary btn-lg py-3" onclick="loadEnquiriesData()">
+                                                <i class="bi bi-arrow-clockwise me-3"></i> REFRESH DATA
+                                            </button>
+                                            <button class="btn btn-outline-dark btn-lg py-3" onclick="resetFilters()">
+                                                <i class="bi bi-x-circle me-3"></i> CLEAR FILTERS
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Export Card -->
+                                <div class="card border shadow-lg">
+                                    <div class="card-header bg-white border-bottom py-4">
+                                        <h5 class="mb-0 text-dark">
+                                            <i class="bi bi-download text-primary me-2"></i>
+                                            EXPORT DATA
+                                        </h5>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="d-grid gap-3">
+                                            <button class="btn btn-success btn-lg py-3" onclick="exportToExcel()">
+                                                <i class="bi bi-file-earmark-excel me-3"></i> EXPORT EXCEL
+                                            </button>
+                                            <button class="btn btn-info btn-lg py-3" onclick="exportToCSV()">
+                                                <i class="bi bi-filetype-csv me-3"></i> EXPORT CSV
+                                            </button>
+                                            <button class="btn btn-secondary btn-lg py-3" onclick="printReport()">
+                                                <i class="bi bi-printer me-3"></i> PRINT REPORT
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Main Table Area - Wider -->
+                        <div class="col-lg-8 col-xl-9">
+                            <div class="card border-0 shadow-lg h-100">
+                                <div class="card-header bg-white border-bottom py-4 px-5">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h5 class="mb-0 text-dark">
+                                                <i class="bi bi-table text-primary me-3"></i>
+                                                ENQUIRIES LIST
+                                            </h5>
+                                            <p class="text-muted mb-0 mt-1" id="resultsInfo">
+                                                Total: <span class="fw-bold">0</span> records
+                                            </p>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="input-group" style="width: 300px;">
+                                                <input type="text" 
+                                                       class="form-control" 
+                                                       id="globalSearch" 
+                                                       placeholder="Search all columns..."
+                                                       onkeyup="applyGlobalSearch()">
+                                                <button class="btn btn-outline-secondary" type="button">
+                                                    <i class="bi bi-search"></i>
                                                 </button>
                                             </div>
+                                            <div class="dropdown">
+                                                <button class="btn btn-primary px-4 py-2 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                    <i class="bi bi-gear me-2"></i> OPTIONS
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li><a class="dropdown-item" href="#" onclick="exportToExcel()">
+                                                        <i class="bi bi-file-earmark-excel text-success me-2"></i> Export Excel
+                                                    </a></li>
+                                                    <li><a class="dropdown-item" href="#" onclick="exportToCSV()">
+                                                        <i class="bi bi-filetype-csv text-info me-2"></i> Export CSV
+                                                    </a></li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li><a class="dropdown-item" href="#" onclick="printReport()">
+                                                        <i class="bi bi-printer text-secondary me-2"></i> Print
+                                                    </a></li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
-                                    
-                                    <!-- Footer with Bulk Actions -->
-                                    <div class="card-footer bg-white border-top py-3">
+                                </div>
+                                
+                                <div class="card-body p-0">
+                                    <!-- Bulk Actions Bar -->
+                                    <div class="bg-primary text-white py-3 px-5 d-none" id="bulkActions">
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <div class="d-flex align-items-center gap-3" id="bulkActions" style="display: none !important;">
-                                                <span class="text-muted" id="selectedCount">0 selected</span>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSelectedEnquiries()">
-                                                    <i class="bi bi-trash me-1"></i> Delete Selected
+                                            <div class="d-flex align-items-center gap-3">
+                                                <i class="bi bi-check-circle fs-4"></i>
+                                                <h6 class="mb-0" id="selectedCount">0 enquiries selected</h6>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-light btn-sm px-3" onclick="copySelectedNumbers()">
+                                                    <i class="bi bi-copy me-2"></i> Copy Numbers
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
-                                                    <i class="bi bi-x-circle me-1"></i> Clear Selection
+                                                <button class="btn btn-danger btn-sm px-3" onclick="deleteSelectedEnquiries()">
+                                                    <i class="bi bi-trash me-2"></i> Delete Selected
+                                                </button>
+                                                <button class="btn btn-outline-light btn-sm px-3" onclick="clearSelection()">
+                                                    <i class="bi bi-x me-2"></i> Clear
                                                 </button>
                                             </div>
-                                            <div class="text-end">
-                                                <button class="btn btn-primary" onclick="loadEnquiriesData()">
-                                                    <i class="bi bi-arrow-clockwise me-2"></i> Refresh
-                                                </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Table Container -->
+                                    <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
+                                        <table class="table table-hover align-middle mb-0">
+                                            <thead class="bg-light sticky-top" style="top: 0;">
+                                                <tr>
+                                                    <th class="py-4 px-5" style="width: 15%; min-width: 150px;">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                                            <label class="form-check-label fw-bold text-dark">ENQUIRY ID</label>
+                                                        </div>
+                                                    </th>
+                                                    <th class="py-4 px-5" style="width: 40%; min-width: 350px;">
+                                                        <i class="bi bi-whatsapp text-success me-2"></i> WHATSAPP NUMBER
+                                                    </th>
+                                                    <th class="py-4 px-5" style="width: 25%; min-width: 250px;">
+                                                        <i class="bi bi-tag me-2"></i> ENQUIRY TYPE
+                                                    </th>
+                                                    <th class="py-4 px-5 text-center" style="width: 20%; min-width: 200px;">
+                                                        <i class="bi bi-gear me-2"></i> ACTIONS
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="enquiriesTableBody">
+                                                <!-- Loading Row -->
+                                                <tr id="loadingRow">
+                                                    <td colspan="4" class="text-center py-5">
+                                                        <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
+                                                            <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status">
+                                                                <span class="visually-hidden">Loading...</span>
+                                                            </div>
+                                                            <h5 class="mt-4 text-primary">Loading Enquiries Data</h5>
+                                                            <p class="text-muted">Please wait while we fetch the data...</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <!-- No Data Message -->
+                                    <div class="text-center d-none" id="noDataMessage">
+                                        <div class="d-flex flex-column align-items-center justify-content-center py-5" style="min-height: 300px;">
+                                            <div class="bg-light rounded-circle p-5 mb-4">
+                                                <i class="bi bi-inbox display-3 text-muted"></i>
                                             </div>
+                                            <h4 class="text-muted mb-3">No Enquiries Found</h4>
+                                            <p class="text-muted mb-4">There are no interim enquiries matching your search criteria</p>
+                                            <button class="btn btn-primary px-4 py-2" onclick="resetFilters()">
+                                                <i class="bi bi-arrow-clockwise me-2"></i> Reset All Filters
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Table Footer -->
+                                <div class="card-footer bg-white border-top py-4 px-5">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="text-muted">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            Showing <span class="fw-bold" id="showingCount">0</span> of 
+                                            <span class="fw-bold" id="totalCount">0</span> records
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-outline-primary px-4" onclick="loadEnquiriesData()">
+                                                <i class="bi bi-arrow-clockwise me-2"></i> Refresh
+                                            </button>
+                                            <button class="btn btn-primary px-4" onclick="scrollToTop()">
+                                                <i class="bi bi-arrow-up me-2"></i> Top
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -2111,26 +2173,27 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="modal-footer border-top py-3">
-                    <div class="d-flex justify-content-between align-items-center w-100">
-                        <div class="text-muted small">
-                            <i class="bi bi-info-circle me-1"></i>
-                            Total Records: <span id="totalRecords" class="fw-bold">0</span>
-                        </div>
-                        <div>
-                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">
-                                <i class="bi bi-x-lg me-2"></i> Close Window
-                            </button>
-                            <button type="button" class="btn btn-primary" onclick="loadEnquiriesData()">
-                                <i class="bi bi-arrow-clockwise me-2"></i> Reload Data
-                            </button>
-                        </div>
+            <div class="modal-footer border-top py-4 px-5">
+                <div class="d-flex justify-content-between align-items-center w-100">
+                    <div class="text-muted">
+                        <i class="bi bi-clock me-2"></i>
+                        Last Updated: <span id="lastUpdated" class="fw-bold">Just now</span>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-secondary px-5 py-2 me-3" data-bs-dismiss="modal">
+                            <i class="bi bi-x-lg me-2"></i> Close
+                        </button>
+                        <button type="button" class="btn btn-primary px-5 py-2" onclick="loadEnquiriesData()">
+                            <i class="bi bi-arrow-clockwise me-2"></i> Refresh All
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
     <main class="main-content" id="main-content">
         <header>
@@ -2627,6 +2690,286 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+<script>
+// Add these helper functions and update existing ones:
+
+// Update type badges with better counting
+function updateTypeBadges(data) {
+    const counts = {
+        all: data.length,
+        kitchen_cabinets: 0,
+        building: 0,
+        renovation: 0,
+        otherenq: 0
+    };
+    
+    // Count unique WhatsApp numbers
+    const uniqueNumbers = new Set();
+    
+    data.forEach(enquiry => {
+        const type = enquiry.enqtype || 'otherenq';
+        if (counts.hasOwnProperty(type)) {
+            counts[type]++;
+        } else {
+            counts.otherenq++;
+        }
+        
+        // Add to unique numbers
+        if (enquiry.wanumber) {
+            uniqueNumbers.add(enquiry.wanumber);
+        }
+    });
+    
+    // Update badge counts
+    Object.keys(counts).forEach(type => {
+        const badgeId = type === 'all' ? 'allCount' : `${type}Badge`;
+        const badge = document.getElementById(badgeId);
+        if (badge) {
+            badge.textContent = counts[type].toLocaleString();
+        }
+    });
+    
+    // Update statistics
+    document.getElementById('totalEnquiries').textContent = counts.all.toLocaleString();
+    document.getElementById('kitchenCount').textContent = counts.kitchen_cabinets.toLocaleString();
+    document.getElementById('buildingCount').textContent = counts.building.toLocaleString();
+    document.getElementById('renovationCount').textContent = counts.renovation.toLocaleString();
+    document.getElementById('otherCount').textContent = counts.otherenq.toLocaleString();
+    document.getElementById('uniqueContacts').textContent = uniqueNumbers.size.toLocaleString();
+}
+
+// Apply global search
+function applyGlobalSearch() {
+    const searchTerm = document.getElementById('globalSearch').value.toLowerCase();
+    
+    if (!searchTerm) {
+        applyFilters();
+        return;
+    }
+    
+    filteredEnquiriesData = allEnquiriesData.filter(enquiry => {
+        // Search in ID
+        if (enquiry.id && enquiry.id.toString().toLowerCase().includes(searchTerm)) {
+            return true;
+        }
+        
+        // Search in WhatsApp number
+        if (enquiry.wanumber && enquiry.wanumber.toLowerCase().includes(searchTerm)) {
+            return true;
+        }
+        
+        // Search in enquiry type
+        const typeConfig = enquiryTypeConfig[enquiry.enqtype] || enquiryTypeConfig['otherenq'];
+        if (typeConfig.label.toLowerCase().includes(searchTerm)) {
+            return true;
+        }
+        
+        return false;
+    });
+    
+    renderTable();
+    updateResultsInfo();
+}
+
+// Update results info
+function updateResultsInfo() {
+    const infoElement = document.getElementById('resultsInfo');
+    const showingCount = document.getElementById('showingCount');
+    const totalCount = document.getElementById('totalCount');
+    
+    if (infoElement) {
+        infoElement.innerHTML = `Total: <span class="fw-bold">${filteredEnquiriesData.length}</span> records`;
+    }
+    
+    if (showingCount) {
+        showingCount.textContent = filteredEnquiriesData.length;
+    }
+    
+    if (totalCount) {
+        totalCount.textContent = allEnquiriesData.length;
+    }
+    
+    // Update last updated time
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+}
+
+// Scroll to top
+function scrollToTop() {
+    const tableContainer = document.querySelector('.table-responsive');
+    if (tableContainer) {
+        tableContainer.scrollTop = 0;
+    }
+}
+
+// Copy selected WhatsApp numbers
+function copySelectedNumbers() {
+    if (selectedEnquiries.size === 0) {
+        alert('No enquiries selected');
+        return;
+    }
+    
+    const numbers = [];
+    selectedEnquiries.forEach(id => {
+        const enquiry = allEnquiriesData.find(e => e.id.toString() === id);
+        if (enquiry && enquiry.wanumber) {
+            numbers.push(enquiry.wanumber);
+        }
+    });
+    
+    if (numbers.length === 0) {
+        alert('No WhatsApp numbers found in selected enquiries');
+        return;
+    }
+    
+    const numbersText = numbers.join('\n');
+    navigator.clipboard.writeText(numbersText)
+        .then(() => {
+            alert(`${numbers.length} WhatsApp numbers copied to clipboard!`);
+        })
+        .catch(err => {
+            console.error('Copy failed:', err);
+            alert('Failed to copy numbers');
+        });
+}
+
+// Enhanced render table function with better spacing
+function renderTable() {
+    const tableBody = document.getElementById('enquiriesTableBody');
+    
+    if (filteredEnquiriesData.length === 0) {
+        tableBody.innerHTML = '';
+        return;
+    }
+    
+    let html = '';
+    filteredEnquiriesData.forEach((enquiry, index) => {
+        const typeConfig = enquiryTypeConfig[enquiry.enqtype] || enquiryTypeConfig['otherenq'];
+        const isSelected = selectedEnquiries.has(enquiry.id.toString());
+        
+        html += `
+            <tr class="${isSelected ? 'table-primary' : ''}" style="border-bottom: 1px solid #eee;">
+                <td class="px-5 py-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input enquiry-checkbox" 
+                                   type="checkbox" 
+                                   value="${enquiry.id}"
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="toggleEnquirySelection(this)"
+                                   style="width: 1.2rem; height: 1.2rem;">
+                        </div>
+                        <div>
+                            <span class="badge bg-dark rounded-pill px-4 py-2 fs-6">
+                                ${enquiry.id}
+                            </span>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-5 py-4">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-success bg-opacity-10 rounded-circle p-3 me-4">
+                            <i class="bi bi-whatsapp text-success fs-4"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold fs-5 mb-1">${formatWhatsAppNumber(enquiry.wanumber)}</div>
+                            <small class="text-muted d-block">Click to copy or message</small>
+                        </div>
+                        ${enquiry.wanumber ? `
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-success btn-sm px-3" 
+                                        onclick="copyWhatsAppNumber('${enquiry.wanumber}')"
+                                        title="Copy Number">
+                                    <i class="bi bi-copy"></i>
+                                </button>
+                                <a href="https://wa.me/${enquiry.wanumber.replace(/\D/g, '')}" 
+                                   target="_blank" 
+                                   class="btn btn-success btn-sm px-3"
+                                   title="Message on WhatsApp">
+                                    <i class="bi bi-whatsapp"></i>
+                                </a>
+                            </div>
+                        ` : ''}
+                    </div>
+                </td>
+                <td class="px-5 py-4">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle p-3 me-4" style="background-color: ${typeConfig.color}20;">
+                            <i class="bi ${typeConfig.icon} fs-4" style="color: ${typeConfig.color}"></i>
+                        </div>
+                        <div>
+                            <span class="badge rounded-pill px-4 py-2 fs-6" 
+                                  style="background-color: ${typeConfig.color}; color: white;">
+                                ${typeConfig.label}
+                            </span>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-5 py-4 text-center">
+                    <div class="d-flex justify-content-center gap-2">
+                        <button class="btn btn-outline-primary btn-lg px-3 py-2" 
+                                onclick="viewEnquiryDetails(${enquiry.id})"
+                                title="View Details">
+                            <i class="bi bi-eye fs-5"></i>
+                        </button>
+                        <button class="btn btn-outline-info btn-lg px-3 py-2" 
+                                onclick="viewEnquiryHistory(${enquiry.id})"
+                                title="View History">
+                            <i class="bi bi-clock-history fs-5"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-lg px-3 py-2" 
+                                onclick="deleteEnquiry(${enquiry.id})"
+                                title="Delete">
+                            <i class="bi bi-trash fs-5"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tableBody.innerHTML = html;
+}
+
+// Update bulk actions visibility
+function updateBulkActions() {
+    const bulkActions = document.getElementById('bulkActions');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    if (selectedEnquiries.size > 0) {
+        bulkActions.classList.remove('d-none');
+        selectedCount.textContent = `${selectedEnquiries.size} ${selectedEnquiries.size === 1 ? 'enquiry' : 'enquiries'} selected`;
+    } else {
+        bulkActions.classList.add('d-none');
+    }
+}
+
+// View enquiry history (placeholder)
+function viewEnquiryHistory(id) {
+    // Implement history view if needed
+    alert(`History view for enquiry ${id} would go here`);
+}
+
+// Initialize the modal with auto-refresh
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('viewEnquiriesModal');
+    if (modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            loadEnquiriesData();
+            // Auto-refresh every 30 seconds
+            window.enquiryRefreshInterval = setInterval(loadEnquiriesData, 30000);
+        });
+        
+        modal.addEventListener('hidden.bs.modal', function() {
+            // Clear the auto-refresh interval
+            if (window.enquiryRefreshInterval) {
+                clearInterval(window.enquiryRefreshInterval);
+            }
+        });
+    }
+});
+    
+</script>
 
 <script>
 
