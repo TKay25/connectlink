@@ -1814,7 +1814,7 @@
         </div>
     </div>
 
-    <!-- View Interim Enquiries Modal -->
+<!-- View Interim Enquiries Modal -->
 <div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-fullscreen" style="max-width: 1400px;">
         <div class="modal-content" style="height: 95vh;">
@@ -1916,19 +1916,19 @@
                                     Quick Filters
                                 </h6>
                                 <div class="d-flex flex-wrap gap-2">
-                                    <button class="btn btn-sm btn-outline-primary active" onclick="filterByType('all')" id="filterAll">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="filterByType('all')">
                                         All
                                     </button>
-                                    <button class="btn btn-sm btn-outline-success" onclick="filterByType('kitchen_cabinets')" id="filterKitchen">
+                                    <button class="btn btn-sm btn-outline-success" onclick="filterByType('kitchen_cabinets')">
                                         Kitchen
                                     </button>
-                                    <button class="btn btn-sm btn-outline-warning" onclick="filterByType('building')" id="filterBuilding">
+                                    <button class="btn btn-sm btn-outline-warning" onclick="filterByType('building')">
                                         Building
                                     </button>
-                                    <button class="btn btn-sm btn-outline-info" onclick="filterByType('renovation')" id="filterRenovation">
+                                    <button class="btn btn-sm btn-outline-info" onclick="filterByType('renovation')">
                                         Renovation
                                     </button>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="filterByType('otherenq')" id="filterOther">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="filterByType('otherenq')">
                                         Other
                                     </button>
                                 </div>
@@ -2123,6 +2123,7 @@
         </div>
     </div>
 </div>
+
 
 
     <main class="main-content" id="main-content">
@@ -2657,18 +2658,9 @@ function loadEnquiriesData() {
     selectedEnquiries.clear();
     updateSelectionInfo();
     
-    // Try to fetch from API, fallback to mock data if fails
     fetch('/get_temp_enquiries')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
+        .then(response => response.json())
         .then(data => {
-            if (!Array.isArray(data)) {
-                throw new Error('Invalid data format received');
-            }
             allEnquiriesData = data;
             updateStatistics(data);
             applyFilters();
@@ -2676,52 +2668,10 @@ function loadEnquiriesData() {
             showLoading(false);
         })
         .catch(error => {
-            console.error('API Error:', error);
-            // Load mock data for testing
-            loadMockData();
+            console.error('Error:', error);
+            showError('Failed to load data. Please try again.');
             showLoading(false);
         });
-}
-
-// Load mock data for testing
-function loadMockData() {
-    // Create mock data based on your table structure
-    const mockData = [
-        { id: 1, wanumber: '9876543210', enqtype: 'kitchen_cabinets' },
-        { id: 2, wanumber: '9876543211', enqtype: 'building' },
-        { id: 3, wanumber: '9876543212', enqtype: 'renovation' },
-        { id: 4, wanumber: '9876543213', enqtype: 'kitchen_cabinets' },
-        { id: 5, wanumber: '9876543214', enqtype: 'otherenq' },
-        { id: 6, wanumber: '9876543215', enqtype: 'building' },
-        { id: 7, wanumber: '9876543216', enqtype: 'renovation' },
-        { id: 8, wanumber: '9876543217', enqtype: 'kitchen_cabinets' },
-        { id: 9, wanumber: '9876543218', enqtype: 'building' },
-        { id: 10, wanumber: '9876543219', enqtype: 'renovation' }
-    ];
-    
-    allEnquiriesData = mockData;
-    updateStatistics(mockData);
-    applyFilters();
-    updateLastUpdated();
-    
-    // Show info message about using mock data
-    const tableBody = document.getElementById('enquiriesTableBody');
-    if (tableBody) {
-        const infoRow = tableBody.querySelector('.mock-data-info');
-        if (!infoRow) {
-            const row = document.createElement('tr');
-            row.className = 'mock-data-info';
-            row.innerHTML = `
-                <td colspan="5" class="text-center bg-warning bg-opacity-10 py-2">
-                    <small class="text-warning">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Using mock data. Configure your API endpoint.
-                    </small>
-                </td>
-            `;
-            tableBody.insertBefore(row, tableBody.firstChild);
-        }
-    }
 }
 
 // Update statistics
@@ -2788,50 +2738,6 @@ function applyFilters() {
     updateFilteredCount();
 }
 
-// Filter by type
-function filterByType(type) {
-    // Update active button
-    document.querySelectorAll('#filterAll, #filterKitchen, #filterBuilding, #filterRenovation, #filterOther').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    document.getElementById(`filter${type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}`)?.classList.add('active');
-    
-    document.getElementById('enquiryTypeFilter').value = type;
-    applyFilters();
-}
-
-// Reset filters
-function resetFilters() {
-    document.getElementById('enquiryTypeFilter').value = 'all';
-    document.getElementById('whatsappFilter').value = '';
-    document.getElementById('idFilter').value = '';
-    document.getElementById('globalSearch').value = '';
-    
-    // Reset quick filter buttons
-    document.querySelectorAll('#filterAll, #filterKitchen, #filterBuilding, #filterRenovation, #filterOther').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.getElementById('filterAll').classList.add('active');
-    
-    applyFilters();
-}
-
-// Show/hide loading
-function showLoading(show) {
-    const loadingRow = document.getElementById('loadingRow');
-    const noDataMessage = document.getElementById('noDataMessage');
-    const tableBody = document.getElementById('enquiriesTableBody');
-    
-    if (show) {
-        loadingRow.classList.remove('d-none');
-        noDataMessage.classList.add('d-none');
-        tableBody.innerHTML = '';
-    } else {
-        loadingRow.classList.add('d-none');
-    }
-}
-
 // Apply global search
 function applyGlobalSearch() {
     const searchTerm = document.getElementById('globalSearch').value.toLowerCase();
@@ -2853,6 +2759,55 @@ function applyGlobalSearch() {
     updateFilteredCount();
 }
 
+// Filter by type
+function filterByType(type) {
+    document.getElementById('enquiryTypeFilter').value = type;
+    applyFilters();
+}
+
+// Reset filters
+function resetFilters() {
+    document.getElementById('enquiryTypeFilter').value = 'all';
+    document.getElementById('whatsappFilter').value = '';
+    document.getElementById('idFilter').value = '';
+    document.getElementById('globalSearch').value = '';
+    applyFilters();
+}
+
+// Show/hide loading
+function showLoading(show) {
+    const loadingRow = document.getElementById('loadingRow');
+    const noDataMessage = document.getElementById('noDataMessage');
+    const tableBody = document.getElementById('enquiriesTableBody');
+    
+    if (show) {
+        loadingRow.classList.remove('d-none');
+        noDataMessage.classList.add('d-none');
+        tableBody.innerHTML = '';
+    } else {
+        loadingRow.classList.add('d-none');
+    }
+}
+
+// Show error
+function showError(message) {
+    const tableBody = document.getElementById('enquiriesTableBody');
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-5">
+                <div class="d-flex flex-column align-items-center">
+                    <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3"></i>
+                    <h5 class="text-danger mb-2">Error Loading Data</h5>
+                    <p class="text-muted mb-3">${message}</p>
+                    <button class="btn btn-sm btn-primary" onclick="loadEnquiriesData()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Try Again
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
 // Render table
 function renderTable() {
     const tableBody = document.getElementById('enquiriesTableBody');
@@ -2861,7 +2816,6 @@ function renderTable() {
     if (filteredEnquiriesData.length === 0) {
         tableBody.innerHTML = '';
         noDataMessage.classList.remove('d-none');
-        updateShowingRecords();
         return;
     }
     
@@ -2971,7 +2925,6 @@ function toggleSelectAll() {
     });
     
     updateSelectionInfo();
-    renderTable(); // Re-render to update row highlighting
 }
 
 // Toggle individual selection
@@ -2984,14 +2937,6 @@ function toggleEnquirySelection(checkbox) {
     }
     
     updateSelectionInfo();
-    
-    // Update row highlighting
-    const row = checkbox.closest('tr');
-    if (checkbox.checked) {
-        row.classList.add('table-primary');
-    } else {
-        row.classList.remove('table-primary');
-    }
 }
 
 // Update selection info
@@ -3086,7 +3031,7 @@ function copySelectedNumbers() {
         });
 }
 
-// Delete selected enquiries (simulated)
+// Delete selected enquiries
 function deleteSelectedEnquiries() {
     if (selectedEnquiries.size === 0) {
         alert('Please select enquiries to delete');
@@ -3097,23 +3042,45 @@ function deleteSelectedEnquiries() {
         return;
     }
     
-    // Simulate API call
-    setTimeout(() => {
-        alert(`${selectedEnquiries.size} enquiry(s) deleted successfully (simulated)`);
-        selectedEnquiries.clear();
-        loadEnquiriesData();
-    }, 500);
+    fetch('/batch_delete_enquiries', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enquiry_ids: Array.from(selectedEnquiries)})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`${selectedEnquiries.size} enquiry(s) deleted`);
+            selectedEnquiries.clear();
+            loadEnquiriesData();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete enquiries');
+    });
 }
 
-// Delete single enquiry (simulated)
+// Delete single enquiry
 function deleteEnquiry(id) {
     if (!confirm('Delete this enquiry?')) return;
     
-    // Simulate API call
-    setTimeout(() => {
-        alert('Enquiry deleted successfully (simulated)');
-        loadEnquiriesData();
-    }, 500);
+    fetch('/delete_temp_enquiry', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enquiry_id: id})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Enquiry deleted');
+            loadEnquiriesData();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete enquiry');
+    });
 }
 
 // Clear selection
@@ -3200,7 +3167,7 @@ function copyEnquiryDetails(id) {
     const details = `ID: ${enquiry.id}\nType: ${enquiryTypeConfig[enquiry.enqtype]?.label || 'Other'}\nWhatsApp: ${enquiry.wanumber || 'N/A'}`;
     
     navigator.clipboard.writeText(details)
-        .then(() => alert('Details copied to clipboard!'))
+        .then(() => alert('Details copied!'))
         .catch(err => console.error('Copy failed:', err));
 }
 
@@ -3211,28 +3178,21 @@ function exportToExcel() {
         return;
     }
     
-    // Check if XLSX is available
-    if (typeof XLSX === 'undefined') {
-        exportToCSV();
-        return;
-    }
+    const wsData = [
+        ['ID', 'WhatsApp Number', 'Enquiry Type'],
+        ...filteredEnquiriesData.map(enquiry => [
+            enquiry.id,
+            enquiry.wanumber || '',
+            enquiryTypeConfig[enquiry.enqtype]?.label || 'Other'
+        ])
+    ];
     
-    try {
-        const wsData = [
-            ['ID', 'WhatsApp Number', 'Enquiry Type'],
-            ...filteredEnquiriesData.map(enquiry => [
-                enquiry.id,
-                enquiry.wanumber || '',
-                enquiryTypeConfig[enquiry.enqtype]?.label || 'Other'
-            ])
-        ];
-        
+    if (typeof XLSX !== 'undefined') {
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Enquiries');
         XLSX.writeFile(wb, `enquiries_${new Date().toISOString().split('T')[0]}.xlsx`);
-    } catch (error) {
-        console.error('Excel export error:', error);
+    } else {
         exportToCSV();
     }
 }
@@ -3243,29 +3203,24 @@ function exportToCSV() {
         return;
     }
     
-    try {
-        const headers = ['ID', 'WhatsApp Number', 'Enquiry Type'];
-        const csvRows = [
-            headers.join(','),
-            ...filteredEnquiriesData.map(enquiry => [
-                `"${enquiry.id}"`,
-                `"${enquiry.wanumber || ''}"`,
-                `"${enquiryTypeConfig[enquiry.enqtype]?.label || 'Other'}"`
-            ].join(','))
-        ];
-        
-        const csvString = csvRows.join('\n');
-        const blob = new Blob([csvString], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `enquiries_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error('CSV export error:', error);
-        alert('Failed to export data');
-    }
+    const headers = ['ID', 'WhatsApp Number', 'Enquiry Type'];
+    const csvRows = [
+        headers.join(','),
+        ...filteredEnquiriesData.map(enquiry => [
+            `"${enquiry.id}"`,
+            `"${enquiry.wanumber || ''}"`,
+            `"${enquiryTypeConfig[enquiry.enqtype]?.label || 'Other'}"`
+        ].join(','))
+    ];
+    
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `enquiries_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
 }
 
 function printReport() {
@@ -3274,71 +3229,64 @@ function printReport() {
         return;
     }
     
-    try {
-        const printWindow = window.open('', '_blank');
-        const date = new Date().toLocaleDateString();
-        
-        let html = `
-            <html>
-            <head>
-                <title>Enquiries Report</title>
-                <style>
-                    body { font-family: Arial; margin: 20px; }
-                    h1 { border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th { background: #f8f9fa; padding: 10px; text-align: left; }
-                    td { padding: 8px; border-bottom: 1px solid #ddd; }
-                </style>
-            </head>
-            <body>
-                <h1>Enquiries Report</h1>
-                <p>Date: ${date}</p>
-                <p>Total: ${filteredEnquiriesData.length} records</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>WhatsApp Number</th>
-                            <th>Enquiry Type</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        filteredEnquiriesData.forEach(enquiry => {
-            const typeConfig = enquiryTypeConfig[enquiry.enqtype] || enquiryTypeConfig['otherenq'];
-            html += `
-                <tr>
-                    <td>${enquiry.id}</td>
-                    <td>${enquiry.wanumber || 'N/A'}</td>
-                    <td>${typeConfig.label}</td>
-                </tr>
-            `;
-        });
-        
+    const printWindow = window.open('', '_blank');
+    const date = new Date().toLocaleDateString();
+    
+    let html = `
+        <html>
+        <head>
+            <title>Enquiries Report</title>
+            <style>
+                body { font-family: Arial; margin: 20px; }
+                h1 { border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th { background: #f8f9fa; padding: 10px; text-align: left; }
+                td { padding: 8px; border-bottom: 1px solid #ddd; }
+            </style>
+        </head>
+        <body>
+            <h1>Enquiries Report</h1>
+            <p>Date: ${date}</p>
+            <p>Total: ${filteredEnquiriesData.length} records</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>WhatsApp Number</th>
+                        <th>Enquiry Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    filteredEnquiriesData.forEach(enquiry => {
+        const typeConfig = enquiryTypeConfig[enquiry.enqtype] || enquiryTypeConfig['otherenq'];
         html += `
-                    </tbody>
-                </table>
-            </body>
-            </html>
+            <tr>
+                <td>${enquiry.id}</td>
+                <td>${enquiry.wanumber || 'N/A'}</td>
+                <td>${typeConfig.label}</td>
+            </tr>
         `;
-        
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.print();
-    } catch (error) {
-        console.error('Print error:', error);
-        alert('Failed to print report');
-    }
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </body>
+        </html>
+    `;
+    
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
 }
 
 // Initialize modal
 document.addEventListener('DOMContentLoaded', function() {
     const modal = document.getElementById('viewEnquiriesModal');
     if (modal) {
-        modal.addEventListener('shown.bs.modal', function() {
-            loadEnquiriesData();
-        });
+        modal.addEventListener('shown.bs.modal', loadEnquiriesData);
     }
     
     // Update button click handler
