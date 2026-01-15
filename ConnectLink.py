@@ -8114,6 +8114,15 @@ def run1(userid):
         enquiriesdatamain = enquiriesdatamain[['ID','Timestamp','Username','Contact','Enquiry','Description','Document','Status']]
         enquiriesdatamain_html = enquiriesdatamain.to_html(classes="table table-bordered table-theme", table_id="allenquiriesTable", index=False,  escape=False,)
 
+        usersdataquerytempenq = f"SELECT * FROM appenqtemp;"
+        cursor.execute(usersdataquerytempenq)
+        usersdataquerytempenqfetch = cursor.fetchall()
+        print(usersdataquerytempenqfetch)
+
+        usersdatamainttemp = pd.DataFrame(usersdataquerytempenqfetch, columns= ['id', 'wanumber','enqtype'])
+        usersdatamainttemp_html = usersdatamainttemp.to_html(classes="table table-bordered table-theme", table_id="allapptempenqTable", index=False,  escape=False,)
+
+
 
         usersdataquery = f"SELECT * FROM connectlinkusers;"
         cursor.execute(usersdataquery)
