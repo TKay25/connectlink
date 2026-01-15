@@ -8183,8 +8183,8 @@ def run1(userid):
         usersdataquerytempenqfetch = cursor.fetchall()
         print(usersdataquerytempenqfetch)
 
-        usersdatamainttemp = pd.DataFrame(usersdataquerytempenqfetch, columns= ['id', 'wanumber','enqtype'])
-        usersdatamainttemp_html = usersdatamainttemp.to_html(classes="table table-bordered table-theme", table_id="allapptempenqTable", index=False,  escape=False,)
+        ####### usersdatamainttemp = pd.DataFrame(usersdataquerytempenqfetch, columns= ['id', 'wanumber','enqtype'])
+        ####### usersdatamainttemp_html = usersdatamainttemp.to_html(classes="table table-bordered table-theme", table_id="allapptempenqTable", index=False,  escape=False,)
 
 
 
@@ -8289,7 +8289,6 @@ def run1(userid):
         enquiries_data = get_enquiries_data()
 
         return {
-            'usersdatamainttemp_html': usersdatamainttemp_html,
             'month_options': month_options_list,
             "usersdatamain_html": usersdatamain_html,
             "table_datamain_html": table_datamain_html,
