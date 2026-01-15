@@ -8096,6 +8096,69 @@ def export_installments_schedule_excel():
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f'Failed to generate schedule: {str(e)}'}), 500
 
+@app.route('/get_temp_enquiries')
+def get_temp_enquiries():
+
+    with get_db() as (cursor, connection):
+
+        try:
+
+            cursor.execute("SELECT id, wanumber, enqtype FROM appenqtemp ORDER BY id DESC")
+            enquiries = cursor.fetchall()
+            
+            # Convert to list of dictionaries
+            result = []
+            for enquiry in enquiries:
+                result.append({
+                    'id': enquiry['id'],
+                    'wanumber': enquiry['wanumber'],
+                    'enqtype': enquiry['enqtype']
+                })
+            
+            print(f"API: Fetched {len(result)} enquiries")
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"API Error: {e}")
+            return jsonify({'error': str(e)}), 500
+
+@app.route('/delete_temp_enquiry', methods=['POST'])
+def delete_temp_enquiry():
+
+    with get_db() as (cursor, connection):
+
+        try:
+            data = request.json
+            enquiry_id = data.get('enquiry_id')
+            
+            cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (enquiry_id,))
+            connection.commit()
+            
+            return jsonify({'success': True, 'message': 'Enquiry deleted'})
+            
+        except Exception as e:
+            print(f"Error deleting enquiry: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/batch_delete_enquiries', methods=['POST'])
+def batch_delete_enquiries():
+
+    with get_db() as (cursor, connection):
+
+        try:
+            data = request.json
+            enquiry_ids = data.get('enquiry_ids', [])
+            
+            if enquiry_ids:
+                placeholders = ','.join(['%s'] * len(enquiry_ids))
+                cursor.execute(f"DELETE FROM appenqtemp WHERE id IN ({placeholders})", enquiry_ids)
+                connection.commit()
+            
+            return jsonify({'success': True, 'message': f'{len(enquiry_ids)} enquiries deleted'})
+            
+        except Exception as e:
+            print(f"Error batch deleting: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
 
 def run1(userid):
 
@@ -8225,6 +8288,7 @@ def run1(userid):
         enquiries_data = get_enquiries_data()
 
         return {
+            'usersdatamainttemp_html': usersdatamainttemp_html,
             'month_options': month_options_list,
             "usersdatamain_html": usersdatamain_html,
             "table_datamain_html": table_datamain_html,
