@@ -8102,17 +8102,18 @@ def get_temp_enquiries():
     with get_db() as (cursor, connection):
 
         try:
-
-            cursor.execute("SELECT id, wanumber, enqtype FROM appenqtemp ORDER BY id DESC")
-            enquiries = cursor.fetchall()
+            # Use the same cursor you already have in your code
+            usersdataquerytempenq = "SELECT * FROM appenqtemp;"
+            cursor.execute(usersdataquerytempenq)
+            usersdataquerytempenqfetch = cursor.fetchall()
             
             # Convert to list of dictionaries
             result = []
-            for enquiry in enquiries:
+            for enquiry in usersdataquerytempenqfetch:
                 result.append({
-                    'id': enquiry['id'],
-                    'wanumber': enquiry['wanumber'],
-                    'enqtype': enquiry['enqtype']
+                    'id': enquiry[0],  # Access by index since it's a tuple
+                    'wanumber': enquiry[1],
+                    'enqtype': enquiry[2]
                 })
             
             print(f"API: Fetched {len(result)} enquiries")
