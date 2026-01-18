@@ -4751,7 +4751,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    document.querySelector('#allprojectsTable').addEventListener('click', function(e) {
+    document.addEventListener('click', function(e) {
         if (e.target && e.target.classList.contains('view-project-btn')) {
 
             const projectId = e.target.getAttribute('data-id');
