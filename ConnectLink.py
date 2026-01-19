@@ -8395,6 +8395,101 @@ def run1(userid):
 
         status_df_html = status_df.to_html(classes="table table-bordered table-theme", table_id="allpaymentscdTable", index=False,  escape=False,)
 
+
+        current_date = datetime.now().date()
+        start_of_week = current_date - timedelta(days=current_date.weekday())  # Monday
+        start_of_month = current_date.replace(day=1)
+        start_of_year = current_date.replace(month=1, day=1)
+
+        # Function to calculate paid and overdue amounts for specific time periods
+        def calculate_payment_stats(df):
+            stats = {
+                'today_paid': 0,
+                'today_overdue': 0,
+                'week_paid': 0,
+                'week_overdue': 0,
+                'month_paid': 0,
+                'month_overdue': 0,
+                'year_paid': 0,
+                'year_overdue': 0,
+                'total_overdue': df['overdue_amount'].sum()  # From your existing calculation
+            }
+            
+            # Calculate amounts based on payment dates
+            for _, row in df.iterrows():
+                # Check each installment (1-6)
+                for i in range(1, 7):
+                    due_date_col = f'installment{i}duedate'
+                    paid_date_col = f'installment{i}date'
+                    amount_col = f'installment{i}amount'
+                    
+                    if due_date_col in row and pd.notna(row[due_date_col]):
+                        due_date = row[due_date_col].date()
+                        amount = row.get(amount_col, 0) or 0
+                        paid_date = row.get(paid_date_col)
+                        
+                        # Check if paid
+                        if pd.notna(paid_date):
+                            paid_date_dt = paid_date.date()
+                            
+                            # TODAY PAID: Payments made today
+                            if paid_date_dt == current_date:
+                                stats['today_paid'] += amount
+                            
+                            # WEEK PAID: Payments made this week (Monday to today)
+                            if paid_date_dt >= start_of_week:
+                                stats['week_paid'] += amount
+                            
+                            # MONTH PAID: Payments made this month
+                            if paid_date_dt >= start_of_month:
+                                stats['month_paid'] += amount
+                            
+                            # YEAR PAID: Payments made this year
+                            if paid_date_dt >= start_of_year:
+                                stats['year_paid'] += amount
+                        
+                        # Check for overdue (not paid and past due date)
+                        else:
+                            if due_date < current_date:
+                                # TODAY OVERDUE: Became overdue today
+                                if due_date == current_date:
+                                    stats['today_overdue'] += amount
+                                
+                                # WEEK OVERDUE: Became overdue this week
+                                if due_date >= start_of_week:
+                                    stats['week_overdue'] += amount
+                                
+                                # MONTH OVERDUE: Became overdue this month
+                                if due_date >= start_of_month:
+                                    stats['month_overdue'] += amount
+                                
+                                # YEAR OVERDUE: Became overdue this year
+                                if due_date >= start_of_year:
+                                    stats['year_overdue'] += amount
+            
+            return stats
+
+        # Calculate payment statistics
+        payment_stats = calculate_payment_stats(datamain)
+
+        # Also calculate total due (all amounts due by today)
+        total_due = 0
+        for _, row in datamain.iterrows():
+            for i in range(1, 7):
+                due_date_col = f'installment{i}duedate'
+                amount_col = f'installment{i}amount'
+                
+                if due_date_col in row and pd.notna(row[due_date_col]):
+                    due_date = row[due_date_col].date()
+                    amount = row.get(amount_col, 0) or 0
+                    
+                    if due_date <= current_date:
+                        total_due += amount
+
+        payment_stats['total_due'] = total_due
+
+
+
         return {
             'status_df_html': status_df_html,
             'month_options': month_options_list,

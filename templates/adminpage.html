@@ -2321,47 +2321,104 @@
 
                     <div class="dashboard-summary">
                         <div class="summary-card">
-                            <div class="icon"><i class="bi bi-people-fill fs-3" style="color: #1E2A56;"></i></div>
+                            <div class="icon"><i class="bi bi-calendar-day fs-3" style="color: #1E2A56;"></i></div>
                             <div class="details">
                                 <h5 style="font-weight: bolder;">Today</h5>
-                                <p>{{ num_projects }}</p>
+                                <div class="payment-amounts">
+                                    <div class="paid-amount">
+                                        <span class="badge bg-success">PAID</span>
+                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['today_paid']) }}</span>
+                                    </div>
+                                    <div class="overdue-amount">
+                                        <span class="badge bg-danger">OVERDUE</span>
+                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['today_overdue']) }}</span>
+                                    </div>
+                                </div>
+                                <small class="text-muted">Payments today</small>
                             </div>
                         </div>
+                        
+                        <!-- Week to Date -->
                         <div class="summary-card">
-                            <div class="icon"><i class="bi bi-hourglass-split fs-3" style="color: #1E2A56;"></i></div>
+                            <div class="icon"><i class="bi bi-calendar-week fs-3" style="color: #1E2A56;"></i></div>
                             <div class="details">
                                 <h5 style="font-weight: bolder;">Week To Date</h5>
-                                <p>{{ count_ongoing }}</p>
+                                <div class="payment-amounts">
+                                    <div class="paid-amount">
+                                        <span class="badge bg-success">PAID</span>
+                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['week_paid']) }}</span>
+                                    </div>
+                                    <div class="overdue-amount">
+                                        <span class="badge bg-danger">OVERDUE</span>
+                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['week_overdue']) }}</span>
+                                    </div>
+                                </div>
+                                <small class="text-muted">Since {{ start_of_week.strftime('%b %d') }}</small>
                             </div>
                         </div>
+                        
+                        <!-- Month to Date -->
                         <div class="summary-card">
-                            <div class="icon"><i class="bi bi-calendar2-check-fill fs-3" style="color: #1E2A56;"></i></div>
+                            <div class="icon"><i class="bi bi-calendar-month fs-3" style="color: #1E2A56;"></i></div>
                             <div class="details">
                                 <h5 style="font-weight: bolder;">Month to Date</h5>
-                                <p>{{ count_completed }}</p>
+                                <div class="payment-amounts">
+                                    <div class="paid-amount">
+                                        <span class="badge bg-success">PAID</span>
+                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['month_paid']) }}</span>
+                                    </div>
+                                    <div class="overdue-amount">
+                                        <span class="badge bg-danger">OVERDUE</span>
+                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['month_overdue']) }}</span>
+                                    </div>
+                                </div>
+                                <small class="text-muted">Since {{ start_of_month.strftime('%b %d') }}</small>
                             </div>
                         </div>
+                        
+                        <!-- Year to Date -->
                         <div class="summary-card">
-                            <div class="icon"><i class="bi bi-calendar2-check-fill fs-3" style="color: #1E2A56;"></i></div>
+                            <div class="icon"><i class="bi bi-calendar-year fs-3" style="color: #1E2A56;"></i></div>
                             <div class="details">
                                 <h5 style="font-weight: bolder;">Year to Date</h5>
-                                <p>{{ count_completed }}</p>
+                                <div class="payment-amounts">
+                                    <div class="paid-amount">
+                                        <span class="badge bg-success">PAID</span>
+                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['year_paid']) }}</span>
+                                    </div>
+                                    <div class="overdue-amount">
+                                        <span class="badge bg-danger">OVERDUE</span>
+                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['year_overdue']) }}</span>
+                                    </div>
+                                </div>
+                                <small class="text-muted">Since {{ start_of_year.strftime('%Y') }}</small>
                             </div>
                         </div>
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-calendar2-check-fill fs-3" style="color: #1E2A56;"></i></div>
+                        
+                        <!-- Total Overdue (Cumulative) -->
+                        <div class="summary-card overdue-card">
+                            <div class="icon"><i class="bi bi-exclamation-triangle-fill fs-3" style="color: #dc3545;"></i></div>
                             <div class="details">
-                                <h5 style="font-weight: bolder;">Total Overdue</h5>
-                                <p>{{ count_completed }}</p>
+                                <h5 style="font-weight: bolder; color: #dc3545;">Total Overdue</h5>
+                                <p class="count text-danger">${{ "{:,.2f}".format(payment_stats['total_overdue']) }}</p>
+                                <small class="text-danger">
+                                    <i class="bi bi-clock-history"></i> All unpaid past due amounts
+                                </small>
                             </div>
                         </div>
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-stopwatch-fill fs-3" style="color: #1E2A56;"></i></div>
+                        
+                        <!-- Total Due (Cumulative) -->
+                        <div class="summary-card due-card">
+                            <div class="icon"><i class="bi bi-calendar-check-fill fs-3" style="color: #198754;"></i></div>
                             <div class="details">
-                                <h5 style="font-weight: bolder;">Total Due</h5>
-                                <p>{{ average_duration }} days</p>
+                                <h5 style="font-weight: bolder; color: #198754;">Total Due</h5>
+                                <p class="count text-success">${{ "{:,.2f}".format(payment_stats['total_due']) }}</p>
+                                <small class="text-success">
+                                    <i class="bi bi-calendar"></i> All amounts due by today
+                                </small>
                             </div>
                         </div>
+                    </div>
 
 
                     </div>
