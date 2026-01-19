@@ -8377,6 +8377,7 @@ def run1(userid):
                 status_html = '<span class="badge bg-success">PAID UP</span>'
             
             table_data.append({
+                'project id': row['id'],
                 'client name': row['clientname'],
                 'client phone': row['clientwanumber'],
                 'project_name': row['projectname'],
