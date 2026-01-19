@@ -8524,8 +8524,7 @@ def update_project():
         installment6_date = clean_date_update(request.form.get('installment6_paid_date'))
 
         monthlyinstallment = (float(contractamount) - float(depositpaid))/int(monthstopay)
-        project_completion_status = "Ongoing"
-        first_installment_due_date = request.form.get('first_installment_due_date')
+        first_installment_due_date = request.form.get('Installment1DueDate')
         first_installment_due_date_calc = datetime.strptime(first_installment_due_date, "%Y-%m-%d").date()
                         
         installment_due_dates = []
