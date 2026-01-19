@@ -8365,6 +8365,49 @@ def run1(userid):
         # Calculate status for each row
         datamain2['overdue_amount'], datamain2['is_overdue'] = zip(*datamain2.apply(get_payment_status, axis=1))
 
+        # Simple version - just show installment numbers
+        def get_simple_installments_due(row):
+            due_installments = []
+            
+            for i in range(1, 7):
+                due_date_col = f'installment{i}duedate'
+                paid_date_col = f'installment{i}date'
+                
+                if pd.notna(row.get(due_date_col)):
+                    due_date = row[due_date_col]
+                    is_paid = pd.notna(row.get(paid_date_col))
+                    
+                    if not is_paid:
+                        due_installments.append(str(i))
+            
+            if due_installments:
+                return ", ".join(due_installments)
+            return "None"
+
+        # Add to your existing calculation
+        datamain2['installments_due_simple'] = datamain2.apply(get_simple_installments_due, axis=1)
+
+        # Update table_data with simple installment info
+        for _, row in datamain2.iterrows():
+            status_html = ""
+            
+            if row['is_overdue']:
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span></div>"""
+            else:
+                status_html = '<span class="badge bg-success">PAID UP</span>'
+            
+            # Simple installment display
+            installments_html = f'<span class="badge bg-info">{row["installments_due_simple"]}</span>'
+            
+            table_data.append({
+                'client name': row['clientname'],
+                'client phone': row['clientwanumber'],
+                'project_name': row['projectname'],
+                'status': status_html,
+                'installments due': installments_html
+            })
+
+            
         # Create the display table
         table_data = []
 
@@ -8376,13 +8419,16 @@ def run1(userid):
             else:
                 status_html = '<span class="badge bg-success">PAID UP</span>'
             
+            installments_html = f'<span class="badge bg-info">{row["installments_due_simple"]}</span>'
+
             table_data.append({
                 'project id': row['id'],
                 'client name': row['clientname'],
                 'client phone': row['clientwanumber'],
                 'project_name': row['projectname'],
                 'overdue_amount': row['overdue_amount'],
-                'status': status_html
+                'status': status_html,
+                'installments due': installments_html
             })
 
         # Create DataFrame for table
