@@ -1659,18 +1659,37 @@
                                     <h6 class="mb-0">Installment 2 Details</h6>
                                 </div>
                                 <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-4">
-                                            <label class="form-label fw-bold">Amount (USD)</label>
-                                            <input type="text" class="form-control" id="updateInstallment2Amount" readonly>
+                                    <div class="row g-3 align-items-center">
+                                        <!-- Amount -->
+                                        <div class="col-sm-6 col-md-4 col-lg">
+                                            <label for="updateInstallment2Amount" class="form-label fw-bold mb-1 small">Amount (USD)</label>
+                                            <input type="text" class="form-control form-control-sm" id="updateInstallment2Amount" readonly>
                                         </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label fw-bold">Due Date</label>
-                                            <input type="date" class="form-control editable-field" id="updateInstallment2DueDate" name="Installment2DueDate">
+
+                                        <!-- Due Date -->
+                                        <div class="col-sm-6 col-md-4 col-lg">
+                                            <label for="updateInstallment2DueDate" class="form-label fw-bold mb-1 small">Due Date</label>
+                                            <input type="date" class="form-control form-control-sm editable-field" id="updateInstallment2DueDate" name="Installment2DueDate">
                                         </div>
-                                        <div class="col-md-4">
-                                            <label for="updateInstallment2Date" class="form-label fw-bold">Date Paid</label>
-                                            <input type="date" class="form-control editable-field" id="updateInstallment2Date" name="installment2_paid_date">
+
+                                        <!-- Date Paid -->
+                                        <div class="col-sm-6 col-md-4 col-lg">
+                                            <label for="updateInstallment2Date" class="form-label fw-bold mb-1 small">Date Paid</label>
+                                            <input type="date" class="form-control form-control-sm editable-field" id="updateInstallment2Date" name="installment2_paid_date">
+                                        </div>
+
+                                        <!-- Button 1 -->
+                                        <div class="col-sm-6 col-md-6 col-lg">
+                                            <button type="button" class="btn btn-primary btn-sm w-100">
+                                                Get Receipt
+                                            </button>
+                                        </div>
+
+                                        <!-- Button 2 -->
+                                        <div class="col-sm-6 col-md-6 col-lg">
+                                            <button type="button" class="btn btn-primary btn-sm w-100">
+                                                Send Receipt
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
