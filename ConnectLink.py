@@ -8372,20 +8372,15 @@ def run1(userid):
             status_html = ""
             
             if row['is_overdue']:
-                status_html = f"""
-                <div class="d-flex align-items-center">
-                    <span class="badge bg-danger me-2">OVERDUE</span>
-                    <span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span>
-                </div>
-                """
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span></div>"""
             else:
                 status_html = '<span class="badge bg-success">PAID UP</span>'
             
             table_data.append({
-                'client_name': row['clientname'],
+                'client name': row['clientname'],
+                'client phone': row['clientwanumber'],
                 'project_name': row['projectname'],
-                'status': status_html,
-                'overdue_amount': row['overdue_amount']
+                'status': status_html
             })
 
         # Create DataFrame for table
