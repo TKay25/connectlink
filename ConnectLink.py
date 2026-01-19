@@ -176,11 +176,11 @@ def initialize_database_tables():
                 );
             """)
 
-            cursor.execute("""
-                UPDATE connectlinkdatabase 
-                SET projectname = 'Bulawayo Full House Construction'
-                WHERE id = 57;
-            """)
+            #cursor.execute("""
+            #    UPDATE connectlinkdatabase 
+            #    SET projectname = 'Bulawayo Full House Construction'
+            #    WHERE id = 57;
+            #""")
 
             '''cursor.execute("""
                 ALTER TABLE connectlinkdatabase DROP COLUMN depositrequired;
