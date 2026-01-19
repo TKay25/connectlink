@@ -8533,7 +8533,7 @@ def update_project():
                 installment5date = %s,
                 installment6date = %s,
                 projectdescription = %s,
-                projectname = %s,
+                projectname = %s
             WHERE id = %s
         """
         
