@@ -8514,6 +8514,7 @@ def update_project():
         project_name = request.form.get('ProjectName')
         projscope = request.form.get('projscope')
         contractamount = request.form.get('TotalContractAmount')
+        monthstopay = request.form.get('MonthsToPay')
         installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
         installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
         installment3_date = clean_date_update(request.form.get('installment3_paid_date'))
@@ -8528,6 +8529,7 @@ def update_project():
             SET 
                 projectcompletionstatus = %s,
                 totalcontractamount = %s,
+                monthstopay = %s,
                 installment1date = %s,
                 installment2date = %s,
                 installment3date = %s,
@@ -8542,6 +8544,7 @@ def update_project():
         values = (
             completion_status,
             contractamount,
+            monthstopay,
             installment1_date,
             installment2_date,
             installment3_date,
