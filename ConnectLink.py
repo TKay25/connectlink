@@ -8436,6 +8436,7 @@ def run1(userid):
 
         # Sort by overdue amount (descending)
         status_df = status_df.sort_values('overdue_amount', ascending=False)
+        status_df = status_df[['project id','client name', 'client phone', 'project_name', 'status', 'installments due']]
 
         status_df_html = status_df.to_html(classes="table table-bordered table-theme", table_id="allpaymentscdTable", index=False,  escape=False,)
 
