@@ -8322,7 +8322,81 @@ def run1(userid):
         month_options_list.append({'display': 'All', 'value': 'all', 'date': None})
         enquiries_data = get_enquiries_data()
 
+
+
+        date_columns = ['installment1duedate', 'installment2duedate', 'installment3duedate',
+                        'installment4duedate', 'installment5duedate', 'installment6duedate',
+                        'installment1date', 'installment2date', 'installment3date',
+                        'installment4date', 'installment5date', 'installment6date']
+
+        for col in date_columns:
+            if col in datamain.columns:
+                datamain[col] = pd.to_datetime(datamain[col], errors='coerce')
+
+        # Get current date
+        current_date = datetime.now()
+
+        # Function to check payment status and calculate overdue amount
+        def get_payment_status(row):
+            total_overdue = 0
+            is_overdue = False
+            
+            # Check each installment (1-6)
+            for i in range(1, 7):
+                due_date_col = f'installment{i}duedate'
+                paid_date_col = f'installment{i}date'
+                amount_col = f'installment{i}amount'
+                
+                if pd.notna(row.get(due_date_col)):
+                    due_date = row[due_date_col]
+                    amount = row.get(amount_col, 0) or 0
+                    
+                    # Check if paid
+                    is_paid = pd.notna(row.get(paid_date_col))
+                    
+                    # If not paid and due date passed
+                    if not is_paid and due_date < current_date:
+                        total_overdue += amount
+                        is_overdue = True
+            
+            return total_overdue, is_overdue
+
+        # Calculate status for each row
+        datamain['overdue_amount'], datamain['is_overdue'] = zip(*datamain.apply(get_payment_status, axis=1))
+
+        # Create the display table
+        table_data = []
+
+        for _, row in datamain.iterrows():
+            status_html = ""
+            
+            if row['is_overdue']:
+                status_html = f"""
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-danger me-2">OVERDUE</span>
+                    <span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span>
+                </div>
+                """
+            else:
+                status_html = '<span class="badge bg-success">PAID UP</span>'
+            
+            table_data.append({
+                'client_name': row['clientname'],
+                'project_name': row['projectname'],
+                'status': status_html,
+                'overdue_amount': row['overdue_amount']
+            })
+
+        # Create DataFrame for table
+        status_df = pd.DataFrame(table_data)
+
+        # Sort by overdue amount (descending)
+        status_df = status_df.sort_values('overdue_amount', ascending=False)
+
+        status_df_html = status_df.to_html(classes="table table-bordered table-theme", table_id="allpaymentscdTable", index=False,  escape=False,)
+
         return {
+            'status_df_html': status_df_html,
             'month_options': month_options_list,
             "usersdatamain_html": usersdatamain_html,
             "table_datamain_html": table_datamain_html,
