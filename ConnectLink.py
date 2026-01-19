@@ -8511,6 +8511,7 @@ def update_project():
 
         project_id = request.form.get('project_id')
         completion_status = request.form.get('completion_status')
+        project_name = request.form.get('ProjectName')
         projscope = request.form.get('projscope')
         installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
         installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
@@ -8531,7 +8532,8 @@ def update_project():
                 installment4date = %s,
                 installment5date = %s,
                 installment6date = %s,
-                projectdescription = %s
+                projectdescription = %s,
+                projectname = %s,
             WHERE id = %s
         """
         
@@ -8544,6 +8546,7 @@ def update_project():
             installment5_date,
             installment6_date,
             projscope,
+            project_name,
             project_id
         )
 
