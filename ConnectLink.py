@@ -8407,6 +8407,37 @@ def run1(userid):
                 'installments due': installments_html
             })
 
+        # Function to format phone number
+        def format_phone_number(phone):
+            if pd.isna(phone):
+                return "N/A"
+            
+            # Convert to string and remove decimal .0
+            phone_str = str(int(phone)) if isinstance(phone, float) else str(phone)
+            
+            # Remove any non-digit characters
+            phone_clean = ''.join(filter(str.isdigit, phone_str))
+            
+            # Check if it starts with 263 already
+            if phone_clean.startswith('263'):
+                # Format as 263 XXX XXX XXX
+                if len(phone_clean) == 12:  # 263XXXXXXXXX
+                    return f"263 {phone_clean[3:6]} {phone_clean[6:9]} {phone_clean[9:]}"
+                else:
+                    return f"263 {phone_clean[3:]}"
+            else:
+                # Add 263 prefix
+                if phone_clean.startswith('0'):
+                    phone_clean = phone_clean[1:]  # Remove leading 0
+                
+                # Format with 263 prefix
+                if len(phone_clean) == 9:  # XXXXXXXXX
+                    return f"263 {phone_clean[:3]} {phone_clean[3:6]} {phone_clean[6:]}"
+                elif len(phone_clean) == 10:  # 07XXXXXXXXX -> becomes 2637XXXXXXXXX
+                    return f"263 {phone_clean[1:4]} {phone_clean[4:7]} {phone_clean[7:]}"
+                else:
+                    # Just add 263 prefix for any other format
+                    return f"263 {phone_clean}"
             
         # Create the display table
         table_data = []
@@ -8421,10 +8452,12 @@ def run1(userid):
             
             installments_html = f'<span class="badge bg-info">{row["installments_due_simple"]}</span>'
 
+            formatted_phone = format_phone_number(row['clientwanumber'])
+
             table_data.append({
                 'project id': row['id'],
                 'client name': row['clientname'],
-                'client phone': row['clientwanumber'],
+                'client phone': formatted_phone,
                 'project_name': row['projectname'],
                 'overdue_amount': row['overdue_amount'],
                 'status': status_html,
