@@ -8515,6 +8515,7 @@ def update_project():
         projscope = request.form.get('projscope')
         contractamount = request.form.get('TotalContractAmount')
         monthstopay = request.form.get('MonthsToPay')
+        depositpaid = request.form.get('depositpaid')
         installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
         installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
         installment3_date = clean_date_update(request.form.get('installment3_paid_date'))
@@ -8522,7 +8523,75 @@ def update_project():
         installment5_date = clean_date_update(request.form.get('installment5_paid_date'))
         installment6_date = clean_date_update(request.form.get('installment6_paid_date'))
 
+        monthlyinstallment = (float(contractamount) - float(depositpaid))/int(monthstopay)
+        project_completion_status = "Ongoing"
+        first_installment_due_date = request.form.get('first_installment_due_date')
+        first_installment_due_date_calc = datetime.strptime(first_installment_due_date, "%Y-%m-%d").date()
+                        
+        installment_due_dates = []
 
+        # Generate installment dates
+        for i in range(int(monthstopay)):
+            next_date = add_months(first_installment_due_date_calc, i)
+            installment_due_dates.append(next_date)
+
+        # Fill up to 6 slots using same day logic for following months
+        while len(installment_due_dates) < 6:
+            next_date = add_months(first_installment_due_date_calc, len(installment_due_dates))
+            installment_due_dates.append(next_date)
+
+
+        installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate = installment_due_dates
+
+
+        if int(monthstopay) == 1:
+            installment1amount = float(monthlyinstallment)
+            installment2amount = 0
+            installment3amount = 0
+            installment4amount = 0
+            installment5amount = 0
+            installment6amount = 0
+
+        elif int(monthstopay) == 2:
+            installment1amount = float(monthlyinstallment)
+            installment2amount = float(monthlyinstallment)
+            installment3amount = 0
+            installment4amount = 0
+            installment5amount = 0
+            installment6amount = 0
+        
+        elif int(monthstopay) == 3:
+            installment1amount = float(monthlyinstallment)
+            installment2amount = float(monthlyinstallment)
+            installment3amount = float(monthlyinstallment)
+            installment4amount = 0
+            installment5amount = 0
+            installment6amount = 0
+
+        elif int(monthstopay) == 4:
+            installment1amount = float(monthlyinstallment)
+            installment2amount = float(monthlyinstallment)
+            installment3amount = float(monthlyinstallment)
+            installment4amount = float(monthlyinstallment)
+            installment5amount = 0
+            installment6amount = 0
+
+        elif int(monthstopay) == 5:
+            installment1amount = float(monthlyinstallment)
+            installment2amount = float(monthlyinstallment)
+            installment3amount = float(monthlyinstallment)
+            installment4amount = float(monthlyinstallment)
+            installment5amount = float(monthlyinstallment)
+            installment6amount = 0
+
+        elif int(monthstopay) == 6:
+            installment1amount = float(monthlyinstallment)
+            installment2amount = float(monthlyinstallment)
+            installment3amount = float(monthlyinstallment)
+            installment4amount = float(monthlyinstallment)
+            installment5amount = float(monthlyinstallment)
+            installment6amount = float(monthlyinstallment)
+            
         # --- EXAMPLE SQL (modify for your DB) ---
         query = """
             UPDATE connectlinkdatabase
@@ -8537,7 +8606,13 @@ def update_project():
                 installment5date = %s,
                 installment6date = %s,
                 projectdescription = %s,
-                projectname = %s
+                projectname = %s,  
+                installment1amount = %s, 
+                installment2amount = %s, 
+                installment3amount = %s, 
+                installment4amount = %s, 
+                installment5amount = %s, 
+                installment6amount = %s
             WHERE id = %s
         """
         
@@ -8553,6 +8628,12 @@ def update_project():
             installment6_date,
             projscope,
             project_name,
+            installment1amount,
+            installment2amount,
+            installment3amount,
+            installment4amount,
+            installment5amount,
+            installment6amount,
             project_id
         )
 
