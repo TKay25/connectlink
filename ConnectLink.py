@@ -8381,6 +8381,7 @@ def run1(userid):
                 'client name': row['clientname'],
                 'client phone': row['clientwanumber'],
                 'project_name': row['projectname'],
+                'overdue_amount': row['overdue_amount'],
                 'status': status_html
             })
 
