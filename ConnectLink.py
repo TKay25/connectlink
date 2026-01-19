@@ -8522,6 +8522,12 @@ def update_project():
         installment4_date = clean_date_update(request.form.get('installment4_paid_date'))
         installment5_date = clean_date_update(request.form.get('installment5_paid_date'))
         installment6_date = clean_date_update(request.form.get('installment6_paid_date'))
+        installment1_duedate = clean_date_update(request.form.get('Installment1DueDate'))
+        installment2_duedate = clean_date_update(request.form.get('Installment2DueDate'))
+        installment3_duedate = clean_date_update(request.form.get('Installment3DueDate'))
+        installment4_duedate = clean_date_update(request.form.get('Installment4DueDate'))
+        installment5_duedate = clean_date_update(request.form.get('Installment5DueDate'))
+        installment6_duedate = clean_date_update(request.form.get('Installment6DueDate'))
 
         monthlyinstallment = (float(contractamount) - float(depositpaid))/int(monthstopay)
         first_installment_due_date = request.form.get('Installment1DueDate')
@@ -8613,7 +8619,13 @@ def update_project():
                 installment3amount = %s, 
                 installment4amount = %s, 
                 installment5amount = %s, 
-                installment6amount = %s
+                installment6amount = %s,
+                installment1duedate = %s,
+                installment2duedate = %s,
+                installment3duedate = %s,
+                installment4duedate = %s,
+                installment5duedate = %s,
+                installment6duedate = %s
             WHERE id = %s
         """
         
@@ -8637,6 +8649,12 @@ def update_project():
             installment4amount,
             installment5amount,
             installment6amount,
+            installment1_duedate,
+            installment2_duedate,
+            installment3_duedate,
+            installment4_duedate,
+            installment5_duedate,
+            installment6_duedate,
             project_id
         )
 
