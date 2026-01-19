@@ -2309,6 +2309,13 @@
 
                 <div class="tab-pane fade" id="payments-tab">
 
+                    <button class="btn btn-primary mt-1"
+                            id="installmentscheduleBtn"
+                            style="width: max-content;"
+                            onclick="downloadInstallmentSchedule()">
+                        <i class="bi bi-download"></i> Download Installments Schedule
+                    </button>
+
                     <input type="hidden" id="completed-projects" value="{{ count_completed|default(0)|int }}">
                     <input type="hidden" id="ongoing-projects" value="{{ count_ongoing|default(0)|int }}">
 
@@ -2565,13 +2572,6 @@
                             style="width: max-content;"
                             onclick="downloadPortfolio()">
                         <i class="bi bi-download"></i> Download Master File
-                    </button>
-
-                    <button class="btn btn-primary mt-1"
-                            id="installmentscheduleBtn"
-                            style="width: max-content;"
-                            onclick="downloadInstallmentSchedule()">
-                        <i class="bi bi-download"></i> Download Installments Schedule
                     </button>
 
                     <div class="container mt-6 card">
