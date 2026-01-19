@@ -8597,6 +8597,7 @@ def update_project():
             SET 
                 projectcompletionstatus = %s,
                 totalcontractamount = %s,
+                depositorbullet = %s,
                 monthstopay = %s,
                 installment1date = %s,
                 installment2date = %s,
@@ -8618,6 +8619,7 @@ def update_project():
         values = (
             completion_status,
             contractamount,
+            depositpaid,
             monthstopay,
             installment1_date,
             installment2_date,
