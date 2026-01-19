@@ -5408,6 +5408,13 @@ document.addEventListener('DOMContentLoaded', () => {
             lengthChange: false, // Disable entries per page dropdown
         });
 
+        $('#allpaymentscdTable').DataTable({
+            paging: false,    // Enable pagination
+            searching: true, // Enable search
+            ordering: true,  // Enable sorting
+            info: true,      // Show table information
+        });
+
 
 
         $('#allenquiriesTable').DataTable({
