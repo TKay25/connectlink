@@ -8321,7 +8321,8 @@ def run1(userid):
         # Add "All" option at the end
         month_options_list.append({'display': 'All', 'value': 'all', 'date': None})
         enquiries_data = get_enquiries_data()
-
+        
+        datamain2 = datamain
 
 
         date_columns = ['installment1duedate', 'installment2duedate', 'installment3duedate',
@@ -8330,8 +8331,8 @@ def run1(userid):
                         'installment4date', 'installment5date', 'installment6date']
 
         for col in date_columns:
-            if col in datamain.columns:
-                datamain[col] = pd.to_datetime(datamain[col], errors='coerce')
+            if col in datamain2.columns:
+                datamain2[col] = pd.to_datetime(datamain2[col], errors='coerce')
 
         # Get current date
         current_date = datetime.now()
@@ -8362,12 +8363,12 @@ def run1(userid):
             return total_overdue, is_overdue
 
         # Calculate status for each row
-        datamain['overdue_amount'], datamain['is_overdue'] = zip(*datamain.apply(get_payment_status, axis=1))
+        datamain2['overdue_amount'], datamain2['is_overdue'] = zip(*datamain2.apply(get_payment_status, axis=1))
 
         # Create the display table
         table_data = []
 
-        for _, row in datamain.iterrows():
+        for _, row in datamain2.iterrows():
             status_html = ""
             
             if row['is_overdue']:
@@ -8470,11 +8471,11 @@ def run1(userid):
             return stats
 
         # Calculate payment statistics
-        payment_stats = calculate_payment_stats(datamain)
+        payment_stats = calculate_payment_stats(datamain2)
 
         # Also calculate total due (all amounts due by today)
         total_due = 0
-        for _, row in datamain.iterrows():
+        for _, row in datamain2.iterrows():
             for i in range(1, 7):
                 due_date_col = f'installment{i}duedate'
                 amount_col = f'installment{i}amount'
