@@ -8492,6 +8492,9 @@ def run1(userid):
 
         return {
             'payment_stats': payment_stats,
+            'start_of_week': start_of_week,
+            'start_of_month': start_of_month,
+            'start_of_year': start_of_year,
             'status_df_html': status_df_html,
             'month_options': month_options_list,
             "usersdatamain_html": usersdatamain_html,
