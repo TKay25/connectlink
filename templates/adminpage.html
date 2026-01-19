@@ -1525,6 +1525,11 @@
                             </div>
 
                             <div class="col-md-3">
+                                <label for="updateTotalContractAmount" class="form-label fw-bold">Total Bill</label>
+                                <input type="number" class="form-control" name="TotalContractAmount" id="updateTotalContractAmount">
+                            </div>
+
+                            <div class="col-md-3">
                                 <label for="updateAdminName" class="form-label fw-bold">Administrator Name</label>
                                 <input type="text" class="form-control" id="updateAdminName" readonly>
                             </div>
@@ -4512,6 +4517,7 @@ $(document).ready(function() {
         const clientName = rowData[1]; // Second column (Client Name)
         const projectName = rowData[10]; // Tenth column (Project Name)
         const projectScope = rowData[12]; // Project Scope
+        const totalcontractamount = rowData[17]; // Total Contract Amount
         const adminName = rowData[13]; // Admin Name
         const completionStatus = rowData[44]; // Status
         const depositorbullet = rowData[23]; // Deposit amount
@@ -4551,6 +4557,7 @@ $(document).ready(function() {
         $('#updateClientName').val(clientName);
         $('#updateProjectName').val(projectName);
         $('#updateAdminName').val(adminName);
+        $('#updateTotalContractAmount').val(totalcontractamount);
         $('#updateProjectScope').val(projectScope)
         $('#updateCompletionStatus').val(completionStatus);
         $('#updateDepositPaid').val(depositorbullet);
