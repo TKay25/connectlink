@@ -8398,14 +8398,6 @@ def run1(userid):
             
             # Simple installment display
             installments_html = f'<span class="badge bg-info">{row["installments_due_simple"]}</span>'
-            
-            table_data.append({
-                'client name': row['clientname'],
-                'client phone': row['clientwanumber'],
-                'project_name': row['projectname'],
-                'status': status_html,
-                'installments due': installments_html
-            })
 
         # Function to format phone number
         def format_phone_number(phone):
