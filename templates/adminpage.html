@@ -1512,37 +1512,42 @@
 
                         <input type="hidden" id="updateProjectId" name="project_id">
                         
-                        <div class="row mb-3">
-
-                            <div class="col-md-3">
+                        <div class="row mb-3 g-3">
+                            <!-- Client Name - Wider -->
+                            <div class="col-lg-2 col-md-4 col-sm-6">
                                 <label for="updateClientName" class="form-label fw-bold">Client Name</label>
                                 <input type="text" class="form-control" id="updateClientName" readonly>
                             </div>
 
-                            <div class="col-md-3">
+                            <!-- Project Name - Wider -->
+                            <div class="col-lg-2 col-md-4 col-sm-6">
                                 <label for="updateProjectName" class="form-label fw-bold">Project Name</label>
                                 <input type="text" class="form-control editable-field" name="ProjectName" id="updateProjectName">
                             </div>
 
-                            <div class="col-md-3">
+                            <!-- Total Bill - Medium -->
+                            <div class="col-lg-2 col-md-4 col-sm-6">
                                 <label for="updateTotalContractAmount" class="form-label fw-bold">Total Bill (USD)</label>
                                 <input type="number" class="form-control editable-field" name="TotalContractAmount" id="updateTotalContractAmount">
                             </div>
 
-                            <div class="col-md-3">
-                                <label for="updateMonthsToPay" class="form-label fw-bold">Months to Pay</label>
+                            <!-- Months to Pay - Narrower -->
+                            <div class="col-lg-1 col-md-3 col-sm-4">
+                                <label for="updateMonthsToPay" class="form-label fw-bold">Months To Pay</label>
                                 <input type="number" class="form-control editable-field" name="MonthsToPay" id="updateMonthsToPay">
                             </div>
 
-                            <div class="col-md-3">
-                                <label for="updateAdminName" class="form-label fw-bold">Administrator Name</label>
+                            <!-- Admin Name - Medium -->
+                            <div class="col-lg-2 col-md-4 col-sm-6">
+                                <label for="updateAdminName" class="form-label fw-bold">Admin Name</label>
                                 <input type="text" class="form-control editable-field" id="updateAdminName">
                             </div>
 
-                            <div class="col-md-3">
-                                <label for="updateCompletionStatus" class="form-label fw-bold">Project Completion Status</label>
+                            <!-- Completion Status - Wider -->
+                            <div class="col-lg-3 col-md-5 col-sm-8">
+                                <label for="updateCompletionStatus" class="form-label fw-bold">Completion Status</label>
                                 <select class="form-select" id="updateCompletionStatus" name="completion_status">
-                                    <option value="ph" disabled selected hidden>ph</option>
+                                    <option value="ph" disabled selected hidden>Select Status</option>
                                     <option value="Not Started">Not Started</option>
                                     <option value="Ongoing">Ongoing</option>
                                     <option value="On Hold">On Hold</option>
@@ -1550,7 +1555,6 @@
                                     <option value="Cancelled">Cancelled</option>
                                 </select>
                             </div>
-
                         </div>
                         
                         <div class="row mb-3">
