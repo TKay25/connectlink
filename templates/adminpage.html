@@ -2409,8 +2409,6 @@
             
                     </div>
 
-
-                    </div>
                     <div class="container2" style="max-height: 380px; overflow-y: auto;">
                         {{ status_df_html |safe }}
                     </div>
@@ -2504,111 +2502,108 @@
                     </button>
 
                     <div class="container mt-5">
-                            <div class="container2" style="max-height: 500px; overflow-y: auto;">
+                        <div class="container2" style="max-height: 500px; overflow-y: auto;">
 
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <input type="text" id="enquirySearch" class="form-control form-control-sm" 
-                                            placeholder="Search enquiries..." style="font-size: 12px;">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <select id="categoryFilter" class="form-select form-select-sm" style="font-size: 12px;">
-                                            <option value="">All Categories</option>
-                                            <option value="Kitchen & Cabinets">Kitchen & Cabinets</option>
-                                            <option value="Building">Building</option>
-                                            <option value="Renovation">Renovation</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <select id="statusFilter" class="form-select form-select-sm" style="font-size: 12px;">
-                                            <option value="">All Status</option>
-                                            <option value="pending">Pending</option>
-                                            <option value="in_progress">In Progress</option>
-                                            <option value="completed">Completed</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button id="clearFilters" class="btn btn-sm btn-outline-secondary w-100" style="font-size: 12px;">
-                                            Clear
-                                        </button>
-                                    </div>
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <input type="text" id="enquirySearch" class="form-control form-control-sm" 
+                                        placeholder="Search enquiries..." style="font-size: 12px;">
                                 </div>
-                                
-                                <!-- Results Count -->
-                                <div class="mb-2">
-                                    <small id="resultsCount" class="text-muted"></small>
+                                <div class="col-md-3">
+                                    <select id="categoryFilter" class="form-select form-select-sm" style="font-size: 12px;">
+                                        <option value="">All Categories</option>
+                                        <option value="Kitchen & Cabinets">Kitchen & Cabinets</option>
+                                        <option value="Building">Building</option>
+                                        <option value="Renovation">Renovation</option>
+                                        <option value="Other">Other</option>
+                                    </select>
                                 </div>
-
-                                <table class="table-theme">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Date</th>
-                                            <th>Client</th>
-                                            <th>Username</th>
-                                            <th>Category</th>
-                                            <th>Message</th>
-                                            <th>Status</th>
-                                            <th>Document</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for enquiry in enquiries_data %}
-                                        <tr class="enquiry-row"  id="enquiry-row-{{ enquiry.id }}"
-                                            data-id="{{ enquiry.id }}"
-                                            data-category="{{ enquiry.category }}"
-                                            data-status="{{ enquiry.status }}"
-                                            data-client="{{ enquiry.clientwhatsapp }}"
-                                            data-username="{{ enquiry.username }}"
-                                            data-message="{{ enquiry.message }}">
-                                            <td>#{{ enquiry.id }}</td>
-                                            <td>{{ enquiry.timestamp }}</td>
-                                            <td>
-                                                <a href="https://wa.me/263{{ enquiry.clientwhatsapp }}" target="_blank">
-                                                    +263{{ enquiry.clientwhatsapp }}
-                                                </a>
-                                            </td>
-                                            <td>{{ enquiry.username }}</td>
-                                            <td><span class="badge bg-secondary" style="font-size: 11px;">{{ enquiry.category }}</span></td>
-                                            <td>
-                                                <div class="message-container">
-                                                    <span class="message-preview">
-                                                        {{ enquiry['message'][:10] if enquiry['message'] and enquiry['message']|length > 10 else enquiry['message'] or 'No message' }}
-                                                        {% if enquiry['message'] and enquiry['message']|length > 10 %}
-                                                        ... <a href="javascript:void(0)" class="expand-message" data-id="{{ enquiry['id'] }}">[Show More]</a>
-                                                        {% endif %}
-                                                    </span>
-                                                    <div class="message-full" id="message-full-{{ enquiry['id'] }}" style="display: none;">
-                                                        {{ enquiry['message'] or 'No message' }}
-                                                        <br>
-                                                        <a href="javascript:void(0)" class="collapse-message" data-id="{{ enquiry['id'] }}">[Show Less]</a>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <select class="form-select status-select" style="font-size: 11px;" data-id="{{ enquiry.id }}">
-                                                    <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
-                                                    <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                                                    <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
-                                                </select>
-                                            </td>
-                                            <td>
-                                                {% if enquiry.has_plan %}
-                                                <a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success" style="font-size: 11px;">
-                                                    PDF
-                                                </a>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
+                                <div class="col-md-3">
+                                    <select id="statusFilter" class="form-select form-select-sm" style="font-size: 12px;">
+                                        <option value="">All Status</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="completed">Completed</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button id="clearFilters" class="btn btn-sm btn-outline-secondary w-100" style="font-size: 12px;">
+                                        Clear
+                                    </button>
+                                </div>
                             </div>
+                            
+                            <!-- Results Count -->
+                            <div class="mb-2">
+                                <small id="resultsCount" class="text-muted"></small>
+                            </div>
+
+                            <table class="table-theme">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Date</th>
+                                        <th>Client</th>
+                                        <th>Username</th>
+                                        <th>Category</th>
+                                        <th>Message</th>
+                                        <th>Status</th>
+                                        <th>Document</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for enquiry in enquiries_data %}
+                                    <tr class="enquiry-row"  id="enquiry-row-{{ enquiry.id }}"
+                                        data-id="{{ enquiry.id }}"
+                                        data-category="{{ enquiry.category }}"
+                                        data-status="{{ enquiry.status }}"
+                                        data-client="{{ enquiry.clientwhatsapp }}"
+                                        data-username="{{ enquiry.username }}"
+                                        data-message="{{ enquiry.message }}">
+                                        <td>#{{ enquiry.id }}</td>
+                                        <td>{{ enquiry.timestamp }}</td>
+                                        <td>
+                                            <a href="https://wa.me/263{{ enquiry.clientwhatsapp }}" target="_blank">
+                                                +263{{ enquiry.clientwhatsapp }}
+                                            </a>
+                                        </td>
+                                        <td>{{ enquiry.username }}</td>
+                                        <td><span class="badge bg-secondary" style="font-size: 11px;">{{ enquiry.category }}</span></td>
+                                        <td>
+                                            <div class="message-container">
+                                                <span class="message-preview">
+                                                    {{ enquiry['message'][:10] if enquiry['message'] and enquiry['message']|length > 10 else enquiry['message'] or 'No message' }}
+                                                    {% if enquiry['message'] and enquiry['message']|length > 10 %}
+                                                    ... <a href="javascript:void(0)" class="expand-message" data-id="{{ enquiry['id'] }}">[Show More]</a>
+                                                    {% endif %}
+                                                </span>
+                                                <div class="message-full" id="message-full-{{ enquiry['id'] }}" style="display: none;">
+                                                    {{ enquiry['message'] or 'No message' }}
+                                                    <br>
+                                                    <a href="javascript:void(0)" class="collapse-message" data-id="{{ enquiry['id'] }}">[Show Less]</a>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <select class="form-select status-select" style="font-size: 11px;" data-id="{{ enquiry.id }}">
+                                                <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
+                                                <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                                <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            {% if enquiry.has_plan %}
+                                            <a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success" style="font-size: 11px;">
+                                                PDF
+                                            </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-
-
                 </div>
 
 
