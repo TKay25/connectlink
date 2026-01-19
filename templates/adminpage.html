@@ -1606,48 +1606,52 @@
                                     <h6 class="mb-0">Installment 1 Details</h6>
                                 </div>
                                 <div class="card-body">
-
-                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                    <div class="row g-3 align-items-center">
                                         <!-- Amount -->
-                                        <div class="d-flex align-items-center gap-2">
-                                            <label for="updateInstallment1Amount" class="fw-bold mb-0">Amount (USD):</label>
-                                            <input type="text" class="form-control" id="updateInstallment1Amount" style="width: 120px;" readonly>
+                                        <div class="col-lg-2 col-md-4 col-sm-6">
+                                            <label for="updateInstallment1Amount" class="form-label fw-bold mb-1">Amount (USD)</label>
+                                            <input type="text" class="form-control" id="updateInstallment1Amount" readonly>
                                         </div>
 
                                         <!-- Due Date -->
-                                        <div class="d-flex align-items-center gap-2">
-                                            <label for="updateInstallment1DueDate" class="fw-bold mb-0">Due Date:</label>
-                                            <input type="date" class="form-control editable-field" name="Installment1DueDate" id="updateInstallment1DueDate" style="width: 120px;">
+                                        <div class="col-lg-2 col-md-4 col-sm-6">
+                                            <label for="updateInstallment1DueDate" class="form-label fw-bold mb-1">Due Date</label>
+                                            <input type="date" class="form-control editable-field" name="Installment1DueDate" id="updateInstallment1DueDate">
                                         </div>
 
                                         <!-- Date Paid -->
-                                        <div class="d-flex align-items-center gap-2">
-                                            <label for="updateInstallment1PaidDate" class="fw-bold mb-0">Date Paid:</label>
-                                            <input type="date" class="form-control editable-field" id="updateInstallment1Date" name="installment1_paid_date" style="width: 140px;">
+                                        <div class="col-lg-2 col-md-4 col-sm-6">
+                                            <label for="updateInstallment1PaidDate" class="form-label fw-bold mb-1">Date Paid</label>
+                                            <input type="date" class="form-control editable-field" id="updateInstallment1Date" name="installment1_paid_date">
                                         </div>
 
-                                        <!-- Buttons -->
-                                        <div class="row g-2">
-                                            <!-- <button type="button"
-                                                    class="btn btn-primary"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#changeInstallmentDateModal" style="width: max-content;">
-                                                Change First Installment Due Date
-                                            </button> -->
-
-
-                                            <div class="col-md-4">
-                                                <button type="button" class="btn btn-primary w-100">Get Receipt</button>
-                                            </div>
-
-                                            <div class="col-md-4">
-                                                <button type="button" class="btn btn-primary w-100">Send Receipt to Client</button>
+                                        <!-- Buttons - will take remaining space -->
+                                        <div class="col-lg-6 col-md-12">
+                                            <div class="row g-2">
+                                                <div class="col-md-4 col-sm-6">
+                                                    <button type="button" class="btn btn-primary w-100">
+                                                        Get Receipt
+                                                    </button>
+                                                </div>
+                                                <div class="col-md-4 col-sm-6">
+                                                    <button type="button" class="btn btn-primary w-100">
+                                                        Send Receipt to Client
+                                                    </button>
+                                                </div>
+                                                <!-- Optional: Add more buttons if needed -->
+                                                <div class="col-md-4 col-sm-12">
+                                                    <!-- Commented out button example -->
+                                                    <!-- <button type="button" 
+                                                            class="btn btn-outline-primary w-100"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#changeInstallmentDateModal">
+                                                        Change Due Date
+                                                    </button> -->
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-
                                 </div>
-                            </div>
 
 
 
