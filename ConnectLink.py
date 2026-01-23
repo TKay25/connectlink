@@ -8634,7 +8634,7 @@ def get_project_months():
                 SELECT DISTINCT 
                     YEAR(projectstartdate) as year,
                     MONTH(projectstartdate) as month
-                FROM projects 
+                FROM connectlinkdatabase 
                 WHERE projectstartdate IS NOT NULL
                 ORDER BY year DESC, month DESC
             """)
@@ -8665,12 +8665,12 @@ def get_project_count():
                 year, month_num = month.split('-')
                 cursor.execute("""
                     SELECT COUNT(*) as count 
-                    FROM projects 
+                    FROM connectlinkdatabase 
                     WHERE YEAR(projectstartdate) = %s 
                     AND MONTH(projectstartdate) = %s
                 """, (year, month_num))
             else:
-                cursor.execute("SELECT COUNT(*) as total FROM projects")
+                cursor.execute("SELECT COUNT(*) as total FROM connectlinkdatabase")
             
             result = cursor.fetchone()
             return jsonify(result)
@@ -8688,7 +8688,7 @@ def download_portfolio():
             month = request.args.get('month')
             
             # Build query
-            query = "SELECT * FROM projects"
+            query = "SELECT * FROM connectlinkdatabase"
             
             if month:
                 year, month_num = month.split('-')
