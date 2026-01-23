@@ -8703,7 +8703,7 @@ def download_portfolio():
             active_columns = [col[0] for col in cursor.fetchall()]
             
             # Get project notes from projectnotes table
-            cursor.execute("SELECT * FROM connectlinknotes ORDER BY project_id, created_at DESC")
+            cursor.execute("SELECT * FROM connectlinknotes ORDER BY momid ASC")
             project_notes = cursor.fetchall()
             
             # Get column names for project notes
