@@ -8750,6 +8750,9 @@ def get_installments_count():
     except Exception as e:
         print(f"Error counting installments: {e}")
         return jsonify({'total': 0, 'paid': 0, 'due': 0, 'error': str(e)}), 500
+
+
+
 @app.route('/download_installments')
 def download_installments():
     """Download installments data with both project start and due month filters"""
@@ -8952,17 +8955,23 @@ def download_installments():
             import pandas as pd
             from io import BytesIO
             from datetime import datetime
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
             
             # Create DataFrames
             paid_df = pd.DataFrame(paid_data)
             due_df = pd.DataFrame(due_data)
             
+            # Calculate totals
+            total_paid_amount = paid_df['amount_paid'].sum() if not paid_df.empty else 0
+            total_due_amount = due_df['amount_due'].sum() if not due_df.empty else 0
+            total_contract_value = total_paid_amount + total_due_amount
+            
             # Format amounts as currency
             def format_currency(amount):
                 try:
-                    return f"{float(amount):,.2f}"
+                    return f"KES {float(amount):,.2f}"
                 except:
-                    return f"0.00"
+                    return f"KES 0.00"
             
             if not paid_df.empty:
                 paid_df['amount_paid_formatted'] = paid_df['amount_paid'].apply(format_currency)
@@ -8973,7 +8982,7 @@ def download_installments():
             # Create Excel writer
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                # Sheet 1: Paid Installments
+                # ========== SHEET 1: PAID INSTALLMENTS ==========
                 if len(paid_df) > 0:
                     paid_display_df = paid_df.copy()
                     
@@ -9005,12 +9014,18 @@ def download_installments():
                     }
                     
                     paid_display_df.columns = [column_headers.get(col, col) for col in available_columns]
+                    
+                    # Add a total row
+                    total_row = pd.DataFrame([[''] * (len(available_columns) - 1) + [f"KES {total_paid_amount:,.2f}"]], 
+                                           columns=paid_display_df.columns)
+                    paid_display_df = pd.concat([paid_display_df, total_row], ignore_index=True)
+                    
                     paid_display_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 else:
                     empty_df = pd.DataFrame({'Message': ['No paid installments found']})
                     empty_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 
-                # Sheet 2: Due Installments
+                # ========== SHEET 2: DUE INSTALLMENTS ==========
                 if len(due_df) > 0:
                     due_display_df = due_df.copy()
                     
@@ -9042,16 +9057,18 @@ def download_installments():
                     }
                     
                     due_display_df.columns = [column_headers.get(col, col) for col in available_columns]
+                    
+                    # Add a total row
+                    total_row = pd.DataFrame([[''] * (len(available_columns) - 1) + [f"KES {total_due_amount:,.2f}"]], 
+                                           columns=due_display_df.columns)
+                    due_display_df = pd.concat([due_display_df, total_row], ignore_index=True)
+                    
                     due_display_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 else:
                     empty_df = pd.DataFrame({'Message': ['No due installments found']})
                     empty_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 
-                # Sheet 3: Summary Report
-                total_paid_amount = paid_df['amount_paid'].sum() if not paid_df.empty else 0
-                total_due_amount = due_df['amount_due'].sum() if not due_df.empty else 0
-                total_contract_value = total_paid_amount + total_due_amount
-                
+                # ========== SHEET 3: SUMMARY REPORT ==========
                 # Build filter description
                 filter_desc = []
                 if project_start_month and project_start_month != 'all':
@@ -9077,37 +9094,44 @@ def download_installments():
                     due_date_info = f" (Showing specific due dates for {month_names[int(month)-1]} {year})"
                 
                 summary_data = {
-                    'Filter Applied': [filter_description + due_date_info, filter_description + due_date_info],
-                    'Category': ['Paid Installments', 'Due Installments'],
-                    'Record Count': [len(paid_df), len(due_df)],
+                    'Filter Applied': [filter_description + due_date_info, filter_description + due_date_info, 'GRAND TOTAL'],
+                    'Category': ['Paid Installments', 'Due Installments', ''],
+                    'Record Count': [len(paid_df), len(due_df), len(paid_df) + len(due_df)],
                     'Total Amount': [
-                        f"{total_paid_amount:,.2f}",
-                        f"{total_due_amount:,.2f}"
+                        f"KES {total_paid_amount:,.2f}",
+                        f"KES {total_due_amount:,.2f}",
+                        f"KES {total_contract_value:,.2f}"
                     ],
                     'Percentage': [
                         f"{(total_paid_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
-                        f"{(total_due_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%'
+                        f"{(total_due_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
+                        '100%'
                     ],
-                    'Report Generated': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 2
+                    'Report Generated': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 2 + ['']
                 }
                 
                 summary_df = pd.DataFrame(summary_data)
                 summary_df.to_excel(writer, sheet_name='Summary Report', index=False)
                 
-                # Format worksheets
+                # ========== FORMAT ALL WORKSHEETS ==========
                 for sheet_name in writer.sheets:
                     worksheet = writer.sheets[sheet_name]
+                    
+                    # Freeze top row
                     worksheet.freeze_panes = 'A2'
                     
                     # Format header row
+                    header_fill = PatternFill(start_color="E6F3FF", end_color="E6F3FF", fill_type="solid")
+                    header_font = Font(bold=True)
+                    
                     for cell in worksheet[1]:
-                        cell.font = cell.font.copy(bold=True)
+                        cell.font = header_font
                         if sheet_name == 'Paid Installments':
-                            cell.fill = cell.fill.copy(patternType="solid", fgColor="E6FFE6")
+                            cell.fill = PatternFill(start_color="E6FFE6", end_color="E6FFE6", fill_type="solid")
                         elif sheet_name == 'Due Installments':
-                            cell.fill = cell.fill.copy(patternType="solid", fgColor="FFE6E6")
+                            cell.fill = PatternFill(start_color="FFE6E6", end_color="FFE6E6", fill_type="solid")
                         else:
-                            cell.fill = cell.fill.copy(patternType="solid", fgColor="E6F3FF")
+                            cell.fill = header_fill
                     
                     # Auto-adjust column widths
                     for column in worksheet.columns:
@@ -9124,30 +9148,112 @@ def download_installments():
                         adjusted_width = min(max_length + 2, 30)
                         worksheet.column_dimensions[column_letter].width = adjusted_width
                     
-                    # Highlight overdue dates in Due Installments sheet
-                    if sheet_name == 'Due Installments' and due_month and due_month != 'all':
-                        # Find the due date column
-                        due_date_col_index = None
-                        for col_idx, cell in enumerate(worksheet[1], 1):
-                            if cell.value == 'Due Date':
-                                due_date_col_index = col_idx
-                                break
+                    # Format total rows
+                    last_row = worksheet.max_row
+                    
+                    if sheet_name == 'Paid Installments' and len(paid_df) > 0:
+                        # Format total row for Paid sheet
+                        total_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+                        total_font = Font(bold=True, color="006100")
+                        border = Border(
+                            top=Side(style='thin'),
+                            bottom=Side(style='double')
+                        )
                         
-                        if due_date_col_index:
-                            today = datetime.now().date()
-                            for row in range(2, worksheet.max_row + 1):
-                                due_date_cell = worksheet.cell(row=row, column=due_date_col_index)
-                                if due_date_cell.value:
-                                    try:
-                                        due_date = datetime.strptime(str(due_date_cell.value), '%Y-%m-%d').date()
-                                        if due_date < today:
-                                            # Highlight overdue in red
-                                            due_date_cell.font = due_date_cell.font.copy(color="FF0000", bold=True)
-                                        elif due_date == today:
-                                            # Highlight due today in orange
-                                            due_date_cell.font = due_date_cell.font.copy(color="FF8C00", bold=True)
-                                    except:
-                                        pass
+                        # Find the amount column (last column)
+                        amount_col_letter = chr(65 + len(available_columns) - 1)  # Convert to column letter
+                        
+                        # Format the total cell
+                        total_cell = f"{amount_col_letter}{last_row}"
+                        worksheet[total_cell].font = total_font
+                        worksheet[total_cell].fill = total_fill
+                        worksheet[total_cell].border = border
+                        
+                        # Add "TOTAL" label in first column
+                        worksheet[f"A{last_row}"].value = "TOTAL"
+                        worksheet[f"A{last_row}"].font = total_font
+                        worksheet[f"A{last_row}"].fill = total_fill
+                        worksheet[f"A{last_row}"].border = border
+                        
+                    elif sheet_name == 'Due Installments' and len(due_df) > 0:
+                        # Format total row for Due sheet
+                        total_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+                        total_font = Font(bold=True, color="9C0006")
+                        border = Border(
+                            top=Side(style='thin'),
+                            bottom=Side(style='double')
+                        )
+                        
+                        # Find the amount column (last column)
+                        amount_col_letter = chr(65 + len(available_columns) - 1)  # Convert to column letter
+                        
+                        # Format the total cell
+                        total_cell = f"{amount_col_letter}{last_row}"
+                        worksheet[total_cell].font = total_font
+                        worksheet[total_cell].fill = total_fill
+                        worksheet[total_cell].border = border
+                        
+                        # Add "TOTAL" label in first column
+                        worksheet[f"A{last_row}"].value = "TOTAL"
+                        worksheet[f"A{last_row}"].font = total_font
+                        worksheet[f"A{last_row}"].fill = total_fill
+                        worksheet[f"A{last_row}"].border = border
+                        
+                        # Highlight overdue dates
+                        if due_month and due_month != 'all':
+                            # Find the due date column
+                            due_date_col_index = None
+                            for col_idx, cell in enumerate(worksheet[1], 1):
+                                if cell.value == 'Due Date':
+                                    due_date_col_index = col_idx
+                                    break
+                            
+                            if due_date_col_index:
+                                today = datetime.now().date()
+                                for row in range(2, last_row):  # Exclude total row
+                                    due_date_cell = worksheet.cell(row=row, column=due_date_col_index)
+                                    if due_date_cell.value:
+                                        try:
+                                            due_date = datetime.strptime(str(due_date_cell.value), '%Y-%m-%d').date()
+                                            if due_date < today:
+                                                # Highlight overdue in red
+                                                due_date_cell.font = Font(color="FF0000", bold=True)
+                                            elif due_date == today:
+                                                # Highlight due today in orange
+                                                due_date_cell.font = Font(color="FF8C00", bold=True)
+                                        except:
+                                            pass
+                    
+                    elif sheet_name == 'Summary Report':
+                        # Format Summary Report sheet
+                        # Format the grand total row (last row)
+                        grand_total_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+                        grand_total_font = Font(bold=True, color="000000")
+                        grand_total_border = Border(
+                            top=Side(style='thin'),
+                            bottom=Side(style='double')
+                        )
+                        
+                        # Apply formatting to grand total row
+                        for col in range(1, worksheet.max_column + 1):
+                            cell = worksheet.cell(row=last_row, column=col)
+                            cell.font = grand_total_font
+                            cell.fill = grand_total_fill
+                            cell.border = grand_total_border
+                        
+                        # Format amount columns (columns D and E)
+                        for row in range(2, last_row + 1):
+                            # Column D - Total Amount
+                            cell_d = worksheet.cell(row=row, column=4)
+                            if 'Paid' in str(worksheet.cell(row=row, column=2).value):
+                                cell_d.font = Font(color="006100", bold=(row == last_row))
+                            elif 'Due' in str(worksheet.cell(row=row, column=2).value):
+                                cell_d.font = Font(color="9C0006", bold=(row == last_row))
+                            
+                            # Column E - Percentage
+                            cell_e = worksheet.cell(row=row, column=5)
+                            if row < last_row:  # Not the grand total row
+                                cell_e.font = Font(color="0000FF")
             
             # Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -9180,6 +9286,7 @@ def download_installments():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
