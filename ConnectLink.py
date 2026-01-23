@@ -7635,11 +7635,10 @@ def add_note():
             if not project_id or not note_text:
                 return jsonify({'success': False, 'message': 'Missing required fields'}), 400
 
-            # Insert note into database
             cursor.execute("""
-                INSERT INTO connectlinknotes (projectid, note, timestamp, capturer, projectname, clientname, clientwanumber, clientnextofkinnumber)
-                VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s)
-            """, (project_id, note_text, user_name, project_name, client_name, client_number, nextofkin_number))  # Replace with actual user
+                INSERT INTO connectlinknotes (projectid, note, timestamp, capturer, projectname, clientname, clientwanumber, clientnextofkinnumber, capturerid)
+                VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s, %s)
+            """, (project_id, note_text, user_name, project_name, client_name, client_number, nextofkin_number, userid))  # Replace with actual user
             
             connection.commit()
             
