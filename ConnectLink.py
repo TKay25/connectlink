@@ -8690,7 +8690,7 @@ def download_portfolio():
                 date_params = [year, month_num]
             
             # 1. Get active projects from connectlinkdatabase within date range
-            query = f"SELECT * FROM connectlinkdatabase {date_where_clause} ORDER BY projectstartdate DESC"
+            query = f"SELECT * FROM connectlinkdatabase {date_where_clause} ORDER BY momid ASC"
             cursor.execute(query, date_params if date_params else ())
             active_projects = cursor.fetchall()
             
@@ -8932,7 +8932,7 @@ def download_portfolio():
         traceback.print_exc()
         return "Error generating download", 500
 
-        
+
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
     """Download the plan PDF attachment"""
