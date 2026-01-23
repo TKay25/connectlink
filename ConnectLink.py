@@ -8622,18 +8622,15 @@ def get_enquiries_data():
     except Exception as e:
         print(f"Error getting enquiries: {str(e)}")
         return []
-
 @app.route('/get_project_months')
 def get_project_months():
     try:
-
         with get_db() as (cursor, connection):
-
-            # Get unique months
+            # PostgreSQL uses EXTRACT instead of YEAR/MONTH
             cursor.execute("""
                 SELECT DISTINCT 
-                    YEAR(projectstartdate) as year,
-                    MONTH(projectstartdate) as month
+                    EXTRACT(YEAR FROM projectstartdate)::INTEGER as year,
+                    EXTRACT(MONTH FROM projectstartdate)::INTEGER as month
                 FROM connectlinkdatabase 
                 WHERE projectstartdate IS NOT NULL
                 ORDER BY year DESC, month DESC
@@ -8656,9 +8653,7 @@ def get_project_months():
 @app.route('/get_project_count')
 def get_project_count():
     try:
-
         with get_db() as (cursor, connection):
-
             month = request.args.get('month')
             
             if month:
@@ -8666,14 +8661,15 @@ def get_project_count():
                 cursor.execute("""
                     SELECT COUNT(*) as count 
                     FROM connectlinkdatabase 
-                    WHERE YEAR(projectstartdate) = %s 
-                    AND MONTH(projectstartdate) = %s
+                    WHERE EXTRACT(YEAR FROM projectstartdate) = %s 
+                    AND EXTRACT(MONTH FROM projectstartdate) = %s
                 """, (year, month_num))
+                result = cursor.fetchone()
+                return jsonify({'count': result[0] if result else 0})
             else:
                 cursor.execute("SELECT COUNT(*) as total FROM connectlinkdatabase")
-            
-            result = cursor.fetchone()
-            return jsonify(result)
+                result = cursor.fetchone()
+                return jsonify({'total': result[0] if result else 0})
         
     except Exception as e:
         print(f"Error counting projects: {e}")
@@ -8682,28 +8678,31 @@ def get_project_count():
 @app.route('/download_portfolio')
 def download_portfolio():
     try:
-
         with get_db() as (cursor, connection):
-
             month = request.args.get('month')
             
-            # Build query
+            # Build query - PostgreSQL version
             query = "SELECT * FROM connectlinkdatabase"
             
             if month:
                 year, month_num = month.split('-')
-                query += f" WHERE YEAR(projectstartdate) = {year} AND MONTH(projectstartdate) = {month_num}"
+                query += f" WHERE EXTRACT(YEAR FROM projectstartdate) = {year} AND EXTRACT(MONTH FROM projectstartdate) = {month_num}"
             
             query += " ORDER BY projectstartdate DESC"
             
             cursor.execute(query)
             projects = cursor.fetchall()
             
-            # Get column names
-            cursor.execute("DESCRIBE projects")
+            # Get column names - PostgreSQL version
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'connectlinkdatabase' 
+                ORDER BY ordinal_position
+            """)
             columns = [col[0] for col in cursor.fetchall()]
             
-            # Create simple CSV (Excel can open CSV)
+            # Create CSV (Excel can open it)
             import csv
             import io
             from datetime import datetime
@@ -8731,7 +8730,7 @@ def download_portfolio():
             else:
                 filename = f"Projects_All_{timestamp}.csv"
             
-            # Return CSV file (Excel can open it)
+            # Return CSV file
             output.seek(0)
             return Response(
                 output.getvalue(),
@@ -8742,6 +8741,7 @@ def download_portfolio():
     except Exception as e:
         print(f"Error downloading: {e}")
         return "Error generating download", 500
+
 
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
