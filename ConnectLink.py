@@ -8800,11 +8800,8 @@ def download_portfolio():
             
             # Filter notes to only include those for projects in our date range
             # Find the project_id column in notes
-            project_id_col_name = None
-            for col in notes_columns:
-                if 'project' in col.lower() and 'id' in col.lower():
-                    project_id_col_name = col
-                    break
+            project_id_col_name = 'projectid'
+
             
             project_notes = []
             if project_id_col_name and project_ids:
