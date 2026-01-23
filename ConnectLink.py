@@ -8701,6 +8701,27 @@ def get_installments_count():
 def download_installments():
     """Download installments data in Excel format with separate sheets for paid and due"""
     try:
+
+        def clean_html(text):
+            if not text or not isinstance(text, str):
+                return text
+            
+            import re
+            # Remove HTML tags
+            text = re.sub(r'<[^>]+>', '', text)
+            # Replace HTML entities
+            replacements = {
+                '&amp;': '&', '&lt;': '<', '&gt;': '>',
+                '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+                '&rsquo;': "'", '&lsquo;': "'",
+                '&rdquo;': '"', '&ldquo;': '"'
+            }
+            for old, new in replacements.items():
+                text = text.replace(old, new)
+            # Clean up whitespace
+            text = ' '.join(text.split())
+            return text
+    
         with get_db() as (cursor, connection):
             month = request.args.get('month')  # Format: '2024-01' or None for all time
             
@@ -8723,6 +8744,7 @@ def download_installments():
                     clientwanumber,
                     clientemail,
                     projectname,
+                    projectdescription,
                     momid,
                     monthlyinstallment,
                     totalcontractamount,
@@ -8754,7 +8776,7 @@ def download_installments():
             
             # Get column names
             columns = [
-                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname', 'projectdescription',
                 'momid', 'monthlyinstallment', 'totalcontractamount',
                 'installment1amount', 'installment1duedate', 'installment1date',
                 'installment2amount', 'installment2duedate', 'installment2date',
@@ -8998,7 +9020,7 @@ def download_installments():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-        
+
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
     """Download the plan PDF attachment"""
