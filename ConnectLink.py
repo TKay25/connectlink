@@ -35,6 +35,7 @@ from collections import Counter
 #from paynow import Paynow
 import time
 import random
+import logging
 #import threading
 #from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -8197,6 +8198,8 @@ def batch_delete_enquiries():
 
 def run1(userid):
 
+    update_project_completion_status()
+
     with get_db() as (cursor, connection):
 
         print(userid)
@@ -8674,6 +8677,71 @@ def get_project_count():
     except Exception as e:
         print(f"Error counting projects: {e}")
         return jsonify({'error': str(e)}), 500
+
+def update_project_completion_status():
+    """Update project completion status based on start date and duration"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get today's date
+            today = datetime.now().date()
+            
+            # 1. Update projects where (start_date + duration) < today to "COMPLETED"
+            update_query = """
+                UPDATE connectlinkdatabase 
+                SET projectcompletionstatus = 'COMPLETED'
+                WHERE projectstartdate IS NOT NULL 
+                AND projectduration IS NOT NULL 
+                AND projectduration > 0
+                AND projectcompletionstatus != 'COMPLETED'
+                AND (projectstartdate + INTERVAL '1 day' * projectduration) <= %s
+            """
+            cursor.execute(update_query, (today,))
+            completed_count = cursor.rowcount
+            
+            # 2. Update projects that are ongoing (not completed yet)
+            ongoing_query = """
+                UPDATE connectlinkdatabase 
+                SET projectcompletionstatus = 'ONGOING'
+                WHERE projectstartdate IS NOT NULL 
+                AND projectduration IS NOT NULL 
+                AND projectduration > 0
+                AND (projectcompletionstatus IS NULL OR projectcompletionstatus NOT IN ('COMPLETED', 'CANCELLED'))
+                AND (projectstartdate + INTERVAL '1 day' * projectduration) > %s
+            """
+            cursor.execute(ongoing_query, (today,))
+            ongoing_count = cursor.rowcount
+            
+            # 3. Update projects with missing duration to "PENDING" or keep existing status
+            missing_duration_query = """
+                UPDATE connectlinkdatabase 
+                SET projectcompletionstatus = COALESCE(projectcompletionstatus, 'PENDING')
+                WHERE (projectduration IS NULL OR projectduration <= 0)
+                AND projectcompletionstatus IS NULL
+            """
+            cursor.execute(missing_duration_query)
+            pending_count = cursor.rowcount
+            
+            connection.commit()
+            
+            logging.info(f"""
+                Project Status Update Complete:
+                - Marked as COMPLETED: {completed_count} projects
+                - Marked as ONGOING: {ongoing_count} projects
+                - Set to PENDING: {pending_count} projects
+            """)
+            
+            return {
+                'success': True,
+                'completed': completed_count,
+                'ongoing': ongoing_count,
+                'pending': pending_count
+            }
+            
+    except Exception as e:
+        logging.error(f"Error updating project completion status: {e}")
+        if 'connection' in locals():
+            connection.rollback()
+        return {'success': False, 'error': str(e)}
 
 @app.route('/download_portfolio')
 def download_portfolio():
