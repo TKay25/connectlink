@@ -2996,6 +2996,175 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+<script>
+// Load months and counts when modal opens
+document.getElementById('downloadInstallmentsModal').addEventListener('show.bs.modal', function() {
+    loadInstallmentsMonths();
+    loadInstallmentsCounts();
+});
+
+// Load available months
+async function loadInstallmentsMonths() {
+    try {
+        const response = await fetch('/get_installments_months');
+        const months = await response.json();
+        
+        const filterSelect = document.getElementById('installmentsFilter');
+        
+        // Keep first 3 options (All, Paid, Due)
+        while (filterSelect.options.length > 3) {
+            filterSelect.remove(3);
+        }
+        
+        // Add month options
+        months.forEach(month => {
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const option = document.createElement('option');
+            option.value = `${month.year}-${String(month.month).padStart(2, '0')}`;
+            option.textContent = `${monthNames[month.month - 1]} ${month.year}`;
+            filterSelect.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading months:', error);
+    }
+}
+
+// Load installment counts
+async function loadInstallmentsCounts() {
+    try {
+        const response = await fetch('/get_installments_count?type=all');
+        const counts = await response.json();
+        
+        document.getElementById('totalInstallmentsCount').textContent = counts.total || '0';
+        document.getElementById('paidCount').textContent = counts.paid || '0';
+        document.getElementById('dueCount').textContent = counts.due || '0';
+        
+    } catch (error) {
+        console.error('Error loading counts:', error);
+    }
+}
+
+// Filter change handler
+document.getElementById('installmentsFilter').addEventListener('change', async function() {
+    const value = this.value;
+    
+    if (value === 'all' || value === 'paid' || value === 'due') {
+        // Type filter
+        const response = await fetch(`/get_installments_count?type=${value}`);
+        const counts = await response.json();
+        
+        document.getElementById('totalInstallmentsCount').textContent = counts.total || '0';
+        document.getElementById('paidCount').textContent = counts.paid || '0';
+        document.getElementById('dueCount').textContent = counts.due || '0';
+        
+        // Update help text
+        const helpText = document.getElementById('installmentsFilterHelp');
+        if (value === 'paid') {
+            helpText.textContent = 'Download only paid installments';
+        } else if (value === 'due') {
+            helpText.textContent = 'Download only due installments';
+        } else {
+            helpText.textContent = 'Download complete installments list';
+        }
+    } else {
+        // Month filter
+        const response = await fetch(`/get_installments_count?month=${value}`);
+        const counts = await response.json();
+        
+        document.getElementById('totalInstallmentsCount').textContent = counts.total || '0';
+        document.getElementById('paidCount').textContent = counts.paid || '0';
+        document.getElementById('dueCount').textContent = counts.due || '0';
+        
+        // Update help text
+        const [year, month] = value.split('-');
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+        helpText.textContent = `Download installments for ${monthNames[parseInt(month)-1]} ${year}`;
+    }
+});
+
+// Download button click
+document.getElementById('downloadInstallmentsBtn').addEventListener('click', function() {
+    const dropdown = document.getElementById('installmentsFilter');
+    const selectedValue = dropdown.value;
+    
+    if (!selectedValue) {
+        alert('Please select an option');
+        return;
+    }
+    
+    // Show loading
+    const originalText = this.innerHTML;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generating...';
+    this.disabled = true;
+    
+    // Build download URL
+    let downloadUrl = '/download_installments';
+    
+    if (selectedValue === 'paid' || selectedValue === 'due') {
+        downloadUrl += `?type=${selectedValue}`;
+    } else if (selectedValue !== 'all') {
+        downloadUrl += `?month=${selectedValue}`;
+    }
+    
+    // Trigger download
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = 'installments.xlsx';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    // Reset button after delay
+    setTimeout(() => {
+        this.innerHTML = originalText;
+        this.disabled = false;
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('downloadInstallmentsModal'));
+        modal.hide();
+        
+        // Show success message
+        showInstallmentsDownloadSuccess(dropdown.options[dropdown.selectedIndex].text);
+    }, 1500);
+});
+
+// Show success message
+function showInstallmentsDownloadSuccess(selection) {
+    const toastHTML = `
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1060">
+            <div class="toast show" role="alert">
+                <div class="toast-header bg-success text-white">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <strong class="me-auto">Download Complete</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    <i class="bi bi-file-earmark-excel text-success me-2"></i>
+                    ${selection} installments downloaded successfully
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const container = document.createElement('div');
+    container.innerHTML = toastHTML;
+    document.body.appendChild(container.firstChild);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (container.firstChild) {
+            container.firstChild.remove();
+        }
+    }, 3000);
+}
+
+</script>
+
 <script>
     // Initialize modal
 document.getElementById('downloadPortfolioModal').addEventListener('show.bs.modal', function() {
