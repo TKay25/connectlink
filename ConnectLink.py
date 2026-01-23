@@ -9008,7 +9008,7 @@ def get_installments_months():
                 SELECT DISTINCT 
                     EXTRACT(YEAR FROM projectstartdate)::INTEGER as year,
                     EXTRACT(MONTH FROM projectstartdate)::INTEGER as month
-                FROM payments 
+                FROM connectlinkdatabase 
                 WHERE projectstartdate IS NOT NULL
                 ORDER BY year DESC, month DESC
             """)
@@ -9036,7 +9036,7 @@ def get_installments_count():
             month = request.args.get('month')
             
             # Base query for total count
-            base_query = "SELECT COUNT(*) as total FROM payments WHERE 1=1"
+            base_query = "SELECT COUNT(*) as total FROM connectlinkdatabase WHERE 1=1"
             params = []
             
             # Add month filter if specified
@@ -9055,7 +9055,7 @@ def get_installments_count():
             
             # Get paid count (any installment date not null)
             paid_query = f"""
-                SELECT COUNT(*) as paid FROM payments 
+                SELECT COUNT(*) as paid FROM connectlinkdatabase 
                 WHERE 1=1 {date_condition}
                 AND (
                     installment1date IS NOT NULL OR 
@@ -9071,7 +9071,7 @@ def get_installments_count():
             
             # Get due count (all installment dates null)
             due_query = f"""
-                SELECT COUNT(*) as due FROM payments 
+                SELECT COUNT(*) as due FROM connectlinkdatabase 
                 WHERE 1=1 {date_condition}
                 AND (
                     installment1date IS NULL AND 
