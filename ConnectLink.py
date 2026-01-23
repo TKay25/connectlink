@@ -8681,16 +8681,17 @@ def download_portfolio():
         with get_db() as (cursor, connection):
             month = request.args.get('month')
             
-            # Get active projects from connectlinkdatabase
-            query = "SELECT * FROM connectlinkdatabase"
-            
+            # Build WHERE clause for date filtering
+            date_where_clause = ""
+            date_params = []
             if month:
                 year, month_num = month.split('-')
-                query += f" WHERE EXTRACT(YEAR FROM projectstartdate) = {year} AND EXTRACT(MONTH FROM projectstartdate) = {month_num}"
+                date_where_clause = "WHERE EXTRACT(YEAR FROM projectstartdate) = %s AND EXTRACT(MONTH FROM projectstartdate) = %s"
+                date_params = [year, month_num]
             
-            query += " ORDER BY projectstartdate DESC"
-            
-            cursor.execute(query)
+            # 1. Get active projects from connectlinkdatabase within date range
+            query = f"SELECT * FROM connectlinkdatabase {date_where_clause} ORDER BY projectstartdate DESC"
+            cursor.execute(query, date_params if date_params else ())
             active_projects = cursor.fetchall()
             
             # Get column names for active projects
@@ -8702,9 +8703,23 @@ def download_portfolio():
             """)
             active_columns = [col[0] for col in cursor.fetchall()]
             
-            # Get project notes from projectnotes table
+            # Get project IDs from the fetched projects (for filtering notes)
+            project_ids = []
+            try:
+                project_id_index = active_columns.index('id')
+                project_ids = [str(row[project_id_index]) for row in active_projects]
+            except ValueError:
+                try:
+                    project_id_index = active_columns.index('project_id')
+                    project_ids = [str(row[project_id_index]) for row in active_projects]
+                except ValueError:
+                    # If no standard ID column, use first column
+                    project_ids = [str(row[0]) for row in active_projects]
+            
+            # 2. Get project notes ONLY for projects in our date range
+            # First get all notes, then we'll filter by project IDs
             cursor.execute("SELECT * FROM connectlinknotes ORDER BY id ASC")
-            project_notes = cursor.fetchall()
+            all_notes = cursor.fetchall()
             
             # Get column names for project notes
             cursor.execute("""
@@ -8715,10 +8730,24 @@ def download_portfolio():
             """)
             notes_columns = [col[0] for col in cursor.fetchall()]
             
-            # Get deleted projects
-            # Check if there's a deleted_projects table or a deleted flag
+            # Filter notes to only include those for projects in our date range
+            # Find the project_id column in notes
+            project_id_col_name = None
+            for col in notes_columns:
+                if 'project' in col.lower() and 'id' in col.lower():
+                    project_id_col_name = col
+                    break
+            
+            project_notes = []
+            if project_id_col_name and project_ids:
+                project_id_index = notes_columns.index(project_id_col_name)
+                project_notes = [row for row in all_notes if str(row[project_id_index]) in project_ids]
+            else:
+                project_notes = all_notes
+            
+            # 3. Get deleted projects from connectlinkdatabasedeletedprojects WITH SAME DATE FILTER
             try:
-                # First check if deleted_projects table exists
+                # Check if table exists
                 cursor.execute("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables 
@@ -8728,10 +8757,16 @@ def download_portfolio():
                 has_deleted_table = cursor.fetchone()[0]
                 
                 if has_deleted_table:
-                    # Get from deleted_projects table
-                    cursor.execute("SELECT * FROM connectlinkdatabasedeletedprojects ORDER BY deleted_at DESC")
+                    # Apply same date filter to deleted projects
+                    deleted_query = f"""
+                        SELECT * FROM connectlinkdatabasedeletedprojects 
+                        {date_where_clause.replace('projectstartdate', 'projectstartdate') if date_where_clause else ''}
+                        ORDER BY deleted_at DESC, projectstartdate DESC
+                    """
+                    cursor.execute(deleted_query, date_params if date_params and date_where_clause else ())
                     deleted_projects = cursor.fetchall()
                     
+                    # Get column names for deleted projects
                     cursor.execute("""
                         SELECT column_name 
                         FROM information_schema.columns 
@@ -8739,53 +8774,80 @@ def download_portfolio():
                         ORDER BY ordinal_position
                     """)
                     deleted_columns = [col[0] for col in cursor.fetchall()]
-
                 else:
-                    # Check if there's a deleted flag in connectlinkdatabase
-                    cursor.execute("""
-                        SELECT column_name 
-                        FROM information_schema.columns 
-                        WHERE table_name = 'connectlinkdatabase' 
-                        AND column_name IN ('is_deleted', 'deleted', 'status')
-                    """)
-                    deleted_flags = [col[0] for col in cursor.fetchall()]
+                    # No deleted table, create empty
+                    deleted_projects = []
+                    deleted_columns = []
                     
-                    if deleted_flags:
-                        # Use the first deleted flag found
-                        deleted_flag = deleted_flags[0]
-                        cursor.execute(f"""
-                            SELECT * FROM connectlinkdatabase 
-                            WHERE {deleted_flag} = TRUE OR {deleted_flag} = 'deleted' 
-                            ORDER BY projectstartdate DESC
-                        """)
-                    else:
-                        # Get all projects that might be marked as deleted by some other criteria
-                        cursor.execute("""
-                            SELECT * FROM connectlinkdatabase 
-                            WHERE projectstatus ILIKE '%deleted%' 
-                            OR projectstatus ILIKE '%archived%'
-                            OR projectname ILIKE '%deleted%'
-                            ORDER BY projectstartdate DESC
-                        """)
-                    
-                    deleted_projects = cursor.fetchall()
-                    deleted_columns = active_columns
-
             except Exception as e:
                 print(f"Error fetching deleted projects: {e}")
-                # If no deleted projects table/flag, create empty
                 deleted_projects = []
                 deleted_columns = []
             
-            # Create Excel file with multiple sheets
+            # 4. Clean HTML tags from all text columns
+            import re
+            
+            def clean_html(text):
+                if not text or not isinstance(text, str):
+                    return text
+                
+                # Remove all HTML tags including <p>, <br>, etc.
+                text = re.sub(r'<[^>]+>', '', text)
+                # Replace common HTML entities
+                replacements = {
+                    '&amp;': '&',
+                    '&lt;': '<',
+                    '&gt;': '>',
+                    '&quot;': '"',
+                    '&#39;': "'",
+                    '&nbsp;': ' ',
+                    '&rsquo;': "'",
+                    '&lsquo;': "'",
+                    '&rdquo;': '"',
+                    '&ldquo;': '"',
+                }
+                for old, new in replacements.items():
+                    text = text.replace(old, new)
+                # Clean up whitespace
+                text = ' '.join(text.split())
+                return text
+            
+            # Clean active projects
+            cleaned_active_projects = []
+            for row in active_projects:
+                cleaned_row = list(row)
+                for i, value in enumerate(cleaned_row):
+                    if isinstance(value, str):
+                        cleaned_row[i] = clean_html(value)
+                cleaned_active_projects.append(tuple(cleaned_row))
+            
+            # Clean project notes
+            cleaned_project_notes = []
+            for row in project_notes:
+                cleaned_row = list(row)
+                for i, value in enumerate(cleaned_row):
+                    if isinstance(value, str):
+                        cleaned_row[i] = clean_html(value)
+                cleaned_project_notes.append(tuple(cleaned_row))
+            
+            # Clean deleted projects
+            cleaned_deleted_projects = []
+            for row in deleted_projects:
+                cleaned_row = list(row)
+                for i, value in enumerate(cleaned_row):
+                    if isinstance(value, str):
+                        cleaned_row[i] = clean_html(value)
+                cleaned_deleted_projects.append(tuple(cleaned_row))
+            
+            # 5. Create Excel file with multiple sheets
             import pandas as pd
             from io import BytesIO
             from datetime import datetime
             
             # Create DataFrames
-            active_df = pd.DataFrame(active_projects, columns=active_columns)
-            notes_df = pd.DataFrame(project_notes, columns=notes_columns)
-            deleted_df = pd.DataFrame(deleted_projects, columns=deleted_columns)
+            active_df = pd.DataFrame(cleaned_active_projects, columns=active_columns)
+            notes_df = pd.DataFrame(cleaned_project_notes, columns=notes_columns)
+            deleted_df = pd.DataFrame(cleaned_deleted_projects, columns=deleted_columns) if deleted_columns else pd.DataFrame()
             
             # Create Excel writer
             output = BytesIO()
@@ -8793,37 +8855,41 @@ def download_portfolio():
                 # Sheet 1: Active Projects
                 active_df.to_excel(writer, sheet_name='Active Projects', index=False)
                 
-                # Sheet 2: Project Notes
+                # Sheet 2: Project Notes (only for projects in date range)
                 notes_df.to_excel(writer, sheet_name='Project Notes', index=False)
                 
-                # Sheet 3: Deleted Projects (if any)
+                # Sheet 3: Deleted Projects (within same date range)
                 if len(deleted_df) > 0:
                     deleted_df.to_excel(writer, sheet_name='Deleted Projects', index=False)
                 else:
-                    # Create empty sheet with message
-                    empty_df = pd.DataFrame({'Message': ['No deleted projects found']})
-                    empty_df.to_excel(writer, sheet_name='Deleted Projects', index=False)
+                    empty_deleted_df = pd.DataFrame({'Message': [f'No deleted projects found in {month if month else "all time"} range']})
+                    empty_deleted_df.to_excel(writer, sheet_name='Deleted Projects', index=False)
                 
-                # Summary sheet
+                # Sheet 4: Report Summary
                 summary_data = {
                     'Report Type': ['Active Projects', 'Project Notes', 'Deleted Projects'],
                     'Number of Records': [len(active_df), len(notes_df), len(deleted_df)],
-                    'Generated On': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 3,
-                    'Data Range': [
-                        f"Month: {month if month else 'All Time'}",
-                        'All Time',
-                        'All Time'
-                    ]
+                    'Date Range': [
+                        f"{month if month else 'All Time'}",
+                        f"Notes for projects in: {month if month else 'All Time'}",
+                        f"{month if month else 'All Time'}"
+                    ],
+                    'Generated On': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 3
                 }
                 summary_df = pd.DataFrame(summary_data)
                 summary_df.to_excel(writer, sheet_name='Report Summary', index=False)
                 
-                # Format: Auto-adjust column widths
+                # 6. Format worksheets
                 for sheet_name in writer.sheets:
                     worksheet = writer.sheets[sheet_name]
                     
                     # Freeze top row
                     worksheet.freeze_panes = 'A2'
+                    
+                    # Format header row (bold and background color)
+                    for cell in worksheet[1]:
+                        cell.font = cell.font.copy(bold=True)
+                        cell.fill = cell.fill.copy(patternType="solid", fgColor="E6F3FF")
                     
                     # Auto-adjust column widths
                     for column in worksheet.columns:
@@ -8840,7 +8906,7 @@ def download_portfolio():
                         adjusted_width = min(max_length + 2, 50)
                         worksheet.column_dimensions[column_letter].width = adjusted_width
             
-            # Generate filename
+            # 7. Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
             
             if month:
@@ -8852,7 +8918,7 @@ def download_portfolio():
             else:
                 filename = f"Project_Portfolio_All_{timestamp}.xlsx"
             
-            # Return Excel file
+            # 8. Return Excel file
             output.seek(0)
             return Response(
                 output,
@@ -8866,6 +8932,7 @@ def download_portfolio():
         traceback.print_exc()
         return "Error generating download", 500
 
+        
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
     """Download the plan PDF attachment"""
