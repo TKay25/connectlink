@@ -2930,7 +2930,163 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+    // Initialize modal
+document.getElementById('downloadPortfolioModal').addEventListener('show.bs.modal', function() {
+    loadDownloadOptions();
+});
 
+// Load options into dropdown
+function loadDownloadOptions() {
+    const dropdown = document.getElementById('downloadFilter');
+    const helpText = document.getElementById('filterHelpText');
+    const recordCount = document.getElementById('recordCount');
+    
+    // Show loading
+    dropdown.innerHTML = '<option value="all">⏳ Loading options...</option>';
+    recordCount.textContent = '--';
+    
+    // Fetch data
+    fetch('/get_project_months')
+        .then(response => response.json())
+        .then(data => {
+            // Build options
+            let options = '<option value="all">📋 All Projects</option>';
+            
+            if (data && data.length > 0) {
+                // Add month options
+                data.forEach(monthData => {
+                    const date = new Date(monthData.year, monthData.month - 1);
+                    const monthName = date.toLocaleString('default', { month: 'short' });
+                    const monthId = `${monthData.year}-${monthData.month.toString().padStart(2, '0')}`;
+                    const displayText = `📅 ${monthName} ${monthData.year}`;
+                    
+                    options += `<option value="${monthId}">${displayText}</option>`;
+                });
+            } else {
+                options += '<option value="" disabled>No monthly data available</option>';
+            }
+            
+            dropdown.innerHTML = options;
+            
+            // Get total record count for "All Projects"
+            fetch('/get_project_count')
+                .then(res => res.json())
+                .then(countData => {
+                    recordCount.textContent = countData.total || '--';
+                });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            dropdown.innerHTML = '<option value="all">📋 All Projects</option>' +
+                                '<option value="" disabled>⚠️ Failed to load months</option>';
+        });
+}
+
+// Update help text based on selection
+document.getElementById('downloadFilter').addEventListener('change', function() {
+    const helpText = document.getElementById('filterHelpText');
+    const recordCount = document.getElementById('recordCount');
+    
+    if (this.value === 'all') {
+        helpText.textContent = 'Download complete project list in Excel format';
+        // Fetch total count
+        fetch('/get_project_count')
+            .then(res => res.json())
+            .then(data => {
+                recordCount.textContent = data.total || '--';
+            });
+    } else {
+        const [year, month] = this.value.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthName = monthNames[parseInt(month) - 1];
+        
+        helpText.textContent = `Download projects from ${monthName} ${year} only`;
+        
+        // Fetch count for selected month
+        fetch(`/get_project_count?month=${this.value}`)
+            .then(res => res.json())
+            .then(data => {
+                recordCount.textContent = data.count || '--';
+            });
+    }
+});
+
+// Download button click
+document.getElementById('downloadBtn').addEventListener('click', function() {
+    const dropdown = document.getElementById('downloadFilter');
+    const selectedValue = dropdown.value;
+    
+    if (!selectedValue) {
+        alert('Please select an option');
+        return;
+    }
+    
+    // Show loading
+    const originalText = this.innerHTML;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generating...';
+    this.disabled = true;
+    
+    // Determine if it's "all" or specific month
+    const isAll = selectedValue === 'all';
+    
+    // Build download URL
+    let downloadUrl = '/download_portfolio';
+    
+    if (!isAll) {
+        downloadUrl += `?month=${selectedValue}`;
+    }
+    
+    // Trigger download
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    // Reset button after delay
+    setTimeout(() => {
+        this.innerHTML = originalText;
+        this.disabled = false;
+        
+        // Close modal after successful download
+        bootstrap.Modal.getInstance(document.getElementById('downloadPortfolioModal')).hide();
+        
+        // Show success message
+        showDownloadSuccess(isAll ? 'All Projects' : dropdown.options[dropdown.selectedIndex].text);
+    }, 1500);
+});
+
+// Show success message
+function showDownloadSuccess(selection) {
+    // Simple alert for success
+    const toastHTML = `
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1060">
+            <div class="toast show" role="alert">
+                <div class="toast-header bg-success text-white">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <strong class="me-auto">Download Complete</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    <i class="bi bi-file-earmark-excel text-success me-2"></i>
+                    ${selection} report downloaded successfully
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const container = document.createElement('div');
+    container.innerHTML = toastHTML;
+    document.body.appendChild(container.firstChild);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        container.remove();
+    }, 3000);
+}
+</script>
 <script>
     // Global variables
 let allEnquiriesData = [];
