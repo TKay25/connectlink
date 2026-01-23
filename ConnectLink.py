@@ -8688,11 +8688,11 @@ def update_project_completion_status():
             # 1. Update projects where (start_date + duration) < today to "COMPLETED"
             update_query = """
                 UPDATE connectlinkdatabase 
-                SET projectcompletionstatus = 'COMPLETED'
+                SET projectcompletionstatus = 'Completed'
                 WHERE projectstartdate IS NOT NULL 
                 AND projectduration IS NOT NULL 
                 AND projectduration > 0
-                AND projectcompletionstatus != 'COMPLETED'
+                AND projectcompletionstatus != 'Completed'
                 AND (projectstartdate + INTERVAL '1 day' * projectduration) <= %s
             """
             cursor.execute(update_query, (today,))
@@ -8701,11 +8701,11 @@ def update_project_completion_status():
             # 2. Update projects that are ongoing (not completed yet)
             ongoing_query = """
                 UPDATE connectlinkdatabase 
-                SET projectcompletionstatus = 'ONGOING'
+                SET projectcompletionstatus = 'Ongoing'
                 WHERE projectstartdate IS NOT NULL 
                 AND projectduration IS NOT NULL 
                 AND projectduration > 0
-                AND (projectcompletionstatus IS NULL OR projectcompletionstatus NOT IN ('COMPLETED', 'CANCELLED'))
+                AND (projectcompletionstatus IS NULL OR projectcompletionstatus NOT IN ('Completed', 'Cancelled'))
                 AND (projectstartdate + INTERVAL '1 day' * projectduration) > %s
             """
             cursor.execute(ongoing_query, (today,))
@@ -8714,7 +8714,7 @@ def update_project_completion_status():
             # 3. Update projects with missing duration to "PENDING" or keep existing status
             missing_duration_query = """
                 UPDATE connectlinkdatabase 
-                SET projectcompletionstatus = COALESCE(projectcompletionstatus, 'PENDING')
+                SET projectcompletionstatus = COALESCE(projectcompletionstatus, 'Pending')
                 WHERE (projectduration IS NULL OR projectduration <= 0)
                 AND projectcompletionstatus IS NULL
             """
