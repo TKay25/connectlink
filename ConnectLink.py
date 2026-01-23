@@ -8821,6 +8821,9 @@ def download_installments():
                 
                 # Clean project name
                 project_name = clean_html(str(row_dict['projectname'])) if row_dict['projectname'] else ''
+
+                project_description = clean_html(str(row_dict['projectdescription'])) if row_dict['projectdescription'] else ''
+
                 
                 # Create paid record if there are any paid installments
                 if total_paid > 0:
@@ -8831,6 +8834,7 @@ def download_installments():
                         'phone': phone,
                         'email': email,
                         'projectname': project_name,
+                        'projectdescription': project_description,
                         'amount_paid': total_paid
                     })
                 
@@ -8843,6 +8847,7 @@ def download_installments():
                         'phone': phone,
                         'email': email,
                         'projectname': project_name,
+                        'projectdescription': project_description,
                         'amount_due': total_due
                     })
             
@@ -8873,8 +8878,8 @@ def download_installments():
             from datetime import datetime
             
             # Create DataFrames
-            paid_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'amount_paid']
-            due_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'amount_due']
+            paid_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'amount_paid']
+            due_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'amount_due']
             
             paid_df = pd.DataFrame(paid_data, columns=paid_columns)
             due_df = pd.DataFrame(due_data, columns=due_columns)
@@ -8899,8 +8904,8 @@ def download_installments():
                 if len(paid_df) > 0:
                     # Use formatted amounts for display
                     paid_display_df = paid_df.copy()
-                    paid_display_df = paid_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'amount_paid_formatted']]
-                    paid_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone Number', 'Email', 'Project Name', 'Amount Paid']
+                    paid_display_df = paid_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'amount_paid_formatted']]
+                    paid_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone Number', 'Email', 'Project Name', 'Project Description', 'Amount Paid']
                     
                     paid_display_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 else:
@@ -8914,8 +8919,8 @@ def download_installments():
                 if len(due_df) > 0:
                     # Use formatted amounts for display
                     due_display_df = due_df.copy()
-                    due_display_df = due_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'amount_due_formatted']]
-                    due_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone Number', 'Email', 'Project Name', 'Amount Due']
+                    due_display_df = due_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'amount_due_formatted']]
+                    due_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone Number', 'Email', 'Project Name', 'Project Description', 'Amount Due']
                     
                     due_display_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 else:
