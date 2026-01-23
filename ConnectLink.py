@@ -8623,6 +8623,125 @@ def get_enquiries_data():
         print(f"Error getting enquiries: {str(e)}")
         return []
 
+@app.route('/get_project_months')
+def get_project_months():
+    try:
+
+        with get_db() as (cursor, connection):
+
+            # Get unique months
+            cursor.execute("""
+                SELECT DISTINCT 
+                    YEAR(projectstartdate) as year,
+                    MONTH(projectstartdate) as month
+                FROM projects 
+                WHERE projectstartdate IS NOT NULL
+                ORDER BY year DESC, month DESC
+            """)
+            months = cursor.fetchall()
+            
+            result = []
+            for row in months:
+                result.append({
+                    'year': int(row[0]),
+                    'month': int(row[1])
+                })
+            
+            return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error fetching months: {e}")
+        return jsonify([])
+
+@app.route('/get_project_count')
+def get_project_count():
+    try:
+
+        with get_db() as (cursor, connection):
+
+            month = request.args.get('month')
+            
+            if month:
+                year, month_num = month.split('-')
+                cursor.execute("""
+                    SELECT COUNT(*) as count 
+                    FROM projects 
+                    WHERE YEAR(projectstartdate) = %s 
+                    AND MONTH(projectstartdate) = %s
+                """, (year, month_num))
+            else:
+                cursor.execute("SELECT COUNT(*) as total FROM projects")
+            
+            result = cursor.fetchone()
+            return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error counting projects: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download_portfolio')
+def download_portfolio():
+    try:
+
+        with get_db() as (cursor, connection):
+
+            month = request.args.get('month')
+            
+            # Build query
+            query = "SELECT * FROM projects"
+            
+            if month:
+                year, month_num = month.split('-')
+                query += f" WHERE YEAR(projectstartdate) = {year} AND MONTH(projectstartdate) = {month_num}"
+            
+            query += " ORDER BY projectstartdate DESC"
+            
+            cursor.execute(query)
+            projects = cursor.fetchall()
+            
+            # Get column names
+            cursor.execute("DESCRIBE projects")
+            columns = [col[0] for col in cursor.fetchall()]
+            
+            # Create simple CSV (Excel can open CSV)
+            import csv
+            import io
+            from datetime import datetime
+            from flask import Response
+            
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow(columns)
+            
+            # Write data
+            for row in projects:
+                writer.writerow(row)
+            
+            # Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d")
+            
+            if month:
+                year, month_num = month.split('-')
+                month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                month_name = month_names[int(month_num) - 1]
+                filename = f"Projects_{month_name}_{year}_{timestamp}.csv"
+            else:
+                filename = f"Projects_All_{timestamp}.csv"
+            
+            # Return CSV file (Excel can open it)
+            output.seek(0)
+            return Response(
+                output.getvalue(),
+                mimetype="text/csv",
+                headers={"Content-Disposition": f"attachment;filename={filename}"}
+            )
+        
+    except Exception as e:
+        print(f"Error downloading: {e}")
+        return "Error generating download", 500
 
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
