@@ -8,7 +8,7 @@ import bleach
 from db_helper import get_db, execute_query
 import numpy as np
 from mysql.connector import Error
-from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_file,flash, make_response, after_this_request
+from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_file,flash, make_response, after_this_request, Response
 from datetime import datetime, timedelta, date
 import calendar
 import pandas as pd
@@ -8681,7 +8681,7 @@ def download_portfolio():
         with get_db() as (cursor, connection):
             month = request.args.get('month')
             
-            # Build query - PostgreSQL version
+            # Get active projects from connectlinkdatabase
             query = "SELECT * FROM connectlinkdatabase"
             
             if month:
@@ -8691,57 +8691,180 @@ def download_portfolio():
             query += " ORDER BY projectstartdate DESC"
             
             cursor.execute(query)
-            projects = cursor.fetchall()
+            active_projects = cursor.fetchall()
             
-            # Get column names - PostgreSQL version
+            # Get column names for active projects
             cursor.execute("""
                 SELECT column_name 
                 FROM information_schema.columns 
                 WHERE table_name = 'connectlinkdatabase' 
                 ORDER BY ordinal_position
             """)
-            columns = [col[0] for col in cursor.fetchall()]
+            active_columns = [col[0] for col in cursor.fetchall()]
             
-            # Create CSV (Excel can open it)
-            import csv
-            import io
+            # Get project notes from projectnotes table
+            cursor.execute("SELECT * FROM connectlinknotes ORDER BY project_id, created_at DESC")
+            project_notes = cursor.fetchall()
+            
+            # Get column names for project notes
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'connectlinknotes' 
+                ORDER BY ordinal_position
+            """)
+            notes_columns = [col[0] for col in cursor.fetchall()]
+            
+            # Get deleted projects
+            # Check if there's a deleted_projects table or a deleted flag
+            try:
+                # First check if deleted_projects table exists
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'connectlinkdatabasedeletedprojects'
+                    )
+                """)
+                has_deleted_table = cursor.fetchone()[0]
+                
+                if has_deleted_table:
+                    # Get from deleted_projects table
+                    cursor.execute("SELECT * FROM connectlinkdatabasedeletedprojects ORDER BY deleted_at DESC")
+                    deleted_projects = cursor.fetchall()
+                    
+                    cursor.execute("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'connectlinkdatabasedeletedprojects' 
+                        ORDER BY ordinal_position
+                    """)
+                    deleted_columns = [col[0] for col in cursor.fetchall()]
+
+                else:
+                    # Check if there's a deleted flag in connectlinkdatabase
+                    cursor.execute("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'connectlinkdatabase' 
+                        AND column_name IN ('is_deleted', 'deleted', 'status')
+                    """)
+                    deleted_flags = [col[0] for col in cursor.fetchall()]
+                    
+                    if deleted_flags:
+                        # Use the first deleted flag found
+                        deleted_flag = deleted_flags[0]
+                        cursor.execute(f"""
+                            SELECT * FROM connectlinkdatabase 
+                            WHERE {deleted_flag} = TRUE OR {deleted_flag} = 'deleted' 
+                            ORDER BY projectstartdate DESC
+                        """)
+                    else:
+                        # Get all projects that might be marked as deleted by some other criteria
+                        cursor.execute("""
+                            SELECT * FROM connectlinkdatabase 
+                            WHERE projectstatus ILIKE '%deleted%' 
+                            OR projectstatus ILIKE '%archived%'
+                            OR projectname ILIKE '%deleted%'
+                            ORDER BY projectstartdate DESC
+                        """)
+                    
+                    deleted_projects = cursor.fetchall()
+                    deleted_columns = active_columns
+
+            except Exception as e:
+                print(f"Error fetching deleted projects: {e}")
+                # If no deleted projects table/flag, create empty
+                deleted_projects = []
+                deleted_columns = []
+            
+            # Create Excel file with multiple sheets
+            import pandas as pd
+            from io import BytesIO
             from datetime import datetime
-            from flask import Response
             
-            output = io.StringIO()
-            writer = csv.writer(output)
+            # Create DataFrames
+            active_df = pd.DataFrame(active_projects, columns=active_columns)
+            notes_df = pd.DataFrame(project_notes, columns=notes_columns)
+            deleted_df = pd.DataFrame(deleted_projects, columns=deleted_columns)
             
-            # Write header
-            writer.writerow(columns)
-            
-            # Write data
-            for row in projects:
-                writer.writerow(row)
+            # Create Excel writer
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # Sheet 1: Active Projects
+                active_df.to_excel(writer, sheet_name='Active Projects', index=False)
+                
+                # Sheet 2: Project Notes
+                notes_df.to_excel(writer, sheet_name='Project Notes', index=False)
+                
+                # Sheet 3: Deleted Projects (if any)
+                if len(deleted_df) > 0:
+                    deleted_df.to_excel(writer, sheet_name='Deleted Projects', index=False)
+                else:
+                    # Create empty sheet with message
+                    empty_df = pd.DataFrame({'Message': ['No deleted projects found']})
+                    empty_df.to_excel(writer, sheet_name='Deleted Projects', index=False)
+                
+                # Summary sheet
+                summary_data = {
+                    'Report Type': ['Active Projects', 'Project Notes', 'Deleted Projects'],
+                    'Number of Records': [len(active_df), len(notes_df), len(deleted_df)],
+                    'Generated On': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 3,
+                    'Data Range': [
+                        f"Month: {month if month else 'All Time'}",
+                        'All Time',
+                        'All Time'
+                    ]
+                }
+                summary_df = pd.DataFrame(summary_data)
+                summary_df.to_excel(writer, sheet_name='Report Summary', index=False)
+                
+                # Format: Auto-adjust column widths
+                for sheet_name in writer.sheets:
+                    worksheet = writer.sheets[sheet_name]
+                    
+                    # Freeze top row
+                    worksheet.freeze_panes = 'A2'
+                    
+                    # Auto-adjust column widths
+                    for column in worksheet.columns:
+                        max_length = 0
+                        column_letter = column[0].column_letter
+                        for cell in column:
+                            try:
+                                if cell.value:
+                                    cell_length = len(str(cell.value))
+                                    if cell_length > max_length:
+                                        max_length = cell_length
+                            except:
+                                pass
+                        adjusted_width = min(max_length + 2, 50)
+                        worksheet.column_dimensions[column_letter].width = adjusted_width
             
             # Generate filename
-            timestamp = datetime.now().strftime("%Y%m%d")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
             
             if month:
                 year, month_num = month.split('-')
                 month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
                 month_name = month_names[int(month_num) - 1]
-                filename = f"Projects_{month_name}_{year}_{timestamp}.csv"
+                filename = f"Project_Portfolio_{month_name}_{year}_{timestamp}.xlsx"
             else:
-                filename = f"Projects_All_{timestamp}.csv"
+                filename = f"Project_Portfolio_All_{timestamp}.xlsx"
             
-            # Return CSV file
+            # Return Excel file
             output.seek(0)
             return Response(
-                output.getvalue(),
-                mimetype="text/csv",
+                output,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 headers={"Content-Disposition": f"attachment;filename={filename}"}
             )
         
     except Exception as e:
-        print(f"Error downloading: {e}")
+        print(f"Error downloading portfolio: {e}")
+        import traceback
+        traceback.print_exc()
         return "Error generating download", 500
-
 
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
