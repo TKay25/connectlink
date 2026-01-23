@@ -2022,46 +2022,68 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <!-- Filter Selection -->
+                <!-- Project Start Month Selection -->
                 <div class="mb-4">
                     <label class="form-label fw-bold mb-3 d-flex align-items-center">
-                        <i class="bi bi-calendar me-2"></i> Select Time Period
+                        <i class="bi bi-calendar-plus me-2"></i> Select Project Start Month
                     </label>
                     
-                    <select class="form-select form-select-lg" id="installmentsFilter">
+                    <select class="form-select" id="projectStartFilter">
                         <option value="all">📅 All Time</option>
-                        <!-- Months will be loaded here from projectstartdate -->
+                        <!-- Project start months will be loaded here -->
                     </select>
                     
-                    <div class="mt-2 text-muted small">
-                        <i class="bi bi-info-circle"></i> 
-                        <span id="installmentsFilterHelp">Download installments for selected period. Excel will contain separate sheets for Paid and Due installments.</span>
+                    <div class="mt-1 text-muted small">
+                        <i class="bi bi-info-circle"></i> Filter by when projects started
+                    </div>
+                </div>
+                
+                <!-- Due Month Selection -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold mb-3 d-flex align-items-center">
+                        <i class="bi bi-calendar-check me-2"></i> Select Due Month (Optional)
+                    </label>
+                    
+                    <select class="form-select" id="dueMonthFilter">
+                        <option value="all">📅 All Due Dates</option>
+                        <!-- Due months will be loaded here -->
+                    </select>
+                    
+                    <div class="mt-1 text-muted small">
+                        <i class="bi bi-info-circle"></i> Filter by installment due dates
                     </div>
                 </div>
                 
                 <!-- Quick Stats Preview -->
                 <div class="alert alert-light border">
-                    <div class="row">
-                        <div class="col-6">
-                            <small class="text-muted d-block">Total Records:</small>
-                            <span class="fw-bold fs-4" id="totalInstallmentsCount">--</span>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted d-block">File Format:</small>
-                            <span class="badge bg-success fs-6">Excel (.xlsx)</span>
+                    <div class="row mb-2">
+                        <div class="col-12">
+                            <small class="text-muted d-block">Filter Summary:</small>
+                            <div id="filterSummary" class="fw-bold small">All projects, all due dates</div>
                         </div>
                     </div>
-                    <hr class="my-2">
                     <div class="row">
-                        <div class="col-6">
+                        <div class="col-4">
+                            <small class="text-muted d-block">Total:</small>
+                            <span class="fw-bold fs-5" id="totalInstallmentsCount">--</span>
+                        </div>
+                        <div class="col-4">
                             <span class="badge bg-success me-1">✅</span>
                             <small class="text-muted">Paid:</small>
                             <div class="fw-bold" id="paidCount">--</div>
                         </div>
-                        <div class="col-6">
+                        <div class="col-4">
                             <span class="badge bg-warning me-1">⏰</span>
                             <small class="text-muted">Due:</small>
                             <div class="fw-bold" id="dueCount">--</div>
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-12">
+                            <small class="text-muted d-block">File Format:</small>
+                            <span class="badge bg-success">Excel (.xlsx)</span>
+                            <span class="badge bg-info ms-1">Separate Paid/Due Sheets</span>
                         </div>
                     </div>
                 </div>
@@ -2077,7 +2099,6 @@
         </div>
     </div>
 </div>
-
 <!-- View Interim Enquiries Modal -->
 <div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-fullscreen" style="max-width: 1400px;">
@@ -2997,19 +3018,20 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
-// Load months and counts when modal opens
+    // Load months when modal opens
 document.getElementById('downloadInstallmentsModal').addEventListener('show.bs.modal', function() {
-    loadInstallmentsMonths();
-    loadInstallmentsCounts();
+    loadProjectStartMonths();
+    loadDueMonths();
+    updateCounts();
 });
 
-// Load available months from projectstartdate
-async function loadInstallmentsMonths() {
+// Load project start months
+async function loadProjectStartMonths() {
     try {
-        const response = await fetch('/get_installments_months');
+        const response = await fetch('/get_project_start_months');
         const months = await response.json();
         
-        const filterSelect = document.getElementById('installmentsFilter');
+        const filterSelect = document.getElementById('projectStartFilter');
         
         // Clear all options except "All Time"
         while (filterSelect.options.length > 1) {
@@ -3027,65 +3049,103 @@ async function loadInstallmentsMonths() {
         });
         
     } catch (error) {
-        console.error('Error loading months:', error);
+        console.error('Error loading project start months:', error);
     }
 }
 
-// Load installment counts
-async function loadInstallmentsCounts() {
+// Load due months
+async function loadDueMonths() {
     try {
-        const response = await fetch('/get_installments_count');
-        const counts = await response.json();
+        const response = await fetch('/get_due_months');
+        const months = await response.json();
         
-        updateCountsDisplay(counts);
+        const filterSelect = document.getElementById('dueMonthFilter');
+        
+        // Clear all options except "All Due Dates"
+        while (filterSelect.options.length > 1) {
+            filterSelect.remove(1);
+        }
+        
+        // Add month options
+        months.forEach(month => {
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                              'July', 'August', 'September', 'October', 'November', 'December'];
+            const option = document.createElement('option');
+            option.value = `${month.year}-${String(month.month).padStart(2, '0')}`;
+            option.textContent = `${monthNames[month.month - 1]} ${month.year}`;
+            filterSelect.appendChild(option);
+        });
         
     } catch (error) {
-        console.error('Error loading counts:', error);
+        console.error('Error loading due months:', error);
     }
 }
 
-// Filter change handler
-document.getElementById('installmentsFilter').addEventListener('change', async function() {
-    const value = this.value;
+// Update counts when filters change
+document.getElementById('projectStartFilter').addEventListener('change', updateCounts);
+document.getElementById('dueMonthFilter').addEventListener('change', updateCounts);
+
+// Update counts based on filters
+async function updateCounts() {
+    const projectStartMonth = document.getElementById('projectStartFilter').value;
+    const dueMonth = document.getElementById('dueMonthFilter').value;
     
     try {
         let url = '/get_installments_count';
-        if (value !== 'all') {
-            url += `?month=${value}`;
+        const params = new URLSearchParams();
+        
+        if (projectStartMonth !== 'all') {
+            params.append('project_start_month', projectStartMonth);
+        }
+        
+        if (dueMonth !== 'all') {
+            params.append('due_month', dueMonth);
+        }
+        
+        if (params.toString()) {
+            url += '?' + params.toString();
         }
         
         const response = await fetch(url);
         const counts = await response.json();
         
-        updateCountsDisplay(counts);
+        // Update display
+        document.getElementById('totalInstallmentsCount').textContent = counts.total || '0';
+        document.getElementById('paidCount').textContent = counts.paid || '0';
+        document.getElementById('dueCount').textContent = counts.due || '0';
         
-        // Update help text
-        const helpText = document.getElementById('installmentsFilterHelp');
-        if (value === 'all') {
-            helpText.textContent = 'Download all installments from all time. Excel will contain separate sheets for Paid and Due installments.';
-        } else {
-            const [year, month] = value.split('-');
-            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                              'July', 'August', 'September', 'October', 'November', 'December'];
-            helpText.textContent = `Download installments with project start date in ${monthNames[parseInt(month)-1]} ${year}. Excel will contain separate sheets for Paid and Due installments.`;
-        }
+        // Update filter summary
+        updateFilterSummary(projectStartMonth, dueMonth);
         
     } catch (error) {
         console.error('Error updating counts:', error);
     }
-});
+}
 
-// Update counts display
-function updateCountsDisplay(counts) {
-    document.getElementById('totalInstallmentsCount').textContent = counts.total || '0';
-    document.getElementById('paidCount').textContent = counts.paid || '0';
-    document.getElementById('dueCount').textContent = counts.due || '0';
+// Update filter summary text
+function updateFilterSummary(projectStartMonth, dueMonth) {
+    const summary = document.getElementById('filterSummary');
+    const projectStartText = getMonthDisplayText(projectStartMonth, 'All projects');
+    const dueMonthText = getMonthDisplayText(dueMonth, 'all due dates');
+    
+    summary.textContent = `${projectStartText}, ${dueMonthText}`;
+}
+
+// Helper function to get month display text
+function getMonthDisplayText(monthValue, defaultText) {
+    if (monthValue === 'all') return defaultText;
+    
+    const [year, month] = monthValue.split('-');
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    return `${monthNames[parseInt(month)-1]} ${year}`;
 }
 
 // Download button click
 document.getElementById('downloadInstallmentsBtn').addEventListener('click', function() {
-    const dropdown = document.getElementById('installmentsFilter');
-    const selectedValue = dropdown.value;
+    const projectStartMonth = document.getElementById('projectStartFilter').value;
+    const dueMonth = document.getElementById('dueMonthFilter').value;
     
     // Show loading
     const originalText = this.innerHTML;
@@ -3094,9 +3154,18 @@ document.getElementById('downloadInstallmentsBtn').addEventListener('click', fun
     
     // Build download URL
     let downloadUrl = '/download_installments';
+    const params = new URLSearchParams();
     
-    if (selectedValue !== 'all') {
-        downloadUrl += `?month=${selectedValue}`;
+    if (projectStartMonth !== 'all') {
+        params.append('project_start_month', projectStartMonth);
+    }
+    
+    if (dueMonth !== 'all') {
+        params.append('due_month', dueMonth);
+    }
+    
+    if (params.toString()) {
+        downloadUrl += '?' + params.toString();
     }
     
     // Trigger download
@@ -3119,7 +3188,9 @@ document.getElementById('downloadInstallmentsBtn').addEventListener('click', fun
         }
         
         // Show success message
-        showInstallmentsDownloadSuccess(dropdown.options[dropdown.selectedIndex].text);
+        const projectStartText = getMonthDisplayText(projectStartMonth, 'All projects');
+        const dueMonthText = getMonthDisplayText(dueMonth, 'all due dates');
+        showInstallmentsDownloadSuccess(`${projectStartText}, ${dueMonthText}`);
     }, 1500);
 });
 
@@ -3136,7 +3207,6 @@ function showInstallmentsDownloadSuccess(selection) {
                 <div class="toast-body">
                     <i class="bi bi-file-earmark-excel text-success me-2"></i>
                     <strong>${selection}</strong> installments downloaded successfully!
-                    <div class="small mt-1">Contains separate sheets for Paid and Due installments.</div>
                 </div>
             </div>
         </div>
@@ -3153,8 +3223,8 @@ function showInstallmentsDownloadSuccess(selection) {
         }
     }, 5000);
 }
-
 </script>
+
 <script>
     // Initialize modal
 document.getElementById('downloadPortfolioModal').addEventListener('show.bs.modal', function() {

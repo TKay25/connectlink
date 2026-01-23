@@ -8604,12 +8604,11 @@ def download_portfolio():
         return "Error generating download", 500
 
 
-@app.route('/get_installments_months')
-def get_installments_months():
+@app.route('/get_project_start_months')
+def get_project_start_months():
     """Get distinct months from projectstartdate"""
     try:
         with get_db() as (cursor, connection):
-            # Get months from projectstartdate
             cursor.execute("""
                 SELECT DISTINCT 
                     EXTRACT(YEAR FROM projectstartdate)::INTEGER as year,
@@ -8622,7 +8621,7 @@ def get_installments_months():
             
             result = []
             for row in months:
-                if row[0] and row[1]:  # Ensure both year and month exist
+                if row[0] and row[1]:
                     result.append({
                         'year': int(row[0]),
                         'month': int(row[1])
@@ -8631,63 +8630,118 @@ def get_installments_months():
             return jsonify(result)
         
     except Exception as e:
-        print(f"Error fetching installments months: {e}")
+        print(f"Error fetching project start months: {e}")
+        return jsonify([])
+
+@app.route('/get_due_months')
+def get_due_months():
+    """Get distinct months from installment due dates"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment1duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment1duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment1duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment2duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment2duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment2duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment3duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment3duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment3duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment4duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment4duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment4duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment5duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment5duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment5duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment6duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment6duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment6duedate IS NOT NULL
+                ORDER BY year DESC, month DESC
+            """)
+            months = cursor.fetchall()
+            
+            result = []
+            for row in months:
+                if row[0] and row[1]:
+                    result.append({
+                        'year': int(row[0]),
+                        'month': int(row[1])
+                    })
+            
+            return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error fetching due months: {e}")
         return jsonify([])
 
 @app.route('/get_installments_count')
 def get_installments_count():
-    """Get counts of installments based on filter using projectstartdate"""
+    """Get counts of installments based on both project start and due month filters"""
     try:
         with get_db() as (cursor, connection):
-            month = request.args.get('month')
+            project_start_month = request.args.get('project_start_month')
+            due_month = request.args.get('due_month')
             
-            # Base query for total count
-            base_query = "SELECT COUNT(*) as total FROM connectlinkdatabase WHERE 1=1"
+            # Build base query
+            query = """
+                SELECT COUNT(*) as total FROM connectlinkdatabase WHERE 1=1
+            """
             params = []
             
-            # Add month filter if specified
-            date_condition = ""
-            if month:
-                year, month_num = month.split('-')
-                date_condition = """
-                    AND EXTRACT(YEAR FROM projectstartdate) = %s 
-                    AND EXTRACT(MONTH FROM projectstartdate) = %s
+            # Add project start month filter
+            if project_start_month and project_start_month != 'all':
+                year, month_num = project_start_month.split('-')
+                query += " AND EXTRACT(YEAR FROM projectstartdate) = %s AND EXTRACT(MONTH FROM projectstartdate) = %s"
+                params.extend([year, month_num])
+            
+            # Add due month filter
+            if due_month and due_month != 'all':
+                year, month_num = due_month.split('-')
+                query += """
+                    AND (
+                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s)
+                    )
                 """
-                params = [year, month_num]
+                params.extend([year, month_num] * 6)
             
             # Get total count
-            cursor.execute(f"{base_query} {date_condition}", params)
+            cursor.execute(query, params)
             total = cursor.fetchone()[0]
             
             # Get paid count (any installment date not null)
-            paid_query = f"""
-                SELECT COUNT(*) as paid FROM connectlinkdatabase 
-                WHERE 1=1 {date_condition}
-                AND (
-                    installment1date IS NOT NULL OR 
-                    installment2date IS NOT NULL OR 
-                    installment3date IS NOT NULL OR 
-                    installment4date IS NOT NULL OR 
-                    installment5date IS NOT NULL OR 
-                    installment6date IS NOT NULL
-                )
-            """
+            paid_query = query.replace("WHERE 1=1", 
+                "WHERE 1=1 AND (installment1date IS NOT NULL OR installment2date IS NOT NULL OR installment3date IS NOT NULL OR installment4date IS NOT NULL OR installment5date IS NOT NULL OR installment6date IS NOT NULL)")
+            
             cursor.execute(paid_query, params)
             paid = cursor.fetchone()[0]
             
             # Get due count (all installment dates null)
-            due_query = f"""
-                SELECT COUNT(*) as due FROM connectlinkdatabase 
-                WHERE 1=1 {date_condition}
-                AND (
-                    installment1date IS NULL AND 
-                    installment2date IS NULL AND 
-                    installment3date IS NULL AND 
-                    installment4date IS NULL AND 
-                    installment5date IS NULL AND 
-                    installment6date IS NULL
-                )
-            """
+            due_query = query.replace("WHERE 1=1", 
+                "WHERE 1=1 AND (installment1date IS NULL AND installment2date IS NULL AND installment3date IS NULL AND installment4date IS NULL AND installment5date IS NULL AND installment6date IS NULL)")
+            
             cursor.execute(due_query, params)
             due = cursor.fetchone()[0]
             
@@ -8699,44 +8753,63 @@ def get_installments_count():
 
 @app.route('/download_installments')
 def download_installments():
-    """Download installments data in Excel format with separate sheets for paid and due"""
-    try:
-
-        def clean_html(text):
-            if not text or not isinstance(text, str):
-                return text
-            
-            import re
-            # Remove HTML tags
-            text = re.sub(r'<[^>]+>', '', text)
-            # Replace HTML entities
-            replacements = {
-                '&amp;': '&', '&lt;': '<', '&gt;': '>',
-                '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
-                '&rsquo;': "'", '&lsquo;': "'",
-                '&rdquo;': '"', '&ldquo;': '"'
-            }
-            for old, new in replacements.items():
-                text = text.replace(old, new)
-            # Clean up whitespace
-            text = ' '.join(text.split())
+    """Download installments data with both project start and due month filters"""
+    def clean_html(text):
+        if not text or not isinstance(text, str):
             return text
+        
+        import re
+        text = re.sub(r'<[^>]+>', '', text)
+        replacements = {
+            '&amp;': '&', '&lt;': '<', '&gt;': '>',
+            '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+            '&rsquo;': "'", '&lsquo;': "'",
+            '&rdquo;': '"', '&ldquo;': '"'
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        text = ' '.join(text.split())
+        return text
     
+    try:
         with get_db() as (cursor, connection):
-            month = request.args.get('month')  # Format: '2024-01' or None for all time
+            project_start_month = request.args.get('project_start_month')
+            due_month = request.args.get('due_month')
             
-            # Build WHERE clause for date filtering using projectstartdate
-            date_where_clause = ""
-            date_params = []
-            if month:
-                year, month_num = month.split('-')
-                date_where_clause = """
-                    WHERE EXTRACT(YEAR FROM projectstartdate) = %s 
-                    AND EXTRACT(MONTH FROM projectstartdate) = %s
+            # Build WHERE clause for both filters
+            where_clauses = []
+            params = []
+            
+            # Project start month filter
+            if project_start_month and project_start_month != 'all':
+                year, month_num = project_start_month.split('-')
+                where_clauses.append(
+                    "EXTRACT(YEAR FROM projectstartdate) = %s AND EXTRACT(MONTH FROM projectstartdate) = %s"
+                )
+                params.extend([year, month_num])
+            
+            # Due month filter
+            if due_month and due_month != 'all':
+                year, month_num = due_month.split('-')
+                due_condition = """
+                    (
+                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s)
+                    )
                 """
-                date_params = [year, month_num]
+                where_clauses.append(due_condition)
+                params.extend([year, month_num] * 6)
             
-            # Query to fetch all data for the selected period
+            # Build final WHERE clause
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+            
+            # Query to fetch data
             query = f"""
                 SELECT 
                     id,
@@ -8744,10 +8817,8 @@ def download_installments():
                     clientwanumber,
                     clientemail,
                     projectname,
-                    projectdescription,
                     momid,
-                    monthlyinstallment,
-                    totalcontractamount,
+                    projectstartdate,
                     installment1amount,
                     installment1duedate,
                     installment1date,
@@ -8767,17 +8838,17 @@ def download_installments():
                     installment6duedate,
                     installment6date
                 FROM connectlinkdatabase 
-                {date_where_clause if date_where_clause else ''}
+                {where_clause}
                 ORDER BY momid ASC
             """
             
-            cursor.execute(query, date_params if date_params else ())
+            cursor.execute(query, params)
             all_installments = cursor.fetchall()
             
             # Get column names
             columns = [
-                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname', 'projectdescription',
-                'momid', 'monthlyinstallment', 'totalcontractamount',
+                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                'momid', 'projectstartdate',
                 'installment1amount', 'installment1duedate', 'installment1date',
                 'installment2amount', 'installment2duedate', 'installment2date',
                 'installment3amount', 'installment3duedate', 'installment3date',
@@ -8787,90 +8858,61 @@ def download_installments():
             ]
             
             # Separate paid and due installments
-            paid_data = []  # For paid sheet: id, momid, clientname, phone, email, projectname, amount_paid
-            due_data = []   # For due sheet: id, momid, clientname, phone, email, projectname, amount_due
+            paid_data = []
+            due_data = []
             
             for row in all_installments:
-                # Convert row to dict for easier access
                 row_dict = dict(zip(columns, row))
                 
-                # Calculate total paid amount
+                # Calculate total paid and due amounts
                 total_paid = 0
-                for i in range(1, 7):
-                    amount = row_dict.get(f'installment{i}amount') or 0
-                    payment_date = row_dict.get(f'installment{i}date')
-                    if payment_date:  # If payment date exists, it's paid
-                        total_paid += amount
-                
-                # Calculate total due amount
                 total_due = 0
+                
                 for i in range(1, 7):
                     amount = row_dict.get(f'installment{i}amount') or 0
                     payment_date = row_dict.get(f'installment{i}date')
-                    if not payment_date:  # If no payment date, it's due
-                        total_due += amount
+                    
+                    if payment_date:
+                        total_paid += float(amount) if amount else 0
+                    else:
+                        total_due += float(amount) if amount else 0
                 
-                # Clean client name
+                # Clean data
                 client_name = clean_html(str(row_dict['clientname'])) if row_dict['clientname'] else ''
-                
-                # Clean phone number
                 phone = clean_html(str(row_dict['clientwanumber'])) if row_dict['clientwanumber'] else ''
-                
-                # Clean email
                 email = clean_html(str(row_dict['clientemail'])) if row_dict['clientemail'] else ''
-                
-                # Clean project name
                 project_name = clean_html(str(row_dict['projectname'])) if row_dict['projectname'] else ''
-
-                project_description = clean_html(str(row_dict['projectdescription'])) if row_dict['projectdescription'] else ''
-
+                momid = clean_html(str(row_dict['momid'])) if row_dict['momid'] else ''
                 
-                # Create paid record if there are any paid installments
+                # Add project start date
+                project_start = row_dict['projectstartdate']
+                project_start_str = project_start.strftime('%Y-%m-%d') if project_start else ''
+                
+                # Add to paid data if there are paid installments
                 if total_paid > 0:
                     paid_data.append({
                         'id': row_dict['id'],
-                        'momid': clean_html(str(row_dict['momid'])) if row_dict['momid'] else '',
+                        'momid': momid,
                         'clientname': client_name,
                         'phone': phone,
                         'email': email,
                         'projectname': project_name,
-                        'projectdescription': project_description,
+                        'project_start_date': project_start_str,
                         'amount_paid': total_paid
                     })
                 
-                # Create due record if there are any due installments
+                # Add to due data if there are due installments
                 if total_due > 0:
                     due_data.append({
                         'id': row_dict['id'],
-                        'momid': clean_html(str(row_dict['momid'])) if row_dict['momid'] else '',
+                        'momid': momid,
                         'clientname': client_name,
                         'phone': phone,
                         'email': email,
                         'projectname': project_name,
-                        'projectdescription': project_description,
+                        'project_start_date': project_start_str,
                         'amount_due': total_due
                     })
-            
-            # Clean HTML tags from text
-            def clean_html(text):
-                if not text or not isinstance(text, str):
-                    return text
-                
-                import re
-                # Remove HTML tags
-                text = re.sub(r'<[^>]+>', '', text)
-                # Replace HTML entities
-                replacements = {
-                    '&amp;': '&', '&lt;': '<', '&gt;': '>',
-                    '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
-                    '&rsquo;': "'", '&lsquo;': "'",
-                    '&rdquo;': '"', '&ldquo;': '"'
-                }
-                for old, new in replacements.items():
-                    text = text.replace(old, new)
-                # Clean up whitespace
-                text = ' '.join(text.split())
-                return text
             
             # Create Excel file
             import pandas as pd
@@ -8878,11 +8920,8 @@ def download_installments():
             from datetime import datetime
             
             # Create DataFrames
-            paid_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'amount_paid']
-            due_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'amount_due']
-            
-            paid_df = pd.DataFrame(paid_data, columns=paid_columns)
-            due_df = pd.DataFrame(due_data, columns=due_columns)
+            paid_df = pd.DataFrame(paid_data)
+            due_df = pd.DataFrame(due_data)
             
             # Format amounts as currency
             def format_currency(amount):
@@ -8902,53 +8941,57 @@ def download_installments():
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 # Sheet 1: Paid Installments
                 if len(paid_df) > 0:
-                    # Use formatted amounts for display
                     paid_display_df = paid_df.copy()
-                    paid_display_df = paid_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'amount_paid_formatted']]
-                    paid_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone Number', 'Email', 'Project Name', 'Project Description', 'Amount Paid']
-                    
+                    paid_display_df = paid_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'project_start_date', 'amount_paid_formatted']]
+                    paid_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone', 'Email', 'Project Name', 'Project Start Date', 'Amount Paid']
                     paid_display_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 else:
-                    # Create empty sheet with message
-                    empty_df = pd.DataFrame({
-                        'Message': [f'No paid installments found for the selected period']
-                    })
+                    empty_df = pd.DataFrame({'Message': ['No paid installments found']})
                     empty_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 
                 # Sheet 2: Due Installments
                 if len(due_df) > 0:
-                    # Use formatted amounts for display
                     due_display_df = due_df.copy()
-                    due_display_df = due_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'amount_due_formatted']]
-                    due_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone Number', 'Email', 'Project Name', 'Project Description', 'Amount Due']
-                    
+                    due_display_df = due_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'project_start_date', 'amount_due_formatted']]
+                    due_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone', 'Email', 'Project Name', 'Project Start Date', 'Amount Due']
                     due_display_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 else:
-                    # Create empty sheet with message
-                    empty_df = pd.DataFrame({
-                        'Message': [f'No due installments found for the selected period']
-                    })
+                    empty_df = pd.DataFrame({'Message': ['No due installments found']})
                     empty_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 
                 # Sheet 3: Summary Report
-                from datetime import datetime
-                
                 total_paid_amount = paid_df['amount_paid'].sum() if not paid_df.empty else 0
                 total_due_amount = due_df['amount_due'].sum() if not due_df.empty else 0
                 total_contract_value = total_paid_amount + total_due_amount
                 
+                # Build filter description
+                filter_desc = []
+                if project_start_month and project_start_month != 'all':
+                    year, month = project_start_month.split('-')
+                    month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                                 'July', 'August', 'September', 'October', 'November', 'December']
+                    filter_desc.append(f"Projects starting in {month_names[int(month)-1]} {year}")
+                
+                if due_month and due_month != 'all':
+                    year, month = due_month.split('-')
+                    month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                                 'July', 'August', 'September', 'October', 'November', 'December']
+                    filter_desc.append(f"Installments due in {month_names[int(month)-1]} {year}")
+                
+                if not filter_desc:
+                    filter_desc.append("All projects, all due dates")
+                
+                filter_description = "; ".join(filter_desc)
+                
                 summary_data = {
-                    'Report Period': [
-                        'All Time' if not month else f"{datetime.strptime(month, '%Y-%m').strftime('%B %Y')}",
-                        'All Time' if not month else f"{datetime.strptime(month, '%Y-%m').strftime('%B %Y')}"
-                    ],
+                    'Filter Applied': [filter_description, filter_description],
                     'Category': ['Paid Installments', 'Due Installments'],
                     'Record Count': [len(paid_df), len(due_df)],
                     'Total Amount': [
                         f"KES {total_paid_amount:,.2f}",
                         f"KES {total_due_amount:,.2f}"
                     ],
-                    'Percentage of Total': [
+                    'Percentage': [
                         f"{(total_paid_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
                         f"{(total_due_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%'
                     ],
@@ -8961,21 +9004,17 @@ def download_installments():
                 # Format worksheets
                 for sheet_name in writer.sheets:
                     worksheet = writer.sheets[sheet_name]
-                    
-                    # Freeze top row
                     worksheet.freeze_panes = 'A2'
                     
-                    # Format header row
                     for cell in worksheet[1]:
                         cell.font = cell.font.copy(bold=True)
                         if sheet_name == 'Paid Installments':
-                            cell.fill = cell.fill.copy(patternType="solid", fgColor="E6FFE6")  # Light green
+                            cell.fill = cell.fill.copy(patternType="solid", fgColor="E6FFE6")
                         elif sheet_name == 'Due Installments':
-                            cell.fill = cell.fill.copy(patternType="solid", fgColor="FFE6E6")  # Light red
+                            cell.fill = cell.fill.copy(patternType="solid", fgColor="FFE6E6")
                         else:
-                            cell.fill = cell.fill.copy(patternType="solid", fgColor="E6F3FF")  # Light blue
+                            cell.fill = cell.fill.copy(patternType="solid", fgColor="E6F3FF")
                     
-                    # Auto-adjust column widths
                     for column in worksheet.columns:
                         max_length = 0
                         column_letter = column[0].column_letter
@@ -8989,27 +9028,24 @@ def download_installments():
                                 pass
                         adjusted_width = min(max_length + 2, 30)
                         worksheet.column_dimensions[column_letter].width = adjusted_width
-                    
-                    # Format currency columns
-                    if sheet_name == 'Paid Installments':
-                        for row in range(2, worksheet.max_row + 1):
-                            cell = worksheet.cell(row=row, column=7)  # Column G is Amount Paid
-                            cell.font = cell.font.copy(color="006400")  # Dark green for paid amounts
-                    elif sheet_name == 'Due Installments':
-                        for row in range(2, worksheet.max_row + 1):
-                            cell = worksheet.cell(row=row, column=7)  # Column G is Amount Due
-                            cell.font = cell.font.copy(color="FF0000")  # Red for due amounts
             
             # Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-            if month:
-                year, month_num = month.split('-')
+            filename = "Installments"
+            
+            if project_start_month and project_start_month != 'all':
+                year, month = project_start_month.split('-')
                 month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                month_name = month_names[int(month_num) - 1]
-                filename = f"Installments_{month_name}_{year}_{timestamp}.xlsx"
-            else:
-                filename = f"Installments_All_Time_{timestamp}.xlsx"
+                filename += f"_Start_{month_names[int(month)-1]}_{year}"
+            
+            if due_month and due_month != 'all':
+                year, month = due_month.split('-')
+                month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                filename += f"_Due_{month_names[int(month)-1]}_{year}"
+            
+            filename += f"_{timestamp}.xlsx"
             
             # Return Excel file
             output.seek(0)
@@ -9024,6 +9060,7 @@ def download_installments():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
