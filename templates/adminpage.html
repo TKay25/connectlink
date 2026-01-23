@@ -2705,12 +2705,15 @@
 
 
                 <div class="tab-pane fade show active" id="projects-tab">
-                    <button class="btn btn-primary mt-1"
-                            id="exportprojectportBtn"
-                            style="width: max-content;">
-                            <!-- onclick="downloadPortfolio()"--> 
-                        <i class="bi bi-download"></i> Download Master File
-                    </button>
+                    <div class="tab-pane fade show active" id="projects-tab">
+                        <button class="btn btn-primary mt-1"
+                                id="exportprojectportBtn"
+                                style="width: max-content;"
+                                data-bs-toggle="modal"
+                                data-bs-target="#downloadPortfolioModal">
+                            <i class="bi bi-download"></i> Download Master File
+                        </button>
+                    </div>
 
                     <div class="container mt-6 card">
                         <div class="row mb-5 align-items-center">
