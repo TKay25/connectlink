@@ -8750,7 +8750,6 @@ def get_installments_count():
     except Exception as e:
         print(f"Error counting installments: {e}")
         return jsonify({'total': 0, 'paid': 0, 'due': 0, 'error': str(e)}), 500
-
 @app.route('/download_installments')
 def download_installments():
     """Download installments data with both project start and due month filters"""
@@ -8776,6 +8775,12 @@ def download_installments():
             project_start_month = request.args.get('project_start_month')
             due_month = request.args.get('due_month')
             
+            # Parse due month if provided
+            due_year = None
+            due_month_num = None
+            if due_month and due_month != 'all':
+                due_year, due_month_num = due_month.split('-')
+            
             # Build WHERE clause for both filters
             where_clauses = []
             params = []
@@ -8790,7 +8795,6 @@ def download_installments():
             
             # Due month filter
             if due_month and due_month != 'all':
-                year, month_num = due_month.split('-')
                 due_condition = """
                     (
                         (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
@@ -8802,7 +8806,7 @@ def download_installments():
                     )
                 """
                 where_clauses.append(due_condition)
-                params.extend([year, month_num] * 6)
+                params.extend([due_year, due_month_num] * 6)
             
             # Build final WHERE clause
             where_clause = ""
@@ -8864,13 +8868,26 @@ def download_installments():
             for row in all_installments:
                 row_dict = dict(zip(columns, row))
                 
-                # Calculate total paid and due amounts
+                # Initialize variables to track the specific due date for this month
+                specific_due_date = None
+                installment_number = None
+                
+                # Calculate total paid and due amounts, and find the due date for selected month
                 total_paid = 0
                 total_due = 0
                 
                 for i in range(1, 7):
                     amount = row_dict.get(f'installment{i}amount') or 0
+                    due_date = row_dict.get(f'installment{i}duedate')
                     payment_date = row_dict.get(f'installment{i}date')
+                    
+                    # Check if this installment is in the selected due month
+                    if due_month and due_month != 'all' and due_date:
+                        due_date_obj = due_date
+                        if hasattr(due_date_obj, 'year') and hasattr(due_date_obj, 'month'):
+                            if due_date_obj.year == int(due_year) and due_date_obj.month == int(due_month_num):
+                                specific_due_date = due_date_obj
+                                installment_number = i
                     
                     if payment_date:
                         total_paid += float(amount) if amount else 0
@@ -8888,6 +8905,19 @@ def download_installments():
                 project_start = row_dict['projectstartdate']
                 project_start_str = project_start.strftime('%Y-%m-%d') if project_start else ''
                 
+                # Format specific due date
+                due_date_str = ''
+                if specific_due_date:
+                    if hasattr(specific_due_date, 'strftime'):
+                        due_date_str = specific_due_date.strftime('%Y-%m-%d')
+                    else:
+                        due_date_str = str(specific_due_date)
+                
+                # Add installment number info if applicable
+                installment_info = ''
+                if installment_number:
+                    installment_info = f"Installment {installment_number}"
+                
                 # Add to paid data if there are paid installments
                 if total_paid > 0:
                     paid_data.append({
@@ -8898,6 +8928,8 @@ def download_installments():
                         'email': email,
                         'projectname': project_name,
                         'project_start_date': project_start_str,
+                        'due_date': due_date_str,
+                        'installment_info': installment_info,
                         'amount_paid': total_paid
                     })
                 
@@ -8911,6 +8943,8 @@ def download_installments():
                         'email': email,
                         'projectname': project_name,
                         'project_start_date': project_start_str,
+                        'due_date': due_date_str,
+                        'installment_info': installment_info,
                         'amount_due': total_due
                     })
             
@@ -8942,8 +8976,35 @@ def download_installments():
                 # Sheet 1: Paid Installments
                 if len(paid_df) > 0:
                     paid_display_df = paid_df.copy()
-                    paid_display_df = paid_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'project_start_date', 'amount_paid_formatted']]
-                    paid_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone', 'Email', 'Project Name', 'Project Start Date', 'Amount Paid']
+                    
+                    # Determine which columns to include based on filters
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'project_start_date']
+                    
+                    # Add due date column if due month filter is applied
+                    if due_month and due_month != 'all':
+                        display_columns.extend(['due_date', 'installment_info'])
+                    
+                    display_columns.append('amount_paid_formatted')
+                    
+                    # Select only available columns
+                    available_columns = [col for col in display_columns if col in paid_display_df.columns]
+                    paid_display_df = paid_display_df[available_columns]
+                    
+                    # Set column headers
+                    column_headers = {
+                        'id': 'ID',
+                        'momid': 'MOM ID',
+                        'clientname': 'Client Name',
+                        'phone': 'Phone',
+                        'email': 'Email',
+                        'projectname': 'Project Name',
+                        'project_start_date': 'Project Start Date',
+                        'due_date': 'Due Date',
+                        'installment_info': 'Installment',
+                        'amount_paid_formatted': 'Amount Paid'
+                    }
+                    
+                    paid_display_df.columns = [column_headers.get(col, col) for col in available_columns]
                     paid_display_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 else:
                     empty_df = pd.DataFrame({'Message': ['No paid installments found']})
@@ -8952,8 +9013,35 @@ def download_installments():
                 # Sheet 2: Due Installments
                 if len(due_df) > 0:
                     due_display_df = due_df.copy()
-                    due_display_df = due_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'project_start_date', 'amount_due_formatted']]
-                    due_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone', 'Email', 'Project Name', 'Project Start Date', 'Amount Due']
+                    
+                    # Determine which columns to include based on filters
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'project_start_date']
+                    
+                    # Add due date column if due month filter is applied
+                    if due_month and due_month != 'all':
+                        display_columns.extend(['due_date', 'installment_info'])
+                    
+                    display_columns.append('amount_due_formatted')
+                    
+                    # Select only available columns
+                    available_columns = [col for col in display_columns if col in due_display_df.columns]
+                    due_display_df = due_display_df[available_columns]
+                    
+                    # Set column headers
+                    column_headers = {
+                        'id': 'ID',
+                        'momid': 'MOM ID',
+                        'clientname': 'Client Name',
+                        'phone': 'Phone',
+                        'email': 'Email',
+                        'projectname': 'Project Name',
+                        'project_start_date': 'Project Start Date',
+                        'due_date': 'Due Date',
+                        'installment_info': 'Installment',
+                        'amount_due_formatted': 'Amount Due'
+                    }
+                    
+                    due_display_df.columns = [column_headers.get(col, col) for col in available_columns]
                     due_display_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 else:
                     empty_df = pd.DataFrame({'Message': ['No due installments found']})
@@ -8983,8 +9071,13 @@ def download_installments():
                 
                 filter_description = "; ".join(filter_desc)
                 
+                # Add due date info to summary if due month filter is applied
+                due_date_info = ""
+                if due_month and due_month != 'all':
+                    due_date_info = f" (Showing specific due dates for {month_names[int(month)-1]} {year})"
+                
                 summary_data = {
-                    'Filter Applied': [filter_description, filter_description],
+                    'Filter Applied': [filter_description + due_date_info, filter_description + due_date_info],
                     'Category': ['Paid Installments', 'Due Installments'],
                     'Record Count': [len(paid_df), len(due_df)],
                     'Total Amount': [
@@ -9006,6 +9099,7 @@ def download_installments():
                     worksheet = writer.sheets[sheet_name]
                     worksheet.freeze_panes = 'A2'
                     
+                    # Format header row
                     for cell in worksheet[1]:
                         cell.font = cell.font.copy(bold=True)
                         if sheet_name == 'Paid Installments':
@@ -9015,6 +9109,7 @@ def download_installments():
                         else:
                             cell.fill = cell.fill.copy(patternType="solid", fgColor="E6F3FF")
                     
+                    # Auto-adjust column widths
                     for column in worksheet.columns:
                         max_length = 0
                         column_letter = column[0].column_letter
@@ -9028,6 +9123,31 @@ def download_installments():
                                 pass
                         adjusted_width = min(max_length + 2, 30)
                         worksheet.column_dimensions[column_letter].width = adjusted_width
+                    
+                    # Highlight overdue dates in Due Installments sheet
+                    if sheet_name == 'Due Installments' and due_month and due_month != 'all':
+                        # Find the due date column
+                        due_date_col_index = None
+                        for col_idx, cell in enumerate(worksheet[1], 1):
+                            if cell.value == 'Due Date':
+                                due_date_col_index = col_idx
+                                break
+                        
+                        if due_date_col_index:
+                            today = datetime.now().date()
+                            for row in range(2, worksheet.max_row + 1):
+                                due_date_cell = worksheet.cell(row=row, column=due_date_col_index)
+                                if due_date_cell.value:
+                                    try:
+                                        due_date = datetime.strptime(str(due_date_cell.value), '%Y-%m-%d').date()
+                                        if due_date < today:
+                                            # Highlight overdue in red
+                                            due_date_cell.font = due_date_cell.font.copy(color="FF0000", bold=True)
+                                        elif due_date == today:
+                                            # Highlight due today in orange
+                                            due_date_cell.font = due_date_cell.font.copy(color="FF8C00", bold=True)
+                                    except:
+                                        pass
             
             # Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -9060,8 +9180,6 @@ def download_installments():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
-
 
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
