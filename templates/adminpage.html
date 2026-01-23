@@ -958,7 +958,7 @@
             
             <div class="modal-header">
                 <h6 class="modal-title" id="createUserModalLabel"><i class="bi bi-person-fill-add"></i> CREATE SYSTEM USER</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
             <div class="modal-body" style="font-size: 14px;">
@@ -1009,7 +1009,7 @@
             <!-- Modal Header -->
             <div class="modal-header">
                 <h6 class="modal-title" id="addcompAdminModalLabel"><i class="bi bi-people-fill"></i>ADMINISTRATORS</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <!-- Modal Body -->
@@ -1044,7 +1044,7 @@
 
             <div class="modal-header">
                 <h6 class="modal-title" id="viewprojectModalLabel"> <i class="bi bi-card-list"></i> PROJECT DETAILS</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <div class="modal-body">
@@ -1070,7 +1070,7 @@
 
             <div class="modal-header">
                 <h6 class="modal-title" id="addAdminplusModalLabel"><i class="bi bi-person-plus-fill"></i>ADD ADMINISTRATOR</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <div class="modal-body">
@@ -1109,7 +1109,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h6 class="modal-title" id="addnewProjectModalLabel"><i class="bi bi-briefcase-fill"></i> NEW PROJECT</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
 
@@ -1956,6 +1956,101 @@
             </div>
         </div>
     </div>
+
+<!-- Download Portfolio Modal -->
+<div class="modal fade" id="downloadPortfolioModal" tabindex="-1" aria-labelledby="downloadPortfolioModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h6 class="modal-title" id="downloadPortfolioModalLabel">
+                    <i class="bi bi-download"></i> DOWNLOAD PROJECTS
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Simple Options -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold mb-3">
+                        <i class="bi bi-folder"></i> Select Projects to Download
+                    </label>
+                    
+                    <!-- Option 1: All Projects -->
+                    <div class="card mb-3">
+                        <div class="card-body text-center p-3">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="downloadOption" id="allProjects" value="all" checked>
+                                <label class="form-check-label fw-bold" for="allProjects">
+                                    <i class="bi bi-collection text-primary fs-5"></i><br>
+                                    All Projects
+                                </label>
+                            </div>
+                            <small class="text-muted">Download complete project list</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Option 2: By Month -->
+                    <div class="card">
+                        <div class="card-body p-3">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="downloadOption" id="byMonth" value="month">
+                                <label class="form-check-label fw-bold" for="byMonth">
+                                    <i class="bi bi-calendar-month text-primary fs-5"></i><br>
+                                    Select Month
+                                </label>
+                            </div>
+                            
+                            <!-- Month Dropdown (Shows when By Month is selected) -->
+                            <div class="mt-3" id="monthDropdown" style="display: none;">
+                                <label class="form-label small mb-2">Choose Month:</label>
+                                <select class="form-select" id="monthSelect" onchange="updateMonthSelection()">
+                                    <option value="">Loading months...</option>
+                                </select>
+                                <small class="text-muted mt-2 d-block">
+                                    <i class="bi bi-info-circle"></i> Projects from selected month only
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Simple File Format -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold mb-3">
+                        <i class="bi bi-file-earmark"></i> File Format
+                    </label>
+                    <div class="d-flex justify-content-center gap-4">
+                        <div class="text-center">
+                            <input class="form-check-input" type="radio" name="fileFormat" id="formatExcel" value="excel" checked>
+                            <label class="form-check-label d-block mt-2" for="formatExcel">
+                                <i class="bi bi-file-earmark-excel text-success fs-3"></i><br>
+                                <span class="small">Excel</span>
+                            </label>
+                        </div>
+                        <div class="text-center">
+                            <input class="form-check-input" type="radio" name="fileFormat" id="formatCSV" value="csv">
+                            <label class="form-check-label d-block mt-2" for="formatCSV">
+                                <i class="bi bi-filetype-csv text-primary fs-3"></i><br>
+                                <span class="small">CSV</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="downloadBtn" onclick="downloadPortfolio()">
+                    <i class="bi bi-download"></i> Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
 <!-- View Interim Enquiries Modal -->
 <div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-fullscreen" style="max-width: 1400px;">
@@ -2612,8 +2707,8 @@
                 <div class="tab-pane fade show active" id="projects-tab">
                     <button class="btn btn-primary mt-1"
                             id="exportprojectportBtn"
-                            style="width: max-content;"
-                            onclick="downloadPortfolio()">
+                            style="width: max-content;">
+                            <!-- onclick="downloadPortfolio()"--> 
                         <i class="bi bi-download"></i> Download Master File
                     </button>
 
@@ -2749,7 +2844,7 @@
                         <i class="bi bi-building-fill-gear me-1" style="font-size: 0.85rem;"></i>
                         CONTRACTOR DETAILS EDITOR
                     </h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
                 </div>
 
                 <div class="modal-body p-3">
@@ -2813,7 +2908,7 @@
                     <h6 class="modal-title" id="notesModalLabel">
                         <i class="bi bi-list-ol"></i><span id="modalClientName"></span> - <span id="modalProjectName"></span> NOTES
                     </h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="notesProjectId">

@@ -1,0 +1,169 @@
+<!-- Download Portfolio Modal -->
+<div class="modal fade" id="downloadPortfolioModal" tabindex="-1" aria-labelledby="downloadPortfolioModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h6 class="modal-title" id="downloadPortfolioModalLabel">
+                    <i class="bi bi-download"></i> DOWNLOAD PORTFOLIO
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="portfolioDownloadForm">
+                    <!-- Download Type Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-filter"></i> Select Download Option
+                        </label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="downloadOption" id="allProjects" value="all" checked onchange="toggleMonthSelection()">
+                            <label class="form-check-label" for="allProjects">
+                                <i class="bi bi-collection text-primary"></i> All Projects
+                            </label>
+                            <div class="text-muted small ms-4 mt-1">Download complete portfolio with all projects</div>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="downloadOption" id="byMonth" value="month" onchange="toggleMonthSelection()">
+                            <label class="form-check-label" for="byMonth">
+                                <i class="bi bi-calendar-month text-primary"></i> Filter by Month
+                            </label>
+                            <div class="text-muted small ms-4 mt-1">Download projects from specific months</div>
+                        </div>
+                    </div>
+
+                    <!-- Month Selection (Hidden by default) -->
+                    <div class="mb-4" id="monthSelectionContainer" style="display: none;">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-calendar3"></i> Select Month(s)
+                        </label>
+                        
+                        <!-- Search Months -->
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="monthSearch" placeholder="Search months..." onkeyup="filterMonths()">
+                        </div>
+                        
+                        <!-- Month Selection Options -->
+                        <div class="row g-2" id="monthOptionsContainer">
+                            <!-- Months will be loaded here dynamically -->
+                            <div class="col-12 text-center py-3" id="monthsLoading">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading months...</span>
+                                </div>
+                                <span class="ms-2 small text-muted">Loading available months...</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Select Buttons -->
+                        <div class="d-flex flex-wrap gap-2 mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllMonths()">
+                                <i class="bi bi-check-square"></i> Select All
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllMonths()">
+                                <i class="bi bi-square"></i> Deselect All
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-info" onclick="selectCurrentYear()">
+                                <i class="bi bi-calendar-year"></i> Current Year
+                            </button>
+                        </div>
+                        
+                        <!-- Selected Months Summary -->
+                        <div class="alert alert-info mt-3 p-2 d-none" id="selectedMonthsSummary">
+                            <i class="bi bi-info-circle"></i>
+                            <small>
+                                Selected: <span id="selectedMonthsCount">0</span> month(s) | 
+                                <a href="#" class="text-decoration-none" onclick="showSelectedMonths()">View selected</a>
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- File Format Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-file-earmark"></i> Select File Format
+                        </label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fileFormat" id="formatExcel" value="excel" checked>
+                                    <label class="form-check-label" for="formatExcel">
+                                        <i class="bi bi-file-earmark-excel text-success"></i> Excel (.xlsx)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="fileFormat" id="formatCSV" value="csv">
+                                    <label class="form-check-label" for="formatCSV">
+                                        <i class="bi bi-filetype-csv text-primary"></i> CSV (.csv)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Include Columns Selection -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-columns"></i> Include Columns
+                        </label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeClientInfo" checked>
+                            <label class="form-check-label" for="includeClientInfo">
+                                Client Information
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeProjectDetails" checked>
+                            <label class="form-check-label" for="includeProjectDetails">
+                                Project Details
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeFinancials" checked>
+                            <label class="form-check-label" for="includeFinancials">
+                                Financial Information
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeDates" checked>
+                            <label class="form-check-label" for="includeDates">
+                                Dates & Timeline
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" id="downloadBtn" onclick="downloadPortfolioData()">
+                    <i class="bi bi-download"></i> Download
+                    <span class="spinner-border spinner-border-sm d-none" id="downloadSpinner"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Selected Months Preview Modal -->
+<div class="modal fade" id="selectedMonthsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">
+                    <i class="bi bi-calendar-check"></i> Selected Months
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="selectedMonthsList" class="d-flex flex-wrap gap-1">
+                    <!-- Selected months will be shown here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
