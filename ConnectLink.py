@@ -7732,400 +7732,6 @@ def get_filtered_projects(month_filter):
             return jsonify({'status': 'error', 'message': str(e)})
 
 
-@app.route('/export-installments-schedule-excel', methods=['GET'])
-def export_installments_schedule_excel():
-    """Export installments schedule as Excel - PostgreSQL version"""
-    try:
-        from datetime import date
-        
-        # Get today's date for filtering
-        today = date.today()
-        today_str = today.strftime('%Y-%m-%d')
-        
-        with get_db() as (cursor, connection):
-            # Query for installment projects with pending payments
-            query = """
-            SELECT 
-                id,
-                clientname,
-                projectname,
-                projectstartdate,
-                projectadministratorname,
-                totalcontractamount,
-                depositorbullet,
-                clientwanumber,
-                momid,
-                monthstopay,
-                installment1amount, installment1duedate, installment1date,
-                installment2amount, installment2duedate, installment2date,
-                installment3amount, installment3duedate, installment3date,
-                installment4amount, installment4duedate, installment4date,
-                installment5amount, installment5duedate, installment5date,
-                installment6amount, installment6duedate, installment6date
-            FROM connectlinkdatabase 
-            WHERE paymentmethod = 'Installments'
-            AND (
-                (installment1amount > 0 AND installment1date IS NULL) OR
-                (installment2amount > 0 AND installment2date IS NULL) OR
-                (installment3amount > 0 AND installment3date IS NULL) OR
-                (installment4amount > 0 AND installment4date IS NULL) OR
-                (installment5amount > 0 AND installment5date IS NULL) OR
-                (installment6amount > 0 AND installment6date IS NULL)
-            )
-            ORDER BY 
-                DATE_TRUNC('month', projectstartdate) DESC,
-                projectstartdate ASC,
-                momid ASC;
-            """
-            
-            cursor.execute(query)
-            rows = cursor.fetchall()
-            
-            if not rows:
-                return jsonify({'status': 'error', 'message': 'No pending installments found'}), 404
-            
-            # Get column names
-            colnames = [desc[0] for desc in cursor.description]
-            
-        # Convert to DataFrame
-        df = pd.DataFrame(rows, columns=colnames)
-        
-        # Process data for detailed sheets
-        data = []
-        # Collect data for monthly cross-tab
-        monthly_data = []
-        
-        for _, row in df.iterrows():
-            # Format dates
-            project_start = row.get('projectstartdate')
-            month_year = project_start.strftime('%Y-%m') if pd.notna(project_start) else 'No Date'
-            
-            project_data = {
-                'Month-Year': month_year,
-                'MOM ID': int(row.get('momid', 0)) if pd.notna(row.get('momid')) else 0,
-                'Client Name': str(row.get('clientname', '')),
-                'Project Name': str(row.get('projectname', '')),
-                'Client Phone': str(row.get('clientwanumber', '')),
-                'Administrator': str(row.get('projectadministratorname', '')),
-                'Total Contract': float(row.get('totalcontractamount', 0)) if pd.notna(row.get('totalcontractamount')) else 0.0,
-                'Deposit Paid': float(row.get('depositorbullet', 0)) if pd.notna(row.get('depositorbullet')) else 0.0,
-                'Months To Pay': int(row.get('monthstopay', 0)) if pd.notna(row.get('monthstopay')) else 0,
-                'Project Start': project_start.strftime('%d-%b-%Y') if pd.notna(project_start) else ''
-            }
-            
-            # Check installments 1-6
-            pending_installments = []
-            total_pending = 0.0
-            total_paid = 0.0
-            overdue_amount = 0.0
-            future_amount = 0.0
-            
-            for i in range(1, 7):
-                amount = row.get(f'installment{i}amount')
-                due_date = row.get(f'installment{i}duedate')
-                payment_date = row.get(f'installment{i}date')
-                
-                if amount and float(amount) > 0:
-                    if pd.isna(payment_date):  # Pending
-                        due_str = due_date.strftime('%d-%b-%Y') if pd.notna(due_date) else 'No Due Date'
-                        due_month = due_date.strftime('%Y-%m') if pd.notna(due_date) else 'No Month'
-                        
-                        # Check if overdue
-                        is_overdue = False
-                        if pd.notna(due_date):
-                            is_overdue = due_date < today
-                        
-                        installment_data = {
-                            'number': i,
-                            'due_date': due_str,
-                            'due_month': due_month,
-                            'amount': float(amount),
-                            'status': 'OVERDUE' if is_overdue else 'PENDING'
-                        }
-                        
-                        pending_installments.append(installment_data)
-                        total_pending += float(amount)
-                        
-                        if is_overdue:
-                            overdue_amount += float(amount)
-                        else:
-                            future_amount += float(amount)
-                        
-                        # Collect for monthly cross-tab (only if not overdue and has due date)
-                        if pd.notna(due_date) and due_month != 'No Month':
-                            status = 'OVERDUE' if is_overdue else 'PENDING'
-                            monthly_data.append({
-                                'clientname': str(row.get('clientname', '')),
-                                'projectname': str(row.get('projectname', '')),
-                                'due_date': due_date,
-                                'due_month': due_month,
-                                'amount': float(amount),
-                                'installment_num': i,
-                                'status': status,
-                                'is_overdue': is_overdue
-                            })
-                    else:  # Paid
-                        pending_installments.append({
-                            'number': i,
-                            'due_date': 'PAID',
-                            'amount': float(amount),
-                            'status': 'PAID'
-                        })
-                        total_paid += float(amount)
-            
-            # Sort by installment number
-            pending_installments.sort(key=lambda x: x['number'])
-            
-            # Add installment columns (up to 6 installments)
-            for idx, inst in enumerate(pending_installments[:6], 1):
-                project_data[f'Inst {idx}'] = f"#{inst['number']}"
-                project_data[f'Due {idx}'] = inst['due_date']
-                project_data[f'Amount {idx}'] = inst['amount']
-                project_data[f'Status {idx}'] = inst['status']
-            
-            # Add totals
-            project_data['Total Pending'] = total_pending
-            project_data['Total Paid'] = total_paid
-            project_data['Balance Due'] = float(row.get('totalcontractamount', 0) or 0) - total_paid - float(row.get('depositorbullet', 0) or 0)
-            project_data['Overdue Amount'] = overdue_amount
-            project_data['Future Amount'] = future_amount
-            
-            data.append(project_data)
-        
-        # Create DataFrames
-        result_df = pd.DataFrame(data)
-        monthly_df = pd.DataFrame(monthly_data) if monthly_data else pd.DataFrame()
-        
-        # Create Excel file
-        output = io.BytesIO()
-        
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            if result_df.empty:
-                empty_df = pd.DataFrame({'Message': ['No pending installments found']})
-                empty_df.to_excel(writer, sheet_name='No Data', index=False)
-            else:
-                # Sort by Month-Year and MOM ID
-                result_df = result_df.sort_values(['Month-Year', 'MOM ID'])
-                
-                # Group by Month-Year into separate sheets
-                for month_year in sorted(result_df['Month-Year'].unique()):
-                    if month_year != 'No Date':
-                        month_df = result_df[result_df['Month-Year'] == month_year].copy()
-                        month_df = month_df.drop('Month-Year', axis=1)
-                        
-                        # Format currency columns
-                        currency_cols = ['Total Contract', 'Deposit Paid', 'Total Pending', 'Total Paid', 
-                                       'Balance Due', 'Overdue Amount', 'Future Amount']
-                        for col in currency_cols:
-                            if col in month_df.columns:
-                                month_df[col] = month_df[col].apply(
-                                    lambda x: f"${x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else ""
-                                )
-                        
-                        # Format installment amounts
-                        for col in month_df.columns:
-                            if 'Amount' in col and col.startswith('Amount'):
-                                month_df[col] = month_df[col].apply(
-                                    lambda x: f"${x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else ""
-                                )
-                        
-                        # Write to sheet (max 31 chars for sheet name)
-                        sheet_name = str(month_year)[:31]
-                
-                # ================================================
-                # MONTHLY CROSS-TAB SUMMARY (Clients vs Months)
-                # ================================================
-                if not monthly_df.empty:
-                    # Create pivot table: Client Name as rows, Due Months as columns
-                    pivot_table = monthly_df.pivot_table(
-                        index='clientname',
-                        columns='due_month',
-                        values='amount',
-                        aggfunc='sum',
-                        fill_value=0
-                    ).reset_index()
-                    
-                    # Sort months chronologically
-                    month_columns = [col for col in pivot_table.columns if col != 'clientname']
-                    month_columns_sorted = sorted(month_columns, key=lambda x: x)
-                    pivot_table = pivot_table[['clientname'] + month_columns_sorted]
-                    
-                    # Add total column for each client
-                    pivot_table['Total Pending'] = pivot_table[month_columns_sorted].sum(axis=1)
-                    
-                    # Sort by client name
-                    pivot_table = pivot_table.sort_values('clientname')
-                    
-                    # Add TOTAL ROW at the bottom
-                    total_row = {'clientname': 'TOTAL'}
-                    for col in month_columns_sorted:
-                        total_row[col] = pivot_table[col].sum()
-                    total_row['Total Pending'] = pivot_table['Total Pending'].sum()
-                    
-                    # Append total row
-                    pivot_table = pd.concat([pivot_table, pd.DataFrame([total_row])], ignore_index=True)
-                    
-                    # Format currency in pivot table
-                    pivot_formatted = pivot_table.copy()
-                    for col in month_columns_sorted + ['Total Pending']:
-                        pivot_formatted[col] = pivot_formatted[col].apply(
-                            lambda x: f"${x:,.2f}" if pd.notna(x) and x != 0 else ""
-                        )
-                    
-                    # Write cross-tab summary
-                    pivot_formatted.to_excel(writer, sheet_name='Monthly Cross-Tab', index=False)
-                    
-                    # Auto-adjust column widths for cross-tab
-                    worksheet = writer.sheets['Monthly Cross-Tab']
-                    for column in worksheet.columns:
-                        max_length = 0
-                        column_letter = column[0].column_letter
-                        for cell in column:
-                            try:
-                                if len(str(cell.value)) > max_length:
-                                    max_length = len(str(cell.value))
-                            except:
-                                pass
-                        adjusted_width = min(max_length + 2, 30)
-                        worksheet.column_dimensions[column_letter].width = adjusted_width
-                    
-                    # Create monthly totals summary with overdue/future split
-                    monthly_totals = monthly_df.groupby('due_month').agg({
-                        'clientname': 'nunique',
-                        'amount': 'sum'
-                    }).reset_index()
-                    
-                    # Add overdue vs future amounts
-                    overdue_by_month = monthly_df[monthly_df['is_overdue']].groupby('due_month')['amount'].sum().reset_index()
-                    overdue_by_month = overdue_by_month.rename(columns={'amount': 'overdue_amount'})
-                    
-                    future_by_month = monthly_df[~monthly_df['is_overdue']].groupby('due_month')['amount'].sum().reset_index()
-                    future_by_month = future_by_month.rename(columns={'amount': 'future_amount'})
-                    
-                    # Merge all
-                    monthly_totals = pd.merge(monthly_totals, overdue_by_month, on='due_month', how='left')
-                    monthly_totals = pd.merge(monthly_totals, future_by_month, on='due_month', how='left')
-                    
-                    # Fill NaN with 0
-                    monthly_totals['overdue_amount'] = monthly_totals['overdue_amount'].fillna(0)
-                    monthly_totals['future_amount'] = monthly_totals['future_amount'].fillna(0)
-                    
-                    monthly_totals = monthly_totals.rename(columns={
-                        'clientname': 'Unique Clients',
-                        'amount': 'Total Pending'
-                    }).sort_values('due_month')
-                    
-                    # Format currency
-                    for col in ['Total Pending', 'overdue_amount', 'future_amount']:
-                        monthly_totals[col] = monthly_totals[col].apply(lambda x: f"${x:,.2f}")
-                                        
-                    # Create summary by status (overdue vs pending)
-                    status_summary = monthly_df.groupby('status').agg({
-                        'clientname': 'nunique',
-                        'amount': 'sum'
-                    }).reset_index()
-                    
-                    status_summary = status_summary.rename(columns={
-                        'clientname': 'Unique Clients',
-                        'amount': 'Total Amount'
-                    })
-                    
-                    # Format currency
-                    status_summary['Total Amount'] = status_summary['Total Amount'].apply(lambda x: f"${x:,.2f}")
-                    
-                    status_summary.to_excel(writer, sheet_name='Status Summary', index=False)
-                
-                # ================================================
-                # OVERDUE VS FUTURE SUMMARY
-                # ================================================
-                if not result_df.empty:
-                    # Overdue summary
-                    overdue_summary = result_df.groupby('Client Name').agg({
-                        'Overdue Amount': 'sum',
-                        'Future Amount': 'sum',
-                        'Total Pending': 'sum'
-                    }).reset_index()
-                    
-                    # Filter for clients with overdue
-                    clients_with_overdue = overdue_summary[overdue_summary['Overdue Amount'] > 0].copy()
-                    clients_with_overdue = clients_with_overdue.sort_values('Overdue Amount', ascending=False)
-                    
-                    # Format currency
-                    for col in ['Overdue Amount', 'Future Amount', 'Total Pending']:
-                        clients_with_overdue[col] = clients_with_overdue[col].apply(lambda x: f"${x:,.2f}")
-                    
-                    clients_with_overdue.to_excel(writer, sheet_name='Overdue Clients', index=False)
-                
-                # ================================================
-                # Original Summary sheet
-                # ================================================
-                if not result_df.empty:
-                    # Convert currency columns back to numeric for calculations
-                    numeric_df = result_df.copy()
-                    for col in ['Total Contract', 'Deposit Paid', 'Total Pending', 'Total Paid', 
-                               'Balance Due', 'Overdue Amount', 'Future Amount']:
-                        if col in numeric_df.columns:
-                            # Remove $ and commas, convert to float
-                            numeric_df[col] = numeric_df[col].replace(r'[\$,]', '', regex=True).replace('', '0').astype(float)
-                    
-                    # Monthly summary
-                    monthly_summary = numeric_df.groupby('Month-Year').agg({
-                        'Client Name': 'count',
-                        'Total Contract': 'sum',
-                        'Deposit Paid': 'sum',
-                        'Total Pending': 'sum',
-                        'Total Paid': 'sum',
-                        'Balance Due': 'sum',
-                        'Overdue Amount': 'sum',
-                        'Future Amount': 'sum'
-                    }).reset_index()
-                    
-                    monthly_summary = monthly_summary.rename(columns={
-                        'Client Name': 'Projects',
-                        'Total Contract': 'Contract Value',
-                        'Deposit Paid': 'Deposit Collected',
-                        'Total Pending': 'Pending Amount',
-                        'Total Paid': 'Paid Amount',
-                        'Balance Due': 'Balance Due'
-                    })
-                    
-                    # Format currency in summary
-                    currency_cols_summary = ['Contract Value', 'Deposit Collected', 'Pending Amount', 
-                                           'Paid Amount', 'Balance Due', 'Overdue Amount', 'Future Amount']
-                    for col in currency_cols_summary:
-                        if col in monthly_summary.columns:
-                            monthly_summary[col] = monthly_summary[col].apply(lambda x: f"${x:,.2f}")
-                    
-                    monthly_summary.to_excel(writer, sheet_name='Monthly Summary', index=False)
-                    
-                    # Add Report Info sheet
-                    report_info = pd.DataFrame({
-                        'Report Date': [today.strftime('%d-%b-%Y')],
-                        'Total Projects': [len(result_df)],
-                        'Total Pending Amount': [f"${numeric_df['Total Pending'].sum():,.2f}"],
-                        'Total Overdue Amount': [f"${numeric_df['Overdue Amount'].sum():,.2f}"],
-                        'Total Future Amount': [f"${numeric_df['Future Amount'].sum():,.2f}"],
-                        'Generated At': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-                    })
-                    report_info.to_excel(writer, sheet_name='Report Info', index=False)
-        
-        output.seek(0)
-        
-        # Create filename with date
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'installment_schedule_{today_str}_{timestamp}.xlsx'
-        
-        return send_file(
-            output,
-            as_attachment=True,
-            download_name=filename,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        
-    except Exception as e:
-        print(f"PostgreSQL Error: {str(e)}")
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'message': f'Failed to generate schedule: {str(e)}'}), 500
 
 @app.route('/get_temp_enquiries')
 def get_temp_enquiries():
@@ -9114,30 +8720,12 @@ def download_installments():
                 SELECT 
                     id,
                     clientname,
-                    clientidnumber,
-                    clientaddress,
                     clientwanumber,
                     clientemail,
-                    clientnextofkinname,
-                    clientnextofkinaddress,
-                    clientnextofkinphone,
-                    nextofkinrelationship,
                     projectname,
-                    projectlocation,
-                    projectdescription,
-                    projectadministratorname,
-                    projectstartdate,
-                    projectduration,
-                    contractagreementdate,
-                    totalcontractamount,
-                    paymentmethod,
-                    monthstopay,
-                    datecaptured,
-                    capturer,
-                    capturerid,
-                    depositorbullet,
-                    datedepositorbullet,
+                    momid,
                     monthlyinstallment,
+                    totalcontractamount,
                     installment1amount,
                     installment1duedate,
                     installment1date,
@@ -9155,10 +8743,7 @@ def download_installments():
                     installment5date,
                     installment6amount,
                     installment6duedate,
-                    installment6date,
-                    projectcompletionstatus,
-                    latepaymentinterest,
-                    momid
+                    installment6date
                 FROM connectlinkdatabase 
                 {date_where_clause if date_where_clause else ''}
                 ORDER BY momid ASC
@@ -9169,44 +8754,75 @@ def download_installments():
             
             # Get column names
             columns = [
-                'id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber',
-                'clientemail', 'clientnextofkinname', 'clientnextofkinaddress',
-                'clientnextofkinphone', 'nextofkinrelationship', 'projectname',
-                'projectlocation', 'projectdescription', 'projectadministratorname',
-                'projectstartdate', 'projectduration', 'contractagreementdate',
-                'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured',
-                'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet',
-                'monthlyinstallment', 'installment1amount', 'installment1duedate',
-                'installment1date', 'installment2amount', 'installment2duedate',
-                'installment2date', 'installment3amount', 'installment3duedate',
-                'installment3date', 'installment4amount', 'installment4duedate',
-                'installment4date', 'installment5amount', 'installment5duedate',
-                'installment5date', 'installment6amount', 'installment6duedate',
-                'installment6date', 'projectcompletionstatus', 'latepaymentinterest', 'momid'
+                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                'momid', 'monthlyinstallment', 'totalcontractamount',
+                'installment1amount', 'installment1duedate', 'installment1date',
+                'installment2amount', 'installment2duedate', 'installment2date',
+                'installment3amount', 'installment3duedate', 'installment3date',
+                'installment4amount', 'installment4duedate', 'installment4date',
+                'installment5amount', 'installment5duedate', 'installment5date',
+                'installment6amount', 'installment6duedate', 'installment6date'
             ]
             
             # Separate paid and due installments
-            paid_installments = []
-            due_installments = []
+            paid_data = []  # For paid sheet: id, momid, clientname, phone, email, projectname, amount_paid
+            due_data = []   # For due sheet: id, momid, clientname, phone, email, projectname, amount_due
             
             for row in all_installments:
-                # Check if any installment has payment date (not null)
-                # Get indices for payment date columns
-                date_columns = [
-                    columns.index('installment1date'),
-                    columns.index('installment2date'),
-                    columns.index('installment3date'),
-                    columns.index('installment4date'),
-                    columns.index('installment5date'),
-                    columns.index('installment6date')
-                ]
+                # Convert row to dict for easier access
+                row_dict = dict(zip(columns, row))
                 
-                has_payment = any(row[idx] is not None for idx in date_columns)
+                # Calculate total paid amount
+                total_paid = 0
+                for i in range(1, 7):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    payment_date = row_dict.get(f'installment{i}date')
+                    if payment_date:  # If payment date exists, it's paid
+                        total_paid += amount
                 
-                if has_payment:
-                    paid_installments.append(row)
-                else:
-                    due_installments.append(row)
+                # Calculate total due amount
+                total_due = 0
+                for i in range(1, 7):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    payment_date = row_dict.get(f'installment{i}date')
+                    if not payment_date:  # If no payment date, it's due
+                        total_due += amount
+                
+                # Clean client name
+                client_name = clean_html(str(row_dict['clientname'])) if row_dict['clientname'] else ''
+                
+                # Clean phone number
+                phone = clean_html(str(row_dict['clientwanumber'])) if row_dict['clientwanumber'] else ''
+                
+                # Clean email
+                email = clean_html(str(row_dict['clientemail'])) if row_dict['clientemail'] else ''
+                
+                # Clean project name
+                project_name = clean_html(str(row_dict['projectname'])) if row_dict['projectname'] else ''
+                
+                # Create paid record if there are any paid installments
+                if total_paid > 0:
+                    paid_data.append({
+                        'id': row_dict['id'],
+                        'momid': clean_html(str(row_dict['momid'])) if row_dict['momid'] else '',
+                        'clientname': client_name,
+                        'phone': phone,
+                        'email': email,
+                        'projectname': project_name,
+                        'amount_paid': total_paid
+                    })
+                
+                # Create due record if there are any due installments
+                if total_due > 0:
+                    due_data.append({
+                        'id': row_dict['id'],
+                        'momid': clean_html(str(row_dict['momid'])) if row_dict['momid'] else '',
+                        'clientname': client_name,
+                        'phone': phone,
+                        'email': email,
+                        'projectname': project_name,
+                        'amount_due': total_due
+                    })
             
             # Clean HTML tags from text
             def clean_html(text):
@@ -9229,61 +8845,42 @@ def download_installments():
                 text = ' '.join(text.split())
                 return text
             
-            # Clean data
-            cleaned_paid = []
-            for row in paid_installments:
-                cleaned_row = list(row)
-                for i, value in enumerate(cleaned_row):
-                    if isinstance(value, str):
-                        cleaned_row[i] = clean_html(value)
-                cleaned_paid.append(tuple(cleaned_row))
-            
-            cleaned_due = []
-            for row in due_installments:
-                cleaned_row = list(row)
-                for i, value in enumerate(cleaned_row):
-                    if isinstance(value, str):
-                        cleaned_row[i] = clean_html(value)
-                cleaned_due.append(tuple(cleaned_row))
-            
             # Create Excel file
             import pandas as pd
             from io import BytesIO
             from datetime import datetime
             
             # Create DataFrames
-            paid_df = pd.DataFrame(cleaned_paid, columns=columns)
-            due_df = pd.DataFrame(cleaned_due, columns=columns)
+            paid_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'amount_paid']
+            due_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'amount_due']
+            
+            paid_df = pd.DataFrame(paid_data, columns=paid_columns)
+            due_df = pd.DataFrame(due_data, columns=due_columns)
+            
+            # Format amounts as currency
+            def format_currency(amount):
+                try:
+                    return f"KES {float(amount):,.2f}"
+                except:
+                    return f"KES 0.00"
+            
+            if not paid_df.empty:
+                paid_df['amount_paid_formatted'] = paid_df['amount_paid'].apply(format_currency)
+            
+            if not due_df.empty:
+                due_df['amount_due_formatted'] = due_df['amount_due'].apply(format_currency)
             
             # Create Excel writer
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 # Sheet 1: Paid Installments
                 if len(paid_df) > 0:
-                    paid_df.to_excel(writer, sheet_name='Paid Installments', index=False)
+                    # Use formatted amounts for display
+                    paid_display_df = paid_df.copy()
+                    paid_display_df = paid_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'amount_paid_formatted']]
+                    paid_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone Number', 'Email', 'Project Name', 'Amount Paid']
                     
-                    # Add payment status summary for each row
-                    def get_payment_summary(row):
-                        paid_installments = []
-                        for i in range(1, 7):
-                            amount = row.get(f'installment{i}amount')
-                            payment_date = row.get(f'installment{i}date')
-                            if payment_date and pd.notna(payment_date):
-                                paid_installments.append(f"Installment {i}: KES {amount:,.2f} on {payment_date.strftime('%Y-%m-%d')}")
-                        
-                        if paid_installments:
-                            return "; ".join(paid_installments)
-                        return "No payments recorded"
-                    
-                    paid_df['Payment Summary'] = paid_df.apply(get_payment_summary, axis=1)
-                    
-                    # Reorder columns to put summary at the end
-                    cols = [col for col in paid_df.columns if col != 'Payment Summary']
-                    cols.append('Payment Summary')
-                    paid_df = paid_df[cols]
-                    
-                    # Write the updated DataFrame
-                    paid_df.to_excel(writer, sheet_name='Paid Installments', index=False)
+                    paid_display_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 else:
                     # Create empty sheet with message
                     empty_df = pd.DataFrame({
@@ -9293,51 +8890,12 @@ def download_installments():
                 
                 # Sheet 2: Due Installments
                 if len(due_df) > 0:
-                    due_df.to_excel(writer, sheet_name='Due Installments', index=False)
+                    # Use formatted amounts for display
+                    due_display_df = due_df.copy()
+                    due_display_df = due_display_df[['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'amount_due_formatted']]
+                    due_display_df.columns = ['ID', 'MOM ID', 'Client Name', 'Phone Number', 'Email', 'Project Name', 'Amount Due']
                     
-                    # Add due status summary for each row
-                    def get_due_summary(row):
-                        due_installments = []
-                        today = datetime.now().date()
-                        
-                        for i in range(1, 7):
-                            amount = row.get(f'installment{i}amount')
-                            due_date = row.get(f'installment{i}duedate')
-                            
-                            if amount and due_date and pd.notna(due_date):
-                                due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
-                                if due_date_date < today:
-                                    days_overdue = (today - due_date_date).days
-                                    due_installments.append(f"Installment {i}: KES {amount:,.2f} - OVERDUE ({days_overdue} days)")
-                                else:
-                                    days_remaining = (due_date_date - today).days
-                                    due_installments.append(f"Installment {i}: KES {amount:,.2f} - Due in {days_remaining} days")
-                        
-                        if due_installments:
-                            return "; ".join(due_installments)
-                        return "No pending installments"
-                    
-                    due_df['Due Status Summary'] = due_df.apply(get_due_summary, axis=1)
-                    
-                    # Calculate total due amount per client
-                    def calculate_total_due(row):
-                        total = 0
-                        for i in range(1, 7):
-                            amount = row.get(f'installment{i}amount')
-                            payment_date = row.get(f'installment{i}date')
-                            if amount and (not payment_date or pd.isna(payment_date)):
-                                total += amount
-                        return total
-                    
-                    due_df['Total Amount Due'] = due_df.apply(calculate_total_due, axis=1)
-                    
-                    # Reorder columns
-                    cols = [col for col in due_df.columns if col not in ['Due Status Summary', 'Total Amount Due']]
-                    cols.extend(['Total Amount Due', 'Due Status Summary'])
-                    due_df = due_df[cols]
-                    
-                    # Write the updated DataFrame
-                    due_df.to_excel(writer, sheet_name='Due Installments', index=False)
+                    due_display_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 else:
                     # Create empty sheet with message
                     empty_df = pd.DataFrame({
@@ -9348,30 +8906,26 @@ def download_installments():
                 # Sheet 3: Summary Report
                 from datetime import datetime
                 
+                total_paid_amount = paid_df['amount_paid'].sum() if not paid_df.empty else 0
+                total_due_amount = due_df['amount_due'].sum() if not due_df.empty else 0
+                total_contract_value = total_paid_amount + total_due_amount
+                
                 summary_data = {
                     'Report Period': [
                         'All Time' if not month else f"{datetime.strptime(month, '%Y-%m').strftime('%B %Y')}",
-                        'All Time' if not month else f"{datetime.strptime(month, '%Y-%m').strftime('%B %Y')}",
                         'All Time' if not month else f"{datetime.strptime(month, '%Y-%m').strftime('%B %Y')}"
                     ],
-                    'Category': ['Total Records', 'Paid Installments', 'Due Installments'],
-                    'Count': [len(all_installments), len(paid_installments), len(due_installments)],
-                    'Percentage': [
-                        '100%',
-                        f"{(len(paid_installments)/len(all_installments)*100):.1f}%" if all_installments else '0%',
-                        f"{(len(due_installments)/len(all_installments)*100):.1f}%" if all_installments else '0%'
+                    'Category': ['Paid Installments', 'Due Installments'],
+                    'Record Count': [len(paid_df), len(due_df)],
+                    'Total Amount': [
+                        f"KES {total_paid_amount:,.2f}",
+                        f"KES {total_due_amount:,.2f}"
                     ],
-                    'Total Contract Value': [
-                        f"KES {sum(row[columns.index('totalcontractamount')] or 0 for row in all_installments):,.2f}",
-                        f"KES {sum(row[columns.index('totalcontractamount')] or 0 for row in paid_installments):,.2f}",
-                        f"KES {sum(row[columns.index('totalcontractamount')] or 0 for row in due_installments):,.2f}"
+                    'Percentage of Total': [
+                        f"{(total_paid_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
+                        f"{(total_due_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%'
                     ],
-                    'Total Monthly Installments': [
-                        f"KES {sum(row[columns.index('monthlyinstallment')] or 0 for row in all_installments):,.2f}",
-                        f"KES {sum(row[columns.index('monthlyinstallment')] or 0 for row in paid_installments):,.2f}",
-                        f"KES {sum(row[columns.index('monthlyinstallment')] or 0 for row in due_installments):,.2f}"
-                    ],
-                    'Report Generated': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 3
+                    'Report Generated': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 2
                 }
                 
                 summary_df = pd.DataFrame(summary_data)
@@ -9406,18 +8960,18 @@ def download_installments():
                                         max_length = cell_length
                             except:
                                 pass
-                        adjusted_width = min(max_length + 2, 50)
+                        adjusted_width = min(max_length + 2, 30)
                         worksheet.column_dimensions[column_letter].width = adjusted_width
                     
-                    # Add color coding for due sheet
-                    if sheet_name == 'Due Installments':
+                    # Format currency columns
+                    if sheet_name == 'Paid Installments':
                         for row in range(2, worksheet.max_row + 1):
-                            for col in range(1, worksheet.max_column + 1):
-                                cell = worksheet.cell(row=row, column=col)
-                                if cell.value and isinstance(cell.value, str) and 'OVERDUE' in cell.value:
-                                    cell.font = cell.font.copy(color="FF0000", bold=True)  # Red
-                                elif cell.value and isinstance(cell.value, str) and 'Due in' in cell.value:
-                                    cell.font = cell.font.copy(color="0000FF")  # Blue
+                            cell = worksheet.cell(row=row, column=7)  # Column G is Amount Paid
+                            cell.font = cell.font.copy(color="006400")  # Dark green for paid amounts
+                    elif sheet_name == 'Due Installments':
+                        for row in range(2, worksheet.max_row + 1):
+                            cell = worksheet.cell(row=row, column=7)  # Column G is Amount Due
+                            cell.font = cell.font.copy(color="FF0000")  # Red for due amounts
             
             # Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
@@ -9444,6 +8998,7 @@ def download_installments():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+        
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
     """Download the plan PDF attachment"""
