@@ -8624,6 +8624,7 @@ def get_enquiries_data():
     except Exception as e:
         print(f"Error getting enquiries: {str(e)}")
         return []
+    
 @app.route('/get_project_months')
 def get_project_months():
     try:

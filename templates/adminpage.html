@@ -2011,6 +2011,73 @@
     </div>
 </div>
 
+<div class="modal fade" id="downloadInstallmentsModal" tabindex="-1" aria-labelledby="downloadInstallmentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h6 class="modal-title" id="downloadInstallmentsModalLabel">
+                    <i class="bi bi-download"></i> DOWNLOAD INSTALLMENTS SCHEDULE
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filter Selection -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold mb-3 d-flex align-items-center">
+                        <i class="bi bi-filter me-2"></i> Select Installments to Include
+                    </label>
+                    
+                    <select class="form-select form-select-lg" id="installmentsFilter">
+                        <option value="all">📋 All Installments</option>
+                        <option value="paid">✅ Paid Installments Only</option>
+                        <option value="due">⏰ Due Installments Only</option>
+                        <!-- Months will be loaded here -->
+                    </select>
+                    
+                    <div class="mt-2 text-muted small">
+                        <i class="bi bi-info-circle"></i> 
+                        <span id="installmentsFilterHelp">Download complete installments list</span>
+                    </div>
+                </div>
+                
+                <!-- Quick Stats Preview -->
+                <div class="alert alert-light border">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <small class="text-muted d-block">Total Installments:</small>
+                            <span class="fw-bold fs-5" id="totalInstallmentsCount">--</span>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted d-block">File format:</small>
+                            <span class="badge bg-success">Excel (.xlsx)</span>
+                        </div>
+                    </div>
+                    <div class="row small">
+                        <div class="col-6">
+                            <i class="bi bi-check-circle text-success me-1"></i>
+                            <span>Paid: </span>
+                            <span id="paidCount" class="fw-bold">--</span>
+                        </div>
+                        <div class="col-6 text-end">
+                            <i class="bi bi-clock text-warning me-1"></i>
+                            <span>Due: </span>
+                            <span id="dueCount" class="fw-bold">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Close
+                </button>
+                <button type="button" class="btn btn-primary" id="downloadInstallmentsBtn">
+                    <i class="bi bi-download"></i> Generate & Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- View Interim Enquiries Modal -->
 <div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-fullscreen" style="max-width: 1400px;">
@@ -2360,9 +2427,10 @@
                 <div class="tab-pane fade" id="payments-tab">
 
                     <button class="btn btn-primary mt-1"
-                            id="installmentscheduleBtn"
+                            id="exportInstallmentsBtn"
                             style="width: max-content;"
-                            onclick="downloadInstallmentSchedule()">
+                            data-bs-toggle="modal"
+                            data-bs-target="#downloadInstallmentsModal">
                         <i class="bi bi-download"></i> Download Installments Schedule
                     </button>
 
@@ -2665,15 +2733,13 @@
 
 
                 <div class="tab-pane fade show active" id="projects-tab">
-                    <div class="tab-pane fade show active" id="projects-tab">
-                        <button class="btn btn-primary mt-1"
-                                id="exportprojectportBtn"
-                                style="width: max-content;"
-                                data-bs-toggle="modal"
-                                data-bs-target="#downloadPortfolioModal">
-                            <i class="bi bi-download"></i> Download Master File
-                        </button>
-                    </div>
+                    <button class="btn btn-primary mt-1"
+                            id="exportprojectportBtn"
+                            style="width: max-content;"
+                            data-bs-toggle="modal"
+                            data-bs-target="#downloadPortfolioModal">
+                        <i class="bi bi-download"></i> Download Master File
+                    </button>
 
                     <div class="container mt-6 card">
                         <div class="row mb-5 align-items-center">
