@@ -8999,9 +8999,9 @@ def download_installments():
             # Format amounts as currency
             def format_currency(amount):
                 try:
-                    return f"KES {float(amount):,.2f}"
+                    return f"{float(amount):,.2f}"
                 except:
-                    return f"KES 0.00"
+                    return f"0.00"
             
             if not paid_df.empty:
                 paid_df['amount_paid_formatted'] = paid_df['amount_paid'].apply(format_currency)
@@ -9050,7 +9050,7 @@ def download_installments():
                     paid_display_df.columns = [column_headers.get(col, col) for col in available_columns]
                     
                     # Add a total row
-                    total_row = pd.DataFrame([[''] * (len(available_columns) - 1) + [f"KES {total_paid_amount:,.2f}"]], 
+                    total_row = pd.DataFrame([[''] * (len(available_columns) - 1) + [f"{total_paid_amount:,.2f}"]], 
                                            columns=paid_display_df.columns)
                     paid_display_df = pd.concat([paid_display_df, total_row], ignore_index=True)
                     
@@ -9095,7 +9095,7 @@ def download_installments():
                     due_display_df.columns = [column_headers.get(col, col) for col in available_columns]
                     
                     # Add a total row
-                    total_row = pd.DataFrame([[''] * (len(available_columns) - 1) + [f"KES {total_due_amount:,.2f}"]], 
+                    total_row = pd.DataFrame([[''] * (len(available_columns) - 1) + [f"{total_due_amount:,.2f}"]], 
                                            columns=due_display_df.columns)
                     due_display_df = pd.concat([due_display_df, total_row], ignore_index=True)
                     
@@ -9140,7 +9140,7 @@ def download_installments():
                     overdue_display_df.columns = [column_headers.get(col, col) for col in available_columns_overdue]
                     
                     # Add a total row
-                    total_row = pd.DataFrame([[''] * (len(available_columns_overdue) - 1) + [f"KES {total_overdue_amount:,.2f}"]], 
+                    total_row = pd.DataFrame([[''] * (len(available_columns_overdue) - 1) + [f"{total_overdue_amount:,.2f}"]], 
                                            columns=overdue_display_df.columns)
                     overdue_display_df = pd.concat([overdue_display_df, total_row], ignore_index=True)
                     
@@ -9190,10 +9190,10 @@ def download_installments():
                         len(paid_df) + len(due_df) + len(overdue_df)
                     ],
                     'Total Amount': [
-                        f"KES {total_paid_amount:,.2f}",
-                        f"KES {total_due_amount:,.2f}",
-                        f"KES {total_overdue_amount:,.2f}",
-                        f"KES {total_contract_value:,.2f}"
+                        f"{total_paid_amount:,.2f}",
+                        f"{total_due_amount:,.2f}",
+                        f"{total_overdue_amount:,.2f}",
+                        f"{total_contract_value:,.2f}"
                     ],
                     'Percentage': [
                         f"{(total_paid_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
