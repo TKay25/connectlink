@@ -8960,9 +8960,9 @@ def download_installments():
             # Format amounts as currency
             def format_currency(amount):
                 try:
-                    return f"KES {float(amount):,.2f}"
+                    return f"{float(amount):,.2f}"
                 except:
-                    return f"KES 0.00"
+                    return f"0.00"
             
             if not paid_df.empty:
                 paid_df['amount_paid_formatted'] = paid_df['amount_paid'].apply(format_currency)
@@ -9081,8 +9081,8 @@ def download_installments():
                     'Category': ['Paid Installments', 'Due Installments'],
                     'Record Count': [len(paid_df), len(due_df)],
                     'Total Amount': [
-                        f"KES {total_paid_amount:,.2f}",
-                        f"KES {total_due_amount:,.2f}"
+                        f"{total_paid_amount:,.2f}",
+                        f"{total_due_amount:,.2f}"
                     ],
                     'Percentage': [
                         f"{(total_paid_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
