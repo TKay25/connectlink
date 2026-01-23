@@ -9000,46 +9000,16 @@ def download_portfolio():
 
 @app.route('/get_installments_months')
 def get_installments_months():
-    """Get distinct months from installment due dates"""
+    """Get distinct months from projectstartdate"""
     try:
         with get_db() as (cursor, connection):
-            # Get months from installment due dates (check all installment columns)
+            # Get months from projectstartdate
             cursor.execute("""
                 SELECT DISTINCT 
-                    EXTRACT(YEAR FROM installment1duedate)::INTEGER as year,
-                    EXTRACT(MONTH FROM installment1duedate)::INTEGER as month
+                    EXTRACT(YEAR FROM projectstartdate)::INTEGER as year,
+                    EXTRACT(MONTH FROM projectstartdate)::INTEGER as month
                 FROM payments 
-                WHERE installment1duedate IS NOT NULL
-                UNION
-                SELECT DISTINCT 
-                    EXTRACT(YEAR FROM installment2duedate)::INTEGER as year,
-                    EXTRACT(MONTH FROM installment2duedate)::INTEGER as month
-                FROM payments 
-                WHERE installment2duedate IS NOT NULL
-                UNION
-                SELECT DISTINCT 
-                    EXTRACT(YEAR FROM installment3duedate)::INTEGER as year,
-                    EXTRACT(MONTH FROM installment3duedate)::INTEGER as month
-                FROM payments 
-                WHERE installment3duedate IS NOT NULL
-                UNION
-                SELECT DISTINCT 
-                    EXTRACT(YEAR FROM installment4duedate)::INTEGER as year,
-                    EXTRACT(MONTH FROM installment4duedate)::INTEGER as month
-                FROM payments 
-                WHERE installment4duedate IS NOT NULL
-                UNION
-                SELECT DISTINCT 
-                    EXTRACT(YEAR FROM installment5duedate)::INTEGER as year,
-                    EXTRACT(MONTH FROM installment5duedate)::INTEGER as month
-                FROM payments 
-                WHERE installment5duedate IS NOT NULL
-                UNION
-                SELECT DISTINCT 
-                    EXTRACT(YEAR FROM installment6duedate)::INTEGER as year,
-                    EXTRACT(MONTH FROM installment6duedate)::INTEGER as month
-                FROM payments 
-                WHERE installment6duedate IS NOT NULL
+                WHERE projectstartdate IS NOT NULL
                 ORDER BY year DESC, month DESC
             """)
             months = cursor.fetchall()
@@ -9060,54 +9030,60 @@ def get_installments_months():
 
 @app.route('/get_installments_count')
 def get_installments_count():
-    """Get counts of installments based on filter"""
+    """Get counts of installments based on filter using projectstartdate"""
     try:
         with get_db() as (cursor, connection):
-            filter_type = request.args.get('type')
             month = request.args.get('month')
             
-            # Base query
-            query = "SELECT COUNT(*) as total FROM payments WHERE 1=1"
+            # Base query for total count
+            base_query = "SELECT COUNT(*) as total FROM payments WHERE 1=1"
             params = []
             
             # Add month filter if specified
+            date_condition = ""
             if month:
                 year, month_num = month.split('-')
-                query += """
-                    AND (
-                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s)
-                    )
+                date_condition = """
+                    AND EXTRACT(YEAR FROM projectstartdate) = %s 
+                    AND EXTRACT(MONTH FROM projectstartdate) = %s
                 """
-                params = [year, month_num] * 6
+                params = [year, month_num]
             
             # Get total count
-            cursor.execute(query, params)
+            cursor.execute(f"{base_query} {date_condition}", params)
             total = cursor.fetchone()[0]
             
             # Get paid count (any installment date not null)
-            paid_query = query.replace("WHERE 1=1", 
-                "WHERE 1=1 AND (installment1date IS NOT NULL OR installment2date IS NOT NULL OR installment3date IS NOT NULL OR installment4date IS NOT NULL OR installment5date IS NOT NULL OR installment6date IS NOT NULL)")
-            
+            paid_query = f"""
+                SELECT COUNT(*) as paid FROM payments 
+                WHERE 1=1 {date_condition}
+                AND (
+                    installment1date IS NOT NULL OR 
+                    installment2date IS NOT NULL OR 
+                    installment3date IS NOT NULL OR 
+                    installment4date IS NOT NULL OR 
+                    installment5date IS NOT NULL OR 
+                    installment6date IS NOT NULL
+                )
+            """
             cursor.execute(paid_query, params)
             paid = cursor.fetchone()[0]
             
             # Get due count (all installment dates null)
-            due_query = query.replace("WHERE 1=1", 
-                "WHERE 1=1 AND (installment1date IS NULL AND installment2date IS NULL AND installment3date IS NULL AND installment4date IS NULL AND installment5date IS NULL AND installment6date IS NULL)")
-            
+            due_query = f"""
+                SELECT COUNT(*) as due FROM payments 
+                WHERE 1=1 {date_condition}
+                AND (
+                    installment1date IS NULL AND 
+                    installment2date IS NULL AND 
+                    installment3date IS NULL AND 
+                    installment4date IS NULL AND 
+                    installment5date IS NULL AND 
+                    installment6date IS NULL
+                )
+            """
             cursor.execute(due_query, params)
             due = cursor.fetchone()[0]
-            
-            # If specific type filter (paid/due only)
-            if filter_type == 'paid':
-                return jsonify({'total': paid, 'paid': paid, 'due': 0})
-            elif filter_type == 'due':
-                return jsonify({'total': due, 'paid': 0, 'due': due})
             
             return jsonify({'total': total, 'paid': paid, 'due': due})
         
@@ -9117,51 +9093,23 @@ def get_installments_count():
 
 @app.route('/download_installments')
 def download_installments():
-    """Download installments data in Excel format"""
+    """Download installments data in Excel format with separate sheets for paid and due"""
     try:
         with get_db() as (cursor, connection):
-            filter_type = request.args.get('type')  # 'all', 'paid', 'due'
-            month = request.args.get('month')  # '2024-01'
+            month = request.args.get('month')  # Format: '2024-01' or None for all time
             
-            # Build WHERE clause
-            where_clauses = []
-            params = []
-            
-            # Date filter
+            # Build WHERE clause for date filtering using projectstartdate
+            date_where_clause = ""
+            date_params = []
             if month:
                 year, month_num = month.split('-')
-                where_clauses.append("""
-                    (
-                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s)
-                    )
-                """)
-                params.extend([year, month_num] * 6)
+                date_where_clause = """
+                    WHERE EXTRACT(YEAR FROM projectstartdate) = %s 
+                    AND EXTRACT(MONTH FROM projectstartdate) = %s
+                """
+                date_params = [year, month_num]
             
-            # Payment status filter
-            if filter_type == 'paid':
-                where_clauses.append("""
-                    (installment1date IS NOT NULL OR installment2date IS NOT NULL OR 
-                     installment3date IS NOT NULL OR installment4date IS NOT NULL OR 
-                     installment5date IS NOT NULL OR installment6date IS NOT NULL)
-                """)
-            elif filter_type == 'due':
-                where_clauses.append("""
-                    (installment1date IS NULL AND installment2date IS NULL AND 
-                     installment3date IS NULL AND installment4date IS NULL AND 
-                     installment5date IS NULL AND installment6date IS NULL)
-                """)
-            
-            # Combine WHERE clauses
-            where_clause = ""
-            if where_clauses:
-                where_clause = "WHERE " + " AND ".join(where_clauses)
-            
-            # Query to fetch data
+            # Query to fetch all data for the selected period
             query = f"""
                 SELECT 
                     id,
@@ -9211,13 +9159,13 @@ def download_installments():
                     projectcompletionstatus,
                     latepaymentinterest,
                     momid
-                FROM payments 
-                {where_clause}
-                ORDER BY momid ASC, installment1duedate ASC
+                FROM connectlinkdatabase 
+                {date_where_clause if date_where_clause else ''}
+                ORDER BY momid ASC
             """
             
-            cursor.execute(query, params)
-            installments = cursor.fetchall()
+            cursor.execute(query, date_params if date_params else ())
+            all_installments = cursor.fetchall()
             
             # Get column names
             columns = [
@@ -9237,20 +9185,23 @@ def download_installments():
                 'installment6date', 'projectcompletionstatus', 'latepaymentinterest', 'momid'
             ]
             
-            # Separate paid and due installments for different sheets
+            # Separate paid and due installments
             paid_installments = []
             due_installments = []
             
-            for row in installments:
+            for row in all_installments:
                 # Check if any installment has payment date (not null)
-                has_payment = any([
-                    row[columns.index('installment1date')],
-                    row[columns.index('installment2date')],
-                    row[columns.index('installment3date')],
-                    row[columns.index('installment4date')],
-                    row[columns.index('installment5date')],
-                    row[columns.index('installment6date')]
-                ])
+                # Get indices for payment date columns
+                date_columns = [
+                    columns.index('installment1date'),
+                    columns.index('installment2date'),
+                    columns.index('installment3date'),
+                    columns.index('installment4date'),
+                    columns.index('installment5date'),
+                    columns.index('installment6date')
+                ]
+                
+                has_payment = any(row[idx] is not None for idx in date_columns)
                 
                 if has_payment:
                     paid_installments.append(row)
@@ -9263,25 +9214,22 @@ def download_installments():
                     return text
                 
                 import re
+                # Remove HTML tags
                 text = re.sub(r'<[^>]+>', '', text)
+                # Replace HTML entities
                 replacements = {
                     '&amp;': '&', '&lt;': '<', '&gt;': '>',
-                    '&quot;': '"', '&#39;': "'", '&nbsp;': ' '
+                    '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+                    '&rsquo;': "'", '&lsquo;': "'",
+                    '&rdquo;': '"', '&ldquo;': '"'
                 }
                 for old, new in replacements.items():
                     text = text.replace(old, new)
+                # Clean up whitespace
                 text = ' '.join(text.split())
                 return text
             
             # Clean data
-            cleaned_installments = []
-            for row in installments:
-                cleaned_row = list(row)
-                for i, value in enumerate(cleaned_row):
-                    if isinstance(value, str):
-                        cleaned_row[i] = clean_html(value)
-                cleaned_installments.append(tuple(cleaned_row))
-            
             cleaned_paid = []
             for row in paid_installments:
                 cleaned_row = list(row)
@@ -9304,101 +9252,130 @@ def download_installments():
             from datetime import datetime
             
             # Create DataFrames
-            all_df = pd.DataFrame(cleaned_installments, columns=columns)
             paid_df = pd.DataFrame(cleaned_paid, columns=columns)
             due_df = pd.DataFrame(cleaned_due, columns=columns)
-            
-            # Calculate payment status columns
-            def calculate_payment_status(row):
-                statuses = []
-                amounts = []
-                
-                for i in range(1, 7):
-                    due_date = row.get(f'installment{i}duedate')
-                    payment_date = row.get(f'installment{i}date')
-                    amount = row.get(f'installment{i}amount', 0)
-                    
-                    if due_date:
-                        if payment_date:
-                            status = "Paid"
-                        elif pd.Timestamp.now() > pd.to_datetime(due_date):
-                            status = "Overdue"
-                        else:
-                            status = "Pending"
-                    else:
-                        status = "N/A"
-                    
-                    statuses.append(status)
-                    amounts.append(amount)
-                
-                return pd.Series({
-                    'Status1': statuses[0], 'Amount1': amounts[0],
-                    'Status2': statuses[1], 'Amount2': amounts[1],
-                    'Status3': statuses[2], 'Amount3': amounts[2],
-                    'Status4': statuses[3], 'Amount4': amounts[3],
-                    'Status5': statuses[4], 'Amount5': amounts[4],
-                    'Status6': statuses[5], 'Amount6': amounts[5]
-                })
-            
-            # Add payment status to DataFrames
-            status_cols = ['Status1', 'Amount1', 'Status2', 'Amount2', 
-                          'Status3', 'Amount3', 'Status4', 'Amount4',
-                          'Status5', 'Amount5', 'Status6', 'Amount6']
-            
-            all_status = all_df.apply(calculate_payment_status, axis=1)
-            all_df[status_cols] = all_status
-            
-            if not paid_df.empty:
-                paid_status = paid_df.apply(calculate_payment_status, axis=1)
-                paid_df[status_cols] = paid_status
-            
-            if not due_df.empty:
-                due_status = due_df.apply(calculate_payment_status, axis=1)
-                due_df[status_cols] = due_status
             
             # Create Excel writer
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                # Sheet 1: All Installments
-                all_df.to_excel(writer, sheet_name='All Installments', index=False)
-                
-                # Sheet 2: Paid Installments
+                # Sheet 1: Paid Installments
                 if len(paid_df) > 0:
                     paid_df.to_excel(writer, sheet_name='Paid Installments', index=False)
+                    
+                    # Add payment status summary for each row
+                    def get_payment_summary(row):
+                        paid_installments = []
+                        for i in range(1, 7):
+                            amount = row.get(f'installment{i}amount')
+                            payment_date = row.get(f'installment{i}date')
+                            if payment_date and pd.notna(payment_date):
+                                paid_installments.append(f"Installment {i}: KES {amount:,.2f} on {payment_date.strftime('%Y-%m-%d')}")
+                        
+                        if paid_installments:
+                            return "; ".join(paid_installments)
+                        return "No payments recorded"
+                    
+                    paid_df['Payment Summary'] = paid_df.apply(get_payment_summary, axis=1)
+                    
+                    # Reorder columns to put summary at the end
+                    cols = [col for col in paid_df.columns if col != 'Payment Summary']
+                    cols.append('Payment Summary')
+                    paid_df = paid_df[cols]
+                    
+                    # Write the updated DataFrame
+                    paid_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 else:
-                    empty_df = pd.DataFrame({'Message': ['No paid installments found']})
+                    # Create empty sheet with message
+                    empty_df = pd.DataFrame({
+                        'Message': [f'No paid installments found for the selected period']
+                    })
                     empty_df.to_excel(writer, sheet_name='Paid Installments', index=False)
                 
-                # Sheet 3: Due Installments
+                # Sheet 2: Due Installments
                 if len(due_df) > 0:
                     due_df.to_excel(writer, sheet_name='Due Installments', index=False)
+                    
+                    # Add due status summary for each row
+                    def get_due_summary(row):
+                        due_installments = []
+                        today = datetime.now().date()
+                        
+                        for i in range(1, 7):
+                            amount = row.get(f'installment{i}amount')
+                            due_date = row.get(f'installment{i}duedate')
+                            
+                            if amount and due_date and pd.notna(due_date):
+                                due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                                if due_date_date < today:
+                                    days_overdue = (today - due_date_date).days
+                                    due_installments.append(f"Installment {i}: KES {amount:,.2f} - OVERDUE ({days_overdue} days)")
+                                else:
+                                    days_remaining = (due_date_date - today).days
+                                    due_installments.append(f"Installment {i}: KES {amount:,.2f} - Due in {days_remaining} days")
+                        
+                        if due_installments:
+                            return "; ".join(due_installments)
+                        return "No pending installments"
+                    
+                    due_df['Due Status Summary'] = due_df.apply(get_due_summary, axis=1)
+                    
+                    # Calculate total due amount per client
+                    def calculate_total_due(row):
+                        total = 0
+                        for i in range(1, 7):
+                            amount = row.get(f'installment{i}amount')
+                            payment_date = row.get(f'installment{i}date')
+                            if amount and (not payment_date or pd.isna(payment_date)):
+                                total += amount
+                        return total
+                    
+                    due_df['Total Amount Due'] = due_df.apply(calculate_total_due, axis=1)
+                    
+                    # Reorder columns
+                    cols = [col for col in due_df.columns if col not in ['Due Status Summary', 'Total Amount Due']]
+                    cols.extend(['Total Amount Due', 'Due Status Summary'])
+                    due_df = due_df[cols]
+                    
+                    # Write the updated DataFrame
+                    due_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 else:
-                    empty_df = pd.DataFrame({'Message': ['No due installments found']})
+                    # Create empty sheet with message
+                    empty_df = pd.DataFrame({
+                        'Message': [f'No due installments found for the selected period']
+                    })
                     empty_df.to_excel(writer, sheet_name='Due Installments', index=False)
                 
-                # Sheet 4: Payment Summary
+                # Sheet 3: Summary Report
+                from datetime import datetime
+                
                 summary_data = {
-                    'Category': ['Total Installments', 'Paid Installments', 'Due Installments'],
-                    'Count': [len(all_df), len(paid_df), len(due_df)],
-                    'Total Amount': [
-                        all_df['totalcontractamount'].sum(),
-                        paid_df['totalcontractamount'].sum() if not paid_df.empty else 0,
-                        due_df['totalcontractamount'].sum() if not due_df.empty else 0
+                    'Report Period': [
+                        'All Time' if not month else f"{datetime.strptime(month, '%Y-%m').strftime('%B %Y')}",
+                        'All Time' if not month else f"{datetime.strptime(month, '%Y-%m').strftime('%B %Y')}",
+                        'All Time' if not month else f"{datetime.strptime(month, '%Y-%m').strftime('%B %Y')}"
                     ],
-                    'Monthly Average': [
-                        all_df['monthlyinstallment'].mean(),
-                        paid_df['monthlyinstallment'].mean() if not paid_df.empty else 0,
-                        due_df['monthlyinstallment'].mean() if not due_df.empty else 0
+                    'Category': ['Total Records', 'Paid Installments', 'Due Installments'],
+                    'Count': [len(all_installments), len(paid_installments), len(due_installments)],
+                    'Percentage': [
+                        '100%',
+                        f"{(len(paid_installments)/len(all_installments)*100):.1f}%" if all_installments else '0%',
+                        f"{(len(due_installments)/len(all_installments)*100):.1f}%" if all_installments else '0%'
                     ],
-                    'Filter Applied': [
-                        f"{'Month: ' + month if month else ''}{' Type: ' + filter_type if filter_type else 'All'}",
-                        f"{'Month: ' + month if month else ''} - Paid Only",
-                        f"{'Month: ' + month if month else ''} - Due Only"
+                    'Total Contract Value': [
+                        f"KES {sum(row[columns.index('totalcontractamount')] or 0 for row in all_installments):,.2f}",
+                        f"KES {sum(row[columns.index('totalcontractamount')] or 0 for row in paid_installments):,.2f}",
+                        f"KES {sum(row[columns.index('totalcontractamount')] or 0 for row in due_installments):,.2f}"
                     ],
-                    'Generated On': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 3
+                    'Total Monthly Installments': [
+                        f"KES {sum(row[columns.index('monthlyinstallment')] or 0 for row in all_installments):,.2f}",
+                        f"KES {sum(row[columns.index('monthlyinstallment')] or 0 for row in paid_installments):,.2f}",
+                        f"KES {sum(row[columns.index('monthlyinstallment')] or 0 for row in due_installments):,.2f}"
+                    ],
+                    'Report Generated': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 3
                 }
+                
                 summary_df = pd.DataFrame(summary_data)
-                summary_df.to_excel(writer, sheet_name='Payment Summary', index=False)
+                summary_df.to_excel(writer, sheet_name='Summary Report', index=False)
                 
                 # Format worksheets
                 for sheet_name in writer.sheets:
@@ -9407,12 +9384,17 @@ def download_installments():
                     # Freeze top row
                     worksheet.freeze_panes = 'A2'
                     
-                    # Format header
+                    # Format header row
                     for cell in worksheet[1]:
                         cell.font = cell.font.copy(bold=True)
-                        cell.fill = cell.fill.copy(patternType="solid", fgColor="E6F3FF")
+                        if sheet_name == 'Paid Installments':
+                            cell.fill = cell.fill.copy(patternType="solid", fgColor="E6FFE6")  # Light green
+                        elif sheet_name == 'Due Installments':
+                            cell.fill = cell.fill.copy(patternType="solid", fgColor="FFE6E6")  # Light red
+                        else:
+                            cell.fill = cell.fill.copy(patternType="solid", fgColor="E6F3FF")  # Light blue
                     
-                    # Auto-adjust columns
+                    # Auto-adjust column widths
                     for column in worksheet.columns:
                         max_length = 0
                         column_letter = column[0].column_letter
@@ -9427,43 +9409,26 @@ def download_installments():
                         adjusted_width = min(max_length + 2, 50)
                         worksheet.column_dimensions[column_letter].width = adjusted_width
                     
-                    # Add conditional formatting for status columns
-                    if sheet_name in ['All Installments', 'Paid Installments', 'Due Installments']:
-                        # Find status columns
-                        for col_idx, col in enumerate(worksheet.iter_cols(min_row=1, max_row=1)):
-                            cell = col[0]
-                            if cell.value and 'Status' in str(cell.value):
-                                col_letter = cell.column_letter
-                                
-                                # Apply color coding
-                                for row in range(2, worksheet.max_row + 1):
-                                    status_cell = worksheet[f"{col_letter}{row}"]
-                                    status = status_cell.value
-                                    
-                                    if status == "Paid":
-                                        status_cell.font = status_cell.font.copy(color="006400")  # Dark green
-                                    elif status == "Overdue":
-                                        status_cell.font = status_cell.font.copy(color="FF0000")  # Red
-                                    elif status == "Pending":
-                                        status_cell.font = status_cell.font.copy(color="FF8C00")  # Dark orange
+                    # Add color coding for due sheet
+                    if sheet_name == 'Due Installments':
+                        for row in range(2, worksheet.max_row + 1):
+                            for col in range(1, worksheet.max_column + 1):
+                                cell = worksheet.cell(row=row, column=col)
+                                if cell.value and isinstance(cell.value, str) and 'OVERDUE' in cell.value:
+                                    cell.font = cell.font.copy(color="FF0000", bold=True)  # Red
+                                elif cell.value and isinstance(cell.value, str) and 'Due in' in cell.value:
+                                    cell.font = cell.font.copy(color="0000FF")  # Blue
             
             # Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-            filename = "Installments_Schedule"
-            
             if month:
                 year, month_num = month.split('-')
                 month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
                             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
                 month_name = month_names[int(month_num) - 1]
-                filename += f"_{month_name}_{year}"
-            
-            if filter_type == 'paid':
-                filename += "_Paid"
-            elif filter_type == 'due':
-                filename += "_Due"
-            
-            filename += f"_{timestamp}.xlsx"
+                filename = f"Installments_{month_name}_{year}_{timestamp}.xlsx"
+            else:
+                filename = f"Installments_All_Time_{timestamp}.xlsx"
             
             # Return Excel file
             output.seek(0)
