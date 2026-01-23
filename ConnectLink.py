@@ -8829,7 +8829,7 @@ def download_portfolio():
                     deleted_query = f"""
                         SELECT * FROM connectlinkdatabasedeletedprojects 
                         {date_where_clause.replace('projectstartdate', 'projectstartdate') if date_where_clause else ''}
-                        ORDER BY deleted_at DESC, projectstartdate DESC
+                        ORDER BY id ASC
                     """
                     cursor.execute(deleted_query, date_params if date_params and date_where_clause else ())
                     deleted_projects = cursor.fetchall()
