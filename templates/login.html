@@ -3,173 +3,849 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login</title>
+<title>ConnectLink - Admin Login</title>
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/reqlogo.jpg') }}">
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-    /* Main Styling */
-    body {
-        font-family: 'Roboto', sans-serif;
+    /* CSS Reset & Base */
+    * {
         margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    :root {
+        --primary: #1E2A56;
+        --primary-light: #2d3a75;
+        --primary-dark: #141e40;
+        --accent: #FF6B35;
+        --accent-light: #FF8B5C;
+        --white: #ffffff;
+        --gray-light: #f8fafc;
+        --gray: #94a3b8;
+        --gray-dark: #475569;
+        --shadow: 0 20px 40px rgba(30, 42, 86, 0.15);
+        --shadow-hover: 0 30px 60px rgba(30, 42, 86, 0.25);
+        --gradient: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+        --gradient-accent: linear-gradient(135deg, #FF6B35 0%, #FF8B5C 100%);
+    }
+
+    body {
+        font-family: 'Inter', 'Poppins', sans-serif;
         min-height: 100vh;
         display: flex;
         justify-content: center;
         align-items: center;
-        overflow-x: hidden;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        overflow: hidden;
         position: relative;
+        padding: 20px;
     }
 
-    /* Background image */
-    body::before {
-        content: "";
+    /* Animated Background */
+    .background-particles {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background: url("{{ url_for('static', filename='images/background.jpeg') }}") no-repeat center center;
-        background-size: cover;
-        z-index: -2;
-    }
-
-    /* Dark overlay */
-    body::after {
-        content: "";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.6); /* Dark overlay opacity */
         z-index: -1;
+        overflow: hidden;
     }
 
-    /* Login container remains above overlay */
+    .particle {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 50%;
+        animation: float 15s infinite linear;
+    }
+
+    .particle:nth-child(1) { width: 80px; height: 80px; top: 10%; left: 10%; animation-delay: 0s; }
+    .particle:nth-child(2) { width: 120px; height: 120px; top: 20%; right: 15%; animation-delay: 2s; }
+    .particle:nth-child(3) { width: 60px; height: 60px; bottom: 30%; left: 20%; animation-delay: 4s; }
+    .particle:nth-child(4) { width: 100px; height: 100px; bottom: 20%; right: 25%; animation-delay: 6s; }
+
+    @keyframes float {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        25% { transform: translate(20px, 20px) rotate(90deg); }
+        50% { transform: translate(0, 40px) rotate(180deg); }
+        75% { transform: translate(-20px, 20px) rotate(270deg); }
+    }
+
+    /* Main Container */
     .login-container {
-        background-color: rgba(255,255,255,0.95); /* Slightly transparent for blending */
-        width: 400px;
-        border-radius: 15px;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.25);
-        padding: 40px 30px;
-        animation: fadeIn 0.5s ease;
-        text-align: center;
-        z-index: 1;
+        display: flex;
+        width: 100%;
+        max-width: 1100px;
+        min-height: 650px;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
         position: relative;
+        z-index: 1;
     }
 
     @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
     }
 
-    .login-container h5 {
-        color: #1E2A56;
-        margin-bottom: 25px;
-        font-weight: 900;
+    /* Left Panel - Branding */
+    .branding-panel {
+        flex: 1;
+        background: var(--gradient);
+        padding: 60px 40px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .branding-panel::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: rotate 20s linear infinite;
+    }
+
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    .logo-container {
+        position: relative;
+        z-index: 2;
+        margin-bottom: 40px;
+    }
+
+    .logo-container img {
+        width: 200px;
+        filter: drop-shadow(0 10px 20px rgba(0,0,0,0.2));
+        transition: transform 0.5s ease;
+    }
+
+    .logo-container img:hover {
+        transform: scale(1.05) rotate(-5deg);
+    }
+
+    .branding-text {
+        color: white;
+        position: relative;
+        z-index: 2;
+    }
+
+    .branding-text h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        margin-bottom: 15px;
+        letter-spacing: -0.5px;
+        background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .branding-text p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        line-height: 1.6;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+
+    .features-list {
+        margin-top: 40px;
+        text-align: left;
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+        color: white;
+        opacity: 0.9;
+    }
+
+    .feature-icon {
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-size: 1.2rem;
     }
 
-    /* Input fields */
-    .login-container input[type="email"],
-    .login-container input[type="password"] {
-        width: 80%;
-        padding: 12px 15px;
-        margin: 10px 0 20px 0;
-        border-radius: 8px;
-        border: 2px solid #1E2A56;
+    /* Right Panel - Login Form */
+    .login-panel {
+        flex: 1;
+        padding: 60px 50px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        background: var(--white);
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 50px;
+    }
+
+    .login-header h2 {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: var(--primary-dark);
+        margin-bottom: 10px;
+        position: relative;
+        display: inline-block;
+    }
+
+    .login-header h2::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 4px;
+        background: var(--gradient-accent);
+        border-radius: 2px;
+    }
+
+    .login-header p {
+        color: var(--gray-dark);
         font-size: 1rem;
-        transition: all 0.3s ease;
-        background-color: #e6f0ff;
-        color: #1E2A56;
+        margin-top: 20px;
     }
 
-    .login-container input:focus {
-        outline: none;
-        background-color: #1E2A56;
-        color: white;
-        border-color: #1E2A56;
-    }
-
-    /* Login button */
-    .login-container button {
+    /* Form Styling */
+    .login-form {
         width: 100%;
-        padding: 12px;
-        background-color: #1E2A56;
-        color: white;
-        font-weight: 700;
+        max-width: 400px;
+        margin: 0 auto;
+    }
+
+    .form-group {
+        margin-bottom: 28px;
+        position: relative;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--primary-dark);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .input-group {
+        position: relative;
+    }
+
+    .input-icon {
+        position: absolute;
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--primary);
+        font-size: 1.2rem;
+        z-index: 2;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 18px 20px 18px 55px;
         font-size: 1rem;
-        border: 3px solid #1E2A56;
-        border-radius: 12px;
+        font-weight: 500;
+        border: 2px solid #e2e8f0;
+        border-radius: 14px;
+        background: var(--gray-light);
+        color: var(--primary-dark);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        outline: none;
+    }
+
+    .form-input:focus {
+        border-color: var(--primary);
+        background: white;
+        box-shadow: 0 0 0 4px rgba(30, 42, 86, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--gray);
+        font-size: 1.2rem;
         cursor: pointer;
+        transition: color 0.3s ease;
+        padding: 5px;
+    }
+
+    .password-toggle:hover {
+        color: var(--primary);
+    }
+
+    /* Remember Me & Forgot */
+    .form-options {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .remember-me {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .remember-checkbox {
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--primary);
+        border-radius: 6px;
+        cursor: pointer;
+        position: relative;
         transition: all 0.3s ease;
     }
 
-    .login-container button:hover {
-        background-color: white;
-        color: #1E2A56;
-        border: 3px solid #1E2A56;
-        box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+    .remember-checkbox.checked {
+        background: var(--primary);
     }
 
-    /* Forgot password link */
-    .login-container a {
-        display: block;
-        margin-top: 15px;
-        font-size: 0.9rem;
-        color: #1E2A56;
+    .remember-checkbox.checked::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .forgot-link {
+        color: var(--primary);
         text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        position: relative;
+        padding: 5px 0;
+    }
+
+    .forgot-link::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--accent);
+        transition: width 0.3s ease;
+    }
+
+    .forgot-link:hover {
+        color: var(--accent);
+    }
+
+    .forgot-link:hover::after {
+        width: 100%;
+    }
+
+    /* Login Button */
+    .login-button {
+        width: 100%;
+        padding: 18px;
+        background: var(--gradient);
+        color: white;
+        border: none;
+        border-radius: 14px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    .login-button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s ease;
+    }
+
+    .login-button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 15px 30px rgba(30, 42, 86, 0.3);
+    }
+
+    .login-button:hover::before {
+        left: 100%;
+    }
+
+    .login-button:active {
+        transform: translateY(-1px);
+    }
+
+    /* Footer */
+    .login-footer {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 30px;
+        border-top: 1px solid #e2e8f0;
+        color: var(--gray-dark);
+        font-size: 0.9rem;
+    }
+
+    .support-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+        margin-top: 10px;
         transition: color 0.3s ease;
     }
 
-    .login-container a:hover {
-        color: #336699;
+    .support-link:hover {
+        color: var(--accent);
     }
 
-    /* Optional: small logo */
-    .login-container img {
-        width: 100px;
+    /* Responsive Design */
+    @media (max-width: 992px) {
+        .login-container {
+            flex-direction: column;
+            max-width: 500px;
+            min-height: auto;
+        }
+        
+        .branding-panel {
+            padding: 40px 30px;
+        }
+        
+        .login-panel {
+            padding: 40px 30px;
+        }
+        
+        .login-header h2 {
+            font-size: 1.8rem;
+        }
+        
+        .branding-text h1 {
+            font-size: 2rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        body {
+            padding: 10px;
+        }
+        
+        .login-container {
+            border-radius: 16px;
+        }
+        
+        .branding-panel,
+        .login-panel {
+            padding: 30px 20px;
+        }
+        
+        .login-header h2 {
+            font-size: 1.6rem;
+        }
+        
+        .form-input {
+            padding: 16px 20px 16px 50px;
+        }
+        
+        .login-button {
+            padding: 16px;
+        }
+    }
+
+    /* Loading Animation */
+    .loading {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(30, 42, 86, 0.95);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+    }
+
+    .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
         margin-bottom: 20px;
     }
 
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+        color: white;
+        font-size: 1.2rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+    }
+
+    /* Error/Success Messages */
+    .alert {
+        padding: 15px 20px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        font-weight: 500;
+        display: none;
+        animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .alert-error {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #dc2626;
+        border-left: 4px solid #dc2626;
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #059669;
+        border-left: 4px solid #059669;
+    }
 </style>
 </head>
 <body>
 
-<div class="login-container">
-    <img style="width: 250px;" src="{{ url_for('static', filename='images/web-logo.png') }}" alt="ConnectLink Logo">
-    <h5>ADMINISTRATION PORTAL</h5>
-    <form id="loginForm" method="POST" action="/login">
-        <input type="email" id="emaillogin" name="emaillogin" placeholder="Email" required>
-        <div style="position: relative; margin-bottom: 20px;">
-            <input type="password" id="passwordlogin" name="passwordlogin" placeholder="Password" required
-                style="width: 80%; padding-right: 40px; padding: 12px 15px; border-radius: 8px; border: 2px solid #1E2A56; background-color: #e6f0ff; color: #1E2A56; transition: all 0.3s ease;">
-            <i id="togglePassword" class="fa-solid fa-eye" 
-            style="position: absolute; right: 45px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #1E2A56; font-size: 1.1rem;"></i>
-        </div>
-        <button type="submit" style="width: 50%;">Login</button>
-        <a href="#">Forgot Password?</a>
-    </form>
-
+<!-- Animated Background -->
+<div class="background-particles">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
 </div>
+
+<!-- Loading Overlay -->
+<div class="loading" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Authenticating...</div>
+</div>
+
+<!-- Main Container -->
+<div class="login-container">
+    
+    <!-- Left Branding Panel -->
+    <div class="branding-panel">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='images/web-logo-white.png') }}" alt="ConnectLink Logo">
+        </div>
+        
+        <div class="branding-text">
+            <h1>ConnectLink Properties</h1>
+            <p>Premium property development and management solutions powered by cutting-edge technology</p>
+        </div>
+        
+        <div class="features-list">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <span>Enterprise-grade Security</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <span>Real-time Analytics Dashboard</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <span>Multi-user Collaboration</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Login Panel -->
+    <div class="login-panel">
+        <div class="login-header">
+            <h2>Admin Portal</h2>
+            <p>Secure access to your property management dashboard</p>
+        </div>
+        
+        <!-- Alert Messages -->
+        <div class="alert" id="messageAlert"></div>
+        
+        <form class="login-form" id="loginForm" method="POST" action="/login">
+            <!-- Email Field -->
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <input type="email" 
+                           id="emaillogin" 
+                           name="emaillogin" 
+                           class="form-input" 
+                           placeholder="admin@connectlink.co.zw" 
+                           required
+                           autocomplete="username">
+                </div>
+            </div>
+            
+            <!-- Password Field -->
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="input-group">
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <input type="password" 
+                           id="passwordlogin" 
+                           name="passwordlogin" 
+                           class="form-input" 
+                           placeholder="••••••••" 
+                           required
+                           autocomplete="current-password">
+                    <button type="button" class="password-toggle" id="togglePassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Options -->
+            <div class="form-options">
+                <div class="remember-me">
+                    <div class="remember-checkbox" id="rememberCheckbox"></div>
+                    <span style="font-weight: 500; color: var(--gray-dark);">Remember me</span>
+                </div>
+                <a href="#" class="forgot-link" id="forgotPassword">
+                    Forgot Password?
+                </a>
+            </div>
+            
+            <!-- Submit Button -->
+            <button type="submit" class="login-button">
+                <i class="fas fa-sign-in-alt" style="margin-right: 10px;"></i>
+                Sign In to Dashboard
+            </button>
+        </form>
+        
+        <!-- Footer -->
+        <div class="login-footer">
+            <p>© 2024 ConnectLink Properties. All rights reserved.</p>
+            <a href="#" class="support-link">
+                <i class="fas fa-headset"></i>
+                Need Support? Contact Admin
+            </a>
+        </div>
+    </div>
+</div>
+
 <script>
-    const password = document.getElementById('passwordlogin');
-    const toggle = document.getElementById('togglePassword');
-    const loginForm = document.getElementById('loginForm');
-
-    toggle.addEventListener('click', () => {
-        if (password.type === 'password') {
-            password.type = 'text';
-            toggle.classList.remove('fa-eye');
-            toggle.classList.add('fa-eye-slash');
-        } else {
-            password.type = 'password';
-            toggle.classList.remove('fa-eye-slash');
-            toggle.classList.add('fa-eye');
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginForm');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('passwordlogin');
+        const rememberCheckbox = document.getElementById('rememberCheckbox');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const messageAlert = document.getElementById('messageAlert');
+        
+        // Password visibility toggle
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Toggle icon
+            const icon = this.querySelector('i');
+            if (type === 'text') {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+        
+        // Remember me checkbox
+        rememberCheckbox.addEventListener('click', function() {
+            this.classList.toggle('checked');
+            localStorage.setItem('rememberMe', this.classList.contains('checked'));
+        });
+        
+        // Load saved email if remember me was checked
+        if (localStorage.getItem('rememberMe') === 'true') {
+            rememberCheckbox.classList.add('checked');
+            const savedEmail = localStorage.getItem('savedEmail');
+            if (savedEmail) {
+                document.getElementById('emaillogin').value = savedEmail;
+            }
         }
+        
+        // Enhanced form submission
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Validate form
+            const email = document.getElementById('emaillogin').value.trim();
+            const password = document.getElementById('passwordlogin').value.trim();
+            
+            if (!email || !password) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (!isValidEmail(email)) {
+                showMessage('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            // Save email if remember me is checked
+            if (rememberCheckbox.classList.contains('checked')) {
+                localStorage.setItem('savedEmail', email);
+            }
+            
+            // Show loading overlay
+            loadingOverlay.style.display = 'flex';
+            
+            // Add subtle animation to button
+            const submitBtn = loginForm.querySelector('.login-button');
+            submitBtn.style.transform = 'scale(0.98)';
+            
+            try {
+                // Simulate API call (replace with actual fetch)
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // For demo purposes - show success message
+                showMessage('Login successful! Redirecting...', 'success');
+                
+                // Submit form after delay
+                setTimeout(() => {
+                    loginForm.submit();
+                }, 1000);
+                
+            } catch (error) {
+                showMessage('Login failed. Please check your credentials.', 'error');
+                loadingOverlay.style.display = 'none';
+                submitBtn.style.transform = '';
+            }
+        });
+        
+        // Forgot password handler
+        document.getElementById('forgotPassword').addEventListener('click', function(e) {
+            e.preventDefault();
+            showMessage('Password reset feature coming soon!', 'success');
+        });
+        
+        // Input field animations
+        const inputs = document.querySelectorAll('.form-input');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.classList.add('focused');
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.classList.remove('focused');
+            });
+        });
+        
+        // Helper functions
+        function isValidEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+        
+        function showMessage(message, type) {
+            messageAlert.textContent = message;
+            messageAlert.className = `alert alert-${type}`;
+            messageAlert.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageAlert.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + Enter to submit form
+            if (e.ctrlKey && e.key === 'Enter') {
+                loginForm.requestSubmit();
+            }
+            
+            // Escape to clear form
+            if (e.key === 'Escape') {
+                loginForm.reset();
+                rememberCheckbox.classList.remove('checked');
+            }
+        });
+        
+        // Add focus effect on page load
+        setTimeout(() => {
+            const emailInput = document.getElementById('emaillogin');
+            emailInput.focus();
+            emailInput.parentElement.classList.add('focused');
+        }, 500);
     });
-
 </script>
 </body>
 </html>
