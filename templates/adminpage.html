@@ -5766,6 +5766,9 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const agreementDate = document.getElementById("agreement_date").value;
     const totalContractPrice = document.getElementById("total_contract_price").value.trim();
 
+    const quillContent = quillProjectScope.root.innerHTML.trim();
+    const isEmptyQuillContent = quillContent === '<p><br></p>' || quillContent === '<p></p>' || quillContent === '';
+    
     // When submitting form, store Quill HTML into hidden input
 // Insert Quill content into hidden input BEFORE building formData
 
