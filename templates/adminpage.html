@@ -336,46 +336,11 @@ body::before {
             font-size: 13px;
             margin-top: -2rem;
         }
-        /* Custom scrollbar styling */
-        .container2::-webkit-scrollbar {
-            width: 12px; /* Width of the scrollbar */
-        }
 
-        .container2::-webkit-scrollbar-thumb {
-            background-color: #1E2A56; /* Scrollbar thumb color */
-            border-radius: 5px; /* Rounded corners for thumb */
-        }
-
-        .container2::-webkit-scrollbar-thumb:hover {
-            background-color: #e9f1fb;
-            box-shadow: inset 0 0 0 3px #1E2A56; /* Simulates a border */
-        }
-
-        .container2::-webkit-scrollbar-track {
-            background-color: #f0f0f0; /* Scrollbar track color */
-            border-radius: 5px; /* Rounded corners for track */
-        }
         .form-group label{
             font-weight: bold;
         }
         /* For WebKit-based browsers (Chrome, Edge, Safari) */
-        #employeeList::-webkit-scrollbar {
-            width: 15px; /* Width of the scrollbar */
-        }
-
-        #employeeList::-webkit-scrollbar-thumb {
-            background-color: #1E2A56; /* Blue color for the scrollbar handle */
-            border-radius: 5px; /* Rounded scrollbar handle */
-        }
-
-        #employeeList::-webkit-scrollbar-track {
-            background-color: #f1f1f1; /* Background color of the scrollbar track */
-        }
-
-        /* For Firefox */
-        #employeeList {
-            scrollbar-color: #1E2A56 #f1f1f1; /* Handle color followed by track color */
-        }
         select.form-control-blue option:hover {
             background-color: #e6f0ff; /* Light blue on hover */
             color: #1E2A56; /* Dark blue text */
@@ -1156,6 +1121,45 @@ body::before {
 }
 
 .bg-primary {
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+}
+
+/* MINIMAL SCROLLBAR STYLING */
+
+/* Global scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #1E2A56;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #141e40;
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #1E2A56 #f1f5f9;
+}
+
+/* Specific for containers */
+.container2::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.container2::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
     background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
 }
     </style>
