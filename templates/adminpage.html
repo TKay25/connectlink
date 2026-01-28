@@ -5752,34 +5752,100 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const paymentMethod = document.getElementById("paymentMethod").value;
     const projectadmin = document.getElementById("projectadministrator").value.trim();
     const lateinterest = document.getElementById("late_payment_interest").value.trim();
+    
+    // Additional required fields validation
+    const clientAddress = document.getElementById("client_address").value.trim();
+    const clientEmail = document.getElementById("client_email").value.trim();
+    const nextOfKinName = document.getElementById("next_of_kin_name").value.trim();
+    const nextOfKinAddress = document.getElementById("next_of_kin_address").value.trim();
+    const nextOfKinContact = document.getElementById("next_of_kin_contact_number").value.trim();
+    const relationship = document.getElementById("relationship").value.trim();
+    const projectLocation = document.getElementById("project_location").value.trim();
+    const projectStartDate = document.getElementById("project_start_date").value;
+    const projectDuration = document.getElementById("months_to_completion").value.trim();
+    const agreementDate = document.getElementById("agreement_date").value;
+    const totalContractPrice = document.getElementById("total_contract_price").value.trim();
 
     // When submitting form, store Quill HTML into hidden input
 // Insert Quill content into hidden input BEFORE building formData
 
-
-    if (clientName === "" || clientID === "" || clientWHATSAPP === "") {
-        alert("All client details are required, kindly provide them to save the project.");
+if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddress === "" || clientEmail === "") {
+        alert("All client details (Name, ID, WhatsApp, Address, Email) are required.");
         return; // STOP submission
     }
 
-    if (projectName === "" || lateinterest === "" || clientWHATSAPP === "") {
-        alert("All project details are required, kindly provide them to save the project.");
+    // Next of Kin validation
+    if (nextOfKinName === "" || nextOfKinAddress === "" || nextOfKinContact === "" || relationship === "") {
+        alert("All Next of Kin details (Name, Address, Contact Number, Relationship) are required.");
         return; // STOP submission
     }
 
+    // Project details validation
+    if (projectName === "" || projectLocation === "" || projectStartDate === "" || projectDuration === "" || projectadmin === "") {
+        alert("All project details (Name, Location, Start Date, Duration, Administrator) are required.");
+        return; // STOP submission
+    }
+
+    // Project scope validation
+    if (isEmptyQuillContent) {
+        alert("Project Scope/Description is required.");
+        return; // STOP submission
+    }
+
+    // Payment method validation
     if (paymentMethod === "") {
         alert("Select a payment method.");
         return; // STOP submission
     }
 
-    // Example additional logic:
+    // Agreement date validation
+    if (agreementDate === "") {
+        alert("Contract Agreement Date is required.");
+        return; // STOP submission
+    }
+
+    // Total contract price validation
+    if (totalContractPrice === "" || parseFloat(totalContractPrice) <= 0) {
+        alert("Valid Total Contract Price is required.");
+        return; // STOP submission
+    }
+
+    // Payment method specific validations
     if (paymentMethod === "Installments") {
         let months = document.getElementById("monthstopay").value;
         if (months === "" || months <= 0) {
             alert("Months To Pay must be greater than 0.");
             return;
         }
+        
+        // Check for late interest for installments
+        if (lateinterest === "" || parseFloat(lateinterest) < 0) {
+            alert("Late Payment Interest is required for Installments.");
+            return;
+        }
+        
+        // Check deposit fields
+        const depositRequired = document.getElementById("deposit_required").value.trim();
+        const depositPaymentDate = document.getElementById("deposit_payment_date").value;
+        const firstInstallmentDueDate = document.getElementById("first_installment_due_date").value;
+        
+        if (depositRequired === "" || parseFloat(depositRequired) < 0) {
+            alert("Deposit Paid amount is required.");
+            return;
+        }
+        
+        if (depositPaymentDate === "") {
+            alert("Date Deposit Paid is required.");
+            return;
+        }
+        
+        if (firstInstallmentDueDate === "") {
+            alert("Due Date For First Installment is required.");
+            return;
+        }
+
     }
+
     
     document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
 
