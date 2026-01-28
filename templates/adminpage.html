@@ -5751,6 +5751,8 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const projectName = document.getElementById("project_name").value.trim();
     const paymentMethod = document.getElementById("paymentMethod").value;
     const projectadmin = document.getElementById("projectadministrator").value.trim();
+    const lateinterest = document.getElementById("late_payment_interest").value.trim();
+
     // When submitting form, store Quill HTML into hidden input
 // Insert Quill content into hidden input BEFORE building formData
 
@@ -5760,7 +5762,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
         return; // STOP submission
     }
 
-    if (clientName === "" || clientID === "" || clientWHATSAPP === "") {
+    if (projectName === "" || lateinterest === "" || clientWHATSAPP === "") {
         alert("All project details are required, kindly provide them to save the project.");
         return; // STOP submission
     }

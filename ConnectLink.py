@@ -9881,6 +9881,7 @@ def contract_log():
                 print(f"Project Location: {project_location}")
                 print(f"Project Start Date: {project_start_date}")
                 print(f"Project Duration (Months): {months_to_completion}")
+                print(f"Project Description: {clean_html}")
 
                 print(f"Agreement Date: {agreement_date}")
                 print(f"Total Contract Price: {total_contract_price}")
@@ -9891,6 +9892,7 @@ def contract_log():
                 print(f"Months to Pay: {months_to_pay}")
                 print(f"Deposit Payment Date: {deposit_payment_date}")
                 print(f"First Installment Due Date: {first_installment_due_date}")
+                print(f"late payment interest: {latepaymentinterest}")
         
 
                 # --- Insert into database (connectlinkdatabase) ---
