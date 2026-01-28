@@ -767,76 +767,398 @@ body::before {
         }
 
         /* Add this to your existing CSS section */
+/* IMPROVED ADD PROJECT MODAL STYLING - FIXED VERSION */
 
-        #addnewProjectModal .modal-body {
-            font-size: 0.8rem; /* Reduced from default 1rem */
-        }
+#addnewProjectModal .modal-dialog {
+    max-width: 95%;
+    margin: 1rem auto;
+    display: flex;
+    flex-direction: column;
+}
 
-        #addnewProjectModal .form-group label {
-            font-size: 0.8rem; /* Smaller label text */
-            font-weight: 600; /* Keep it bold but smaller */
-        }
+#addnewProjectModal .modal-content {
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(30, 42, 86, 0.25);
+    border: 1px solid rgba(30, 42, 86, 0.1);
+}
 
-        #addnewProjectModal .form-control,
-        #addnewProjectModal .form-control-blue,
-        #addnewProjectModal select.form-control-blue {
-            font-size: 0.8rem; /* Smaller input text */
-            padding: 0.4rem 0.7rem; /* Adjust padding proportionally */
-        }
+#addnewProjectModal .modal-header {
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+    color: white;
+    padding: 15px 25px;
+    border-bottom: 3px solid rgba(255, 255, 255, 0.15);
+    position: relative;
+}
 
-        #addnewProjectModal .card h6 {
-            font-size: 0.9rem; /* Smaller card header text */
-            padding: 0.5rem; /* Adjust padding */
-        }
+#addnewProjectModal .modal-title {
+    font-weight: 800;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 
-        #addnewProjectModal textarea.form-control {
-            font-size: 0.8rem; /* Smaller textarea text */
-        }
+#addnewProjectModal .modal-header .btn-close {
+    filter: invert(1) brightness(2);
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    background-size: 60%;
+}
 
-        #addnewProjectModal .form-group.row {
-            margin-bottom: 0.7rem; /* Reduce spacing between rows */
-        }
+#addnewProjectModal .modal-header .btn-close:hover {
+    opacity: 1;
+}
 
-        #addnewProjectModal .col-auto.col-form-label {
-            padding-right: 0.2rem; /* Reduce label padding */
-        }
+#addnewProjectModal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 25px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
 
-        #addnewProjectModal .modal-title {
-            font-size: 1rem; /* Smaller modal title */
-        }
+#addnewProjectModal form {
+    display: flex;
+    flex-direction: column;
+}
 
-        /* Make the modal slightly more compact overall */
-        #addnewProjectModal .card {
-            padding: 8px; /* Reduce card padding */
-        }
+/* Card Layout Improvements - REMOVED equal height */
+#addnewProjectModal .row.g-3 {
+    row-gap: 12px;
+}
 
-        #addnewProjectModal .modal-dialog {
-            max-width: 85%; /* Optionally adjust modal width */
-        }
+#addnewProjectModal .card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(30, 42, 86, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    background: white;
+    /* REMOVED: height: 100%; */
+    /* REMOVED: display: flex; */
+    /* REMOVED: flex-direction: column; */
+}
 
-        /* Add this to your existing CSS */
-        #addnewProjectModal .modal-content {
-            height: 90vh; /* Set a maximum height for the modal */
-            display: flex;
-            flex-direction: column;
-        }
+#addnewProjectModal .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(30, 42, 86, 0.15);
+}
 
-        #addnewProjectModal .modal-header,
-        #addnewProjectModal .modal-footer {
-            flex-shrink: 0; /* Prevent header and footer from shrinking */
-        }
+/* Card Header Styling */
+#addnewProjectModal .card h6 {
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+    color: white;
+    font-weight: 700;
+    text-align: center;
+    padding: 10px 12px;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    font-size: 0.95rem;
+    letter-spacing: 0.5px;
+    position: relative;
+}
 
-        #addnewProjectModal .modal-body {
-            overflow-y: auto; /* Make the body scrollable */
-            max-height: calc(90vh - 120px); /* Adjust based on header/footer height */
-            padding: 15px;
-        }
+#addnewProjectModal .card h6::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 2px;
+}
 
-        #addnewProjectModal .modal-dialog {
-            max-width: 80%;
-            margin: 1.7rem auto;
-        }
+/* Card Body Improvements - SIMPLIFIED */
+#addnewProjectModal .card > div:not(h6) {
+    padding: 15px;
+}
 
+/* Form Group Improvements */
+#addnewProjectModal .form-group.row {
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+#addnewProjectModal .form-group.row:last-child {
+    margin-bottom: 0;
+}
+
+#addnewProjectModal .col-auto.col-form-label {
+    min-width: 120px;
+    padding-right: 10px;
+    font-weight: 600;
+    color: #1E2A56;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+#addnewProjectModal .col {
+    flex: 1;
+}
+
+/* Input Field Improvements */
+#addnewProjectModal .form-control,
+#addnewProjectModal .form-control-blue,
+#addnewProjectModal textarea.form-control,
+#addnewProjectModal input[type="date"],
+#addnewProjectModal input[type="number"],
+#addnewProjectModal input[type="text"],
+#addnewProjectModal input[type="email"] {
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
+    color: #1E2A56;
+    width: 100%;
+}
+
+#addnewProjectModal .form-control:focus,
+#addnewProjectModal .form-control-blue:focus,
+#addnewProjectModal textarea.form-control:focus,
+#addnewProjectModal input[type="date"]:focus,
+#addnewProjectModal input[type="number"]:focus,
+#addnewProjectModal input[type="text"]:focus,
+#addnewProjectModal input[type="email"]:focus {
+    border-color: #1E2A56;
+    box-shadow: 0 0 0 4px rgba(30, 42, 86, 0.15);
+    outline: none;
+    background: white;
+}
+
+/* Textarea specific */
+#addnewProjectModal textarea.form-control {
+    min-height: 70px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+/* Select Dropdown Improvements */
+#addnewProjectModal select.form-control-blue {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%231E2A56' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 12px;
+    padding-right: 40px;
+    cursor: pointer;
+}
+
+/* Quill Editor Improvements */
+#addnewProjectModal #projectScopeToolbar {
+    border: 2px solid #e2e8f0;
+    border-radius: 10px 10px 0 0;
+    border-bottom: none;
+    padding: 8px;
+    background: #f8fafc;
+}
+
+#addnewProjectModal #projectScopeEditor {
+    border: 2px solid #e2e8f0;
+    border-radius: 0 0 10px 10px;
+    min-height: 110px;
+    background: white;
+    font-size: 0.9rem;
+}
+
+#addnewProjectModal .ql-toolbar.ql-snow {
+    border: none !important;
+    padding: 0 !important;
+}
+
+#addnewProjectModal .ql-container.ql-snow {
+    border: none !important;
+    border-radius: 0 0 8px 8px;
+}
+
+/* Payment Method Section Improvements */
+#addnewProjectModal #paymentschedule {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 2px dashed #e2e8f0;
+}
+
+#addnewProjectModal #bullet_payment_date {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 2px dashed #e2e8f0;
+}
+
+/* Read-only Contractor Fields */
+#addnewProjectModal input[readonly] {
+    background-color: #f8fafc;
+    border-color: #d1d5db;
+    color: #6b7280;
+    cursor: not-allowed;
+}
+
+/* Required Field Indicators */
+#addnewProjectModal .form-group.row.required .col-auto.col-form-label::after {
+    content: " *";
+    color: #dc2626;
+    font-weight: bold;
+}
+
+/* Responsive Improvements */
+@media (max-width: 1200px) {
+    #addnewProjectModal .modal-dialog {
+        max-width: 98%;
+    }
+    
+    #addnewProjectModal .col-auto.col-form-label {
+        min-width: 100px;
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 992px) {
+    #addnewProjectModal .modal-dialog {
+        max-width: 100%;
+        margin: 0.5rem;
+    }
+    
+    #addnewProjectModal .col-auto.col-form-label {
+        min-width: auto;
+        white-space: normal;
+        margin-bottom: 5px;
+        padding-right: 0;
+    }
+    
+    #addnewProjectModal .form-group.row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Scrollbar Styling */
+#addnewProjectModal .modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+#addnewProjectModal .modal-body::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+#addnewProjectModal .modal-body::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+    border-radius: 4px;
+}
+
+#addnewProjectModal .modal-body::-webkit-scrollbar-thumb:hover {
+    background: #1E2A56;
+}
+
+/* Modal Footer Improvements */
+#addnewProjectModal .modal-footer {
+    padding: 15px 25px;
+    background: white;
+    border-top: 1px solid rgba(30, 42, 86, 0.1);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+#addnewProjectModal .modal-footer .btn {
+    padding: 10px 24px;
+    font-weight: 700;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    min-width: 140px;
+}
+
+#addnewProjectModal .modal-footer .btn-primary {
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+    border: none;
+    color: white;
+}
+
+#addnewProjectModal .modal-footer .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(30, 42, 86, 0.2);
+}
+
+#addnewProjectModal .modal-footer .btn-danger {
+    background: #dc3545;
+    border: none;
+    color: white;
+}
+
+#addnewProjectModal .modal-footer .btn-danger:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+}
+
+/* Manual Installments Section */
+#addnewProjectModal #manualInstallments {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 12px;
+    border: 2px solid #e2e8f0;
+}
+
+#addnewProjectModal #manualInstallments .form-group.row {
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+#addnewProjectModal #manualInstallments .form-group.row:last-child {
+    margin-bottom: 0;
+}
+
+/* Field Focus Animation */
+@keyframes fieldFocus {
+    0% {
+        box-shadow: 0 0 0 4px rgba(30, 42, 86, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 4px rgba(30, 42, 86, 0.15);
+    }
+}
+
+#addnewProjectModal .form-control:focus {
+    animation: fieldFocus 0.3s ease-out;
+}
+
+/* Responsive Typography */
+@media (max-width: 768px) {
+    #addnewProjectModal .modal-header {
+        padding: 12px 18px;
+    }
+    
+    #addnewProjectModal .modal-body {
+        padding: 15px 18px;
+    }
+    
+    #addnewProjectModal .modal-footer {
+        padding: 12px 18px;
+        flex-direction: column;
+    }
+    
+    #addnewProjectModal .modal-footer .btn {
+        width: 100%;
+        margin-bottom: 8px;
+        min-width: auto;
+    }
+    
+    #addnewProjectModal .modal-footer .btn:last-child {
+        margin-bottom: 0;
+    }
+    
+    #addnewProjectModal .card h6 {
+        font-size: 0.9rem;
+        padding: 10px;
+    }
+}
         .bg-success {
     background: linear-gradient(135deg, #059669 0%, #10b981 100%);
 }
