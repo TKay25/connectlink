@@ -291,21 +291,33 @@ body::before {
             color: #D3D3D3; /* Grey text color */
         }
 
-        .table-theme {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: auto; /* Allow columns to adjust based on content */
-        }
+.table-theme {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(30, 42, 86, 0.1);
+}
 
-        .table-theme th {
-            background-color: #1E2A56;
-            color: white;
-            text-align: center !important;
-            vertical-align: middle !important;
-            padding: 2px;
-            font-weight: bold;
-            white-space: nowrap; /* Prevent text wrapping */
-        }
+.table-theme th {
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+    color: white;
+    text-align: center;
+    vertical-align: middle;
+    padding: 15px;
+    font-weight: 700;
+    border: none;
+}
+
+.table-theme td {
+    font-weight: 500;
+    padding: 12px 15px;
+    color: #1E2A56;
+    text-align: center;
+    background: white;
+    border-bottom: 1px solid rgba(30, 42, 86, 0.1);
+}
 
         #employeesTable th,
         #employeespayrollTable th, 
@@ -317,16 +329,6 @@ body::before {
             position: sticky;
             top: 0;
             z-index: 1;
-        }
-
-
-        .table-theme td {
-            font-weight: 500;
-            padding: 0px;
-            color: #1E2A56;
-            text-align: center;
-            white-space: nowrap; /* Prevent text wrapping */
-            border-bottom: 1px solid #ddd;
         }
 
 
