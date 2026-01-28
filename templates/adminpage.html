@@ -5768,7 +5768,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
 
     const quillContent = quillProjectScope.root.innerHTML.trim();
     const isEmptyQuillContent = quillContent === '<p><br></p>' || quillContent === '<p></p>' || quillContent === '';
-    
+
     // When submitting form, store Quill HTML into hidden input
 // Insert Quill content into hidden input BEFORE building formData
 
@@ -5795,23 +5795,26 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
         return; // STOP submission
     }
 
-    // Payment method validation
-    if (paymentMethod === "") {
-        alert("Select a payment method.");
-        return; // STOP submission
-    }
-
     // Agreement date validation
     if (agreementDate === "") {
         alert("Contract Agreement Date is required.");
         return; // STOP submission
     }
 
-    // Total contract price validation
     if (totalContractPrice === "" || parseFloat(totalContractPrice) <= 0) {
         alert("Valid Total Contract Price is required.");
         return; // STOP submission
     }
+    // Payment method validation
+    if (paymentMethod === "") {
+        alert("Select a payment method.");
+        return; // STOP submission
+    }
+
+
+
+    // Total contract price validation
+
 
     // Payment method specific validations
     if (paymentMethod === "Installments") {
