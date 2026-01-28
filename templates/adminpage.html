@@ -17,29 +17,59 @@
         <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
         <style>
         /* Main Styling */
-        body {
-            font-family: 'Roboto', sans-serif;
-            background: linear-gradient(to right, #f0f2f5, #e9f1fb);
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            overflow-x: hidden;
-        }
+body {
+    font-family: 'Roboto', sans-serif;
+    /* Diagonal line background - same as login page */
+    background: linear-gradient(
+        to top right,
+        #f8fafc 0%,
+        #e2e8f0 50%,
+        #1E2A56 50%,
+        #1E2A56 100%
+    );
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    overflow-x: hidden;
+    position: relative;
+}
 
+/* White diagonal dividing line */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        to top right,
+        transparent calc(50% - 2px),
+        #ffffff calc(50% - 2px),
+        #ffffff calc(50% + 2px),
+        transparent calc(50% + 2px)
+    );
+    box-shadow: 
+        0 0 10px rgba(255, 255, 255, 0.8),
+        0 0 20px rgba(255, 255, 255, 0.4);
+    z-index: -1;
+    pointer-events: none;
+}
         /* Sidebar Styling */
-        .sidebar {
-            width: 250px;
-            background-color: #1E2A56;
-            color: #fff;
-            padding-top: 40px;
-            position: fixed;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
-            transition: width 0.3s;
-        }
+.sidebar {
+    width: 250px;
+    background-color: #1E2A56; /* SOLID COLOR - better performance */
+    color: #fff;
+    padding-top: 40px;
+    position: fixed;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
+    transition: width 0.3s;
+    /* REMOVE: background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%); */
+}
 
         #editinfocompModal {
             z-index: 1061 !important;
@@ -108,103 +138,23 @@
 
 
 
-        .btn-primary{
-            color: white;
-            background-color: #1E2A56;
-            width: 15%;
-            margin: 8px 0;
-            padding: 5px;
-            border-radius: 8px;
-            border: 3px solid #1E2A56;
-            font-size: 0.9rem;
-            transition: background 0.3s;
-            text-align: center;
-            font-weight: 500;
+.btn-primary, .btn-primary2, .btn-primary3, .btn-primary9 {
+    color: white;
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%); /* Same gradient as login */
+    border: none;
+    border-radius: 14px; /* Match login button radius */
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 20px rgba(30, 42, 86, 0.2); /* Same as login */
+}
 
-        }
-        .btn-primary:hover{
-            background-color: white;
-            color: #1E2A56;
-            border: 3px solid #1E2A56;
-            box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .btn-primary10{
-            color: #1E2A56;
-            background-color: white;
-            width: 15%;
-            margin: 8px 0;
-            padding: 5px;
-            border-radius: 8px;
-            border: 3px solid #1E2A56;
-            font-size: 0.9rem;
-            transition: background 0.3s;
-            text-align: center;
-            font-weight: 600;
-
-        }
-        .btn-primary10:hover{
-            background-color: #e9f1fb;
-            color: #1E2A56;
-            border: 3px solid #1E2A56;
-            box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .btn-primary2{
-            color: white;
-            background-color: #1E2A56;
-            width: 37%;
-            margin: 8px 0;
-            padding: 6px;
-            border-radius: 8px;
-            border: 3px solid #1E2A56;
-            font-size: 0.9rem;
-            transition: background 0.3s;
-            text-align: center;
-            font-weight: 500;
-
-        }
-        .btn-primary2:hover{
-            background-color: white;
-            color: #1E2A56;
-            border: 3px solid #1E2A56;
-            box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
-        }
-        .btn-primary9{
-            color: white;
-            background-color: #1E2A56;
-            margin: 8px 0;
-            padding: 5px;
-            border-radius: 8px;
-            border: 3px solid #1E2A56;
-            transition: background 0.3s;
-            text-align: center;
-            font-weight: 500;
-
-        }
-        .btn-primary9:hover{
-            background-color: white;
-            color: #1E2A56;
-            border: 3px solid #1E2A56;
-            box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .btn-primary3{
-            color: white;
-            background-color: #1E2A56;
-            width: 100%;
-            padding-left: 5px;
-            padding-right: 5px;
-            padding-top: 1px;
-            padding-bottom: 1px;
-            border-radius: 8px;
-            border: 3px solid #1E2A56;
-            font-size: 14px;
-            transition: background 0.3s;
-            text-align: center;
-            font-weight: 500;
-
-        }
+.btn-primary:hover, .btn-primary2:hover, .btn-primary3:hover, .btn-primary9:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(30, 42, 86, 0.3); /* Same as login hover */
+    background: linear-gradient(135deg, #141e40 0%, #2d3a75 100%);
+}
         .form-control-blue {
             background-color: #1E2A5611; /* Example */
             border: 1px solid #ccc;
@@ -213,20 +163,16 @@
         }
 
 
-        .btn-primary3:hover{
-            background-color: white;
-            color: #1E2A56;
-            border: 3px solid #1E2A56;
-        }
 
         /* Main Content Styling */
-        .main-content {
-            margin-left: 270px;
-            padding: 30px;
-            width: calc(100% - 270px);
-            background-color: #ffffff;
-            min-height: 100vh;
-        }
+.main-content {
+    margin-left: 270px;
+    padding: 30px;
+    width: calc(100% - 270px);
+    background-color: rgba(255, 255, 255, 0.95); /* Slightly transparent white */
+    min-height: 100vh;
+    /* REMOVE backdrop-filter to improve performance */
+}
 
 
         header {
@@ -256,31 +202,32 @@
         }
 
         /* Tab Styling */
-        .nav-tabs .nav-link {
-            color: #1E2A56;
-            font-weight: 600;
-            padding: 10px 20px;
-            font-size: 15px;
-            border-radius: 8px 8px 0 0;
-            background: #e9f1fb;
-            transition: background 0.3s ease, color 0.3s ease;
-        }
+.nav-tabs .nav-link {
+    color: #1E2A56;
+    font-weight: 600;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    border-radius: 8px 8px 0 0;
+    background: #f8fafc; /* Simple background */
+    transition: background-color 0.2s ease; /* Simpler transition */
+}
 
-        .nav-tabs .nav-link.active {
-            color: #ffffff;
-            background-color: #1E2A56;
-            font-weight: 800;
-        }
+.nav-tabs .nav-link.active {
+    color: white;
+    background-color: #1E2A56; /* SOLID COLOR */
+    font-weight: 700;
+}
 
         /* Card Styling */
-        .card {
-            border-radius: 12px;
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-            margin-top: 20px;
-            background-color: #ffffff;
-            animation: fadeIn 0.5s ease;
-        }
+.card {
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(30, 42, 86, 0.15); /* Same shadow as login */
+    padding: 20px;
+    margin-top: 20px;
+    background-color: #ffffff;
+    animation: fadeIn 0.5s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Match login border */
+}
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
