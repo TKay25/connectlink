@@ -379,24 +379,22 @@ body::before {
             color: #1E2A56; /* Dark blue text */
         }
         /* Style the close button */
-        .modal-header .btn-close {
-            width: 1rem;      /* default is ~1.5rem */
-            height: 1rem;     /* default is ~1.5rem */
-            padding: 0.25rem; /* reduce padding to shrink clickable area */
-            font-size: 0.75rem; 
-            font-weight: bolder;
-            background-color: white; /* Makes the background white */
-            color: #1E2A56; /* Change the icon color to black */
-            opacity: 1; /* Ensure the button is fully opaque */
-        }
+/* Add this to your CSS - targets ALL modal close buttons */
+.modal-header .btn-close {
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    background-size: 60%;
+    background-color: red;
+    color: white;
+    border-radius:24px;
+    /* REMOVE: filter: invert(1) brightness(2); */
+}
 
-        /* Optional: Hover effect */
-        .modal-header .btn-close:hover {
-
-            background-color: #f8f9fa; /* Light grey background on hover */
-            color: #000; /* Ensure the icon stays black on hover */
-            opacity: 1; /* Ensure full opacity on hover */
-        }
+.modal-header .btn-close:hover {
+    opacity: 1;
+    background-color: white;
+    color:red;
+}
         .modal-footer{
             gap: 10px;
         }
@@ -779,7 +777,7 @@ body::before {
 #addnewProjectModal .modal-content {
     display: flex;
     flex-direction: column;
-    border-radius: 16px;
+    border-radius: 24px;
     overflow: hidden;
     box-shadow: 0 20px 40px rgba(30, 42, 86, 0.25);
     border: 1px solid rgba(30, 42, 86, 0.1);
@@ -801,16 +799,6 @@ body::before {
     gap: 10px;
 }
 
-#addnewProjectModal .modal-header .btn-close {
-    filter: invert(1) brightness(2);
-    opacity: 0.8;
-    transition: opacity 0.2s;
-    background-size: 60%;
-}
-
-#addnewProjectModal .modal-header .btn-close:hover {
-    opacity: 1;
-}
 
 #addnewProjectModal .modal-body {
     flex: 1;
@@ -1273,7 +1261,7 @@ body::before {
             
             <div class="modal-header">
                 <h6 class="modal-title" id="createUserModalLabel"><i class="bi bi-person-fill-add"></i> CREATE SYSTEM USER</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
 
             <div class="modal-body" style="font-size: 14px;">
@@ -1324,7 +1312,7 @@ body::before {
             <!-- Modal Header -->
             <div class="modal-header">
                 <h6 class="modal-title" id="addcompAdminModalLabel"><i class="bi bi-people-fill"></i>ADMINISTRATORS</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <!-- Modal Body -->
@@ -1359,7 +1347,7 @@ body::before {
 
             <div class="modal-header">
                 <h6 class="modal-title" id="viewprojectModalLabel"> <i class="bi bi-card-list"></i> PROJECT DETAILS</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <div class="modal-body">
@@ -1385,7 +1373,7 @@ body::before {
 
             <div class="modal-header">
                 <h6 class="modal-title" id="addAdminplusModalLabel"><i class="bi bi-person-plus-fill"></i>ADD ADMINISTRATOR</h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
             <div class="modal-body">
@@ -1424,7 +1412,7 @@ body::before {
             <div class="modal-content">
                 <div class="modal-header">
                     <h6 class="modal-title" id="addnewProjectModalLabel"><i class="bi bi-briefcase-fill"></i> NEW PROJECT</h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
 
@@ -1745,7 +1733,7 @@ body::before {
                     <h6 class="modal-title" id="deleteprojectModalLabel">
                         <i class="bi bi-exclamation-triangle"></i> PROJECT REMOVAL CONFIRMATION
                     </h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="deleteProjectForm">
                     <div class="modal-body">
@@ -1816,7 +1804,7 @@ body::before {
 
                     <div class="modal-header" style="background-color: #1E2A56; color: white;">
                         <h6 class="modal-title" id="updateModalLabel"><i class="bi bi-card-checklist"></i> PROJECT PROGRESS UPDATE</h6>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
 
@@ -2247,7 +2235,7 @@ body::before {
 
                 <div class="modal-header" style="background:#1E2A56;color:white;">
                     <h6 class="modal-title">FIRST INSTALLMENT DUE DATE CHANGE</h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
@@ -2280,7 +2268,7 @@ body::before {
                 <h6 class="modal-title" id="downloadPortfolioModalLabel">
                     <i class="bi bi-download"></i> DOWNLOAD MASTER PROJECTS FILE
                 </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <!-- Simple Selection -->
@@ -2334,7 +2322,7 @@ body::before {
                 <h6 class="modal-title" id="downloadInstallmentsModalLabel">
                     <i class="bi bi-download"></i> DOWNLOAD INSTALLMENTS SCHEDULE
                 </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <!-- Project Start Month Selection -->
@@ -2433,7 +2421,7 @@ body::before {
                         <button type="button" class="btn btn-light btn-sm px-3" onclick="loadEnquiriesData()">
                             <i class="bi bi-arrow-clockwise"></i>
                         </button>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                 </div>
             </div>
@@ -3171,7 +3159,7 @@ body::before {
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title">USER REMOVAL CONFIRMATION</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <form id="removeUserForm">
@@ -3209,7 +3197,7 @@ body::before {
                         <i class="bi bi-building-fill-gear me-1" style="font-size: 0.85rem;"></i>
                         CONTRACTOR DETAILS EDITOR
                     </h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
                 </div>
 
                 <div class="modal-body p-3">
@@ -3273,7 +3261,7 @@ body::before {
                     <h6 class="modal-title" id="notesModalLabel">
                         <i class="bi bi-list-ol"></i><span id="modalClientName"></span> - <span id="modalProjectName"></span> NOTES
                     </h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="notesProjectId">
@@ -3517,7 +3505,7 @@ function showInstallmentsDownloadSuccess(selection) {
                 <div class="toast-header bg-success text-white">
                     <i class="bi bi-check-circle me-2"></i>
                     <strong class="me-auto">Download Complete</strong>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
                 </div>
                 <div class="toast-body">
                     <i class="bi bi-file-earmark-excel text-success me-2"></i>
@@ -3677,7 +3665,7 @@ function showDownloadSuccess(selection) {
                 <div class="toast-header bg-success text-white">
                     <i class="bi bi-check-circle me-2"></i>
                     <strong class="me-auto">Download Complete</strong>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
                 </div>
                 <div class="toast-body">
                     <i class="bi bi-file-earmark-excel text-success me-2"></i>
@@ -4232,7 +4220,7 @@ function viewEnquiryDetails(id) {
                             <i class="bi ${typeConfig.icon} me-2"></i>
                             Enquiry Details
                         </h6>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
