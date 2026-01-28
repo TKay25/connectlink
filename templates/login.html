@@ -33,7 +33,8 @@
         --gradient-accent: linear-gradient(135deg, #FF6B35 0%, #FF8B5C 100%);
         --bg-gradient: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
     }
-/* Elegant Professional Login Background */
+/* Clean Corporate Background */
+/* Corrected: Line from Bottom-Left to Top-Right */
 body {
     font-family: 'Inter', 'Poppins', sans-serif;
     min-height: 100vh;
@@ -44,11 +45,17 @@ body {
     position: relative;
     overflow-x: hidden;
     
-    /* Soft gradient background */
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    /* Grey in bottom-left, blue in top-right (opposite of before) */
+    background: linear-gradient(
+        to bottom right,  /* Changed direction */
+        #f8fafc 0%,
+        #e2e8f0 50%,
+        #1E2A56 50%,
+        #1E2A56 100%
+    );
 }
 
-/* Subtle geometric pattern */
+/* White line from bottom-left to top-right */
 body::before {
     content: '';
     position: fixed;
@@ -56,37 +63,16 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: 
-        radial-gradient(
-            circle at 15% 50%,
-            rgba(30, 42, 86, 0.05) 0%,
-            transparent 55%
-        ),
-        radial-gradient(
-            circle at 85% 30%,
-            rgba(255, 107, 53, 0.05) 0%,
-            transparent 55%
-        ),
-        radial-gradient(
-            circle at 50% 80%,
-            rgba(255, 255, 255, 0.8) 0%,
-            transparent 55%
-        );
-    z-index: -1;
-}
-
-/* Soft grid overlay for depth */
-body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-image: 
-        linear-gradient(rgba(30, 42, 86, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(30, 42, 86, 0.02) 1px, transparent 1px);
-    background-size: 50px 50px;
+    background: linear-gradient(
+        to bottom right,  /* Changed direction */
+        transparent calc(50% - 2px),
+        #ffffff calc(50% - 2px),
+        #ffffff calc(50% + 2px),
+        transparent calc(50% + 2px)
+    );
+    box-shadow: 
+        0 0 10px rgba(255, 255, 255, 0.8),
+        0 0 20px rgba(255, 255, 255, 0.4);
     z-index: -1;
     pointer-events: none;
 }
@@ -659,7 +645,7 @@ body::after {
         
         <div class="branding-text">
             <h1>ConnectLink Properties</h1>
-            <p>Premium property development and management solutions powered by Echelon Digital Solutions</p>
+            <p>Premium property development and management solutions <br> powered by Echelon Digital Solutions</p>
         </div>
         
         <div class="features-list">
