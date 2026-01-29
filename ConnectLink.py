@@ -8360,7 +8360,7 @@ def download_portfolio():
             date_params = []
             if month:
                 year, month_num = month.split('-')
-                date_where_clause = "WHERE EXTRACT(YEAR FROM projectstartdate) = %s AND EXTRACT(MONTH FROM projectstartdate) = %s"
+                date_where_clause = "WHERE EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
                 date_params = [year, month_num]
             
             # 1. Get active projects from connectlinkdatabase within date range
@@ -8431,7 +8431,7 @@ def download_portfolio():
                     # Apply same date filter to deleted projects
                     deleted_query = f"""
                         SELECT * FROM connectlinkdatabasedeletedprojects 
-                        {date_where_clause.replace('projectstartdate', 'projectstartdate') if date_where_clause else ''}
+                        {date_where_clause.replace('datedepositorbullet', 'datedepositorbullet') if date_where_clause else ''}
                         ORDER BY id ASC
                     """
                     cursor.execute(deleted_query, date_params if date_params and date_where_clause else ())
