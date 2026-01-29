@@ -10080,278 +10080,116 @@ def update_first_installment_date():
         print("Error updating first installment date:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
-
 @app.route('/send_receipt_to_client', methods=['POST'])
 def send_receipt_to_client():
-    """Send deposit receipt via WhatsApp template message"""
+    """Send WhatsApp template with button"""
     try:
         project_id = request.form.get('project_id')
         
         if not project_id:
-            return jsonify({
-                'success': False,
-                'message': 'No project ID provided'
-            }), 400
+            return jsonify({'success': False, 'message': 'No project ID'})
         
         with get_db() as (cursor, connection):
-            # Fetch all necessary project details
+            # Get client info
             cursor.execute("""
-                SELECT id, clientname, clientwanumber, projectname, 
-                       depositorbullet, datedepositorbullet,
-                       totalcontractamount, projectdescription,
-                       projectcompletionstatus
-                FROM connectlinkdatabase 
-                WHERE id = %s
+                SELECT clientname, clientwanumber, projectname
+                FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             
             row = cursor.fetchone()
-            
             if not row:
-                return jsonify({
-                    'success': False,
-                    'message': 'Project not found'
-                }), 404
+                return jsonify({'success': False, 'message': 'Project not found'})
             
-            # Extract data
-            project_id = row[0]
-            client_name = row[1] or "Valued Client"
-            whatsapp_number = row[2]  # clientwanumber
-            project_name = row[3] or "Project"
-            deposit_amount = str(row[4]) if row[4] else "0"
-            deposit_date = row[5]
-            total_amount = str(row[6]) if row[6] else "0"
-            project_desc = row[7] or "Construction Project"
-            status = row[8] or "Ongoing"
-
-            # Format WhatsApp number (Kenya format example)
-            whatsapp_number_raw = row[2]
-            if whatsapp_number_raw is None:
-                return jsonify({
-                    'success': False,
-                    'message': 'No WhatsApp number found for this client'
-                })
+            client_name, whatsapp_number, project_name = row
             
-            # Convert to string regardless of type
-            whatsapp_number2 = str(whatsapp_number_raw)
-            whatsapp_number = f"+263{whatsapp_number2}"
+            # Check WhatsApp number
+            if not whatsapp_number:
+                return jsonify({'success': False, 'message': 'No WhatsApp number'})
             
-            # Validate WhatsApp number
-            if not whatsapp_number or whatsapp_number.strip() == '':
-                return jsonify({
-                    'success': False,
-                    'message': 'No WhatsApp number found for this client'
-                })
+            # Format Zimbabwe number (263 prefix)
+            whatsapp_number = str(whatsapp_number).strip()
             
-
+            # Remove any spaces or dashes
+            whatsapp_number = whatsapp_number.replace(' ', '').replace('-', '')
             
-            # Format date
-            if deposit_date:
-                formatted_date = deposit_date.strftime('%d %B %Y')
+            # Check if already has country code
+            if whatsapp_number.startswith('263'):
+                formatted_number = whatsapp_number
+            elif whatsapp_number.startswith('0'):
+                # Remove leading 0, add 263
+                formatted_number = '263' + whatsapp_number[1:]
             else:
-                formatted_date = datetime.now().strftime('%d %B %Y')
+                # Just add 263 prefix
+                formatted_number = '263' + whatsapp_number
             
-            # Generate receipt ID
+            print(f"Sending to: {formatted_number}")
             
-            # Generate download URL for PDF
-            download_url = f"https://connectlink-wbax.onrender.com/download_receipt/{project_id}"
+            # Send template
+            response = send_template(formatted_number, client_name, project_id)
             
-            # Send WhatsApp template message
-            template_response = send_whatsapp_template(
-                to_number=whatsapp_number,
-                template_name="depositreceipt",
-                parameters={
-                    "1": client_name,           # {{1}} in template
-                    "2": project_name,          # {{2}} in template
-                    "3": f"USD {deposit_amount}", # {{3}} in template
-                    "4": formatted_date,        # {{4}} in template
-                    "6": project_id             # {{6}} for URL button
-                },
-                buttons=[
-                    {
-                        "type": "url",
-                        "text": "📄 Download PDF",
-                        "url": download_url
-                    },
-                    {
-                        "type": "quick_reply",
-                        "text": "📋 View Details",
-                        "payload": f"view_details_{project_id}"
-                    },
-                    {
-                        "type": "quick_reply", 
-                        "text": "📞 Contact Support",
-                        "payload": "contact_support"
-                    }
-                ]
-            )
-            
-            if template_response and 'messages' in template_response:
-                # Get message ID for tracking
-                message_id = template_response['messages'][0]['id']
-                
-                
+            if 'messages' in response:
                 return jsonify({
                     'success': True,
-                    'message': f'WhatsApp receipt sent successfully to {client_name}',
-                    'whatsapp_number': whatsapp_number,
-                    'message_id': message_id,
-                    'timestamp': datetime.now().isoformat()
+                    'message': 'WhatsApp template sent'
                 })
             else:
-                error_msg = template_response.get('error', {}).get('message', 'Unknown error')
-                return jsonify({
-                    'success': False,
-                    'message': f'Failed to send WhatsApp message: {error_msg}'
-                })
-            
+                error = response.get('error', {}).get('message', 'Unknown error')
+                return jsonify({'success': False, 'message': f'Error: {error}'})
+                
     except Exception as e:
-        print(f"❌ Error sending WhatsApp receipt: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': f'Server error: {str(e)}'
-        }), 500
+        print(f"Error: {e}")
+        return jsonify({'success': False, 'message': str(e)})
 
 
-def send_whatsapp_template(to_number, template_name, parameters, buttons=None):
-    """Send WhatsApp template message with parameters"""
-    
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+def send_template(to_number, client_name, project_id):
+    """Send the depositreceipt template"""
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}"
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
     }
-
-    # Prepare components
-    components = []
     
-    # Header component
-    components.append({
-        "type": "header",
-        "parameters": [
-            {
-                "type": "text",
-                "text": "DEPOSIT RECEIPT"
-            }
-        ]
-    })
-    
-    # Body component with parameters
-    body_params = []
-    for i in range(1, 6):  # For {{1}} to {{5}}
-        param_key = str(i)
-        if param_key in parameters:
-            body_params.append({
-                "type": "text",
-                "text": parameters[param_key]
-            })
-    
-    components.append({
-        "type": "body",
-        "parameters": body_params
-    })
-    
-    # Add buttons if provided
-    if buttons:
-        button_components = []
-        for button in buttons:
-            if button["type"] == "url":
-                button_components.append({
-                    "type": "url",
-                    "text": button["text"],
-                    "url": button["url"]
-                })
-            elif button["type"] == "quick_reply":
-                button_components.append({
-                    "type": "quick_reply",
-                    "text": button["text"],
-                    "payload": button.get("payload", "")
-                })
-        
-        components.append({
-            "type": "buttons",
-            "buttons": button_components
-        })
-    
-    # Template data
     data = {
         "messaging_product": "whatsapp",
         "to": to_number,
         "type": "template",
         "template": {
-            "name": template_name,
-            "language": {
-                "code": "en"
-            },
-            "components": components
+            "name": "depositreceipt",
+            "language": {"code": "en"},
+            "components": [
+                {
+                    "type": "header",
+                    "parameters": [{"type": "text", "text": "DEPOSIT RECEIPT"}]
+                },
+                {
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": client_name}]
+                },
+                {
+                    "type": "footer",
+                    "text": "ConnectLink Properties"
+                },
+                {
+                    "type": "buttons",
+                    "buttons": [
+                        {
+                            "type": "quick_reply",
+                            "text": "Get Deposit Receipt",
+                            "payload": f"get_receipt_{project_id}"
+                        }
+                    ]
+                }
+            ]
         }
     }
     
-    print(f"📤 Sending WhatsApp template: {json.dumps(data, indent=2)}")
-    
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
-        response_data = response.json()
-        
-        print(f"📥 WhatsApp API Response: {json.dumps(response_data, indent=2)}")
-        
-        if response.status_code == 200:
-            return response_data
-        else:
-            error_msg = response_data.get('error', {}).get('message', 'Unknown error')
-            print(f"❌ WhatsApp API Error {response.status_code}: {error_msg}")
-            return response_data
-            
-    except requests.exceptions.Timeout:
-        print("❌ WhatsApp API request timed out")
-        return {"error": {"message": "Request timeout"}}
+        print(f"WhatsApp response: {response.status_code}")
+        return response.json()
     except Exception as e:
-        print(f"❌ Error calling WhatsApp API: {str(e)}")
+        print(f"Request failed: {e}")
         return {"error": {"message": str(e)}}
-
-
-def check_template_approval(template_name):
-    """Check if template is approved"""
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}"
-    }
-
-    try:
-        response = requests.get(url, headers=headers)
-        templates = response.json().get('data', [])
-        
-        for template in templates:
-            if template['name'] == template_name:
-                return template['status'] == 'APPROVED'
-        
-        return False
-    except Exception as e:
-        print(f"Error checking template: {str(e)}")
-        return False
-
-
-@app.route('/check_whatsapp_status/<project_id>', methods=['GET'])
-def check_whatsapp_status(project_id):
-    """Check WhatsApp delivery status for a receipt"""
-    with get_db() as (cursor, connection):
-        cursor.execute("""
-            SELECT whatsapp_message_id, whatsapp_receipt_sent, 
-                   whatsapp_receipt_sent_date, clientname, clientwanumber
-            FROM connectlinkdatabase 
-            WHERE id = %s
-        """, (project_id,))
-        
-        row = cursor.fetchone()
-        
-        if row:
-            return jsonify({
-                'message_id': row[0],
-                'sent': bool(row[1]),
-                'sent_date': row[2].isoformat() if row[2] else None,
-                'client_name': row[3],
-                'whatsapp_number': row[4]
-            })
-        return jsonify({'error': 'Project not found'}), 404
-
 
 
 @app.route('/download_deposit_receipt/<project_id>')
