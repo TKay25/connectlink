@@ -10084,6 +10084,9 @@ def update_first_installment_date():
 def send_receipt_to_client():
     """Send WhatsApp template with all variables"""
     try:
+
+        debug_template_structure()
+
         project_id = request.form.get('project_id')
         
         with get_db() as (cursor, connection):
@@ -10191,6 +10194,36 @@ def send_receipt_to_client():
     except Exception as e:
         print(f"❌ Error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)})
+
+def debug_template_structure():
+    """Check exact template structure from Meta"""
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/message_templates"
+    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        data = response.json()
+        
+        templates = data.get('data', [])
+        for template in templates:
+            if template['name'] == 'depositreceiptclient':
+                return jsonify({
+                    'template_name': template['name'],
+                    'language': template.get('language'),
+                    'status': template.get('status'),
+                    'category': template.get('category'),
+                    'body': template.get('body'),
+                    'components': template.get('components', []),
+                    'full_template': template  # Show everything
+                })
+        
+        return jsonify({
+            'error': 'Template not found',
+            'available_templates': [t['name'] for t in templates]
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 def send_template_with_variables(to_number, client_name, project_name, deposit_amount, 
                                  deposit_date, project_id, project_description):
