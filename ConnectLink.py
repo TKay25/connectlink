@@ -696,19 +696,10 @@ def webhook():
 
                                                             continue
 
-                                                        elif payload.startswith('deposit_receipt_'):
+                                                        elif payloadtt.startswith('deposit_receipt_'):
                                                                 
-                                                            project_id = payload.replace('deposit_receipt_', '')
+                                                            project_id = payloadtt.replace('deposit_receipt_', '')
                                                             print(f"🎯 Extracted project_id: {project_id}")
-                                                            
-                                                            # Send processing message
-                                                            send_text_message(sender_id, "⏳ Generating your deposit receipt...")
-                                                            
-                                                            # Send PDF via WhatsApp using your pattern
-                                                            send_pdf_via_whatsapp(sender_id, project_id)
-                                                            
-                                                            return jsonify({'status': 'processing', 'project_id': project_id})
-                                                    
 
                                                             def send_pdf_via_whatsapp(recipient_number, project_id):
                                                                 """Send deposit receipt PDF via WhatsApp using your existing pattern"""
@@ -991,6 +982,17 @@ def webhook():
                                                                 except Exception as e:
                                                                     print(f"❌ Text message error: {str(e)}")
                                                                     return None
+
+
+                                                            # Send processing message
+                                                            send_text_message(sender_id, "⏳ Generating your deposit receipt...")
+                                                            
+                                                            # Send PDF via WhatsApp using your pattern
+                                                            send_pdf_via_whatsapp(sender_id, project_id)
+                                                            
+                                                            return jsonify({'status': 'processing', 'project_id': project_id})
+                                                    
+
 
 
                                                     
@@ -3806,7 +3808,8 @@ def webhook():
                                                                 button_id = interactive.get("button_reply", {}).get("id")
                                                                 print(f"🔘 Button clicked: {button_id}")
                                                                 selected_option = ""
-
+                                                                buttontt = message.get('button', {})
+                                                                payloadtt = buttontt.get('payload', '')
 
                                                             elif interactive.get("type") == "nfm_reply":
 
@@ -4100,7 +4103,7 @@ def webhook():
                                                                     footer_text="ConnectLink Properties • Client Panel"
                                                                 )
 
-                                                            elif payload.startswith('deposit_receipt_'):
+                                                            elif payloadtt.startswith('deposit_receipt_'):
                                                                     
                                                                 def send_pdf_via_whatsapp(recipient_number, project_id):
                                                                     """Send deposit receipt PDF via WhatsApp using your existing pattern"""
@@ -4385,7 +4388,7 @@ def webhook():
                                                                         return None
 
 
-                                                                project_id = payload.replace('deposit_receipt_', '')
+                                                                project_id = payloadtt.replace('deposit_receipt_', '')
                                                                 print(f"🎯 Extracted project_id: {project_id}")
                                                                 
                                                                 # Send processing message
