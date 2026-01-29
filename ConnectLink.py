@@ -8611,10 +8611,10 @@ def get_project_start_months():
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT DISTINCT 
-                    EXTRACT(YEAR FROM projectstartdate)::INTEGER as year,
-                    EXTRACT(MONTH FROM projectstartdate)::INTEGER as month
+                    EXTRACT(YEAR FROM datedepositorbullet)::INTEGER as year,
+                    EXTRACT(MONTH FROM datedepositorbullet)::INTEGER as month
                 FROM connectlinkdatabase 
-                WHERE projectstartdate IS NOT NULL
+                WHERE datedepositorbullet IS NOT NULL
                 ORDER BY year DESC, month DESC
             """)
             months = cursor.fetchall()
@@ -8630,7 +8630,7 @@ def get_project_start_months():
             return jsonify(result)
         
     except Exception as e:
-        print(f"Error fetching project start months: {e}")
+        print(f"Error fetching date deposit or bullet months: {e}")
         return jsonify([])
 
 @app.route('/get_due_months')
@@ -8697,7 +8697,7 @@ def get_installments_count():
     """Get counts of installments based on both project start and due month filters"""
     try:
         with get_db() as (cursor, connection):
-            project_start_month = request.args.get('project_start_month')
+            project_start_month = request.args.get('datedepositorbullet')
             due_month = request.args.get('due_month')
             
             # Build base query
@@ -8709,7 +8709,7 @@ def get_installments_count():
             # Add project start month filter
             if project_start_month and project_start_month != 'all':
                 year, month_num = project_start_month.split('-')
-                query += " AND EXTRACT(YEAR FROM projectstartdate) = %s AND EXTRACT(MONTH FROM projectstartdate) = %s"
+                query += " AND EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
                 params.extend([year, month_num])
             
             # Add due month filter
@@ -8775,7 +8775,7 @@ def download_installments():
     
     try:
         with get_db() as (cursor, connection):
-            project_start_month = request.args.get('project_start_month')
+            project_start_month = request.args.get('datedepositorbullet')
             due_month = request.args.get('due_month')
             
             # Parse due month if provided
@@ -8792,7 +8792,7 @@ def download_installments():
             if project_start_month and project_start_month != 'all':
                 year, month_num = project_start_month.split('-')
                 where_clauses.append(
-                    "EXTRACT(YEAR FROM projectstartdate) = %s AND EXTRACT(MONTH FROM projectstartdate) = %s"
+                    "EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
                 )
                 params.extend([year, month_num])
             

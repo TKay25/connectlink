@@ -3400,7 +3400,7 @@ async function updateCounts() {
         const params = new URLSearchParams();
         
         if (projectStartMonth !== 'all') {
-            params.append('project_start_month', projectStartMonth);
+            params.append('datedepositorbullet', projectStartMonth);
         }
         
         if (dueMonth !== 'all') {
@@ -3462,7 +3462,7 @@ document.getElementById('downloadInstallmentsBtn').addEventListener('click', fun
     const params = new URLSearchParams();
     
     if (projectStartMonth !== 'all') {
-        params.append('project_start_month', projectStartMonth);
+        params.append('datedepositorbullet', projectStartMonth);
     }
     
     if (dueMonth !== 'all') {
