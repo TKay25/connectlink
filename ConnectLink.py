@@ -10140,7 +10140,6 @@ def send_receipt_to_client():
         print(f"Error: {e}")
         return jsonify({'success': False, 'message': str(e)})
 
-
 def send_template(to_number, client_name, project_id):
     """Send the depositreceipt template"""
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
@@ -10154,7 +10153,7 @@ def send_template(to_number, client_name, project_id):
         "to": to_number,
         "type": "template",
         "template": {
-            "name": "hello_world",
+            "name": "depositreceipt",
             "language": {"code": "en"},
             "components": [
                 {
@@ -10183,13 +10182,74 @@ def send_template(to_number, client_name, project_id):
         }
     }
     
+    print("=" * 60)
+    print("WHATSAPP REQUEST:")
+    print(f"URL: {url}")
+    print(f"To: {to_number}")
+    print(f"Template: depositreceipt")
+    print(f"Data: {json.dumps(data, indent=2)}")
+    print("=" * 60)
+    
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
-        print(f"WhatsApp response: {response.status_code}")
-        return response.json()
+        
+        print(f"\nWHATSAPP RESPONSE:")
+        print(f"Status Code: {response.status_code}")
+        print(f"Response Headers: {dict(response.headers)}")
+        print(f"Full Response Text:\n{response.text}")
+        print("-" * 60)
+        
+        # Parse JSON response
+        try:
+            result = response.json()
+            print(f"Parsed JSON: {json.dumps(result, indent=2)}")
+            
+            # Show error details if any
+            if 'error' in result:
+                error = result['error']
+                print(f"\n❌ WHATSAPP API ERROR:")
+                print(f"Error Code: {error.get('code')}")
+                print(f"Error Type: {error.get('type')}")
+                print(f"Error Message: {error.get('message')}")
+                print(f"Error Subcode: {error.get('error_subcode')}")
+                print(f"FB Trace ID: {error.get('fbtrace_id')}")
+                
+                # Common WhatsApp errors
+                error_code = error.get('code')
+                if error_code == 131030:
+                    print("\n💡 This means: Template 'depositreceipt' is not approved yet!")
+                elif error_code == 131051:
+                    print("\n💡 This means: Invalid parameter in request")
+                elif error_code == 190:
+                    print("\n💡 This means: Access token expired or invalid")
+                elif error_code == 100:
+                    print("\n💡 This means: Missing required parameter")
+                elif error_code == 368:
+                    print("\n💡 This means: Temporarily blocked")
+                elif error_code == 80007:
+                    print("\n💡 This means: Rate limit exceeded")
+            
+            return result
+            
+        except json.JSONDecodeError as je:
+            print(f"❌ Failed to parse JSON: {je}")
+            print(f"Raw response: {response.text}")
+            return {"error": {"message": f"Invalid JSON: {response.text}"}}
+        
+    except requests.exceptions.Timeout:
+        error_msg = "WhatsApp API timeout after 30 seconds"
+        print(f"❌ {error_msg}")
+        return {"error": {"message": error_msg}}
+        
+    except requests.exceptions.ConnectionError:
+        error_msg = "Cannot connect to WhatsApp API"
+        print(f"❌ {error_msg}")
+        return {"error": {"message": error_msg}}
+        
     except Exception as e:
-        print(f"Request failed: {e}")
-        return {"error": {"message": str(e)}}
+        error_msg = f"Unexpected error: {str(e)}"
+        print(f"❌ {error_msg}")
+        return {"error": {"message": error_msg}}
 
 
 @app.route('/download_deposit_receipt/<project_id>')
