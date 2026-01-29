@@ -1893,9 +1893,11 @@ body::before {
                                             <span id="depositText">Get Receipt</span>
                                             <span id="depositSpinner" class="spinner-border spinner-border-sm d-none"></span>
                                         </button>
-                                        <button class="btn btn-primary w-100" id="sendReceiptBtn">Send Receipt to Client</button>
+                                        <button type="button" class="btn btn-primary w-100" id="sendReceiptBtn">
+                                            <span id="sendReceiptText">Send Receipt to Client</span>
+                                            <span id="sendReceiptSpinner" class="spinner-border spinner-border-sm d-none"></span>
+                                        </button>
                                     </div>
-
                                 </div>
                             </div>
 
@@ -3328,6 +3330,91 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+$(document).ready(function() {
+    // Handle Send Receipt button click
+    $('#sendReceiptBtn').on('click', function() {
+        const projectId = $('#updateProjectId').val();
+        
+        if (!projectId) {
+            showAlert('No project selected!', 'warning');
+            return;
+        }
+        
+        const $btn = $(this);
+        const originalText = $btn.html();
+        
+        // Set loading state
+        $btn.html(`
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            Sending to Client...
+        `);
+        $btn.prop('disabled', true);
+        $btn.addClass('btn-sending');
+        
+        $.ajax({
+            url: '/send_receipt_to_client',
+            type: 'POST',
+            data: {
+                project_id: projectId,
+                csrf_token: $('input[name="csrf_token"]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showAlert('Receipt sent successfully!', 'success');
+                    // Optional: Add a checkmark briefly
+                    $btn.html('<i class="bi bi-check-circle me-2"></i>Sent!');
+                    setTimeout(() => {
+                        $btn.html(originalText);
+                    }, 2000);
+                } else {
+                    showAlert('Error: ' + response.message, 'danger');
+                    $btn.html(originalText);
+                }
+            },
+            error: function(xhr, status, error) {
+                showAlert('Failed to send receipt: ' + error, 'danger');
+                $btn.html(originalText);
+            },
+            complete: function() {
+                $btn.prop('disabled', false);
+                $btn.removeClass('btn-sending');
+                // Ensure original text is restored after timeout
+                setTimeout(() => {
+                    if (!$btn.prop('disabled')) {
+                        $btn.html(originalText);
+                    }
+                }, 100);
+            }
+        });
+    });
+    
+    // Optional: Alert function using Bootstrap Toasts
+    function showAlert(message, type) {
+        // Create toast element
+        const toastId = 'toast-' + Date.now();
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center text-white bg-${type} border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        
+        // Add to container and show
+        $('#toastContainer').append(toastHtml);
+        const toastEl = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+        
+        // Remove after hidden
+        toastEl.addEventListener('hidden.bs.toast', function() {
+            $(this).remove();
+        });
+    }
+});
+</script>
 <script>
     // Load months when modal opens
 document.getElementById('downloadInstallmentsModal').addEventListener('show.bs.modal', function() {
