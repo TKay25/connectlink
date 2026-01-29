@@ -10154,7 +10154,7 @@ def send_template(to_number, client_name, project_id):
         "to": to_number,
         "type": "template",
         "template": {
-            "name": "depositreceipt",
+            "name": "hello_world",
             "language": {"code": "en"},
             "components": [
                 {
