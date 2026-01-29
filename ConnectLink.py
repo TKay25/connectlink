@@ -10085,8 +10085,6 @@ def send_receipt_to_client():
     """Send WhatsApp template with all variables"""
     try:
 
-        debug_template_structure()
-
         project_id = request.form.get('project_id')
         
         with get_db() as (cursor, connection):
@@ -10195,70 +10193,6 @@ def send_receipt_to_client():
         print(f"❌ Error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)})
 
-def debug_template_structure():
-    """Check exact template structure from Meta"""
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/message_templates"
-    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-    
-    print("🔍 Fetching template structure from Meta...")
-    print(f"URL: {url}")
-    
-    try:
-        response = requests.get(url, headers=headers, timeout=30)
-        print(f"Response status: {response.status_code}")
-        
-        data = response.json()
-        print(f"Total templates found: {len(data.get('data', []))}")
-        
-        templates = data.get('data', [])
-        
-        for template in templates:
-            print(f"\n--- Template: {template.get('name')} ---")
-            print(f"Language: {template.get('language')}")
-            print(f"Status: {template.get('status')}")
-            print(f"Category: {template.get('category')}")
-            print(f"Body: {template.get('body')}")
-            
-            components = template.get('components', [])
-            print(f"Number of components: {len(components)}")
-            
-            for i, comp in enumerate(components):
-                print(f"  Component [{i}]:")
-                print(f"    Type: {comp.get('type')}")
-                print(f"    Format: {comp.get('format')}")
-                print(f"    Text: {comp.get('text')}")
-                print(f"    Button type: {comp.get('button_type')}")
-                print(f"    Button text: {comp.get('text')}")
-                print(f"    Example: {comp.get('example', {}).get('body_text')}")
-                print(f"    Full: {json.dumps(comp, indent=4)}")
-            
-            print("-" * 50)
-            
-            if template['name'] == 'depositreceiptclient':
-                print("\n✅ FOUND depositreceiptclient template!")
-                print(f"Full template structure:\n{json.dumps(template, indent=2)}")
-                
-                return jsonify({
-                    'template_name': template['name'],
-                    'language': template.get('language'),
-                    'status': template.get('status'),
-                    'category': template.get('category'),
-                    'body': template.get('body'),
-                    'components': template.get('components', []),
-                    'full_template': template  # Show everything
-                })
-        
-        print("❌ Template 'depositreceiptclient' not found!")
-        print(f"Available templates: {[t['name'] for t in templates]}")
-        
-        return jsonify({
-            'error': 'Template not found',
-            'available_templates': [t['name'] for t in templates]
-        })
-        
-    except Exception as e:
-        print(f"❌ Error: {str(e)}")
-        return jsonify({'error': str(e)})
     
 def send_template_with_variables(to_number, client_name, project_name, deposit_amount, 
                                  deposit_date, project_id, project_description):
@@ -10303,8 +10237,8 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
                 },
                 # Component [2] - Footer
                 {
-                    "type": "footer",
-                    "text": "ConnectLink Properties"  # Must match exactly
+                    "type": "footer", 
+                    "text": "ConnectLink Properties o Client Panel"  # From your screenshot
                 },
                 # Component [3] - Button
                 {
