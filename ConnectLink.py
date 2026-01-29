@@ -10122,14 +10122,7 @@ def send_receipt_to_client():
             total_amount = str(row[6]) if row[6] else "0"
             project_desc = row[7] or "Construction Project"
             status = row[8] or "Ongoing"
-            
-            # Validate WhatsApp number
-            if not whatsapp_number or whatsapp_number.strip() == '':
-                return jsonify({
-                    'success': False,
-                    'message': 'No WhatsApp number found for this client'
-                })
-            
+
             # Format WhatsApp number (Kenya format example)
             whatsapp_number_raw = row[2]
             if whatsapp_number_raw is None:
@@ -10141,6 +10134,15 @@ def send_receipt_to_client():
             # Convert to string regardless of type
             whatsapp_number2 = str(whatsapp_number_raw)
             whatsapp_number = f"+263{whatsapp_number2}"
+            
+            # Validate WhatsApp number
+            if not whatsapp_number or whatsapp_number.strip() == '':
+                return jsonify({
+                    'success': False,
+                    'message': 'No WhatsApp number found for this client'
+                })
+            
+
             
             # Format date
             if deposit_date:
