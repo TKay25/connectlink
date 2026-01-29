@@ -5575,8 +5575,13 @@ $('#addNoteBtn').click(function() {
 <script>
 $(document).ready(function() {
 
+
+
     // Handle Update button click
     $(document).on('click', '.update-project-btn', function () {
+
+
+
         // Get the table row that contains this button
         const $row = $(this).closest('tr');
         const table = window.dataTable;
@@ -5631,7 +5636,6 @@ $(document).ready(function() {
         $('#updateProjectId').val(id);
         $('#updateClientName').val(clientName);
         $('#updateProjectName').val(projectName);
-        $('#updateProjectStartDate').val(projectStartDateref);
         $('#updateAdminName').val(adminName);
         $('#updateTotalContractAmount').val(totalcontractamount);
         $('#updateMonthsToPay').val(monthstopay);
@@ -5657,7 +5661,34 @@ $(document).ready(function() {
         $('#updateInstallment6Amount').val(installment6Amount);
         $('#updateInstallment6DueDate').val(installment6DueDate);
         $('#updateInstallment6Date').val(installment6Date);
-        
+                
+        function formatDateFromText(dateText) {
+            if (!dateText || dateText === 'None' || dateText === 'null') return '';
+            
+            // Handle "20 January 2026" format
+            var months = {
+                'january': '01', 'february': '02', 'march': '03', 'april': '04',
+                'may': '05', 'june': '06', 'july': '07', 'august': '08',
+                'september': '09', 'october': '10', 'november': '11', 'december': '12'
+            };
+            
+            // Convert to lowercase and split
+            var parts = dateText.toLowerCase().split(' ');
+            
+            if (parts.length === 3) {
+                var day = parts[0].padStart(2, '0');
+                var month = months[parts[1]] || '01'; // Default to January if month not found
+                var year = parts[2];
+                
+                // Return in DD/MM/YYYY format
+                return day + '/' + month + '/' + year;
+            }
+            
+            // If already in some other format, try to handle it
+            return dateText;
+        }
+
+        $('#updateProjectStartDate').val(formatDateFromText(projectStartDateref));
         // Show the modal
         $('#updateModal').modal('show');
     });
