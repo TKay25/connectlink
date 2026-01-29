@@ -10151,7 +10151,6 @@ def send_receipt_to_client():
                 formatted_date = datetime.now().strftime('%d %B %Y')
             
             # Generate receipt ID
-            receipt_id = f"CLP-{project_id.zfill(6)}"
             
             # Generate download URL for PDF
             download_url = f"https://connectlink-wbax.onrender.com/download_receipt/{project_id}"
@@ -10165,7 +10164,6 @@ def send_receipt_to_client():
                     "2": project_name,          # {{2}} in template
                     "3": f"USD {deposit_amount}", # {{3}} in template
                     "4": formatted_date,        # {{4}} in template
-                    "5": receipt_id,            # {{5}} in template
                     "6": project_id             # {{6}} for URL button
                 },
                 buttons=[
@@ -10191,23 +10189,11 @@ def send_receipt_to_client():
                 # Get message ID for tracking
                 message_id = template_response['messages'][0]['id']
                 
-                # Update database
-                cursor.execute("""
-                    UPDATE connectlinkdatabase 
-                    SET whatsapp_receipt_sent = TRUE,
-                        whatsapp_receipt_sent_date = NOW(),
-                        whatsapp_message_id = %s,
-                        receipt_id = %s,
-                        last_receipt_sent = NOW()
-                    WHERE id = %s
-                """, (message_id, receipt_id, project_id))
-                connection.commit()
                 
                 return jsonify({
                     'success': True,
                     'message': f'WhatsApp receipt sent successfully to {client_name}',
                     'whatsapp_number': whatsapp_number,
-                    'receipt_id': receipt_id,
                     'message_id': message_id,
                     'timestamp': datetime.now().isoformat()
                 })
