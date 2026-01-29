@@ -3515,9 +3515,6 @@ def webhook():
                                                                     
                                                                     print(f"✅ PDF sent successfully!")
                                                                     
-                                                                    # Send confirmation
-                                                                    send_text_message(recipient_number, "✅ Deposit receipt sent!")
-                                                                    
                                                                     return True
                                                                     
                                                                 except Exception as e:
@@ -5564,9 +5561,6 @@ def webhook():
                                                                         response.raise_for_status()
                                                                         
                                                                         print(f"✅ PDF sent successfully!")
-                                                                        
-                                                                        # Send confirmation
-                                                                        send_text_message(recipient_number, "✅ Deposit receipt sent!")
                                                                         
                                                                         
                                                                         return True
