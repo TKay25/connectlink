@@ -10221,20 +10221,21 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
                         },  # Maps to {{client_name}}
                         {
                             "type": "text", 
-                            "text": project_name
-                        },  # Maps to {{project_name}}
-                        {
-                            "type": "text", 
-                            "text": project_description
-                        },  # Maps to {{project_description}}
-                        {
-                            "type": "text", 
                             "text": deposit_amount
                         },  # Maps to {{deposit_amount}}
                         {
                             "type": "text", 
                             "text": deposit_date
-                        }  # Maps to {{receipt_id}}
+                        },  # Maps to {{receipt_id}}
+                        {
+                            "type": "text", 
+                            "text": project_name
+                        },  # Maps to {{project_name}}
+                        {
+                            "type": "text", 
+                            "text": project_description
+                        }  # Maps to {{project_description}}
+
                     ]
                 },
                 # Button with payload
