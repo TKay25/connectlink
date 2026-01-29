@@ -10113,14 +10113,14 @@ def send_receipt_to_client():
             whatsapp_number = whatsapp_number.replace(' ', '').replace('-', '')
             
             # Check if already has country code
-            if whatsapp_number.startswith('263'):
+            if whatsapp_number.startswith('+263'):
                 formatted_number = whatsapp_number
             elif whatsapp_number.startswith('0'):
                 # Remove leading 0, add 263
-                formatted_number = '263' + whatsapp_number[1:]
+                formatted_number = '+263' + whatsapp_number[1:]
             else:
                 # Just add 263 prefix
-                formatted_number = '263' + whatsapp_number
+                formatted_number = '+263' + whatsapp_number
             
             print(f"Sending to: {formatted_number}")
             
