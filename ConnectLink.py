@@ -7672,7 +7672,7 @@ def get_filtered_projects(month_filter):
                 # Filter by month/year
                 query = """
                     SELECT * FROM connectlinkdatabase 
-                    WHERE TO_CHAR(projectstartdate, 'YYYY-MM') = %s
+                    WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s
                     ORDER BY id ASC
                 """
                 cursor.execute(query, (month_filter,))
@@ -7695,12 +7695,12 @@ def get_filtered_projects(month_filter):
             # Convert to DataFrame with ALL columns
             datamain = pd.DataFrame(projects, columns=columns)
 
-            datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate'])
-            datamain['momid'] = datamain.groupby(datamain['projectstartdate'].dt.strftime('%Y-%m'))['projectstartdate'].rank(method='first', ascending=True).astype(int)
+            datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
+            datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
 
             # Format date column for display
-            if 'projectstartdate' in datamain.columns:
-                datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+            if 'datedepositorbullet' in datamain.columns:
+                datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet']).dt.strftime('%d %B %Y')
             
             # Add Action column (same as in your run1 function)
             datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{row['id']}" class="btn btn-primary3 download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button><button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary3 update-project-btn">Update</button></div>''', axis=1)
