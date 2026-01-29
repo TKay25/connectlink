@@ -9504,6 +9504,7 @@ def update_project():
 
     with get_db() as (cursor, connection):
 
+        clientname = request.form.get('ClientName')
         project_id = request.form.get('project_id')
         completion_status = request.form.get('completion_status')
         project_name = request.form.get('ProjectName')
@@ -9596,6 +9597,7 @@ def update_project():
         query = """
             UPDATE connectlinkdatabase
             SET 
+                clientname = %s,
                 projectcompletionstatus = %s,
                 totalcontractamount = %s,
                 depositorbullet = %s,
@@ -9625,6 +9627,7 @@ def update_project():
         """
         
         values = (
+            clientname,
             completion_status,
             contractamount,
             depositpaid,
