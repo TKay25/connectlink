@@ -10083,7 +10083,7 @@ def update_first_installment_date():
 
 @app.route('/send_receipt_to_client', methods=['POST'])
 def send_receipt_to_client():
-    """Send WhatsApp template with NO variables"""
+    """Send WhatsApp template with button containing project_id"""
     try:
         project_id = request.form.get('project_id')
         
@@ -10106,14 +10106,15 @@ def send_receipt_to_client():
                 formatted_number = '263' + whatsapp_number
             
             print(f"📤 Sending to: {formatted_number}")
+            print(f"📤 Button payload: deposit_receipt_{project_id}")
             
-            # ✅ HERE IS THE FUNCTION CALL:
-            response = send_template_no_variables(formatted_number, project_id)
+            # Send template with button
+            response = send_template_with_button(formatted_number, project_id)
             
             if 'messages' in response:
                 return jsonify({
                     'success': True, 
-                    'message': 'WhatsApp template sent (no variables)'
+                    'message': f'WhatsApp sent with button (payload: deposit_receipt_{project_id})'
                 })
             else:
                 error_msg = response.get('error', {}).get('message', 'Unknown error')
@@ -10126,9 +10127,8 @@ def send_receipt_to_client():
         print(f"❌ Error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)})
 
-
-def send_template_no_variables(to_number, project_id):
-    """Send template with NO variables/components at all"""
+def send_template_with_button(to_number, project_id):
+    """Send template with button containing project_id in payload"""
     
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
@@ -10136,21 +10136,31 @@ def send_template_no_variables(to_number, project_id):
         "Content-Type": "application/json"
     }
     
-    # SIMPLEST: Just template name and language
     data = {
         "messaging_product": "whatsapp",
         "to": to_number,
         "type": "template",
         "template": {
             "name": "depreceipt",
-            "language": {"code": "en"}
-            # NO components array at all
+            "language": {"code": "en"},
+            "components": [
+                # Button component with project_id in payload
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "0",
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": f"deposit_receipt_{project_id}"
+                        }
+                    ]
+                }
+            ]
         }
     }
     
-    print(f"📤 Sending template with NO variables/components")
-    print(f"📤 Template: depreceipt")
-    print(f"📤 Language: fr")
+    print(f"📤 Sending template with button payload: deposit_receipt_{project_id}")
     
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
@@ -10160,32 +10170,6 @@ def send_template_no_variables(to_number, project_id):
     except Exception as e:
         print(f"❌ Error: {e}")
         return {"error": {"message": str(e)}}
-
-
-# Optional fallback function
-def send_text_message(to_number, text):
-    """Send simple text message"""
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    
-    data = {
-        "messaging_product": "whatsapp",
-        "to": to_number,
-        "type": "text",
-        "text": {"body": text}
-    }
-    
-    try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        return response.json()
-    except Exception as e:
-        return {"error": {"message": str(e)}}
-
-
-
 
 
 
