@@ -10235,11 +10235,6 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
                         {"type": "text", "text": project_description}  # {{project_description}}
                     ]
                 },
-                # Component [2] - Footer
-                {
-                    "type": "footer", 
-                    "text": "ConnectLink Properties o Client Panel"  # From your screenshot
-                },
                 # Component [3] - Button
                 {
                     "type": "button",
