@@ -10131,12 +10131,16 @@ def send_receipt_to_client():
                 })
             
             # Format WhatsApp number (Kenya format example)
-            whatsapp_number = f"+263{whatsapp_number}"
-            if not whatsapp_number:
+            whatsapp_number_raw = row[2]
+            if whatsapp_number_raw is None:
                 return jsonify({
                     'success': False,
-                    'message': 'Invalid WhatsApp number format'
+                    'message': 'No WhatsApp number found for this client'
                 })
+            
+            # Convert to string regardless of type
+            whatsapp_number2 = str(whatsapp_number_raw)
+            whatsapp_number = f"+263{whatsapp_number2}"
             
             # Format date
             if deposit_date:
