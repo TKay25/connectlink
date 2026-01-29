@@ -241,7 +241,7 @@ body::before {
 .card {
     border-radius: 12px;
     box-shadow: 0 20px 40px rgba(30, 42, 86, 0.15); /* Same shadow as login */
-    padding: 20px;
+    padding: 10px;
     margin-top: 20px;
     background-color: #ffffff;
     animation: fadeIn 0.5s ease;
@@ -3101,7 +3101,7 @@ body::before {
                             
                         </div>
 
-                        <div class="container2 mainalldata" style="max-height: 360px; overflow-y: auto;">
+                        <div class="container2 mainalldata" style="max-height: 400px; overflow-y: auto;">
                             {{ table_datamain_html |safe }}
                         </div>
                     </div>
@@ -3637,7 +3637,7 @@ document.getElementById('downloadBtn').addEventListener('click', function() {
     const isAll = selectedValue === 'all';
     
     // Build download URL
-    let downloadUrl = '/download_portfolio';
+    let downloadUrl = '/t';
     
     if (!isAll) {
         downloadUrl += `?month=${selectedValue}`;
