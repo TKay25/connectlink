@@ -633,6 +633,8 @@ def webhook():
                                                             button_id = interactive.get("button_reply", {}).get("id")
                                                             print(f"🔘 Button clicked: {button_id}")
                                                             selected_option = ""
+                                                            buttontt = message.get('button', {})
+                                                            payloadtt = buttontt.get('payload', '')
 
 
                                                         elif interactive.get("type") == "nfm_reply":
@@ -693,6 +695,305 @@ def webhook():
                                                             )
 
                                                             continue
+
+                                                        elif payload.startswith('deposit_receipt_'):
+                                                                
+                                                            project_id = payload.replace('deposit_receipt_', '')
+                                                            print(f"🎯 Extracted project_id: {project_id}")
+                                                            
+                                                            # Send processing message
+                                                            send_text_message(sender_id, "⏳ Generating your deposit receipt...")
+                                                            
+                                                            # Send PDF via WhatsApp using your pattern
+                                                            send_pdf_via_whatsapp(sender_id, project_id)
+                                                            
+                                                            return jsonify({'status': 'processing', 'project_id': project_id})
+                                                    
+
+                                                            def send_pdf_via_whatsapp(recipient_number, project_id):
+                                                                """Send deposit receipt PDF via WhatsApp using your existing pattern"""
+                                                                try:
+                                                                    import io
+                                                                    
+                                                                    # Generate PDF first
+                                                                    pdf_bytes = generate_deposit_pdf(project_id)
+                                                                    if not pdf_bytes:
+                                                                        print(f"❌ Failed to generate PDF for project {project_id}")
+                                                                        send_text_message(recipient_number, "❌ Error generating receipt. Please contact support.")
+                                                                        return False
+                                                                    
+                                                                    # Get project details for filename and caption
+                                                                    with get_db() as (cursor, connection):
+                                                                        cursor.execute("""
+                                                                            SELECT clientname, projectname, depositorbullet 
+                                                                            FROM connectlinkdatabase WHERE id = %s
+                                                                        """, (project_id,))
+                                                                        row = cursor.fetchone()
+                                                                        
+                                                                        if row:
+                                                                            client_name, project_name, deposit_amount = row
+                                                                            filename = f"Deposit_Receipt_{client_name}_{project_id}.pdf"
+                                                                            caption = f"""📄 *DEPOSIT RECEIPT*
+
+                                                                            Client: {client_name}
+                                                                            Project: {project_name}
+                                                                            Amount: USD {deposit_amount if deposit_amount else '0'}
+                                                                            Date: {datetime.now().strftime('%d %B %Y')}
+
+                                                                            ConnectLink Properties"""
+                                                                        else:
+                                                                            filename = f"Deposit_Receipt_{project_id}.pdf"
+                                                                            caption = f"📄 Deposit Receipt - Project {project_id}"
+                                                                    
+                                                                    print(f"📤 Uploading PDF to WhatsApp...")
+                                                                    
+                                                                    # Upload to WhatsApp (using your pattern)
+                                                                    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+                                                                    headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}"
+                                                                    }
+                                                                    
+                                                                    files = {
+                                                                        "file": (filename, io.BytesIO(pdf_bytes), "application/pdf"),
+                                                                        "type": (None, "application/pdf"),
+                                                                        "messaging_product": (None, "whatsapp")
+                                                                    }
+                                                                    
+                                                                    response = requests.post(url, headers=headers, files=files, timeout=30)
+                                                                    response.raise_for_status()
+                                                                    media_id = response.json()["id"]
+                                                                    
+                                                                    print(f"✅ Media uploaded, ID: {media_id}")
+                                                                    
+                                                                    # Send PDF
+                                                                    doc_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                    doc_headers = {
+                                                                        "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                        "Content-Type": "application/json"
+                                                                    }
+                                                                    
+                                                                    doc_payload = {
+                                                                        "messaging_product": "whatsapp",
+                                                                        "to": recipient_number,
+                                                                        "type": "document",
+                                                                        "document": {
+                                                                            "id": media_id,
+                                                                            "filename": filename,
+                                                                            "caption": caption
+                                                                        }
+                                                                    }
+                                                                    
+                                                                    print(f"📤 Sending document to {recipient_number}...")
+                                                                    response = requests.post(doc_url, headers=doc_headers, json=doc_payload, timeout=30)
+                                                                    response.raise_for_status()
+                                                                    
+                                                                    print(f"✅ PDF sent successfully!")
+                                                                    
+                                                                    # Send confirmation
+                                                                    send_text_message(recipient_number, "✅ Deposit receipt sent! Check your WhatsApp documents.")
+                                                                    
+                                                                    # Update database
+                                                                    with get_db() as (cursor, connection):
+                                                                        cursor.execute("""
+                                                                            UPDATE connectlinkdatabase 
+                                                                            SET pdf_receipt_sent = TRUE,
+                                                                                pdf_receipt_sent_date = NOW(),
+                                                                                receipt_download_count = COALESCE(receipt_download_count, 0) + 1
+                                                                            WHERE id = %s
+                                                                        """, (project_id,))
+                                                                        connection.commit()
+                                                                    
+                                                                    return True
+                                                                    
+                                                                except Exception as e:
+                                                                    print(f"❌ Error sending PDF: {e}")
+                                                                    send_text_message(recipient_number, "❌ Failed to send receipt. Please try again or contact support.")
+                                                                    return False
+
+
+                                                            def generate_deposit_pdf(project_id):
+                                                                """Generate deposit receipt PDF using your existing function"""
+                                                                try:
+                                                                    with get_db() as (cursor, connection):
+                                                                        # Fetch project info
+                                                                        cursor.execute("""
+                                                                            SELECT id, clientname, clientaddress, clientwanumber, clientemail,
+                                                                                projectname, projectlocation, projectdescription, 
+                                                                                projectadministratorname, depositorbullet, datedepositorbullet  
+                                                                            FROM connectlinkdatabase WHERE id = %s
+                                                                        """, (project_id,))
+                                                                        
+                                                                        row = cursor.fetchone()
+                                                                        if not row:
+                                                                            return None
+
+                                                                        # Fetch company info
+                                                                        cursor.execute("SELECT * FROM connectlinkdetails;")
+                                                                        details = cursor.fetchall()
+                                                                        company = details[0] if details else {}
+
+                                                                        # Get logo
+                                                                        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+                                                                        with open(logo_path, 'rb') as img:
+                                                                            logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+
+                                                                        # HTML template (using your existing template)
+                                                                        html = f"""
+                                                                        <!DOCTYPE html>
+                                                                        <html lang="en">
+                                                                        <head>
+                                                                            <meta charset="UTF-8">
+                                                                            <style>
+                                                                                @page {{
+                                                                                    size: A5;
+                                                                                    margin: 10mm 7mm;
+                                                                                }}
+
+                                                                                body {{
+                                                                                    font-family: 'Arial', sans-serif;
+                                                                                    color: #1E2A56;
+                                                                                    line-height: 1.5;
+                                                                                    margin: 0;
+                                                                                    position: relative;
+                                                                                }}
+
+                                                                                /* Watermark on top */
+                                                                                .watermark {{
+                                                                                    position: absolute;
+                                                                                    top: 50%;
+                                                                                    left: 50%;
+                                                                                    transform: translate(-50%, -50%) rotate(-30deg);
+                                                                                    font-size: 80px;
+                                                                                    color: rgba(200, 200, 200, 0.2);
+                                                                                    z-index: 9999;
+                                                                                    pointer-events: none;
+                                                                                    white-space: nowrap;
+                                                                                }}
+
+                                                                                .header {{
+                                                                                    text-align: center;
+                                                                                    margin-bottom: 25px;
+                                                                                    position: relative;
+                                                                                    z-index: 1;
+                                                                                }}
+                                                                                .logo {{
+                                                                                    width: 150px;
+                                                                                    margin-bottom: 10px;
+                                                                                }}
+                                                                                h5 {{
+                                                                                    font-size: 16px;
+                                                                                    margin: 5px 0;
+                                                                                    font-weight: 800;
+                                                                                }}
+
+                                                                                .section-title {{
+                                                                                    font-size: 16px;
+                                                                                    margin-top: 25px;
+                                                                                    margin-bottom: 8px;
+                                                                                    border-bottom: 2px solid #1E2A56;
+                                                                                    font-weight: 800;
+                                                                                    position: relative;
+                                                                                    z-index: 1;
+                                                                                }}
+
+                                                                                .info-box {{
+                                                                                    padding: 15px;
+                                                                                    border: 1px solid #d3d6e4;
+                                                                                    border-radius: 8px;
+                                                                                    background: #f4f6fb;
+                                                                                    margin-bottom: 15px;
+                                                                                    box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+                                                                                    position: relative;
+                                                                                    z-index: 1;
+                                                                                }}
+
+                                                                                .info-box p {{
+                                                                                    margin: 5px 0;
+                                                                                    font-size: 14px;
+                                                                                }}
+
+                                                                                .footer {{
+                                                                                    margin-top: 30px;
+                                                                                    text-align: right;
+                                                                                    font-size: 12px;
+                                                                                    color: #666;
+                                                                                    position: relative;
+                                                                                    z-index: 1;
+                                                                                }}
+                                                                            </style>
+                                                                        </head>
+                                                                        <body>
+
+                                                                            <div class="watermark">DEPOSIT</div>
+
+                                                                            <div class="header">
+                                                                                <img src="data:image/png;base64,{logo_base64}" class="logo">
+                                                                                <h5>Deposit Receipt</h5>
+                                                                            </div>
+
+                                                                            <div class="section-title">Client Information</div>
+                                                                            <div class="info-box">
+                                                                                <p><strong>Name:</strong> {row[1]}</p>
+                                                                                <p><strong>Address:</strong> {row[2]}</p>
+                                                                                <p><strong>Contact:</strong> 0{row[3]}</p>
+                                                                                <p><strong>Email:</strong> {row[4]}</p>
+                                                                            </div>
+
+                                                                            <div class="section-title">Project Information</div>
+                                                                            <div class="info-box">
+                                                                                <p><strong>Project Name:</strong> {row[5]}</p>
+                                                                                <p><strong>Location:</strong> {row[6]}</p>
+                                                                                <p><strong>Project Scope:</strong> {row[7]}</p>
+                                                                                <p><strong>Administrator:</strong> {row[8]}</p>
+                                                                            </div>
+
+                                                                            <div class="section-title">Deposit Details</div>
+                                                                            <div class="info-box">
+                                                                                <p><strong>Deposit Paid:</strong> USD {row[9] if row[9] else '—'}</p>
+                                                                                <p><strong>Date Paid:</strong> {row[10].strftime('%d %B %Y') if row[10] else '—'}</p>
+                                                                            </div>
+
+                                                                        </body>
+                                                                        </html>
+                                                                        """
+
+                                                                        # Generate PDF using WeasyPrint
+                                                                        pdf = HTML(string=html).write_pdf()
+                                                                        return pdf
+                                                                        
+                                                                except Exception as e:
+                                                                    print(f"❌ PDF generation error: {str(e)}")
+                                                                    return None
+
+
+                                                            def send_text_message(to_number, text):
+                                                                """Send simple text message via WhatsApp"""
+                                                                url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                
+                                                                headers = {
+                                                                    'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                    'Content-Type': 'application/json'
+                                                                }
+                                                                
+                                                                data = {
+                                                                    "messaging_product": "whatsapp",
+                                                                    "recipient_type": "individual",
+                                                                    "to": to_number,
+                                                                    "type": "text",
+                                                                    "text": {
+                                                                        "body": text
+                                                                    }
+                                                                }
+                                                                
+                                                                try:
+                                                                    response = requests.post(url, headers=headers, json=data, timeout=30)
+                                                                    return response.json()
+                                                                except Exception as e:
+                                                                    print(f"❌ Text message error: {str(e)}")
+                                                                    return None
+
+
+                                                    
 
                                                         elif selected_option == "getportfolio":
 
