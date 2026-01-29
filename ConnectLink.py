@@ -10080,68 +10080,59 @@ def update_first_installment_date():
         print("Error updating first installment date:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
-@app.route('/send_receipt_to_client', methods=['POST'])
 def send_receipt_to_client():
-    """Send WhatsApp template with button"""
+    """Send WhatsApp message"""
     try:
         project_id = request.form.get('project_id')
         
-        if not project_id:
-            return jsonify({'success': False, 'message': 'No project ID'})
-        
         with get_db() as (cursor, connection):
-            # Get client info
             cursor.execute("""
-                SELECT clientname, clientwanumber, projectname
+                SELECT clientname, clientwanumber, projectname, depositorbullet
                 FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             
             row = cursor.fetchone()
-            if not row:
-                return jsonify({'success': False, 'message': 'Project not found'})
+            client_name, whatsapp_number, project_name, deposit_amount = row
             
-            client_name, whatsapp_number, project_name = row
-            
-            # Check WhatsApp number
-            if not whatsapp_number:
-                return jsonify({'success': False, 'message': 'No WhatsApp number'})
-            
-            # Format Zimbabwe number (263 prefix)
+            # Format number
             whatsapp_number = str(whatsapp_number).strip()
+            whatsapp_number = ''.join(filter(str.isdigit, whatsapp_number))
             
-            # Remove any spaces or dashes
-            whatsapp_number = whatsapp_number.replace(' ', '').replace('-', '')
-            
-            # Check if already has country code
-            if whatsapp_number.startswith('+263'):
-                formatted_number = whatsapp_number
-            elif whatsapp_number.startswith('0'):
-                # Remove leading 0, add 263
-                formatted_number = '+263' + whatsapp_number[1:]
+            if whatsapp_number.startswith('0'):
+                formatted_number = '263' + whatsapp_number[1:]
             else:
-                # Just add 263 prefix
-                formatted_number = '+263' + whatsapp_number
+                formatted_number = '263' + whatsapp_number
             
-            print(f"Sending to: {formatted_number}")
+            # OPTION 1: Try simple template (no parameters)
+            template_response = send_simple_template(formatted_number)
             
-            # Send template
-            response = send_template(formatted_number, client_name, project_id)
-            
-            if 'messages' in response:
-                return jsonify({
-                    'success': True,
-                    'message': 'WhatsApp template sent'
-                })
+            if 'messages' in template_response:
+                return jsonify({'success': True, 'message': 'Template sent'})
             else:
-                error = response.get('error', {}).get('message', 'Unknown error')
-                return jsonify({'success': False, 'message': f'Error: {error}'})
+                # OPTION 2: Send text message instead
+                message = f"""Hello {client_name}
+
+Your deposit receipt for '{project_name}' is ready.
+
+Amount: USD {deposit_amount}
+
+Download link: https://yourdomain.com/receipt/{project_id}
+
+ConnectLink Properties"""
+                
+                text_response = send_text_message(formatted_number, message)
+                
+                if 'messages' in text_response:
+                    return jsonify({'success': True, 'message': 'Text message sent'})
+                else:
+                    return jsonify({'success': False, 'message': 'Both failed'})
                 
     except Exception as e:
-        print(f"Error: {e}")
         return jsonify({'success': False, 'message': str(e)})
 
-def send_template(to_number, client_name, project_id):
-    """Send the depositreceipt template"""
+
+def send_simple_template(to_number):
+    """Send template without any parameters"""
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -10154,103 +10145,31 @@ def send_template(to_number, client_name, project_id):
         "type": "template",
         "template": {
             "name": "depositreceipt",
-            "language": {"code": "en"},
-            "components": [
-                {
-                    "type": "header",
-                    "parameters": [{"type": "text", "text": "DEPOSIT RECEIPT"}]
-                },
-                {
-                    "type": "body",
-                    "parameters": [{"type": "text", "text": client_name}]
-                },
-                {
-                    "type": "footer",
-                    "text": "ConnectLink Properties"
-                },
-                {
-                    "type": "buttons",
-                    "buttons": [
-                        {
-                            "type": "quick_reply",
-                            "text": "Get Deposit Receipt",
-                            "payload": f"get_receipt_{project_id}"
-                        }
-                    ]
-                }
-            ]
+            "language": {"code": "en"}
         }
     }
     
-    print("=" * 60)
-    print("WHATSAPP REQUEST:")
-    print(f"URL: {url}")
-    print(f"To: {to_number}")
-    print(f"Template: depositreceipt")
-    print(f"Data: {json.dumps(data, indent=2)}")
-    print("=" * 60)
-    
-    try:
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        
-        print(f"\nWHATSAPP RESPONSE:")
-        print(f"Status Code: {response.status_code}")
-        print(f"Response Headers: {dict(response.headers)}")
-        print(f"Full Response Text:\n{response.text}")
-        print("-" * 60)
-        
-        # Parse JSON response
-        try:
-            result = response.json()
-            print(f"Parsed JSON: {json.dumps(result, indent=2)}")
-            
-            # Show error details if any
-            if 'error' in result:
-                error = result['error']
-                print(f"\n❌ WHATSAPP API ERROR:")
-                print(f"Error Code: {error.get('code')}")
-                print(f"Error Type: {error.get('type')}")
-                print(f"Error Message: {error.get('message')}")
-                print(f"Error Subcode: {error.get('error_subcode')}")
-                print(f"FB Trace ID: {error.get('fbtrace_id')}")
-                
-                # Common WhatsApp errors
-                error_code = error.get('code')
-                if error_code == 131030:
-                    print("\n💡 This means: Template 'depositreceipt' is not approved yet!")
-                elif error_code == 131051:
-                    print("\n💡 This means: Invalid parameter in request")
-                elif error_code == 190:
-                    print("\n💡 This means: Access token expired or invalid")
-                elif error_code == 100:
-                    print("\n💡 This means: Missing required parameter")
-                elif error_code == 368:
-                    print("\n💡 This means: Temporarily blocked")
-                elif error_code == 80007:
-                    print("\n💡 This means: Rate limit exceeded")
-            
-            return result
-            
-        except json.JSONDecodeError as je:
-            print(f"❌ Failed to parse JSON: {je}")
-            print(f"Raw response: {response.text}")
-            return {"error": {"message": f"Invalid JSON: {response.text}"}}
-        
-    except requests.exceptions.Timeout:
-        error_msg = "WhatsApp API timeout after 30 seconds"
-        print(f"❌ {error_msg}")
-        return {"error": {"message": error_msg}}
-        
-    except requests.exceptions.ConnectionError:
-        error_msg = "Cannot connect to WhatsApp API"
-        print(f"❌ {error_msg}")
-        return {"error": {"message": error_msg}}
-        
-    except Exception as e:
-        error_msg = f"Unexpected error: {str(e)}"
-        print(f"❌ {error_msg}")
-        return {"error": {"message": error_msg}}
+    response = requests.post(url, headers=headers, json=data, timeout=30)
+    return response.json()
 
+
+def send_text_message(to_number, text):
+    """Send simple text message"""
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    data = {
+        "messaging_product": "whatsapp",
+        "to": to_number,
+        "type": "text",
+        "text": {"body": text}
+    }
+    
+    response = requests.post(url, headers=headers, json=data, timeout=30)
+    return response.json()
 
 @app.route('/download_deposit_receipt/<project_id>')
 def download_deposit_receipt(project_id):
