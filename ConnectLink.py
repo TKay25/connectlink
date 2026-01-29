@@ -10223,7 +10223,7 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
                     ]
                 },
                 # Button with payload
-                {
+                '''{
                     "type": "button",
                     "sub_type": "quick_reply",
                     "index": "0",
@@ -10233,7 +10233,7 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
                             "payload": f"deposit_receipt_{project_id}"
                         }
                     ]
-                }
+                }'''
             ]
         }
     }
