@@ -10207,7 +10207,7 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
         "type": "template",
         "template": {
             "name": "depositreceiptclient",
-            "language": {"code": "en"},
+            "language": {"code": "fr"},
             "components": [
                 {
                     "type": "body",
