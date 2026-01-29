@@ -7911,13 +7911,13 @@ def run1(userid):
         
         cursor.execute("""
             SELECT DISTINCT 
-                TO_CHAR(projectstartdate, 'Mon-YYYY') as month_display,
-                TO_CHAR(projectstartdate, 'YYYY-MM') as month_value,
-                MAX(projectstartdate) as max_date
+                TO_CHAR(datedepositorbullet, 'Mon-YYYY') as month_display,
+                TO_CHAR(datedepositorbullet, 'YYYY-MM') as month_value,
+                MAX(datedepositorbullet) as max_date
             FROM connectlinkdatabase 
-            WHERE projectstartdate IS NOT NULL
-            GROUP BY TO_CHAR(projectstartdate, 'Mon-YYYY'), TO_CHAR(projectstartdate, 'YYYY-MM')
-            ORDER BY MAX(projectstartdate) DESC
+            WHERE datedepositorbullet IS NOT NULL
+            GROUP BY TO_CHAR(datedepositorbullet, 'Mon-YYYY'), TO_CHAR(datedepositorbullet, 'YYYY-MM')
+            ORDER BY MAX(datedepositorbullet) DESC
         """)
         
         month_options = cursor.fetchall()
