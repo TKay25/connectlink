@@ -10276,7 +10276,7 @@ def send_simple_template(to_number):
         "type": "template",
         "template": {
             "name": "depositreceiptclient",
-            "language": {"code": "en"}
+            "language": {"code": "fr"}
         }
     }
     
