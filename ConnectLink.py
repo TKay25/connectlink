@@ -10114,13 +10114,13 @@ def send_receipt_to_client():
                 # OPTION 2: Send text message instead
                 message = f"""Hello {client_name}
 
-Your deposit receipt for '{project_name}' is ready.
+                    Your deposit receipt for '{project_name}' is ready.
 
-Amount: USD {deposit_amount}
+                    Amount: USD {deposit_amount}
 
-Download link: https://yourdomain.com/receipt/{project_id}
+                    Download link: https://yourdomain.com/receipt/{project_id}
 
-ConnectLink Properties"""
+                    ConnectLink Properties"""
                 
                 text_response = send_text_message(formatted_number, message)
                 
@@ -10146,7 +10146,7 @@ def send_simple_template(to_number):
         "to": to_number,
         "type": "template",
         "template": {
-            "name": "depositreceipt",
+            "name": "depositreceiptclient",
             "language": {"code": "en"}
         }
     }
