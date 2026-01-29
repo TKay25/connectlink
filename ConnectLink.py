@@ -10212,18 +10212,34 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
             "name": "depositreceiptclient",
             "language": {"code": "fr"},
             "components": [
+                # Component [0] - Header
+                {
+                    "type": "header",
+                    "parameters": [
+                        {
+                            "type": "text", 
+                            "text": "DEPOSIT RECEIPT"  # Must match exactly what's in Meta
+                        }
+                    ]
+                },
+                # Component [1] - Body (with variables)
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": client_name},
-                        {"type": "text", "text": deposit_amount},
-                        {"type": "text", "text": deposit_date},
-                        {"type": "text", "text": project_name},
-                        {"type": "text", "text": project_description}
+                        {"type": "text", "text": client_name},  # {{client_name}}
+                        {"type": "text", "text": deposit_amount},  # {{deposit_amount}}
+                        {"type": "text", "text": deposit_date},  # {{deposit_date}}
+                        {"type": "text", "text": project_name},  # {{project_name}}
+                        {"type": "text", "text": project_description}  # {{project_description}}
                     ]
                 },
-                # Button with payload
-                '''{
+                # Component [2] - Footer
+                {
+                    "type": "footer",
+                    "text": "ConnectLink Properties"  # Must match exactly
+                },
+                # Component [3] - Button
+                {
                     "type": "button",
                     "sub_type": "quick_reply",
                     "index": "0",
@@ -10233,7 +10249,7 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
                             "payload": f"deposit_receipt_{project_id}"
                         }
                     ]
-                }'''
+                }
             ]
         }
     }
