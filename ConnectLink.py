@@ -10080,7 +10080,9 @@ def update_first_installment_date():
         print("Error updating first installment date:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
+@app.route('/send_receipt_to_client', methods=['POST'])
 def send_receipt_to_client():
+    # Your function code here
     """Send WhatsApp message"""
     try:
         project_id = request.form.get('project_id')
