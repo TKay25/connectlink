@@ -5772,7 +5772,7 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     // When submitting form, store Quill HTML into hidden input
 // Insert Quill content into hidden input BEFORE building formData
 
-if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddress === "" || clientEmail === "") {
+if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddress === "") {
         alert("All client details (Name, ID, WhatsApp, Address, Email) are required.");
         return; // STOP submission
     }
@@ -5808,7 +5808,7 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
     // Payment method validation
     if (paymentMethod === "") {
         alert("Select a payment method.");
-        return; // STOP submission
+        return; 
     }
 
 
