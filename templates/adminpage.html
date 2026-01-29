@@ -3356,9 +3356,8 @@ $(document).ready(function() {
             url: '/send_receipt_to_client',
             type: 'POST',
             data: {
-                project_id: projectId,
-                csrf_token: $('input[name="csrf_token"]').val()
-            },
+                project_id: projectId
+                },
             success: function(response) {
                 if (response.success) {
                     showAlert('Receipt sent successfully!', 'success');
