@@ -10082,19 +10082,20 @@ def update_first_installment_date():
 
 @app.route('/send_receipt_to_client', methods=['POST'])
 def send_receipt_to_client():
-    # Your function code here
-    """Send WhatsApp message"""
+    """Send WhatsApp template with all variables"""
     try:
         project_id = request.form.get('project_id')
         
         with get_db() as (cursor, connection):
+            # Get all needed data including date
             cursor.execute("""
-                SELECT clientname, clientwanumber, projectname, depositorbullet
+                SELECT clientname, clientwanumber, projectname, 
+                       depositorbullet, datedepositorbullet, projectdescription
                 FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             
             row = cursor.fetchone()
-            client_name, whatsapp_number, project_name, deposit_amount = row
+            client_name, whatsapp_number, project_name, deposit_amount, deposit_date, project_description = row
             
             # Format number
             whatsapp_number = str(whatsapp_number).strip()
@@ -10105,36 +10106,164 @@ def send_receipt_to_client():
             else:
                 formatted_number = '263' + whatsapp_number
             
-            # OPTION 1: Try simple template (no parameters)
-            template_response = send_simple_template(formatted_number)
+            # Format amount
+            if deposit_amount:
+                try:
+                    amount_formatted = f"USD {float(deposit_amount):,.2f}"
+                except:
+                    amount_formatted = f"USD {deposit_amount}"
+            else:
+                amount_formatted = "USD 0.00"
+            
+            # Format date
+            if deposit_date:
+                if isinstance(deposit_date, str):
+                    date_formatted = deposit_date
+                else:
+                    date_formatted = deposit_date.strftime("%d %B %Y")
+            else:
+                date_formatted = datetime.now().strftime("%d %B %Y")
+            
+            
+            print(f"📤 Preparing template for {client_name}")
+            print(f"   Project: {project_name}")
+            print(f"   Amount: {amount_formatted}")
+            print(f"   Date: {date_formatted}")
+            
+            # OPTION 1: Try sending template WITH variables
+            template_response = send_template_with_variables(
+                to_number=formatted_number,
+                client_name=client_name,
+                project_name=project_name,
+                deposit_amount=amount_formatted,
+                deposit_date=date_formatted,
+                project_id=project_id,
+                project_description=project_description
+            )
             
             if 'messages' in template_response:
-                return jsonify({'success': True, 'message': 'Template sent'})
+                return jsonify({
+                    'success': True, 
+                    'message': 'WhatsApp template sent with all details'
+                })
             else:
-                # OPTION 2: Send text message instead
+                # Check if error is about template/variables
+                error_msg = template_response.get('error', {}).get('message', '')
+                
+                if 'template' in error_msg.lower() or 'parameter' in error_msg.lower():
+                    # Template might not support variables - try simple version
+                    print("⚠️ Template error, trying simple version...")
+                    simple_response = send_simple_template(formatted_number)
+                    
+                    if 'messages' in simple_response:
+                        return jsonify({
+                            'success': True, 
+                            'message': 'Simple template sent (no variables)'
+                        })
+                
+                # OPTION 3: Send text message as fallback
+                print("⚠️ Falling back to text message...")
                 message = f"""Hello {client_name}
 
                     Your deposit receipt for '{project_name}' is ready.
 
-                    Amount: USD {deposit_amount}
+                    Amount: {amount_formatted}
+                    Date: {date_formatted}
 
-                    Download link: https://yourdomain.com/receipt/{project_id}
+                    Download: https://yourdomain.com/receipt/{project_id}
 
                     ConnectLink Properties"""
                 
                 text_response = send_text_message(formatted_number, message)
                 
                 if 'messages' in text_response:
-                    return jsonify({'success': True, 'message': 'Text message sent'})
+                    return jsonify({
+                        'success': True, 
+                        'message': 'Text message sent as fallback'
+                    })
                 else:
-                    return jsonify({'success': False, 'message': 'Both failed'})
+                    error_details = template_response.get('error', {})
+                    return jsonify({
+                        'success': False, 
+                        'message': f'All methods failed. Template error: {error_msg}'
+                    })
                 
     except Exception as e:
+        print(f"❌ Error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)})
+
+def send_template_with_variables(to_number, client_name, project_name, deposit_amount, 
+                                 deposit_date, project_id, project_description):
+    """Send template with properly named variables"""
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    data = {
+        "messaging_product": "whatsapp",
+        "to": to_number,
+        "type": "template",
+        "template": {
+            "name": "depositreceiptclient",
+            "language": {"code": "en"},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {
+                            "type": "text", 
+                            "text": client_name
+                        },  # Maps to {{client_name}}
+                        {
+                            "type": "text", 
+                            "text": project_name
+                        },  # Maps to {{project_name}}
+                        {
+                            "type": "text", 
+                            "text": project_description
+                        },  # Maps to {{project_description}}
+                        {
+                            "type": "text", 
+                            "text": deposit_amount
+                        },  # Maps to {{deposit_amount}}
+                        {
+                            "type": "text", 
+                            "text": deposit_date
+                        }  # Maps to {{receipt_id}}
+                    ]
+                },
+                # Button with payload
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "0",
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": f"deposit_receipt_{project_id}"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    print(f"📤 Sending with variables: client_name, project_name, deposit_amount, deposit_date, project_description")
+
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        print(f"📥 Response: {response.status_code}")
+        print(f"📥 Body: {response.text}")
+        return response.json()
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return {"error": {"message": str(e)}}
 
 
 def send_simple_template(to_number):
-    """Send template without any parameters"""
+    """Send template without variables"""
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -10151,8 +10280,11 @@ def send_simple_template(to_number):
         }
     }
     
-    response = requests.post(url, headers=headers, json=data, timeout=30)
-    return response.json()
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        return response.json()
+    except Exception as e:
+        return {"error": {"message": str(e)}}
 
 
 def send_text_message(to_number, text):
@@ -10170,8 +10302,41 @@ def send_text_message(to_number, text):
         "text": {"body": text}
     }
     
-    response = requests.post(url, headers=headers, json=data, timeout=30)
-    return response.json()
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        return response.json()
+    except Exception as e:
+        return {"error": {"message": str(e)}}
+
+
+# Helper to check template variables
+@app.route('/check_template_variables', methods=['GET'])
+def check_template_variables():
+    """Check how many variables template expects"""
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/message_templates"
+    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=30)
+        data = response.json()
+        
+        templates = data.get('data', [])
+        for template in templates:
+            if template['name'] == 'depositreceiptclient':
+                return jsonify({
+                    'found': True,
+                    'name': template['name'],
+                    'status': template.get('status'),
+                    'category': template.get('category'),
+                    'components': template.get('components', [])
+                })
+        
+        return jsonify({'found': False, 'templates': [t['name'] for t in templates]})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
 
 @app.route('/download_deposit_receipt/<project_id>')
 def download_deposit_receipt(project_id):
