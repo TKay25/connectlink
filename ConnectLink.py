@@ -10195,6 +10195,9 @@ def send_receipt_to_client():
 def send_template_with_variables(to_number, client_name, project_name, deposit_amount, 
                                  deposit_date, project_id, project_description):
     """Send template with properly named variables"""
+
+    print(f"📤 Sending with variables: {client_name}, {project_name}, {deposit_amount}, {deposit_date}, {project_description}")
+
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -10250,7 +10253,6 @@ def send_template_with_variables(to_number, client_name, project_name, deposit_a
         }
     }
 
-    print(f"📤 Sending with variables: client_name, project_name, deposit_amount, deposit_date, project_description")
 
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
