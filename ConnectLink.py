@@ -8270,8 +8270,8 @@ def get_project_count():
                 cursor.execute("""
                     SELECT COUNT(*) as count 
                     FROM connectlinkdatabase 
-                    WHERE EXTRACT(YEAR FROM projectstartdate) = %s 
-                    AND EXTRACT(MONTH FROM projectstartdate) = %s
+                    WHERE EXTRACT(YEAR FROM datedepositorbullet) = %s 
+                    AND EXTRACT(MONTH FROM datedepositorbullet) = %s
                 """, (year, month_num))
                 result = cursor.fetchone()
                 return jsonify({'count': result[0] if result else 0})
