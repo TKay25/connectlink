@@ -5661,34 +5661,58 @@ $(document).ready(function() {
         $('#updateInstallment6Amount').val(installment6Amount);
         $('#updateInstallment6DueDate').val(installment6DueDate);
         $('#updateInstallment6Date').val(installment6Date);
-                
-        function formatDateFromText(dateText) {
-            if (!dateText || dateText === 'None' || dateText === 'null') return '';
+                        
+        function parseAndFormatDate(dateString) {
+            if (!dateString || dateString.trim() === '') return '';
             
-            // Handle "20 January 2026" format
-            var months = {
-                'january': '01', 'february': '02', 'march': '03', 'april': '04',
-                'may': '05', 'june': '06', 'july': '07', 'august': '08',
-                'september': '09', 'october': '10', 'november': '11', 'december': '12'
-            };
+            // Remove extra whitespace
+            dateString = dateString.trim().toLowerCase();
             
-            // Convert to lowercase and split
-            var parts = dateText.toLowerCase().split(' ');
+            // Try parsing as Date object first (handles many formats)
+            var dateObj = new Date(dateString);
             
-            if (parts.length === 3) {
-                var day = parts[0].padStart(2, '0');
-                var month = months[parts[1]] || '01'; // Default to January if month not found
-                var year = parts[2];
-                
-                // Return in DD/MM/YYYY format
+            if (!isNaN(dateObj.getTime())) {
+                // Valid date, format as DD/MM/YYYY
+                var day = String(dateObj.getDate()).padStart(2, '0');
+                var month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                var year = dateObj.getFullYear();
                 return day + '/' + month + '/' + year;
             }
             
-            // If already in some other format, try to handle it
-            return dateText;
+            // Try parsing "20 january 2026" format manually
+            var monthNames = {
+                'january': '01', 'jan': '01',
+                'february': '02', 'feb': '02',
+                'march': '03', 'mar': '03',
+                'april': '04', 'apr': '04',
+                'may': '05',
+                'june': '06', 'jun': '06',
+                'july': '07', 'jul': '07',
+                'august': '08', 'aug': '08',
+                'september': '09', 'sep': '09',
+                'october': '10', 'oct': '10',
+                'november': '11', 'nov': '11',
+                'december': '12', 'dec': '12'
+            };
+            
+            // Match patterns like "20 January 2026", "20-Jan-2026", "20/January/2026"
+            var regex = /(\d{1,2})[\s\/\-\.]+([a-z]+)[\s\/\-\.]+(\d{4})/;
+            var match = dateString.match(regex);
+            
+            if (match) {
+                var day = match[1].padStart(2, '0');
+                var monthName = match[2];
+                var month = monthNames[monthName] || '01';
+                var year = match[3];
+                
+                return day + '/' + month + '/' + year;
+            }
+            
+            // Return original if can't parse
+            return dateString;
         }
 
-        $('#updateProjectStartDate').val(formatDateFromText(projectStartDateref));
+        $('#updateProjectStartDate').val(parseAndFormatDate(projectStartDateref));
         // Show the modal
         $('#updateModal').modal('show');
     });
