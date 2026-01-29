@@ -3538,6 +3538,10 @@ def webhook():
 
 
                                                             def generate_deposit_pdf(project_id):
+
+                                                                from weasyprint import HTML
+                                                                import io
+                                                            
                                                                 """Generate deposit receipt PDF using your existing function"""
                                                                 try:
                                                                     with get_db() as (cursor, connection):
@@ -5495,6 +5499,7 @@ def webhook():
                                                                 def send_pdf_via_whatsapp(recipient_number, project_id):
                                                                     """Send deposit receipt PDF via WhatsApp using your existing pattern"""
                                                                     try:
+                                                                        from weasyprint import HTML
                                                                         import io
                                                                         
                                                                         # Generate PDF first
@@ -5596,6 +5601,10 @@ def webhook():
                                                                 def generate_deposit_pdf(project_id):
                                                                     """Generate deposit receipt PDF using your existing function"""
                                                                     try:
+
+                                                                        from weasyprint import HTML
+                                                                        import io
+                                                                        
                                                                         with get_db() as (cursor, connection):
                                                                             # Fetch project info
                                                                             cursor.execute("""
