@@ -3516,18 +3516,7 @@ def webhook():
                                                                     print(f"✅ PDF sent successfully!")
                                                                     
                                                                     # Send confirmation
-                                                                    send_text_message(recipient_number, "✅ Deposit receipt sent! Check your WhatsApp documents.")
-                                                                    
-                                                                    # Update database
-                                                                    with get_db() as (cursor, connection):
-                                                                        cursor.execute("""
-                                                                            UPDATE connectlinkdatabase 
-                                                                            SET pdf_receipt_sent = TRUE,
-                                                                                pdf_receipt_sent_date = NOW(),
-                                                                                receipt_download_count = COALESCE(receipt_download_count, 0) + 1
-                                                                            WHERE id = %s
-                                                                        """, (project_id,))
-                                                                        connection.commit()
+                                                                    send_text_message(recipient_number, "✅ Deposit receipt sent!")
                                                                     
                                                                     return True
                                                                     
@@ -5577,18 +5566,8 @@ def webhook():
                                                                         print(f"✅ PDF sent successfully!")
                                                                         
                                                                         # Send confirmation
-                                                                        send_text_message(recipient_number, "✅ Deposit receipt sent! Check your WhatsApp documents.")
+                                                                        send_text_message(recipient_number, "✅ Deposit receipt sent!")
                                                                         
-                                                                        # Update database
-                                                                        with get_db() as (cursor, connection):
-                                                                            cursor.execute("""
-                                                                                UPDATE connectlinkdatabase 
-                                                                                SET pdf_receipt_sent = TRUE,
-                                                                                    pdf_receipt_sent_date = NOW(),
-                                                                                    receipt_download_count = COALESCE(receipt_download_count, 0) + 1
-                                                                                WHERE id = %s
-                                                                            """, (project_id,))
-                                                                            connection.commit()
                                                                         
                                                                         return True
                                                                         
@@ -5604,7 +5583,7 @@ def webhook():
 
                                                                         from weasyprint import HTML
                                                                         import io
-                                                                        
+
                                                                         with get_db() as (cursor, connection):
                                                                             # Fetch project info
                                                                             cursor.execute("""
