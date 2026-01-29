@@ -8238,10 +8238,10 @@ def get_project_months():
             # PostgreSQL uses EXTRACT instead of YEAR/MONTH
             cursor.execute("""
                 SELECT DISTINCT 
-                    EXTRACT(YEAR FROM projectstartdate)::INTEGER as year,
-                    EXTRACT(MONTH FROM projectstartdate)::INTEGER as month
+                    EXTRACT(YEAR FROM datedepositorbullet)::INTEGER as year,
+                    EXTRACT(MONTH FROM datedepositorbullet)::INTEGER as month
                 FROM connectlinkdatabase 
-                WHERE projectstartdate IS NOT NULL
+                WHERE datedepositorbullet IS NOT NULL
                 ORDER BY year DESC, month DESC
             """)
             months = cursor.fetchall()
