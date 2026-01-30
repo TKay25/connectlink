@@ -3926,11 +3926,11 @@ def webhook():
                                                                         </head>
                                                                         <body>
 
-                                                                            <div class="watermark">DEPOSIT</div>
+                                                                            <div class="watermark">INSTALLMENT</div>
 
                                                                             <div class="header">
                                                                                 <img src="data:image/png;base64,{logo_base64}" class="logo">
-                                                                                <h5>Deposit Receipt</h5>
+                                                                                <h5>First Installment Receipt</h5>
                                                                             </div>
 
                                                                             <div class="section-title">Client Information</div>
@@ -6262,11 +6262,11 @@ def webhook():
                                                                             </head>
                                                                             <body>
 
-                                                                                <div class="watermark">DEPOSIT</div>
+                                                                                <div class="watermark">INSTALLMENT</div>
 
                                                                                 <div class="header">
                                                                                     <img src="data:image/png;base64,{logo_base64}" class="logo">
-                                                                                    <h5>Deposit Receipt</h5>
+                                                                                    <h5>First Installment Receipt</h5>
                                                                                 </div>
 
                                                                                 <div class="section-title">Client Information</div>
