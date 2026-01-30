@@ -9396,7 +9396,271 @@ def get_enquiries_data():
     except Exception as e:
         print(f"Error getting enquiries: {str(e)}")
         return []
-    
+
+
+
+
+@app.route('/export_cashflow', methods=['POST'])
+def export_cashflow():
+
+    from flask import make_response
+    import io
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    """Generate cashflow Excel file with monthly breakdown using datedepositpaid as Project Month"""
+    try:
+        with get_db() as (cursor, connection):
+            # Fetch all projects with installment data including datedepositpaid
+            cursor.execute("""
+                SELECT 
+                    id, clientname, projectname, totalcontractamount,
+                    depositpaid, -- or depositorbullet for deposit amount
+                    datedepositpaid, -- This will be used for Project Month
+                    monthlyinstallment,
+                    installment1duedate, installment1date, installment1amount,
+                    installment2duedate, installment2date, installment2amount,
+                    installment3duedate, installment3date, installment3amount,
+                    installment4duedate, installment4date, installment4amount,
+                    installment5duedate, installment5date, installment5amount,
+                    installment6duedate, installment6date, installment6amount
+                FROM connectlinkdatabase 
+                ORDER BY datedepositpaid, clientname
+            """)
+            
+            rows = cursor.fetchall()
+            
+            if not rows:
+                return jsonify({'success': False, 'message': 'No projects found'}), 404
+            
+            # Define months for the spreadsheet (Jan to Dec)
+            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            
+            # Create data structure
+            data = []
+            
+            for row in rows:
+                project_id = row[0]
+                client_name = row[1] or "Unknown Client"
+                project_name = row[2] or f"Project {project_id}"
+                total_contract = float(row[3]) if row[3] else 0
+                
+                # Get deposit amount
+                deposit_paid = float(row[4]) if row[4] else 0
+                
+                # Get Project Month from datedepositpaid
+                datedepositpaid = row[5]
+                project_month = ''
+                
+                if datedepositpaid:
+                    try:
+                        if isinstance(datedepositpaid, str):
+                            # If it's a string, parse it
+                            deposit_date = datetime.strptime(datedepositpaid, '%Y-%m-%d')
+                        else:
+                            # If it's already a date/datetime
+                            deposit_date = datedepositpaid
+                        
+                        # Format as "Mar" for March, etc.
+                        project_month = deposit_date.strftime('%b')
+                    except Exception as e:
+                        print(f"Error parsing datedepositpaid for project {project_id}: {e}")
+                        project_month = ''
+                
+                # Calculate balance
+                balance = total_contract - deposit_paid
+                
+                # Monthly installment amount
+                monthly_installment = float(row[6]) if row[6] else 0
+                
+                # Create row dictionary
+                row_data = {
+                    'Project Month': project_month,
+                    'Client Name': client_name,
+                    'Project Name': project_name,
+                    'Contract amount': f"US${total_contract:,.2f}",
+                    'Deposit paid': f"US${deposit_paid:,.2f}",
+                    'Balance': f"US${balance:,.2f}"
+                }
+                
+                # Initialize all months to empty
+                for month in months:
+                    row_data[month] = ''
+                
+                # Process installments (6 installments)
+                for i in range(6):
+                    due_date_idx = 7 + (i * 3)    # installmentXduedate
+                    paid_date_idx = 8 + (i * 3)   # installmentXdate
+                    amount_idx = 9 + (i * 3)      # installmentXamount
+                    
+                    due_date = row[due_date_idx]
+                    paid_date = row[paid_date_idx]
+                    amount = row[amount_idx]
+                    
+                    if due_date and amount:
+                        try:
+                            # Convert due_date to datetime
+                            if isinstance(due_date, str):
+                                due_date_obj = datetime.strptime(due_date, '%Y-%m-%d')
+                            else:
+                                due_date_obj = due_date
+                            
+                            # Get month abbreviation
+                            month_abbr = due_date_obj.strftime('%b')
+                            
+                            # Format amount
+                            if amount:
+                                amount_formatted = f"US${float(amount):,.2f}"
+                            else:
+                                amount_formatted = ''
+                            
+                            # Put amount in the corresponding month column
+                            if month_abbr in row_data:
+                                row_data[month_abbr] = amount_formatted
+                                
+                        except Exception as e:
+                            print(f"Error processing installment for project {project_id}: {e}")
+                            continue
+                
+                # If no specific installments, use monthlyinstallment for distribution
+                if all(row_data[month] == '' for month in months) and monthly_installment > 0:
+                    # Get months to pay
+                    cursor.execute("""
+                        SELECT monthstopay FROM connectlinkdatabase WHERE id = %s
+                    """, (project_id,))
+                    months_to_pay_row = cursor.fetchone()
+                    months_to_pay = months_to_pay_row[0] if months_to_pay_row and months_to_pay_row[0] else 0
+                    
+                    # Start from project month if available
+                    start_month_index = 0
+                    if project_month:
+                        try:
+                            # Find index of project month in months list
+                            start_month_index = months.index(project_month)
+                        except ValueError:
+                            start_month_index = 0
+                    
+                    # Distribute installments
+                    monthly_formatted = f"US${monthly_installment:,.2f}"
+                    for i in range(min(months_to_pay, len(months) - start_month_index)):
+                        month_index = start_month_index + i
+                        if month_index < len(months):
+                            row_data[months[month_index]] = monthly_formatted
+                
+                data.append(row_data)
+            
+            # Create summary row
+            total_contract_sum = sum(float(row[3] or 0) for row in rows)
+            total_deposit_sum = sum(float(row[4] or 0) for row in rows)
+            total_balance_sum = total_contract_sum - total_deposit_sum
+            
+            # Calculate monthly totals
+            monthly_totals = {month: 0.0 for month in months}
+            
+            for row_data in data:
+                for month in months:
+                    amount_str = row_data[month]
+                    if amount_str and amount_str.startswith('US$'):
+                        try:
+                            # Extract number from "US$1,200.00"
+                            amount_num = float(amount_str.replace('US$', '').replace(',', ''))
+                            monthly_totals[month] += amount_num
+                        except:
+                            pass
+            
+            # Create summary row
+            summary_row = {
+                'Project Month': 'Total',
+                'Client Name': '',
+                'Project Name': '',
+                'Contract amount': f"US${total_contract_sum:,.2f}",
+                'Deposit paid': f"US${total_deposit_sum:,.2f}",
+                'Balance': f"US${total_balance_sum:,.2f}"
+            }
+            
+            # Add monthly totals to summary
+            for month in months:
+                summary_row[month] = f"US${monthly_totals[month]:,.2f}"
+            
+            # Add summary row to data
+            data.append(summary_row)
+            
+            # Create DataFrame
+            columns = ['Project Month', 'Client Name', 'Project Name', 
+                      'Contract amount', 'Deposit paid', 'Balance'] + months
+            
+            df = pd.DataFrame(data, columns=columns)
+            
+            # Create Excel file
+            output = io.BytesIO()
+            
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Cashflow', index=False)
+                
+                # Get workbook and worksheet for formatting
+                workbook = writer.book
+                worksheet = writer.sheets['Cashflow']
+                
+                # Format headers
+                header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                header_font = Font(bold=True, color="FFFFFF")
+                
+                for col in range(1, len(columns) + 1):
+                    cell = worksheet.cell(row=1, column=col)
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                
+                # Format currency columns
+                currency_columns = ['Contract amount', 'Deposit paid', 'Balance'] + months
+                currency_col_indices = [columns.index(col) + 1 for col in currency_columns if col in columns]
+                
+                for row in range(2, len(df) + 2):
+                    for col in currency_col_indices:
+                        cell = worksheet.cell(row=row, column=col)
+                        cell.number_format = '"US$"#,##0.00'
+                
+                # Format total row (last row)
+                total_row = len(df) + 1
+                total_font = Font(bold=True)
+                total_fill = PatternFill(start_color="C6E0B4", end_color="C6E0B4", fill_type="solid")
+                
+                for col in range(1, len(columns) + 1):
+                    cell = worksheet.cell(row=total_row, column=col)
+                    cell.font = total_font
+                    cell.fill = total_fill
+                    if col in currency_col_indices:
+                        cell.number_format = '"US$"#,##0.00'
+                
+                # Auto-adjust column widths
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 30)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+                
+                # Freeze header row
+                worksheet.freeze_panes = 'A2'
+            
+            output.seek(0)
+            
+            # Create response
+            response = make_response(output.getvalue())
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            response.headers['Content-Disposition'] = 'attachment; filename="cashflow_report.xlsx"'
+            
+            return response
+            
+    except Exception as e:
+        print(f"Error generating cashflow file: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/get_project_months')
 def get_project_months():
     try:
