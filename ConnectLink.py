@@ -9398,16 +9398,14 @@ def get_enquiries_data():
         return []
 
 
-
 @app.route('/export_cashflow', methods=['POST'])
 def export_cashflow():
     """Generate cashflow Excel file with months in chronological order and proper styling"""
     try:
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        
         with get_db() as (cursor, connection):
-
-            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-            from openpyxl.utils import get_column_letter
-
             # Get current timestamp
             current_timestamp = datetime.now()
             timestamp_str = current_timestamp.strftime("%d %B %Y %H:%M")
@@ -9487,7 +9485,7 @@ def export_cashflow():
             for row in rows:
                 client_name = row[0] or ""
                 project_name = row[1] or ""
-                contract_amount = float(row[2]) if row[2] else 0
+                total_contract = float(row[2]) if row[2] else 0
                 deposit_amount = float(row[3]) if row[3] else 0
                 project_month = ""
                 
@@ -9504,15 +9502,15 @@ def export_cashflow():
                         pass
                 
                 payment_method = row[5] or ""
-                balance = contract_amount - deposit_amount
+                balance = total_contract - deposit_amount
                 
-                # Create row
+                # Create row - ADDED "Total Contract Amount" column
                 row_data = {
                     'Project Month': project_month,
                     'Payment Method': payment_method,
                     'Client Name': client_name,
                     'Project Name': project_name,
-                    'Contract amount USD': contract_amount if contract_amount != 0 else None,
+                    'Total Contract Amount': total_contract if total_contract != 0 else None,  # ADDED THIS
                     'Deposit paid USD': deposit_amount if deposit_amount != 0 else None,
                     'Balance USD': balance if balance != 0 else None
                 }
@@ -9546,19 +9544,19 @@ def export_cashflow():
                 
                 main_data.append(row_data)
             
-            # Create DataFrames
+            # Create DataFrames - UPDATED to include "Total Contract Amount"
             detail_columns = ['Project Month', 'Payment Method', 'Client Name', 'Project Name',
-                            'Contract amount USD', 'Deposit paid USD', 'Balance USD'] + month_list
+                            'Total Contract Amount', 'Deposit paid USD', 'Balance USD'] + month_list  # CHANGED HERE
             
             df_detail = pd.DataFrame(main_data, columns=detail_columns)
             
-            # Add totals row to detail
+            # Add totals row to detail - UPDATED to include "Total Contract Amount"
             totals_row = {
                 'Project Month': 'TOTAL',
                 'Payment Method': '',
                 'Client Name': '',
                 'Project Name': '',
-                'Contract amount USD': df_detail['Contract amount USD'].sum(),
+                'Total Contract Amount': df_detail['Total Contract Amount'].sum(),  # CHANGED HERE
                 'Deposit paid USD': df_detail['Deposit paid USD'].sum(),
                 'Balance USD': df_detail['Balance USD'].sum()
             }
@@ -9568,7 +9566,7 @@ def export_cashflow():
             
             df_detail = pd.concat([df_detail, pd.DataFrame([totals_row])], ignore_index=True)
             
-            # Create summary by project month
+            # Create summary by project month - UPDATED to include "Total Contract Amount"
             month_summary_data = []
             
             # Group by Project Month
@@ -9579,6 +9577,7 @@ def export_cashflow():
                 month_rows = df_detail[df_detail['Project Month'] == project_month]
                 month_summary = {
                     'Project Month': project_month,
+                    'Total Contract Amount': month_rows['Total Contract Amount'].sum(),  # ADDED THIS
                     'Deposit paid USD': month_rows['Deposit paid USD'].sum(),
                     'Balance USD': month_rows['Balance USD'].sum()
                 }
@@ -9588,10 +9587,11 @@ def export_cashflow():
                 
                 month_summary_data.append(month_summary)
             
-            # Add totals to month summary
+            # Add totals to month summary - UPDATED
             if month_summary_data:
                 month_totals = {
                     'Project Month': 'TOTAL',
+                    'Total Contract Amount': sum(row['Total Contract Amount'] for row in month_summary_data),  # ADDED
                     'Deposit paid USD': sum(row['Deposit paid USD'] for row in month_summary_data),
                     'Balance USD': sum(row['Balance USD'] for row in month_summary_data)
                 }
@@ -9601,7 +9601,7 @@ def export_cashflow():
                 
                 month_summary_data.append(month_totals)
             
-            # Create summary by payment method
+            # Create summary by payment method - UPDATED to include "Total Contract Amount"
             payment_summary_data = []
             
             # Group by Payment Method
@@ -9612,6 +9612,7 @@ def export_cashflow():
                 payment_rows = df_detail[df_detail['Payment Method'] == payment_method]
                 payment_summary = {
                     'Payment Method': payment_method,
+                    'Total Contract Amount': payment_rows['Total Contract Amount'].sum(),  # ADDED THIS
                     'Deposit paid USD': payment_rows['Deposit paid USD'].sum(),
                     'Balance USD': payment_rows['Balance USD'].sum()
                 }
@@ -9621,10 +9622,11 @@ def export_cashflow():
                 
                 payment_summary_data.append(payment_summary)
             
-            # Add totals to payment summary
+            # Add totals to payment summary - UPDATED
             if payment_summary_data:
                 payment_totals = {
                     'Payment Method': 'TOTAL',
+                    'Total Contract Amount': sum(row['Total Contract Amount'] for row in payment_summary_data),  # ADDED
                     'Deposit paid USD': sum(row['Deposit paid USD'] for row in payment_summary_data),
                     'Balance USD': sum(row['Balance USD'] for row in payment_summary_data)
                 }
@@ -9653,7 +9655,7 @@ def export_cashflow():
                 for sheet_name in writer.sheets:
                     ws = writer.sheets[sheet_name]
                     
-                    # Add timestamp at top (simple, no merging)
+                    # Add timestamp at top
                     ws.insert_rows(1)
                     timestamp_cell = ws.cell(row=1, column=1, value=f"Cashflow Report - Generated: {timestamp_str}")
                     timestamp_cell.font = Font(bold=True, size=12, color="366092")
@@ -9674,18 +9676,18 @@ def export_cashflow():
                     # Apply number formatting to currency columns
                     # For DETAIL sheet
                     if sheet_name == 'DETAIL':
-                        # Currency columns start at column 5 (Contract amount USD)
+                        # Currency columns start at column 5 (Total Contract Amount)
                         for row in range(header_row + 1, ws.max_row + 1):
-                            for col in range(5, ws.max_column + 1):
+                            for col in range(5, ws.max_column + 1):  # Start at column 5 now
                                 cell = ws.cell(row=row, column=col)
                                 if cell.value is not None and isinstance(cell.value, (int, float)):
                                     cell.number_format = '#,##0.00'
                     
                     # For SUMMARY sheets
                     elif sheet_name in ['SUMMARY BY MONTH', 'SUMMARY BY PAYMENT']:
-                        # Currency columns start at column 2 (Deposit paid USD)
+                        # Currency columns start at column 2 (Total Contract Amount)
                         for row in range(header_row + 1, ws.max_row + 1):
-                            for col in range(2, ws.max_column + 1):
+                            for col in range(2, ws.max_column + 1):  # Start at column 2 now
                                 cell = ws.cell(row=row, column=col)
                                 if cell.value is not None and isinstance(cell.value, (int, float)):
                                     cell.number_format = '#,##0.00'
@@ -9720,7 +9722,7 @@ def export_cashflow():
                         ws.column_dimensions['B'].width = 20  # Payment Method
                         ws.column_dimensions['C'].width = 25  # Client Name
                         ws.column_dimensions['D'].width = 25  # Project Name
-                        for col in range(5, ws.max_column + 1):
+                        for col in range(5, ws.max_column + 1):  # Start at column 5 now
                             col_letter = get_column_letter(col)
                             ws.column_dimensions[col_letter].width = 12
                     
@@ -9740,7 +9742,7 @@ def export_cashflow():
             output.seek(0)
             
             # Create response
-            filename = f"cashflow_report_{current_timestamp.strftime('%Y%m%d_%H%M')}.xlsx"
+            filename = f"cashflow_report_{current_timestamp.strftime('%d_%B_%Y_%H%M')}.xlsx"
             response = make_response(output.getvalue())
             response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -9750,7 +9752,7 @@ def export_cashflow():
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
-    
+
 @app.route('/get_project_months')
 def get_project_months():
     try:
