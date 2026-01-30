@@ -10101,6 +10101,7 @@ def update_project():
         contractamount = request.form.get('TotalContractAmount')
         monthstopay = request.form.get('MonthsToPay')
         depositpaid = request.form.get('depositpaid')
+        depositdatepaid = request.form.get('deposit_date_paid')
         installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
         installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
         installment3_date = clean_date_update(request.form.get('installment3_paid_date'))
@@ -10191,6 +10192,7 @@ def update_project():
                 projectstartdate = %s,
                 totalcontractamount = %s,
                 depositorbullet = %s,
+                datedepositorbullet = %s,
                 monthstopay = %s,
                 monthlyinstallment = %s,
                 installment1date = %s,
@@ -10222,6 +10224,7 @@ def update_project():
             project_start_date,
             contractamount,
             depositpaid,
+            depositdatepaid,
             monthstopay,
             monthlyinstallment,
             installment1_date,
@@ -10745,7 +10748,7 @@ def send_receipt_to_client():
         })
 
 
-        
+
 def send_template_with_button(to_number, project_id):
     """Send template with button containing project_id in payload"""
     
