@@ -12237,7 +12237,7 @@ def send_receipt_to_client_inst2():
                 formatted_number = '263' + whatsapp_number
             
             # Send WhatsApp
-            response = send_template_with_button_inst1(formatted_number, project_id)
+            response = send_template_with_button_inst2(formatted_number, project_id)
             
             if 'messages' in response:
                 return jsonify({
@@ -12262,7 +12262,7 @@ def send_receipt_to_client_inst2():
         print(f"Error: {str(e)}")
         return jsonify({'success': False, 'error_message': f'System error: {str(e)}'})
 
-def send_template_with_button_inst1(to_number, project_id):
+def send_template_with_button_inst2(to_number, project_id):
     """Send template with button containing project_id in payload"""
     
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
