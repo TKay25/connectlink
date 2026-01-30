@@ -9407,15 +9407,15 @@ def export_cashflow():
     import io
     from openpyxl.styles import Font, PatternFill, Alignment
 
-    """Generate cashflow Excel file with monthly breakdown using datedepositpaid as Project Month"""
+    """Generate cashflow Excel file with monthly breakdown using datedepositorbullet as Project Month"""
     try:
         with get_db() as (cursor, connection):
-            # Fetch all projects with installment data including datedepositpaid
+            # Fetch all projects with installment data including datedepositorbullet
             cursor.execute("""
                 SELECT 
                     id, clientname, projectname, totalcontractamount,
                     depositorbullet,
-                    datedepositpaid, 
+                    datedepositorbullet, 
                     monthlyinstallment,
                     installment1duedate, installment1date, installment1amount,
                     installment2duedate, installment2date, installment2amount,
@@ -9424,7 +9424,7 @@ def export_cashflow():
                     installment5duedate, installment5date, installment5amount,
                     installment6duedate, installment6date, installment6amount
                 FROM connectlinkdatabase 
-                ORDER BY datedepositpaid
+                ORDER BY datedepositorbullet
             """)
             
             rows = cursor.fetchall()
@@ -9464,7 +9464,7 @@ def export_cashflow():
                         # Format as "Mar" for March, etc.
                         project_month = deposit_date.strftime('%b')
                     except Exception as e:
-                        print(f"Error parsing datedepositpaid for project {project_id}: {e}")
+                        print(f"Error parsing datedepositorbullet for project {project_id}: {e}")
                         project_month = ''
                 
                 # Calculate balance
