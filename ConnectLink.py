@@ -9401,33 +9401,28 @@ def get_enquiries_data():
 
 @app.route('/export_cashflow', methods=['POST'])
 def export_cashflow():
-    from flask import make_response
-    import io
-    from openpyxl.styles import Font, PatternFill
-    import pandas as pd
-    from datetime import datetime
-
-    """Generate cashflow Excel file with monthly breakdown"""
+    """Generate cashflow Excel file"""
     try:
         with get_db() as (cursor, connection):
             # Get current timestamp
             current_timestamp = datetime.now()
             timestamp_str = current_timestamp.strftime("%d %B %Y %H:%M")
             
-            # Fetch all projects with payment method
+            # Fetch all projects - SIMPLIFIED QUERY
             cursor.execute("""
                 SELECT 
-                    id, clientname, projectname, totalcontractamount,
-                    depositorbullet, datedepositorbullet, monthlyinstallment,
+                    clientname, projectname, totalcontractamount,
+                    depositorbullet, datedepositorbullet, 
                     paymentmethod,
-                    installment1duedate, installment1date, installment1amount,
-                    installment2duedate, installment2date, installment2amount,
-                    installment3duedate, installment3date, installment3amount,
-                    installment4duedate, installment4date, installment4amount,
-                    installment5duedate, installment5date, installment5amount,
-                    installment6duedate, installment6date, installment6amount
+                    installment1duedate, installment1amount,
+                    installment2duedate, installment2amount,
+                    installment3duedate, installment3amount,
+                    installment4duedate, installment4amount,
+                    installment5duedate, installment5amount,
+                    installment6duedate, installment6amount
                 FROM connectlinkdatabase 
-                ORDER BY datedepositorbullet, paymentmethod
+                WHERE totalcontractamount > 0
+                ORDER BY datedepositorbullet
             """)
             
             rows = cursor.fetchall()
@@ -9435,356 +9430,180 @@ def export_cashflow():
             if not rows:
                 return jsonify({'success': False, 'message': 'No projects found'}), 404
             
-            # Get month-year columns from due dates
-            month_year_set = set()
-            
+            # Get all months from due dates
+            all_months = set()
             for row in rows:
-                # Check datedepositorbullet
-                datedepositpaid = row[5]
-                if datedepositpaid:
-                    try:
-                        if isinstance(datedepositpaid, str):
-                            deposit_date = datetime.strptime(datedepositpaid, '%Y-%m-%d')
-                        else:
-                            deposit_date = datedepositpaid
-                        month_year_set.add(deposit_date.strftime('%b-%Y'))
-                    except:
-                        pass
-                
                 # Check installment due dates
                 for i in range(6):
-                    due_date_idx = 9 + (i * 3)  # Changed index because we added paymentmethod
+                    due_date_idx = 6 + (i * 2)  # Starting at index 6
                     due_date = row[due_date_idx]
                     if due_date:
                         try:
                             if isinstance(due_date, str):
-                                due_date_obj = datetime.strptime(due_date, '%Y-%m-%d')
+                                date_obj = datetime.strptime(due_date[:10], '%Y-%m-%d')
                             else:
-                                due_date_obj = due_date
-                            month_year_set.add(due_date_obj.strftime('%b-%Y'))
+                                date_obj = due_date
+                            all_months.add(date_obj.strftime('%b-%Y'))
                         except:
                             continue
             
-            # Sort month-year columns
-            def month_year_key(m_y):
-                try:
-                    return datetime.strptime(m_y, '%b-%Y')
-                except:
-                    return datetime.min
+            # Sort months
+            month_list = sorted(list(all_months))
             
-            month_year_columns = sorted(list(month_year_set), key=month_year_key)
-            
-            # Create main data with payment method
-            data = []
-            summary_by_payment = {}  # Separate by payment method
-            summary_by_month = {}    # Separate by project month
+            # Create main data
+            main_data = []
             
             for row in rows:
-                project_id = row[0]
-                client_name = row[1] or "Unknown Client"
-                project_name = row[2] or f"Project {project_id}"
-                total_contract = float(row[3]) if row[3] else 0
-                deposit_paid = float(row[4]) if row[4] else 0
-                payment_method = row[7] or "Not Specified"  # Payment method
+                client_name = row[0] or ""
+                project_name = row[1] or ""
+                contract_amount = float(row[2]) if row[2] else 0
+                deposit_amount = float(row[3]) if row[3] else 0
+                project_month = ""
                 
-                # Get Project Month
-                datedepositpaid = row[5]
-                project_month = ''
-                if datedepositpaid:
+                # Get project month
+                datedeposit = row[4]
+                if datedeposit:
                     try:
-                        if isinstance(datedepositpaid, str):
-                            deposit_date = datetime.strptime(datedepositpaid, '%Y-%m-%d')
+                        if isinstance(datedeposit, str):
+                            date_obj = datetime.strptime(datedeposit[:10], '%Y-%m-%d')
                         else:
-                            deposit_date = datedepositpaid
-                        project_month = deposit_date.strftime('%b-%Y')
+                            date_obj = datedeposit
+                        project_month = date_obj.strftime('%b-%Y')
                     except:
                         pass
                 
-                balance = total_contract - deposit_paid
-                monthly_installment = float(row[6]) if row[6] else 0
+                payment_method = row[5] or ""
+                balance = contract_amount - deposit_amount
                 
-                # Main data row with payment method
+                # Create row
                 row_data = {
                     'Project Month': project_month,
-                    'Payment Method': payment_method,  # Added column
+                    'Payment Method': payment_method,
                     'Client Name': client_name,
                     'Project Name': project_name,
-                    'Contract amount USD': total_contract if total_contract != 0 else None,
-                    'Deposit paid USD': deposit_paid if deposit_paid != 0 else None,
+                    'Contract amount USD': contract_amount if contract_amount != 0 else None,
+                    'Deposit paid USD': deposit_amount if deposit_amount != 0 else None,
                     'Balance USD': balance if balance != 0 else None
                 }
                 
-                # Initialize months
-                for month_year in month_year_columns:
-                    row_data[month_year] = None
+                # Add months
+                for month in month_list:
+                    row_data[month] = None
                 
-                # Process installments
+                # Add installment amounts
                 for i in range(6):
-                    due_date_idx = 9 + (i * 3)  # Adjusted index
-                    amount_idx = 11 + (i * 3)   # Adjusted index
+                    due_date_idx = 6 + (i * 2)
+                    amount_idx = 7 + (i * 2)
+                    
                     due_date = row[due_date_idx]
                     amount = row[amount_idx]
                     
                     if due_date and amount:
                         try:
                             if isinstance(due_date, str):
-                                due_date_obj = datetime.strptime(due_date, '%Y-%m-%d')
+                                date_obj = datetime.strptime(due_date[:10], '%Y-%m-%d')
                             else:
-                                due_date_obj = due_date
+                                date_obj = due_date
                             
-                            month_year_abbr = due_date_obj.strftime('%b-%Y')
-                            if amount:
-                                amount_num = float(amount)
-                                if amount_num != 0 and month_year_abbr in row_data:
-                                    row_data[month_year_abbr] = amount_num
-                                    
-                                    # Add to summary by payment method
-                                    if payment_method not in summary_by_payment:
-                                        summary_by_payment[payment_method] = {
-                                            'total_deposits': 0,
-                                            'total_installments': 0,
-                                            'installments_by_month': {}
-                                        }
-                                    
-                                    if month_year_abbr not in summary_by_payment[payment_method]['installments_by_month']:
-                                        summary_by_payment[payment_method]['installments_by_month'][month_year_abbr] = 0
-                                    
-                                    summary_by_payment[payment_method]['installments_by_month'][month_year_abbr] += amount_num
-                                    summary_by_payment[payment_method]['total_installments'] += amount_num
-                                    
-                                    # Add to summary by project month
-                                    if project_month not in summary_by_month:
-                                        summary_by_month[project_month] = {
-                                            'total_deposits': 0,
-                                            'total_installments': 0,
-                                            'installments_by_month': {}
-                                        }
-                                    
-                                    if month_year_abbr not in summary_by_month[project_month]['installments_by_month']:
-                                        summary_by_month[project_month]['installments_by_month'][month_year_abbr] = 0
-                                    
-                                    summary_by_month[project_month]['installments_by_month'][month_year_abbr] += amount_num
-                                    summary_by_month[project_month]['total_installments'] += amount_num
+                            month_str = date_obj.strftime('%b-%Y')
+                            amount_val = float(amount) if amount else 0
+                            
+                            if amount_val > 0 and month_str in row_data:
+                                row_data[month_str] = amount_val
                         except:
                             continue
                 
-                # Add deposit to summaries
-                if deposit_paid > 0:
-                    # By payment method
-                    if payment_method not in summary_by_payment:
-                        summary_by_payment[payment_method] = {
-                            'total_deposits': 0,
-                            'total_installments': 0,
-                            'installments_by_month': {}
-                        }
-                    summary_by_payment[payment_method]['total_deposits'] += deposit_paid
-                    
-                    # By project month
-                    if project_month:
-                        if project_month not in summary_by_month:
-                            summary_by_month[project_month] = {
-                                'total_deposits': 0,
-                                'total_installments': 0,
-                                'installments_by_month': {}
-                            }
-                        summary_by_month[project_month]['total_deposits'] += deposit_paid
-                
-                data.append(row_data)
+                main_data.append(row_data)
             
-            # Create SUMMARY BY PAYMENT METHOD worksheet
-            summary_payment_data = []
-            for payment_method, summary_info in summary_by_payment.items():
-                if not payment_method:
-                    continue
-                    
-                row_summary = {
-                    'Payment Method': payment_method,
-                    'Total Deposits': summary_info['total_deposits'] if summary_info['total_deposits'] != 0 else None,
-                    'Total Installments': summary_info['total_installments'] if summary_info['total_installments'] != 0 else None
-                }
-                
-                for month_year in month_year_columns:
-                    amount = summary_info['installments_by_month'].get(month_year)
-                    row_summary[month_year] = amount if amount else None
-                
-                summary_payment_data.append(row_summary)
+            # Create DataFrames
+            detail_columns = ['Project Month', 'Payment Method', 'Client Name', 'Project Name',
+                            'Contract amount USD', 'Deposit paid USD', 'Balance USD'] + month_list
             
-            # Add totals to payment summary
-            if summary_payment_data:
-                total_deposits = sum(r.get('Total Deposits', 0) or 0 for r in summary_payment_data)
-                total_installments = sum(r.get('Total Installments', 0) or 0 for r in summary_payment_data)
-                
-                payment_totals = {
-                    'Payment Method': 'TOTAL',
-                    'Total Deposits': total_deposits if total_deposits != 0 else None,
-                    'Total Installments': total_installments if total_installments != 0 else None
-                }
-                
-                for month_year in month_year_columns:
-                    month_total = sum(r.get(month_year, 0) or 0 for r in summary_payment_data)
-                    payment_totals[month_year] = month_total if month_total != 0 else None
-                
-                summary_payment_data.append(payment_totals)
+            df_detail = pd.DataFrame(main_data, columns=detail_columns)
             
-            # Create SUMMARY BY PROJECT MONTH worksheet
-            summary_month_data = []
-            sorted_project_months = sorted(
-                [m for m in summary_by_month.keys() if m],
-                key=lambda x: datetime.strptime(x, '%b-%Y') if x else datetime.min
-            )
-            
-            for project_month in sorted_project_months:
-                summary_info = summary_by_month[project_month]
-                row_summary = {
-                    'Project Month': project_month,
-                    'Total Deposits': summary_info['total_deposits'] if summary_info['total_deposits'] != 0 else None,
-                    'Total Installments': summary_info['total_installments'] if summary_info['total_installments'] != 0 else None
-                }
-                
-                for month_year in month_year_columns:
-                    amount = summary_info['installments_by_month'].get(month_year)
-                    row_summary[month_year] = amount if amount else None
-                
-                summary_month_data.append(row_summary)
-            
-            # Add totals to month summary
-            if summary_month_data:
-                total_deposits = sum(r.get('Total Deposits', 0) or 0 for r in summary_month_data)
-                total_installments = sum(r.get('Total Installments', 0) or 0 for r in summary_month_data)
-                
-                month_totals = {
-                    'Project Month': 'TOTAL',
-                    'Total Deposits': total_deposits if total_deposits != 0 else None,
-                    'Total Installments': total_installments if total_installments != 0 else None
-                }
-                
-                for month_year in month_year_columns:
-                    month_total = sum(r.get(month_year, 0) or 0 for r in summary_month_data)
-                    month_totals[month_year] = month_total if month_total != 0 else None
-                
-                summary_month_data.append(month_totals)
-            
-            # Add totals to main data
-            total_contract_sum = sum(float(row[3] or 0) for row in rows)
-            total_deposit_sum = sum(float(row[4] or 0) for row in rows)
-            total_balance_sum = total_contract_sum - total_deposit_sum
-            
-            monthly_totals = {m: 0.0 for m in month_year_columns}
-            for row_data in data:
-                for month_year in month_year_columns:
-                    amount = row_data[month_year]
-                    if amount:
-                        monthly_totals[month_year] += amount
-            
-            summary_row = {
-                'Project Month': 'Total',
+            # Add totals row to detail
+            totals_row = {
+                'Project Month': 'TOTAL',
                 'Payment Method': '',
                 'Client Name': '',
                 'Project Name': '',
-                'Contract amount USD': total_contract_sum if total_contract_sum != 0 else None,
-                'Deposit paid USD': total_deposit_sum if total_deposit_sum != 0 else None,
-                'Balance USD': total_balance_sum if total_balance_sum != 0 else None
+                'Contract amount USD': df_detail['Contract amount USD'].sum(),
+                'Deposit paid USD': df_detail['Deposit paid USD'].sum(),
+                'Balance USD': df_detail['Balance USD'].sum()
             }
             
-            for month_year in month_year_columns:
-                total = monthly_totals[month_year]
-                summary_row[month_year] = total if total != 0 else None
+            for month in month_list:
+                totals_row[month] = df_detail[month].sum()
             
-            data.append(summary_row)
+            df_detail = pd.concat([df_detail, pd.DataFrame([totals_row])], ignore_index=True)
             
-            # Create DataFrames
-            # DETAIL sheet columns (with Payment Method)
-            main_columns = ['Project Month', 'Payment Method', 'Client Name', 'Project Name', 
-                          'Contract amount USD', 'Deposit paid USD', 'Balance USD'] + month_year_columns
-            df_main = pd.DataFrame(data, columns=main_columns)
+            # Create summary by payment method
+            if 'Payment Method' in df_detail.columns:
+                payment_summary = df_detail.groupby('Payment Method').agg({
+                    'Deposit paid USD': 'sum',
+                    'Balance USD': 'sum'
+                }).reset_index()
+                
+                # Add month totals
+                for month in month_list:
+                    month_totals = df_detail.groupby('Payment Method')[month].sum().reset_index()
+                    payment_summary = payment_summary.merge(month_totals, on='Payment Method', how='left')
+                
+                # Add total row
+                payment_totals = {
+                    'Payment Method': 'TOTAL',
+                    'Deposit paid USD': payment_summary['Deposit paid USD'].sum(),
+                    'Balance USD': payment_summary['Balance USD'].sum()
+                }
+                
+                for month in month_list:
+                    payment_totals[month] = payment_summary[month].sum()
+                
+                payment_summary = pd.concat([payment_summary, pd.DataFrame([payment_totals])], ignore_index=True)
             
-            # SUMMARY BY PAYMENT METHOD
-            payment_columns = ['Payment Method', 'Total Deposits', 'Total Installments'] + month_year_columns
-            df_payment_summary = pd.DataFrame(summary_payment_data, columns=payment_columns)
-            
-            # SUMMARY BY PROJECT MONTH
-            month_columns = ['Project Month', 'Total Deposits', 'Total Installments'] + month_year_columns
-            df_month_summary = pd.DataFrame(summary_month_data, columns=month_columns)
+            # Create summary by project month
+            if 'Project Month' in df_detail.columns:
+                month_summary = df_detail[df_detail['Project Month'] != 'TOTAL'].groupby('Project Month').agg({
+                    'Deposit paid USD': 'sum',
+                    'Balance USD': 'sum'
+                }).reset_index()
+                
+                # Add month totals
+                for month in month_list:
+                    month_totals = df_detail[df_detail['Project Month'] != 'TOTAL'].groupby('Project Month')[month].sum().reset_index()
+                    month_summary = month_summary.merge(month_totals, on='Project Month', how='left')
+                
+                # Add total row
+                month_totals_row = {
+                    'Project Month': 'TOTAL',
+                    'Deposit paid USD': month_summary['Deposit paid USD'].sum(),
+                    'Balance USD': month_summary['Balance USD'].sum()
+                }
+                
+                for month in month_list:
+                    month_totals_row[month] = month_summary[month].sum()
+                
+                month_summary = pd.concat([month_summary, pd.DataFrame([month_totals_row])], ignore_index=True)
             
             # Create Excel file
             output = io.BytesIO()
             
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                # 1. SUMMARY BY PAYMENT METHOD sheet
-                df_payment_summary.to_excel(writer, sheet_name='SUMMARY BY PAYMENT', index=False)
+                # Write sheets
+                if 'payment_summary' in locals():
+                    payment_summary.to_excel(writer, sheet_name='SUMMARY BY PAYMENT', index=False)
                 
-                # 2. SUMMARY BY MONTH sheet
-                df_month_summary.to_excel(writer, sheet_name='SUMMARY BY MONTH', index=False)
+                if 'month_summary' in locals():
+                    month_summary.to_excel(writer, sheet_name='SUMMARY BY MONTH', index=False)
                 
-                # 3. DETAIL sheet
-                df_main.to_excel(writer, sheet_name='DETAIL', index=False)
+                df_detail.to_excel(writer, sheet_name='DETAIL', index=False)
                 
-                # Get sheets
-                ws_payment = writer.sheets['SUMMARY BY PAYMENT']
-                ws_month = writer.sheets['SUMMARY BY MONTH']
-                ws_detail = writer.sheets['DETAIL']
-                
-                # Simple header formatting
-                header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-                header_font = Font(bold=True, color="FFFFFF")
-                
-                # Format SUMMARY BY PAYMENT headers
-                for col in range(1, len(payment_columns) + 1):
-                    cell = ws_payment.cell(row=1, column=col)
-                    cell.fill = header_fill
-                    cell.font = header_font
-                
-                # Format SUMMARY BY MONTH headers
-                for col in range(1, len(month_columns) + 1):
-                    cell = ws_month.cell(row=1, column=col)
-                    cell.fill = header_fill
-                    cell.font = header_font
-                
-                # Format DETAIL headers
-                for col in range(1, len(main_columns) + 1):
-                    cell = ws_detail.cell(row=1, column=col)
-                    cell.fill = header_fill
-                    cell.font = header_font
-                
-                # Add timestamp as first row
-                timestamp_text = f"CASHFLOW REPORT - Generated: {timestamp_str}"
-                
-                # Insert timestamp in all sheets
-                for ws in [ws_payment, ws_month, ws_detail]:
+                # Add timestamp to all sheets
+                for sheet_name in writer.sheets:
+                    ws = writer.sheets[sheet_name]
                     ws.insert_rows(1)
-                    ws.cell(row=1, column=1, value=timestamp_text)
+                    ws.cell(row=1, column=1, value=f"Cashflow Report - Generated: {timestamp_str}")
                     ws.cell(row=1, column=1).font = Font(bold=True)
-                
-                # Format currency columns (all numeric columns except first)
-                for ws, col_count in [(ws_payment, len(payment_columns)), 
-                                      (ws_month, len(month_columns)), 
-                                      (ws_detail, len(main_columns))]:
-                    for row in ws.iter_rows(min_row=3, max_row=ws.max_row):
-                        for cell in row:
-                            if isinstance(cell.value, (int, float)):
-                                # Skip first column for SUMMARY sheets, first 2 columns for DETAIL
-                                if ws == ws_detail and cell.column > 4:  # Skip Project Month, Payment Method, Client Name, Project Name
-                                    cell.number_format = '#,##0.00'
-                                elif ws != ws_detail and cell.column > 1:  # Skip first column for SUMMARY sheets
-                                    cell.number_format = '#,##0.00'
-                
-                # Bold the TOTAL rows
-                for ws, total_text in [(ws_payment, 'TOTAL'), (ws_month, 'TOTAL'), (ws_detail, 'Total')]:
-                    for row in ws.iter_rows(min_row=3, max_row=ws.max_row):
-                        if row[0].value == total_text:
-                            for cell in row:
-                                cell.font = Font(bold=True)
-                
-                # Set reasonable column widths
-                ws_payment.column_dimensions['A'].width = 25  # Payment Method
-                ws_month.column_dimensions['A'].width = 15    # Project Month
-                ws_detail.column_dimensions['A'].width = 15   # Project Month
-                ws_detail.column_dimensions['B'].width = 20   # Payment Method
-                ws_detail.column_dimensions['C'].width = 25   # Client Name
-                ws_detail.column_dimensions['D'].width = 25   # Project Name
-                
-                # Set first sheet as active
-                writer.book.active = writer.book['SUMMARY BY PAYMENT']
             
             output.seek(0)
             
@@ -9797,8 +9616,10 @@ def export_cashflow():
             return response
             
     except Exception as e:
-        print(f"Error generating cashflow file: {str(e)}")
+        print(f"Error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+        
 @app.route('/get_project_months')
 def get_project_months():
     try:
