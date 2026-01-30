@@ -7988,6 +7988,11 @@ def download_contract(project_id):
                         <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
                     </div>
                     
+                    <div class="section-header">TRANSPORT PROVISION</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
+                    </div>
+
                     <div class="section-header">TERMINATION</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">This Agreement may be terminated by either party if the other party:</p>
