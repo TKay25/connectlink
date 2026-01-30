@@ -9401,14 +9401,14 @@ def get_enquiries_data():
 
 @app.route('/export_cashflow', methods=['POST'])
 def export_cashflow():
-    """Generate cashflow Excel file"""
+    """Generate cashflow Excel file with months in chronological order and proper styling"""
     try:
         with get_db() as (cursor, connection):
             # Get current timestamp
             current_timestamp = datetime.now()
             timestamp_str = current_timestamp.strftime("%d %B %Y %H:%M")
             
-            # Fetch all projects - SIMPLIFIED QUERY
+            # Fetch all projects
             cursor.execute("""
                 SELECT 
                     clientname, projectname, totalcontractamount,
@@ -9430,12 +9430,14 @@ def export_cashflow():
             if not rows:
                 return jsonify({'success': False, 'message': 'No projects found'}), 404
             
-            # Get all months from due dates
-            all_months = set()
+            # Get all months from due dates and sort them chronologically
+            all_months = []
+            month_set = set()
+            
             for row in rows:
                 # Check installment due dates
                 for i in range(6):
-                    due_date_idx = 6 + (i * 2)  # Starting at index 6
+                    due_date_idx = 6 + (i * 2)
                     due_date = row[due_date_idx]
                     if due_date:
                         try:
@@ -9443,12 +9445,37 @@ def export_cashflow():
                                 date_obj = datetime.strptime(due_date[:10], '%Y-%m-%d')
                             else:
                                 date_obj = due_date
-                            all_months.add(date_obj.strftime('%b-%Y'))
+                            
+                            month_str = date_obj.strftime('%b-%Y')
+                            if month_str not in month_set:
+                                month_set.add(month_str)
+                                all_months.append((date_obj, month_str))
                         except:
                             continue
             
-            # Sort months
-            month_list = sorted(list(all_months))
+            # Sort months chronologically by date
+            all_months.sort(key=lambda x: x[0])
+            month_list = [month_str for _, month_str in all_months]
+            
+            # If no months from installments, use current and next few months
+            if not month_list:
+                today = datetime.now()
+                for i in range(-2, 10):
+                    future_date = today.replace(day=1)
+                    if i != 0:
+                        month = future_date.month + i
+                        year = future_date.year
+                        if month > 12:
+                            month -= 12
+                            year += 1
+                        elif month < 1:
+                            month += 12
+                            year -= 1
+                        future_date = future_date.replace(year=year, month=month)
+                    month_list.append(future_date.strftime('%b-%Y'))
+                # Remove duplicates and sort
+                month_list = sorted(list(set(month_list)), 
+                                  key=lambda x: datetime.strptime(x, '%b-%Y'))
             
             # Create main data
             main_data = []
@@ -9486,7 +9513,7 @@ def export_cashflow():
                     'Balance USD': balance if balance != 0 else None
                 }
                 
-                # Add months
+                # Add months in chronological order
                 for month in month_list:
                     row_data[month] = None
                 
@@ -9537,73 +9564,174 @@ def export_cashflow():
             
             df_detail = pd.concat([df_detail, pd.DataFrame([totals_row])], ignore_index=True)
             
-            # Create summary by payment method
-            if 'Payment Method' in df_detail.columns:
-                payment_summary = df_detail.groupby('Payment Method').agg({
-                    'Deposit paid USD': 'sum',
-                    'Balance USD': 'sum'
-                }).reset_index()
+            # Create summary by project month
+            month_summary_data = []
+            
+            # Group by Project Month
+            for project_month in sorted(set(df_detail['Project Month'].dropna())):
+                if project_month == 'TOTAL':
+                    continue
                 
-                # Add month totals
+                month_rows = df_detail[df_detail['Project Month'] == project_month]
+                month_summary = {
+                    'Project Month': project_month,
+                    'Deposit paid USD': month_rows['Deposit paid USD'].sum(),
+                    'Balance USD': month_rows['Balance USD'].sum()
+                }
+                
                 for month in month_list:
-                    month_totals = df_detail.groupby('Payment Method')[month].sum().reset_index()
-                    payment_summary = payment_summary.merge(month_totals, on='Payment Method', how='left')
+                    month_summary[month] = month_rows[month].sum()
                 
-                # Add total row
+                month_summary_data.append(month_summary)
+            
+            # Add totals to month summary
+            if month_summary_data:
+                month_totals = {
+                    'Project Month': 'TOTAL',
+                    'Deposit paid USD': sum(row['Deposit paid USD'] for row in month_summary_data),
+                    'Balance USD': sum(row['Balance USD'] for row in month_summary_data)
+                }
+                
+                for month in month_list:
+                    month_totals[month] = sum(row[month] for row in month_summary_data)
+                
+                month_summary_data.append(month_totals)
+            
+            # Create summary by payment method
+            payment_summary_data = []
+            
+            # Group by Payment Method
+            for payment_method in sorted(set(df_detail['Payment Method'].dropna())):
+                if not payment_method or payment_method == '':
+                    continue
+                
+                payment_rows = df_detail[df_detail['Payment Method'] == payment_method]
+                payment_summary = {
+                    'Payment Method': payment_method,
+                    'Deposit paid USD': payment_rows['Deposit paid USD'].sum(),
+                    'Balance USD': payment_rows['Balance USD'].sum()
+                }
+                
+                for month in month_list:
+                    payment_summary[month] = payment_rows[month].sum()
+                
+                payment_summary_data.append(payment_summary)
+            
+            # Add totals to payment summary
+            if payment_summary_data:
                 payment_totals = {
                     'Payment Method': 'TOTAL',
-                    'Deposit paid USD': payment_summary['Deposit paid USD'].sum(),
-                    'Balance USD': payment_summary['Balance USD'].sum()
+                    'Deposit paid USD': sum(row['Deposit paid USD'] for row in payment_summary_data),
+                    'Balance USD': sum(row['Balance USD'] for row in payment_summary_data)
                 }
                 
                 for month in month_list:
-                    payment_totals[month] = payment_summary[month].sum()
+                    payment_totals[month] = sum(row[month] for row in payment_summary_data)
                 
-                payment_summary = pd.concat([payment_summary, pd.DataFrame([payment_totals])], ignore_index=True)
+                payment_summary_data.append(payment_totals)
             
-            # Create summary by project month
-            if 'Project Month' in df_detail.columns:
-                month_summary = df_detail[df_detail['Project Month'] != 'TOTAL'].groupby('Project Month').agg({
-                    'Deposit paid USD': 'sum',
-                    'Balance USD': 'sum'
-                }).reset_index()
-                
-                # Add month totals
-                for month in month_list:
-                    month_totals = df_detail[df_detail['Project Month'] != 'TOTAL'].groupby('Project Month')[month].sum().reset_index()
-                    month_summary = month_summary.merge(month_totals, on='Project Month', how='left')
-                
-                # Add total row
-                month_totals_row = {
-                    'Project Month': 'TOTAL',
-                    'Deposit paid USD': month_summary['Deposit paid USD'].sum(),
-                    'Balance USD': month_summary['Balance USD'].sum()
-                }
-                
-                for month in month_list:
-                    month_totals_row[month] = month_summary[month].sum()
-                
-                month_summary = pd.concat([month_summary, pd.DataFrame([month_totals_row])], ignore_index=True)
-            
-            # Create Excel file
+            # Create Excel file with styling
             output = io.BytesIO()
             
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                # Write sheets
-                if 'payment_summary' in locals():
-                    payment_summary.to_excel(writer, sheet_name='SUMMARY BY PAYMENT', index=False)
+                # Write sheets in order
+                if month_summary_data:
+                    df_month_summary = pd.DataFrame(month_summary_data)
+                    df_month_summary.to_excel(writer, sheet_name='SUMMARY BY MONTH', index=False)
                 
-                if 'month_summary' in locals():
-                    month_summary.to_excel(writer, sheet_name='SUMMARY BY MONTH', index=False)
+                if payment_summary_data:
+                    df_payment_summary = pd.DataFrame(payment_summary_data)
+                    df_payment_summary.to_excel(writer, sheet_name='SUMMARY BY PAYMENT', index=False)
                 
                 df_detail.to_excel(writer, sheet_name='DETAIL', index=False)
                 
-                # Add timestamp to all sheets
+                # Apply styling to all sheets
                 for sheet_name in writer.sheets:
                     ws = writer.sheets[sheet_name]
+                    
+                    # Add timestamp at top (simple, no merging)
                     ws.insert_rows(1)
-                    ws.cell(row=1, column=1, value=f"Cashflow Report - Generated: {timestamp_str}")
-                    ws.cell(row=1, column=1).font = Font(bold=True)
+                    timestamp_cell = ws.cell(row=1, column=1, value=f"Cashflow Report - Generated: {timestamp_str}")
+                    timestamp_cell.font = Font(bold=True, size=12, color="366092")
+                    
+                    # Get the right header row (after inserting timestamp)
+                    header_row = 2
+                    
+                    # Style headers
+                    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                    header_font = Font(bold=True, color="FFFFFF", size=11)
+                    
+                    for col in range(1, ws.max_column + 1):
+                        cell = ws.cell(row=header_row, column=col)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                    
+                    # Apply number formatting to currency columns
+                    # For DETAIL sheet
+                    if sheet_name == 'DETAIL':
+                        # Currency columns start at column 5 (Contract amount USD)
+                        for row in range(header_row + 1, ws.max_row + 1):
+                            for col in range(5, ws.max_column + 1):
+                                cell = ws.cell(row=row, column=col)
+                                if cell.value is not None and isinstance(cell.value, (int, float)):
+                                    cell.number_format = '#,##0.00'
+                    
+                    # For SUMMARY sheets
+                    elif sheet_name in ['SUMMARY BY MONTH', 'SUMMARY BY PAYMENT']:
+                        # Currency columns start at column 2 (Deposit paid USD)
+                        for row in range(header_row + 1, ws.max_row + 1):
+                            for col in range(2, ws.max_column + 1):
+                                cell = ws.cell(row=row, column=col)
+                                if cell.value is not None and isinstance(cell.value, (int, float)):
+                                    cell.number_format = '#,##0.00'
+                    
+                    # Style TOTAL rows
+                    for row in range(header_row + 1, ws.max_row + 1):
+                        first_cell = ws.cell(row=row, column=1)
+                        if first_cell.value == 'TOTAL' or first_cell.value == 'Total':
+                            total_font = Font(bold=True, color="000000")
+                            total_fill = PatternFill(start_color="C6E0B4", end_color="C6E0B4", fill_type="solid")
+                            
+                            for col in range(1, ws.max_column + 1):
+                                cell = ws.cell(row=row, column=col)
+                                cell.font = total_font
+                                cell.fill = total_fill
+                    
+                    # Set column widths
+                    if sheet_name == 'SUMMARY BY MONTH':
+                        ws.column_dimensions['A'].width = 15  # Project Month
+                        for col in range(2, ws.max_column + 1):
+                            col_letter = get_column_letter(col)
+                            ws.column_dimensions[col_letter].width = 12
+                    
+                    elif sheet_name == 'SUMMARY BY PAYMENT':
+                        ws.column_dimensions['A'].width = 25  # Payment Method
+                        for col in range(2, ws.max_column + 1):
+                            col_letter = get_column_letter(col)
+                            ws.column_dimensions[col_letter].width = 12
+                    
+                    elif sheet_name == 'DETAIL':
+                        ws.column_dimensions['A'].width = 15  # Project Month
+                        ws.column_dimensions['B'].width = 20  # Payment Method
+                        ws.column_dimensions['C'].width = 25  # Client Name
+                        ws.column_dimensions['D'].width = 25  # Project Name
+                        for col in range(5, ws.max_column + 1):
+                            col_letter = get_column_letter(col)
+                            ws.column_dimensions[col_letter].width = 12
+                    
+                    # Freeze headers
+                    ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
+                    
+                    # Add borders to all cells
+                    thin_border = Border(left=Side(style='thin'), 
+                                        right=Side(style='thin'),
+                                        top=Side(style='thin'), 
+                                        bottom=Side(style='thin'))
+                    
+                    for row in ws.iter_rows(min_row=header_row, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+                        for cell in row:
+                            cell.border = thin_border
             
             output.seek(0)
             
@@ -9618,8 +9746,7 @@ def export_cashflow():
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
-
-        
+    
 @app.route('/get_project_months')
 def get_project_months():
     try:
