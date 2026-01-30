@@ -3331,35 +3331,72 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
-function downloadPortfolio() {
-    const btn = document.getElementById("exportprojectportBtn");
-
-    // Show spinner
-    btn.disabled = true;
-    btn.innerHTML = `
-        <span class="spinner-border spinner-border-sm me-2"></span>
-        Downloading...
-    `;
-
-    // Create hidden link for download
-    const link = document.createElement("a");
-    link.href = "/export-projects-portfolio";
-    link.download = "";
-    link.style.display = "none";
-    document.body.appendChild(link);
-
-    // Click the link to start download
-    link.click();
-
-    // Remove link
-    document.body.removeChild(link);
-
-    // Reset button after short delay
-    setTimeout(() => {
-        btn.disabled = false;
-        btn.innerHTML = `<i class="bi bi-journal-text"></i> Download Master File`;
-    }, 2500); // 2.5 seconds works well
-}
+$(document).ready(function() {
+    // Handle Send Receipt button click
+    $('#sendReceiptBtn').on('click', function() {
+        const projectId = $('#updateProjectId').val();
+        
+        if (!projectId) {
+            alert('⚠️ No project selected!');
+            return;
+        }
+        
+        const btn = document.getElementById("sendReceiptBtn");
+        
+        // Show spinner - disable button
+        btn.disabled = true;
+        btn.innerHTML = `
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            Sending to Client...
+        `;
+        
+        // Create form data
+        const formData = new FormData();
+        formData.append('project_id', projectId);
+        
+        // Send AJAX request
+        fetch('/send_receipt_to_client', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Show alert with response data
+            if (data.success) {
+                alert(
+                    '✅ SUCCESS!\n\n' +
+                    (data.success_message || 'Receipt sent successfully!') + '\n\n' +
+                    'Details:\n' +
+                    '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
+                    '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
+                    '• Project: ' + (data.details?.project_name || 'Unknown')
+                );
+            } else {
+                alert(
+                    '❌ FAILED!\n\n' +
+                    (data.error_message || data.message || 'Unknown error') + '\n\n' +
+                    'Details:\n' +
+                    '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
+                    '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
+                    '• Project: ' + (data.details?.project_name || 'Unknown')
+                );
+            }
+            
+            // Reset button after showing alert
+            resetButton();
+        })
+        .catch(error => {
+            alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
+            resetButton();
+        });
+        
+        // Function to reset button
+        function resetButton() {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-whatsapp"></i> Send Receipt to Client`;
+        }
+    });
+});
 </script>
 <script>
     // Load months when modal opens
