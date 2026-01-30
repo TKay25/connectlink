@@ -3466,7 +3466,7 @@ def webhook():
                                                                             Amount: USD {deposit_amount if deposit_amount else '0'}
                                                                             Date: {datetime.now().strftime('%d %B %Y')}
 
-                                                                            ConnectLink Properties"""
+                                                                            Send 'Hello' to view your contracts or to log enquiries."""
                                                                         else:
                                                                             filename = f"Deposit_Receipt_{project_id}.pdf"
                                                                             caption = f"📄 Deposit Receipt - Project {project_id}"
@@ -5513,7 +5513,8 @@ def webhook():
                                                                                 Amount: USD {deposit_amount if deposit_amount else '0'}
                                                                                 Date: {datetime.now().strftime('%d %B %Y')}
 
-                                                                                ConnectLink Properties"""
+                                                                                Send 'Hello' to view your contracts or to log enquiries."""
+                        
                                                                             else:
                                                                                 filename = f"Deposit_Receipt_{project_id}.pdf"
                                                                                 caption = f"📄 Deposit Receipt - Project {project_id}"
