@@ -9399,13 +9399,13 @@ def get_enquiries_data():
 
 
 
-
 @app.route('/export_cashflow', methods=['POST'])
 def export_cashflow():
-
     from flask import make_response
     import io
     from openpyxl.styles import Font, PatternFill, Alignment
+    import pandas as pd
+    from datetime import datetime
 
     """Generate cashflow Excel file with monthly breakdown using datedepositorbullet as Project Month"""
     try:
@@ -9432,11 +9432,50 @@ def export_cashflow():
             if not rows:
                 return jsonify({'success': False, 'message': 'No projects found'}), 404
             
-            # Define months for the spreadsheet (Jan to Dec)
-            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            # Define month-year columns (e.g., Jan-2024, Feb-2024, etc.)
+            month_year_set = set()
             
-            # Create data structure
+            # First pass: collect all unique month-year combinations from due dates
+            for row in rows:
+                # Check datedepositorbullet
+                datedepositpaid = row[5]
+                if datedepositpaid:
+                    try:
+                        if isinstance(datedepositpaid, str):
+                            deposit_date = datetime.strptime(datedepositpaid, '%Y-%m-%d')
+                        else:
+                            deposit_date = datedepositpaid
+                        month_year = deposit_date.strftime('%b-%Y')
+                        month_year_set.add(month_year)
+                    except:
+                        pass
+                
+                # Check installment due dates (6 installments)
+                for i in range(6):
+                    due_date_idx = 7 + (i * 3)
+                    due_date = row[due_date_idx]
+                    
+                    if due_date:
+                        try:
+                            if isinstance(due_date, str):
+                                due_date_obj = datetime.strptime(due_date, '%Y-%m-%d')
+                            else:
+                                due_date_obj = due_date
+                            month_year = due_date_obj.strftime('%b-%Y')
+                            month_year_set.add(month_year)
+                        except:
+                            continue
+            
+            # Sort month-year columns chronologically
+            def month_year_key(m_y):
+                try:
+                    return datetime.strptime(m_y, '%b-%Y')
+                except:
+                    return datetime.min
+            
+            month_year_columns = sorted(list(month_year_set), key=month_year_key)
+            
+            # Create data structure - store numbers, not formatted strings
             data = []
             
             for row in rows:
@@ -9455,14 +9494,12 @@ def export_cashflow():
                 if datedepositpaid:
                     try:
                         if isinstance(datedepositpaid, str):
-                            # If it's a string, parse it
                             deposit_date = datetime.strptime(datedepositpaid, '%Y-%m-%d')
                         else:
-                            # If it's already a date/datetime
                             deposit_date = datedepositpaid
                         
-                        # Format as "Mar" for March, etc.
-                        project_month = deposit_date.strftime('%b')
+                        # Format as "Mar-2024" for March 2024, etc.
+                        project_month = deposit_date.strftime('%b-%Y')
                     except Exception as e:
                         print(f"Error parsing datedepositorbullet for project {project_id}: {e}")
                         project_month = ''
@@ -9473,19 +9510,19 @@ def export_cashflow():
                 # Monthly installment amount
                 monthly_installment = float(row[6]) if row[6] else 0
                 
-                # Create row dictionary
+                # Create row dictionary - store numbers for Excel calculations
                 row_data = {
                     'Project Month': project_month,
                     'Client Name': client_name,
                     'Project Name': project_name,
-                    'Contract amount': f"US${total_contract:,.2f}",
-                    'Deposit paid': f"US${deposit_paid:,.2f}",
-                    'Balance': f"US${balance:,.2f}"
+                    'Contract amount': total_contract,  # Store as number
+                    'Deposit paid': deposit_paid,       # Store as number
+                    'Balance': balance                  # Store as number
                 }
                 
-                # Initialize all months to empty
-                for month in months:
-                    row_data[month] = ''
+                # Initialize all month-year columns to 0 (numbers, not strings)
+                for month_year in month_year_columns:
+                    row_data[month_year] = 0.0
                 
                 # Process installments (6 installments)
                 for i in range(6):
@@ -9505,25 +9542,25 @@ def export_cashflow():
                             else:
                                 due_date_obj = due_date
                             
-                            # Get month abbreviation
-                            month_abbr = due_date_obj.strftime('%b')
+                            # Get month-year abbreviation
+                            month_year_abbr = due_date_obj.strftime('%b-%Y')
                             
-                            # Format amount
+                            # Store amount as number (not formatted string)
                             if amount:
-                                amount_formatted = f"US${float(amount):,.2f}"
+                                amount_num = float(amount)
                             else:
-                                amount_formatted = ''
+                                amount_num = 0.0
                             
-                            # Put amount in the corresponding month column
-                            if month_abbr in row_data:
-                                row_data[month_abbr] = amount_formatted
+                            # Put amount in the corresponding month-year column
+                            if month_year_abbr in row_data:
+                                row_data[month_year_abbr] = amount_num
                                 
                         except Exception as e:
                             print(f"Error processing installment for project {project_id}: {e}")
                             continue
                 
                 # If no specific installments, use monthlyinstallment for distribution
-                if all(row_data[month] == '' for month in months) and monthly_installment > 0:
+                if all(row_data[month_year] == 0 for month_year in month_year_columns) and monthly_installment > 0:
                     # Get months to pay
                     cursor.execute("""
                         SELECT monthstopay FROM connectlinkdatabase WHERE id = %s
@@ -9533,19 +9570,18 @@ def export_cashflow():
                     
                     # Start from project month if available
                     start_month_index = 0
-                    if project_month:
+                    if project_month and project_month in month_year_columns:
                         try:
-                            # Find index of project month in months list
-                            start_month_index = months.index(project_month)
+                            # Find index of project month in month_year_columns list
+                            start_month_index = month_year_columns.index(project_month)
                         except ValueError:
                             start_month_index = 0
                     
                     # Distribute installments
-                    monthly_formatted = f"US${monthly_installment:,.2f}"
-                    for i in range(min(months_to_pay, len(months) - start_month_index)):
+                    for i in range(min(months_to_pay, len(month_year_columns) - start_month_index)):
                         month_index = start_month_index + i
-                        if month_index < len(months):
-                            row_data[months[month_index]] = monthly_formatted
+                        if month_index < len(month_year_columns):
+                            row_data[month_year_columns[month_index]] = monthly_installment
                 
                 data.append(row_data)
             
@@ -9555,39 +9591,34 @@ def export_cashflow():
             total_balance_sum = total_contract_sum - total_deposit_sum
             
             # Calculate monthly totals
-            monthly_totals = {month: 0.0 for month in months}
+            monthly_totals = {month_year: 0.0 for month_year in month_year_columns}
             
             for row_data in data:
-                for month in months:
-                    amount_str = row_data[month]
-                    if amount_str and amount_str.startswith('US$'):
-                        try:
-                            # Extract number from "US$1,200.00"
-                            amount_num = float(amount_str.replace('US$', '').replace(',', ''))
-                            monthly_totals[month] += amount_num
-                        except:
-                            pass
+                for month_year in month_year_columns:
+                    amount_num = row_data[month_year]
+                    if isinstance(amount_num, (int, float)):
+                        monthly_totals[month_year] += amount_num
             
-            # Create summary row
+            # Create summary row - store numbers for calculations
             summary_row = {
                 'Project Month': 'Total',
                 'Client Name': '',
                 'Project Name': '',
-                'Contract amount': f"US${total_contract_sum:,.2f}",
-                'Deposit paid': f"US${total_deposit_sum:,.2f}",
-                'Balance': f"US${total_balance_sum:,.2f}"
+                'Contract amount': total_contract_sum,  # Number
+                'Deposit paid': total_deposit_sum,      # Number
+                'Balance': total_balance_sum            # Number
             }
             
             # Add monthly totals to summary
-            for month in months:
-                summary_row[month] = f"US${monthly_totals[month]:,.2f}"
+            for month_year in month_year_columns:
+                summary_row[month_year] = monthly_totals[month_year]  # Number
             
             # Add summary row to data
             data.append(summary_row)
             
             # Create DataFrame
             columns = ['Project Month', 'Client Name', 'Project Name', 
-                      'Contract amount', 'Deposit paid', 'Balance'] + months
+                      'Contract amount', 'Deposit paid', 'Balance'] + month_year_columns
             
             df = pd.DataFrame(data, columns=columns)
             
@@ -9611,13 +9642,14 @@ def export_cashflow():
                     cell.font = header_font
                     cell.alignment = Alignment(horizontal='center', vertical='center')
                 
-                # Format currency columns
-                currency_columns = ['Contract amount', 'Deposit paid', 'Balance'] + months
+                # Format currency columns - APPLY NUMBER FORMAT, DON'T CONVERT TO STRING
+                currency_columns = ['Contract amount', 'Deposit paid', 'Balance'] + month_year_columns
                 currency_col_indices = [columns.index(col) + 1 for col in currency_columns if col in columns]
                 
                 for row in range(2, len(df) + 2):
                     for col in currency_col_indices:
                         cell = worksheet.cell(row=row, column=col)
+                        # Apply currency format - Excel will display as US$ but keep as number
                         cell.number_format = '"US$"#,##0.00'
                 
                 # Format total row (last row)
@@ -9642,7 +9674,7 @@ def export_cashflow():
                                 max_length = len(str(cell.value))
                         except:
                             pass
-                    adjusted_width = min(max_length + 2, 30)
+                    adjusted_width = min(max_length + 2, 20)  # Slightly wider for month-year
                     worksheet.column_dimensions[column_letter].width = adjusted_width
                 
                 # Freeze header row
@@ -9661,6 +9693,7 @@ def export_cashflow():
         print(f"Error generating cashflow file: {str(e)}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+        
 @app.route('/get_project_months')
 def get_project_months():
     try:
