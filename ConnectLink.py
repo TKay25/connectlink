@@ -9414,8 +9414,8 @@ def export_cashflow():
             cursor.execute("""
                 SELECT 
                     id, clientname, projectname, totalcontractamount,
-                    depositpaid, -- or depositorbullet for deposit amount
-                    datedepositpaid, -- This will be used for Project Month
+                    depositorbullet,
+                    datedepositpaid, 
                     monthlyinstallment,
                     installment1duedate, installment1date, installment1amount,
                     installment2duedate, installment2date, installment2amount,
@@ -9424,7 +9424,7 @@ def export_cashflow():
                     installment5duedate, installment5date, installment5amount,
                     installment6duedate, installment6date, installment6amount
                 FROM connectlinkdatabase 
-                ORDER BY datedepositpaid, clientname
+                ORDER BY datedepositpaid
             """)
             
             rows = cursor.fetchall()
