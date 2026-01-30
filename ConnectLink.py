@@ -10670,7 +10670,6 @@ def update_first_installment_date():
         print("Error updating first installment date:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
-
 @app.route('/send_receipt_to_client', methods=['POST'])
 def send_receipt_to_client():
     """Send WhatsApp template with button containing project_id"""
@@ -10678,13 +10677,17 @@ def send_receipt_to_client():
         project_id = request.form.get('project_id')
         
         with get_db() as (cursor, connection):
-            # Just get WhatsApp number
+            # Get client details
             cursor.execute("""
-                SELECT clientwanumber FROM connectlinkdatabase WHERE id = %s
+                SELECT clientwanumber, clientname, projectname 
+                FROM connectlinkdatabase 
+                WHERE id = %s
             """, (project_id,))
             
             row = cursor.fetchone()
             whatsapp_number = row[0]
+            client_name = row[1] if row[1] else "Client"
+            project_name = row[2] if row[2] else f"Project {project_id}"
             
             # Format number
             whatsapp_number = str(whatsapp_number).strip()
@@ -10704,19 +10707,45 @@ def send_receipt_to_client():
             if 'messages' in response:
                 return jsonify({
                     'success': True, 
-                    'message': f'WhatsApp sent with button (payload: deposit_receipt_{project_id})'
+                    'message': f'WhatsApp sent with button (payload: deposit_receipt_{project_id})',
+                    'details': {
+                        'client_name': client_name,
+                        'whatsapp_number': formatted_number,
+                        'project_name': project_name,
+                        'project_id': project_id
+                    },
+                    'success_message': f'Deposit receipt download prompt successfully sent to {client_name} on WhatsApp number {formatted_number} for project "{project_name}"'
                 })
             else:
                 error_msg = response.get('error', {}).get('message', 'Unknown error')
                 return jsonify({
                     'success': False, 
-                    'message': f'Error: {error_msg}'
+                    'message': f'Error: {error_msg}',
+                    'details': {
+                        'client_name': client_name,
+                        'whatsapp_number': formatted_number,
+                        'project_name': project_name,
+                        'project_id': project_id
+                    },
+                    'error_message': f'Failed to send receipt to {client_name} ({formatted_number}) for "{project_name}": {error_msg}'
                 })
                 
     except Exception as e:
         print(f"❌ Error: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)})
+        return jsonify({
+            'success': False, 
+            'message': str(e),
+            'details': {
+                'client_name': 'Unknown',
+                'whatsapp_number': 'Unknown',
+                'project_name': 'Unknown',
+                'project_id': project_id
+            },
+            'error_message': f'System error: {str(e)}'
+        })
 
+
+        
 def send_template_with_button(to_number, project_id):
     """Send template with button containing project_id in payload"""
     

@@ -3337,7 +3337,7 @@ $(document).ready(function() {
         const projectId = $('#updateProjectId').val();
         
         if (!projectId) {
-            showAlert('No project selected!', 'warning');
+            alert('⚠️ No project selected!');
             return;
         }
         
@@ -3357,22 +3357,42 @@ $(document).ready(function() {
             type: 'POST',
             data: {
                 project_id: projectId
-                },
+            },
             success: function(response) {
                 if (response.success) {
-                    showAlert('Receipt sent successfully!', 'success');
+                    // Show success alert with all details
+                    alert(
+                        '✅ SUCCESS!\n\n' +
+                        response.success_message + '\n\n' +
+                        'Details:\n' +
+                        '• Client: ' + response.details.client_name + '\n' +
+                        '• WhatsApp: ' + response.details.whatsapp_number + '\n' +
+                        '• Project: ' + response.details.project_name + '\n' +
+                        '• Project ID: ' + response.details.project_id
+                    );
+                    
                     // Optional: Add a checkmark briefly
                     $btn.html('<i class="bi bi-check-circle me-2"></i>Sent!');
                     setTimeout(() => {
                         $btn.html(originalText);
                     }, 2000);
                 } else {
-                    showAlert('Error: ' + response.message, 'danger');
+                    // Show error alert
+                    alert(
+                        '❌ FAILED!\n\n' +
+                        response.error_message + '\n\n' +
+                        'Details:\n' +
+                        '• Client: ' + response.details.client_name + '\n' +
+                        '• WhatsApp: ' + response.details.whatsapp_number + '\n' +
+                        '• Project: ' + response.details.project_name + '\n' +
+                        '• Project ID: ' + response.details.project_id + '\n\n' +
+                        'Error: ' + response.message
+                    );
                     $btn.html(originalText);
                 }
             },
             error: function(xhr, status, error) {
-                showAlert('Failed to send receipt: ' + error, 'danger');
+                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
                 $btn.html(originalText);
             },
             complete: function() {
@@ -3387,31 +3407,6 @@ $(document).ready(function() {
             }
         });
     });
-    
-    // Optional: Alert function using Bootstrap Toasts
-    function showAlert(message, type) {
-        // Create toast element
-        const toastId = 'toast-' + Date.now();
-        const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center text-white bg-${type} border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
-            </div>
-        `;
-        
-        // Add to container and show
-        $('#toastContainer').append(toastHtml);
-        const toastEl = document.getElementById(toastId);
-        const toast = new bootstrap.Toast(toastEl);
-        toast.show();
-        
-        // Remove after hidden
-        toastEl.addEventListener('hidden.bs.toast', function() {
-            $(this).remove();
-        });
-    }
 });
 </script>
 <script>
