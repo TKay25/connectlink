@@ -9404,6 +9404,10 @@ def export_cashflow():
     """Generate cashflow Excel file with months in chronological order and proper styling"""
     try:
         with get_db() as (cursor, connection):
+
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.utils import get_column_letter
+
             # Get current timestamp
             current_timestamp = datetime.now()
             timestamp_str = current_timestamp.strftime("%d %B %Y %H:%M")
