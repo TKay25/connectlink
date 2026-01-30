@@ -1955,8 +1955,9 @@ body::before {
                                         <!-- Button 2: Send Receipt to Client -->
                                         <div class="col-xl col-lg-3 col-md-6 col-sm-6">
                                             <div class="d-grid h-100">
-                                                <button type="button" class="btn btn-primary w-100 py-2"><i class="bi bi-whatsapp"></i>
-                                                    Send Receipt to Client
+                                                <button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst1">
+                                                    <span id="sendReceiptText"><i class="bi bi-whatsapp"></i>Send Receipt to Client</span>
+                                                    <span id="sendReceiptSpinner" class="spinner-border spinner-border-sm d-none"></span>
                                                 </button>
                                             </div>
                                         </div>
@@ -3332,6 +3333,110 @@ body::before {
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
 $(document).ready(function() {
+    // Handle Send Receipt button click for installment 1
+    $('#sendReceiptBtninst1').on('click', function() {
+        const projectId = $('#updateProjectId').val();
+        const installment1PaidDate = $('#updateInstallment1Date').val();
+        
+        // Check if project is selected
+        if (!projectId) {
+            alert('⚠️ No project selected!');
+            return;
+        }
+        
+        // Check if installment 1 paid date is empty/null/undefined
+        if (!installment1PaidDate || installment1PaidDate === '' || 
+            installment1PaidDate === 'null' || installment1PaidDate === 'undefined' ||
+            installment1PaidDate.trim() === '') {
+            alert('⚠️ Sorry, you have to input the date installment 1 was paid first before you can send receipt to client');
+            return;
+        }
+        
+        // Validate date format (optional but recommended)
+        if (!isValidDate(installment1PaidDate)) {
+            alert('⚠️ Please enter a valid date for installment 1 payment');
+            return;
+        }
+        
+        const $btn = $(this);
+        const $textSpan = $('#sendReceiptText');
+        const $spinner = $('#sendReceiptSpinner');
+        const originalText = $textSpan.html();
+        
+        // Show spinner
+        $btn.prop('disabled', true);
+        $textSpan.addClass('d-none');
+        $spinner.removeClass('d-none');
+        
+        // Send AJAX request with both project_id and installment1_paid_date
+        $.ajax({
+            url: '/send_receipt_to_client',
+            type: 'POST',
+            data: {
+                project_id: projectId,
+                installment1_paid_date: installment1PaidDate,
+                installment_number: 1  // Optional: to identify which installment
+            },
+            success: function(data) {
+                // Show alert with response data
+                if (data.success) {
+                    alert(
+                        '✅ SUCCESS!\n\n' +
+                        (data.success_message || 'Receipt sent successfully!') + '\n\n' +
+                        'Details:\n' +
+                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
+                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
+                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
+                        '• Installment Date: ' + installment1PaidDate
+                    );
+                } else {
+                    alert(
+                        '❌ FAILED!\n\n' +
+                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
+                        'Details:\n' +
+                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
+                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
+                        '• Project: ' + (data.details?.project_name || 'Unknown')
+                    );
+                }
+                
+                // Reset button
+                resetButton();
+            },
+            error: function(xhr, status, error) {
+                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
+                resetButton();
+            }
+        });
+        
+        // Function to reset button
+        function resetButton() {
+            $btn.prop('disabled', false);
+            $textSpan.removeClass('d-none');
+            $spinner.addClass('d-none');
+            $textSpan.html(originalText);
+        }
+        
+        // Function to validate date
+        function isValidDate(dateString) {
+            const regex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateString.match(regex)) return false;
+            
+            const date = new Date(dateString);
+            const timestamp = date.getTime();
+            
+            // Check if date is valid
+            if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
+                return false;
+            }
+            
+            return date.toISOString().startsWith(dateString);
+        }
+    });
+
+
+
+
     // Handle Send Receipt button click
     $('#sendReceiptBtn').on('click', function() {
         const projectId = $('#updateProjectId').val();
