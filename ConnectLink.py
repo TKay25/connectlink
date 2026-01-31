@@ -11607,6 +11607,12 @@ def update_project():
         monthstopay = request.form.get('MonthsToPay')
         depositpaid = request.form.get('depositpaid')
         depositdatepaid = request.form.get('deposit_date_paid')
+        installment1amountupdate = request.form.get('Installment1Amount')
+        installment2amountupdate = request.form.get('Installment2Amount')
+        installment3amountupdate = request.form.get('Installment3Amount')
+        installment4amountupdate = request.form.get('Installment4Amount')
+        installment5amountupdate = request.form.get('Installment5Amount')
+        installment6amountupdate = request.form.get('Installment6Amount')
         installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
         installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
         installment3_date = clean_date_update(request.form.get('installment3_paid_date'))
@@ -11640,53 +11646,117 @@ def update_project():
         installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate = installment_due_dates
 
 
-        if int(monthstopay) == 1:
-            installment1amount = float(monthlyinstallment)
-            installment2amount = 0
-            installment3amount = 0
-            installment4amount = 0
-            installment5amount = 0
-            installment6amount = 0
-
-        elif int(monthstopay) == 2:
-            installment1amount = float(monthlyinstallment)
-            installment2amount = float(monthlyinstallment)
-            installment3amount = 0
-            installment4amount = 0
-            installment5amount = 0
-            installment6amount = 0
+        cursor.execute("""
+            SELECT monthstopay 
+            FROM connectlinkdatabase 
+            WHERE id = %s
+        """, (project_id,))
         
-        elif int(monthstopay) == 3:
-            installment1amount = float(monthlyinstallment)
-            installment2amount = float(monthlyinstallment)
-            installment3amount = float(monthlyinstallment)
-            installment4amount = 0
-            installment5amount = 0
-            installment6amount = 0
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': False, 'error_message': 'Project not found'})
+        
 
-        elif int(monthstopay) == 4:
-            installment1amount = float(monthlyinstallment)
-            installment2amount = float(monthlyinstallment)
-            installment3amount = float(monthlyinstallment)
-            installment4amount = float(monthlyinstallment)
-            installment5amount = 0
-            installment6amount = 0
+        if int(monthstopay) != int(row[0]):
 
-        elif int(monthstopay) == 5:
-            installment1amount = float(monthlyinstallment)
-            installment2amount = float(monthlyinstallment)
-            installment3amount = float(monthlyinstallment)
-            installment4amount = float(monthlyinstallment)
-            installment5amount = float(monthlyinstallment)
-            installment6amount = 0
+            if int(monthstopay) == 1:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = 0
+                installment3amount = 0
+                installment4amount = 0
+                installment5amount = 0
+                installment6amount = 0
 
-        elif int(monthstopay) == 6:
-            installment1amount = float(monthlyinstallment)
-            installment2amount = float(monthlyinstallment)
-            installment3amount = float(monthlyinstallment)
-            installment4amount = float(monthlyinstallment)
-            installment5amount = float(monthlyinstallment)
-            installment6amount = float(monthlyinstallment)
+            elif int(monthstopay) == 2:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = 0
+                installment4amount = 0
+                installment5amount = 0
+                installment6amount = 0
+            
+            elif int(monthstopay) == 3:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = float(monthlyinstallment)
+                installment4amount = 0
+                installment5amount = 0
+                installment6amount = 0
+
+            elif int(monthstopay) == 4:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = float(monthlyinstallment)
+                installment4amount = float(monthlyinstallment)
+                installment5amount = 0
+                installment6amount = 0
+
+            elif int(monthstopay) == 5:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = float(monthlyinstallment)
+                installment4amount = float(monthlyinstallment)
+                installment5amount = float(monthlyinstallment)
+                installment6amount = 0
+
+            elif int(monthstopay) == 6:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = float(monthlyinstallment)
+                installment4amount = float(monthlyinstallment)
+                installment5amount = float(monthlyinstallment)
+                installment6amount = float(monthlyinstallment)
+
+        elif int(monthstopay) == int(row[0]):
+
+            if int(monthstopay) == 1:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = 0
+                installment3amount = 0
+                installment4amount = 0
+                installment5amount = 0
+                installment6amount = 0
+
+            elif int(monthstopay) == 2:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = 0
+                installment4amount = 0
+                installment5amount = 0
+                installment6amount = 0
+            
+            elif int(monthstopay) == 3:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = float(installment3amountupdate)
+                installment4amount = 0
+                installment5amount = 0
+                installment6amount = 0
+
+            elif int(monthstopay) == 4:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = float(installment3amountupdate)
+                installment4amount = float(installment4amountupdate)
+                installment5amount = 0
+                installment6amount = 0
+
+            elif int(monthstopay) == 5:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = float(installment3amountupdate)
+                installment4amount = float(installment4amountupdate)
+                installment5amount = float(installment5amountupdate)
+                installment6amount = 0
+
+            elif int(monthstopay) == 6:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = float(installment3amountupdate)
+                installment4amount = float(installment4amountupdate)
+                installment5amount = float(installment5amountupdate)
+                installment6amount = float(installment6amountupdate)
+
             
         # --- EXAMPLE SQL (modify for your DB) ---
         query = """
