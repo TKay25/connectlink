@@ -9622,8 +9622,8 @@ def run1(userid):
 
         datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary3 download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button> <button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary3 update-project-btn">Update</button> </div>''', axis=1)        
         
-        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate'])
-        datamain['momid'] = datamain.groupby(datamain['projectstartdate'].dt.strftime('%Y-%m'))['projectstartdate'].rank(method='first', ascending=True).astype(int)
+        datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
+        datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
 
         datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
 
@@ -12255,11 +12255,10 @@ def get_updated_table_data():
     """Return the updated table data as JSON for DataTables"""
     try:
         with get_db() as (cursor, connection):
-            # FIXED: Query with ALL 47 columns including momid
+            # Query with ALL columns
             cursor.execute("""
                 SELECT 
-                    momid,  -- ADD THIS - it's column 0
-                    clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                    id, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
                     clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
                     projectname, projectlocation, projectdescription, projectadministratorname,
                     projectstartdate, projectduration, contractagreementdate, totalcontractamount,
@@ -12269,48 +12268,94 @@ def get_updated_table_data():
                     installment3amount, installment3duedate, installment3date, installment4amount,
                     installment4duedate, installment4date, installment5amount, installment5duedate,
                     installment5date, installment6amount, installment6duedate, installment6date,
-                    projectcompletionstatus, latepaymentinterest, id  -- id is now column 46
+                    projectcompletionstatus, latepaymentinterest
                 FROM connectlinkdatabase
                 ORDER BY id DESC
             """)
             projects = cursor.fetchall()
             
+            # Convert to DataFrame
+            import pandas as pd
+            
+            columns = [
+                'id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
+                'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname',
+                'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount',
+                'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet',
+                'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate',
+                'installment1date', 'installment2amount', 'installment2duedate', 'installment2date',
+                'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
+                'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
+                'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
+                'projectcompletionstatus', 'latepaymentinterest'
+            ]
+            
+            df = pd.DataFrame(projects, columns=columns)
+            
+            # Calculate momid
+            df['datedepositorbullet'] = pd.to_datetime(df['datedepositorbullet'])
+            df['momid'] = df.groupby(df['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
+            
+            # Format projectstartdate
+            df['projectstartdate'] = pd.to_datetime(df['projectstartdate']).dt.strftime('%d %B %Y')
+            
+            # REORDER COLUMNS EXACTLY AS YOUR run1() function
+            df = df[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                    'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
+                    'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname',
+                    'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount',
+                    'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet',
+                    'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate',
+                    'installment1date', 'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
+                    'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
+                    'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
+                    'projectcompletionstatus', 'latepaymentinterest', 'id']]
+            
+            # Convert DataFrame back to list of lists
+            data = df.values.tolist()
+            
             # Format data for DataTables
-            data = []
-            for row in projects:
-                # Convert row to list and handle NULL values
+            table_data = []
+            for row in data:
                 row_data = []
                 for value in row:
-                    if value is None:
+                    if pd.isna(value) or value is None:
                         row_data.append('')
                     else:
                         row_data.append(value)
                 
-                # Create action buttons - NOW column 47
+                # Get values for action buttons
+                project_id = row_data[46] if len(row_data) > 46 else ''  # id is column 46 (last column before Action)
+                client_name = row_data[1] if len(row_data) > 1 else ''   # clientname is column 1
+                project_name = row_data[10] if len(row_data) > 10 else ''  # projectname is column 10
+                
+                # Create action buttons - SAME AS YOUR ORIGINAL
                 action_buttons = f'''
                 <div style="display: flex; gap: 10px;">
-                    <a href="/download_contract/{row_data[46]}" 
+                    <a href="/download_contract/{project_id}" 
                        class="btn btn-primary3 download-contract-btn" 
-                       data-id="{row_data[46]}" 
+                       data-id="{project_id}" 
                        onclick="handleDownloadClick(this)">
                        Download Contract
                     </a>
                     <button class="btn btn-primary3 view-project-btn" 
                             data-bs-toggle="modal" 
                             data-bs-target="#viewprojectModal" 
-                            data-id="{row_data[46]}">
+                            data-id="{project_id}">
                         View Project
                     </button>
                     <button class="btn btn-primary3 notes-btn" 
                             data-bs-toggle="modal" 
                             data-bs-target="#notesModal" 
-                            data-id="{row_data[46]}" 
-                            data-project-name="{row_data[10] if len(row_data) > 10 else ''}" 
-                            data-client-name="{row_data[1] if len(row_data) > 1 else ''}">
+                            data-id="{project_id}" 
+                            data-project-name="{project_name}" 
+                            data-client-name="{client_name}">
                         Notes
                     </button>
                     <button class="btn btn-primary3 update-project-btn"
-                            data-id="{row_data[46]}"
+                            data-id="{project_id}"
                             data-bs-toggle="modal" 
                             data-bs-target="#updateModal">
                         Update
@@ -12320,23 +12365,23 @@ def get_updated_table_data():
                 
                 # Add action buttons as the last column (column 47)
                 row_data.append(action_buttons)
-                data.append(row_data)
+                table_data.append(row_data)
             
-            print(f"Returning {len(data)} rows, each with {len(data[0]) if data else 0} columns")
+            print(f"Returning {len(table_data)} rows, each with {len(table_data[0]) if table_data else 0} columns")
             
             return jsonify({
-                'data': data,
+                'data': table_data,
                 'draw': 1,
-                'recordsTotal': len(data),
-                'recordsFiltered': len(data)
+                'recordsTotal': len(table_data),
+                'recordsFiltered': len(table_data)
             })
             
     except Exception as e:
         print(f"Error in get_updated_table_data: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-    
+        return jsonify({'error': str(e)}), 500   
+
 @app.route('/send_receipt_to_client_inst2', methods=['POST'])
 def send_receipt_to_client_inst2():
     """Send WhatsApp template with button containing project_id and installment info"""
