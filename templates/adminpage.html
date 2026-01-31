@@ -3358,7 +3358,9 @@ body::before {
 // ============================================
 // AJAX UPDATE PROJECT FORM SUBMISSION
 // ============================================
-const originalFormHandler = document.getElementById('updateProjectForm').onsubmit;
+// ============================================
+// FIXED AJAX UPDATE PROJECT FORM SUBMISSION
+// ============================================
 
 // Submit update form via AJAX
 document.getElementById('updateProjectForm').addEventListener('submit', function(e) {
@@ -3368,6 +3370,7 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.innerHTML;
     const loaderxyz = document.getElementById("edsLoader2");
+    const projectId = document.getElementById('updateProjectId').value;
     
     // Validate required fields before submission
     const requiredFields = ['updateClientName', 'updateProjectName', 'updateTotalContractAmount'];
@@ -3424,14 +3427,11 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
             // Show success message
             showSuccessAlert(data.message || 'Project updated successfully!');
             
-            // Refresh the DataTable data
-            refreshDataTable();
+            // DON'T refresh the DataTable - let the user see the success message
+            // and keep modal open for further edits
             
-            // Keep modal open (do not close it)
-            // If you want to close after success, uncomment:
-            // setTimeout(() => {
-            //     $('#updateModal').modal('hide');
-            // }, 1500);
+            // Optionally: Just update the current row in the table without full refresh
+            updateCurrentRowInTable(projectId);
             
         } else {
             // Show error message
@@ -3454,80 +3454,52 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
     });
 });
 
-// Function to refresh DataTable data
-function refreshDataTable() {
+// Function to update just the current row in the table (optional)
+function updateCurrentRowInTable(projectId) {
     if (!window.dataTable || !$.fn.DataTable.isDataTable('#allprojectsTable')) {
-        console.error('DataTable not initialized');
-        // Fallback: reload page if DataTable not available
-        location.reload();
+        console.log('DataTable not available for single row update');
         return;
     }
     
-    // Create a simple overlay for table refresh
-    const table = $('#allprojectsTable');
-    const tableContainer = table.closest('.dataTables_wrapper');
+    // Get updated values from the modal
+    const updatedData = {
+        clientname: $('#updateClientName').val(),
+        projectname: $('#updateProjectName').val(),
+        projectcompletionstatus: $('#updateCompletionStatus').val(),
+        // Add other fields if needed
+    };
     
-    // Add a subtle loading indicator to the table
-    const existingLoader = tableContainer.find('.table-refresh-loader');
-    if (existingLoader.length === 0) {
-        const loader = $(`
-            <div class="table-refresh-loader" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 10; display: flex; align-items: center; justify-content: center;">
-                <div class="spinner-border text-primary" style="width: 2rem; height: 2rem;"></div>
-            </div>
-        `);
-        tableContainer.css('position', 'relative').append(loader);
-    }
+    // Find the row with this project ID
+    const table = window.dataTable;
+    const rows = table.rows().data();
     
-    // Get updated data via AJAX
-    $.ajax({
-        url: '/get_updated_table_data',
-        method: 'GET',
-        dataType: 'json',
-        success: function(response) {
-            if (response && response.data) {
-                // Clear and reload the DataTable
-                window.dataTable.clear();
-                window.dataTable.rows.add(response.data).draw();
-                
-                console.log('Table refreshed successfully');
-            } else {
-                showErrorAlert('No data received from server');
-                // Fallback to page reload
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('Error refreshing table:', error);
-            showErrorAlert('Failed to refresh table data. Reloading page...');
-            // Fallback to page reload
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        },
-        complete: function() {
-            // Remove loading overlay
-            tableContainer.find('.table-refresh-loader').remove();
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (row[46] == projectId) { // Assuming id is column 46
+            // Update the row data
+            row[1] = updatedData.clientname; // clientname column
+            row[10] = updatedData.projectname; // projectname column
+            row[44] = updatedData.projectcompletionstatus; // status column
+            
+            // Update the row in DataTable
+            table.row(i).data(row).draw(false);
+            break;
         }
-    });
+    }
 }
 
 // Function to show success alert
 function showSuccessAlert(message) {
-    // Remove existing alerts
-    $('.alert-dismissible:not(.toast)').remove();
-    
-    // Create alert
+    // Create a simple Bootstrap alert that appears in the modal
     const alertDiv = $(`
-        <div class="alert alert-success alert-dismissible fade show position-fixed" 
-             style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
+        <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
             <i class="bi bi-check-circle me-2"></i>${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `);
     
-    $('body').append(alertDiv);
+    // Add to modal body (at the top)
+    $('#updateModal .modal-body').prepend(alertDiv);
     
     // Auto-remove after 5 seconds
     setTimeout(() => {
@@ -3537,17 +3509,14 @@ function showSuccessAlert(message) {
 
 // Function to show error alert
 function showErrorAlert(message) {
-    $('.alert-dismissible:not(.toast)').remove();
-    
     const alertDiv = $(`
-        <div class="alert alert-danger alert-dismissible fade show position-fixed" 
-             style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
+        <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
             <i class="bi bi-exclamation-triangle me-2"></i>${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `);
     
-    $('body').append(alertDiv);
+    $('#updateModal .modal-body').prepend(alertDiv);
     
     setTimeout(() => {
         alertDiv.alert('close');
