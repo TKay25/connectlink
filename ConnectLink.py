@@ -12251,10 +12251,10 @@ def update_first_installment_date():
 
 @app.route('/get_updated_table_data')
 def get_updated_table_data():
-    """Return the updated table data as JSON for DataTables with all 47 columns"""
+    """Return the updated table data as JSON for DataTables"""
     try:
         with get_db() as (cursor, connection):
-            # Query with ALL 45 columns from your table + momid
+            # Query with your 46 columns (without momid)
             cursor.execute("""
                 SELECT 
                     id, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
@@ -12267,50 +12267,60 @@ def get_updated_table_data():
                     installment3amount, installment3duedate, installment3date, installment4amount,
                     installment4duedate, installment4date, installment5amount, installment5duedate,
                     installment5date, installment6amount, installment6duedate, installment6date,
-                    projectcompletionstatus, latepaymentinterest,
-                    -- Add momid as column 46 (if it exists in your table)
-                    COALESCE(momid, '') as momid
+                    projectcompletionstatus, latepaymentinterest
                 FROM connectlinkdatabase
                 ORDER BY id DESC
             """)
             projects = cursor.fetchall()
             
-            # Format data for DataTables - create rows with ALL 47 columns (0-46)
+            # Format data for DataTables
             data = []
             for row in projects:
-                # Convert row to list
-                row_data = list(row)
+                # Convert row to list and handle NULL values
+                row_data = []
+                for value in row:
+                    if value is None:
+                        row_data.append('')
+                    else:
+                        row_data.append(value)
                 
-                # Ensure we have exactly 47 columns
-                if len(row_data) < 47:
-                    # Pad with empty strings if missing columns
-                    row_data.extend([''] * (47 - len(row_data)))
-                elif len(row_data) > 47:
-                    # Trim if too many columns
-                    row_data = row_data[:47]
-                
-                # Add the action buttons as column 47 (index 47)
+                # Create action buttons EXACTLY as in your original code
                 action_buttons = f'''
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-primary view-project-btn" 
-                            data-id="{row[0]}" 
-                            title="View Project">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-warning edit-project-btn" 
-                            data-id="{row[0]}"
+                <div style="display: flex; gap: 10px;">
+                    <a href="/download_contract/{row_data[0]}" 
+                       class="btn btn-primary3 download-contract-btn" 
+                       data-id="{row_data[0]}" 
+                       onclick="handleDownloadClick(this)">
+                       Download Contract
+                    </a>
+                    <button class="btn btn-primary3 view-project-btn" 
                             data-bs-toggle="modal" 
-                            data-bs-target="#updateModal"
-                            title="Edit Project">
-                        <i class="bi bi-pencil"></i>
+                            data-bs-target="#viewprojectModal" 
+                            data-id="{row_data[0]}">
+                        View Project
+                    </button>
+                    <button class="btn btn-primary3 notes-btn" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#notesModal" 
+                            data-id="{row_data[0]}" 
+                            data-project-name="{row_data[10] if len(row_data) > 10 else ''}" 
+                            data-client-name="{row_data[1] if len(row_data) > 1 else ''}">
+                        Notes
+                    </button>
+                    <button class="btn btn-primary3 update-project-btn"
+                            data-id="{row_data[0]}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#updateModal">
+                        Update
                     </button>
                 </div>
                 '''
                 
-                # Add action buttons as the last column
+                # Add action buttons as the last column (column 46)
                 row_data.append(action_buttons)
-                
                 data.append(row_data)
+            
+            print(f"Returning {len(data)} rows, each with {len(data[0]) if data else 0} columns")
             
             return jsonify({
                 'data': data,
@@ -12321,6 +12331,8 @@ def get_updated_table_data():
             
     except Exception as e:
         print(f"Error in get_updated_table_data: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/send_receipt_to_client_inst2', methods=['POST'])
