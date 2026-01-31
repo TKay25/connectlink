@@ -3358,6 +3358,7 @@ body::before {
 // ============================================
 // AJAX UPDATE PROJECT FORM SUBMISSION
 // ============================================
+const originalFormHandler = document.getElementById('updateProjectForm').onsubmit;
 
 // Submit update form via AJAX
 document.getElementById('updateProjectForm').addEventListener('submit', function(e) {
@@ -3367,6 +3368,22 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.innerHTML;
     const loaderxyz = document.getElementById("edsLoader2");
+    
+    // Validate required fields before submission
+    const requiredFields = ['updateClientName', 'updateProjectName', 'updateTotalContractAmount'];
+    let missingFields = [];
+    
+    requiredFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field && !field.value.trim()) {
+            missingFields.push(field.placeholder || field.name);
+        }
+    });
+    
+    if (missingFields.length > 0) {
+        alert('Please fill in required fields: ' + missingFields.join(', '));
+        return;
+    }
     
     // Show your custom loader
     if (loaderxyz) {
@@ -3385,16 +3402,27 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        } else {
+            // If not JSON, it might be HTML or redirect
+            return response.text().then(text => {
+                throw new Error('Server returned non-JSON response');
+            });
+        }
+    })
     .then(data => {
         // Hide loader
         if (loaderxyz) {
             loaderxyz.style.display = "none";
         }
         
-        if (data.success) {
+        if (data && data.success) {
             // Show success message
-            showSuccessAlert('Project updated successfully!');
+            showSuccessAlert(data.message || 'Project updated successfully!');
             
             // Refresh the DataTable data
             refreshDataTable();
@@ -3407,7 +3435,8 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
             
         } else {
             // Show error message
-            showErrorAlert(data.error_message || 'Error updating project');
+            const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
+            showErrorAlert(errorMsg);
         }
     })
     .catch(error => {
@@ -3416,7 +3445,7 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
         if (loaderxyz) {
             loaderxyz.style.display = "none";
         }
-        showErrorAlert('An error occurred while updating the project');
+        showErrorAlert('An error occurred while updating the project: ' + error.message);
     })
     .finally(() => {
         // Restore button state
@@ -3429,6 +3458,8 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
 function refreshDataTable() {
     if (!window.dataTable || !$.fn.DataTable.isDataTable('#allprojectsTable')) {
         console.error('DataTable not initialized');
+        // Fallback: reload page if DataTable not available
+        location.reload();
         return;
     }
     
@@ -3453,7 +3484,7 @@ function refreshDataTable() {
         method: 'GET',
         dataType: 'json',
         success: function(response) {
-            if (response.data) {
+            if (response && response.data) {
                 // Clear and reload the DataTable
                 window.dataTable.clear();
                 window.dataTable.rows.add(response.data).draw();
@@ -3461,11 +3492,19 @@ function refreshDataTable() {
                 console.log('Table refreshed successfully');
             } else {
                 showErrorAlert('No data received from server');
+                // Fallback to page reload
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
             }
         },
         error: function(xhr, status, error) {
             console.error('Error refreshing table:', error);
-            showErrorAlert('Failed to refresh table data');
+            showErrorAlert('Failed to refresh table data. Reloading page...');
+            // Fallback to page reload
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
         },
         complete: function() {
             // Remove loading overlay
@@ -3513,26 +3552,6 @@ function showErrorAlert(message) {
     setTimeout(() => {
         alertDiv.alert('close');
     }, 5000);
-}
-
-// Reattach button listeners after table refresh
-$(document).on('draw.dt', function() {
-    // Reattach all button event listeners after DataTable redraw
-    reattachAllButtonListeners();
-});
-
-function reattachAllButtonListeners() {
-    // Reattach Update button listeners
-    $(document).off('click', '.update-project-btn').on('click', '.update-project-btn', function() {
-        // Your existing update button click handler
-        const $row = $(this).closest('tr');
-        const table = window.dataTable;
-        const rowData = table.row($row).data();
-        
-        // ... rest of your existing update button code ...
-    });
-    
-    // Reattach other button listeners as needed
 }
 </script>
 
