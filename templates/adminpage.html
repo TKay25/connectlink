@@ -3356,181 +3356,122 @@ body::before {
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
 // ============================================
-// AJAX UPDATE PROJECT FORM SUBMISSION
 // ============================================
-// ============================================
-// FIXED AJAX UPDATE PROJECT FORM SUBMISSION
+// AJAX UPDATE WITH TABLE REFRESH (COPY & PASTE THIS)
 // ============================================
 
 // Submit update form via AJAX
-document.getElementById('updateProjectForm').addEventListener('submit', function(e) {
-    e.preventDefault(); // Prevent default form submission
+document.getElementById('updateProjectForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
     
     const form = this;
     const submitBtn = form.querySelector('button[type="submit"]');
-    const originalBtnText = submitBtn.innerHTML;
     const loaderxyz = document.getElementById("edsLoader2");
-    const projectId = document.getElementById('updateProjectId').value;
     
-    // Validate required fields before submission
-    const requiredFields = ['updateClientName', 'updateProjectName', 'updateTotalContractAmount'];
-    let missingFields = [];
-    
-    requiredFields.forEach(fieldId => {
-        const field = document.getElementById(fieldId);
-        if (field && !field.value.trim()) {
-            missingFields.push(field.placeholder || field.name);
-        }
-    });
-    
-    if (missingFields.length > 0) {
-        alert('Please fill in required fields: ' + missingFields.join(', '));
-        return;
-    }
-    
-    // Show your custom loader
-    if (loaderxyz) {
-        loaderxyz.style.display = "flex";
-    }
-    
-    // Disable submit button
+    // Show loader
+    if (loaderxyz) loaderxyz.style.display = "flex";
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
     
-    // Collect form data
-    const formData = new FormData(form);
-    
-    // Send AJAX request
-    fetch('/update_project', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-            return response.json();
-        } else {
-            // If not JSON, it might be HTML or redirect
-            return response.text().then(text => {
-                throw new Error('Server returned non-JSON response');
-            });
-        }
-    })
-    .then(data => {
+    try {
+        // 1. Update project in database
+        const response = await fetch('/update_project', {
+            method: 'POST',
+            body: new FormData(form)
+        });
+        
+        const data = await response.json();
+        
         // Hide loader
-        if (loaderxyz) {
-            loaderxyz.style.display = "none";
-        }
+        if (loaderxyz) loaderxyz.style.display = "none";
         
         if (data && data.success) {
             // Show success message
-            showSuccessAlert(data.message || 'Project updated successfully!');
+            alert('✅ Project updated successfully!');
             
-            // DON'T refresh the DataTable - let the user see the success message
-            // and keep modal open for further edits
+            // 2. Refresh the ENTIRE DataTable
+            await refreshEntireTable();
             
-            // Optionally: Just update the current row in the table without full refresh
-            updateCurrentRowInTable(projectId);
+            // 3. Keep modal open for more edits (or close it if you want)
+            // To close modal after success, uncomment next line:
+            // $('#updateModal').modal('hide');
             
         } else {
-            // Show error message
             const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
-            showErrorAlert(errorMsg);
+            alert('❌ ' + errorMsg);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Save Changes';
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error:', error);
-        // Hide loader on error too
-        if (loaderxyz) {
-            loaderxyz.style.display = "none";
-        }
-        showErrorAlert('An error occurred while updating the project: ' + error.message);
-    })
-    .finally(() => {
-        // Restore button state
+        if (loaderxyz) loaderxyz.style.display = "none";
+        alert('❌ Network error occurred');
         submitBtn.disabled = false;
-        submitBtn.innerHTML = originalBtnText;
-    });
+        submitBtn.innerHTML = 'Save Changes';
+    }
 });
 
-// Function to update just the current row in the table (optional)
-function updateCurrentRowInTable(projectId) {
+// Function to refresh ENTIRE DataTable
+async function refreshEntireTable() {
     if (!window.dataTable || !$.fn.DataTable.isDataTable('#allprojectsTable')) {
-        console.log('DataTable not available for single row update');
+        console.log('Table not ready, reloading page');
+        location.reload();
         return;
     }
     
-    // Get updated values from the modal
-    const updatedData = {
-        clientname: $('#updateClientName').val(),
-        projectname: $('#updateProjectName').val(),
-        projectcompletionstatus: $('#updateCompletionStatus').val(),
-        // Add other fields if needed
-    };
+    // Show loading on table
+    const table = $('#allprojectsTable');
+    const tableWrapper = table.closest('.dataTables_wrapper');
+    tableWrapper.css('position', 'relative');
     
-    // Find the row with this project ID
-    const table = window.dataTable;
-    const rows = table.rows().data();
+    const loadingDiv = $(`
+        <div class="table-loading" style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.9);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    `);
     
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        if (row[46] == projectId) { // Assuming id is column 46
-            // Update the row data
-            row[1] = updatedData.clientname; // clientname column
-            row[10] = updatedData.projectname; // projectname column
-            row[44] = updatedData.projectcompletionstatus; // status column
+    tableWrapper.append(loadingDiv);
+    
+    try {
+        // Get ALL fresh data from server
+        const response = await fetch('/get_updated_table_data');
+        const result = await response.json();
+        
+        if (result && result.data) {
+            // Clear old data
+            window.dataTable.clear();
             
-            // Update the row in DataTable
-            table.row(i).data(row).draw(false);
-            break;
+            // Add ALL new data
+            window.dataTable.rows.add(result.data);
+            
+            // Redraw table
+            window.dataTable.draw();
+            
+            console.log('Table refreshed with', result.data.length, 'rows');
+        } else {
+            throw new Error('No data received');
         }
+    } catch (error) {
+        console.error('Refresh error:', error);
+        // Fallback: reload page
+        location.reload();
+    } finally {
+        // Remove loading
+        loadingDiv.remove();
     }
 }
-
-// Function to show success alert (FIXED VERSION)
-function showSuccessAlert(message) {
-    // Remove any existing alerts first
-    $('.alert-dismissible:not(.bootstrap-alert-fixed)').remove();
-    
-    // Create alert as separate fixed notification (not inside modal)
-    const alertDiv = $(`
-        <div class="alert alert-success alert-dismissible fade show position-fixed bootstrap-alert-fixed" 
-             style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
-            <i class="bi bi-check-circle me-2"></i>${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `);
-    
-    // Add to body (not modal)
-    $('body').append(alertDiv);
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-        alertDiv.alert('close');
-    }, 5000);
-}
-
-// Function to show error alert (FIXED VERSION)
-function showErrorAlert(message) {
-    // Remove any existing alerts first
-    $('.alert-dismissible:not(.bootstrap-alert-fixed)').remove();
-    
-    const alertDiv = $(`
-        <div class="alert alert-danger alert-dismissible fade show position-fixed bootstrap-alert-fixed" 
-             style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
-            <i class="bi bi-exclamation-triangle me-2"></i>${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `);
-    
-    // Add to body (not modal)
-    $('body').append(alertDiv);
-    
-    setTimeout(() => {
-        alertDiv.alert('close');
-    }, 5000);
-}</script>
+</script>
 
 <script>
 function downloadCashflowFile() {
