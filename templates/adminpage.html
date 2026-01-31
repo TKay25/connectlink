@@ -3355,12 +3355,7 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
-// ============================================
-// ============================================
-// AJAX UPDATE WITH TABLE REFRESH (COPY & PASTE THIS)
-// ============================================
-
-// Submit update form via AJAX
+// Submit update form via AJAX - FIXED VERSION
 document.getElementById('updateProjectForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
@@ -3392,9 +3387,11 @@ document.getElementById('updateProjectForm').addEventListener('submit', async fu
             // 2. Refresh the ENTIRE DataTable
             await refreshEntireTable();
             
-            // 3. Keep modal open for more edits (or close it if you want)
-            // To close modal after success, uncomment next line:
-            // $('#updateModal').modal('hide');
+            // 3. Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('updateModal'));
+            if (modal) {
+                modal.hide();
+            }
             
         } else {
             const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
@@ -3411,16 +3408,20 @@ document.getElementById('updateProjectForm').addEventListener('submit', async fu
     }
 });
 
-// Function to refresh ENTIRE DataTable
+// Function to refresh ENTIRE DataTable - FIXED VERSION
 async function refreshEntireTable() {
-    if (!window.dataTable || !$.fn.DataTable.isDataTable('#allprojectsTable')) {
+    const table = $('#allprojectsTable');
+    
+    if (!$.fn.DataTable.isDataTable('#allprojectsTable')) {
         console.log('Table not ready, reloading page');
         location.reload();
         return;
     }
     
+    // Get the DataTable instance
+    const dataTable = window.dataTable || table.DataTable();
+    
     // Show loading on table
-    const table = $('#allprojectsTable');
     const tableWrapper = table.closest('.dataTables_wrapper');
     tableWrapper.css('position', 'relative');
     
@@ -3449,14 +3450,10 @@ async function refreshEntireTable() {
         const result = await response.json();
         
         if (result && result.data) {
-            // Clear old data
-            window.dataTable.clear();
-            
-            // Add ALL new data
-            window.dataTable.rows.add(result.data);
-            
-            // Redraw table
-            window.dataTable.draw();
+            // Clear old data and add new data
+            dataTable.clear();
+            dataTable.rows.add(result.data);
+            dataTable.draw();
             
             console.log('Table refreshed with', result.data.length, 'rows');
         } else {
