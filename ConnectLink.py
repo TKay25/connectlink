@@ -11828,8 +11828,10 @@ def update_project():
         connection.commit()
 
         flash("Project updated successfully!", "success")
-        return redirect(url_for('Dashboard'))  # or wherever you want to go
-
+        return jsonify({
+            'success': True,
+            'message': 'Project updated successfully!'
+        })
 
 def get_mom_id_for_project(project_start_date):
     """Get MOM ID for a project based on month/year and existing momid values"""
@@ -12247,7 +12249,79 @@ def update_first_installment_date():
         print("Error updating first installment date:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
-
+@app.route('/get_updated_table_data')
+def get_updated_table_data():
+    """Return the updated table data as JSON for DataTables with all 47 columns"""
+    try:
+        with get_db() as (cursor, connection):
+            # Query with ALL 45 columns from your table + momid
+            cursor.execute("""
+                SELECT 
+                    id, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                    clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
+                    projectname, projectlocation, projectdescription, projectadministratorname,
+                    projectstartdate, projectduration, contractagreementdate, totalcontractamount,
+                    paymentmethod, monthstopay, datecaptured, capturer, capturerid, depositorbullet,
+                    datedepositorbullet, monthlyinstallment, installment1amount, installment1duedate,
+                    installment1date, installment2amount, installment2duedate, installment2date,
+                    installment3amount, installment3duedate, installment3date, installment4amount,
+                    installment4duedate, installment4date, installment5amount, installment5duedate,
+                    installment5date, installment6amount, installment6duedate, installment6date,
+                    projectcompletionstatus, latepaymentinterest,
+                    -- Add momid as column 46 (if it exists in your table)
+                    COALESCE(momid, '') as momid
+                FROM connectlinkdatabase
+                ORDER BY id DESC
+            """)
+            projects = cursor.fetchall()
+            
+            # Format data for DataTables - create rows with ALL 47 columns (0-46)
+            data = []
+            for row in projects:
+                # Convert row to list
+                row_data = list(row)
+                
+                # Ensure we have exactly 47 columns
+                if len(row_data) < 47:
+                    # Pad with empty strings if missing columns
+                    row_data.extend([''] * (47 - len(row_data)))
+                elif len(row_data) > 47:
+                    # Trim if too many columns
+                    row_data = row_data[:47]
+                
+                # Add the action buttons as column 47 (index 47)
+                action_buttons = f'''
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-primary view-project-btn" 
+                            data-id="{row[0]}" 
+                            title="View Project">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning edit-project-btn" 
+                            data-id="{row[0]}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#updateModal"
+                            title="Edit Project">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
+                '''
+                
+                # Add action buttons as the last column
+                row_data.append(action_buttons)
+                
+                data.append(row_data)
+            
+            return jsonify({
+                'data': data,
+                'draw': 1,
+                'recordsTotal': len(data),
+                'recordsFiltered': len(data)
+            })
+            
+    except Exception as e:
+        print(f"Error in get_updated_table_data: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/send_receipt_to_client_inst2', methods=['POST'])
 def send_receipt_to_client_inst2():

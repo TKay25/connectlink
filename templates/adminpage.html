@@ -3343,6 +3343,260 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
+// Submit update form via AJAX
+// Submit update form via AJAX
+document.getElementById('updateProjectForm').addEventListener('submit', function(e) {
+    e.preventDefault(); // Prevent default form submission
+    
+    const form = this;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+    
+    // Collect form data
+    const formData = new FormData(form);
+    
+    // Send AJAX request
+    fetch('/update_project', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showSuccessAlert(data.message || 'Project updated successfully!');
+            
+            // Refresh the DataTable data without reloading
+            refreshDataTable();
+            
+            // Optional: Clear form if needed (commented out for now)
+            // form.reset();
+            
+        } else {
+            // Show error message
+            showErrorAlert(data.error_message || 'Error updating project');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showErrorAlert('An error occurred while updating the project');
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    });
+});
+
+// Function to refresh DataTable data
+function refreshDataTable() {
+    if (!window.dataTable || !$.fn.DataTable.isDataTable('#allprojectsTable')) {
+        console.error('DataTable not initialized');
+        return;
+    }
+    
+    // Show loading state on the DataTable
+    const table = $('#allprojectsTable');
+    const processingElement = table.closest('.dataTables_wrapper').find('.dataTables_processing');
+    
+    if (processingElement.length === 0) {
+        table.closest('.dataTables_wrapper').append(
+            '<div class="dataTables_processing" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; background: white; padding: 10px; border: 1px solid #ddd;">Loading...</div>'
+        );
+    }
+    
+    // Get updated data via AJAX
+    $.ajax({
+        url: '/get_updated_table_data',
+        method: 'GET',
+        dataType: 'json',
+        success: function(response) {
+            if (response.data) {
+                // Clear the existing data
+                window.dataTable.clear();
+                
+                // Add the new data
+                window.dataTable.rows.add(response.data).draw();
+                
+                // Reattach event listeners to the new buttons
+                attachButtonListeners();
+                
+                console.log('DataTable refreshed successfully');
+            } else if (response.error) {
+                console.error('Error in response:', response.error);
+                showErrorAlert('Error refreshing table data: ' + response.error);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error refreshing table:', error);
+            showErrorAlert('Failed to refresh table data');
+        },
+        complete: function() {
+            // Remove loading indicator
+            table.closest('.dataTables_wrapper').find('.dataTables_processing').remove();
+        }
+    });
+}
+
+// Function to reattach event listeners to buttons in the table
+function attachButtonListeners() {
+    // Reattach click handlers to edit buttons
+    $(document).off('click', '.edit-project-btn').on('click', '.edit-project-btn', function() {
+        const projectId = $(this).data('id');
+        console.log('Edit button clicked for project ID:', projectId);
+        
+        // You can load project data into modal here if needed
+        // loadProjectDataIntoModal(projectId);
+    });
+    
+    // Reattach click handlers to view buttons
+    $(document).off('click', '.view-project-btn').on('click', '.view-project-btn', function() {
+        const projectId = $(this).data('id');
+        console.log('View button clicked for project ID:', projectId);
+        
+        // Handle view action
+        // window.location.href = `/view_project/${projectId}`;
+    });
+}
+
+// Function to show success alert
+function showSuccessAlert(message) {
+    // Remove any existing alerts first
+    $('.alert-dismissible:not(.toast)').remove();
+    
+    // Create Bootstrap alert
+    const alertDiv = $(`
+        <div class="alert alert-success alert-dismissible fade show position-fixed" 
+             style="top: 20px; right: 20px; z-index: 1060; max-width: 400px;">
+            <i class="bi bi-check-circle me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    
+    $('body').append(alertDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        alertDiv.alert('close');
+    }, 5000);
+}
+
+// Function to show error alert
+function showErrorAlert(message) {
+    // Remove any existing alerts first
+    $('.alert-dismissible:not(.toast)').remove();
+    
+    // Create Bootstrap alert
+    const alertDiv = $(`
+        <div class="alert alert-danger alert-dismissible fade show position-fixed" 
+             style="top: 20px; right: 20px; z-index: 1060; max-width: 400px;">
+            <i class="bi bi-exclamation-triangle me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `);
+    
+    $('body').append(alertDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        alertDiv.alert('close');
+    }, 5000);
+}
+
+// Initialize button listeners on page load
+$(document).ready(function() {
+    attachButtonListeners();
+});
+// Function to show alerts
+function showAlert(type, message) {
+    // Remove any existing alerts
+    const existingAlert = document.querySelector('.alert-dismissible');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+    
+    // Create alert element
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Add to page
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Function to refresh the projects table
+function refreshProjectsTable() {
+    // Show loading indicator on the table
+    const tableContainer = document.getElementById('allprojectsTable').parentElement;
+    const originalContent = tableContainer.innerHTML;
+    tableContainer.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary"></div><p>Refreshing data...</p></div>';
+    
+    // Fetch updated table data
+    fetch('/get_projects_table')  // You'll need to create this endpoint
+    .then(response => response.json())
+    .then(data => {
+        if (data.html) {
+            tableContainer.innerHTML = data.html;
+            // Reinitialize any table plugins if needed
+            if ($.fn.DataTable) {
+                $('#allprojectsTable').DataTable({
+                    // Your DataTable configuration
+                    pageLength: 10,
+                    responsive: true
+                });
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error refreshing table:', error);
+        tableContainer.innerHTML = originalContent;
+        showAlert('danger', 'Error refreshing table data');
+    });
+}
+
+// If you're using DataTables, here's how to update without full refresh:
+function refreshProjectsTableWithDataTables() {
+    // This is a more efficient method if using DataTables
+    $.ajax({
+        url: '/get_projects_data',  // Endpoint that returns JSON data
+        method: 'GET',
+        dataType: 'json',
+        success: function(data) {
+            const table = $('#allprojectsTable').DataTable();
+            
+            // Clear and redraw the table
+            table.clear();
+            if (data.data && Array.isArray(data.data)) {
+                table.rows.add(data.data).draw();
+            } else {
+                // Fallback: reload the page
+                location.reload();
+            }
+        },
+        error: function() {
+            showAlert('danger', 'Error refreshing table data');
+        }
+    });
+}
+
+</script>
+
+<script>
 function downloadCashflowFile() {
     const btn = document.getElementById("exportcashflowBtn");
     
