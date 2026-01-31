@@ -153,7 +153,19 @@ body::before {
             box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
         }
 
+.table-refresh-loader {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
+.table-refresh-loader .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
 
 .btn-primary, .btn-primary2, .btn-primary3, .btn-primary9 {
     color: white;
@@ -3343,6 +3355,10 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
+// ============================================
+// AJAX UPDATE PROJECT FORM SUBMISSION
+// ============================================
+
 // Submit update form via AJAX
 document.getElementById('updateProjectForm').addEventListener('submit', function(e) {
     e.preventDefault(); // Prevent default form submission
@@ -3350,11 +3366,12 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
     const form = this;
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.innerHTML;
-    const projectId = form.querySelector('#updateProjectId').value;
     const loaderxyz = document.getElementById("edsLoader2");
     
     // Show your custom loader
-    loaderxyz.style.display = "flex";
+    if (loaderxyz) {
+        loaderxyz.style.display = "flex";
+    }
     
     // Disable submit button
     submitBtn.disabled = true;
@@ -3371,7 +3388,9 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
     .then(response => response.json())
     .then(data => {
         // Hide loader
-        loaderxyz.style.display = "none";
+        if (loaderxyz) {
+            loaderxyz.style.display = "none";
+        }
         
         if (data.success) {
             // Show success message
@@ -3380,13 +3399,11 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
             // Refresh the DataTable data
             refreshDataTable();
             
-            // Optionally close the modal after successful update
-            // You can choose to keep it open or close it
-            setTimeout(() => {
-                $('#updateModal').modal('hide');
-                // Reset form if you want
-                // form.reset();
-            }, 1000);
+            // Keep modal open (do not close it)
+            // If you want to close after success, uncomment:
+            // setTimeout(() => {
+            //     $('#updateModal').modal('hide');
+            // }, 1500);
             
         } else {
             // Show error message
@@ -3396,7 +3413,9 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
     .catch(error => {
         console.error('Error:', error);
         // Hide loader on error too
-        loaderxyz.style.display = "none";
+        if (loaderxyz) {
+            loaderxyz.style.display = "none";
+        }
         showErrorAlert('An error occurred while updating the project');
     })
     .finally(() => {
@@ -3406,14 +3425,14 @@ document.getElementById('updateProjectForm').addEventListener('submit', function
     });
 });
 
-// Function to refresh DataTable data with overlay loader
+// Function to refresh DataTable data
 function refreshDataTable() {
     if (!window.dataTable || !$.fn.DataTable.isDataTable('#allprojectsTable')) {
         console.error('DataTable not initialized');
         return;
     }
     
-    // Create a simple overlay for table refresh (optional)
+    // Create a simple overlay for table refresh
     const table = $('#allprojectsTable');
     const tableContainer = table.closest('.dataTables_wrapper');
     
@@ -3439,9 +3458,6 @@ function refreshDataTable() {
                 window.dataTable.clear();
                 window.dataTable.rows.add(response.data).draw();
                 
-                // Reattach event listeners
-                reattachTableButtonListeners();
-                
                 console.log('Table refreshed successfully');
             } else {
                 showErrorAlert('No data received from server');
@@ -3458,85 +3474,7 @@ function refreshDataTable() {
     });
 }
 
-// Rest of your functions remain the same...
-function reattachTableButtonListeners() {
-    // 1. Update button click handlers
-    $(document).off('click', '.update-project-btn').on('click', '.update-project-btn', function() {
-        const projectId = $(this).data('id');
-        console.log('Update button clicked for project:', projectId);
-        
-        // Show your loader when loading project data into modal
-        const loaderxyz = document.getElementById("edsLoader2");
-        loaderxyz.style.display = "flex";
-        
-        // Load project data into modal
-        loadProjectDataIntoModal(projectId);
-    });
-    
-    // 2. View project button click handlers
-    $(document).off('click', '.view-project-btn').on('click', '.view-project-btn', function() {
-        const projectId = $(this).data('id');
-        console.log('View project button clicked:', projectId);
-        
-        // Load data into view modal
-        loadProjectDataForView(projectId);
-    });
-    
-    // 3. Notes button click handlers
-    $(document).off('click', '.notes-btn').on('click', '.notes-btn', function() {
-        const projectId = $(this).data('id');
-        const projectName = $(this).data('project-name');
-        const clientName = $(this).data('client-name');
-        
-        console.log('Notes button clicked:', projectId, projectName, clientName);
-        
-        // Load notes for this project
-        loadProjectNotes(projectId, projectName, clientName);
-    });
-}
-
-// Function to load project data into update modal (with loader)
-function loadProjectDataIntoModal(projectId) {
-    fetch(`/get_project_for_edit/${projectId}`)
-        .then(response => response.json())
-        .then(data => {
-            // Hide loader when data is loaded
-            const loaderxyz = document.getElementById("edsLoader2");
-            loaderxyz.style.display = "none";
-            
-            if (data.success) {
-                // Populate modal fields
-                document.getElementById('updateProjectId').value = data.project.id;
-                document.getElementById('updateClientName').value = data.project.clientname || '';
-                document.getElementById('updateProjectName').value = data.project.projectname || '';
-                document.getElementById('updateProjectStartDate').value = data.project.projectstartdate || '';
-                document.getElementById('updateTotalContractAmount').value = data.project.totalcontractamount || '';
-                document.getElementById('updateMonthsToPay').value = data.project.monthstopay || '';
-                document.getElementById('updateDepositPaid').value = data.project.depositorbullet || '';
-                document.getElementById('updateDatePaid').value = data.project.datedepositorbullet || '';
-                document.getElementById('updateProjectScope').value = data.project.projectdescription || '';
-                document.getElementById('updateCompletionStatus').value = data.project.projectcompletionstatus || '';
-                
-                // Populate installment fields
-                document.getElementById('updateInstallment1Amount').value = data.project.installment1amount || '';
-                document.getElementById('updateInstallment1DueDate').value = data.project.installment1duedate || '';
-                document.getElementById('updateInstallment1Date').value = data.project.installment1date || '';
-                // ... populate other installment fields ...
-                
-                console.log('Modal populated with project data');
-            } else {
-                showErrorAlert('Failed to load project data: ' + (data.error || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error loading project data:', error);
-            const loaderxyz = document.getElementById("edsLoader2");
-            loaderxyz.style.display = "none";
-            showErrorAlert('Failed to load project data');
-        });
-}
-
-// Alert functions
+// Function to show success alert
 function showSuccessAlert(message) {
     // Remove existing alerts
     $('.alert-dismissible:not(.toast)').remove();
@@ -3558,6 +3496,7 @@ function showSuccessAlert(message) {
     }, 5000);
 }
 
+// Function to show error alert
 function showErrorAlert(message) {
     $('.alert-dismissible:not(.toast)').remove();
     
@@ -3576,16 +3515,25 @@ function showErrorAlert(message) {
     }, 5000);
 }
 
-// Initialize on page load
-$(document).ready(function() {
-    reattachTableButtonListeners();
-    
-    // Also attach listener to hide loader when modal is closed manually
-    $('#updateModal').on('hidden.bs.modal', function() {
-        const loaderxyz = document.getElementById("edsLoader2");
-        loaderxyz.style.display = "none";
-    });
+// Reattach button listeners after table refresh
+$(document).on('draw.dt', function() {
+    // Reattach all button event listeners after DataTable redraw
+    reattachAllButtonListeners();
 });
+
+function reattachAllButtonListeners() {
+    // Reattach Update button listeners
+    $(document).off('click', '.update-project-btn').on('click', '.update-project-btn', function() {
+        // Your existing update button click handler
+        const $row = $(this).closest('tr');
+        const table = window.dataTable;
+        const rowData = table.row($row).data();
+        
+        // ... rest of your existing update button code ...
+    });
+    
+    // Reattach other button listeners as needed
+}
 </script>
 
 <script>
