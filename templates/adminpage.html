@@ -3395,7 +3395,7 @@ document.getElementById('updateProjectForm').addEventListener('submit', async fu
 
             submitBtn.disabled = false;
             submitBtn.innerHTML = 'Save Changes';
-            
+
         } else {
             const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
             alert('❌ ' + errorMsg);
@@ -6100,25 +6100,37 @@ $(document).ready(function() {
         $('#updateProjectScope').val(plainText);
         $('#updateCompletionStatus').val(completionStatus);
         $('#updateDepositPaid').val(depositorbullet);
-        $('#updateDatePaid').val(datedepositorbullet);
+        $('#updateDatePaid').val(formatForDateInput(datedepositorbullet));
+        
+        // Installment 1 dates
         $('#updateInstallment1Amount').val(installment1Amount);
-        $('#updateInstallment1DueDate').val(installment1DueDate);
-        $('#updateInstallment1Date').val(installment1Date);
+        $('#updateInstallment1DueDate').val(formatForDateInput(installment1DueDate));
+        $('#updateInstallment1Date').val(formatForDateInput(installment1Date));
+        
+        // Installment 2 dates
         $('#updateInstallment2Amount').val(installment2Amount);
-        $('#updateInstallment2DueDate').val(installment2DueDate);
-        $('#updateInstallment2Date').val(installment2Date);
+        $('#updateInstallment2DueDate').val(formatForDateInput(installment2DueDate));
+        $('#updateInstallment2Date').val(formatForDateInput(installment2Date));
+        
+        // Installment 3 dates
         $('#updateInstallment3Amount').val(installment3Amount);
-        $('#updateInstallment3DueDate').val(installment3DueDate);
-        $('#updateInstallment3Date').val(installment3Date);
+        $('#updateInstallment3DueDate').val(formatForDateInput(installment3DueDate));
+        $('#updateInstallment3Date').val(formatForDateInput(installment3Date));
+        
+        // Installment 4 dates
         $('#updateInstallment4Amount').val(installment4Amount);
-        $('#updateInstallment4DueDate').val(installment4DueDate);
-        $('#updateInstallment4Date').val(installment4Date);        
+        $('#updateInstallment4DueDate').val(formatForDateInput(installment4DueDate));
+        $('#updateInstallment4Date').val(formatForDateInput(installment4Date));
+        
+        // Installment 5 dates
         $('#updateInstallment5Amount').val(installment5Amount);
-        $('#updateInstallment5DueDate').val(installment5DueDate);
-        $('#updateInstallment5Date').val(installment5Date);        
+        $('#updateInstallment5DueDate').val(formatForDateInput(installment5DueDate));
+        $('#updateInstallment5Date').val(formatForDateInput(installment5Date));
+        
+        // Installment 6 dates
         $('#updateInstallment6Amount').val(installment6Amount);
-        $('#updateInstallment6DueDate').val(installment6DueDate);
-        $('#updateInstallment6Date').val(installment6Date);
+        $('#updateInstallment6DueDate').val(formatForDateInput(installment6DueDate));
+        $('#updateInstallment6Date').val(formatForDateInput(installment6Date));
                         
         function formatForDateInput(dateText) {
             if (!dateText || dateText === 'None' || dateText === 'null') return '';
