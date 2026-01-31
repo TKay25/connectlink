@@ -11643,9 +11643,6 @@ def update_project():
             installment_due_dates.append(next_date)
 
 
-        installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate = installment_due_dates
-
-
         cursor.execute("""
             SELECT monthstopay 
             FROM connectlinkdatabase 
@@ -11658,6 +11655,8 @@ def update_project():
         
 
         if int(monthstopay) != int(row[0]):
+
+            installment1_duedate, installment2_duedate, installment3_duedate, installment4_duedate, installment5_duedate, installment6_duedate = installment_due_dates
 
             if int(monthstopay) == 1:
                 installment1amount = float(monthlyinstallment)
