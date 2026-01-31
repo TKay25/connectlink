@@ -12249,15 +12249,17 @@ def update_first_installment_date():
         print("Error updating first installment date:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
+
 @app.route('/get_updated_table_data')
 def get_updated_table_data():
     """Return the updated table data as JSON for DataTables"""
     try:
         with get_db() as (cursor, connection):
-            # Query with your 46 columns (without momid)
+            # FIXED: Query with ALL 47 columns including momid
             cursor.execute("""
                 SELECT 
-                    id, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                    momid,  -- ADD THIS - it's column 0
+                    clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
                     clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
                     projectname, projectlocation, projectdescription, projectadministratorname,
                     projectstartdate, projectduration, contractagreementdate, totalcontractamount,
@@ -12267,7 +12269,7 @@ def get_updated_table_data():
                     installment3amount, installment3duedate, installment3date, installment4amount,
                     installment4duedate, installment4date, installment5amount, installment5duedate,
                     installment5date, installment6amount, installment6duedate, installment6date,
-                    projectcompletionstatus, latepaymentinterest
+                    projectcompletionstatus, latepaymentinterest, id  -- id is now column 46
                 FROM connectlinkdatabase
                 ORDER BY id DESC
             """)
@@ -12284,31 +12286,31 @@ def get_updated_table_data():
                     else:
                         row_data.append(value)
                 
-                # Create action buttons EXACTLY as in your original code
+                # Create action buttons - NOW column 47
                 action_buttons = f'''
                 <div style="display: flex; gap: 10px;">
-                    <a href="/download_contract/{row_data[0]}" 
+                    <a href="/download_contract/{row_data[46]}" 
                        class="btn btn-primary3 download-contract-btn" 
-                       data-id="{row_data[0]}" 
+                       data-id="{row_data[46]}" 
                        onclick="handleDownloadClick(this)">
                        Download Contract
                     </a>
                     <button class="btn btn-primary3 view-project-btn" 
                             data-bs-toggle="modal" 
                             data-bs-target="#viewprojectModal" 
-                            data-id="{row_data[0]}">
+                            data-id="{row_data[46]}">
                         View Project
                     </button>
                     <button class="btn btn-primary3 notes-btn" 
                             data-bs-toggle="modal" 
                             data-bs-target="#notesModal" 
-                            data-id="{row_data[0]}" 
+                            data-id="{row_data[46]}" 
                             data-project-name="{row_data[10] if len(row_data) > 10 else ''}" 
                             data-client-name="{row_data[1] if len(row_data) > 1 else ''}">
                         Notes
                     </button>
                     <button class="btn btn-primary3 update-project-btn"
-                            data-id="{row_data[0]}"
+                            data-id="{row_data[46]}"
                             data-bs-toggle="modal" 
                             data-bs-target="#updateModal">
                         Update
@@ -12316,7 +12318,7 @@ def get_updated_table_data():
                 </div>
                 '''
                 
-                # Add action buttons as the last column (column 46)
+                # Add action buttons as the last column (column 47)
                 row_data.append(action_buttons)
                 data.append(row_data)
             
@@ -12334,7 +12336,7 @@ def get_updated_table_data():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
+    
 @app.route('/send_receipt_to_client_inst2', methods=['POST'])
 def send_receipt_to_client_inst2():
     """Send WhatsApp template with button containing project_id and installment info"""
