@@ -12298,8 +12298,21 @@ def get_updated_table_data():
             df['momid'] = df.groupby(df['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
             
             # Format projectstartdate
-            df['projectstartdate'] = pd.to_datetime(df['projectstartdate']).dt.strftime('%d %B %Y')
+            # FORMAT ALL DATE COLUMNS TO 'dd Month YYYY'
+            date_columns = [
+                'projectstartdate',
+                'contractagreementdate',
+                'datedepositorbullet',
+                'installment1duedate', 'installment2duedate', 'installment3duedate',
+                'installment4duedate', 'installment5duedate', 'installment6duedate',
+                'installment1date', 'installment2date', 'installment3date',
+                'installment4date', 'installment5date', 'installment6date'
+            ]
             
+            for col in date_columns:
+                if col in df.columns:
+                    df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%d %B %Y')
+                                
             # REORDER COLUMNS EXACTLY AS YOUR run1() function
             df = df[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
                     'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
