@@ -3488,18 +3488,22 @@ function updateCurrentRowInTable(projectId) {
     }
 }
 
-// Function to show success alert
+// Function to show success alert (FIXED VERSION)
 function showSuccessAlert(message) {
-    // Create a simple Bootstrap alert that appears in the modal
+    // Remove any existing alerts first
+    $('.alert-dismissible:not(.bootstrap-alert-fixed)').remove();
+    
+    // Create alert as separate fixed notification (not inside modal)
     const alertDiv = $(`
-        <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+        <div class="alert alert-success alert-dismissible fade show position-fixed bootstrap-alert-fixed" 
+             style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
             <i class="bi bi-check-circle me-2"></i>${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `);
     
-    // Add to modal body (at the top)
-    $('#updateModal .modal-body').prepend(alertDiv);
+    // Add to body (not modal)
+    $('body').append(alertDiv);
     
     // Auto-remove after 5 seconds
     setTimeout(() => {
@@ -3507,22 +3511,26 @@ function showSuccessAlert(message) {
     }, 5000);
 }
 
-// Function to show error alert
+// Function to show error alert (FIXED VERSION)
 function showErrorAlert(message) {
+    // Remove any existing alerts first
+    $('.alert-dismissible:not(.bootstrap-alert-fixed)').remove();
+    
     const alertDiv = $(`
-        <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+        <div class="alert alert-danger alert-dismissible fade show position-fixed bootstrap-alert-fixed" 
+             style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
             <i class="bi bi-exclamation-triangle me-2"></i>${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `);
     
-    $('#updateModal .modal-body').prepend(alertDiv);
+    // Add to body (not modal)
+    $('body').append(alertDiv);
     
     setTimeout(() => {
         alertDiv.alert('close');
     }, 5000);
-}
-</script>
+}</script>
 
 <script>
 function downloadCashflowFile() {
