@@ -3392,6 +3392,9 @@ document.getElementById('updateProjectForm').addEventListener('submit', async fu
             if (modal) {
                 modal.hide();
             }
+
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Save Changes';
             
         } else {
             const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
