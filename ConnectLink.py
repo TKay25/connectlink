@@ -13006,7 +13006,7 @@ def send_receipt_to_client_inst3():
                 if not db_installment_date:
                     return jsonify({
                         'success': False,
-                        'error_message': 'Sorry, you have to input the date installment 2 was paid first before you can send receipt to client'
+                        'error_message': 'Sorry, you have to input the date installment 3 was paid first before you can send receipt to client'
                     })
                 effective_date = db_installment_date
             
