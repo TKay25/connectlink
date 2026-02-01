@@ -11000,7 +11000,8 @@ def download_installments():
                     
                     if payment_date:
                         total_paid += float(amount) if amount else 0
-                    elif due_date:  # Only count as due if there's a due date
+                        
+                    elif due_date and not payment_date:  # Only count as due if there's a due date
                         total_due += float(amount) if amount else 0
                 
                 # Clean data
@@ -12312,7 +12313,7 @@ def get_updated_table_data():
             for col in date_columns:
                 if col in df.columns:
                     df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%d %B %Y')
-                                
+
             # REORDER COLUMNS EXACTLY AS YOUR run1() function
             df = df[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
                     'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
