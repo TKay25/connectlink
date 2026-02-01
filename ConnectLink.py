@@ -10845,7 +10845,6 @@ def get_installments_count():
         return jsonify({'total': 0, 'paid': 0, 'due': 0, 'error': str(e)}), 500
 
 
-
 @app.route('/download_installments')
 def download_installments():
     """Download installments data with both project start and due month filters"""
@@ -10964,47 +10963,12 @@ def download_installments():
             overdue_data = []  # Past due dates
             
             from datetime import datetime
+            today = datetime.now().date()
             
             for row in all_installments:
                 row_dict = dict(zip(columns, row))
                 
-                # Initialize variables
-                specific_due_date = None
-                installment_number = None
-                is_overdue = False
-                days_overdue = 0
-                
-                # Calculate total paid and due amounts, and find the due date for selected month
-                total_paid = 0
-                total_due = 0
-                
-                for i in range(1, 7):
-                    amount = row_dict.get(f'installment{i}amount') or 0
-                    due_date = row_dict.get(f'installment{i}duedate')
-                    payment_date = row_dict.get(f'installment{i}date')
-                    
-                    # Check if this installment is in the selected due month
-                    if due_month and due_month != 'all' and due_date:
-                        due_date_obj = due_date
-                        if hasattr(due_date_obj, 'year') and hasattr(due_date_obj, 'month'):
-                            if due_date_obj.year == int(due_year) and due_date_obj.month == int(due_month_num):
-                                specific_due_date = due_date_obj
-                                installment_number = i
-                                
-                                # Check if overdue
-                                today = datetime.now().date()
-                                due_date_date = due_date_obj.date() if hasattr(due_date_obj, 'date') else due_date_obj
-                                if due_date_date < today and (not payment_date or payment_date == '' or payment_date is None):
-                                    is_overdue = True
-                                    days_overdue = (today - due_date_date).days
-                    
-                    if payment_date:
-                        total_paid += float(amount) if amount else 0
-
-                    elif due_date and not payment_date:  # Only count as due if there's a due date
-                        total_due += float(amount) if amount else 0
-                
-                # Clean data
+                # Clean data once per row
                 client_name = clean_html(str(row_dict['clientname'])) if row_dict['clientname'] else ''
                 phone = clean_html(str(row_dict['clientwanumber'])) if row_dict['clientwanumber'] else ''
                 email = clean_html(str(row_dict['clientemail'])) if row_dict['clientemail'] else ''
@@ -11016,61 +10980,89 @@ def download_installments():
                 project_start = row_dict['projectstartdate']
                 project_start_str = project_start.strftime('%Y-%m-%d') if project_start else ''
                 
-                # Format specific due date
-                due_date_str = ''
-                if specific_due_date:
-                    if hasattr(specific_due_date, 'strftime'):
-                        due_date_str = specific_due_date.strftime('%Y-%m-%d')
-                    else:
-                        due_date_str = str(specific_due_date)
-                
-                # Add installment number info if applicable
-                installment_info = ''
-                if installment_number:
-                    installment_info = f"Installment {installment_number}"
-                
-                # Add overdue info
-                overdue_info = ''
-                if is_overdue:
-                    overdue_info = f"Overdue by {days_overdue} days"
-                
-                # Add to paid data if there are paid installments
-                if total_paid > 0:
-                    paid_data.append({
-                        'id': row_dict['id'],
-                        'momid': momid,
-                        'clientname': client_name,
-                        'phone': phone,
-                        'email': email,
-                        'projectname': project_name,
-                        'projectdescription': project_description,
-                        'project_start_date': project_start_str,
-                        'due_date': due_date_str,
-                        'installment_info': installment_info,
-                        'amount_paid': total_paid
-                    })
-                
-                # Add to due or overdue data if there are due installments
-                if total_due > 0 and specific_due_date:
-                    record_data = {
-                        'id': row_dict['id'],
-                        'momid': momid,
-                        'clientname': client_name,
-                        'phone': phone,
-                        'email': email,
-                        'projectname': project_name,
-                        'projectdescription': project_description,
-                        'project_start_date': project_start_str,
-                        'due_date': due_date_str,
-                        'installment_info': installment_info,
-                        'days_info': overdue_info if is_overdue else 'Not yet due',
-                        'amount_due': total_due
-                    }
+                # Process EACH installment separately
+                for i in range(1, 7):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    due_date = row_dict.get(f'installment{i}duedate')
+                    payment_date = row_dict.get(f'installment{i}date')
                     
-                    if is_overdue:
-                        overdue_data.append(record_data)
-                    else:
-                        due_data.append(record_data)
+                    # Skip if no amount or amount is 0
+                    if not amount or float(amount) <= 0:
+                        continue
+                    
+                    # Apply due month filter at INSTALLMENT level
+                    if due_month and due_month != 'all':
+                        if not due_date:
+                            continue  # Can't match filter without due date
+                        
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        
+                        # Check if this installment is in selected month
+                        if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                            continue  # Skip - not in selected month
+                    
+                    # Get due date for display
+                    due_date_str = ''
+                    if due_date:
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        due_date_str = due_date_date.strftime('%Y-%m-%d') if hasattr(due_date_date, 'strftime') else str(due_date_date)
+                    
+                    installment_info = f"Installment {i}"
+                    
+                    # Check payment status for THIS specific installment
+                    if payment_date:
+                        # PAID installment
+                        paid_data.append({
+                            'id': row_dict['id'],
+                            'momid': momid,
+                            'clientname': client_name,
+                            'phone': phone,
+                            'email': email,
+                            'projectname': project_name,
+                            'projectdescription': project_description,
+                            'project_start_date': project_start_str,
+                            'due_date': due_date_str,
+                            'installment_info': installment_info,
+                            'amount_paid': float(amount) if amount else 0
+                        })
+                    
+                    elif due_date and not payment_date:  # UNPAID installment
+                        # Check if overdue
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        
+                        if due_date_date < today:
+                            # OVERDUE installment
+                            days_overdue = (today - due_date_date).days
+                            overdue_data.append({
+                                'id': row_dict['id'],
+                                'momid': momid,
+                                'clientname': client_name,
+                                'phone': phone,
+                                'email': email,
+                                'projectname': project_name,
+                                'projectdescription': project_description,
+                                'project_start_date': project_start_str,
+                                'due_date': due_date_str,
+                                'installment_info': installment_info,
+                                'days_info': f"Overdue by {days_overdue} days",
+                                'amount_due': float(amount) if amount else 0
+                            })
+                        else:
+                            # FUTURE DUE installment (not yet overdue)
+                            due_data.append({
+                                'id': row_dict['id'],
+                                'momid': momid,
+                                'clientname': client_name,
+                                'phone': phone,
+                                'email': email,
+                                'projectname': project_name,
+                                'projectdescription': project_description,
+                                'project_start_date': project_start_str,
+                                'due_date': due_date_str,
+                                'installment_info': installment_info,
+                                'days_info': 'Not yet due',
+                                'amount_due': float(amount) if amount else 0
+                            })
             
             # Create Excel file
             import pandas as pd
@@ -11083,7 +11075,7 @@ def download_installments():
             due_df = pd.DataFrame(due_data)
             overdue_df = pd.DataFrame(overdue_data)
             
-            # Calculate totals
+            # Calculate totals - now each row is ONE installment
             total_paid_amount = paid_df['amount_paid'].sum() if not paid_df.empty else 0
             total_due_amount = due_df['amount_due'].sum() if not due_df.empty else 0
             total_overdue_amount = overdue_df['amount_due'].sum() if not overdue_df.empty else 0
@@ -11469,7 +11461,7 @@ def download_installments():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
+    
 @app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
 def download_enquiry_plan(enquiry_id):
     """Download the plan PDF attachment"""
