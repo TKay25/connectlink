@@ -10994,13 +10994,13 @@ def download_installments():
                                 # Check if overdue
                                 today = datetime.now().date()
                                 due_date_date = due_date_obj.date() if hasattr(due_date_obj, 'date') else due_date_obj
-                                if due_date_date < today:
+                                if due_date_date < today and (not payment_date or payment_date == '' or payment_date is None):
                                     is_overdue = True
                                     days_overdue = (today - due_date_date).days
                     
                     if payment_date:
                         total_paid += float(amount) if amount else 0
-                        
+
                     elif due_date and not payment_date:  # Only count as due if there's a due date
                         total_due += float(amount) if amount else 0
                 
