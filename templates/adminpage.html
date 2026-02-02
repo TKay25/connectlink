@@ -2171,8 +2171,9 @@ body::before {
                                         <!-- Button 2: Send Receipt to Client -->
                                         <div class="col-xl col-lg-3 col-md-6 col-sm-6">
                                             <div class="d-grid h-100">
-                                                <button type="button" class="btn btn-primary w-100 py-2"><i class="bi bi-whatsapp"></i>
-                                                    Send Receipt to Client
+                                                <button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst5">
+                                                    <span id="sendReceiptText5"><i class="bi bi-whatsapp"></i>Send Receipt to Client</span>
+                                                    <span id="sendReceiptSpinner5" class="spinner-border spinner-border-sm d-none"></span>
                                                 </button>
                                             </div>
                                         </div>
@@ -2222,9 +2223,9 @@ body::before {
                                         <!-- Button 2: Send Receipt to Client -->
                                         <div class="col-xl col-lg-3 col-md-6 col-sm-6">
                                             <div class="d-grid h-100">
-                                                <button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst5">
-                                                    <span id="sendReceiptText5"><i class="bi bi-whatsapp"></i>Send Receipt to Client</span>
-                                                    <span id="sendReceiptSpinner5" class="spinner-border spinner-border-sm d-none"></span>
+                                                <button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst6">
+                                                    <span id="sendReceiptText6"><i class="bi bi-whatsapp"></i>Send Receipt to Client</span>
+                                                    <span id="sendReceiptSpinner6" class="spinner-border spinner-border-sm d-none"></span>
                                                 </button>
                                             </div>
                                         </div>
@@ -3518,6 +3519,110 @@ $(document).ready(function() {
 
     
 $(document).ready(function() {
+
+
+    
+    $('#sendReceiptBtninst6').on('click', function() {
+        const projectId = $('#updateProjectId').val();
+        const installment6PaidDate = $('#updateInstallment6Date').val();
+        
+        // Check if project is selected
+        if (!projectId) {
+            alert('⚠️ No project selected!');
+            return;
+        }
+        
+        // Check if installment 6 paid date is empty/null/undefined
+        if (!installment6PaidDate || installment6PaidDate === '' || 
+            installment6PaidDate === 'null' || installment6PaidDate === 'undefined' ||
+            installment6PaidDate.trim() === '') {
+            alert('⚠️ Sorry, you have to input the date installment 6 was paid first before you can send receipt to client');
+            return;
+        }
+        
+        // Validate date format (optional but recommended)
+        if (!isValidDate(installment6PaidDate)) {
+            alert('⚠️ Please enter a valid date for installment 6 payment');
+            return;
+        }
+        
+        const $btn = $(this);
+        const $textSpan = $('#sendReceiptText6');
+        const $spinner = $('#sendReceiptSpinner6');
+        const originalText = $textSpan.html();
+        
+        // Show spinner
+        $btn.prop('disabled', true);
+        $textSpan.addClass('d-none');
+        $spinner.removeClass('d-none');
+        
+        // Send AJAX request with both project_id and installment6_paid_date
+        $.ajax({
+            url: '/send_receipt_to_client_inst6',
+            type: 'POST',
+            data: {
+                project_id: projectId,
+                installment6_paid_date: installment6PaidDate,
+                installment_number: 6  // Optional: to identify which installment
+            },
+            success: function(data) {
+                // Show alert with response data
+                if (data.success) {
+                    alert(
+                        '✅ SUCCESS!\n\n' +
+                        (data.success_message || 'Receipt sent successfully!') + '\n\n' +
+                        'Details:\n' +
+                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
+                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
+                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
+                        '• Installment Date: ' + installment6PaidDate
+                    );
+                } else {
+                    alert(
+                        '❌ FAILED!\n\n' +
+                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
+                        'Details:\n' +
+                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
+                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
+                        '• Project: ' + (data.details?.project_name || 'Unknown')
+                    );
+                }
+                
+                // Reset button
+                resetButton();
+            },
+            error: function(xhr, status, error) {
+                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
+                resetButton();
+            }
+        });
+        
+        // Function to reset button
+        function resetButton() {
+            $btn.prop('disabled', false);
+            $textSpan.removeClass('d-none');
+            $spinner.addClass('d-none');
+            $textSpan.html(originalText);
+        }
+        
+        // Function to validate date
+        function isValidDate(dateString) {
+            const regex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateString.match(regex)) return false;
+            
+            const date = new Date(dateString);
+            const timestamp = date.getTime();
+            
+            // Check if date is valid
+            if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
+                return false;
+            }
+            
+            return date.toISOString().startsWith(dateString);
+        }
+    });
+
+
 
 
     
