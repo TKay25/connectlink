@@ -11827,6 +11827,118 @@ def batch_delete_enquiries():
             print(f"Error batch deleting: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+
+
+@app.route('/api/payment-reminders', methods=['GET'])
+def api_payment_reminders():
+    """
+    API endpoint to get payment reminders data
+    """
+    try:
+        # Get the current user ID from session or request
+        userid = session.get('userid') or request.args.get('userid')
+        
+        if not userid:
+            return jsonify({'error': 'User not authenticated'}), 401
+        
+        # Reuse your existing run1 logic to get payment reminders
+        with get_db() as (cursor, connection):
+            # Get main data
+            maindataquery = "SELECT * FROM connectlinkdatabase;"
+            cursor.execute(maindataquery)
+            maindata = cursor.fetchall()
+            
+            # Convert to DataFrame (same as in run1)
+            datamain = pd.DataFrame(maindata, columns= [
+                'id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 
+                'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 
+                'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 
+                'projectlocation', 'projectdescription', 'projectadministratorname', 
+                'projectstartdate', 'projectduration', 'contractagreementdate', 
+                'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 
+                'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 
+                'monthlyinstallment', 'installment1amount', 'installment1duedate', 
+                'installment1date', 'installment2amount', 'installment2duedate', 
+                'installment2date', 'installment3amount', 'installment3duedate', 
+                'installment3date', 'installment4amount', 'installment4duedate', 
+                'installment4date', 'installment5amount', 'installment5duedate', 
+                'installment5date', 'installment6amount', 'installment6duedate', 
+                'installment6date', 'projectcompletionstatus', 'latepaymentinterest', 'momid'
+            ])
+            
+            # Filter only ongoing projects
+            datamain = datamain[datamain['projectcompletionstatus'] == 'Ongoing']
+            
+            # Get today's date
+            today = datetime.now().date()
+            due_soon = []
+            overdue = []
+            
+            # Process each project
+            for _, row in datamain.iterrows():
+                client_name = row['clientname']
+                whatsapp_number = str(row['clientwanumber']) if pd.notna(row['clientwanumber']) else ''
+                project_name = row['projectname']
+                project_id = int(row['id'])
+                
+                # Check each installment (1-6)
+                for i in range(1, 7):
+                    due_date_col = f'installment{i}duedate'
+                    paid_date_col = f'installment{i}date'
+                    amount_col = f'installment{i}amount'
+                    
+                    if pd.notna(row.get(due_date_col)):
+                        try:
+                            due_date = pd.to_datetime(row[due_date_col]).date()
+                            amount = float(row.get(amount_col, 0) or 0)
+                            is_paid = pd.notna(row.get(paid_date_col))
+                            
+                            if not is_paid and amount > 0:
+                                days_diff = (due_date - today).days
+                                
+                                payment_info = {
+                                    'project_id': project_id,
+                                    'client_name': client_name,
+                                    'whatsapp_number': whatsapp_number,
+                                    'project_name': project_name,
+                                    'installment_number': i,
+                                    'amount_due': amount,
+                                    'due_date': due_date.strftime('%Y-%m-%d'),
+                                    'days_diff': days_diff
+                                }
+                                
+                                if days_diff < 0:
+                                    # Overdue
+                                    payment_info['days_overdue'] = abs(days_diff)
+                                    overdue.append(payment_info)
+                                elif days_diff <= 3:
+                                    # Due within 3 days
+                                    due_soon.append(payment_info)
+                        except Exception as e:
+                            continue
+            
+            # Sort the results
+            due_soon.sort(key=lambda x: x['days_diff'])
+            overdue.sort(key=lambda x: x['days_overdue'], reverse=True)
+            
+            result = {
+                'due_soon': due_soon,
+                'overdue': overdue,
+                'all_payments': due_soon + overdue,
+                'counts': {
+                    'due_soon': len(due_soon),
+                    'overdue': len(overdue),
+                    'total': len(due_soon) + len(overdue)
+                }
+            }
+            
+            return jsonify(result)
+            
+    except Exception as e:
+        print(f"Error in API endpoint: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 # In your Flask app, add this route
 @app.route('/api/payments/due-payments')
 def get_due_payments():
