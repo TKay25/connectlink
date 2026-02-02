@@ -1177,47 +1177,198 @@ body::before {
     background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
 }
 
-.scrollable-reminders {
-    scrollbar-width: thin;
-    scrollbar-color: #dee2e6 #f8f9fa;
+/* Payment Reminders Modal Specific Styling */
+#paymentRemindersModal .modal-dialog {
+    max-width: 1200px;
 }
 
-.scrollable-reminders::-webkit-scrollbar {
-    width: 6px;
+#paymentRemindersModal .modal-header {
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+    color: white;
+    border-radius: 24px 24px 0 0;
+    padding: 15px 25px;
 }
 
-.scrollable-reminders::-webkit-scrollbar-track {
-    background: #f8f9fa;
+#paymentRemindersModal .modal-title {
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+#paymentRemindersModal .modal-body {
+    padding: 20px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+}
+
+#paymentRemindersModal .summary-card {
+    background: white;
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid rgba(30, 42, 86, 0.1);
+    box-shadow: 0 4px 12px rgba(30, 42, 86, 0.05);
+}
+
+#paymentRemindersModal .summary-card .icon {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
     border-radius: 10px;
+    background: rgba(30, 42, 86, 0.1);
 }
 
-.scrollable-reminders::-webkit-scrollbar-thumb {
-    background-color: #dee2e6;
-    border-radius: 10px;
+#paymentRemindersModal .summary-card .details h5 {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #475569;
+    font-weight: 600;
 }
 
-.list-group-item {
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
+#paymentRemindersModal .summary-card .details p {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #1E2A56;
 }
 
-.list-group-item:first-child {
-    border-top: none;
+/* Table Styling */
+#paymentRemindersModal .table-theme {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(30, 42, 86, 0.05);
 }
 
-.list-group-item:last-child {
-    border-bottom: none;
+#paymentRemindersModal .table-theme th {
+    background: linear-gradient(135deg, #1E2A56 0%, #3d4b8c 100%);
+    color: white;
+    font-weight: 700;
+    padding: 12px 15px;
+    text-align: center;
+    white-space: nowrap;
 }
 
-.nav-tabs .nav-link {
-    font-weight: 500;
+#paymentRemindersModal .table-theme td {
+    padding: 10px 15px;
+    text-align: center;
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(30, 42, 86, 0.1);
 }
 
-.nav-tabs .nav-link .badge {
-    font-size: 0.6em;
-    position: relative;
-    top: -1px;
+#paymentRemindersModal .table-theme tr:hover {
+    background-color: rgba(30, 42, 86, 0.02);
+}
+
+/* Badge Styling */
+#paymentRemindersModal .badge {
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+}
+
+#paymentRemindersModal .bg-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+    color: white;
+}
+
+#paymentRemindersModal .bg-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+    color: white;
+}
+
+#paymentRemindersModal .bg-info {
+    background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+    color: white;
+}
+
+/* WhatsApp Button */
+#paymentRemindersModal .send-whatsapp-btn {
+    padding: 5px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    border: none;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+#paymentRemindersModal .send-whatsapp-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(37, 211, 102, 0.2);
+}
+
+/* Scrollable container */
+#paymentRemindersModal div[style*="max-height: 400px"] {
+    border: 1px solid rgba(30, 42, 86, 0.1);
+    border-radius: 12px;
+    background: white;
+}
+
+/* Empty state styling */
+#paymentRemindersModal .text-center {
+    color: #64748b;
+}
+
+#paymentRemindersModal .text-center i {
+    opacity: 0.5;
+}
+
+/* Modal Footer */
+#paymentRemindersModal .modal-footer {
+    border-top: 1px solid rgba(30, 42, 86, 0.1);
+    padding: 15px 25px;
+}
+
+#paymentRemindersModal #sendAllRemindersBtn {
+    background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+    border: none;
+    padding: 8px 20px;
+    font-weight: 600;
+    border-radius: 24px;
+    min-width: 180px;
+}
+
+#paymentRemindersModal #sendAllRemindersBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 211, 102, 0.3);
+}
+
+#paymentRemindersModal #sendAllRemindersBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    #paymentRemindersModal .modal-dialog {
+        margin: 10px;
+    }
+    
+    #paymentRemindersModal .dashboard-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    #paymentRemindersModal .dashboard-summary {
+        grid-template-columns: 1fr;
+    }
+    
+    #paymentRemindersModal .table-theme {
+        font-size: 0.85rem;
+    }
+    
+    #paymentRemindersModal .table-theme th,
+    #paymentRemindersModal .table-theme td {
+        padding: 8px 10px;
+    }
 }
 </style>
     </style>
@@ -2479,64 +2630,83 @@ body::before {
     </div>
 </div>
 
-
 <!-- Payment Reminders Modal -->
 <div class="modal fade" id="paymentRemindersModal" tabindex="-1" aria-labelledby="paymentRemindersModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header">
                 <h5 class="modal-title" id="paymentRemindersModalLabel">
                     <i class="bi bi-bell-fill"></i> Payment Reminders
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <!-- Summary Statistics -->
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <div class="card border-warning">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-warning">Due Soon</h6>
-                                <h3 id="dueSoonCount" class="card-title">0</h3>
-                                <small class="text-muted">Within 3 days</small>
-                            </div>
+                <!-- Summary Cards -->
+                <div class="dashboard-summary mb-4">
+                    <div class="summary-card">
+                        <div class="icon">
+                            <i class="bi bi-clock text-warning"></i>
+                        </div>
+                        <div class="details">
+                            <h5>Due Soon</h5>
+                            <p id="dueSoonCount" class="text-warning">0</p>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card border-danger">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-danger">Overdue</h6>
-                                <h3 id="overdueCount" class="card-title">0</h3>
-                                <small class="text-muted">Past due date</small>
-                            </div>
+                    <div class="summary-card">
+                        <div class="icon">
+                            <i class="bi bi-exclamation-triangle text-danger"></i>
+                        </div>
+                        <div class="details">
+                            <h5>Overdue</h5>
+                            <p id="overdueCount" class="text-danger">0</p>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="card border-info">
-                            <div class="card-body text-center">
-                                <h6 class="card-subtitle mb-2 text-info">Total Due</h6>
-                                <h3 id="totalAmount" class="card-title">₹0</h3>
-                                <small class="text-muted">Amount pending</small>
-                            </div>
+                    <div class="summary-card">
+                        <div class="icon">
+                            <i class="bi bi-cash-stack text-info"></i>
+                        </div>
+                        <div class="details">
+                            <h5>Total Amount</h5>
+                            <p id="totalAmount" class="text-info">$0</p>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="icon">
+                            <i class="bi bi-people text-primary"></i>
+                        </div>
+                        <div class="details">
+                            <h5>Clients</h5>
+                            <p id="totalClients" class="text-primary">0</p>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="icon">
+                            <i class="bi bi-whatsapp text-success"></i>
+                        </div>
+                        <div class="details">
+                            <h5>Ready to Send</h5>
+                            <p id="readyToSend" class="text-success">0</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tabs for different categories -->
+                <!-- Tabs -->
                 <ul class="nav nav-tabs mb-3" id="reminderTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="dueSoon-tab" data-bs-toggle="tab" data-bs-target="#dueSoon" type="button" role="tab">
-                            Due Soon <span class="badge bg-warning" id="dueSoonBadge">0</span>
+                            <i class="bi bi-clock me-1"></i> Due Soon 
+                            <span class="badge bg-warning ms-2" id="dueSoonBadge">0</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">
-                            Overdue <span class="badge bg-danger" id="overdueBadge">0</span>
+                            <i class="bi bi-exclamation-triangle me-1"></i> Overdue 
+                            <span class="badge bg-danger ms-2" id="overdueBadge">0</span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
-                            All Payments
+                            <i class="bi bi-list-ul me-1"></i> All Reminders
                         </button>
                     </li>
                 </ul>
@@ -2545,41 +2715,87 @@ body::before {
                 <div class="tab-content">
                     <!-- Due Soon Tab -->
                     <div class="tab-pane fade show active" id="dueSoon" role="tabpanel">
-                        <div class="scrollable-reminders" style="max-height: 400px; overflow-y: auto;">
-                            <div class="list-group" id="dueSoonList">
-                                <!-- Items will be populated by JavaScript -->
-                            </div>
+                        <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                            <table class="table table-hover table-theme">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Client</th>
+                                        <th>WhatsApp</th>
+                                        <th>Project</th>
+                                        <th>Installment</th>
+                                        <th>Amount</th>
+                                        <th>Due Date</th>
+                                        <th>Days Left</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dueSoonTableBody">
+                                    <!-- Filled by JavaScript -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
                     <!-- Overdue Tab -->
                     <div class="tab-pane fade" id="overdue" role="tabpanel">
-                        <div class="scrollable-reminders" style="max-height: 400px; overflow-y: auto;">
-                            <div class="list-group" id="overdueList">
-                                <!-- Items will be populated by JavaScript -->
-                            </div>
+                        <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                            <table class="table table-hover table-theme">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Client</th>
+                                        <th>WhatsApp</th>
+                                        <th>Project</th>
+                                        <th>Installment</th>
+                                        <th>Amount</th>
+                                        <th>Due Date</th>
+                                        <th>Days Overdue</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="overdueTableBody">
+                                    <!-- Filled by JavaScript -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
-                    <!-- All Payments Tab -->
+                    <!-- All Tab -->
                     <div class="tab-pane fade" id="all" role="tabpanel">
-                        <div class="scrollable-reminders" style="max-height: 400px; overflow-y: auto;">
-                            <div class="list-group" id="allPaymentsList">
-                                <!-- Items will be populated by JavaScript -->
-                            </div>
+                        <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                            <table class="table table-hover table-theme">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Client</th>
+                                        <th>WhatsApp</th>
+                                        <th>Project</th>
+                                        <th>Installment</th>
+                                        <th>Amount</th>
+                                        <th>Due Date</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allRemindersTableBody">
+                                    <!-- Filled by JavaScript -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-success" id="sendRemindersBtn">
-                    <i class="bi bi-whatsapp"></i> Send WhatsApp Reminders
+                <button type="button" class="btn btn-success" id="sendAllRemindersBtn">
+                    <i class="bi bi-whatsapp me-1"></i> Send All Reminders
                 </button>
             </div>
         </div>
     </div>
 </div>
+
 
 
 <!-- View Interim Enquiries Modal -->
@@ -3507,257 +3723,380 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
-    function Pushpaymentreminders() {
-    // First, fetch payment data from your backend/API
-    fetchPaymentData();
-    
+function Pushpaymentreminders() {
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('paymentRemindersModal'));
     modal.show();
+    
+    // Load and display payment reminders
+    loadPaymentReminders();
 }
 
-// Function to fetch payment data (replace with your actual API endpoint)
-async function fetchPaymentData() {
+function loadPaymentReminders() {
     try {
-        // Replace with your actual API endpoint
-        const response = await fetch('/api/payments/due-payments');
-        const payments = await response.json();
+        // Get data from the hidden div
+        const paymentRemindersData = document.getElementById('paymentRemindersData');
         
-        // Process and display the data
-        processPaymentData(payments);
-    } catch (error) {
-        console.error('Error fetching payment data:', error);
-        showError('Failed to load payment data');
-    }
-}
-
-// Function to process and display payment data
-function processPaymentData(payments) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    let dueSoonCount = 0;
-    let overdueCount = 0;
-    let totalAmount = 0;
-    
-    const dueSoonList = [];
-    const overdueList = [];
-    const allPaymentsList = [];
-    
-    payments.forEach(payment => {
-        const dueDate = new Date(payment.due_date);
-        dueDate.setHours(0, 0, 0, 0);
-        
-        const daysDiff = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
-        const amount = parseFloat(payment.amount_due) || 0;
-        
-        totalAmount += amount;
-        
-        const paymentItem = {
-            clientName: payment.client_name,
-            whatsappNumber: payment.whatsapp_number,
-            amountDue: amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' }),
-            dueDate: payment.due_date,
-            daysInfo: daysDiff,
-            originalData: payment
-        };
-        
-        // Categorize payments
-        if (daysDiff < 0) {
-            // Overdue
-            overdueCount++;
-            overdueList.push(paymentItem);
-        } else if (daysDiff <= 3) {
-            // Due within 3 days
-            dueSoonCount++;
-            dueSoonList.push(paymentItem);
-        }
-        
-        // Add to all payments list
-        allPaymentsList.push(paymentItem);
-    });
-    
-    // Update summary statistics
-    document.getElementById('dueSoonCount').textContent = dueSoonCount;
-    document.getElementById('overdueCount').textContent = overdueCount;
-    document.getElementById('totalAmount').textContent = totalAmount.toLocaleString('en-IN', { 
-        style: 'currency', 
-        currency: 'INR' 
-    });
-    
-    // Update badge counts
-    document.getElementById('dueSoonBadge').textContent = dueSoonCount;
-    document.getElementById('overdueBadge').textContent = overdueCount;
-    
-    // Render lists
-    renderPaymentList('dueSoonList', dueSoonList, 'warning');
-    renderPaymentList('overdueList', overdueList, 'danger');
-    renderPaymentList('allPaymentsList', allPaymentsList, 'info');
-    
-    // Enable/disable send reminders button
-    const sendBtn = document.getElementById('sendRemindersBtn');
-    sendBtn.disabled = (dueSoonCount + overdueCount) === 0;
-}
-
-// Function to render payment list
-function renderPaymentList(containerId, payments, badgeType) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = '';
-    
-    if (payments.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-4 text-muted">
-                <i class="bi bi-check-circle-fill fs-1"></i>
-                <p class="mt-2">No payments found in this category</p>
-            </div>
-        `;
-        return;
-    }
-    
-    payments.forEach(payment => {
-        const daysInfo = payment.daysInfo;
-        let badgeText = '';
-        let badgeClass = '';
-        
-        if (daysInfo < 0) {
-            badgeText = `${Math.abs(daysInfo)} days overdue`;
-            badgeClass = 'bg-danger';
-        } else if (daysInfo === 0) {
-            badgeText = 'Due today';
-            badgeClass = 'bg-warning';
-        } else if (daysInfo <= 3) {
-            badgeText = `Due in ${daysInfo} days`;
-            badgeClass = 'bg-warning';
+        if (paymentRemindersData && paymentRemindersData.dataset.reminders) {
+            const paymentReminders = JSON.parse(paymentRemindersData.dataset.reminders);
+            displayPaymentReminders(paymentReminders);
         } else {
-            badgeText = `Due in ${daysInfo} days`;
-            badgeClass = 'bg-info';
+            // Fallback: fetch from API
+            fetchPaymentReminders();
         }
-        
-        const listItem = `
-            <div class="list-group-item list-group-item-action">
-                <div class="d-flex w-100 justify-content-between align-items-center">
-                    <div class="me-3">
-                        <h6 class="mb-1">${payment.clientName}</h6>
-                        <small class="text-muted">
-                            <i class="bi bi-whatsapp text-success"></i> 
-                            ${formatWhatsAppNumber(payment.whatsappNumber)}
-                        </small>
-                    </div>
-                    <div class="text-end">
-                        <span class="badge ${badgeClass} rounded-pill mb-1">${badgeText}</span>
-                        <h5 class="mb-0 text-primary">${payment.amountDue}</h5>
-                        <small class="text-muted">Due: ${formatDate(payment.dueDate)}</small>
-                    </div>
-                </div>
-                <div class="mt-2">
-                    <button class="btn btn-sm btn-outline-primary send-single-reminder" 
-                            data-client="${payment.clientName}"
-                            data-phone="${payment.whatsappNumber}"
-                            data-amount="${payment.amountDue}">
-                        <i class="bi bi-whatsapp"></i> Send Reminder
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary ms-1 view-details">
-                        <i class="bi bi-eye"></i> Details
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        container.insertAdjacentHTML('beforeend', listItem);
+    } catch (error) {
+        console.error('Error loading payment reminders:', error);
+        showErrorInModal('Failed to load payment reminders data');
+    }
+}
+
+// Fallback function if data attribute is not available
+async function fetchPaymentReminders() {
+    try {
+        const response = await fetch('/api/payment-reminders');
+        if (response.ok) {
+            const paymentReminders = await response.json();
+            displayPaymentReminders(paymentReminders);
+        } else {
+            throw new Error('Failed to fetch payment reminders');
+        }
+    } catch (error) {
+        console.error('Error fetching payment reminders:', error);
+        showErrorInModal('Could not load payment data. Please try again.');
+    }
+}
+
+function displayPaymentReminders(data) {
+    if (!data) return;
+    
+    const { due_soon, overdue, all_payments } = data;
+    
+    // Update summary counts
+    document.getElementById('dueSoonCount').textContent = due_soon.length;
+    document.getElementById('overdueCount').textContent = overdue.length;
+    document.getElementById('dueSoonBadge').textContent = due_soon.length;
+    document.getElementById('overdueBadge').textContent = overdue.length;
+    document.getElementById('totalClients').textContent = all_payments.length;
+    
+    // Calculate total amount
+    const totalAmount = all_payments.reduce((sum, payment) => sum + payment.amount_due, 0);
+    document.getElementById('totalAmount').textContent = '$' + totalAmount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     });
     
-    // Add event listeners for buttons
-    attachEventListeners();
+    // Display due soon payments
+    const dueSoonTable = document.getElementById('dueSoonTableBody');
+    dueSoonTable.innerHTML = '';
+    
+    due_soon.forEach((payment, index) => {
+        const row = createPaymentRow(payment, index + 1, 'soon');
+        dueSoonTable.innerHTML += row;
+    });
+    
+    if (due_soon.length === 0) {
+        dueSoonTable.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-4 text-muted">
+                    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+                    <p class="mt-2">No payments due in the next 3 days</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // Display overdue payments
+    const overdueTable = document.getElementById('overdueTableBody');
+    overdueTable.innerHTML = '';
+    
+    overdue.forEach((payment, index) => {
+        const row = createPaymentRow(payment, index + 1, 'overdue');
+        overdueTable.innerHTML += row;
+    });
+    
+    if (overdue.length === 0) {
+        overdueTable.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-4 text-muted">
+                    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+                    <p class="mt-2">No overdue payments</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // Display all payments
+    const allTable = document.getElementById('allRemindersTableBody');
+    allTable.innerHTML = '';
+    
+    all_payments.forEach((payment, index) => {
+        const status = payment.days_diff < 0 ? 'overdue' : 'soon';
+        const row = createPaymentRow(payment, index + 1, 'all');
+        allTable.innerHTML += row;
+    });
+    
+    if (all_payments.length === 0) {
+        allTable.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-4 text-muted">
+                    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+                    <p class="mt-2">No payment reminders at this time</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // Update send button
+    const sendBtn = document.getElementById('sendAllRemindersBtn');
+    const totalReminders = due_soon.length + overdue.length;
+    document.getElementById('readyToSend').textContent = totalReminders;
+    
+    if (totalReminders === 0) {
+        sendBtn.disabled = true;
+        sendBtn.classList.add('disabled');
+    } else {
+        sendBtn.disabled = false;
+        sendBtn.classList.remove('disabled');
+    }
+    
+    // Add event listeners for WhatsApp buttons
+    attachWhatsAppListeners();
 }
 
-// Helper function to format WhatsApp number
-function formatWhatsAppNumber(number) {
-    if (!number) return 'N/A';
-    const cleaned = number.replace(/\D/g, '');
-    return cleaned.length > 10 ? `+${cleaned}` : cleaned;
+function createPaymentRow(payment, index, type) {
+    const dueDate = new Date(payment.due_date);
+    const formattedDate = dueDate.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+    });
+    
+    const formattedPhone = formatPhoneNumber(payment.whatsapp_number);
+    const formattedAmount = payment.amount_due.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+    });
+    
+    let statusBadge = '';
+    let daysInfo = '';
+    
+    switch(type) {
+        case 'soon':
+            const daysLeft = payment.days_diff;
+            statusBadge = `<span class="badge bg-warning">${daysLeft} day${daysLeft === 1 ? '' : 's'} left</span>`;
+            daysInfo = daysLeft;
+            break;
+            
+        case 'overdue':
+            const daysOverdue = payment.days_overdue;
+            statusBadge = `<span class="badge bg-danger">${daysOverdue} day${daysOverdue === 1 ? '' : 's'} overdue</span>`;
+            daysInfo = daysOverdue;
+            break;
+            
+        case 'all':
+            if (payment.days_diff < 0) {
+                const overdueDays = Math.abs(payment.days_diff);
+                statusBadge = `<span class="badge bg-danger">${overdueDays} day${overdueDays === 1 ? '' : 's'} overdue</span>`;
+                daysInfo = `-${overdueDays}`;
+            } else {
+                statusBadge = `<span class="badge bg-warning">${payment.days_diff} day${payment.days_diff === 1 ? '' : 's'} left</span>`;
+                daysInfo = payment.days_diff;
+            }
+            break;
+    }
+    
+    return `
+        <tr>
+            <td>${index}</td>
+            <td><strong>${payment.client_name}</strong></td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-whatsapp text-success me-2"></i>
+                    <span class="text-primary">${formattedPhone}</span>
+                </div>
+            </td>
+            <td>${payment.project_name}</td>
+            <td><span class="badge bg-info">#${payment.installment_number}</span></td>
+            <td><strong>${formattedAmount}</strong></td>
+            <td>${formattedDate}</td>
+            <td>${type === 'all' ? statusBadge : daysInfo}</td>
+            <td>
+                <button class="btn btn-primary3 btn-sm send-whatsapp-btn" 
+                        data-client="${payment.client_name}"
+                        data-phone="${payment.whatsapp_number}"
+                        data-amount="${formattedAmount}"
+                        data-installment="${payment.installment_number}"
+                        data-project="${payment.project_name}">
+                    <i class="bi bi-whatsapp me-1"></i> Send
+                </button>
+            </td>
+        </tr>
+    `;
 }
 
-// Helper function to format date
-function formatDate(dateString) {
-    const options = { day: 'numeric', month: 'short', year: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-IN', options);
+function formatPhoneNumber(phone) {
+    if (!phone) return 'N/A';
+    
+    const cleaned = phone.toString().replace(/\D/g, '');
+    
+    if (cleaned.startsWith('263')) {
+        // Format as 263 XXX XXX XXX
+        if (cleaned.length === 12) {
+            return `263 ${cleaned.substr(3, 3)} ${cleaned.substr(6, 3)} ${cleaned.substr(9, 3)}`;
+        } else {
+            return `263 ${cleaned.substr(3)}`;
+        }
+    } else if (cleaned.startsWith('0')) {
+        // Remove leading 0 and add 263
+        const withoutZero = cleaned.substr(1);
+        if (withoutZero.length === 9) {
+            return `263 ${withoutZero.substr(0, 3)} ${withoutZero.substr(3, 3)} ${withoutZero.substr(6, 3)}`;
+        } else {
+            return `263 ${withoutZero}`;
+        }
+    } else {
+        // Just add 263 prefix
+        return `263 ${cleaned}`;
+    }
 }
 
-// Function to attach event listeners
-function attachEventListeners() {
-    // Single reminder buttons
-    document.querySelectorAll('.send-single-reminder').forEach(button => {
+function attachWhatsAppListeners() {
+    document.querySelectorAll('.send-whatsapp-btn').forEach(button => {
         button.addEventListener('click', function() {
             const clientName = this.getAttribute('data-client');
             const phone = this.getAttribute('data-phone');
             const amount = this.getAttribute('data-amount');
+            const installment = this.getAttribute('data-installment');
+            const project = this.getAttribute('data-project');
             
-            sendWhatsAppReminder(clientName, phone, amount);
-        });
-    });
-    
-    // View details buttons
-    document.querySelectorAll('.view-details').forEach(button => {
-        button.addEventListener('click', function() {
-            // Implement view details functionality
-            console.log('View details clicked');
+            sendWhatsAppReminder(clientName, phone, amount, installment, project);
+            
+            // Visual feedback
+            const originalHtml = this.innerHTML;
+            this.innerHTML = '<i class="bi bi-check me-1"></i> Sent';
+            this.classList.remove('btn-primary3');
+            this.classList.add('btn-success');
+            this.disabled = true;
+            
+            // Reset after 2 seconds
+            setTimeout(() => {
+                this.innerHTML = originalHtml;
+                this.classList.remove('btn-success');
+                this.classList.add('btn-primary3');
+                this.disabled = false;
+            }, 2000);
         });
     });
     
     // Send all reminders button
-    document.getElementById('sendRemindersBtn').addEventListener('click', sendAllReminders);
+    document.getElementById('sendAllRemindersBtn').addEventListener('click', sendAllReminders);
 }
 
-// Function to send WhatsApp reminder
-function sendWhatsAppReminder(clientName, phone, amount) {
-    // Format the WhatsApp message
-    const message = encodeURIComponent(
-        `Dear ${clientName},\n\nThis is a friendly reminder that your payment of ${amount} is due.\n\nPlease make the payment at your earliest convenience.\n\nThank you!`
-    );
+function sendWhatsAppReminder(clientName, phone, amount, installment, project) {
+    // Clean phone number for WhatsApp
+    const cleanPhone = phone.toString().replace(/\D/g, '');
+    
+    // Create WhatsApp message
+    const message = `Dear ${clientName},\n\nThis is a friendly reminder about your payment for ${project}.\n\nInstallment #${installment}: ${amount}\n\nPlease make the payment at your earliest convenience.\n\nThank you,\nConnectLink Properties`;
+    
+    // Encode the message for URL
+    const encodedMessage = encodeURIComponent(message);
     
     // Create WhatsApp URL
-    const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
+    let whatsappUrl;
+    if (cleanPhone.startsWith('263')) {
+        whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+    } else {
+        whatsappUrl = `https://wa.me/263${cleanPhone}?text=${encodedMessage}`;
+    }
     
     // Open WhatsApp in new tab
     window.open(whatsappUrl, '_blank');
-    
-    // Optional: Track that reminder was sent
-    console.log(`Reminder sent to ${clientName}`);
 }
 
-// Function to send all reminders
 function sendAllReminders() {
-    // Collect all due and overdue payments
-    const dueSoonItems = document.querySelectorAll('#dueSoonList .send-single-reminder');
-    const overdueItems = document.querySelectorAll('#overdueList .send-single-reminder');
+    const allButtons = document.querySelectorAll('.send-whatsapp-btn');
+    const dueSoonButtons = document.querySelectorAll('#dueSoonTableBody .send-whatsapp-btn');
+    const overdueButtons = document.querySelectorAll('#overdueTableBody .send-whatsapp-btn');
     
-    const allItems = [...dueSoonItems, ...overdueItems];
+    const totalToSend = dueSoonButtons.length + overdueButtons.length;
     
-    if (allItems.length === 0) {
+    if (totalToSend === 0) {
         alert('No reminders to send');
         return;
     }
     
-    if (confirm(`Send reminders to ${allItems.length} clients?`)) {
-        allItems.forEach(item => {
-            item.click(); // Trigger individual reminder
+    if (confirm(`Send payment reminders to ${totalToSend} clients?`)) {
+        // Send all reminders
+        allButtons.forEach(button => {
+            if (!button.disabled) {
+                button.click();
+            }
         });
         
-        // Optional: Show confirmation
-        alert(`Reminders initiated for ${allItems.length} clients`);
+        // Show confirmation
+        showToast(`Payment reminders sent to ${totalToSend} clients`, 'success');
     }
 }
 
-// Error handling
-function showError(message) {
+function showErrorInModal(message) {
     const modalBody = document.querySelector('#paymentRemindersModal .modal-body');
     modalBody.innerHTML = `
         <div class="alert alert-danger" role="alert">
-            <i class="bi bi-exclamation-triangle-fill"></i>
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
             ${message}
         </div>
     `;
 }
+
+function showToast(message, type = 'success') {
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Create toast
+    const toastId = 'toast-' + Date.now();
+    const toast = document.createElement('div');
+    toast.id = toastId;
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi ${type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2"></i>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Initialize and show toast
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remove toast after it's hidden
+    toast.addEventListener('hidden.bs.toast', function() {
+        toast.remove();
+    });
+}
+
+// Add this to your existing page load event
+document.addEventListener('DOMContentLoaded', function() {
+    // Make the function available globally
+    window.Pushpaymentreminders = Pushpaymentreminders;
+});
 </script>
 <script>
 // Submit update form via AJAX - FIXED VERSION
@@ -6449,66 +6788,6 @@ function downloadPortfolio() {
         btn.disabled = false;
         btn.innerHTML = `<i class="bi bi-journal-text"></i> Download Master File`;
     }, 2500); // 2.5 seconds works well
-}
-
-
-async function downloadInstallmentSchedule() {
-    const btn = document.getElementById("installmentscheduleBtn");
-    const originalHTML = btn.innerHTML;
-    
-    try {
-        // Show loading
-        btn.disabled = true;
-        btn.innerHTML = `
-            <span class="spinner-border spinner-border-sm me-2"></span>
-            Generating Report...
-        `;
-        
-        // Use fetch instead of direct link click
-        const response = await fetch('/export-installments-schedule-excel');
-        
-        if (!response.ok) {
-            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-        }
-        
-        // Get the blob from response
-        const blob = await response.blob();
-        
-        // Create download link
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        
-        // Get filename from content-disposition header or use default
-        const contentDisposition = response.headers.get('content-disposition');
-        // Add to your function:
-        const now = new Date();
-        const timestamp = now.toISOString().slice(0, 19).replace(/[:T]/g, '-'); // "2024-01-04-14-30-45"
-        const filename = `installments_${timestamp}.xlsx`;
-        
-        if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-            if (filenameMatch) {
-                filename = filenameMatch[1];
-            }
-        }
-        
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        
-        // Cleanup
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-    } catch (error) {
-        console.error('Download error:', error);
-        alert(`Failed to download: ${error.message}`);
-    } finally {
-        // Reset button
-        btn.disabled = false;
-        btn.innerHTML = originalHTML;
-    }
 }
 
 </script>

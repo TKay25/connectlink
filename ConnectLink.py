@@ -11827,6 +11827,65 @@ def batch_delete_enquiries():
             print(f"Error batch deleting: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+# Add this function to extract payment reminders data
+def get_payment_reminders(df):
+    """Extract payment reminders data from the main dataframe"""
+    today = datetime.now().date()
+    due_soon = []
+    overdue = []
+    
+    # Loop through each row in the dataframe
+    for _, row in df.iterrows():
+        client_name = row['clientname']
+        whatsapp_number = str(row['clientwanumber']) if pd.notna(row['clientwanumber']) else ''
+        project_name = row['projectname']
+        
+        # Check each installment (1-6)
+        for i in range(1, 7):
+            due_date_col = f'installment{i}duedate'
+            paid_date_col = f'installment{i}date'
+            amount_col = f'installment{i}amount'
+            
+            if pd.notna(row.get(due_date_col)):
+                try:
+                    due_date = pd.to_datetime(row[due_date_col]).date()
+                    amount = float(row.get(amount_col, 0) or 0)
+                    is_paid = pd.notna(row.get(paid_date_col))
+                    
+                    if not is_paid:
+                        days_diff = (due_date - today).days
+                        
+                        payment_info = {
+                            'project_id': int(row['id']),
+                            'client_name': client_name,
+                            'whatsapp_number': whatsapp_number,
+                            'project_name': project_name,
+                            'installment_number': i,
+                            'amount_due': amount,
+                            'due_date': due_date,
+                            'days_diff': days_diff
+                        }
+                        
+                        if days_diff < 0:
+                            # Overdue
+                            payment_info['days_overdue'] = abs(days_diff)
+                            overdue.append(payment_info)
+                        elif days_diff <= 3:
+                            # Due within 3 days
+                            due_soon.append(payment_info)
+                except Exception as e:
+                    continue
+    
+    # Sort by urgency
+    due_soon.sort(key=lambda x: x['days_diff'])
+    overdue.sort(key=lambda x: x['days_overdue'], reverse=True)
+    
+    return {
+        'due_soon': due_soon,
+        'overdue': overdue,
+        'all_payments': due_soon + overdue
+    }
+
 def run1(userid):
 
     update_project_completion_status()
@@ -12192,9 +12251,11 @@ def run1(userid):
 
         payment_stats['total_due'] = total_due
 
-
+        # Calculate payment reminders data
+        payment_reminders = get_payment_reminders(datamain2)
 
         return {
+            'payment_reminders': payment_reminders,
             'payment_stats': payment_stats,
             'start_of_week': start_of_week,
             'start_of_month': start_of_month,
