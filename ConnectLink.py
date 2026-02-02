@@ -11827,6 +11827,122 @@ def batch_delete_enquiries():
             print(f"Error batch deleting: {e}")
             return jsonify({'success': False, 'message': str(e)}), 500
 
+# In your Flask app, add this route
+@app.route('/api/payments/due-payments')
+def get_due_payments():
+    try:
+        with get_db() as (cursor, connection):
+            # Get current date
+            today = datetime.now().date()
+            
+            # Query for all active projects with payment data
+            query = """
+                SELECT 
+                    id as project_id,
+                    clientname as client_name,
+                    clientwanumber as whatsapp_number,
+                    projectname as project_name,
+                    installment1amount as amount_due,
+                    installment1duedate as due_date
+                FROM connectlinkdatabase 
+                WHERE projectcompletionstatus = 'Ongoing'
+                AND installment1duedate IS NOT NULL
+                AND installment1date IS NULL
+                
+                UNION
+                
+                SELECT 
+                    id as project_id,
+                    clientname as client_name,
+                    clientwanumber as whatsapp_number,
+                    projectname as project_name,
+                    installment2amount as amount_due,
+                    installment2duedate as due_date
+                FROM connectlinkdatabase 
+                WHERE projectcompletionstatus = 'Ongoing'
+                AND installment2duedate IS NOT NULL
+                AND installment2date IS NULL
+                
+                UNION
+                
+                SELECT 
+                    id as project_id,
+                    clientname as client_name,
+                    clientwanumber as whatsapp_number,
+                    projectname as project_name,
+                    installment3amount as amount_due,
+                    installment3duedate as due_date
+                FROM connectlinkdatabase 
+                WHERE projectcompletionstatus = 'Ongoing'
+                AND installment3duedate IS NOT NULL
+                AND installment3date IS NULL
+                
+                UNION
+                
+                SELECT 
+                    id as project_id,
+                    clientname as client_name,
+                    clientwanumber as whatsapp_number,
+                    projectname as project_name,
+                    installment4amount as amount_due,
+                    installment4duedate as due_date
+                FROM connectlinkdatabase 
+                WHERE projectcompletionstatus = 'Ongoing'
+                AND installment4duedate IS NOT NULL
+                AND installment4date IS NULL
+                
+                UNION
+                
+                SELECT 
+                    id as project_id,
+                    clientname as client_name,
+                    clientwanumber as whatsapp_number,
+                    projectname as project_name,
+                    installment5amount as amount_due,
+                    installment5duedate as due_date
+                FROM connectlinkdatabase 
+                WHERE projectcompletionstatus = 'Ongoing'
+                AND installment5duedate IS NOT NULL
+                AND installment5date IS NULL
+                
+                UNION
+                
+                SELECT 
+                    id as project_id,
+                    clientname as client_name,
+                    clientwanumber as whatsapp_number,
+                    projectname as project_name,
+                    installment6amount as amount_due,
+                    installment6duedate as due_date
+                FROM connectlinkdatabase 
+                WHERE projectcompletionstatus = 'Ongoing'
+                AND installment6duedate IS NOT NULL
+                AND installment6date IS NULL
+                
+                ORDER BY due_date ASC
+            """
+            
+            cursor.execute(query)
+            payments = cursor.fetchall()
+            
+            # Convert to list of dictionaries
+            result = []
+            for payment in payments:
+                result.append({
+                    'project_id': payment[0],
+                    'client_name': payment[1],
+                    'whatsapp_number': str(payment[2]) if payment[2] else '',
+                    'project_name': payment[3],
+                    'amount_due': float(payment[4] or 0),
+                    'due_date': payment[5].strftime('%Y-%m-%d') if payment[5] else None
+                })
+            
+            return jsonify(result)
+            
+    except Exception as e:
+        print(f"Error fetching due payments: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # Add this function to extract payment reminders data
 def get_payment_reminders(df):
     """Extract payment reminders data from the main dataframe"""
