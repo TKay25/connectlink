@@ -11828,57 +11828,95 @@ def batch_delete_enquiries():
             return jsonify({'success': False, 'message': str(e)}), 500
 
 
+# ==================== PAYMENT REMINDERS - FINAL WORKING CODE ====================
+
 def get_payment_reminders_data(df):
-    """Extract payment reminders data from the main dataframe"""
-    today = datetime.now().date()
+    """Extract payment reminders data from the main dataframe - FINAL VERSION"""
+    from datetime import datetime, date
+    import pandas as pd
+    
+    today = date.today()
     due_soon = []
     overdue = []
+    
+    # Make sure we're working with a copy
+    df = df.copy()
     
     # Filter only ongoing projects
     if 'projectcompletionstatus' in df.columns:
         df = df[df['projectcompletionstatus'] == 'Ongoing']
     
-    # Loop through each row
-    for _, row in df.iterrows():
-        client_name = row['clientname'] if 'clientname' in row else ''
-        whatsapp_number = str(row['clientwanumber']) if 'clientwanumber' in row and pd.notna(row['clientwanumber']) else ''
-        project_name = row['projectname'] if 'projectname' in row else ''
-        project_id = int(row['id']) if 'id' in row else 0
+    # Convert date columns to datetime
+    date_columns = []
+    for i in range(1, 7):
+        due_col = f'installment{i}duedate'
+        paid_col = f'installment{i}date'
         
-        # Check each installment (1-6)
-        for i in range(1, 7):
-            due_date_col = f'installment{i}duedate'
-            paid_date_col = f'installment{i}date'
-            amount_col = f'installment{i}amount'
+        if due_col in df.columns:
+            df[due_col] = pd.to_datetime(df[due_col], errors='coerce')
+            date_columns.append(due_col)
+        
+        if paid_col in df.columns:
+            df[paid_col] = pd.to_datetime(df[paid_col], errors='coerce')
+    
+    # Process each row
+    for index, row in df.iterrows():
+        try:
+            client_name = str(row.get('clientname', 'Unknown'))
+            whatsapp_number = str(row.get('clientwanumber', ''))
+            project_name = str(row.get('projectname', 'Unknown'))
+            project_id = int(row.get('id', index))
             
-            if due_date_col in row and pd.notna(row[due_date_col]):
-                try:
-                    due_date = pd.to_datetime(row[due_date_col]).date()
-                    amount = float(row[amount_col]) if amount_col in row and pd.notna(row[amount_col]) else 0
-                    is_paid = paid_date_col in row and pd.notna(row[paid_date_col])
-                    
-                    if not is_paid and amount > 0:
-                        days_diff = (due_date - today).days
-                        
-                        payment_info = {
-                            'project_id': project_id,
-                            'client_name': client_name,
-                            'whatsapp_number': whatsapp_number,
-                            'project_name': project_name,
-                            'installment_number': i,
-                            'amount_due': amount,
-                            'due_date': due_date.strftime('%Y-%m-%d'),
-                            'days_diff': days_diff
-                        }
-                        
-                        if days_diff < 0:
-                            payment_info['days_overdue'] = abs(days_diff)
-                            overdue.append(payment_info)
-                        elif days_diff <= 3:
-                            due_soon.append(payment_info)
-                except Exception as e:
-                    print(f"Error processing installment {i} for project {project_id}: {e}")
+            # Check each installment (1-6)
+            for i in range(1, 7):
+                due_date_col = f'installment{i}duedate'
+                paid_date_col = f'installment{i}date'
+                amount_col = f'installment{i}amount'
+                
+                # Get due date
+                due_date = row.get(due_date_col)
+                if pd.isna(due_date):
                     continue
+                
+                # Get amount (handle various formats)
+                amount = 0
+                amount_val = row.get(amount_col)
+                if pd.notna(amount_val):
+                    try:
+                        amount = float(amount_val)
+                    except:
+                        amount = 0
+                
+                if amount <= 0:
+                    continue
+                
+                # Check if paid
+                paid_date = row.get(paid_date_col)
+                is_paid = pd.notna(paid_date)
+                
+                if not is_paid:
+                    due_date_date = due_date.date()
+                    days_diff = (due_date_date - today).days
+                    
+                    payment_info = {
+                        'project_id': project_id,
+                        'client_name': client_name,
+                        'whatsapp_number': whatsapp_number,
+                        'project_name': project_name,
+                        'installment_number': i,
+                        'amount_due': amount,
+                        'due_date': due_date_date.strftime('%Y-%m-%d'),
+                        'days_diff': days_diff
+                    }
+                    
+                    if days_diff < 0:
+                        payment_info['days_overdue'] = abs(days_diff)
+                        overdue.append(payment_info)
+                    elif days_diff <= 3:
+                        due_soon.append(payment_info)
+                        
+        except Exception as e:
+            continue
     
     # Sort results
     due_soon.sort(key=lambda x: x['days_diff'])
@@ -11892,69 +11930,183 @@ def get_payment_reminders_data(df):
 
 @app.route('/api/payment-reminders', methods=['GET'])
 def api_payment_reminders():
-    """
-    API endpoint to get payment reminders data
-    Returns: JSON with due_soon, overdue, and all_payments arrays
-    """
+    """API endpoint to get payment reminders data - FINAL VERSION"""
     try:
-        # Get user from session
         userid = session.get('userid')
         if not userid:
-            return jsonify({'error': 'Not authenticated. Please log in.'}), 401
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        today = datetime.now().date()
+        due_soon = []
+        overdue = []
         
         with get_db() as (cursor, connection):
-            # Get all ongoing projects
-            cursor.execute("SELECT * FROM connectlinkdatabase WHERE projectcompletionstatus = 'Ongoing'")
-            projects = cursor.fetchall()
+            # Get ALL unpaid installments in one query
+            cursor.execute("""
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    1 as installment_num,
+                    d.installment1amount as amount,
+                    d.installment1duedate as due_date,
+                    d.installment1date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment1duedate IS NOT NULL
+                AND d.installment1date IS NULL
+                AND d.installment1amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    2 as installment_num,
+                    d.installment2amount as amount,
+                    d.installment2duedate as due_date,
+                    d.installment2date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment2duedate IS NOT NULL
+                AND d.installment2date IS NULL
+                AND d.installment2amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    3 as installment_num,
+                    d.installment3amount as amount,
+                    d.installment3duedate as due_date,
+                    d.installment3date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment3duedate IS NOT NULL
+                AND d.installment3date IS NULL
+                AND d.installment3amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    4 as installment_num,
+                    d.installment4amount as amount,
+                    d.installment4duedate as due_date,
+                    d.installment4date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment4duedate IS NOT NULL
+                AND d.installment4date IS NULL
+                AND d.installment4amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    5 as installment_num,
+                    d.installment5amount as amount,
+                    d.installment5duedate as due_date,
+                    d.installment5date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment5duedate IS NOT NULL
+                AND d.installment5date IS NULL
+                AND d.installment5amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    6 as installment_num,
+                    d.installment6amount as amount,
+                    d.installment6duedate as due_date,
+                    d.installment6date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment6duedate IS NOT NULL
+                AND d.installment6date IS NULL
+                AND d.installment6amount > 0
+                
+                ORDER BY due_date
+            """)
             
-            if not projects:
-                return jsonify({
-                    'due_soon': [],
-                    'overdue': [],
-                    'all_payments': [],
-                    'message': 'No ongoing projects found'
-                })
+            payments = cursor.fetchall()
             
-            # Get column names
-            cursor.execute("SELECT * FROM connectlinkdatabase LIMIT 0")
-            col_names = [desc[0] for desc in cursor.description]
-            
-            # Convert to list of dictionaries
-            projects_list = []
-            for project in projects:
-                project_dict = {}
-                for i, col_name in enumerate(col_names):
-                    project_dict[col_name] = project[i]
-                projects_list.append(project_dict)
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(projects_list)
-            
-            # Get payment reminders
-            reminders = get_payment_reminders_data(df)
+            for payment in payments:
+                try:
+                    project_id = payment[0]
+                    client_name = str(payment[1]) if payment[1] else 'Unknown'
+                    whatsapp_number = str(payment[2]) if payment[2] else ''
+                    project_name = str(payment[3]) if payment[3] else 'Unknown'
+                    installment_num = int(payment[4])
+                    amount = float(payment[5]) if payment[5] else 0
+                    due_date = payment[6]
+                    
+                    if due_date:
+                        # Convert to date object
+                        if hasattr(due_date, 'date'):
+                            due_date_obj = due_date.date()
+                        else:
+                            due_date_obj = pd.to_datetime(due_date).date()
+                        
+                        days_diff = (due_date_obj - today).days
+                        
+                        payment_info = {
+                            'project_id': project_id,
+                            'client_name': client_name,
+                            'whatsapp_number': whatsapp_number,
+                            'project_name': project_name,
+                            'installment_number': installment_num,
+                            'amount_due': amount,
+                            'due_date': due_date_obj.strftime('%Y-%m-%d'),
+                            'days_diff': days_diff
+                        }
+                        
+                        if days_diff < 0:
+                            payment_info['days_overdue'] = abs(days_diff)
+                            overdue.append(payment_info)
+                        elif days_diff <= 3:
+                            due_soon.append(payment_info)
+                            
+                except Exception as e:
+                    continue
             
             return jsonify({
-                'due_soon': reminders['due_soon'],
-                'overdue': reminders['overdue'],
-                'all_payments': reminders['all_payments'],
+                'due_soon': due_soon,
+                'overdue': overdue,
+                'all_payments': due_soon + overdue,
                 'counts': {
-                    'due_soon': len(reminders['due_soon']),
-                    'overdue': len(reminders['overdue']),
-                    'total': len(reminders['all_payments'])
+                    'due_soon': len(due_soon),
+                    'overdue': len(overdue),
+                    'total': len(due_soon) + len(overdue)
                 },
-                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                'today': today.strftime('%Y-%m-%d')
             })
             
     except Exception as e:
-        print(f"API Error in /api/payment-reminders: {str(e)}")
+        print(f"Payment Reminders API Error: {str(e)}")
         return jsonify({
-            'error': 'Server error occurred',
-            'message': str(e),
+            'error': 'Server error',
             'due_soon': [],
             'overdue': [],
             'all_payments': []
         }), 500
-
 
 def run1(userid):
 

@@ -3730,7 +3730,7 @@ body::before {
 <script>
 // ==================== MAIN FUNCTION ====================
 function Pushpaymentreminders() {
-    console.log('Payment Reminders button clicked');
+    console.log('Opening Payment Reminders...');
     
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('paymentRemindersModal'));
@@ -3741,35 +3741,21 @@ function Pushpaymentreminders() {
 }
 
 // ==================== DATA LOADING ====================
-function loadPaymentReminders() {
-    console.log('Loading payment reminders...');
-    
+async function loadPaymentReminders() {
     try {
-        // Check if data is already embedded in page
+        // Try embedded data first
         const dataDiv = document.getElementById('paymentRemindersData');
-        
         if (dataDiv && dataDiv.dataset.reminders) {
-            const reminders = JSON.parse(dataDiv.dataset.reminders);
-            console.log('Found embedded data:', reminders);
-            
-            if (reminders && (reminders.due_soon || reminders.overdue)) {
-                displayPaymentReminders(reminders);
+            const data = JSON.parse(dataDiv.dataset.reminders);
+            if (data && (data.due_soon || data.overdue)) {
+                console.log('Using embedded data');
+                displayPaymentReminders(data);
                 return;
             }
         }
         
-        // If no embedded data, fetch from API
+        // Fetch from API
         console.log('Fetching from API...');
-        fetchFromAPI();
-        
-    } catch (error) {
-        console.error('Error loading data:', error);
-        useSampleData();
-    }
-}
-
-async function fetchFromAPI() {
-    try {
         const response = await fetch('/api/payment-reminders');
         
         if (!response.ok) {
@@ -3777,75 +3763,147 @@ async function fetchFromAPI() {
         }
         
         const data = await response.json();
-        console.log('API response:', data);
         
         if (data.error) {
             throw new Error(data.error);
         }
         
+        console.log('API Data received:', data);
         displayPaymentReminders(data);
         
     } catch (error) {
-        console.error('API fetch failed:', error);
+        console.error('Error loading payment reminders:', error);
+        
+        // Fallback to extracting from allprojectsTable
+        if (document.getElementById('allprojectsTable')) {
+            extractDataFromTable();
+        } else {
+            useSampleData();
+        }
+    }
+}
+
+function extractDataFromTable() {
+    try {
+        const table = document.getElementById('allprojectsTable');
+        const rows = table.querySelectorAll('tbody tr');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const dueSoon = [];
+        const overdue = [];
+        
+        rows.forEach((row, index) => {
+            const cells = row.querySelectorAll('td');
+            
+            // Get basic info - adjust indices based on your table
+            const clientName = cells[1]?.textContent?.trim() || '';
+            const whatsapp = cells[4]?.textContent?.trim() || '';
+            const projectName = cells[10]?.textContent?.trim() || '';
+            const status = cells[38]?.textContent?.trim() || '';
+            
+            if (status !== 'Ongoing') return;
+            
+            // Extract installment data - these are example indices
+            for (let i = 1; i <= 6; i++) {
+                const amountIdx = 26 + ((i - 1) * 3);
+                const dueDateIdx = amountIdx + 1;
+                const paidDateIdx = amountIdx + 2;
+                
+                const amountText = cells[amountIdx]?.textContent?.trim();
+                const dueDateText = cells[dueDateIdx]?.textContent?.trim();
+                const paidDateText = cells[paidDateIdx]?.textContent?.trim();
+                
+                if (dueDateText && !paidDateText && amountText) {
+                    const amount = parseFloat(amountText.replace(/[^0-9.-]+/g, '')) || 0;
+                    if (amount > 0) {
+                        const dueDate = parseDate(dueDateText);
+                        if (dueDate) {
+                            const daysDiff = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                            
+                            const payment = {
+                                project_id: index + 1,
+                                client_name: clientName,
+                                whatsapp_number: whatsapp,
+                                project_name: projectName,
+                                installment_number: i,
+                                amount_due: amount,
+                                due_date: dueDate.toISOString().split('T')[0],
+                                days_diff: daysDiff
+                            };
+                            
+                            if (daysDiff < 0) {
+                                payment.days_overdue = Math.abs(daysDiff);
+                                overdue.push(payment);
+                            } else if (daysDiff <= 3) {
+                                dueSoon.push(payment);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        const data = {
+            due_soon: dueSoon,
+            overdue: overdue,
+            all_payments: [...dueSoon, ...overdue]
+        };
+        
+        displayPaymentReminders(data);
+        
+    } catch (error) {
+        console.error('Table extraction failed:', error);
         useSampleData();
     }
 }
 
+function parseDate(dateStr) {
+    try {
+        // Try different formats
+        if (dateStr.includes('/')) {
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                return new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+        }
+        return new Date(dateStr);
+    } catch (e) {
+        return null;
+    }
+}
+
 function useSampleData() {
-    console.log('Using sample data');
-    
     const today = new Date();
     const sampleData = {
         due_soon: [
             {
                 project_id: 1,
-                client_name: "John Doe",
+                client_name: "Test Client 1",
                 whatsapp_number: "263771234567",
-                project_name: "Office Building",
+                project_name: "Test Project",
                 installment_number: 2,
-                amount_due: 15000.00,
-                due_date: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                amount_due: 15000,
+                due_date: new Date(today.getTime() + 2 * 86400000).toISOString().split('T')[0],
                 days_diff: 2
-            },
-            {
-                project_id: 2,
-                client_name: "Jane Smith",
-                whatsapp_number: "263772345678",
-                project_name: "House Construction",
-                installment_number: 1,
-                amount_due: 25000.00,
-                due_date: new Date(today.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                days_diff: 1
             }
         ],
         overdue: [
             {
-                project_id: 3,
-                client_name: "Robert Johnson",
-                whatsapp_number: "263773456789",
-                project_name: "Shop Fitting",
+                project_id: 2,
+                client_name: "Test Client 2",
+                whatsapp_number: "263772345678",
+                project_name: "Overdue Project",
                 installment_number: 3,
-                amount_due: 18000.00,
-                due_date: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                amount_due: 25000,
+                due_date: new Date(today.getTime() - 5 * 86400000).toISOString().split('T')[0],
                 days_diff: -5,
                 days_overdue: 5
-            },
-            {
-                project_id: 4,
-                client_name: "Sarah Williams",
-                whatsapp_number: "263774567890",
-                project_name: "Apartment Complex",
-                installment_number: 4,
-                amount_due: 32000.00,
-                due_date: new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                days_diff: -10,
-                days_overdue: 10
             }
         ]
     };
     
     sampleData.all_payments = [...sampleData.due_soon, ...sampleData.overdue];
-    
     displayPaymentReminders(sampleData);
 }
 
@@ -3858,15 +3916,24 @@ function displayPaymentReminders(data) {
         return;
     }
     
-    // Extract data with defaults
     const dueSoon = data.due_soon || [];
     const overdue = data.overdue || [];
     const allPayments = data.all_payments || [...dueSoon, ...overdue];
     
-    console.log(`Counts: Due Soon: ${dueSoon.length}, Overdue: ${overdue.length}, Total: ${allPayments.length}`);
+    // Update summary
+    document.getElementById('dueSoonCount').textContent = dueSoon.length;
+    document.getElementById('overdueCount').textContent = overdue.length;
+    document.getElementById('dueSoonBadge').textContent = dueSoon.length;
+    document.getElementById('overdueBadge').textContent = overdue.length;
+    document.getElementById('totalClients').textContent = allPayments.length;
     
-    // Update summary cards
-    updateSummary(dueSoon, overdue, allPayments);
+    const totalAmount = allPayments.reduce((sum, p) => sum + (p.amount_due || 0), 0);
+    document.getElementById('totalAmount').textContent = '$' + totalAmount.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    
+    document.getElementById('readyToSend').textContent = dueSoon.length + overdue.length;
     
     // Fill tables
     fillTable('dueSoonTableBody', dueSoon, 'soon');
@@ -3874,28 +3941,15 @@ function displayPaymentReminders(data) {
     fillTable('allRemindersTableBody', allPayments, 'all');
     
     // Update send button
-    updateSendButton(dueSoon.length + overdue.length);
+    const sendBtn = document.getElementById('sendAllRemindersBtn');
+    const totalReminders = dueSoon.length + overdue.length;
+    if (sendBtn) {
+        sendBtn.disabled = totalReminders === 0;
+        sendBtn.classList.toggle('disabled', totalReminders === 0);
+    }
     
     // Add event listeners
     setTimeout(addEventListeners, 100);
-}
-
-function updateSummary(dueSoon, overdue, allPayments) {
-    // Update counts
-    document.getElementById('dueSoonCount').textContent = dueSoon.length;
-    document.getElementById('overdueCount').textContent = overdue.length;
-    document.getElementById('dueSoonBadge').textContent = dueSoon.length;
-    document.getElementById('overdueBadge').textContent = overdue.length;
-    document.getElementById('totalClients').textContent = allPayments.length;
-    
-    // Calculate total amount
-    const totalAmount = allPayments.reduce((sum, payment) => sum + (payment.amount_due || 0), 0);
-    document.getElementById('totalAmount').textContent = '$' + totalAmount.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-    
-    document.getElementById('readyToSend').textContent = dueSoon.length + overdue.length;
 }
 
 function fillTable(tableId, payments, type) {
@@ -3905,16 +3959,15 @@ function fillTable(tableId, payments, type) {
     tableBody.innerHTML = '';
     
     if (!payments || payments.length === 0) {
-        let message = '';
-        if (type === 'soon') message = 'No payments due in the next 3 days';
-        else if (type === 'overdue') message = 'No overdue payments';
-        else message = 'No payment reminders';
+        const message = type === 'soon' ? 'No payments due in the next 3 days' :
+                        type === 'overdue' ? 'No overdue payments' :
+                        'No payment reminders';
         
         tableBody.innerHTML = `
             <tr>
-                <td colspan="9" class="text-center py-4 text-muted">
-                    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
-                    <p class="mt-2">${message}</p>
+                <td colspan="9" class="text-center py-4">
+                    <i class="bi bi-check-circle text-success fs-4"></i>
+                    <p class="mt-2 text-muted">${message}</p>
                 </td>
             </tr>
         `;
@@ -3927,37 +3980,35 @@ function fillTable(tableId, payments, type) {
     });
 }
 
-function createTableRow(payment, rowNum, type) {
-    // Safely extract data
-    const clientName = payment.client_name || 'Unknown';
-    const whatsapp = payment.whatsapp_number || '';
+function createTableRow(payment, index, type) {
+    const client = payment.client_name || 'Unknown';
+    const phone = payment.whatsapp_number || '';
     const project = payment.project_name || 'Unknown';
-    const installment = payment.installment_number || '?';
+    const installment = payment.installment_number || '';
     const amount = payment.amount_due || 0;
     const dueDate = payment.due_date || '';
-    const daysDiff = payment.days_diff || 0;
     
-    // Format values
     const formattedDate = formatDate(dueDate);
-    const formattedPhone = formatPhone(whatsapp);
+    const formattedPhone = formatPhone(phone);
     const formattedAmount = amount.toLocaleString('en-US', {
         style: 'currency',
         currency: 'USD',
         minimumFractionDigits: 2
     });
     
-    // Create status/days info
     let statusHtml = '';
     let daysInfo = '';
     
     if (type === 'soon') {
-        daysInfo = daysDiff;
-        statusHtml = `<span class="badge bg-warning">${daysDiff} day${daysDiff === 1 ? '' : 's'} left</span>`;
+        const daysLeft = payment.days_diff || 0;
+        daysInfo = daysLeft;
+        statusHtml = `<span class="badge bg-warning">${daysLeft} day${daysLeft === 1 ? '' : 's'} left</span>`;
     } else if (type === 'overdue') {
-        const overdueDays = payment.days_overdue || Math.abs(daysDiff);
+        const overdueDays = payment.days_overdue || Math.abs(payment.days_diff) || 0;
         daysInfo = overdueDays;
         statusHtml = `<span class="badge bg-danger">${overdueDays} day${overdueDays === 1 ? '' : 's'} overdue</span>`;
     } else {
+        const daysDiff = payment.days_diff || 0;
         if (daysDiff < 0) {
             const overdueDays = Math.abs(daysDiff);
             daysInfo = `-${overdueDays}`;
@@ -3970,23 +4021,23 @@ function createTableRow(payment, rowNum, type) {
     
     return `
         <tr>
-            <td>${rowNum}</td>
-            <td><strong>${clientName}</strong></td>
+            <td>${index}</td>
+            <td><strong>${client}</strong></td>
             <td>
                 <div class="d-flex align-items-center">
                     <i class="bi bi-whatsapp text-success me-2"></i>
-                    <span class="text-primary">${formattedPhone}</span>
+                    <span>${formattedPhone}</span>
                 </div>
             </td>
             <td>${project}</td>
             <td><span class="badge bg-info">#${installment}</span></td>
-            <td><strong>${formattedAmount}</strong></td>
+            <td><strong class="text-primary">${formattedAmount}</strong></td>
             <td>${formattedDate}</td>
             <td>${type === 'all' ? statusHtml : daysInfo}</td>
             <td>
-                <button class="btn btn-primary3 btn-sm send-reminder-btn" 
-                        data-client="${clientName}"
-                        data-phone="${whatsapp}"
+                <button class="btn btn-primary3 btn-sm send-btn"
+                        data-client="${client}"
+                        data-phone="${phone}"
                         data-amount="${formattedAmount}"
                         data-installment="${installment}"
                         data-project="${project}">
@@ -3997,10 +4048,8 @@ function createTableRow(payment, rowNum, type) {
     `;
 }
 
-// ==================== HELPER FUNCTIONS ====================
 function formatDate(dateStr) {
     if (!dateStr) return 'N/A';
-    
     try {
         const date = new Date(dateStr);
         return date.toLocaleDateString('en-US', {
@@ -4015,7 +4064,6 @@ function formatDate(dateStr) {
 
 function formatPhone(phone) {
     if (!phone) return 'N/A';
-    
     const cleaned = phone.toString().replace(/\D/g, '');
     
     if (cleaned.startsWith('263')) {
@@ -4030,44 +4078,30 @@ function formatPhone(phone) {
         }
         return `263 ${withoutZero}`;
     }
-    
     return `263 ${cleaned}`;
-}
-
-function updateSendButton(totalReminders) {
-    const sendBtn = document.getElementById('sendAllRemindersBtn');
-    if (!sendBtn) return;
-    
-    sendBtn.disabled = totalReminders === 0;
-    if (totalReminders === 0) {
-        sendBtn.classList.add('disabled');
-    } else {
-        sendBtn.classList.remove('disabled');
-    }
 }
 
 // ==================== WHATSAPP FUNCTIONS ====================
 function addEventListeners() {
-    // Individual send buttons
-    document.querySelectorAll('.send-reminder-btn').forEach(button => {
-        button.addEventListener('click', function() {
+    // Individual buttons
+    document.querySelectorAll('.send-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
             const client = this.getAttribute('data-client');
             const phone = this.getAttribute('data-phone');
             const amount = this.getAttribute('data-amount');
             const installment = this.getAttribute('data-installment');
             const project = this.getAttribute('data-project');
             
-            sendWhatsAppMessage(client, phone, amount, installment, project);
+            sendWhatsApp(client, phone, amount, installment, project);
             
             // Visual feedback
-            const originalHtml = this.innerHTML;
             this.innerHTML = '<i class="bi bi-check me-1"></i> Sent';
             this.classList.remove('btn-primary3');
             this.classList.add('btn-success');
             this.disabled = true;
             
             setTimeout(() => {
-                this.innerHTML = originalHtml;
+                this.innerHTML = '<i class="bi bi-whatsapp me-1"></i> Send';
                 this.classList.remove('btn-success');
                 this.classList.add('btn-primary3');
                 this.disabled = false;
@@ -4079,53 +4113,43 @@ function addEventListeners() {
     const sendAllBtn = document.getElementById('sendAllRemindersBtn');
     if (sendAllBtn) {
         sendAllBtn.addEventListener('click', function() {
-            const dueSoonBtns = document.querySelectorAll('#dueSoonTableBody .send-reminder-btn');
-            const overdueBtns = document.querySelectorAll('#overdueTableBody .send-reminder-btn');
-            const total = dueSoonBtns.length + overdueBtns.length;
+            const dueBtns = document.querySelectorAll('#dueSoonTableBody .send-btn');
+            const overdueBtns = document.querySelectorAll('#overdueTableBody .send-btn');
+            const total = dueBtns.length + overdueBtns.length;
             
             if (total === 0) {
                 alert('No reminders to send');
                 return;
             }
             
-            if (confirm(`Send payment reminders to ${total} clients?`)) {
-                // Send all due soon
-                dueSoonBtns.forEach(btn => {
-                    if (!btn.disabled) btn.click();
-                });
-                
-                // Send all overdue
-                overdueBtns.forEach(btn => {
-                    if (!btn.disabled) btn.click();
-                });
-                
+            if (confirm(`Send ${total} payment reminders?`)) {
+                dueBtns.forEach(btn => !btn.disabled && btn.click());
+                overdueBtns.forEach(btn => !btn.disabled && btn.click());
                 alert(`Started sending ${total} reminders`);
             }
         });
     }
 }
 
-function sendWhatsAppMessage(client, phone, amount, installment, project) {
+function sendWhatsApp(client, phone, amount, installment, project) {
     if (!phone || phone === 'N/A') {
-        alert('No WhatsApp number available for this client');
+        alert('No WhatsApp number available');
         return;
     }
     
-    const cleanPhone = phone.toString().replace(/\D/g, '');
-    const message = `Dear ${client},\n\nPayment reminder for ${project}\n\nInstallment #${installment}: ${amount}\n\nPlease make payment soon.\n\nThank you,\nConnectLink Properties`;
+    const cleanPhone = phone.replace(/\D/g, '');
+    const message = `Dear ${client},\n\nPayment reminder: ${project}\n\nInstallment #${installment}: ${amount}\nDue date passed. Please make payment.\n\nConnectLink Properties`;
     
-    const encoded = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encoded}`;
-    
-    window.open(whatsappUrl, '_blank');
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
 }
 
 function showError(message) {
     const modalBody = document.querySelector('#paymentRemindersModal .modal-body');
     if (modalBody) {
         modalBody.innerHTML = `
-            <div class="alert alert-danger" role="alert">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
                 ${message}
             </div>
         `;
@@ -4133,23 +4157,7 @@ function showError(message) {
 }
 
 // ==================== INITIALIZATION ====================
-// Make function available globally
 window.Pushpaymentreminders = Pushpaymentreminders;
-
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Payment Reminders system loaded');
-    
-    // Set global data if available
-    try {
-        const dataDiv = document.getElementById('paymentRemindersData');
-        if (dataDiv && dataDiv.dataset.reminders) {
-            window.paymentRemindersData = JSON.parse(dataDiv.dataset.reminders);
-        }
-    } catch (e) {
-        console.log('Could not parse payment data:', e);
-    }
-});
 </script>
 <script>
 // Submit update form via AJAX - FIXED VERSION
