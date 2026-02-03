@@ -151,7 +151,7 @@ def initialize_database_tables():
                     status VARCHAR (100),
                     daysinfo INT,
                     sentat TIMESTAMP,
-                    api_reponse
+                    api_response VARCHAR (1000)
                 );
             """)
 
