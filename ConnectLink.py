@@ -11909,6 +11909,8 @@ def get_payment_reminders_data(df):
                         'days_diff': days_diff
                     }
                     
+                    print(payment_info)
+
                     if days_diff < 0:
                         payment_info['days_overdue'] = abs(days_diff)
                         overdue.append(payment_info)
