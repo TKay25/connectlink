@@ -4540,23 +4540,32 @@ function formatPhone(phone) {
 
 // ==================== META TEMPLATE FUNCTIONS ====================
 async function sendMetaTemplate(paymentData) {
+    // Declare sendBtn outside try block so it's available in catch
+    let sendBtn = paymentData.buttonElement;
+    
     try {
-        const sendBtn = paymentData.buttonElement;
-        
         // Show loading
         sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
         sendBtn.disabled = true;
         
-        // Prepare data
+        // Clean the phone number before sending
+        let phoneNumber = paymentData.phone;
+        
+        // Remove any decimal .0 from the phone number
+        phoneNumber = phoneNumber.toString().replace(/\.0$/, '');
+        
+        // Prepare data with cleaned phone number
         const reminderData = {
             client_name: paymentData.client,
-            whatsapp_number: paymentData.phone,
+            whatsapp_number: phoneNumber,  // Use cleaned number
             project_name: paymentData.project,
-            installment_number: paymentData.installment,
-            amount_due: paymentData.rawAmount,
-            days_info: paymentData.daysInfo,
-            status: paymentData.status
+            installment_number: parseInt(paymentData.installment) || 1,
+            amount_due: parseFloat(paymentData.rawAmount) || 0,
+            days_info: parseInt(paymentData.daysInfo) || 0,
+            status: paymentData.status || 'overdue'
         };
+        
+        console.log('Sending reminder data:', reminderData);
         
         // Call API
         const response = await fetch('/api/send-meta-template', {
@@ -4572,9 +4581,10 @@ async function sendMetaTemplate(paymentData) {
             sendBtn.innerHTML = '<i class="bi bi-check me-1"></i> Sent';
             sendBtn.classList.remove('btn-primary3');
             sendBtn.classList.add('btn-success');
+            sendBtn.disabled = true;
             
             // Show success message
-            alert(`✅ WhatsApp template sent to ${paymentData.client}!`);
+            alert(`✅ WhatsApp reminder sent to ${paymentData.client}!`);
             
             // Optional: Mark row as sent
             markRowAsSent(sendBtn);
@@ -4584,9 +4594,9 @@ async function sendMetaTemplate(paymentData) {
         }
         
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error sending Meta template:', error);
         
-        // Reset button - check if sendBtn exists
+        // Reset button - now sendBtn is defined here
         if (sendBtn) {
             sendBtn.innerHTML = '<i class="bi bi-whatsapp me-1"></i> Send';
             sendBtn.disabled = false;
@@ -4597,7 +4607,6 @@ async function sendMetaTemplate(paymentData) {
         alert(`❌ Failed to send: ${error.message}`);
     }
 }
-
 // Helper function to mark row as sent
 function markRowAsSent(button) {
     const row = button.closest('tr');
