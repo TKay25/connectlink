@@ -12175,7 +12175,7 @@ def send_meta_template():
         
         # Choose template based on status
         if status == 'overdue':
-            template_name = "duereminder3"
+            template_name = "overduereminderfin"
         elif status == 'soon':
             template_name = "duereminderfin"
         else:
