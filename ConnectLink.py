@@ -141,6 +141,21 @@ def initialize_database_tables():
             """)
 
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS whatsapp_reminders_logs (
+                    id SERIAL PRIMARY KEY,
+                    client_name VARCHAR (100),
+                    whatsapp_number INT,
+                    project_name VARCHAR (100),
+                    installmentnumber INT,
+                    amountdue INT,
+                    status VARCHAR (100),
+                    daysinfo INT,
+                    sentat TIMESTAMP,
+                    api_reponse
+                );
+            """)
+
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkenquiries (
                     id SERIAL PRIMARY KEY,
                     timestamp TIMESTAMP,
@@ -12105,6 +12120,295 @@ def api_payment_reminders():
             'overdue': [],
             'all_payments': []
         }), 500
+
+@app.route('/api/send-meta-template', methods=['POST'])
+def send_meta_template():
+    """Send WhatsApp message using Meta Business Platform template"""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        data = request.get_json()
+        
+        # Extract details
+        client_name = data.get('client_name', '').strip()
+        whatsapp_number = data.get('whatsapp_number', '').strip()
+        project_name = data.get('project_name', '').strip()
+        installment_number = int(data.get('installment_number', 0))
+        amount_due = float(data.get('amount_due', 0.0))
+        days_info = int(data.get('days_info', 0))
+        status = data.get('status', 'overdue')  # 'overdue' or 'soon'
+        
+        # Validate
+        if not client_name or not whatsapp_number:
+            return jsonify({'error': 'Client name and WhatsApp number required'}), 400
+        
+        # Clean WhatsApp number
+        clean_number = re.sub(r'\D', '', whatsapp_number)
+        
+        # Ensure it has country code
+        if clean_number.startswith('0'):
+            clean_number = '263' + clean_number[1:]  # Zimbabwe
+        elif len(clean_number) == 9:
+            clean_number = '263' + clean_number
+        
+        # Format to E.164 format
+        recipient_number = f"+{clean_number}"
+        
+        # Choose template based on status
+        if status == 'overdue':
+            template_name = "reminderoverdue"
+        elif status == 'soon':
+            template_name = "reminderdue"
+        else:
+            return jsonify({'error': 'Invalid status'}), 400
+        
+        # Meta API credentials
+        ACCESS_TOKEN = os.getenv('META_WHATSAPP_ACCESS_TOKEN')
+        PHONE_NUMBER_ID = os.getenv('META_PHONE_NUMBER_ID')
+        
+        if not ACCESS_TOKEN or not PHONE_NUMBER_ID:
+            return jsonify({'error': 'WhatsApp API not configured'}), 500
+        
+        # Meta Graph API URL
+        url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+        
+        # Request headers
+        headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Request payload
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient_number,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": "en"},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": client_name},
+                            {"type": "text", "text": project_name},
+                            {"type": "text", "text": f"#{installment_number}"},
+                            {"type": "text", "text": f"${amount_due:,.2f}"},
+                            {"type": "text", "text": str(days_info)}
+                        ]
+                    }
+                ]
+            }
+        }
+        
+        # Send request to Meta API
+        response = requests.post(url, headers=headers, json=payload)
+        response_data = response.json()
+        
+        # Get current timestamp
+        sent_at = datetime.now()
+        
+        # Check if API call was successful
+        if response.status_code == 200:
+            message_id = response_data.get('messages', [{}])[0].get('id', '')
+            
+            # INSERT INTO DATABASE ON SUCCESS
+            with get_db() as (cursor, connection):
+                # First, ensure the table exists with your exact schema
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS whatsapp_reminders_logs (
+                        id SERIAL PRIMARY KEY,
+                        client_name VARCHAR(100),
+                        whatsapp_number VARCHAR(20),
+                        project_name VARCHAR(100),
+                        installmentnumber INT,
+                        amountdue DECIMAL(10,2),
+                        status VARCHAR(100),
+                        daysinfo INT,
+                        sentat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        api_response JSON
+                    )
+                """)
+                
+                # Insert the record
+                cursor.execute("""
+                    INSERT INTO whatsapp_reminders_logs 
+                    (client_name, whatsapp_number, project_name, 
+                     installmentnumber, amountdue, status, daysinfo, 
+                     sentat, api_response)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    client_name,
+                    whatsapp_number,  # Store original number
+                    project_name,
+                    installment_number,
+                    amount_due,
+                    status,
+                    days_info,
+                    sent_at,
+                    json.dumps(response_data)  # Store full API response
+                ))
+                connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'WhatsApp template sent successfully',
+                'message_id': message_id,
+                'template_used': template_name,
+                'recipient': recipient_number,
+                'sent_at': sent_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'database_id': cursor.lastrowid if 'cursor' in locals() else None
+            })
+            
+        else:
+            # API call failed - still log the attempt with error
+            error_msg = response_data.get('error', {}).get('message', 'Unknown error')
+            
+            # Log failed attempt to database
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS whatsapp_reminders_logs (
+                        id SERIAL PRIMARY KEY,
+                        client_name VARCHAR(100),
+                        whatsapp_number VARCHAR(20),
+                        project_name VARCHAR(100),
+                        installmentnumber INT,
+                        amountdue DECIMAL(10,2),
+                        status VARCHAR(100),
+                        daysinfo INT,
+                        sentat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        api_response JSON
+                    )
+                """)
+                
+                cursor.execute("""
+                    INSERT INTO whatsapp_reminders_logs 
+                    (client_name, whatsapp_number, project_name, 
+                     installmentnumber, amountdue, status, daysinfo, 
+                     sentat, api_response)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    client_name,
+                    whatsapp_number,
+                    project_name,
+                    installment_number,
+                    amount_due,
+                    'failed',
+                    days_info,
+                    sent_at,
+                    json.dumps({'error': error_msg, 'status_code': response.status_code})
+                ))
+                connection.commit()
+            
+            return jsonify({
+                'error': f'Meta API error: {error_msg}',
+                'meta_response': response_data,
+                'success': False
+            }), response.status_code
+            
+    except Exception as e:
+        print(f"Error sending Meta template: {str(e)}")
+        
+        # Try to log the error to database
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS whatsapp_reminders_logs (
+                        id SERIAL PRIMARY KEY,
+                        client_name VARCHAR(100),
+                        whatsapp_number VARCHAR(20),
+                        project_name VARCHAR(100),
+                        installmentnumber INT,
+                        amountdue DECIMAL(10,2),
+                        status VARCHAR(100),
+                        daysinfo INT,
+                        sentat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        api_response JSON
+                    )
+                """)
+                
+                cursor.execute("""
+                    INSERT INTO whatsapp_reminders_logs 
+                    (client_name, whatsapp_number, project_name, 
+                     installmentnumber, amountdue, status, daysinfo, 
+                     sentat, api_response)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    data.get('client_name', '') if 'data' in locals() else 'Unknown',
+                    data.get('whatsapp_number', '') if 'data' in locals() else '',
+                    data.get('project_name', '') if 'data' in locals() else '',
+                    int(data.get('installment_number', 0)) if 'data' in locals() else 0,
+                    float(data.get('amount_due', 0)) if 'data' in locals() else 0,
+                    'error',
+                    int(data.get('days_info', 0)) if 'data' in locals() else 0,
+                    datetime.now(),
+                    json.dumps({'error': str(e)})
+                ))
+                connection.commit()
+        except Exception as db_error:
+            print(f"Failed to log error to database: {db_error}")
+        
+        return jsonify({
+            'error': f'Server error: {str(e)}',
+            'success': False
+        }), 500
+
+
+@app.route('/api/sent-reminders', methods=['GET'])
+def get_sent_reminders():
+    """Get all sent WhatsApp reminders"""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT 
+                    id,
+                    client_name,
+                    whatsapp_number,
+                    project_name,
+                    installmentnumber,
+                    amountdue,
+                    status,
+                    daysinfo,
+                    sentat,
+                    api_response->>'messages' as message_id
+                FROM whatsapp_reminders_logs
+                ORDER BY sentat DESC
+                LIMIT 100
+            """)
+            
+            reminders = cursor.fetchall()
+            
+            # Format results
+            results = []
+            for reminder in reminders:
+                results.append({
+                    'id': reminder[0],
+                    'client_name': reminder[1],
+                    'whatsapp_number': reminder[2],
+                    'project_name': reminder[3],
+                    'installment_number': reminder[4],
+                    'amount_due': float(reminder[5]) if reminder[5] else 0,
+                    'status': reminder[6],
+                    'days_info': reminder[7],
+                    'sent_at': reminder[8].strftime('%Y-%m-%d %H:%M:%S') if reminder[8] else '',
+                    'message_id': reminder[9]
+                })
+            
+            return jsonify({
+                'success': True,
+                'count': len(results),
+                'reminders': results
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e), 'success': False}), 500
 
 def run1(userid):
 

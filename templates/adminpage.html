@@ -2788,6 +2788,9 @@ body::before {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-outline-info" id="viewSentRemindersBtn">
+                    <i class="bi bi-clock-history me-1"></i> View Sent Reminders
+                </button>
                 <button type="button" class="btn btn-success" id="sendAllRemindersBtn">
                     <i class="bi bi-whatsapp me-1"></i> Send All Reminders
                 </button>
@@ -3740,6 +3743,98 @@ function Pushpaymentreminders() {
     loadPaymentReminders();
 }
 
+async function sendMetaTemplate(paymentData) {
+    try {
+        const sendBtn = paymentData.buttonElement;
+        
+        // Show loading
+        sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>';
+        sendBtn.disabled = true;
+        
+        // Prepare data
+        const reminderData = {
+            client_name: paymentData.client,
+            whatsapp_number: paymentData.phone,
+            project_name: paymentData.project,
+            installment_number: paymentData.installment,
+            amount_due: paymentData.rawAmount,
+            days_info: paymentData.daysInfo,
+            status: paymentData.status
+        };
+        
+        // Call API
+        const response = await fetch('/api/send-meta-template', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(reminderData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Success - update button
+            sendBtn.innerHTML = '<i class="bi bi-check me-1"></i> Sent';
+            sendBtn.classList.remove('btn-primary3');
+            sendBtn.classList.add('btn-success');
+            
+            // Show success message
+            alert(`✅ WhatsApp template sent to ${paymentData.client}!`);
+            
+            // Optional: Remove row or mark as sent
+            markRowAsSent(sendBtn);
+            
+        } else {
+            throw new Error(result.error || 'Failed to send');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        
+        // Reset button
+        sendBtn.innerHTML = '<i class="bi bi-whatsapp me-1"></i> Send';
+        sendBtn.disabled = false;
+        sendBtn.classList.remove('btn-success');
+        sendBtn.classList.add('btn-primary3');
+        
+        alert(`❌ Failed to send: ${error.message}`);
+    }
+}
+
+// Update button click handler
+btn.addEventListener('click', async function() {
+    const paymentData = {
+        client: this.getAttribute('data-client'),
+        phone: this.getAttribute('data-phone'),
+        project: this.getAttribute('data-project'),
+        installment: this.getAttribute('data-installment'),
+        rawAmount: this.getAttribute('data-raw-amount'),
+        status: this.getAttribute('data-status'),
+        daysInfo: this.getAttribute('data-days'),
+        buttonElement: this
+    };
+    
+    await sendMetaTemplate(paymentData);
+});
+
+// Helper function to mark row as sent
+function markRowAsSent(button) {
+    const row = button.closest('tr');
+    if (row) {
+        // Change row background
+        row.style.backgroundColor = '#f8fff8';
+        
+        // Disable all buttons in this row
+        row.querySelectorAll('button').forEach(btn => {
+            btn.disabled = true;
+        });
+        
+        // Add checkmark icon to status column
+        const statusCell = row.querySelector('td:nth-child(8)'); // Adjust index
+        if (statusCell) {
+            statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Sent</span>';
+        }
+    }
+}
 // ==================== DATA LOADING ====================
 async function loadPaymentReminders() {
     try {
