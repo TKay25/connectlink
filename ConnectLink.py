@@ -12356,7 +12356,6 @@ def send_meta_template():
             'success': False
         }), 500
 
-
 @app.route('/api/sent-reminders', methods=['GET'])
 def get_sent_reminders():
     """Get all sent WhatsApp reminders"""
@@ -12377,7 +12376,7 @@ def get_sent_reminders():
                     status,
                     daysinfo,
                     sentat,
-                    api_response->>'messages' as message_id
+                    api_response
                 FROM whatsapp_reminders_logs
                 ORDER BY sentat DESC
                 LIMIT 100
@@ -12395,10 +12394,10 @@ def get_sent_reminders():
                     'project_name': reminder[3],
                     'installment_number': reminder[4],
                     'amount_due': float(reminder[5]) if reminder[5] else 0,
-                    'status': reminder[6],
+                    'status': reminder[6] or 'sent',
                     'days_info': reminder[7],
                     'sent_at': reminder[8].strftime('%Y-%m-%d %H:%M:%S') if reminder[8] else '',
-                    'message_id': reminder[9]
+                    'api_response': reminder[9]
                 })
             
             return jsonify({
@@ -12408,7 +12407,12 @@ def get_sent_reminders():
             })
             
     except Exception as e:
-        return jsonify({'error': str(e), 'success': False}), 500
+        print(f"Error fetching sent reminders: {str(e)}")
+        return jsonify({
+            'error': str(e), 
+            'success': False,
+            'reminders': []
+        }), 500
 
 def run1(userid):
 

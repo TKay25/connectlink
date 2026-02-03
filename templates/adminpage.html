@@ -2630,6 +2630,140 @@ body::before {
     </div>
 </div>
 
+<!-- SENT REMINDERS MODAL -->
+<div class="modal fade" id="sentRemindersModal" tabindex="-1" aria-labelledby="sentRemindersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sentRemindersModalLabel">
+                    <i class="bi bi-clock-history me-2"></i> Sent WhatsApp Reminders
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filter Controls -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" id="sentRemindersSearch" class="form-control" placeholder="Search client or project...">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <select id="sentRemindersStatusFilter" class="form-select">
+                            <option value="">All Status</option>
+                            <option value="overdue">Overdue</option>
+                            <option value="soon">Due Soon</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select id="sentRemindersDateFilter" class="form-select">
+                            <option value="">All Time</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Summary Stats -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">Total Sent</h6>
+                                        <p class="mb-0" id="totalSentCount">0</p>
+                                    </div>
+                                    <i class="bi bi-send fs-4 text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">Overdue</h6>
+                                        <p class="mb-0" id="overdueSentCount">0</p>
+                                    </div>
+                                    <i class="bi bi-exclamation-triangle fs-4 text-danger"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">Due Soon</h6>
+                                        <p class="mb-0" id="soonSentCount">0</p>
+                                    </div>
+                                    <i class="bi bi-clock fs-4 text-warning"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">Failed</h6>
+                                        <p class="mb-0" id="failedSentCount">0</p>
+                                    </div>
+                                    <i class="bi bi-x-circle fs-4 text-secondary"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loading Indicator -->
+                <div id="sentRemindersLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading sent reminders...</p>
+                </div>
+                
+                <!-- Sent Reminders Table -->
+                <div id="sentRemindersContainer" style="max-height: 500px; overflow-y: auto; display: none;">
+                    <table class="table table-hover table-sm">
+                        <thead class="sticky-top" style="background-color: var(--bg-color);">
+                            <tr>
+                                <th>#</th>
+                                <th><i class="bi bi-person me-1"></i> Client</th>
+                                <th><i class="bi bi-phone me-1"></i> WhatsApp</th>
+                                <th><i class="bi bi-briefcase me-1"></i> Project</th>
+                                <th><i class="bi bi-hash me-1"></i> Installment</th>
+                                <th><i class="bi bi-cash me-1"></i> Amount</th>
+                                <th><i class="bi bi-tag me-1"></i> Status</th>
+                                <th><i class="bi bi-calendar me-1"></i> Days Info</th>
+                                <th><i class="bi bi-clock me-1"></i> Sent At</th>
+                                <th><i class="bi bi-info-circle me-1"></i> Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sentRemindersTableBody">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="loadSentReminders()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- PAYMENT REMINDERS MODAL - Add this anywhere in your HTML body -->
 <div class="modal fade" id="paymentRemindersModal" tabindex="-1" aria-labelledby="paymentRemindersModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
@@ -3743,6 +3877,324 @@ function Pushpaymentreminders() {
     loadPaymentReminders();
 }
 
+
+// ==================== VIEW SENT REMINDERS FUNCTIONS ====================
+
+// Global variable to store sent reminders
+let sentRemindersData = [];
+
+// Function to open sent reminders modal
+function openSentReminders() {
+    // Close payment reminders modal first
+    const paymentModal = bootstrap.Modal.getInstance(document.getElementById('paymentRemindersModal'));
+    if (paymentModal) {
+        paymentModal.hide();
+    }
+    
+    // Open sent reminders modal
+    const modal = new bootstrap.Modal(document.getElementById('sentRemindersModal'));
+    modal.show();
+    
+    // Load sent reminders
+    loadSentReminders();
+}
+
+// Function to load sent reminders from API
+async function loadSentReminders() {
+    try {
+        // Show loading, hide table
+        document.getElementById('sentRemindersLoading').style.display = 'block';
+        document.getElementById('sentRemindersContainer').style.display = 'none';
+        
+        // Call the API
+        const response = await fetch('/api/sent-reminders');
+        
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Store data globally
+        sentRemindersData = data.reminders || [];
+        
+        // Update summary stats
+        updateSentRemindersStats(sentRemindersData);
+        
+        // Display the data
+        displaySentReminders(sentRemindersData);
+        
+        // Hide loading, show table
+        document.getElementById('sentRemindersLoading').style.display = 'none';
+        document.getElementById('sentRemindersContainer').style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading sent reminders:', error);
+        
+        // Hide loading
+        document.getElementById('sentRemindersLoading').style.display = 'none';
+        
+        // Show error in table
+        document.getElementById('sentRemindersTableBody').innerHTML = `
+            <tr>
+                <td colspan="10" class="text-center py-4">
+                    <i class="bi bi-exclamation-triangle text-danger fs-1"></i>
+                    <p class="mt-2">Error loading sent reminders</p>
+                    <p class="text-muted small">${error.message}</p>
+                    <button class="btn btn-sm btn-primary" onclick="loadSentReminders()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Try Again
+                    </button>
+                </td>
+            </tr>
+        `;
+        document.getElementById('sentRemindersContainer').style.display = 'block';
+    }
+}
+
+// Function to update summary statistics
+function updateSentRemindersStats(reminders) {
+    const total = reminders.length;
+    const overdue = reminders.filter(r => r.status === 'overdue').length;
+    const soon = reminders.filter(r => r.status === 'soon').length;
+    const failed = reminders.filter(r => r.status === 'failed').length;
+    
+    document.getElementById('totalSentCount').textContent = total;
+    document.getElementById('overdueSentCount').textContent = overdue;
+    document.getElementById('soonSentCount').textContent = soon;
+    document.getElementById('failedSentCount').textContent = failed;
+}
+
+// Function to display sent reminders in table
+function displaySentReminders(reminders) {
+    const tableBody = document.getElementById('sentRemindersTableBody');
+    
+    if (!reminders || reminders.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="10" class="text-center py-4">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <p class="mt-2">No sent reminders found</p>
+                    <p class="text-muted small">Send reminders to see them here</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    reminders.forEach((reminder, index) => {
+        // Format status badge
+        let statusBadge = '';
+        if (reminder.status === 'overdue') {
+            statusBadge = '<span class="badge bg-danger">Overdue</span>';
+        } else if (reminder.status === 'soon') {
+            statusBadge = '<span class="badge bg-warning">Due Soon</span>';
+        } else if (reminder.status === 'failed') {
+            statusBadge = '<span class="badge bg-secondary">Failed</span>';
+        } else {
+            statusBadge = '<span class="badge bg-info">' + (reminder.status || 'Sent') + '</span>';
+        }
+        
+        // Format phone number
+        const formattedPhone = formatPhone(reminder.whatsapp_number || '');
+        
+        // Format amount
+        const formattedAmount = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(reminder.amount_due || 0);
+        
+        // Format date
+        let formattedDate = 'N/A';
+        if (reminder.sent_at) {
+            try {
+                const sentDate = new Date(reminder.sent_at);
+                formattedDate = sentDate.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                formattedDate = reminder.sent_at;
+            }
+        }
+        
+        // Days info label
+        const daysLabel = reminder.status === 'overdue' ? 'Overdue by' : 
+                         reminder.status === 'soon' ? 'Due in' : 'Days';
+        
+        html += `
+            <tr>
+                <td>${index + 1}</td>
+                <td><strong>${reminder.client_name || 'Unknown'}</strong></td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-whatsapp text-success me-2"></i>
+                        <span>${formattedPhone}</span>
+                    </div>
+                </td>
+                <td>${reminder.project_name || 'N/A'}</td>
+                <td><span class="badge bg-info">#${reminder.installment_number || 'N/A'}</span></td>
+                <td><strong>${formattedAmount}</strong></td>
+                <td>${statusBadge}</td>
+                <td>
+                    <span class="small">${daysLabel}</span><br>
+                    <strong>${reminder.days_info || 0} days</strong>
+                </td>
+                <td>
+                    <div class="small text-muted">${formattedDate}</div>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info" onclick="resendReminder(${index})" title="Resend">
+                        <i class="bi bi-whatsapp"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tableBody.innerHTML = html;
+}
+
+// Function to resend a reminder
+async function resendReminder(index) {
+    const reminder = sentRemindersData[index];
+    
+    if (!reminder) return;
+    
+    if (confirm(`Resend reminder to ${reminder.client_name}?`)) {
+        // Prepare data for resending
+        const reminderData = {
+            client_name: reminder.client_name,
+            whatsapp_number: reminder.whatsapp_number,
+            project_name: reminder.project_name,
+            installment_number: reminder.installment_number,
+            amount_due: reminder.amount_due,
+            days_info: reminder.days_info,
+            status: reminder.status
+        };
+        
+        try {
+            // Show loading on the button
+            const buttons = document.querySelectorAll('#sentRemindersTableBody .btn');
+            if (buttons[index]) {
+                buttons[index].innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                buttons[index].disabled = true;
+            }
+            
+            // Call the send API
+            const response = await fetch('/api/send-meta-template', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(reminderData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('✅ Reminder resent successfully!');
+                loadSentReminders(); // Refresh the list
+            } else {
+                throw new Error(result.error || 'Failed to resend');
+            }
+        } catch (error) {
+            alert(`❌ Failed to resend: ${error.message}`);
+            
+            // Reset button
+            const buttons = document.querySelectorAll('#sentRemindersTableBody .btn');
+            if (buttons[index]) {
+                buttons[index].innerHTML = '<i class="bi bi-whatsapp"></i>';
+                buttons[index].disabled = false;
+            }
+        }
+    }
+}
+
+// Function to filter sent reminders
+function filterSentReminders() {
+    const searchText = document.getElementById('sentRemindersSearch').value.toLowerCase();
+    const statusFilter = document.getElementById('sentRemindersStatusFilter').value;
+    const dateFilter = document.getElementById('sentRemindersDateFilter').value;
+    
+    let filtered = [...sentRemindersData];
+    
+    // Apply search filter
+    if (searchText) {
+        filtered = filtered.filter(reminder => 
+            (reminder.client_name || '').toLowerCase().includes(searchText) ||
+            (reminder.project_name || '').toLowerCase().includes(searchText) ||
+            (reminder.whatsapp_number || '').includes(searchText)
+        );
+    }
+    
+    // Apply status filter
+    if (statusFilter) {
+        filtered = filtered.filter(reminder => reminder.status === statusFilter);
+    }
+    
+    // Apply date filter
+    if (dateFilter) {
+        const now = new Date();
+        filtered = filtered.filter(reminder => {
+            if (!reminder.sent_at) return false;
+            
+            const sentDate = new Date(reminder.sent_at);
+            
+            switch (dateFilter) {
+                case 'today':
+                    return sentDate.toDateString() === now.toDateString();
+                case 'week':
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    return sentDate >= weekAgo;
+                case 'month':
+                    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    return sentDate >= monthAgo;
+                default:
+                    return true;
+            }
+        });
+    }
+    
+    // Display filtered results
+    displaySentReminders(filtered);
+    updateSentRemindersStats(filtered);
+}
+
+// Add event listeners for sent reminders
+function initSentRemindersListeners() {
+    // Button to open sent reminders modal
+    const viewSentBtn = document.getElementById('viewSentRemindersBtn');
+    if (viewSentBtn) {
+        viewSentBtn.addEventListener('click', openSentReminders);
+    }
+    
+    // Filter event listeners
+    const searchInput = document.getElementById('sentRemindersSearch');
+    const statusFilter = document.getElementById('sentRemindersStatusFilter');
+    const dateFilter = document.getElementById('sentRemindersDateFilter');
+    
+    if (searchInput) searchInput.addEventListener('input', filterSentReminders);
+    if (statusFilter) statusFilter.addEventListener('change', filterSentReminders);
+    if (dateFilter) dateFilter.addEventListener('change', filterSentReminders);
+}
+
+// Initialize when DOM is loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSentRemindersListeners);
+} else {
+    initSentRemindersListeners();
+}
+
+// Add to your existing window object
+window.openSentReminders = openSentReminders;
+window.loadSentReminders = loadSentReminders;
 // ==================== DATA LOADING ====================
 async function loadPaymentReminders() {
     try {
