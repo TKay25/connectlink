@@ -12143,14 +12143,32 @@ def send_meta_template():
         if not client_name or not whatsapp_number:
             return jsonify({'error': 'Client name and WhatsApp number required'}), 400
         
-        # Clean WhatsApp number
-        clean_number = re.sub(r'\D', '', whatsapp_number)
+        try:
+            # First remove any non-digit characters
+            whatsapp_number_clean = re.sub(r'\D', '', whatsapp_number)
+            
+            # Convert to integer to remove decimal .0
+            if whatsapp_number_clean:
+                # Handle cases like "774822568.0"
+                whatsapp_number_int = int(float(whatsapp_number_clean))
+                whatsapp_number_clean = str(whatsapp_number_int)
+            else:
+                whatsapp_number_clean = whatsapp_number
+        except (ValueError, TypeError) as e:
+            print(f"Warning: Could not parse WhatsApp number '{whatsapp_number}': {e}")
+            whatsapp_number_clean = whatsapp_number
+        
+        # Use the cleaned version for the API call
+        clean_number = whatsapp_number_clean
         
         # Ensure it has country code
         if clean_number.startswith('0'):
             clean_number = '263' + clean_number[1:]  # Zimbabwe
         elif len(clean_number) == 9:
             clean_number = '263' + clean_number
+        
+        # Format to E.164 format
+        recipient_number = f"+{clean_number}"
         
         # Format to E.164 format
         recipient_number = f"+{clean_number}"
