@@ -11842,10 +11842,6 @@ def get_payment_reminders_data(df):
     # Make sure we're working with a copy
     df = df.copy()
     
-    # Filter only ongoing projects
-    if 'projectcompletionstatus' in df.columns:
-        df = df[df['projectcompletionstatus'] == 'Ongoing']
-    
     # Convert date columns to datetime
     date_columns = []
     for i in range(1, 7):
