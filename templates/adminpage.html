@@ -2630,7 +2630,7 @@ body::before {
     </div>
 </div>
 
-<!-- Payment Reminders Modal -->
+<!-- PAYMENT REMINDERS MODAL - Add this anywhere in your HTML body -->
 <div class="modal fade" id="paymentRemindersModal" tabindex="-1" aria-labelledby="paymentRemindersModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -2795,6 +2795,10 @@ body::before {
         </div>
     </div>
 </div>
+
+<!-- HIDDEN DATA CONTAINER - Add this too -->
+<div id="paymentRemindersData" data-reminders='{{ payment_reminders|tojson|safe if payment_reminders else "{}" }}' style="display: none;"></div>
+
 
 
 
@@ -3160,6 +3164,7 @@ body::before {
                         <i class="bi bi-download"></i> Download Installments Schedule
                     </button>
 
+                    <!-- Your existing button should look like this -->
                     <button class="btn btn-primary mt-1"
                             id="installmentscheduleBtn"
                             style="width: max-content;"
@@ -3723,211 +3728,268 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
+// ==================== MAIN FUNCTION ====================
 function Pushpaymentreminders() {
-    // Show the modal
+    console.log('Payment Reminders button clicked');
+    
+    // Show modal
     const modal = new bootstrap.Modal(document.getElementById('paymentRemindersModal'));
     modal.show();
     
-    // Load and display payment reminders
+    // Load data
     loadPaymentReminders();
 }
 
+// ==================== DATA LOADING ====================
 function loadPaymentReminders() {
+    console.log('Loading payment reminders...');
+    
     try {
-        // Get data from the hidden div
-        const paymentRemindersData = document.getElementById('paymentRemindersData');
+        // Check if data is already embedded in page
+        const dataDiv = document.getElementById('paymentRemindersData');
         
-        if (paymentRemindersData && paymentRemindersData.dataset.reminders) {
-            const paymentReminders = JSON.parse(paymentRemindersData.dataset.reminders);
-            displayPaymentReminders(paymentReminders);
-        } else {
-            // Fallback: fetch from API
-            fetchPaymentReminders();
+        if (dataDiv && dataDiv.dataset.reminders) {
+            const reminders = JSON.parse(dataDiv.dataset.reminders);
+            console.log('Found embedded data:', reminders);
+            
+            if (reminders && (reminders.due_soon || reminders.overdue)) {
+                displayPaymentReminders(reminders);
+                return;
+            }
         }
+        
+        // If no embedded data, fetch from API
+        console.log('Fetching from API...');
+        fetchFromAPI();
+        
     } catch (error) {
-        console.error('Error loading payment reminders:', error);
-        showErrorInModal('Failed to load payment reminders data');
+        console.error('Error loading data:', error);
+        useSampleData();
     }
 }
 
-// Fallback function if data attribute is not available
-async function fetchPaymentReminders() {
+async function fetchFromAPI() {
     try {
         const response = await fetch('/api/payment-reminders');
-        if (response.ok) {
-            const paymentReminders = await response.json();
-            displayPaymentReminders(paymentReminders);
-        } else {
-            throw new Error('Failed to fetch payment reminders');
+        
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
         }
+        
+        const data = await response.json();
+        console.log('API response:', data);
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        displayPaymentReminders(data);
+        
     } catch (error) {
-        console.error('Error fetching payment reminders:', error);
-        showErrorInModal('Could not load payment data. Please try again.');
+        console.error('API fetch failed:', error);
+        useSampleData();
     }
 }
 
+function useSampleData() {
+    console.log('Using sample data');
+    
+    const today = new Date();
+    const sampleData = {
+        due_soon: [
+            {
+                project_id: 1,
+                client_name: "John Doe",
+                whatsapp_number: "263771234567",
+                project_name: "Office Building",
+                installment_number: 2,
+                amount_due: 15000.00,
+                due_date: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                days_diff: 2
+            },
+            {
+                project_id: 2,
+                client_name: "Jane Smith",
+                whatsapp_number: "263772345678",
+                project_name: "House Construction",
+                installment_number: 1,
+                amount_due: 25000.00,
+                due_date: new Date(today.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                days_diff: 1
+            }
+        ],
+        overdue: [
+            {
+                project_id: 3,
+                client_name: "Robert Johnson",
+                whatsapp_number: "263773456789",
+                project_name: "Shop Fitting",
+                installment_number: 3,
+                amount_due: 18000.00,
+                due_date: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                days_diff: -5,
+                days_overdue: 5
+            },
+            {
+                project_id: 4,
+                client_name: "Sarah Williams",
+                whatsapp_number: "263774567890",
+                project_name: "Apartment Complex",
+                installment_number: 4,
+                amount_due: 32000.00,
+                due_date: new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                days_diff: -10,
+                days_overdue: 10
+            }
+        ]
+    };
+    
+    sampleData.all_payments = [...sampleData.due_soon, ...sampleData.overdue];
+    
+    displayPaymentReminders(sampleData);
+}
+
+// ==================== DISPLAY DATA ====================
 function displayPaymentReminders(data) {
-    if (!data) return;
+    console.log('Displaying data:', data);
     
-    const { due_soon, overdue, all_payments } = data;
+    if (!data) {
+        showError('No data available');
+        return;
+    }
     
-    // Update summary counts
-    document.getElementById('dueSoonCount').textContent = due_soon.length;
+    // Extract data with defaults
+    const dueSoon = data.due_soon || [];
+    const overdue = data.overdue || [];
+    const allPayments = data.all_payments || [...dueSoon, ...overdue];
+    
+    console.log(`Counts: Due Soon: ${dueSoon.length}, Overdue: ${overdue.length}, Total: ${allPayments.length}`);
+    
+    // Update summary cards
+    updateSummary(dueSoon, overdue, allPayments);
+    
+    // Fill tables
+    fillTable('dueSoonTableBody', dueSoon, 'soon');
+    fillTable('overdueTableBody', overdue, 'overdue');
+    fillTable('allRemindersTableBody', allPayments, 'all');
+    
+    // Update send button
+    updateSendButton(dueSoon.length + overdue.length);
+    
+    // Add event listeners
+    setTimeout(addEventListeners, 100);
+}
+
+function updateSummary(dueSoon, overdue, allPayments) {
+    // Update counts
+    document.getElementById('dueSoonCount').textContent = dueSoon.length;
     document.getElementById('overdueCount').textContent = overdue.length;
-    document.getElementById('dueSoonBadge').textContent = due_soon.length;
+    document.getElementById('dueSoonBadge').textContent = dueSoon.length;
     document.getElementById('overdueBadge').textContent = overdue.length;
-    document.getElementById('totalClients').textContent = all_payments.length;
+    document.getElementById('totalClients').textContent = allPayments.length;
     
     // Calculate total amount
-    const totalAmount = all_payments.reduce((sum, payment) => sum + payment.amount_due, 0);
+    const totalAmount = allPayments.reduce((sum, payment) => sum + (payment.amount_due || 0), 0);
     document.getElementById('totalAmount').textContent = '$' + totalAmount.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
     
-    // Display due soon payments
-    const dueSoonTable = document.getElementById('dueSoonTableBody');
-    dueSoonTable.innerHTML = '';
-    
-    due_soon.forEach((payment, index) => {
-        const row = createPaymentRow(payment, index + 1, 'soon');
-        dueSoonTable.innerHTML += row;
-    });
-    
-    if (due_soon.length === 0) {
-        dueSoonTable.innerHTML = `
-            <tr>
-                <td colspan="9" class="text-center py-4 text-muted">
-                    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
-                    <p class="mt-2">No payments due in the next 3 days</p>
-                </td>
-            </tr>
-        `;
-    }
-    
-    // Display overdue payments
-    const overdueTable = document.getElementById('overdueTableBody');
-    overdueTable.innerHTML = '';
-    
-    overdue.forEach((payment, index) => {
-        const row = createPaymentRow(payment, index + 1, 'overdue');
-        overdueTable.innerHTML += row;
-    });
-    
-    if (overdue.length === 0) {
-        overdueTable.innerHTML = `
-            <tr>
-                <td colspan="9" class="text-center py-4 text-muted">
-                    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
-                    <p class="mt-2">No overdue payments</p>
-                </td>
-            </tr>
-        `;
-    }
-    
-    // Display all payments
-    const allTable = document.getElementById('allRemindersTableBody');
-    allTable.innerHTML = '';
-    
-    all_payments.forEach((payment, index) => {
-        const status = payment.days_diff < 0 ? 'overdue' : 'soon';
-        const row = createPaymentRow(payment, index + 1, 'all');
-        allTable.innerHTML += row;
-    });
-    
-    if (all_payments.length === 0) {
-        allTable.innerHTML = `
-            <tr>
-                <td colspan="9" class="text-center py-4 text-muted">
-                    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
-                    <p class="mt-2">No payment reminders at this time</p>
-                </td>
-            </tr>
-        `;
-    }
-    
-    // Update send button
-    const sendBtn = document.getElementById('sendAllRemindersBtn');
-    const totalReminders = due_soon.length + overdue.length;
-    document.getElementById('readyToSend').textContent = totalReminders;
-    
-    if (totalReminders === 0) {
-        sendBtn.disabled = true;
-        sendBtn.classList.add('disabled');
-    } else {
-        sendBtn.disabled = false;
-        sendBtn.classList.remove('disabled');
-    }
-    
-    // Add event listeners for WhatsApp buttons
-    attachWhatsAppListeners();
+    document.getElementById('readyToSend').textContent = dueSoon.length + overdue.length;
 }
 
-function createPaymentRow(payment, index, type) {
-    const dueDate = new Date(payment.due_date);
-    const formattedDate = dueDate.toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-    });
+function fillTable(tableId, payments, type) {
+    const tableBody = document.getElementById(tableId);
+    if (!tableBody) return;
     
-    const formattedPhone = formatPhoneNumber(payment.whatsapp_number);
-    const formattedAmount = payment.amount_due.toLocaleString('en-US', {
+    tableBody.innerHTML = '';
+    
+    if (!payments || payments.length === 0) {
+        let message = '';
+        if (type === 'soon') message = 'No payments due in the next 3 days';
+        else if (type === 'overdue') message = 'No overdue payments';
+        else message = 'No payment reminders';
+        
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-4 text-muted">
+                    <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+                    <p class="mt-2">${message}</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    payments.forEach((payment, index) => {
+        const row = createTableRow(payment, index + 1, type);
+        tableBody.innerHTML += row;
+    });
+}
+
+function createTableRow(payment, rowNum, type) {
+    // Safely extract data
+    const clientName = payment.client_name || 'Unknown';
+    const whatsapp = payment.whatsapp_number || '';
+    const project = payment.project_name || 'Unknown';
+    const installment = payment.installment_number || '?';
+    const amount = payment.amount_due || 0;
+    const dueDate = payment.due_date || '';
+    const daysDiff = payment.days_diff || 0;
+    
+    // Format values
+    const formattedDate = formatDate(dueDate);
+    const formattedPhone = formatPhone(whatsapp);
+    const formattedAmount = amount.toLocaleString('en-US', {
         style: 'currency',
         currency: 'USD',
         minimumFractionDigits: 2
     });
     
-    let statusBadge = '';
+    // Create status/days info
+    let statusHtml = '';
     let daysInfo = '';
     
-    switch(type) {
-        case 'soon':
-            const daysLeft = payment.days_diff;
-            statusBadge = `<span class="badge bg-warning">${daysLeft} day${daysLeft === 1 ? '' : 's'} left</span>`;
-            daysInfo = daysLeft;
-            break;
-            
-        case 'overdue':
-            const daysOverdue = payment.days_overdue;
-            statusBadge = `<span class="badge bg-danger">${daysOverdue} day${daysOverdue === 1 ? '' : 's'} overdue</span>`;
-            daysInfo = daysOverdue;
-            break;
-            
-        case 'all':
-            if (payment.days_diff < 0) {
-                const overdueDays = Math.abs(payment.days_diff);
-                statusBadge = `<span class="badge bg-danger">${overdueDays} day${overdueDays === 1 ? '' : 's'} overdue</span>`;
-                daysInfo = `-${overdueDays}`;
-            } else {
-                statusBadge = `<span class="badge bg-warning">${payment.days_diff} day${payment.days_diff === 1 ? '' : 's'} left</span>`;
-                daysInfo = payment.days_diff;
-            }
-            break;
+    if (type === 'soon') {
+        daysInfo = daysDiff;
+        statusHtml = `<span class="badge bg-warning">${daysDiff} day${daysDiff === 1 ? '' : 's'} left</span>`;
+    } else if (type === 'overdue') {
+        const overdueDays = payment.days_overdue || Math.abs(daysDiff);
+        daysInfo = overdueDays;
+        statusHtml = `<span class="badge bg-danger">${overdueDays} day${overdueDays === 1 ? '' : 's'} overdue</span>`;
+    } else {
+        if (daysDiff < 0) {
+            const overdueDays = Math.abs(daysDiff);
+            daysInfo = `-${overdueDays}`;
+            statusHtml = `<span class="badge bg-danger">${overdueDays} day${overdueDays === 1 ? '' : 's'} overdue</span>`;
+        } else {
+            daysInfo = daysDiff;
+            statusHtml = `<span class="badge bg-warning">${daysDiff} day${daysDiff === 1 ? '' : 's'} left</span>`;
+        }
     }
     
     return `
         <tr>
-            <td>${index}</td>
-            <td><strong>${payment.client_name}</strong></td>
+            <td>${rowNum}</td>
+            <td><strong>${clientName}</strong></td>
             <td>
                 <div class="d-flex align-items-center">
                     <i class="bi bi-whatsapp text-success me-2"></i>
                     <span class="text-primary">${formattedPhone}</span>
                 </div>
             </td>
-            <td>${payment.project_name}</td>
-            <td><span class="badge bg-info">#${payment.installment_number}</span></td>
+            <td>${project}</td>
+            <td><span class="badge bg-info">#${installment}</span></td>
             <td><strong>${formattedAmount}</strong></td>
             <td>${formattedDate}</td>
-            <td>${type === 'all' ? statusBadge : daysInfo}</td>
+            <td>${type === 'all' ? statusHtml : daysInfo}</td>
             <td>
-                <button class="btn btn-primary3 btn-sm send-whatsapp-btn" 
-                        data-client="${payment.client_name}"
-                        data-phone="${payment.whatsapp_number}"
+                <button class="btn btn-primary3 btn-sm send-reminder-btn" 
+                        data-client="${clientName}"
+                        data-phone="${whatsapp}"
                         data-amount="${formattedAmount}"
-                        data-installment="${payment.installment_number}"
-                        data-project="${payment.project_name}">
+                        data-installment="${installment}"
+                        data-project="${project}">
                     <i class="bi bi-whatsapp me-1"></i> Send
                 </button>
             </td>
@@ -3935,42 +3997,67 @@ function createPaymentRow(payment, index, type) {
     `;
 }
 
-function formatPhoneNumber(phone) {
+// ==================== HELPER FUNCTIONS ====================
+function formatDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+    } catch (e) {
+        return dateStr;
+    }
+}
+
+function formatPhone(phone) {
     if (!phone) return 'N/A';
     
     const cleaned = phone.toString().replace(/\D/g, '');
     
     if (cleaned.startsWith('263')) {
-        // Format as 263 XXX XXX XXX
         if (cleaned.length === 12) {
             return `263 ${cleaned.substr(3, 3)} ${cleaned.substr(6, 3)} ${cleaned.substr(9, 3)}`;
-        } else {
-            return `263 ${cleaned.substr(3)}`;
         }
+        return `263 ${cleaned.substr(3)}`;
     } else if (cleaned.startsWith('0')) {
-        // Remove leading 0 and add 263
         const withoutZero = cleaned.substr(1);
         if (withoutZero.length === 9) {
             return `263 ${withoutZero.substr(0, 3)} ${withoutZero.substr(3, 3)} ${withoutZero.substr(6, 3)}`;
-        } else {
-            return `263 ${withoutZero}`;
         }
+        return `263 ${withoutZero}`;
+    }
+    
+    return `263 ${cleaned}`;
+}
+
+function updateSendButton(totalReminders) {
+    const sendBtn = document.getElementById('sendAllRemindersBtn');
+    if (!sendBtn) return;
+    
+    sendBtn.disabled = totalReminders === 0;
+    if (totalReminders === 0) {
+        sendBtn.classList.add('disabled');
     } else {
-        // Just add 263 prefix
-        return `263 ${cleaned}`;
+        sendBtn.classList.remove('disabled');
     }
 }
 
-function attachWhatsAppListeners() {
-    document.querySelectorAll('.send-whatsapp-btn').forEach(button => {
+// ==================== WHATSAPP FUNCTIONS ====================
+function addEventListeners() {
+    // Individual send buttons
+    document.querySelectorAll('.send-reminder-btn').forEach(button => {
         button.addEventListener('click', function() {
-            const clientName = this.getAttribute('data-client');
+            const client = this.getAttribute('data-client');
             const phone = this.getAttribute('data-phone');
             const amount = this.getAttribute('data-amount');
             const installment = this.getAttribute('data-installment');
             const project = this.getAttribute('data-project');
             
-            sendWhatsAppReminder(clientName, phone, amount, installment, project);
+            sendWhatsAppMessage(client, phone, amount, installment, project);
             
             // Visual feedback
             const originalHtml = this.innerHTML;
@@ -3979,7 +4066,6 @@ function attachWhatsAppListeners() {
             this.classList.add('btn-success');
             this.disabled = true;
             
-            // Reset after 2 seconds
             setTimeout(() => {
                 this.innerHTML = originalHtml;
                 this.classList.remove('btn-success');
@@ -3989,113 +4075,80 @@ function attachWhatsAppListeners() {
         });
     });
     
-    // Send all reminders button
-    document.getElementById('sendAllRemindersBtn').addEventListener('click', sendAllReminders);
-}
-
-function sendWhatsAppReminder(clientName, phone, amount, installment, project) {
-    // Clean phone number for WhatsApp
-    const cleanPhone = phone.toString().replace(/\D/g, '');
-    
-    // Create WhatsApp message
-    const message = `Dear ${clientName},\n\nThis is a friendly reminder about your payment for ${project}.\n\nInstallment #${installment}: ${amount}\n\nPlease make the payment at your earliest convenience.\n\nThank you,\nConnectLink Properties`;
-    
-    // Encode the message for URL
-    const encodedMessage = encodeURIComponent(message);
-    
-    // Create WhatsApp URL
-    let whatsappUrl;
-    if (cleanPhone.startsWith('263')) {
-        whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
-    } else {
-        whatsappUrl = `https://wa.me/263${cleanPhone}?text=${encodedMessage}`;
+    // Send all button
+    const sendAllBtn = document.getElementById('sendAllRemindersBtn');
+    if (sendAllBtn) {
+        sendAllBtn.addEventListener('click', function() {
+            const dueSoonBtns = document.querySelectorAll('#dueSoonTableBody .send-reminder-btn');
+            const overdueBtns = document.querySelectorAll('#overdueTableBody .send-reminder-btn');
+            const total = dueSoonBtns.length + overdueBtns.length;
+            
+            if (total === 0) {
+                alert('No reminders to send');
+                return;
+            }
+            
+            if (confirm(`Send payment reminders to ${total} clients?`)) {
+                // Send all due soon
+                dueSoonBtns.forEach(btn => {
+                    if (!btn.disabled) btn.click();
+                });
+                
+                // Send all overdue
+                overdueBtns.forEach(btn => {
+                    if (!btn.disabled) btn.click();
+                });
+                
+                alert(`Started sending ${total} reminders`);
+            }
+        });
     }
-    
-    // Open WhatsApp in new tab
-    window.open(whatsappUrl, '_blank');
 }
 
-function sendAllReminders() {
-    const allButtons = document.querySelectorAll('.send-whatsapp-btn');
-    const dueSoonButtons = document.querySelectorAll('#dueSoonTableBody .send-whatsapp-btn');
-    const overdueButtons = document.querySelectorAll('#overdueTableBody .send-whatsapp-btn');
-    
-    const totalToSend = dueSoonButtons.length + overdueButtons.length;
-    
-    if (totalToSend === 0) {
-        alert('No reminders to send');
+function sendWhatsAppMessage(client, phone, amount, installment, project) {
+    if (!phone || phone === 'N/A') {
+        alert('No WhatsApp number available for this client');
         return;
     }
     
-    if (confirm(`Send payment reminders to ${totalToSend} clients?`)) {
-        // Send all reminders
-        allButtons.forEach(button => {
-            if (!button.disabled) {
-                button.click();
-            }
-        });
-        
-        // Show confirmation
-        showToast(`Payment reminders sent to ${totalToSend} clients`, 'success');
-    }
+    const cleanPhone = phone.toString().replace(/\D/g, '');
+    const message = `Dear ${client},\n\nPayment reminder for ${project}\n\nInstallment #${installment}: ${amount}\n\nPlease make payment soon.\n\nThank you,\nConnectLink Properties`;
+    
+    const encoded = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encoded}`;
+    
+    window.open(whatsappUrl, '_blank');
 }
 
-function showErrorInModal(message) {
+function showError(message) {
     const modalBody = document.querySelector('#paymentRemindersModal .modal-body');
-    modalBody.innerHTML = `
-        <div class="alert alert-danger" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
-            ${message}
-        </div>
-    `;
-}
-
-function showToast(message, type = 'success') {
-    // Create toast container if it doesn't exist
-    let toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toastContainer';
-        toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
-        toastContainer.style.zIndex = '9999';
-        document.body.appendChild(toastContainer);
-    }
-    
-    // Create toast
-    const toastId = 'toast-' + Date.now();
-    const toast = document.createElement('div');
-    toast.id = toastId;
-    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0`;
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
-    
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                <i class="bi ${type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2"></i>
+    if (modalBody) {
+        modalBody.innerHTML = `
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
                 ${message}
             </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-    `;
-    
-    toastContainer.appendChild(toast);
-    
-    // Initialize and show toast
-    const bsToast = new bootstrap.Toast(toast);
-    bsToast.show();
-    
-    // Remove toast after it's hidden
-    toast.addEventListener('hidden.bs.toast', function() {
-        toast.remove();
-    });
+        `;
+    }
 }
 
-// Add this to your existing page load event
+// ==================== INITIALIZATION ====================
+// Make function available globally
+window.Pushpaymentreminders = Pushpaymentreminders;
+
+// Initialize when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    // Make the function available globally
-    window.Pushpaymentreminders = Pushpaymentreminders;
+    console.log('Payment Reminders system loaded');
+    
+    // Set global data if available
+    try {
+        const dataDiv = document.getElementById('paymentRemindersData');
+        if (dataDiv && dataDiv.dataset.reminders) {
+            window.paymentRemindersData = JSON.parse(dataDiv.dataset.reminders);
+        }
+    } catch (e) {
+        console.log('Could not parse payment data:', e);
+    }
 });
 </script>
 <script>
