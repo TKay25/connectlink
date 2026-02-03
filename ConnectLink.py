@@ -12164,13 +12164,24 @@ def send_meta_template():
         else:
             return jsonify({'error': 'Invalid status'}), 400
         
-        # Meta API credentials
-        ACCESS_TOKEN = os.getenv('META_WHATSAPP_ACCESS_TOKEN')
-        PHONE_NUMBER_ID = os.getenv('META_PHONE_NUMBER_ID')
         
         if not ACCESS_TOKEN or not PHONE_NUMBER_ID:
             return jsonify({'error': 'WhatsApp API not configured'}), 500
         
+
+        print(f"\n{'='*50}")
+        print(f"SENDING WHATSAPP TEMPLATE")
+        print(f"{'='*50}")
+        print(f"Template: {template_name}")
+        print(f"To: {recipient_number}")
+        print(f"Client: {client_name}")
+        print(f"Project: {project_name}")
+        print(f"Installment: #{installment_number}")
+        print(f"Amount: ${amount_due:,.2f}")
+        print(f"Days Info: {days_info} days")
+        print(f"Status: {status}")
+        print(f"{'='*50}\n")
+
         # Meta Graph API URL
         url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
         
@@ -12203,7 +12214,7 @@ def send_meta_template():
                 ]
             }
         }
-        
+        #
         # Send request to Meta API
         response = requests.post(url, headers=headers, json=payload)
         response_data = response.json()
