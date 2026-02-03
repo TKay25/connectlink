@@ -4541,6 +4541,16 @@ function formatPhone(phone) {
 // ==================== META TEMPLATE FUNCTIONS ====================
 async function sendMetaTemplate(paymentData) {
     // Declare sendBtn outside try block so it's available in catch
+
+    console.log('sendMetaTemplate called with paymentData:', paymentData);
+    console.log('Raw paymentData values:');
+    console.log('- client:', paymentData.client);
+    console.log('- phone:', paymentData.phone, 'type:', typeof paymentData.phone);
+    console.log('- rawAmount:', paymentData.rawAmount, 'type:', typeof paymentData.rawAmount);
+    console.log('- installment:', paymentData.installment, 'type:', typeof paymentData.installment);
+    console.log('- daysInfo:', paymentData.daysInfo, 'type:', typeof paymentData.daysInfo);
+    console.log('- status:', paymentData.status);
+
     let sendBtn = paymentData.buttonElement;
     
     try {
