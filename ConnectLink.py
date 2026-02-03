@@ -12177,7 +12177,7 @@ def send_meta_template():
         if status == 'overdue':
             template_name = "reminderoverdue"
         elif status == 'soon':
-            template_name = "reminderdue"
+            template_name = "duereminder3"
         else:
             return jsonify({'error': 'Invalid status'}), 400
         
