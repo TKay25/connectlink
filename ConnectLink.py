@@ -341,12 +341,6 @@ def initialize_database_tables():
 
 initialize_database_tables()
 
-ACCESS_TOKEN = "EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD"
-PHONE_NUMBER_ID = "977519838770637"
-VERIFY_TOKEN = "2012753506232550"
-WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
-power = "Echelon Equipment Pvt Ltd"
-bot = "ConnectLink Properties"
 
 
 @app.route("/webhook", methods=["GET", "POST"])
@@ -10330,7 +10324,12 @@ def webhook():
     return jsonify({"error": "internal error"}), 200
 
 
-
+ACCESS_TOKEN = "EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD"
+PHONE_NUMBER_ID = "977519838770637"
+VERIFY_TOKEN = "2012753506232550"
+WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+power = "Echelon Equipment Pvt Ltd"
+bot = "ConnectLink Properties"
 
 
 @app.route('/export-projects-portfolio')
