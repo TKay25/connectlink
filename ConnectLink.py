@@ -78,7 +78,7 @@ def initialize_database_tables():
 
             cursor.execute("""UPDATE connectlinkdatabase SET installment1duedate = NULL WHERE id = %s""", (70,))
 
-            cursor.execute("""UPDATE connectlinkdatabase SET monthstopayy = 0 WHERE id = %s""", (70,))
+            cursor.execute("""UPDATE connectlinkdatabase SET monthstopay = 0 WHERE id = %s""", (70,))
 
 
             cursor.execute("""
