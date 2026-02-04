@@ -74,11 +74,11 @@ def initialize_database_tables():
             print(columns)
 
             # PostgreSQL uses %s as placeholders (not question marks)
-            cursor.execute("""UPDATE connectlinkdatabase SET paymentmethod = %s WHERE id = %s""", ('Once Off Payment', 70))
+            cursor.execute("""UPDATE connectlinkdatabase SET paymentmethod = %s WHERE id = %s""", ('Once Off Payment', 69))
 
-            cursor.execute("""UPDATE connectlinkdatabase SET installment1duedate = NULL WHERE id = %s""", (70,))
+            cursor.execute("""UPDATE connectlinkdatabase SET installment1duedate = NULL WHERE id = %s""", (69,))
 
-            cursor.execute("""UPDATE connectlinkdatabase SET monthstopay = 0 WHERE id = %s""", (70,))
+            cursor.execute("""UPDATE connectlinkdatabase SET monthstopay = 0 WHERE id = %s""", (69,))
 
 
             cursor.execute("""
