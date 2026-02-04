@@ -73,7 +73,8 @@ def initialize_database_tables():
             columns = get_table_columns("connectlinkdatabase")
             print(columns)
 
-            cursor.execute("""UPDATE connectlinkdatabase SET clientwanumber = 774822568 WHERE id = 77""")
+            # PostgreSQL uses %s as placeholders (not question marks)
+            cursor.execute("""UPDATE connectlinkdatabase SET paymentmethod = %s WHERE id = %s""", ('Once Off Payment', 70))
 
             cursor.execute("""
                 SELECT table_name
