@@ -13057,6 +13057,7 @@ def export_cashflow():
             # Create summary by project month - UPDATED to include "Total Contract Amount"
             month_summary_data = []
             
+
             # Group by Project Month
             for project_month in sorted(set(df_detail['Project Month'].dropna())):
                 if project_month == 'TOTAL':
@@ -13075,6 +13076,8 @@ def export_cashflow():
                 
                 month_summary_data.append(month_summary)
             
+                month_summary_data.sort(key=lambda x: datetime.strptime(x['Project Month'], '%b-%Y') if x['Project Month'] != 'TOTAL' else datetime.max)            
+
             # Add totals to month summary - UPDATED
             if month_summary_data:
                 month_totals = {
