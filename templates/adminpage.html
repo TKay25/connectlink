@@ -1370,6 +1370,47 @@ body::before {
         padding: 8px 10px;
     }
 }
+
+
+.user-message {
+    background: #e1ffc7;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border-left: 4px solid #34a853;
+    text-align: right;
+}
+
+.ai-response {
+    background: white;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border-left: 4px solid #4285f4;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.thinking {
+    color: #666;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.spinner {
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #4285f4;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 </style>
     </style>
 </head>
@@ -3609,6 +3650,12 @@ body::before {
                         <i class="bi bi-download"></i> Download Master File
                     </button>
 
+                    <!-- Add this button anywhere in your page -->
+                    <button id="aiAssistantBtn" class="btn btn-primary" style="background: linear-gradient(135deg, #4285f4, #34a853); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-robot" style="font-size: 18px;"></i>
+                        Ask AI About ConnectLink Properties Projects
+                    </button>
+
                     <div class="container mt-6 card">
                         <div class="row mb-5 align-items-center">
                             <div class="col-md-3">
@@ -3728,6 +3775,50 @@ body::before {
                         <button type="submit" class="btn btn-danger">Remove User</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="aiModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div class="modal-content" style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+            <span class="close" style="float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #666;">&times;</span>
+            
+            <h3 style="color: #4285f4; margin-bottom: 20px;">
+                <i class="fas fa-robot"></i> Google AI Data Analyst
+            </h3>
+            
+            <div id="aiChat" style="height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #f9f9f9;">
+                <div class="ai-message" style="background: #e8f0fe; padding: 10px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #4285f4;">
+                    <strong><i class="fas fa-robot"></i> AI Assistant:</strong><br>
+                    Hello! I can analyze your project database. Ask me anything about:
+                    <ul style="margin: 5px 0 5px 20px;">
+                        <li>Total contract values and deposits</li>
+                        <li>Payment method breakdown</li>
+                        <li>Monthly cash flow</li>
+                        <li>Recent projects</li>
+                        <li>Upcoming payments</li>
+                        <li>Client statistics</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="aiQuestion" placeholder="Ask about your data..." style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px;">
+                <button id="sendQuestion" class="btn btn-primary" style="background: #4285f4; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                    <i class="fas fa-paper-plane"></i> Ask
+                </button>
+            </div>
+            
+            <div style="background: #f1f8e9; padding: 12px; border-radius: 6px; border-left: 4px solid #34a853;">
+                <strong>Try asking:</strong>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What is my total contract value?')">Total contract value</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('How much deposit have I collected?')">Total deposits</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('Show me payment method breakdown')">Payment methods</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What are my recent projects?')">Recent projects</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('Show monthly cash flow')">Monthly cash flow</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What are upcoming payments?')">Upcoming payments</span>
+                </div>
             </div>
         </div>
     </div>
@@ -3864,6 +3955,109 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+// Function to set question from suggestions
+function setQuestion(text) {
+    document.getElementById('aiQuestion').value = text;
+    document.getElementById('aiQuestion').focus();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const aiBtn = document.getElementById('aiAssistantBtn');
+    const modal = document.getElementById('aiModal');
+    const closeBtn = modal.querySelector('.close');
+    const aiQuestion = document.getElementById('aiQuestion');
+    const sendBtn = document.getElementById('sendQuestion');
+    const aiChat = document.getElementById('aiChat');
+    
+    // Open modal
+    aiBtn.addEventListener('click', function() {
+        modal.style.display = 'block';
+        aiQuestion.focus();
+    });
+    
+    // Close modal
+    closeBtn.addEventListener('click', function() {
+        modal.style.display = 'none';
+    });
+    
+    // Close when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+    
+    // Send question
+    sendBtn.addEventListener('click', sendQuestion);
+    
+    // Send on Enter key
+    aiQuestion.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendQuestion();
+        }
+    });
+    
+    function sendQuestion() {
+        const question = aiQuestion.value.trim();
+        if (!question) return;
+        
+        // Add user message
+        addMessage(question, 'user');
+        aiQuestion.value = '';
+        
+        // Show thinking indicator
+        const thinkingDiv = document.createElement('div');
+        thinkingDiv.className = 'thinking';
+        thinkingDiv.innerHTML = '<div class="spinner"></div> Analyzing database with Google AI...';
+        aiChat.appendChild(thinkingDiv);
+        aiChat.scrollTop = aiChat.scrollHeight;
+        
+        // Send to backend
+        fetch('/ask_ai', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ question: question })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Remove thinking indicator
+            thinkingDiv.remove();
+            
+            if (data.success) {
+                addMessage(data.answer, 'ai');
+            } else {
+                addMessage(`Error: ${data.answer}`, 'ai');
+            }
+        })
+        .catch(error => {
+            thinkingDiv.remove();
+            addMessage(`Network error. Please try again.`, 'ai');
+        });
+    }
+    
+    function addMessage(text, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = sender === 'user' ? 'user-message' : 'ai-response';
+        
+        if (sender === 'user') {
+            messageDiv.innerHTML = `<strong><i class="fas fa-user"></i> You:</strong><br>${text}`;
+        } else {
+            // Format AI response with better readability
+            let formattedText = text.replace(/\n/g, '<br>');
+            formattedText = formattedText.replace(/\$(?:\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g, 
+                match => `<span style="color: #0d6efd; font-weight: bold;">${match}</span>`);
+            
+            messageDiv.innerHTML = `<strong><i class="fas fa-robot"></i> AI Analyst:</strong><br>${formattedText}`;
+        }
+        
+        aiChat.appendChild(messageDiv);
+        aiChat.scrollTop = aiChat.scrollHeight;
+    }
+});
+</script>
 <script>
 // ==================== MAIN FUNCTION ====================
 function Pushpaymentreminders() {

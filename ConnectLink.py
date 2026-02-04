@@ -36,6 +36,8 @@ from collections import Counter
 import time
 import random
 import logging
+import google.generativeai as genai
+
 #import threading
 #from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -48,6 +50,8 @@ user_sessions = {}
 
 database = 'connectlinkdata'
 
+GEMINI_API_KEY = "AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g"  # Replace with your actual key
+genai.configure(api_key=GEMINI_API_KEY)
 
 def initialize_database_tables():
     """Initialize all required database tables on startup"""
@@ -10328,6 +10332,216 @@ def webhook():
                 return jsonify({"error": "internal error"}), 200
             
     return jsonify({"error": "internal error"}), 200
+
+
+
+@app.route('/ask_ai', methods=['POST'])
+def ask_ai():
+    """Analyze database data using Google Gemini AI"""
+    try:
+        data = request.json
+        question = data.get('question', '').strip()
+        
+        if not question:
+            return jsonify({'success': False, 'answer': 'Please provide a question'})
+        
+        # Step 1: Get ALL data from database
+        database_data = get_all_database_data()
+        
+        # Step 2: Call Gemini AI with the data
+        answer = call_gemini_ai(question, database_data)
+        
+        return jsonify({
+            'success': True,
+            'answer': answer
+        })
+        
+    except Exception as e:
+        print(f"AI Error: {str(e)}")
+        return jsonify({'success': False, 'answer': f'Error: {str(e)}'}), 500
+
+def get_all_database_data():
+    """Extract ALL data from database in readable format"""
+    with get_db() as (cursor, connection):
+        # Get all projects with full details
+        cursor.execute("""
+            SELECT 
+                id, clientname, projectname, totalcontractamount,
+                depositorbullet, TO_CHAR(datedepositorbullet, 'YYYY-MM-DD') as deposit_date,
+                paymentmethod,
+                TO_CHAR(installment1duedate, 'YYYY-MM-DD'), installment1amount,
+                TO_CHAR(installment2duedate, 'YYYY-MM-DD'), installment2amount,
+                TO_CHAR(installment3duedate, 'YYYY-MM-DD'), installment3amount,
+                TO_CHAR(installment4duedate, 'YYYY-MM-DD'), installment4amount,
+                TO_CHAR(installment5duedate, 'YYYY-MM-DD'), installment5amount,
+                TO_CHAR(installment6duedate, 'YYYY-MM-DD'), installment6amount
+            FROM connectlinkdatabase 
+            ORDER BY datedepositorbullet
+        """)
+        all_projects = cursor.fetchall()
+        
+        # Create structured data for AI
+        data_summary = []
+        
+        # 1. Statistics
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_projects,
+                SUM(totalcontractamount) as total_value,
+                AVG(totalcontractamount) as avg_value,
+                SUM(depositorbullet) as total_deposit,
+                COUNT(DISTINCT clientname) as unique_clients
+            FROM connectlinkdatabase 
+            WHERE totalcontractamount > 0
+        """)
+        stats = cursor.fetchone()
+        
+        data_summary.append("=== DATABASE STATISTICS ===")
+        data_summary.append(f"Total Projects: {stats[0]}")
+        data_summary.append(f"Total Contract Value: ${float(stats[1] or 0):,.2f}")
+        data_summary.append(f"Average Project Value: ${float(stats[2] or 0):,.2f}")
+        data_summary.append(f"Total Deposit Collected: ${float(stats[3] or 0):,.2f}")
+        data_summary.append(f"Unique Clients: {stats[4]}")
+        
+        # 2. Payment Methods Summary
+        cursor.execute("""
+            SELECT 
+                COALESCE(paymentmethod, 'Not Specified') as method,
+                COUNT(*) as project_count,
+                SUM(totalcontractamount) as total_amount,
+                AVG(totalcontractamount) as avg_amount
+            FROM connectlinkdatabase 
+            GROUP BY paymentmethod
+            ORDER BY total_amount DESC
+        """)
+        payment_methods = cursor.fetchall()
+        
+        data_summary.append("\n=== PAYMENT METHODS ===")
+        for method, count, total, avg in payment_methods:
+            data_summary.append(f"{method}: {count} projects, Total: ${float(total or 0):,.2f}, Average: ${float(avg or 0):,.2f}")
+        
+        # 3. Monthly Cash Flow
+        cursor.execute("""
+            SELECT 
+                TO_CHAR(COALESCE(datedepositorbullet, CURRENT_DATE), 'Mon YYYY') as month,
+                COUNT(*) as new_projects,
+                SUM(totalcontractamount) as contract_value,
+                SUM(depositorbullet) as deposit_received
+            FROM connectlinkdatabase 
+            GROUP BY TO_CHAR(COALESCE(datedepositorbullet, CURRENT_DATE), 'Mon YYYY')
+            ORDER BY MIN(datedepositorbullet) DESC
+            LIMIT 12
+        """)
+        monthly_data = cursor.fetchall()
+        
+        data_summary.append("\n=== MONTHLY CASH FLOW (Last 12 months) ===")
+        for month, projects, contract, deposit in monthly_data:
+            data_summary.append(f"{month}: {projects} projects, Contracts: ${float(contract or 0):,.2f}, Deposits: ${float(deposit or 0):,.2f}")
+        
+        # 4. Recent Projects (Last 10)
+        cursor.execute("""
+            SELECT 
+                clientname, projectname, 
+                totalcontractamount, depositorbullet,
+                paymentmethod,
+                TO_CHAR(datedepositorbullet, 'Mon DD, YYYY') as date
+            FROM connectlinkdatabase 
+            ORDER BY datedepositorbullet DESC 
+            LIMIT 10
+        """)
+        recent_projects = cursor.fetchall()
+        
+        data_summary.append("\n=== RECENT PROJECTS ===")
+        for client, project, total, deposit, method, date in recent_projects:
+            data_summary.append(f"{date}: {client} - {project}")
+            data_summary.append(f"  Total: ${float(total or 0):,.2f}, Deposit: ${float(deposit or 0):,.2f}, Method: {method}")
+        
+        # 5. Upcoming Installments (Next 90 days)
+        cursor.execute("""
+            SELECT 
+                p.clientname, p.projectname,
+                i.due_date, i.amount, p.paymentmethod
+            FROM connectlinkdatabase p,
+            LATERAL (
+                VALUES 
+                    (installment1duedate, installment1amount),
+                    (installment2duedate, installment2amount),
+                    (installment3duedate, installment3amount),
+                    (installment4duedate, installment4amount),
+                    (installment5duedate, installment5amount),
+                    (installment6duedate, installment6amount)
+            ) AS i(due_date, amount)
+            WHERE i.due_date >= CURRENT_DATE 
+                AND i.due_date <= CURRENT_DATE + INTERVAL '90 days'
+                AND i.amount > 0
+            ORDER BY i.due_date
+            LIMIT 20
+        """)
+        upcoming = cursor.fetchall()
+        
+        if upcoming:
+            data_summary.append("\n=== UPCOMING INSTALLMENTS (Next 90 days) ===")
+            total_upcoming = 0
+            for client, project, due_date, amount, method in upcoming:
+                if due_date and amount:
+                    data_summary.append(f"{due_date.strftime('%b %d')}: {client} - ${float(amount):,.2f} ({method})")
+                    total_upcoming += float(amount)
+            data_summary.append(f"Total Upcoming: ${total_upcoming:,.2f}")
+        
+        # 6. Sample of All Projects (for context)
+        data_summary.append("\n=== SAMPLE OF ALL PROJECTS ===")
+        sample_count = min(5, len(all_projects))
+        for i in range(sample_count):
+            project = all_projects[i]
+            data_summary.append(f"\nProject {i+1}:")
+            data_summary.append(f"  Client: {project[1]}")
+            data_summary.append(f"  Project: {project[2]}")
+            data_summary.append(f"  Total: ${float(project[3] or 0):,.2f}")
+            data_summary.append(f"  Deposit: ${float(project[4] or 0):,.2f}")
+            data_summary.append(f"  Payment Method: {project[6]}")
+        
+        data_summary.append(f"\n=== TOTAL PROJECTS IN DATABASE: {len(all_projects)} ===")
+        
+        return "\n".join(data_summary)
+
+def call_gemini_ai(question, database_data):
+    """Call Google Gemini AI with our database data"""
+    try:
+        # Initialize the model
+        model = genai.GenerativeModel('gemini-pro')
+        
+        # Create the prompt with database data
+        prompt = f"""
+        You are a financial data analyst for a project management company.
+        
+        Here is the complete database information:
+        
+        {database_data}
+        
+        User Question: {question}
+        
+        Instructions:
+        1. Answer based ONLY on the data provided above
+        2. Be specific and mention actual numbers from the data
+        3. Format money amounts with dollar signs and commas (e.g., $12,345.67)
+        4. If you cannot answer from the data, say "I cannot answer this based on the available data"
+        5. Keep answers concise but informative
+        6. Mention specific clients or projects if relevant
+        
+        Provide a helpful analysis:
+        """
+        
+        # Generate response
+        response = model.generate_content(prompt)
+        
+        return response.text
+        
+    except Exception as e:
+        # Fallback response if Gemini fails
+        return f"AI Analysis: Based on {len(database_data.split())} data points.\n\n" \
+               f"Question: {question}\n\n" \
+               f"Please check the export reports for detailed analysis. " \
+               f"(AI service temporarily unavailable: {str(e)})"
 
 
 ACCESS_TOKEN = "EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD"
