@@ -13138,7 +13138,7 @@ def export_cashflow():
                 
                 if payment_summary_data:
                     df_payment_summary = pd.DataFrame(payment_summary_data)
-                    df_payment_summary.to_excel(writer, sheet_name='SUMMARY BY PAYMENT', index=False)
+                    df_payment_summary.to_excel(writer, sheet_name='SUMMARY BY PAYMENT METHOD', index=False)
                 
                 df_detail.to_excel(writer, sheet_name='DETAILS', index=False)
                 
