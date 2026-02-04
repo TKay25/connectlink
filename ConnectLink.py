@@ -13137,7 +13137,7 @@ def export_cashflow():
                     df_payment_summary = pd.DataFrame(payment_summary_data)
                     df_payment_summary.to_excel(writer, sheet_name='SUMMARY BY PAYMENT', index=False)
                 
-                df_detail.to_excel(writer, sheet_name='DETAIL', index=False)
+                df_detail.to_excel(writer, sheet_name='DETAILS', index=False)
                 
                 # Apply styling to all sheets
                 for sheet_name in writer.sheets:
@@ -13163,7 +13163,7 @@ def export_cashflow():
                     
                     # Apply number formatting to currency columns
                     # For DETAIL sheet
-                    if sheet_name == 'DETAIL':
+                    if sheet_name == 'DETAILS':
                         # Currency columns start at column 5 (Total Contract Amount)
                         for row in range(header_row + 1, ws.max_row + 1):
                             for col in range(5, ws.max_column + 1):  # Start at column 5 now
@@ -13172,7 +13172,7 @@ def export_cashflow():
                                     cell.number_format = '#,##0.00'
                     
                     # For SUMMARY sheets
-                    elif sheet_name in ['SUMMARY BY MONTH', 'SUMMARY BY PAYMENT']:
+                    elif sheet_name in ['SUMMARY BY MONTH', 'SUMMARY BY PAYMENT METHOD']:
                         # Currency columns start at column 2 (Total Contract Amount)
                         for row in range(header_row + 1, ws.max_row + 1):
                             for col in range(2, ws.max_column + 1):  # Start at column 2 now
@@ -13199,13 +13199,13 @@ def export_cashflow():
                             col_letter = get_column_letter(col)
                             ws.column_dimensions[col_letter].width = 12
                     
-                    elif sheet_name == 'SUMMARY BY PAYMENT':
+                    elif sheet_name == 'SUMMARY BY PAYMENT METHOD':
                         ws.column_dimensions['A'].width = 25  # Payment Method
                         for col in range(2, ws.max_column + 1):
                             col_letter = get_column_letter(col)
                             ws.column_dimensions[col_letter].width = 12
                     
-                    elif sheet_name == 'DETAIL':
+                    elif sheet_name == 'DETAILS':
                         ws.column_dimensions['A'].width = 15  # Project Month
                         ws.column_dimensions['B'].width = 20  # Payment Method
                         ws.column_dimensions['C'].width = 25  # Client Name
