@@ -13033,6 +13033,11 @@ def export_cashflow():
             
             df_detail = pd.DataFrame(main_data, columns=detail_columns)
             
+            df_detail['Project Month'] = pd.Categorical(df_detail['Project Month'], 
+                                                    categories=sorted(set(df_detail['Project Month'].dropna()), 
+                                                    key=lambda x: datetime.strptime(x, '%b-%Y') if pd.notna(x) and x != 'TOTAL' else ''),
+                                                    ordered=True)
+
             # Add totals row to detail - UPDATED to include "Total Contract Amount"
             totals_row = {
                 'Project Month': 'TOTAL',
