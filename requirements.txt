@@ -14,4 +14,4 @@ weasyprint
 paynow
 apscheduler
 bleach
-google
+google.generativeai
