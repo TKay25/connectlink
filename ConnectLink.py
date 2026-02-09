@@ -12821,8 +12821,8 @@ def run1(userid):
             total_overdue = 0
             is_overdue = False
             
-            # Check each installment (1-6)
-            for i in range(1, 7):
+            # Check each installment (1-10)
+            for i in range(1, 11):
                 due_date_col = f'installment{i}duedate'
                 paid_date_col = f'installment{i}date'
                 amount_col = f'installment{i}amount'
@@ -12848,7 +12848,7 @@ def run1(userid):
         def get_simple_installments_due(row):
             due_installments = []
             
-            for i in range(1, 7):
+            for i in range(1, 11):
                 due_date_col = f'installment{i}duedate'
                 paid_date_col = f'installment{i}date'
                 
@@ -12967,7 +12967,7 @@ def run1(userid):
             # Calculate amounts based on payment dates
             for _, row in df.iterrows():
                 # Check each installment (1-6)
-                for i in range(1, 7):
+                for i in range(1, 11):
                     due_date_col = f'installment{i}duedate'
                     paid_date_col = f'installment{i}date'
                     amount_col = f'installment{i}amount'
@@ -13024,7 +13024,7 @@ def run1(userid):
         # Also calculate total due (all amounts due by today)
         total_due = 0
         for _, row in datamain2.iterrows():
-            for i in range(1, 7):
+            for i in range(1, 11):
                 due_date_col = f'installment{i}duedate'
                 amount_col = f'installment{i}amount'
                 
