@@ -13915,6 +13915,34 @@ def get_due_months():
                     EXTRACT(MONTH FROM installment6duedate)::INTEGER as month
                 FROM connectlinkdatabase 
                 WHERE installment6duedate IS NOT NULL
+
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment7duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment7duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment7duedate IS NOT NULL
+
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment8duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment8duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment8duedate IS NOT NULL
+
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment9duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment9duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment9duedate IS NOT NULL
+
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment10duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment10duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment10duedate IS NOT NULL
                 ORDER BY year DESC, month DESC
             """)
             months = cursor.fetchall()
@@ -13963,7 +13991,11 @@ def get_installments_count():
                         (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
                         (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
                         (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s)
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment7duedate) = %s AND EXTRACT(MONTH FROM installment7duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment8duedate) = %s AND EXTRACT(MONTH FROM installment8duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment9duedate) = %s AND EXTRACT(MONTH FROM installment9duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
                     )
                 """
                 params.extend([year, month_num] * 6)
