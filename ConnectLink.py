@@ -13128,7 +13128,11 @@ def export_cashflow():
                     installment3duedate, installment3amount,
                     installment4duedate, installment4amount,
                     installment5duedate, installment5amount,
-                    installment6duedate, installment6amount
+                    installment6duedate, installment6amount,
+                    installment7duedate, installment7amount,
+                    installment8duedate, installment8amount,
+                    installment9duedate, installment9amount,
+                    installment10duedate, installment10amount
                 FROM connectlinkdatabase 
                 WHERE totalcontractamount > 0
                 ORDER BY datedepositorbullet
@@ -13145,8 +13149,8 @@ def export_cashflow():
             
             for row in rows:
                 # Check installment due dates
-                for i in range(6):
-                    due_date_idx = 6 + (i * 2)
+                for i in range(10):
+                    due_date_idx = 10 + (i * 2)
                     due_date = row[due_date_idx]
                     if due_date:
                         try:
@@ -13227,9 +13231,9 @@ def export_cashflow():
                     row_data[month] = None
                 
                 # Add installment amounts
-                for i in range(6):
-                    due_date_idx = 6 + (i * 2)
-                    amount_idx = 7 + (i * 2)
+                for i in range(10):
+                    due_date_idx = 10 + (i * 2)
+                    amount_idx = 11 + (i * 2)
                     
                     due_date = row[due_date_idx]
                     amount = row[amount_idx]
