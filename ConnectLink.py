@@ -10932,15 +10932,15 @@ def download_contract(project_id):
                 'installment5duedate': row[39].strftime("%-d %B %Y") if len(row) > 39 and row[39] else None,
                 'installment6amount': row[41] if len(row) > 41 else None,
                 'installment6duedate': row[42].strftime("%-d %B %Y") if len(row) > 42 and row[42] else None,
-                'installment7amount': row[43] if len(row) > 43 else None,
-                'installment7duedate': row[44].strftime("%-d %B %Y") if len(row) > 44 and row[44] else None,
-                'installment8amount': row[45] if len(row) > 45 else None,
-                'installment8duedate': row[46].strftime("%-d %B %Y") if len(row) > 46 and row[46] else None,
-                'installment9amount': row[47] if len(row) > 47 else None,
-                'installment9duedate': row[48].strftime("%-d %B %Y") if len(row) > 48 and row[48] else None,
-                'installment10amount': row[49] if len(row) > 49 else None,
-                'installment10duedate': row[50].strftime("%-d %B %Y") if len(row) > 50 and row[50] else None,
-                'latepaymentinterest': row[55] if len(row) > 55 else None,
+                'installment7amount': row[49] if len(row) > 43 else None,
+                'installment7duedate': row[50].strftime("%-d %B %Y") if len(row) > 50 and row[50] else None,
+                'installment8amount': row[51] if len(row) > 51 else None,
+                'installment8duedate': row[52].strftime("%-d %B %Y") if len(row) > 52 and row[52] else None,
+                'installment9amount': row[53] if len(row) > 53 else None,
+                'installment9duedate': row[54].strftime("%-d %B %Y") if len(row) > 54 and row[54] else None,
+                'installment10amount': row[55] if len(row) > 55 else None,
+                'installment10duedate': row[56].strftime("%-d %B %Y") if len(row) > 56 and row[56] else None,
+                'latepaymentinterest': row[47] if len(row) > 47 else None,
                 'companyname': companyname,
                 'companyaddress': address,
                 'companycontact1': contact1,
@@ -12731,7 +12731,7 @@ def run1(userid):
         print(f"Number of projects: {num_projects}")
 
 
-        datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date','projectcompletionstatus','latepaymentinterest','momid'])
+        datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus','latepaymentinterest','momid', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date'])
 
         count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
         count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
@@ -15310,13 +15310,13 @@ def contract_log():
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
                             paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
-                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate
+                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         );
                     """
 
@@ -15360,7 +15360,11 @@ def contract_log():
                         installment3duedate,
                         installment4duedate,
                         installment5duedate,
-                        installment6duedate
+                        installment6duedate,
+                        installment7duedate,
+                        installment8duedate,
+                        installment9duedate,
+                        installment10duedate
                     )
 
         
