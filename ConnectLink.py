@@ -10932,7 +10932,15 @@ def download_contract(project_id):
                 'installment5duedate': row[39].strftime("%-d %B %Y") if len(row) > 39 and row[39] else None,
                 'installment6amount': row[41] if len(row) > 41 else None,
                 'installment6duedate': row[42].strftime("%-d %B %Y") if len(row) > 42 and row[42] else None,
-                'latepaymentinterest': row[45] if len(row) > 43 else None,
+                'installment7amount': row[43] if len(row) > 43 else None,
+                'installment7duedate': row[44].strftime("%-d %B %Y") if len(row) > 44 and row[44] else None,
+                'installment8amount': row[45] if len(row) > 45 else None,
+                'installment8duedate': row[46].strftime("%-d %B %Y") if len(row) > 46 and row[46] else None,
+                'installment9amount': row[47] if len(row) > 47 else None,
+                'installment9duedate': row[48].strftime("%-d %B %Y") if len(row) > 48 and row[48] else None,
+                'installment10amount': row[49] if len(row) > 49 else None,
+                'installment10duedate': row[50].strftime("%-d %B %Y") if len(row) > 50 and row[50] else None,
+                'latepaymentinterest': row[55] if len(row) > 55 else None,
                 'companyname': companyname,
                 'companyaddress': address,
                 'companycontact1': contact1,
@@ -11302,6 +11310,10 @@ def download_contract(project_id):
                             <tr><td>{project['installment4duedate']}</td><td style="font-weight: 700;">{project['installment4amount']}</td></tr>
                             <tr><td>{project['installment5duedate']}</td><td style="font-weight: 700;">{project['installment5amount']}</td></tr>
                             <tr><td>{project['installment6duedate']}</td><td style="font-weight: 700;">{project['installment6amount']}</td></tr>
+                            <tr><td>{project['installment7duedate']}</td><td style="font-weight: 700;">{project['installment7amount']}</td></tr>
+                            <tr><td>{project['installment8duedate']}</td><td style="font-weight: 700;">{project['installment8amount']}</td></tr>
+                            <tr><td>{project['installment9duedate']}</td><td style="font-weight: 700;">{project['installment9amount']}</td></tr>
+                            <tr><td>{project['installment10duedate']}</td><td style="font-weight: 700;">{project['installment10amount']}</td></tr>
                         </tbody>
                     </table>
                     
