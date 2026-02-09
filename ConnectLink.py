@@ -14006,14 +14006,14 @@ def get_installments_count():
             
             # Get paid count (any installment date not null)
             paid_query = query.replace("WHERE 1=1", 
-                "WHERE 1=1 AND (installment1date IS NOT NULL OR installment2date IS NOT NULL OR installment3date IS NOT NULL OR installment4date IS NOT NULL OR installment5date IS NOT NULL OR installment6date IS NOT NULL)")
+                "WHERE 1=1 AND (installment1date IS NOT NULL OR installment2date IS NOT NULL OR installment3date IS NOT NULL OR installment4date IS NOT NULL OR installment5date IS NOT NULL OR installment6date IS NOT NULL OR installment7date IS NOT NULL OR installment8date IS NOT NULL OR installment9date IS NOT NULL OR installment10date IS NOT NULL)")
             
             cursor.execute(paid_query, params)
             paid = cursor.fetchone()[0]
             
             # Get due count (all installment dates null)
             due_query = query.replace("WHERE 1=1", 
-                "WHERE 1=1 AND (installment1date IS NULL AND installment2date IS NULL AND installment3date IS NULL AND installment4date IS NULL AND installment5date IS NULL AND installment6date IS NULL)")
+                "WHERE 1=1 AND (installment1date IS NULL AND installment2date IS NULL AND installment3date IS NULL AND installment4date IS NULL AND installment5date IS NULL AND installment6date IS NULL AND installment7date IS NULL AND installment8date IS NULL AND installment9date IS NULL AND installment10date IS NULL)")
             
             cursor.execute(due_query, params)
             due = cursor.fetchone()[0]
@@ -14077,7 +14077,11 @@ def download_installments():
                         (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
                         (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
                         (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
-                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s)
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment7duedate) = %s AND EXTRACT(MONTH FROM installment7duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment8duedate) = %s AND EXTRACT(MONTH FROM installment8duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment9duedate) = %s AND EXTRACT(MONTH FROM installment9duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
                     )
                 """
                 where_clauses.append(due_condition)
@@ -14116,7 +14120,19 @@ def download_installments():
                     installment5date,
                     installment6amount,
                     installment6duedate,
-                    installment6date
+                    installment6date,
+                    installment7amount,
+                    installment7duedate,
+                    installment7date,
+                    installment8amount,
+                    installment8duedate,
+                    installment8date,
+                    installment9amount,
+                    installment9duedate,
+                    installment9date,
+                    installment10amount,
+                    installment10duedate,
+                    installment10date
                 FROM connectlinkdatabase 
                 {where_clause}
                 ORDER BY momid ASC
@@ -14134,7 +14150,11 @@ def download_installments():
                 'installment3amount', 'installment3duedate', 'installment3date',
                 'installment4amount', 'installment4duedate', 'installment4date',
                 'installment5amount', 'installment5duedate', 'installment5date',
-                'installment6amount', 'installment6duedate', 'installment6date'
+                'installment6amount', 'installment6duedate', 'installment6date',
+                'installment7amount', 'installment7duedate', 'installment7date',
+                'installment8amount', 'installment8duedate', 'installment8date',
+                'installment9amount', 'installment9duedate', 'installment9date',
+                'installment10amount', 'installment10duedate', 'installment10date'
             ]
             
             # Separate installments into different categories
@@ -14161,7 +14181,7 @@ def download_installments():
                 project_start_str = project_start.strftime('%Y-%m-%d') if project_start else ''
                 
                 # Process EACH installment separately
-                for i in range(1, 7):
+                for i in range(1, 11):
                     amount = row_dict.get(f'installment{i}amount') or 0
                     due_date = row_dict.get(f'installment{i}duedate')
                     payment_date = row_dict.get(f'installment{i}date')
@@ -14739,8 +14759,11 @@ def get_project(project_id):
                     'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
                     'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
                     'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
-                    'projectcompletionstatus','latepaymentinterest']
-
+                    'projectcompletionstatus','latepaymentinterest',  'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date']
+            
             project_dict = dict(zip(columns, row))
             print(project_dict)
             return jsonify(project_dict)
@@ -14786,18 +14809,30 @@ def update_project():
         installment4amountupdate = request.form.get('Installment4Amount')
         installment5amountupdate = request.form.get('Installment5Amount')
         installment6amountupdate = request.form.get('Installment6Amount')
+        installment7amountupdate = request.form.get('Installment7Amount')
+        installment8amountupdate = request.form.get('Installment8Amount')
+        installment9amountupdate = request.form.get('Installment9Amount')
+        installment10amountupdate = request.form.get('Installment10Amount')
         installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
         installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
         installment3_date = clean_date_update(request.form.get('installment3_paid_date'))
         installment4_date = clean_date_update(request.form.get('installment4_paid_date'))
         installment5_date = clean_date_update(request.form.get('installment5_paid_date'))
         installment6_date = clean_date_update(request.form.get('installment6_paid_date'))
+        installment7_date = clean_date_update(request.form.get('installment7_paid_date'))
+        installment8_date = clean_date_update(request.form.get('installment8_paid_date'))
+        installment9_date = clean_date_update(request.form.get('installment9_paid_date'))
+        installment10_date = clean_date_update(request.form.get('installment10_paid_date'))
         installment1_duedate = clean_date_update(request.form.get('Installment1DueDate'))
         installment2_duedate = clean_date_update(request.form.get('Installment2DueDate'))
         installment3_duedate = clean_date_update(request.form.get('Installment3DueDate'))
         installment4_duedate = clean_date_update(request.form.get('Installment4DueDate'))
         installment5_duedate = clean_date_update(request.form.get('Installment5DueDate'))
         installment6_duedate = clean_date_update(request.form.get('Installment6DueDate'))
+        installment7_duedate = clean_date_update(request.form.get('Installment7DueDate'))
+        installment8_duedate = clean_date_update(request.form.get('Installment8DueDate'))
+        installment9_duedate = clean_date_update(request.form.get('Installment9DueDate'))
+        installment10_duedate = clean_date_update(request.form.get('Installment10DueDate'))
 
         monthlyinstallment = (float(contractamount) - float(depositpaid))/int(monthstopay)
         first_installment_due_date = request.form.get('Installment1DueDate')
@@ -14811,7 +14846,7 @@ def update_project():
             installment_due_dates.append(next_date)
 
         # Fill up to 6 slots using same day logic for following months
-        while len(installment_due_dates) < 6:
+        while len(installment_due_dates) < 10:
             next_date = add_months(first_installment_due_date_calc, len(installment_due_dates))
             installment_due_dates.append(next_date)
 
@@ -14829,7 +14864,7 @@ def update_project():
 
         if int(monthstopay) != int(row[0]):
 
-            installment1_duedate, installment2_duedate, installment3_duedate, installment4_duedate, installment5_duedate, installment6_duedate = installment_due_dates
+            installment1_duedate, installment2_duedate, installment3_duedate, installment4_duedate, installment5_duedate, installment6_duedate, installment7_duedate, installment8_duedate, installment9_duedate, installment10_duedate = installment_due_dates
 
             if int(monthstopay) == 1:
                 installment1amount = float(monthlyinstallment)
@@ -14838,6 +14873,10 @@ def update_project():
                 installment4amount = 0
                 installment5amount = 0
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
             elif int(monthstopay) == 2:
                 installment1amount = float(monthlyinstallment)
@@ -14846,6 +14885,11 @@ def update_project():
                 installment4amount = 0
                 installment5amount = 0
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0       
+
             
             elif int(monthstopay) == 3:
                 installment1amount = float(monthlyinstallment)
@@ -14854,6 +14898,10 @@ def update_project():
                 installment4amount = 0
                 installment5amount = 0
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
             elif int(monthstopay) == 4:
                 installment1amount = float(monthlyinstallment)
@@ -14862,6 +14910,10 @@ def update_project():
                 installment4amount = float(monthlyinstallment)
                 installment5amount = 0
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
             elif int(monthstopay) == 5:
                 installment1amount = float(monthlyinstallment)
@@ -14870,6 +14922,10 @@ def update_project():
                 installment4amount = float(monthlyinstallment)
                 installment5amount = float(monthlyinstallment)
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
             elif int(monthstopay) == 6:
                 installment1amount = float(monthlyinstallment)
@@ -14878,6 +14934,59 @@ def update_project():
                 installment4amount = float(monthlyinstallment)
                 installment5amount = float(monthlyinstallment)
                 installment6amount = float(monthlyinstallment)
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
+
+            elif int(monthstopay) == 7:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = float(monthlyinstallment)
+                installment4amount = float(monthlyinstallment)
+                installment5amount = float(monthlyinstallment)
+                installment6amount = float(monthlyinstallment)
+                installment7amount = float(monthlyinstallment)
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
+
+            elif int(monthstopay) == 8:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = float(monthlyinstallment)
+                installment4amount = float(monthlyinstallment)
+                installment5amount = float(monthlyinstallment)
+                installment6amount = float(monthlyinstallment)
+                installment7amount = float(monthlyinstallment)
+                installment8amount = float(monthlyinstallment)
+                installment9amount = 0
+                installment10amount = 0
+
+            elif int(monthstopay) == 9:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = float(monthlyinstallment)
+                installment4amount = float(monthlyinstallment)
+                installment5amount = float(monthlyinstallment)
+                installment6amount = float(monthlyinstallment)
+                installment7amount = float(monthlyinstallment)
+                installment8amount = float(monthlyinstallment)
+                installment9amount = float(monthlyinstallment)
+                installment10amount = 0
+
+            elif int(monthstopay) == 10:
+                installment1amount = float(monthlyinstallment)
+                installment2amount = float(monthlyinstallment)
+                installment3amount = float(monthlyinstallment)
+                installment4amount = float(monthlyinstallment)
+                installment5amount = float(monthlyinstallment)
+                installment6amount = float(monthlyinstallment)
+                installment7amount = float(monthlyinstallment)
+                installment8amount = float(monthlyinstallment)
+                installment9amount = float(monthlyinstallment)
+                installment10amount = float(monthlyinstallment)
+
 
         elif int(monthstopay) == int(row[0]):
 
