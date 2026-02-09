@@ -332,6 +332,18 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6amount NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6duedate date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment6date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment7amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment7duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment7date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment8amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment8duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment8date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment9amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment9duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment9date date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment10amount NUMERIC(12,2);",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment10duedate date;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment10date date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS latepaymentinterest INT;",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);",
@@ -12707,7 +12719,7 @@ def run1(userid):
         print(f"Number of projects: {num_projects}")
 
 
-        datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus','latepaymentinterest','momid'])
+        datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date','projectcompletionstatus','latepaymentinterest','momid'])
 
         count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
         count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
@@ -12731,7 +12743,7 @@ def run1(userid):
 
         datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
 
-        datamain = datamain[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus', 'latepaymentinterest', 'id', 'Action']]
+        datamain = datamain[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date', 'projectcompletionstatus', 'latepaymentinterest', 'id', 'Action']]
                         
         datamain = datamain.sort_values('id', ascending=False)
 
@@ -12776,8 +12788,10 @@ def run1(userid):
 
         date_columns = ['installment1duedate', 'installment2duedate', 'installment3duedate',
                         'installment4duedate', 'installment5duedate', 'installment6duedate',
+                        'installment7duedate', 'installment8duedate', 'installment9duedate', 'installment10duedate',
                         'installment1date', 'installment2date', 'installment3date',
-                        'installment4date', 'installment5date', 'installment6date']
+                        'installment4date', 'installment5date', 'installment6date',
+                        'installment7date', 'installment8date', 'installment9date', 'installment10date']
 
         for col in date_columns:
             if col in datamain2.columns:
@@ -15080,12 +15094,12 @@ def contract_log():
                     installment_due_dates.append(next_date)
 
                 # Fill up to 6 slots using same day logic for following months
-                while len(installment_due_dates) < 6:
+                while len(installment_due_dates) < 10:
                     next_date = add_months(first_installment_due_date_calc, len(installment_due_dates))
                     installment_due_dates.append(next_date)
 
 
-                installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate = installment_due_dates
+                installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate = installment_due_dates
 
 
                 if int(months_to_pay) == 1:
@@ -15095,6 +15109,11 @@ def contract_log():
                     installment4amount = 0
                     installment5amount = 0
                     installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
 
                 elif int(months_to_pay) == 2:
                     installment1amount = float(monthlyinstallment)
@@ -15103,6 +15122,11 @@ def contract_log():
                     installment4amount = 0
                     installment5amount = 0
                     installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
                 
                 elif int(months_to_pay) == 3:
                     installment1amount = float(monthlyinstallment)
@@ -15111,6 +15135,10 @@ def contract_log():
                     installment4amount = 0
                     installment5amount = 0
                     installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
 
                 elif int(months_to_pay) == 4:
                     installment1amount = float(monthlyinstallment)
@@ -15119,6 +15147,10 @@ def contract_log():
                     installment4amount = float(monthlyinstallment)
                     installment5amount = 0
                     installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
 
                 elif int(months_to_pay) == 5:
                     installment1amount = float(monthlyinstallment)
@@ -15127,6 +15159,10 @@ def contract_log():
                     installment4amount = float(monthlyinstallment)
                     installment5amount = float(monthlyinstallment)
                     installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
 
                 elif int(months_to_pay) == 6:
                     installment1amount = float(monthlyinstallment)
@@ -15135,12 +15171,68 @@ def contract_log():
                     installment4amount = float(monthlyinstallment)
                     installment5amount = float(monthlyinstallment)
                     installment6amount = float(monthlyinstallment)
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(months_to_pay) == 7:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = float(monthlyinstallment)
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(months_to_pay) == 8:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = float(monthlyinstallment)
+                    installment8amount = float(monthlyinstallment)
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(months_to_pay) == 9:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = float(monthlyinstallment)
+                    installment8amount = float(monthlyinstallment)
+                    installment9amount = float(monthlyinstallment)
+                    installment10amount = 0
+
+                elif int(months_to_pay) == 10:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = float(monthlyinstallment)
+                    installment8amount = float(monthlyinstallment)
+                    installment9amount = float(monthlyinstallment)
+                    installment10amount = float(monthlyinstallment)
 
                 installment2duedate = installment_due_dates[1] if int(months_to_pay) >= 2 else None
                 installment3duedate = installment_due_dates[2] if int(months_to_pay) >= 3 else None
                 installment4duedate = installment_due_dates[3] if int(months_to_pay) >= 4 else None
                 installment5duedate = installment_due_dates[4] if int(months_to_pay) >= 5 else None
                 installment6duedate = installment_due_dates[5] if int(months_to_pay) >= 6 else None
+                installment7duedate = installment_due_dates[6] if int(months_to_pay) >= 7 else None
+                installment8duedate = installment_due_dates[7] if int(months_to_pay) >= 8 else None
+                installment9duedate = installment_due_dates[8] if int(months_to_pay) >= 9 else None
+                installment10duedate = installment_due_dates[9] if int(months_to_pay) >= 10 else None
 
 
                 # Debug: Print received data (remove this in production)
