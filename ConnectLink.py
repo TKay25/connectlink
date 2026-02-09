@@ -12726,6 +12726,9 @@ def run1(userid):
         maindataquery = f"SELECT * FROM connectlinkdatabase;"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
+        column_names = [desc[0] for desc in cursor.description]
+        print(column_names)
+
         print("maaaaiiiiin DATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
         print(maindata)
         num_projects = len(maindata)
