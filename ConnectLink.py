@@ -14997,6 +14997,10 @@ def update_project():
                 installment4amount = 0
                 installment5amount = 0
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
             elif int(monthstopay) == 2:
                 installment1amount = float(installment1amountupdate)
@@ -15005,6 +15009,10 @@ def update_project():
                 installment4amount = 0
                 installment5amount = 0
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
             
             elif int(monthstopay) == 3:
                 installment1amount = float(installment1amountupdate)
@@ -15013,6 +15021,10 @@ def update_project():
                 installment4amount = 0
                 installment5amount = 0
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
             elif int(monthstopay) == 4:
                 installment1amount = float(installment1amountupdate)
@@ -15021,6 +15033,10 @@ def update_project():
                 installment4amount = float(installment4amountupdate)
                 installment5amount = 0
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
             elif int(monthstopay) == 5:
                 installment1amount = float(installment1amountupdate)
@@ -15029,6 +15045,10 @@ def update_project():
                 installment4amount = float(installment4amountupdate)
                 installment5amount = float(installment5amountupdate)
                 installment6amount = 0
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
             elif int(monthstopay) == 6:
                 installment1amount = float(installment1amountupdate)
@@ -15037,8 +15057,59 @@ def update_project():
                 installment4amount = float(installment4amountupdate)
                 installment5amount = float(installment5amountupdate)
                 installment6amount = float(installment6amountupdate)
+                installment7amount = 0
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
 
+            elif int(monthstopay) == 7:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = float(installment3amountupdate)
+                installment4amount = float(installment4amountupdate)
+                installment5amount = float(installment5amountupdate)
+                installment6amount = float(installment6amountupdate)
+                installment7amount = float(installment7amountupdate)
+                installment8amount = 0
+                installment9amount = 0
+                installment10amount = 0
             
+            elif int(monthstopay) == 8:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = float(installment3amountupdate)
+                installment4amount = float(installment4amountupdate)
+                installment5amount = float(installment5amountupdate)
+                installment6amount = float(installment6amountupdate)
+                installment7amount = float(installment7amountupdate)
+                installment8amount = float(installment8amountupdate)
+                installment9amount = 0
+                installment10amount = 0
+
+            elif int(monthstopay) == 9:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = float(installment3amountupdate)
+                installment4amount = float(installment4amountupdate)
+                installment5amount = float(installment5amountupdate)
+                installment6amount = float(installment6amountupdate)
+                installment7amount = float(installment7amountupdate)
+                installment8amount = float(installment8amountupdate)
+                installment9amount = float(installment9amountupdate)
+                installment10amount = 0
+
+            elif int(monthstopay) == 10:
+                installment1amount = float(installment1amountupdate)
+                installment2amount = float(installment2amountupdate)
+                installment3amount = float(installment3amountupdate)
+                installment4amount = float(installment4amountupdate)
+                installment5amount = float(installment5amountupdate)
+                installment6amount = float(installment6amountupdate)
+                installment7amount = float(installment7amountupdate)
+                installment8amount = float(installment8amountupdate)
+                installment9amount = float(installment9amountupdate)
+                installment10amount = float(installment9amountupdate)
+
         # --- EXAMPLE SQL (modify for your DB) ---
         query = """
             UPDATE connectlinkdatabase
@@ -15057,6 +15128,10 @@ def update_project():
                 installment4date = %s,
                 installment5date = %s,
                 installment6date = %s,
+                installment7date = %s,
+                installment8date = %s,
+                installment9date = %s,
+                installment10date = %s,
                 projectdescription = %s,
                 projectname = %s,  
                 installment1amount = %s, 
@@ -15065,12 +15140,20 @@ def update_project():
                 installment4amount = %s, 
                 installment5amount = %s, 
                 installment6amount = %s,
+                installment7amount = %s,
+                installment8amount = %s,
+                installment9amount = %s,
+                installment10amount = %s
                 installment1duedate = %s,
                 installment2duedate = %s,
                 installment3duedate = %s,
                 installment4duedate = %s,
                 installment5duedate = %s,
-                installment6duedate = %s
+                installment6duedate = %s,
+                installment7duedate = %s,
+                installment8duedate = %s,
+                installment9duedate = %s,
+                installment10duedate = %s
             WHERE id = %s
         """
         
@@ -15089,6 +15172,10 @@ def update_project():
             installment4_date,
             installment5_date,
             installment6_date,
+            installment7_date,
+            installment8_date,
+            installment9_date,
+            installment10_date,
             projscope,
             project_name,
             installment1amount,
@@ -15097,12 +15184,20 @@ def update_project():
             installment4amount,
             installment5amount,
             installment6amount,
+            installment7amount,
+            installment8amount,
+            installment9amount,
+            installment10amount,
             installment1_duedate,
             installment2_duedate,
             installment3_duedate,
             installment4_duedate,
             installment5_duedate,
             installment6_duedate,
+            installment7_duedate,
+            installment8_duedate,
+            installment9_duedate,
+            installment10_duedate,
             project_id
         )
 
@@ -15636,6 +15731,10 @@ def get_updated_table_data():
                     installment3amount, installment3duedate, installment3date, installment4amount,
                     installment4duedate, installment4date, installment5amount, installment5duedate,
                     installment5date, installment6amount, installment6duedate, installment6date,
+                    installment7amount, installment7duedate, installment7date,
+                    installment8amount, installment8duedate, installment8date,
+                    installment9amount, installment9duedate, installment9date,
+                    installment10amount, installment10duedate, installment10date,
                     projectcompletionstatus, latepaymentinterest
                 FROM connectlinkdatabase
                 ORDER BY id DESC
@@ -15656,6 +15755,10 @@ def get_updated_table_data():
                 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
                 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
                 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
+                'installment7amount', 'installment7duedate', 'installment7date',
+                'installment8amount', 'installment8duedate', 'installment8date',
+                'installment9amount', 'installment9duedate', 'installment9date',
+                'installment10amount', 'installment10duedate', 'installment10date',
                 'projectcompletionstatus', 'latepaymentinterest'
             ]
             
@@ -15673,8 +15776,10 @@ def get_updated_table_data():
                 'datedepositorbullet',
                 'installment1duedate', 'installment2duedate', 'installment3duedate',
                 'installment4duedate', 'installment5duedate', 'installment6duedate',
+                'installment7duedate', 'installment8duedate', 'installment9duedate', 'installment10duedate',
                 'installment1date', 'installment2date', 'installment3date',
-                'installment4date', 'installment5date', 'installment6date'
+                'installment4date', 'installment5date', 'installment6date',
+                'installment7date', 'installment8date', 'installment9date', 'installment10date',
             ]
             
             for col in date_columns:
@@ -15692,6 +15797,10 @@ def get_updated_table_data():
                     'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
                     'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
                     'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
+                    'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date',
                     'projectcompletionstatus', 'latepaymentinterest', 'id']]
             
             # Convert DataFrame back to list of lists
