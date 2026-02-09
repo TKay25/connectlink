@@ -12726,6 +12726,7 @@ def run1(userid):
         maindataquery = f"SELECT * FROM connectlinkdatabase;"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
+        print("maaaaiiiiin DATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
         print(maindata)
         num_projects = len(maindata)
         print(f"Number of projects: {num_projects}")
