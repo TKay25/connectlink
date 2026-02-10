@@ -14085,7 +14085,7 @@ def download_installments():
                     )
                 """
                 where_clauses.append(due_condition)
-                params.extend([due_year, due_month_num] * 6)
+                params.extend([due_year, due_month_num] * 10)
             
             # Build final WHERE clause
             where_clause = ""
