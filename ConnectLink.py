@@ -15171,7 +15171,7 @@ def update_project():
                 installment7amount = %s,
                 installment8amount = %s,
                 installment9amount = %s,
-                installment10amount = %s
+                installment10amount = %s,
                 installment1duedate = %s,
                 installment2duedate = %s,
                 installment3duedate = %s,
