@@ -368,6 +368,89 @@ def initialize_database_tables():
 
             for sql_stmt in payment_alters:
                 cursor.execute(sql_stmt)
+
+
+            try:
+                # Create the update query for PostgreSQL
+                update_query = """
+                UPDATE connectlinkdatabase 
+                SET 
+                    installment1duedate = CASE 
+                        WHEN installment1duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment1duedate) = 2025 
+                        THEN installment1duedate + INTERVAL '1 year' 
+                        ELSE installment1duedate 
+                    END,
+                    installment2duedate = CASE 
+                        WHEN installment2duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment2duedate) = 2025 
+                        THEN installment2duedate + INTERVAL '1 year' 
+                        ELSE installment2duedate 
+                    END,
+                    installment3duedate = CASE 
+                        WHEN installment3duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment3duedate) = 2025 
+                        THEN installment3duedate + INTERVAL '1 year' 
+                        ELSE installment3duedate 
+                    END,
+                    installment4duedate = CASE 
+                        WHEN installment4duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment4duedate) = 2025 
+                        THEN installment4duedate + INTERVAL '1 year' 
+                        ELSE installment4duedate 
+                    END,
+                    installment5duedate = CASE 
+                        WHEN installment5duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment5duedate) = 2025 
+                        THEN installment5duedate + INTERVAL '1 year' 
+                        ELSE installment5duedate 
+                    END,
+                    installment6duedate = CASE 
+                        WHEN installment6duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment6duedate) = 2025 
+                        THEN installment6duedate + INTERVAL '1 year' 
+                        ELSE installment6duedate 
+                    END,
+                    installment7duedate = CASE 
+                        WHEN installment7duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment7duedate) = 2025 
+                        THEN installment7duedate + INTERVAL '1 year' 
+                        ELSE installment7duedate 
+                    END,
+                    installment8duedate = CASE 
+                        WHEN installment8duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment8duedate) = 2025 
+                        THEN installment8duedate + INTERVAL '1 year' 
+                        ELSE installment8duedate 
+                    END,
+                    installment9duedate = CASE 
+                        WHEN installment9duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment9duedate) = 2025 
+                        THEN installment9duedate + INTERVAL '1 year' 
+                        ELSE installment9duedate 
+                    END,
+                    installment10duedate = CASE 
+                        WHEN installment10duedate IS NOT NULL 
+                        AND EXTRACT(YEAR FROM installment10duedate) = 2025 
+                        THEN installment10duedate + INTERVAL '1 year' 
+                        ELSE installment10duedate 
+                    END
+                WHERE id = %s
+                RETURNING *;
+                """
+                
+                cursor.execute(update_query, (100,))
+                updated_row = cursor.fetchone()
+                connection.commit()
+                
+                print(f"Updated due dates for project ID {100}")
+                
+            except Exception as e:
+                connection.rollback()
+                print(f"Error updating dates: {e}")
+                return jsonify({'error': str(e)}), 500
+
+
             
             connection.commit()
             print("✅ Database tables initialized successfully!")
