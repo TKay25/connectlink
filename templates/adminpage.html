@@ -2417,6 +2417,7 @@ body::before {
                                 </div>
                             </div>
 
+
                             <div class="card mb-3">
                                 <div class="card-header bg-light">
                                     <h6 class="mb-0">Installment 6 Details</h6>
@@ -2468,6 +2469,59 @@ body::before {
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">Installment 7 Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3 align-items-center">
+                                        <!-- Amount -->
+                                        <div class="col-xl col-lg-3 col-md-4 col-sm-6">
+                                            <div class="form-group">
+                                                <label for="updateInstallment7Amount" class="form-label fw-bold mb-1">Amount (USD)</label>
+                                                <input type="text" class="form-control editable-field" id="updateInstallment7Amount" name="Installment7Amount">
+                                            </div>
+                                        </div>
+
+                                        <!-- Due Date -->
+                                        <div class="col-xl col-lg-3 col-md-4 col-sm-6">
+                                            <div class="form-group">
+                                                <label for="updateInstallment7DueDate" class="form-label fw-bold mb-1">Due Date</label>
+                                                <input type="date" class="form-control editable-field" id="updateInstallment7DueDate" name="Installment7DueDate">
+                                            </div>
+                                        </div>
+
+                                        <!-- Date Paid -->
+                                        <div class="col-xl col-lg-3 col-md-4 col-sm-6">
+                                            <div class="form-group">
+                                                <label for="updateInstallment7Date" class="form-label fw-bold mb-1">Date Paid</label>
+                                                <input type="date" class="form-control editable-field" id="updateInstallment7Date" name="installment7_paid_date">
+                                            </div>
+                                        </div>
+
+                                        <!-- Button 1: Get Receipt -->
+                                        <div class="col-xl col-lg-3 col-md-6 col-sm-6">
+                                            <div class="d-grid h-100">
+                                                <button type="button" class="btn btn-primary w-100 py-2">
+                                                    Get Receipt
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Button 2: Send Receipt to Client -->
+                                        <div class="col-xl col-lg-3 col-md-6 col-sm-6">
+                                            <div class="d-grid h-100">
+                                                <button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst7">
+                                                    <span id="sendReceiptText7"><i class="bi bi-whatsapp"></i>Send Receipt to Client</span>
+                                                    <span id="sendReceiptSpinner7" class="spinner-border spinner-border-sm d-none"></span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
 
                         </div>
                         <!-- End Scrollable Container -->
@@ -8032,6 +8086,10 @@ $(document).ready(function() {
         const installment6Amount = rowData[41]; // Installment 6 amount
         const installment6DueDate = rowData[42]; // Installment 6 due date
         const installment6Date = rowData[43]; // Installment 6 paid date
+        const installment7Amount = rowData[44]; // Installment 7 amount
+        const installment7DueDate = rowData[45]; // Installment 7 due date
+        const installment7Date = rowData[46]; // Installment 7 paid date
+
         const id = rowData[58]; // First column (ID)
 
         // Strip HTML tags
@@ -8087,7 +8145,11 @@ $(document).ready(function() {
         $('#updateInstallment6Amount').val(installment6Amount);
         $('#updateInstallment6DueDate').val(formatForDateInput(installment6DueDate));
         $('#updateInstallment6Date').val(formatForDateInput(installment6Date));
-                        
+             
+        $('#updateInstallment7Amount').val(installment7Amount);
+        $('#updateInstallment7DueDate').val(formatForDateInput(installment7DueDate));
+        $('#updateInstallment7Date').val(formatForDateInput(installment7Date));
+
         function formatForDateInput(dateText) {
             if (!dateText || dateText === 'None' || dateText === 'null') return '';
             
