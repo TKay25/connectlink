@@ -10874,10 +10874,17 @@ def download_contract(project_id):
             if not row:
                 return "Project not found", 404
 
-            print("data here")
+            column_names = [desc[0] for desc in cursor.description]
+            print("\nColumn names:")
+            print(column_names)
 
-            print(row)
+            # Create a DataFrame (single row)
+            dfjh = pd.DataFrame([row], columns=column_names)
 
+            print("\nDataFrame created:")
+            print(dfjh)
+            print(f"\nDataFrame shape: {dfjh.shape}")
+            
             # Format agreement date
             agreement_date = row[16] 
             formatted_agreement_date = agreement_date.strftime("%d %B %Y")
