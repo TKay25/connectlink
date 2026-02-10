@@ -10874,6 +10874,10 @@ def download_contract(project_id):
             if not row:
                 return "Project not found", 404
 
+            print("data here")
+
+            print(row)
+
             # Format agreement date
             agreement_date = row[16] 
             formatted_agreement_date = agreement_date.strftime("%d %B %Y")
