@@ -13150,7 +13150,7 @@ def export_cashflow():
             for row in rows:
                 # Check installment due dates
                 for i in range(10):
-                    due_date_idx = 10 + (i * 2)
+                    due_date_idx = 6 + (i * 2)
                     due_date = row[due_date_idx]
                     if due_date:
                         try:
@@ -13232,8 +13232,8 @@ def export_cashflow():
                 
                 # Add installment amounts
                 for i in range(10):
-                    due_date_idx = 10 + (i * 2)
-                    amount_idx = 11 + (i * 2)
+                    due_date_idx = 6 + (i * 2)
+                    amount_idx = 7 + (i * 2)
                     
                     due_date = row[due_date_idx]
                     amount = row[amount_idx]
