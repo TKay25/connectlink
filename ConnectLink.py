@@ -6584,7 +6584,15 @@ def webhook():
                                                                             'installment5duedate': row[39].strftime("%-d %B %Y") if len(row) > 39 and row[39] else "",
                                                                             'installment6amount': row[41] if len(row) > 41 else 0,
                                                                             'installment6duedate': row[42].strftime("%-d %B %Y") if len(row) > 42 and row[42] else "",
-                                                                            'latepaymentinterest': row[45] if len(row) > 45 else 0,
+                                                                            'installment7amount': row[47] if len(row) > 47 else None,
+                                                                            'installment7duedate': row[48].strftime("%-d %B %Y") if len(row) > 48 and row[48] else None,
+                                                                            'installment8amount': row[50] if len(row) > 50 else None,
+                                                                            'installment8duedate': row[51].strftime("%-d %B %Y") if len(row) > 51 and row[51] else None,
+                                                                            'installment9amount': row[53] if len(row) > 53 else None,
+                                                                            'installment9duedate': row[54].strftime("%-d %B %Y") if len(row) > 54 and row[54] else None,
+                                                                            'installment10amount': row[56] if len(row) > 56 else None,
+                                                                            'installment10duedate': row[57].strftime("%-d %B %Y") if len(row) > 57 and row[57] else None,
+                                                                            'latepaymentinterest': row[45] if len(row) > 45 else None,
                                                                             'companyname': companyname,
                                                                             'companyaddress': address,
                                                                             'companycontact1': contact1,
@@ -6983,6 +6991,10 @@ def webhook():
                                                                                         <tr><td>{project['installment4duedate']}</td><td style="font-weight: 700;">{project['installment4amount']}</td></tr>
                                                                                         <tr><td>{project['installment5duedate']}</td><td style="font-weight: 700;">{project['installment5amount']}</td></tr>
                                                                                         <tr><td>{project['installment6duedate']}</td><td style="font-weight: 700;">{project['installment6amount']}</td></tr>
+                                                                                        <tr><td>{project['installment7duedate']}</td><td style="font-weight: 700;">{project['installment7amount']}</td></tr>
+                                                                                        <tr><td>{project['installment8duedate']}</td><td style="font-weight: 700;">{project['installment8amount']}</td></tr>
+                                                                                        <tr><td>{project['installment9duedate']}</td><td style="font-weight: 700;">{project['installment9amount']}</td></tr>
+                                                                                        <tr><td>{project['installment10duedate']}</td><td style="font-weight: 700;">{project['installment10amount']}</td></tr>
                                                                                     </tbody>
                                                                                 </table>
                                                                                 
@@ -11702,7 +11714,31 @@ def download_payments_history(project_id):
                     "amount": row[41],
                     "due": row[42].strftime("%-d %B %Y") if row[42] else "-",
                     "paid": row[43].strftime("%-d %B %Y") if row[43] else "Not Paid",
-                }
+                },
+                {
+                    "name": "Installment 7",
+                    "amount": row[47],
+                    "due": row[48].strftime("%-d %B %Y") if row[48] else "-",
+                    "paid": row[49].strftime("%-d %B %Y") if row[49] else "Not Paid",
+                },
+                {
+                    "name": "Installment 8",
+                    "amount": row[50],
+                    "due": row[51].strftime("%-d %B %Y") if row[51] else "-",
+                    "paid": row[52].strftime("%-d %B %Y") if row[52] else "Not Paid",
+                },
+                {
+                    "name": "Installment 9",
+                    "amount": row[53],
+                    "due": row[54].strftime("%-d %B %Y") if row[54] else "-",
+                    "paid": row[55].strftime("%-d %B %Y") if row[55] else "Not Paid",
+                },
+                {
+                    "name": "Installment 10",
+                    "amount": row[56],
+                    "due": row[57].strftime("%-d %B %Y") if row[57] else "-",
+                    "paid": row[58].strftime("%-d %B %Y") if row[58] else "Not Paid",
+                },
             ]
 
             # Get logo as base64
