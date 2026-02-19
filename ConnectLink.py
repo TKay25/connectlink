@@ -7068,6 +7068,11 @@ def webhook():
                                                                                     <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
                                                                                 </div>
 
+                                                                                <div class="section-header">ACCOMMODATION PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinest projects.</p>
+                                                                                </div>
+
                                                                                 <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">12 Months Warranty for the roof and any defects identified during the period.</p>
@@ -7077,6 +7082,14 @@ def webhook():
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
                                                                                 </div>
+                                                                                
+                                                                                
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 5 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                                                                                 <div class="section-header">TERMINATION</div>
                                                                                 <div class="terms-box">
@@ -7087,14 +7100,6 @@ def webhook():
                                                                                         <li>Breaches any term of this Agreement causing substantial harm to the other party.</li>
                                                                                     </ol>
                                                                                 </div>
-                                                                                
-                                                                                
-                                                                                <!-- Page break -->
-                                                                                <div class="page-break"></div>
-                                                                                
-                                                                                <!-- Page 5 -->
-
-                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                                                                                 <div class="section-header">DISPUTE RESOLUTION</div>
                                                                                 <div class="terms-box">
@@ -11540,6 +11545,11 @@ def download_contract(project_id):
                         <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
                     </div>
 
+                    <div class="section-header">ACCOMMODATION PROVISION</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinest projects.</p>
+                    </div>
+
                     <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">12 Months Warranty for the roof and any defects identified during the period.</p>
@@ -11550,6 +11560,14 @@ def download_contract(project_id):
                         <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
                     </div>
 
+                    
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                     <div class="section-header">TERMINATION</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">This Agreement may be terminated by either party if the other party:</p>
@@ -11559,14 +11577,6 @@ def download_contract(project_id):
                             <li>Breaches any term of this Agreement causing substantial harm to the other party.</li>
                         </ol>
                     </div>
-                    
-                    
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
