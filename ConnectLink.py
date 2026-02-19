@@ -17429,11 +17429,11 @@ def download_inst2_receipt(project_id):
                 <div class="header">
                     <img src="data:image/png;base64,{logo_base64}" class="logo">
                     <div class="receipt-title">
-                        <h2>RECEIPT</h2>
+                        <h2>INSTALLMENT RECEIPT</h2>
                         <p>Second Installment Payment</p>
                         <div class="receipt-metadata">
                             <span class="receipt-number">REF: CON-{row[0]}-INST2</span>
-                            <span class="receipt-date">{datetime.now().strftime('%d %b %Y')}</span>
+                            <span class="receipt-date">{effective_date}</span>
                         </div>
                     </div>
                 </div>
@@ -17442,7 +17442,7 @@ def download_inst2_receipt(project_id):
                 <div class="payment-summary">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <span class="status-paid">PAID</span>
-                        <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-{int(datetime.now().timestamp())}</span>
+                        <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-2</span>
                     </div>
                     <div class="payment-grid">
                         <div class="payment-item">
