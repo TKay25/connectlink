@@ -17290,7 +17290,7 @@ def download_inst2_receipt(project_id):
 
                 .receipt-title h2 {{
                     color: #1E2A56;
-                    font-size: 24px;
+                    font-size: 20px;
                     margin: 0;
                     font-weight: 800;
                     text-transform: uppercase;
@@ -17351,7 +17351,7 @@ def download_inst2_receipt(project_id):
                 .info-row {{
                     display: flex;
                     margin-bottom: 6px;
-                    font-size: 13px;
+                    font-size: 11px;
                 }}
 
                 .info-label {{
@@ -17414,7 +17414,7 @@ def download_inst2_receipt(project_id):
                     border: 1px dashed #1E2A56;
                     padding: 8px 12px;
                     margin: 10px 0;
-                    font-size: 12px;
+                    font-size: 11px;
                     color: #4a5568;
                     border-radius: 4px;
                 }}
@@ -17426,7 +17426,7 @@ def download_inst2_receipt(project_id):
 
                 /* Footer with signatures */
                 .footer {{
-                    margin-top: 25px;
+                    margin-top: 20px;
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-end;
@@ -17455,7 +17455,7 @@ def download_inst2_receipt(project_id):
 
                 .stamp {{
                     margin-top: 10px;
-                    font-size: 20px;
+                    font-size: 18px;
                     font-weight: bold;
                     color: #1E2A56;
                     opacity: 0.3;
