@@ -7671,150 +7671,203 @@ document.getElementById("getdepositReceiptBtn").addEventListener("click", async 
     }
 });
 
-
-// Dynamic Get Receipt Handler - Single function for all installments
-function initializeReceiptButtons() {
-    // Configuration for each installment
-    const installmentConfigs = [
-        {
-            buttonId: 'getinst1ReceiptBtn',
-            dateFieldId: 'updateInstallment1Date',
-            spinnerId: 'inst1Spinner',
-            textId: 'inst1Text',
-            endpoint: '/download_inst1_receipt/',
-            installmentNum: 1,
-            alertMessage: 'date installment 1 was paid'
-        },
-        {
-            buttonId: 'getinst2ReceiptBtn',
-            dateFieldId: 'updateInstallment2Date',
-            spinnerId: 'inst2Spinner',
-            textId: 'inst2Text',
-            endpoint: '/download_inst2_receipt/',
-            installmentNum: 2,
-            alertMessage: 'date installment 2 was paid'
-        },
-        {
-            buttonId: 'getinst3ReceiptBtn',
-            dateFieldId: 'updateInstallment3Date',
-            spinnerId: 'inst3Spinner',
-            textId: 'inst3Text',
-            endpoint: '/download_inst3_receipt/',
-            installmentNum: 3,
-            alertMessage: 'date installment 3 was paid'
-        }
-    ];
-
-    // Add event listeners for each installment
-    installmentConfigs.forEach(config => {
-        const button = document.getElementById(config.buttonId);
-        if (button) {
-            button.addEventListener('click', (e) => handleReceiptClick(e, config));
-        }
-    });
-}
-
-// Generic receipt click handler
-async function handleReceiptClick(e, config) {
-    e.preventDefault();
-
-    const projectId = document.getElementById("updateProjectId").value;
-    const paidDate = document.getElementById(config.dateFieldId).value;
-    const btn = e.currentTarget;
-    const spinner = document.getElementById(config.spinnerId);
-    const textSpan = document.getElementById(config.textId);
-
-    // Check if project is selected
-    if (!projectId) {
-        showAlert('⚠️ No project selected!', 'warning');
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded - initializing receipt buttons');
+    
+    // Get all receipt buttons
+    const receiptButtons = document.querySelectorAll('.get-receipt-btn');
+    console.log('Found ' + receiptButtons.length + ' receipt buttons');
+    
+    if (receiptButtons.length === 0) {
+        console.error('No buttons with class "get-receipt-btn" found!');
         return;
     }
     
-    // Check if paid date is empty/null/undefined
-    if (!paidDate || paidDate === '' || paidDate === 'null' || paidDate === 'undefined' || paidDate.trim() === '') {
-        showAlert(`⚠️ Sorry, you have to input the ${config.alertMessage} first before you can get the receipt`, 'warning');
+    // Add click handler to each button
+    receiptButtons.forEach(button => {
+        button.addEventListener('click', handleReceiptClick);
+    });
+    
+    // Also handle deposit receipt button if it exists
+    const depositBtn = document.getElementById('getdepositReceiptBtn');
+    if (depositBtn) {
+        depositBtn.addEventListener('click', handleDepositReceipt);
+    }
+});
+
+// Handle installment receipt clicks
+async function handleReceiptClick(e) {
+    e.preventDefault(); // Prevent any form submission
+    e.stopPropagation(); // Stop event bubbling
+    
+    console.log('Receipt button clicked');
+    
+    const button = e.currentTarget;
+    
+    // Get data attributes
+    const installmentNum = button.dataset.installment;
+    const dateFieldId = button.dataset.dateField;
+    const spinnerId = button.dataset.spinner;
+    const textId = button.dataset.text;
+    
+    console.log('Installment:', installmentNum);
+    console.log('Date Field ID:', dateFieldId);
+    console.log('Spinner ID:', spinnerId);
+    console.log('Text ID:', textId);
+    
+    // Get form values
+    const projectId = document.getElementById("updateProjectId")?.value;
+    const paidDate = document.getElementById(dateFieldId)?.value;
+    
+    console.log('Project ID:', projectId);
+    console.log('Paid Date:', paidDate);
+    
+    // Get spinner and text elements
+    const spinner = document.getElementById(spinnerId);
+    const textSpan = document.getElementById(textId);
+    
+    if (!spinner || !textSpan) {
+        console.error('Spinner or text element not found');
+        alert('❌ Error: Button elements not found');
         return;
     }
 
-    // Show spinner
-    setButtonLoading(btn, spinner, textSpan, true, config.installmentNum);
+    // Validation
+    if (!projectId) {
+        alert('⚠️ No project selected!');
+        return;
+    }
+    
+    if (!paidDate || paidDate.trim() === '') {
+        alert(`⚠️ Please enter the date installment ${installmentNum} was paid first`);
+        return;
+    }
+
+    // Show loading state
+    button.disabled = true;
+    spinner.classList.remove("d-none");
+    const originalText = textSpan.textContent;
+    textSpan.textContent = "Generating...";
 
     try {
-        const response = await fetch(`${config.endpoint}${projectId}`, {
+        console.log(`Sending request to: /download_installment_receipt/${projectId}/${installmentNum}`);
+        
+        const response = await fetch(`/download_installment_receipt/${projectId}/${installmentNum}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                [`installment${config.installmentNum}_date`]: paidDate
+                [`installment${installmentNum}_date`]: paidDate
             })
         });
 
+        console.log('Response status:', response.status);
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error_message || `Failed to generate installment ${config.installmentNum} receipt`);
+            let errorMessage = `Failed to generate receipt (Status: ${response.status})`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error_message || errorMessage;
+            } catch (e) {
+                // Not JSON, use default message
+            }
+            throw new Error(errorMessage);
         }
 
-        // Check if response is JSON (error) or blob (PDF)
+        // Check content type
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
             const errorData = await response.json();
             throw new Error(errorData.error_message || 'Failed to generate receipt');
         }
 
+        // Get blob and download
         const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Installment${installmentNum}_Receipt_Project_${projectId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
         
-        // Download the file
-        downloadFile(blob, `Installment${config.installmentNum}_Receipt_Project_${projectId}.pdf`);
+        console.log('Download initiated successfully');
 
-        showAlert(`✅ Installment ${config.installmentNum} receipt downloaded successfully!`, 'success');
+    } catch (err) {
+        console.error('Error:', err);
+        alert(`❌ ${err.message}`);
+    } finally {
+        // Restore button state
+        button.disabled = false;
+        spinner.classList.add("d-none");
+        textSpan.textContent = originalText || "Get Receipt";
+    }
+}
+
+// Handle deposit receipt
+async function handleDepositReceipt(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('Deposit receipt button clicked');
+    
+    const button = e.currentTarget;
+    const projectId = document.getElementById("updateProjectId")?.value;
+    const depositDate = document.getElementById("updateDatePaid")?.value;
+    const spinner = document.getElementById("depositSpinner");
+    const textSpan = document.getElementById("depositText");
+
+    if (!projectId) {
+        alert('⚠️ No project selected!');
+        return;
+    }
+    
+    if (!depositDate || depositDate.trim() === '') {
+        alert('⚠️ Please enter the deposit date first');
+        return;
+    }
+
+    // Show loading
+    button.disabled = true;
+    spinner.classList.remove("d-none");
+    const originalText = textSpan.textContent;
+    textSpan.textContent = "Generating...";
+
+    try {
+        const response = await fetch(`/download_deposit_receipt/${projectId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                deposit_date: depositDate
+            })
+        });
+
+        if (!response.ok) throw new Error("Failed to generate receipt");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Deposit_Receipt_Project_${projectId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
 
     } catch (err) {
         console.error(err);
-        showAlert(`❌ ${err.message || `Failed to download installment ${config.installmentNum} receipt`}`, 'danger');
+        alert("❌ Failed to download deposit receipt");
     } finally {
-        // Hide spinner
-        setButtonLoading(btn, spinner, textSpan, false, config.installmentNum);
-    }
-}
-
-// Helper function to set button loading state
-function setButtonLoading(btn, spinner, textSpan, isLoading, installmentNum) {
-    if (isLoading) {
-        btn.disabled = true;
-        spinner.classList.remove("d-none");
-        textSpan.textContent = "Generating...";
-    } else {
-        btn.disabled = false;
+        button.disabled = false;
         spinner.classList.add("d-none");
-        textSpan.textContent = "Get Receipt";
+        textSpan.textContent = originalText || "Get Receipt";
     }
 }
-
-// Helper function to download file
-function downloadFile(blob, filename) {
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-}
-
-// Helper function to show alerts
-function showAlert(message, type = 'info') {
-    // You can customize this based on your alert system
-    alert(message);
-    
-    // If you have a toast/notification system, use it here
-    // Example: toastr[type](message);
-}
-
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', initializeReceiptButtons);
-
 
 </script>
 <script>
