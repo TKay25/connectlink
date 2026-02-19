@@ -16974,7 +16974,8 @@ def send_template_with_button(to_number, project_id):
         print(f"❌ Error: {e}")
         return {"error": {"message": str(e)}}
 
-@app.route('/download_inst1_receipt/<project_id>')
+
+@app.route('/download_inst1_receipt/<project_id>', methods=['POST'])
 def download_inst_receipt(project_id):
     with get_db() as (cursor, connection):
         # Fetch project info
