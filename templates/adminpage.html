@@ -2194,8 +2194,9 @@ body::before {
                                         <!-- Button 1: Get Receipt -->
                                         <div class="col-xl col-lg-3 col-md-6 col-sm-6">
                                             <div class="d-grid h-100">
-                                                <button type="button" class="btn btn-primary w-100 py-2">
-                                                    Get Receipt
+                                                <button class="btn btn-primary w-100" id="getinst1ReceiptBtn">
+                                                    <span id="inst1Text">Get Receipt</span>
+                                                    <span id="inst1Spinner" class="spinner-border spinner-border-sm d-none"></span>
                                                 </button>
                                             </div>
                                         </div>
@@ -7649,7 +7650,46 @@ document.getElementById("getdepositReceiptBtn").addEventListener("click", async 
     }
 });
 
+document.getElementById("getinst1ReceiptBtn").addEventListener("click", async function(e) {
+    e.preventDefault();
 
+    const projectId = document.getElementById("updateProjectId").value; // get project ID
+    const btn = this;
+    const spinner = document.getElementById("inst1Spinner");
+    const textSpan = document.getElementById("inst1Text");
+
+    // Show spinner
+    btn.disabled = true;
+    spinner.classList.remove("d-none");
+    textSpan.textContent = "Generating...";
+
+    try {
+        const response = await fetch(`/download_inst1_receipt/${projectId}`, {
+            method: 'GET'
+        });
+
+        if (!response.ok) throw new Error("Failed to generate receipt");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Installment1_Receipt_Project_${projectId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ Failed to download installment 1 receipt");
+    } finally {
+        // Hide spinner
+        btn.disabled = false;
+        spinner.classList.add("d-none");
+        textSpan.textContent = "Get Receipt";
+    }
+});
 
 </script>
 <script>

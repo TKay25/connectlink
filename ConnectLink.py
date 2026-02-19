@@ -16964,7 +16964,155 @@ def send_template_with_button(to_number, project_id):
         print(f"❌ Error: {e}")
         return {"error": {"message": str(e)}}
 
+@app.route('/download_inst1_receipt/<project_id>')
+def download_inst_receipt(project_id):
+    with get_db() as (cursor, connection):
+        # Fetch project info
 
+        cursor.execute("SELECT id, clientname, clientaddress, clientwanumber, clientemail,projectname, projectlocation, projectdescription, projectadministratorname, installment1amount, installment1duedate, installment1date  FROM connectlinkdatabase WHERE id = %s", (project_id,))
+        row = cursor.fetchone()
+        if not row:
+            return "Project not found", 404
+
+        # Fetch company info
+        cursor.execute("SELECT * FROM connectlinkdetails;")
+        details = cursor.fetchall()
+        company = details[0] if details else {}
+
+        # Get logo
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+        with open(logo_path, 'rb') as img:
+            logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+
+        # HTML template
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                @page {{
+                    size: A5;
+                    margin: 10mm 7mm;
+                }}
+
+                body {{
+                    font-family: 'Arial', sans-serif;
+                    color: #1E2A56;
+                    line-height: 1.5;
+                    margin: 0;
+                    position: relative;
+                }}
+
+                /* Watermark on top */
+                .watermark {{
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) rotate(-30deg);
+                    font-size: 80px;
+                    color: rgba(200, 200, 200, 0.2);
+                    z-index: 9999; /* on top */
+                    pointer-events: none;
+                    white-space: nowrap;
+                }}
+
+                .header {{
+                    text-align: center;
+                    margin-bottom: 25px;
+                    position: relative;
+                    z-index: 1;
+                }}
+                .logo {{
+                    width: 150px;
+                    margin-bottom: 10px;
+                }}
+                h5 {{
+                    font-size: 16px;
+                    margin: 5px 0;
+                    font-weight: 800;
+                }}
+
+                .section-title {{
+                    font-size: 16px;
+                    margin-top: 25px;
+                    margin-bottom: 8px;
+                    border-bottom: 2px solid #1E2A56;
+                    font-weight: 800;
+                    position: relative;
+                    z-index: 1;
+                }}
+
+                .info-box {{
+                    padding: 15px;
+                    border: 1px solid #d3d6e4;
+                    border-radius: 8px;
+                    background: #f4f6fb;
+                    margin-bottom: 15px;
+                    box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+                    position: relative;
+                    z-index: 1;
+                }}
+
+                .info-box p {{
+                    margin: 5px 0;
+                    font-size: 14px;
+                }}
+
+                .footer {{
+                    margin-top: 30px;
+                    text-align: right;
+                    font-size: 12px;
+                    color: #666;
+                    position: relative;
+                    z-index: 1;
+                }}
+            </style>
+        </head>
+        <body>
+
+            <div class="watermark">FIRST INSTALLMENT</div>
+
+            <div class="header">
+                <img src="data:image/png;base64,{logo_base64}" class="logo">
+                <h5>Installment Receipt</h5>
+            </div>
+
+            <div class="section-title">Client Information</div>
+            <div class="info-box">
+                <p><strong>Name:</strong> {row[1]}</p>
+                <p><strong>Address:</strong> {row[2]}</p>
+                <p><strong>Contact:</strong> 0{row[3]}</p>
+                <p><strong>Email:</strong> {row[4]}</p>
+            </div>
+
+            <div class="section-title">Project Information</div>
+            <div class="info-box">
+                <p><strong>Project Name:</strong> {row[5]}</p>
+                <p><strong>Location:</strong> {row[6]}</p>
+                <p><strong>Project Scope:</strong> {row[7]}</p>
+                <p><strong>Administrator:</strong> {row[8]}</p>
+            </div>
+
+            <div class="section-title">First Installment Details</div>
+            <div class="info-box">
+                <p><strong>Installment Amount:</strong> USD {row[9] if row[9] else '—'}</p>
+                <p><strong>Due Date:</strong> {row[10].strftime('%d %B %Y') if row[10] else '—'}</p>
+                <p><strong>Date Paid:</strong> {row[11].strftime('%d %B %Y') if row[11] else '—'}</p>
+            </div>
+
+        </body>
+        </html>
+        """
+
+
+
+        pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+
+        response = make_response(pdf)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties First Installment_Receipt_Project_{project_id}.pdf"
+        return response
 
 
 @app.route('/download_deposit_receipt/<project_id>')
