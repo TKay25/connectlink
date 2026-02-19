@@ -17300,7 +17300,7 @@ def download_inst2_receipt(project_id):
                     margin-top: 3px;
                 }}
 
-                /* Client Details Section - Full width above */
+                /* Client Details Section - REDUCED FONT SIZE */
                 .client-section {{
                     margin-bottom: 12px;
                     position: relative;
@@ -17309,11 +17309,12 @@ def download_inst2_receipt(project_id):
                     border: 1px solid #e0e4f0;
                     border-radius: 4px;
                     padding: 10px;
+                    font-size: 9px;  /* REDUCED */
                 }}
 
                 .section-header {{
                     color: #1E2A56;
-                    font-size: 12px;
+                    font-size: 12px;  /* KEPT ORIGINAL */
                     font-weight: 700;
                     margin: 0 0 8px 0;
                     padding-bottom: 3px;
@@ -17332,22 +17333,24 @@ def download_inst2_receipt(project_id):
                 .info-row {{
                     display: flex;
                     margin-bottom: 4px;
-                    font-size: 10px;
+                    font-size: 9px;  /* REDUCED */
                 }}
 
                 .info-label {{
                     font-weight: 600;
                     width: 65px;
                     color: #4a5568;
+                    font-size: 9px;  /* REDUCED */
                 }}
 
                 .info-value {{
                     flex: 1;
                     color: #1E2A56;
                     font-weight: 500;
+                    font-size: 9px;  /* REDUCED */
                 }}
 
-                /* Project section - below client */
+                /* Project section - REDUCED FONT SIZE */
                 .project-section {{
                     margin-bottom: 12px;
                     position: relative;
@@ -17356,9 +17359,10 @@ def download_inst2_receipt(project_id):
                     border: 1px solid #e0e4f0;
                     border-radius: 4px;
                     padding: 10px;
+                    font-size: 9px;  /* REDUCED */
                 }}
 
-                /* Payment section */
+                /* Payment section - ORIGINAL SIZE */
                 .payment-section {{
                     margin: 12px 0;
                     position: relative;
@@ -17400,7 +17404,7 @@ def download_inst2_receipt(project_id):
                     color: #666;
                 }}
 
-                /* Amount in words */
+                /* Amount in words - ORIGINAL SIZE */
                 .amount-words {{
                     background: #fff;
                     border: 1px dashed #1E2A56;
@@ -17417,7 +17421,7 @@ def download_inst2_receipt(project_id):
                     font-size: 9px;
                 }}
 
-                /* Footer */
+                /* Footer - ORIGINAL SIZE */
                 .footer {{
                     margin-top: 20px;
                     display: flex;
@@ -17479,7 +17483,7 @@ def download_inst2_receipt(project_id):
                     </div>
                 </div>
 
-                <!-- CLIENT DETAILS - Full width above -->
+                <!-- CLIENT DETAILS - Reduced font size -->
                 <div class="client-section">
                     <div class="section-header">CLIENT DETAILS</div>
                     <div class="client-grid">
@@ -17508,7 +17512,7 @@ def download_inst2_receipt(project_id):
                     </div>
                 </div>
 
-                <!-- PROJECT DETAILS - Below client -->
+                <!-- PROJECT DETAILS - Reduced font size -->
                 <div class="project-section">
                     <div class="section-header">PROJECT DETAILS</div>
                     <div class="client-grid">
@@ -17537,7 +17541,7 @@ def download_inst2_receipt(project_id):
                     </div>
                 </div>
 
-                <!-- Payment Details -->
+                <!-- Payment Details - Original size -->
                 <div class="payment-section">
                     <div class="section-header">PAYMENT DETAILS - SECOND INSTALLMENT</div>
                     <div class="payment-box">
@@ -17556,13 +17560,13 @@ def download_inst2_receipt(project_id):
                     </div>
                 </div>
 
-                <!-- Amount in words -->
+                <!-- Amount in words - Original size -->
                 <div class="amount-words">
                     <strong>Amount in words:</strong> 
                     {number_to_words(int(row[9])) if row[9] else 'Zero'} United States Dollars Only
                 </div>
 
-                <!-- Footer -->
+                <!-- Footer - Original size -->
                 <div class="footer">
                     <div class="signature-box">
                         <div class="signature-line"></div>
@@ -17584,7 +17588,6 @@ def download_inst2_receipt(project_id):
         </body>
         </html>
         """
-
         pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
         response = make_response(pdf)
