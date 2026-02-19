@@ -7061,6 +7061,11 @@ def webhook():
                                                                                     <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
                                                                                 </div>
                                                                                 
+                                                                                <div class="section-header">INDEMNITY CLAUSE</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
+                                                                                </div>
+
                                                                                 <div class="section-header">TERMINATION</div>
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">This Agreement may be terminated by either party if the other party:</p>
@@ -11506,6 +11511,11 @@ def download_contract(project_id):
                     <div class="section-header">TRANSPORT PROVISION</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
+                    </div>
+
+                    <div class="section-header">INDEMNITY CLAUSE</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
                     </div>
 
                     <div class="section-header">TERMINATION</div>
