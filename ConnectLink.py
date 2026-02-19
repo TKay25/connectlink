@@ -7070,7 +7070,7 @@ def webhook():
 
                                                                                 <div class="section-header">ACCOMMODATION PROVISION</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinest projects.</p>
+                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
                                                                                 </div>
 
                                                                                 <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
@@ -11547,7 +11547,7 @@ def download_contract(project_id):
 
                     <div class="section-header">ACCOMMODATION PROVISION</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinest projects.</p>
+                        <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
                     </div>
 
                     <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
