@@ -17270,7 +17270,7 @@ def download_inst2_receipt(project_id):
                 }}
 
                 .logo {{
-                    width: 100px;
+                    width: 150px;
                 }}
 
                 .receipt-title h3 {{
