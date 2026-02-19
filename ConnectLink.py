@@ -17446,7 +17446,7 @@ def download_inst2_receipt(project_id):
                     <div class="payment-grid">
                         <div class="payment-item">
                             <div class="payment-label">Amount</div>
-                            <div class="payment-amount">${format(int(row[9]), ',') if row[9] else '0'}<small>.00</small></div>
+                            <div class="payment-amount">USD {format(float(row[9]), ',') if row[9] else '0'}<small>.00</small></div>
                         </div>
                         <div class="payment-item">
                             <div class="payment-label">Due Date</div>
@@ -17549,7 +17549,7 @@ def download_inst2_receipt(project_id):
                 <!-- Professional Footer -->
                 <div class="footer">
                     <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
-                    <div class="footer-line">For any inquiries, please contact accounts@connectlink.com | +263 78 123 4567</div>
+                    <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602 </div>
                     <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
                 </div>
             </div>
