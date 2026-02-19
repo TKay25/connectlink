@@ -7070,7 +7070,7 @@ def webhook():
 
                                                                                 <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">Warranty for the roof and any defects identified during the period.</p>
+                                                                                    <p style="font-size:11px;">12 Months Warranty for the roof and any defects identified during the period.</p>
                                                                                 </div>
                                                                                 
                                                                                 <div class="section-header">INDEMNITY CLAUSE</div>
@@ -11542,7 +11542,7 @@ def download_contract(project_id):
 
                     <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">Warranty for the roof and any defects identified during the period.</p>
+                        <p style="font-size:11px;">12 Months Warranty for the roof and any defects identified during the period.</p>
                     </div>
                     
                     <div class="section-header">INDEMNITY CLAUSE</div>
