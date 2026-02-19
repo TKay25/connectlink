@@ -17470,6 +17470,55 @@ def download_installment_receipt(project_id, installment_num):
                 'paid_date': 'installment3date',
                 'date_param': 'installment3_date',
                 'title': 'Third'
+            },
+            4: {
+                'amount': 'installment4amount',
+                'due_date': 'installment4duedate',
+                'paid_date': 'installment4date',
+                'date_param': 'installment4_date',
+                'title': 'Fourth'
+            },
+            5: {
+                'amount': 'installment5amount',
+                'due_date': 'installment5duedate',
+                'paid_date': 'installment5date',
+                'date_param': 'installment5_date',
+                'title': 'Fifth'
+            },
+            6: {
+                'amount': 'installment6amount',
+                'due_date': 'installment6duedate',
+                'paid_date': 'installment6date',
+                'date_param': 'installment6_date',
+                'title': 'Sixth'
+            },
+            7: {
+                'amount': 'installment7amount',
+                'due_date': 'installment7duedate',
+                'paid_date': 'installment7date',
+                'date_param': 'installment7_date',
+                'title': 'Seventh'
+            },
+            8: {
+                'amount': 'installment8amount',
+                'due_date': 'installment8duedate',
+                'paid_date': 'installment8date',
+                'date_param': 'installment8_date',
+                'title': 'Eighth'
+            },
+            9: {
+                'amount': 'installment9amount',
+                'due_date': 'installment9duedate',
+                'paid_date': 'installment9date',
+                'date_param': 'installment9_date',
+                'title': 'Ninth'
+            },
+            10: {
+                'amount': 'installment10amount',
+                'due_date': 'installment10duedate',
+                'paid_date': 'installment10date',
+                'date_param': 'installment10_date',
+                'title': 'Tenth'
             }
         }
         
@@ -17855,34 +17904,6 @@ def generate_receipt_html(row, effective_date, logo_base64, installment_title, i
     </body>
     </html>
     """
-
-
-
-
-
-
-def number_to_words(n):
-    """Convert number to words (simple version)"""
-    if not n:
-        return "Zero"
-    
-    ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
-    teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 
-             'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
-    tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
-    
-    n = int(n)
-    
-    if n < 10:
-        return ones[n]
-    elif n < 20:
-        return teens[n-10]
-    elif n < 100:
-        return tens[n//10] + (' ' + ones[n%10] if n%10 != 0 else '')
-    elif n < 1000:
-        return ones[n//100] + ' Hundred' + (' and ' + number_to_words(n%100) if n%100 != 0 else '')
-    else:
-        return str(n)  # Fallback for large numbers
 
 @app.route('/download_deposit_receipt/<project_id>')
 def download_deposit_receipt(project_id):
