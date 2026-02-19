@@ -17797,7 +17797,7 @@ def generate_receipt_html(row, effective_date, logo_base64, installment_title, i
                     <div class="payment-item">
                         <div class="payment-label">Amount</div>
                         <div class="payment-amount">
-                            USD <span class="amount-whole">{formatted_amount.split('.')[0]}</span>.<span class="amount-decimal">{formatted_amount.split('.')[1]}</span>
+                            USD <span class="amount-whole">{formatted_amount.split('.')[0]}</span>.<span class="amount-decimal"><small>{formatted_amount.split('.')[1]}</small></span>
                         </div>
                     </div>
                     <div class="payment-item">
