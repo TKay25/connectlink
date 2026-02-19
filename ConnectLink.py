@@ -4298,7 +4298,7 @@ def webhook():
                                                                                 }}
 
                                                                                 .logo {{
-                                                                                    width: 150px;
+                                                                                    width: 180px;
                                                                                 }}
 
                                                                                 .receipt-title {{
@@ -8343,7 +8343,7 @@ def webhook():
                                                                                     }}
 
                                                                                     .logo {{
-                                                                                        width: 150px;
+                                                                                        width: 180px;
                                                                                     }}
 
                                                                                     .receipt-title {{
@@ -17529,7 +17529,7 @@ def download_inst_receipt(project_id):
                 }}
 
                 .logo {{
-                    width: 150px;
+                    width: 180px;
                 }}
 
                 .receipt-title {{
@@ -17939,7 +17939,7 @@ def download_inst2_receipt(project_id):
                 }}
 
                 .logo {{
-                    width: 150px;
+                    width: 180px;
                 }}
 
                 .receipt-title {{
@@ -18348,7 +18348,7 @@ def download_inst3_receipt(project_id):
                 }}
 
                 .logo {{
-                    width: 150px;
+                    width: 180px;
                 }}
 
                 .receipt-title {{
