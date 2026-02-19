@@ -17217,146 +17217,127 @@ def download_inst2_receipt(project_id):
             <style>
                 @page {{
                     size: A5;
-                    margin: 5mm 7mm;
+                    margin: 5mm 5mm;
                 }}
 
                 body {{
                     font-family: 'Arial', sans-serif;
                     color: #2C3E50;
-                    line-height: 1.4;
+                    line-height: 1.3;
                     margin: 0;
                     padding: 0;
                     position: relative;
                     background: #fff;
+                    font-size: 11px;
                 }}
 
                 /* Receipt container with border */
                 .receipt-container {{
-                    border: 2px solid #1E2A56;
-                    padding: 15px;
+                    border: 1.5px solid #1E2A56;
+                    padding: 12px;
                     min-height: 680px;
                     position: relative;
                     background: white;
-                    border-radius: 4px;
+                    border-radius: 3px;
                 }}
 
-                /* Diagonal watermark */
+                /* Light watermark */
                 .watermark {{
                     position: absolute;
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%) rotate(-30deg);
-                    font-size: 90px;
+                    font-size: 70px;
                     font-weight: bold;
-                    color: rgba(30, 42, 86, 0.06);
+                    color: rgba(30, 42, 86, 0.05);
                     z-index: 1;
                     pointer-events: none;
                     white-space: nowrap;
                     text-transform: uppercase;
-                    letter-spacing: 5px;
+                    letter-spacing: 3px;
                 }}
 
-                /* Header with logo and title */
+                /* Header */
                 .header {{
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 20px;
-                    padding-bottom: 15px;
-                    border-bottom: 2px dashed #1E2A56;
+                    margin-bottom: 15px;
+                    padding-bottom: 8px;
+                    border-bottom: 1px dashed #1E2A56;
                     position: relative;
                     z-index: 2;
                 }}
 
-                .logo-section {{
-                    display: flex;
-                    flex-direction: column;
-                }}
-
                 .logo {{
-                    width: 130px;
-                    margin-bottom: 5px;
+                    width: 100px;
                 }}
 
-                .company-tagline {{
-                    font-size: 10px;
-                    color: #666;
-                    letter-spacing: 1px;
-                }}
-
-                .receipt-title {{
-                    text-align: right;
-                }}
-
-                .receipt-title h2 {{
+                .receipt-title h3 {{
                     color: #1E2A56;
-                    font-size: 20px;
+                    font-size: 18px;
                     margin: 0;
-                    font-weight: 800;
+                    font-weight: 700;
                     text-transform: uppercase;
-                    letter-spacing: 2px;
+                    letter-spacing: 1px;
                 }}
 
                 .receipt-title p {{
                     color: #666;
-                    font-size: 12px;
-                    margin: 5px 0 0;
-                    font-style: italic;
+                    font-size: 9px;
+                    margin: 2px 0 0;
+                    text-align: right;
                 }}
 
                 .receipt-number {{
                     background: #1E2A56;
                     color: white;
-                    padding: 5px 12px;
-                    border-radius: 20px;
-                    font-size: 12px;
+                    padding: 3px 8px;
+                    border-radius: 12px;
+                    font-size: 9px;
                     font-weight: bold;
                     display: inline-block;
-                    margin-top: 8px;
+                    margin-top: 3px;
                 }}
 
-                /* Info boxes with receipt styling */
-                .info-grid {{
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 12px;
-                    margin: 15px 0;
+                /* Client Details Section - Full width above */
+                .client-section {{
+                    margin-bottom: 12px;
                     position: relative;
                     z-index: 2;
-                }}
-
-                .info-card {{
                     background: #f8f9fc;
                     border: 1px solid #e0e4f0;
-                    border-radius: 6px;
-                    padding: 12px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                    border-radius: 4px;
+                    padding: 10px;
                 }}
 
-                .info-card.full-width {{
-                    grid-column: span 2;
-                }}
-
-                .card-title {{
+                .section-header {{
                     color: #1E2A56;
-                    font-size: 14px;
+                    font-size: 12px;
                     font-weight: 700;
-                    margin: 0 0 10px 0;
-                    padding-bottom: 5px;
+                    margin: 0 0 8px 0;
+                    padding-bottom: 3px;
                     border-bottom: 1px solid #d0d8e8;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
+                    letter-spacing: 0.5px;
+                }}
+
+                /* Two column layout for client details */
+                .client-grid {{
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 10px;
                 }}
 
                 .info-row {{
                     display: flex;
-                    margin-bottom: 6px;
-                    font-size: 11px;
+                    margin-bottom: 4px;
+                    font-size: 10px;
                 }}
 
                 .info-label {{
                     font-weight: 600;
-                    width: 85px;
+                    width: 65px;
                     color: #4a5568;
                 }}
 
@@ -17366,21 +17347,32 @@ def download_inst2_receipt(project_id):
                     font-weight: 500;
                 }}
 
-                /* Payment details with highlight */
+                /* Project section - below client */
+                .project-section {{
+                    margin-bottom: 12px;
+                    position: relative;
+                    z-index: 2;
+                    background: #f8f9fc;
+                    border: 1px solid #e0e4f0;
+                    border-radius: 4px;
+                    padding: 10px;
+                }}
+
+                /* Payment section */
                 .payment-section {{
-                    margin: 15px 0;
+                    margin: 12px 0;
                     position: relative;
                     z-index: 2;
                 }}
 
                 .payment-box {{
                     background: #eef2f9;
-                    border: 2px solid #1E2A56;
-                    border-radius: 8px;
-                    padding: 15px;
+                    border: 1.5px solid #1E2A56;
+                    border-radius: 5px;
+                    padding: 10px;
                     display: grid;
                     grid-template-columns: repeat(3, 1fr);
-                    gap: 10px;
+                    gap: 8px;
                     margin-top: 5px;
                 }}
 
@@ -17389,21 +17381,21 @@ def download_inst2_receipt(project_id):
                 }}
 
                 .payment-label {{
-                    font-size: 11px;
+                    font-size: 8px;
                     color: #666;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
-                    margin-bottom: 5px;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 3px;
                 }}
 
                 .payment-value {{
-                    font-size: 18px;
-                    font-weight: 800;
+                    font-size: 14px;
+                    font-weight: 700;
                     color: #1E2A56;
                 }}
 
                 .payment-value small {{
-                    font-size: 11px;
+                    font-size: 8px;
                     font-weight: normal;
                     color: #666;
                 }}
@@ -17412,19 +17404,20 @@ def download_inst2_receipt(project_id):
                 .amount-words {{
                     background: #fff;
                     border: 1px dashed #1E2A56;
-                    padding: 8px 12px;
-                    margin: 10px 0;
-                    font-size: 11px;
+                    padding: 6px 10px;
+                    margin: 8px 0;
+                    font-size: 9px;
                     color: #4a5568;
-                    border-radius: 4px;
+                    border-radius: 3px;
                 }}
 
                 .amount-words strong {{
                     color: #1E2A56;
                     text-transform: uppercase;
+                    font-size: 9px;
                 }}
 
-                /* Footer with signatures */
+                /* Footer */
                 .footer {{
                     margin-top: 20px;
                     display: flex;
@@ -17442,33 +17435,33 @@ def download_inst2_receipt(project_id):
                 .signature-line {{
                     border-top: 1px solid #1E2A56;
                     width: 100%;
-                    margin: 5px 0;
-                    padding-top: 5px;
+                    margin: 3px 0;
+                    padding-top: 3px;
                 }}
 
                 .signature-title {{
-                    font-size: 11px;
+                    font-size: 8px;
                     color: #666;
                     font-weight: 600;
-                    letter-spacing: 1px;
+                    letter-spacing: 0.5px;
                 }}
 
                 .stamp {{
-                    margin-top: 10px;
-                    font-size: 18px;
+                    margin-top: 5px;
+                    font-size: 14px;
                     font-weight: bold;
                     color: #1E2A56;
-                    opacity: 0.3;
+                    opacity: 0.2;
                     font-style: italic;
                 }}
 
                 .receipt-footer {{
-                    margin-top: 15px;
+                    margin-top: 10px;
                     text-align: center;
-                    font-size: 9px;
+                    font-size: 7px;
                     color: #999;
                     border-top: 1px solid #eee;
-                    padding-top: 8px;
+                    padding-top: 5px;
                 }}
             </style>
         </head>
@@ -17478,65 +17471,75 @@ def download_inst2_receipt(project_id):
                 
                 <!-- Header -->
                 <div class="header">
-                    <div class="logo-section">
-                        <img src="data:image/png;base64,{logo_base64}" class="logo">
-                        <span class="company-tagline">Property Development & Management</span>
-                    </div>
+                    <img src="data:image/png;base64,{logo_base64}" class="logo">
                     <div class="receipt-title">
-                        <h2>RECEIPT</h2>
-                        <p>Official Payment Receipt</p>
+                        <h3>RECEIPT</h3>
+                        <p>Second Installment</p>
                         <span class="receipt-number">RCT-{row[0]}-INST2</span>
                     </div>
                 </div>
 
-                <!-- Client and Project Info Grid -->
-                <div class="info-grid">
-                    <!-- Client Information -->
-                    <div class="info-card">
-                        <div class="card-title">CLIENT DETAILS</div>
-                        <div class="info-row">
-                            <span class="info-label">Name:</span>
-                            <span class="info-value">{row[1]}</span>
+                <!-- CLIENT DETAILS - Full width above -->
+                <div class="client-section">
+                    <div class="section-header">CLIENT DETAILS</div>
+                    <div class="client-grid">
+                        <!-- Left column -->
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Name:</span>
+                                <span class="info-value">{row[1]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Address:</span>
+                                <span class="info-value">{row[2]}</span>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Address:</span>
-                            <span class="info-value">{row[2]}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Contact:</span>
-                            <span class="info-value">0{row[3]}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Email:</span>
-                            <span class="info-value">{row[4]}</span>
+                        <!-- Right column -->
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Contact:</span>
+                                <span class="info-value">0{row[3]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Email:</span>
+                                <span class="info-value">{row[4]}</span>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Project Information -->
-                    <div class="info-card">
-                        <div class="card-title">PROJECT DETAILS</div>
-                        <div class="info-row">
-                            <span class="info-label">Project:</span>
-                            <span class="info-value">{row[5]}</span>
+                <!-- PROJECT DETAILS - Below client -->
+                <div class="project-section">
+                    <div class="section-header">PROJECT DETAILS</div>
+                    <div class="client-grid">
+                        <!-- Left column -->
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Project:</span>
+                                <span class="info-value">{row[5]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Location:</span>
+                                <span class="info-value">{row[6]}</span>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Location:</span>
-                            <span class="info-value">{row[6]}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Scope:</span>
-                            <span class="info-value">{row[7]}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Admin:</span>
-                            <span class="info-value">{row[8]}</span>
+                        <!-- Right column -->
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Scope:</span>
+                                <span class="info-value">{row[7]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Admin:</span>
+                                <span class="info-value">{row[8]}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Payment Details -->
                 <div class="payment-section">
-                    <div class="card-title" style="margin-left: 5px;">PAYMENT DETAILS - SECOND INSTALLMENT</div>
+                    <div class="section-header">PAYMENT DETAILS - SECOND INSTALLMENT</div>
                     <div class="payment-box">
                         <div class="payment-item">
                             <div class="payment-label">Amount</div>
@@ -17559,17 +17562,23 @@ def download_inst2_receipt(project_id):
                     {number_to_words(int(row[9])) if row[9] else 'Zero'} United States Dollars Only
                 </div>
 
-                <!-- Footer with signatures -->
+                <!-- Footer -->
                 <div class="footer">
                     <div class="signature-box">
+                        <div class="signature-line"></div>
                         <div class="signature-title">Authorized Signatory</div>
                         <div class="stamp">CONNECTLINK</div>
+                    </div>
+                    <div class="signature-box">
+                        <div class="signature-line"></div>
+                        <div class="signature-title">Client Signature</div>
+                        <div class="stamp">RECEIVED</div>
                     </div>
                 </div>
 
                 <!-- Receipt footer -->
                 <div class="receipt-footer">
-                    This is a system-generated receipt • Valid without signature • Keep for your records
+                    This is a system-generated receipt • Valid without signature • E&OE
                 </div>
             </div>
         </body>
