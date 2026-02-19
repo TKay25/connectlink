@@ -16978,11 +16978,36 @@ def send_template_with_button(to_number, project_id):
 def download_inst_receipt(project_id):
     with get_db() as (cursor, connection):
         # Fetch project info
+        data = request.get_json()
+        installment_paid_date = data.get('installment1_date')
 
         cursor.execute("SELECT id, clientname, clientaddress, clientwanumber, clientemail,projectname, projectlocation, projectdescription, projectadministratorname, installment1amount, installment1duedate, installment1date  FROM connectlinkdatabase WHERE id = %s", (project_id,))
         row = cursor.fetchone()
         if not row:
             return "Project not found", 404
+
+        db_installment_date = row[11]
+
+
+        if installment_paid_date and installment_paid_date.strip():
+            # Date provided in request
+            if not db_installment_date or db_installment_date != installment_paid_date:
+                # Update database
+                cursor.execute("UPDATE connectlinkdatabase SET installment1date = %s WHERE id = %s", 
+                                (installment_paid_date, project_id))
+                connection.commit()
+                date_was_updated = True
+                print(f"Updated date to: {installment_paid_date}")
+            
+            effective_date = installment_paid_date
+        else:
+            # No date in request, check database
+            if not db_installment_date:
+                return jsonify({
+                    'success': False,
+                    'error_message': 'Sorry, you have to input the date installment 1 was paid first before you can send receipt to client'
+                })
+            effective_date = db_installment_date
 
         # Fetch company info
         cursor.execute("SELECT * FROM connectlinkdetails;")
@@ -17108,7 +17133,7 @@ def download_inst_receipt(project_id):
             <div class="info-box">
                 <p><strong>Installment Amount:</strong> USD {row[9] if row[9] else '—'}</p>
                 <p><strong>Due Date:</strong> {row[10].strftime('%d %B %Y') if row[10] else '—'}</p>
-                <p><strong>Date Paid:</strong> {row[11].strftime('%d %B %Y') if row[11] else '—'}</p>
+                <p><strong>Date Paid:</strong> {effective_date.strftime('%d %B %Y') if effective_date else '—'}</p>
             </div>
 
         </body>

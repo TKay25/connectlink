@@ -7653,13 +7653,12 @@ document.getElementById("getdepositReceiptBtn").addEventListener("click", async 
 document.getElementById("getinst1ReceiptBtn").addEventListener("click", async function(e) {
     e.preventDefault();
 
-    const projectId = document.getElementById("updateProjectId").value; // get project ID
+    const projectId = document.getElementById("updateProjectId").value;
     const installment1PaidDate = document.getElementById("updateInstallment1Date").value;
     const btn = this;
     const spinner = document.getElementById("inst1Spinner");
     const textSpan = document.getElementById("inst1Text");
 
-        
     // Check if project is selected
     if (!projectId) {
         alert('⚠️ No project selected!');
@@ -7681,7 +7680,13 @@ document.getElementById("getinst1ReceiptBtn").addEventListener("click", async fu
 
     try {
         const response = await fetch(`/download_inst1_receipt/${projectId}`, {
-            method: 'GET'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                installment1_date: installment1PaidDate
+            })
         });
 
         if (!response.ok) throw new Error("Failed to generate receipt");
@@ -7706,6 +7711,7 @@ document.getElementById("getinst1ReceiptBtn").addEventListener("click", async fu
         textSpan.textContent = "Get Receipt";
     }
 });
+
 
 </script>
 <script>
