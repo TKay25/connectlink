@@ -4579,7 +4579,7 @@ def webhook():
                                                                                                 </div>
                                                                                                 <div class="info-row">
                                                                                                     <span class="info-label">Amount:</span>
-                                                                                                    <span class="info-value">USD {format(int(row[9]), ',') if row[9] else '0'}.00</span>
+                                                                                                    <span class="info-value">USD {format(float(row[9]), ',') if row[9] else '0'}</span>
                                                                                                 </div>
                                                                                             </div>
                                                                                             <div>
@@ -8301,7 +8301,7 @@ def webhook():
                                                                             with open(logo_path, 'rb') as img:
                                                                                 logo_base64 = base64.b64encode(img.read()).decode('utf-8')
 
-                                                                            # HTML template (using your existing template)
+                                                                            # HTML template
                                                                             html = f"""
                                                                             <!DOCTYPE html>
                                                                             <html lang="en">
@@ -8310,117 +8310,347 @@ def webhook():
                                                                                 <style>
                                                                                     @page {{
                                                                                         size: A5;
-                                                                                        margin: 10mm 7mm;
+                                                                                        margin: 5mm 5mm;
                                                                                     }}
 
                                                                                     body {{
-                                                                                        font-family: 'Arial', sans-serif;
-                                                                                        color: #1E2A56;
-                                                                                        line-height: 1.5;
+                                                                                        font-family: 'Helvetica', 'Arial', sans-serif;
+                                                                                        color: #2C3E50;
+                                                                                        line-height: 1.4;
                                                                                         margin: 0;
+                                                                                        padding: 0;
+                                                                                        background: #fff;
+                                                                                        font-size: 10px;
+                                                                                    }}
+
+                                                                                    .receipt-container {{
+                                                                                        border: 1px solid #d0d0d0;
+                                                                                        padding: 15px;
+                                                                                        min-height: 680px;
                                                                                         position: relative;
+                                                                                        background: white;
+                                                                                        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
                                                                                     }}
 
-                                                                                    /* Watermark on top */
-                                                                                    .watermark {{
-                                                                                        position: absolute;
-                                                                                        top: 50%;
-                                                                                        left: 50%;
-                                                                                        transform: translate(-50%, -50%) rotate(-30deg);
-                                                                                        font-size: 80px;
-                                                                                        color: rgba(200, 200, 200, 0.2);
-                                                                                        z-index: 9999;
-                                                                                        pointer-events: none;
-                                                                                        white-space: nowrap;
-                                                                                    }}
-
+                                                                                    /* Professional header with company branding */
                                                                                     .header {{
-                                                                                        text-align: center;
-                                                                                        margin-bottom: 25px;
-                                                                                        position: relative;
-                                                                                        z-index: 1;
+                                                                                        display: flex;
+                                                                                        justify-content: space-between;
+                                                                                        align-items: center;
+                                                                                        margin-bottom: 20px;
+                                                                                        padding-bottom: 12px;
+                                                                                        border-bottom: 2px solid #1E2A56;
                                                                                     }}
+
                                                                                     .logo {{
                                                                                         width: 150px;
-                                                                                        margin-bottom: 10px;
-                                                                                    }}
-                                                                                    h5 {{
-                                                                                        font-size: 16px;
-                                                                                        margin: 5px 0;
-                                                                                        font-weight: 800;
                                                                                     }}
 
-                                                                                    .section-title {{
-                                                                                        font-size: 16px;
-                                                                                        margin-top: 25px;
-                                                                                        margin-bottom: 8px;
-                                                                                        border-bottom: 2px solid #1E2A56;
-                                                                                        font-weight: 800;
-                                                                                        position: relative;
-                                                                                        z-index: 1;
-                                                                                    }}
-
-                                                                                    .info-box {{
-                                                                                        padding: 15px;
-                                                                                        border: 1px solid #d3d6e4;
-                                                                                        border-radius: 8px;
-                                                                                        background: #f4f6fb;
-                                                                                        margin-bottom: 15px;
-                                                                                        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
-                                                                                        position: relative;
-                                                                                        z-index: 1;
-                                                                                    }}
-
-                                                                                    .info-box p {{
-                                                                                        margin: 5px 0;
-                                                                                        font-size: 14px;
-                                                                                    }}
-
-                                                                                    .footer {{
-                                                                                        margin-top: 30px;
+                                                                                    .receipt-title {{
                                                                                         text-align: right;
-                                                                                        font-size: 12px;
+                                                                                    }}
+
+                                                                                    .receipt-title h2 {{
+                                                                                        color: #1E2A56;
+                                                                                        font-size: 22px;
+                                                                                        margin: 0;
+                                                                                        font-weight: 600;
+                                                                                        letter-spacing: 1px;
+                                                                                    }}
+
+                                                                                    .receipt-title p {{
                                                                                         color: #666;
-                                                                                        position: relative;
-                                                                                        z-index: 1;
+                                                                                        font-size: 10px;
+                                                                                        margin: 3px 0 0;
+                                                                                    }}
+
+                                                                                    .receipt-metadata {{
+                                                                                        display: flex;
+                                                                                        justify-content: space-between;
+                                                                                        margin-top: 5px;
+                                                                                        font-size: 9px;
+                                                                                        color: #666;
+                                                                                    }}
+
+                                                                                    .receipt-number {{
+                                                                                        color: #1E2A56;
+                                                                                        font-weight: 600;
+                                                                                    }}
+
+                                                                                    .receipt-date {{
+                                                                                        color: #666;
+                                                                                    }}
+
+                                                                                    /* Section styling */
+                                                                                    .section {{
+                                                                                        margin-bottom: 18px;
+                                                                                        border: 1px solid #e8e8e8;
+                                                                                        border-radius: 4px;
+                                                                                        overflow: hidden;
+                                                                                    }}
+
+                                                                                    .section-header {{
+                                                                                        background: #f5f7fa;
+                                                                                        padding: 8px 12px;
+                                                                                        font-weight: 600;
+                                                                                        font-size: 11px;
+                                                                                        color: #1E2A56;
+                                                                                        text-transform: uppercase;
+                                                                                        letter-spacing: 0.5px;
+                                                                                        border-bottom: 1px solid #e0e0e0;
+                                                                                    }}
+
+                                                                                    .section-content {{
+                                                                                        padding: 12px;
+                                                                                    }}
+
+                                                                                    /* Two column grid */
+                                                                                    .grid-2 {{
+                                                                                        display: grid;
+                                                                                        grid-template-columns: 1fr 1fr;
+                                                                                        gap: 15px;
+                                                                                    }}
+
+                                                                                    .info-row {{
+                                                                                        display: flex;
+                                                                                        margin-bottom: 6px;
+                                                                                        font-size: 10px;
+                                                                                    }}
+
+                                                                                    .info-label {{
+                                                                                        width: 70px;
+                                                                                        color: #666;
+                                                                                        font-weight: 500;
+                                                                                    }}
+
+                                                                                    .info-value {{
+                                                                                        flex: 1;
+                                                                                        color: #2C3E50;
+                                                                                        font-weight: 400;
+                                                                                    }}
+
+                                                                                    /* Payment summary styling */
+                                                                                    .payment-summary {{
+                                                                                        background: #fafbfd;
+                                                                                        border: 1px solid #e8e8e8;
+                                                                                        border-radius: 4px;
+                                                                                        padding: 15px;
+                                                                                        margin: 15px 0 5px;
+                                                                                    }}
+
+                                                                                    .payment-grid {{
+                                                                                        display: grid;
+                                                                                        grid-template-columns: repeat(3, 1fr);
+                                                                                        gap: 10px;
+                                                                                        text-align: center;
+                                                                                    }}
+
+                                                                                    .payment-item {{
+                                                                                        padding: 8px 0;
+                                                                                    }}
+
+                                                                                    .payment-label {{
+                                                                                        font-size: 9px;
+                                                                                        color: #666;
+                                                                                        text-transform: uppercase;
+                                                                                        letter-spacing: 0.5px;
+                                                                                        margin-bottom: 5px;
+                                                                                    }}
+
+                                                                                    .payment-amount {{
+                                                                                        font-size: 18px;
+                                                                                        font-weight: 600;
+                                                                                        color: #1E2A56;
+                                                                                    }}
+
+                                                                                    .payment-amount small {{
+                                                                                        font-size: 10px;
+                                                                                        font-weight: 400;
+                                                                                        color: #999;
+                                                                                    }}
+
+                                                                                    .payment-date {{
+                                                                                        font-size: 14px;
+                                                                                        font-weight: 500;
+                                                                                        color: #2C3E50;
+                                                                                    }}
+
+                                                                                    /* Status indicator */
+                                                                                    .status-paid {{
+                                                                                        display: inline-block;
+                                                                                        background: #27ae60;
+                                                                                        color: white;
+                                                                                        font-size: 9px;
+                                                                                        font-weight: 600;
+                                                                                        padding: 3px 10px;
+                                                                                        border-radius: 12px;
+                                                                                        text-transform: uppercase;
+                                                                                        letter-spacing: 0.5px;
+                                                                                    }}
+
+                                                                                    /* Footer */
+                                                                                    .footer {{
+                                                                                        margin-top: 25px;
+                                                                                        padding-top: 12px;
+                                                                                        border-top: 1px solid #e0e0e0;
+                                                                                        font-size: 8px;
+                                                                                        color: #999;
+                                                                                        text-align: center;
+                                                                                    }}
+
+                                                                                    .footer-line {{
+                                                                                        margin: 3px 0;
+                                                                                    }}
+
+                                                                                    /* Utility classes */
+                                                                                    .text-right {{
+                                                                                        text-align: right;
+                                                                                    }}
+
+                                                                                    .text-bold {{
+                                                                                        font-weight: 600;
+                                                                                    }}
+
+                                                                                    .mt-10 {{
+                                                                                        margin-top: 10px;
                                                                                     }}
                                                                                 </style>
                                                                             </head>
                                                                             <body>
+                                                                                <div class="receipt-container">
+                                                                                    <!-- Header with company branding -->
+                                                                                    <div class="header">
+                                                                                        <img src="data:image/png;base64,{logo_base64}" class="logo">
+                                                                                        <div class="receipt-title">
+                                                                                            <h3>INSTALLMENT RECEIPT</h3>
+                                                                                            <p>Second Installment Payment</p>
+                                                                                            <div class="receipt-metadata">
+                                                                                                <span class="receipt-number">REF: CON-{row[0]}-INST2-{row[11]}</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
 
-                                                                                <div class="watermark">INSTALLMENT</div>
+                                                                                    <!-- Payment Summary at top (most important) -->
+                                                                                    <div class="payment-summary">
+                                                                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                                                                            <span class="status-paid">PAID</span>
+                                                                                            <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-2</span>
+                                                                                        </div>
+                                                                                        <div class="payment-grid">
+                                                                                            <div class="payment-item">
+                                                                                                <div class="payment-label">Amount</div>
+                                                                                                <div class="payment-amount">
+                                                                                                    USD {format(int(float(row[9])), ',') if row[9] else '0'}<small>.{str(row[9]).split('.')[1] if row[9] and '.' in str(row[9]) else '00'}</small>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div class="payment-item">
+                                                                                                <div class="payment-label">Due Date</div>
+                                                                                                <div class="payment-date">{row[10].strftime('%d %b %Y') if row[10] else '—'}</div>
+                                                                                            </div>
+                                                                                            <div class="payment-item">
+                                                                                                <div class="payment-label">Paid Date</div>
+                                                                                                <div class="payment-date">{row[11].strftime('%d %b %Y') if row[11] else '—'}</div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
 
-                                                                                <div class="header">
-                                                                                    <img src="data:image/png;base64,{logo_base64}" class="logo">
-                                                                                    <h5>Second Installment Receipt</h5>
+                                                                                    <!-- Client Information Section -->
+                                                                                    <div class="section">
+                                                                                        <div class="section-header">CLIENT INFORMATION</div>
+                                                                                        <div class="section-content">
+                                                                                            <div class="grid-2">
+                                                                                                <div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Name:</span>
+                                                                                                        <span class="info-value">{row[1]}</span>
+                                                                                                    </div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Address:</span>
+                                                                                                        <span class="info-value">{row[2]}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Contact:</span>
+                                                                                                        <span class="info-value">0{row[3]}</span>
+                                                                                                    </div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Email:</span>
+                                                                                                        <span class="info-value">{row[4]}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    <!-- Project Information Section -->
+                                                                                    <div class="section">
+                                                                                        <div class="section-header">PROJECT INFORMATION</div>
+                                                                                        <div class="section-content">
+                                                                                            <div class="grid-2">
+                                                                                                <div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Project:</span>
+                                                                                                        <span class="info-value">{row[5]}</span>
+                                                                                                    </div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Location:</span>
+                                                                                                        <span class="info-value">{row[6]}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Scope:</span>
+                                                                                                        <span class="info-value">{row[7]}</span>
+                                                                                                    </div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Administrator:</span>
+                                                                                                        <span class="info-value">{row[8]}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    <!-- Payment Details Section -->
+                                                                                    <div class="section">
+                                                                                        <div class="section-header">PAYMENT DETAILS</div>
+                                                                                        <div class="section-content">
+                                                                                            <div class="grid-2">
+                                                                                                <div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Installment:</span>
+                                                                                                        <span class="info-value">Second Installment</span>
+                                                                                                    </div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Amount:</span>
+                                                                                                        <span class="info-value">USD {format(float(row[9]), ',') if row[9] else '0'}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Due Date:</span>
+                                                                                                        <span class="info-value">{row[10].strftime('%d %B %Y') if row[10] else '—'}</span>
+                                                                                                    </div>
+                                                                                                    <div class="info-row">
+                                                                                                        <span class="info-label">Date Paid:</span>
+                                                                                                        <span class="info-value">{row[11].strftime('%d %B %Y') if row[11] else '—'}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+
+                                                                                    <!-- Professional Footer -->
+                                                                                    <div class="footer">
+                                                                                        <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
+                                                                                        <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602 </div>
+                                                                                        <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
+                                                                                    </div>
                                                                                 </div>
-
-                                                                                <div class="section-title">Client Information</div>
-                                                                                <div class="info-box">
-                                                                                    <p><strong>Name:</strong> {row[1]}</p>
-                                                                                    <p><strong>Address:</strong> {row[2]}</p>
-                                                                                    <p><strong>Contact:</strong> 0{row[3]}</p>
-                                                                                    <p><strong>Email:</strong> {row[4]}</p>
-                                                                                </div>
-
-                                                                                <div class="section-title">Project Information</div>
-                                                                                <div class="info-box">
-                                                                                    <p><strong>Project Name:</strong> {row[5]}</p>
-                                                                                    <p><strong>Location:</strong> {row[6]}</p>
-                                                                                    <p><strong>Project Scope:</strong> {row[7]}</p>
-                                                                                    <p><strong>Administrator:</strong> {row[8]}</p>
-                                                                                </div>
-
-                                                                                <div class="section-title">Second Installment Details</div>
-                                                                                <div class="info-box">
-                                                                                    <p><strong>Second Installment Paid:</strong> USD {row[9] if row[9] else '—'}</p>
-                                                                                    <p><strong>Date Paid:</strong> {row[10].strftime('%d %B %Y') if row[10] else '—'}</p>
-                                                                                </div>
-
                                                                             </body>
                                                                             </html>
                                                                             """
-
                                                                             # Generate PDF using WeasyPrint
                                                                             pdf = HTML(string=html).write_pdf()
                                                                             return pdf
@@ -17762,7 +17992,7 @@ def download_inst2_receipt(project_id):
                                 </div>
                                 <div class="info-row">
                                     <span class="info-label">Amount:</span>
-                                    <span class="info-value">USD {format(int(row[9]), ',') if row[9] else '0'}.00</span>
+                                    <span class="info-value">USD {format(float(row[9]), ',') if row[9] else '0'}</span>
                                 </div>
                             </div>
                             <div>
