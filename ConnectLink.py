@@ -7051,6 +7051,8 @@ def webhook():
                                                                                 
                                                                                 <!-- Page 4 -->
 
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                                                                                 <div class="section-header">TRANSPORT PROVISION</div>
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
@@ -7091,6 +7093,8 @@ def webhook():
                                                                                 <div class="page-break"></div>
                                                                                 
                                                                                 <!-- Page 5 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                                                                                 <div class="section-header">DISPUTE RESOLUTION</div>
                                                                                 <div class="terms-box">
@@ -11519,6 +11523,8 @@ def download_contract(project_id):
                     
                     <!-- Page 4 -->
 
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                     <div class="section-header">TRANSPORT PROVISION</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
@@ -11559,6 +11565,8 @@ def download_contract(project_id):
                     <div class="page-break"></div>
                     
                     <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
