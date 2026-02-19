@@ -17437,47 +17437,84 @@ def send_template_with_button(to_number, project_id):
 
 
 
-@app.route('/download_inst1_receipt/<project_id>', methods=['POST'])
-def download_inst_receipt(project_id):
-    with get_db() as (cursor, connection):
-        # Fetch project info
-        data = request.get_json()
-        installment_paid_date = data.get('installment1_date')
 
-        cursor.execute("SELECT id, clientname, clientaddress, clientwanumber, clientemail,projectname, projectlocation, projectdescription, projectadministratorname, installment1amount, installment1duedate, installment1date  FROM connectlinkdatabase WHERE id = %s", (project_id,))
+
+@app.route('/download_installment_receipt/<project_id>/<int:installment_num>', methods=['POST'])
+def download_installment_receipt(project_id, installment_num):
+    """
+    Unified endpoint for downloading any installment receipt
+    """
+    with get_db() as (cursor, connection):
+        # Get data from request
+        data = request.get_json()
+        
+        # Map installment number to field names
+        field_mapping = {
+            1: {
+                'amount': 'installment1amount',
+                'due_date': 'installment1duedate',
+                'paid_date': 'installment1date',
+                'date_param': 'installment1_date',
+                'title': 'First'
+            },
+            2: {
+                'amount': 'installment2amount',
+                'due_date': 'installment2duedate',
+                'paid_date': 'installment2date',
+                'date_param': 'installment2_date',
+                'title': 'Second'
+            },
+            3: {
+                'amount': 'installment3amount',
+                'due_date': 'installment3duedate',
+                'paid_date': 'installment3date',
+                'date_param': 'installment3_date',
+                'title': 'Third'
+            }
+        }
+        
+        if installment_num not in field_mapping:
+            return jsonify({'error': 'Invalid installment number'}), 400
+            
+        fields = field_mapping[installment_num]
+        installment_paid_date = data.get(fields['date_param'])
+        
+        # Fetch project info with dynamic field selection
+        cursor.execute(f"""
+            SELECT id, clientname, clientaddress, clientwanumber, clientemail, 
+                   projectname, projectlocation, projectdescription, projectadministratorname,
+                   {fields['amount']}, {fields['due_date']}, {fields['paid_date']} 
+            FROM connectlinkdatabase WHERE id = %s
+        """, (project_id,))
+        
         row = cursor.fetchone()
         if not row:
-            return "Project not found", 404
+            return jsonify({'error': 'Project not found'}), 404
 
-        db_installment_date = row[11]
+        db_installment_date = row[11]  # The paid date field
 
-
+        # Handle date validation and update
         if installment_paid_date and installment_paid_date.strip():
-            # Date provided in request
             if not db_installment_date or db_installment_date != installment_paid_date:
-                # Update database
-                cursor.execute("UPDATE connectlinkdatabase SET installment1date = %s WHERE id = %s", 
-                                (installment_paid_date, project_id))
+                cursor.execute(f"UPDATE connectlinkdatabase SET {fields['paid_date']} = %s WHERE id = %s", 
+                             (installment_paid_date, project_id))
                 connection.commit()
-                date_was_updated = True
                 print(f"Updated date to: {installment_paid_date}")
             
             try:
                 effective_date = datetime.strptime(installment_paid_date, '%Y-%m-%d').date()
             except ValueError:
-                # Try different format if needed
-                print("failed to convert effective date to required format")
-                
+                print("Failed to convert effective date to required format")
+                effective_date = db_installment_date
         else:
-            # No date in request, check database
             if not db_installment_date:
                 return jsonify({
                     'success': False,
-                    'error_message': 'Sorry, you have to input the date installment 1 was paid first before you can send receipt to client'
-                })
+                    'error_message': f'Sorry, you have to input the date installment {installment_num} was paid first'
+                }), 400
             effective_date = db_installment_date
 
-        # Fetch company info
+        # Get company info and logo (same as before)
         cursor.execute("SELECT * FROM connectlinkdetails;")
         details = cursor.fetchall()
         company = details[0] if details else {}
@@ -17487,1181 +17524,341 @@ def download_inst_receipt(project_id):
         with open(logo_path, 'rb') as img:
             logo_base64 = base64.b64encode(img.read()).decode('utf-8')
 
-        # HTML template
-        html = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                @page {{
-                    size: A5;
-                    margin: 5mm 5mm;
-                }}
+        # Generate HTML template (using the same template with dynamic content)
+        html = generate_receipt_html(row, effective_date, logo_base64, fields['title'], installment_num)
 
-                body {{
-                    font-family: 'Helvetica', 'Arial', sans-serif;
-                    color: #2C3E50;
-                    line-height: 1.4;
-                    margin: 0;
-                    padding: 0;
-                    background: #fff;
-                    font-size: 10px;
-                }}
-
-                .receipt-container {{
-                    border: 1px solid #d0d0d0;
-                    padding: 15px;
-                    min-height: 680px;
-                    position: relative;
-                    background: white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-                }}
-
-                /* Professional header with company branding */
-                .header {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 20px;
-                    padding-bottom: 12px;
-                    border-bottom: 2px solid #1E2A56;
-                }}
-
-                .logo {{
-                    width: 180px;
-                }}
-
-                .receipt-title {{
-                    text-align: right;
-                }}
-
-                .receipt-title h2 {{
-                    color: #1E2A56;
-                    font-size: 22px;
-                    margin: 0;
-                    font-weight: 600;
-                    letter-spacing: 1px;
-                }}
-
-                .receipt-title p {{
-                    color: #666;
-                    font-size: 10px;
-                    margin: 3px 0 0;
-                }}
-
-                .receipt-metadata {{
-                    display: flex;
-                    justify-content: space-between;
-                    margin-top: 5px;
-                    font-size: 9px;
-                    color: #666;
-                }}
-
-                .receipt-number {{
-                    color: #1E2A56;
-                    font-weight: 600;
-                }}
-
-                .receipt-date {{
-                    color: #666;
-                }}
-
-                /* Section styling */
-                .section {{
-                    margin-bottom: 18px;
-                    border: 1px solid #e8e8e8;
-                    border-radius: 4px;
-                    overflow: hidden;
-                }}
-
-                .section-header {{
-                    background: #f5f7fa;
-                    padding: 8px 12px;
-                    font-weight: 600;
-                    font-size: 11px;
-                    color: #1E2A56;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    border-bottom: 1px solid #e0e0e0;
-                }}
-
-                .section-content {{
-                    padding: 12px;
-                }}
-
-                /* Two column grid */
-                .grid-2 {{
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 15px;
-                }}
-
-                .info-row {{
-                    display: flex;
-                    margin-bottom: 6px;
-                    font-size: 10px;
-                }}
-
-                .info-label {{
-                    width: 70px;
-                    color: #666;
-                    font-weight: 500;
-                }}
-
-                .info-value {{
-                    flex: 1;
-                    color: #2C3E50;
-                    font-weight: 400;
-                }}
-
-                /* Payment summary styling */
-                .payment-summary {{
-                    background: #fafbfd;
-                    border: 1px solid #e8e8e8;
-                    border-radius: 4px;
-                    padding: 15px;
-                    margin: 15px 0 5px;
-                }}
-
-                .payment-grid {{
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 10px;
-                    text-align: center;
-                }}
-
-                .payment-item {{
-                    padding: 8px 0;
-                }}
-
-                .payment-label {{
-                    font-size: 9px;
-                    color: #666;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    margin-bottom: 5px;
-                }}
-
-                .payment-amount {{
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #1E2A56;
-                }}
-
-                .payment-amount small {{
-                    font-size: 10px;
-                    font-weight: 400;
-                    color: #999;
-                }}
-
-                .payment-date {{
-                    font-size: 14px;
-                    font-weight: 500;
-                    color: #2C3E50;
-                }}
-
-                /* Status indicator */
-                .status-paid {{
-                    display: inline-block;
-                    background: #27ae60;
-                    color: white;
-                    font-size: 9px;
-                    font-weight: 600;
-                    padding: 3px 10px;
-                    border-radius: 12px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }}
-
-                /* Footer */
-                .footer {{
-                    margin-top: 25px;
-                    padding-top: 12px;
-                    border-top: 1px solid #e0e0e0;
-                    font-size: 8px;
-                    color: #999;
-                    text-align: center;
-                }}
-
-                .footer-line {{
-                    margin: 3px 0;
-                }}
-
-                /* Utility classes */
-                .text-right {{
-                    text-align: right;
-                }}
-
-                .text-bold {{
-                    font-weight: 600;
-                }}
-
-                .mt-10 {{
-                    margin-top: 10px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="receipt-container">
-                <!-- Header with company branding -->
-                <div class="header">
-                    <img src="data:image/png;base64,{logo_base64}" class="logo">
-                    <div class="receipt-title">
-                        <h3>INSTALLMENT RECEIPT</h3>
-                        <p>First Installment Payment</p>
-                        <div class="receipt-metadata">
-                            <span class="receipt-number">REF: CON-{row[0]}-INST1-{effective_date}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Payment Summary at top (most important) -->
-                <div class="payment-summary">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <span class="status-paid">PAID</span>
-                        <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-1</span>
-                    </div>
-                    <div class="payment-grid">
-                        <div class="payment-item">
-                            <div class="payment-label">Amount</div>
-                            <div class="payment-amount">
-                                USD {format(int(float(row[9])), ',') if row[9] else '0'}<small>.{str(row[9]).split('.')[1] if row[9] and '.' in str(row[9]) else '00'}</small>
-                            </div>
-                        </div>
-                        <div class="payment-item">
-                            <div class="payment-label">Due Date</div>
-                            <div class="payment-date">{row[10].strftime('%d %b %Y') if row[10] else '—'}</div>
-                        </div>
-                        <div class="payment-item">
-                            <div class="payment-label">Paid Date</div>
-                            <div class="payment-date">{effective_date.strftime('%d %b %Y') if effective_date else '—'}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Client Information Section -->
-                <div class="section">
-                    <div class="section-header">CLIENT INFORMATION</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Name:</span>
-                                    <span class="info-value">{row[1]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Address:</span>
-                                    <span class="info-value">{row[2]}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Contact:</span>
-                                    <span class="info-value">0{row[3]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Email:</span>
-                                    <span class="info-value">{row[4]}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Project Information Section -->
-                <div class="section">
-                    <div class="section-header">PROJECT INFORMATION</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Project:</span>
-                                    <span class="info-value">{row[5]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Location:</span>
-                                    <span class="info-value">{row[6]}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Scope:</span>
-                                    <span class="info-value">{row[7]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Administrator:</span>
-                                    <span class="info-value">{row[8]}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Payment Details Section -->
-                <div class="section">
-                    <div class="section-header">PAYMENT DETAILS</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Installment:</span>
-                                    <span class="info-value">First Installment</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Amount:</span>
-                                    <span class="info-value">USD {format(float(row[9]), ',') if row[9] else '0'}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Due Date:</span>
-                                    <span class="info-value">{row[10].strftime('%d %B %Y') if row[10] else '—'}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Date Paid:</span>
-                                    <span class="info-value">{effective_date.strftime('%d %B %Y') if effective_date else '—'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Professional Footer -->
-                <div class="footer">
-                    <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
-                    <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602 </div>
-                    <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-
+        # Generate PDF
         pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
         response = make_response(pdf)
         response.headers["Content-Type"] = "application/pdf"
-        response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties First Installment_Receipt_Project_{project_id}.pdf"
+        response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties {fields['title']} Installment_Receipt_Project_{project_id}.pdf"
         return response
 
-
-
-@app.route('/download_inst2_receipt/<project_id>', methods=['POST'])
-def download_inst2_receipt(project_id):
-    with get_db() as (cursor, connection):
-        # Fetch project info
-        data = request.get_json()
-        installment_paid_date = data.get('installment2_date')
-
-        cursor.execute("SELECT id, clientname, clientaddress, clientwanumber, clientemail,projectname, projectlocation, projectdescription, projectadministratorname, installment2amount, installment2duedate, installment2date  FROM connectlinkdatabase WHERE id = %s", (project_id,))
-        row = cursor.fetchone()
-        if not row:
-            return "Project not found", 404
-
-        db_installment_date = row[11]
-
-
-        if installment_paid_date and installment_paid_date.strip():
-            # Date provided in request
-            if not db_installment_date or db_installment_date != installment_paid_date:
-                # Update database
-                cursor.execute("UPDATE connectlinkdatabase SET installment2date = %s WHERE id = %s", 
-                                (installment_paid_date, project_id))
-                connection.commit()
-                date_was_updated = True
-                print(f"Updated date to: {installment_paid_date}")
-            
-            try:
-                effective_date = datetime.strptime(installment_paid_date, '%Y-%m-%d').date()
-            except ValueError:
-                # Try different format if needed
-                print("failed to convert effective date to required format")
-                
+def generate_receipt_html(row, effective_date, logo_base64, installment_title, installment_num):
+    """
+    Generate HTML for receipt with dynamic content
+    """
+    amount = row[9]
+    due_date = row[10]
+    
+    # Format amount
+    if amount:
+        if '.' in str(amount):
+            whole, decimal = str(amount).split('.')
+            decimal = decimal[:2].ljust(2, '0')
         else:
-            # No date in request, check database
-            if not db_installment_date:
-                return jsonify({
-                    'success': False,
-                    'error_message': 'Sorry, you have to input the date installment 2 was paid first before you can send receipt to client'
-                })
-            effective_date = db_installment_date
+            whole, decimal = str(amount), '00'
+        formatted_amount = f"{format(int(whole), ',')}.{decimal}"
+    else:
+        formatted_amount = '0.00'
 
-        # Fetch company info
-        cursor.execute("SELECT * FROM connectlinkdetails;")
-        details = cursor.fetchall()
-        company = details[0] if details else {}
+    # Format due date
+    due_date_str = due_date.strftime('%d %b %Y') if due_date else '—'
+    due_date_long = due_date.strftime('%d %B %Y') if due_date else '—'
+    
+    # Format paid date
+    paid_date_str = effective_date.strftime('%d %b %Y') if effective_date else '—'
+    paid_date_long = effective_date.strftime('%d %B %Y') if effective_date else '—'
 
-        # Get logo
-        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
-        with open(logo_path, 'rb') as img:
-            logo_base64 = base64.b64encode(img.read()).decode('utf-8')
-
-        # HTML template
-        html = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                @page {{
-                    size: A5;
-                    margin: 5mm 5mm;
-                }}
-
-                body {{
-                    font-family: 'Helvetica', 'Arial', sans-serif;
-                    color: #2C3E50;
-                    line-height: 1.4;
-                    margin: 0;
-                    padding: 0;
-                    background: #fff;
-                    font-size: 10px;
-                }}
-
-                .receipt-container {{
-                    border: 1px solid #d0d0d0;
-                    padding: 15px;
-                    min-height: 680px;
-                    position: relative;
-                    background: white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-                }}
-
-                /* Professional header with company branding */
-                .header {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 20px;
-                    padding-bottom: 12px;
-                    border-bottom: 2px solid #1E2A56;
-                }}
-
-                .logo {{
-                    width: 180px;
-                }}
-
-                .receipt-title {{
-                    text-align: right;
-                }}
-
-                .receipt-title h2 {{
-                    color: #1E2A56;
-                    font-size: 22px;
-                    margin: 0;
-                    font-weight: 600;
-                    letter-spacing: 1px;
-                }}
-
-                .receipt-title p {{
-                    color: #666;
-                    font-size: 10px;
-                    margin: 3px 0 0;
-                }}
-
-                .receipt-metadata {{
-                    display: flex;
-                    justify-content: space-between;
-                    margin-top: 5px;
-                    font-size: 9px;
-                    color: #666;
-                }}
-
-                .receipt-number {{
-                    color: #1E2A56;
-                    font-weight: 600;
-                }}
-
-                .receipt-date {{
-                    color: #666;
-                }}
-
-                /* Section styling */
-                .section {{
-                    margin-bottom: 18px;
-                    border: 1px solid #e8e8e8;
-                    border-radius: 4px;
-                    overflow: hidden;
-                }}
-
-                .section-header {{
-                    background: #f5f7fa;
-                    padding: 8px 12px;
-                    font-weight: 600;
-                    font-size: 11px;
-                    color: #1E2A56;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    border-bottom: 1px solid #e0e0e0;
-                }}
-
-                .section-content {{
-                    padding: 12px;
-                }}
-
-                /* Two column grid */
-                .grid-2 {{
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 15px;
-                }}
-
-                .info-row {{
-                    display: flex;
-                    margin-bottom: 6px;
-                    font-size: 10px;
-                }}
-
-                .info-label {{
-                    width: 70px;
-                    color: #666;
-                    font-weight: 500;
-                }}
-
-                .info-value {{
-                    flex: 1;
-                    color: #2C3E50;
-                    font-weight: 400;
-                }}
-
-                /* Payment summary styling */
-                .payment-summary {{
-                    background: #fafbfd;
-                    border: 1px solid #e8e8e8;
-                    border-radius: 4px;
-                    padding: 15px;
-                    margin: 15px 0 5px;
-                }}
-
-                .payment-grid {{
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 10px;
-                    text-align: center;
-                }}
-
-                .payment-item {{
-                    padding: 8px 0;
-                }}
-
-                .payment-label {{
-                    font-size: 9px;
-                    color: #666;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    margin-bottom: 5px;
-                }}
-
-                .payment-amount {{
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #1E2A56;
-                }}
-
-                .payment-amount small {{
-                    font-size: 10px;
-                    font-weight: 400;
-                    color: #999;
-                }}
-
-                .payment-date {{
-                    font-size: 14px;
-                    font-weight: 500;
-                    color: #2C3E50;
-                }}
-
-                /* Status indicator */
-                .status-paid {{
-                    display: inline-block;
-                    background: #27ae60;
-                    color: white;
-                    font-size: 9px;
-                    font-weight: 600;
-                    padding: 3px 10px;
-                    border-radius: 12px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }}
-
-                /* Footer */
-                .footer {{
-                    margin-top: 25px;
-                    padding-top: 12px;
-                    border-top: 1px solid #e0e0e0;
-                    font-size: 8px;
-                    color: #999;
-                    text-align: center;
-                }}
-
-                .footer-line {{
-                    margin: 3px 0;
-                }}
-
-                /* Utility classes */
-                .text-right {{
-                    text-align: right;
-                }}
-
-                .text-bold {{
-                    font-weight: 600;
-                }}
-
-                .mt-10 {{
-                    margin-top: 10px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="receipt-container">
-                <!-- Header with company branding -->
-                <div class="header">
-                    <img src="data:image/png;base64,{logo_base64}" class="logo">
-                    <div class="receipt-title">
-                        <h3>INSTALLMENT RECEIPT</h3>
-                        <p>Second Installment Payment</p>
-                        <div class="receipt-metadata">
-                            <span class="receipt-number">REF: CON-{row[0]}-INST2-{effective_date}</span>
-                        </div>
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{
+                size: A5;
+                margin: 5mm 5mm;
+            }}
+            body {{
+                font-family: 'Helvetica', 'Arial', sans-serif;
+                color: #2C3E50;
+                line-height: 1.4;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+                font-size: 10px;
+            }}
+            .receipt-container {{
+                border: 1px solid #d0d0d0;
+                padding: 15px;
+                min-height: 680px;
+                position: relative;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }}
+            .header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 12px;
+                border-bottom: 2px solid #1E2A56;
+            }}
+            .logo {{
+                width: 180px;
+            }}
+            .receipt-title {{
+                text-align: right;
+            }}
+            .receipt-title h3 {{
+                color: #1E2A56;
+                font-size: 22px;
+                margin: 0;
+                font-weight: 600;
+                letter-spacing: 1px;
+            }}
+            .receipt-title p {{
+                color: #666;
+                font-size: 10px;
+                margin: 3px 0 0;
+            }}
+            .receipt-metadata {{
+                display: flex;
+                justify-content: space-between;
+                margin-top: 5px;
+                font-size: 9px;
+                color: #666;
+            }}
+            .receipt-number {{
+                color: #1E2A56;
+                font-weight: 600;
+            }}
+            .section {{
+                margin-bottom: 18px;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                overflow: hidden;
+            }}
+            .section-header {{
+                background: #f5f7fa;
+                padding: 8px 12px;
+                font-weight: 600;
+                font-size: 11px;
+                color: #1E2A56;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 1px solid #e0e0e0;
+            }}
+            .section-content {{
+                padding: 12px;
+            }}
+            .grid-2 {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }}
+            .info-row {{
+                display: flex;
+                margin-bottom: 6px;
+                font-size: 10px;
+            }}
+            .info-label {{
+                width: 70px;
+                color: #666;
+                font-weight: 500;
+            }}
+            .info-value {{
+                flex: 1;
+                color: #2C3E50;
+                font-weight: 400;
+            }}
+            .payment-summary {{
+                background: #fafbfd;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                padding: 15px;
+                margin: 15px 0 5px;
+            }}
+            .payment-grid {{
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+                text-align: center;
+            }}
+            .payment-item {{
+                padding: 8px 0;
+            }}
+            .payment-label {{
+                font-size: 9px;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 5px;
+            }}
+            .payment-amount {{
+                font-size: 18px;
+                font-weight: 600;
+                color: #1E2A56;
+            }}
+            .payment-amount small {{
+                font-size: 10px;
+                font-weight: 400;
+                color: #999;
+            }}
+            .payment-date {{
+                font-size: 14px;
+                font-weight: 500;
+                color: #2C3E50;
+            }}
+            .status-paid {{
+                display: inline-block;
+                background: #27ae60;
+                color: white;
+                font-size: 9px;
+                font-weight: 600;
+                padding: 3px 10px;
+                border-radius: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            .footer {{
+                margin-top: 25px;
+                padding-top: 12px;
+                border-top: 1px solid #e0e0e0;
+                font-size: 8px;
+                color: #999;
+                text-align: center;
+            }}
+            .footer-line {{
+                margin: 3px 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="receipt-container">
+            <div class="header">
+                <img src="data:image/png;base64,{logo_base64}" class="logo">
+                <div class="receipt-title">
+                    <h3>INSTALLMENT RECEIPT</h3>
+                    <p>{installment_title} Installment Payment</p>
+                    <div class="receipt-metadata">
+                        <span class="receipt-number">REF: CON-{row[0]}-INST{installment_num}-{effective_date}</span>
                     </div>
-                </div>
-
-                <!-- Payment Summary at top (most important) -->
-                <div class="payment-summary">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <span class="status-paid">PAID</span>
-                        <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-2</span>
-                    </div>
-                    <div class="payment-grid">
-                        <div class="payment-item">
-                            <div class="payment-label">Amount</div>
-                            <div class="payment-amount">
-                                USD {format(int(float(row[9])), ',') if row[9] else '0'}<small>.{str(row[9]).split('.')[1] if row[9] and '.' in str(row[9]) else '00'}</small>
-                            </div>
-                        </div>
-                        <div class="payment-item">
-                            <div class="payment-label">Due Date</div>
-                            <div class="payment-date">{row[10].strftime('%d %b %Y') if row[10] else '—'}</div>
-                        </div>
-                        <div class="payment-item">
-                            <div class="payment-label">Paid Date</div>
-                            <div class="payment-date">{effective_date.strftime('%d %b %Y') if effective_date else '—'}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Client Information Section -->
-                <div class="section">
-                    <div class="section-header">CLIENT INFORMATION</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Name:</span>
-                                    <span class="info-value">{row[1]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Address:</span>
-                                    <span class="info-value">{row[2]}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Contact:</span>
-                                    <span class="info-value">0{row[3]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Email:</span>
-                                    <span class="info-value">{row[4]}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Project Information Section -->
-                <div class="section">
-                    <div class="section-header">PROJECT INFORMATION</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Project:</span>
-                                    <span class="info-value">{row[5]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Location:</span>
-                                    <span class="info-value">{row[6]}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Scope:</span>
-                                    <span class="info-value">{row[7]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Administrator:</span>
-                                    <span class="info-value">{row[8]}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Payment Details Section -->
-                <div class="section">
-                    <div class="section-header">PAYMENT DETAILS</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Installment:</span>
-                                    <span class="info-value">Second Installment</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Amount:</span>
-                                    <span class="info-value">USD {format(float(row[9]), ',') if row[9] else '0'}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Due Date:</span>
-                                    <span class="info-value">{row[10].strftime('%d %B %Y') if row[10] else '—'}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Date Paid:</span>
-                                    <span class="info-value">{effective_date.strftime('%d %B %Y') if effective_date else '—'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Professional Footer -->
-                <div class="footer">
-                    <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
-                    <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602 </div>
-                    <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
                 </div>
             </div>
-        </body>
-        </html>
-        """
-        pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
-        response = make_response(pdf)
-        response.headers["Content-Type"] = "application/pdf"
-        response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties Second Installment_Receipt_Project_{project_id}.pdf"
-        return response
-
-
-
-@app.route('/download_inst3_receipt/<project_id>', methods=['POST'])
-def download_inst3_receipt(project_id):
-    with get_db() as (cursor, connection):
-        # Fetch project info
-        data = request.get_json()
-        installment_paid_date = data.get('installment3_date')
-
-        cursor.execute("SELECT id, clientname, clientaddress, clientwanumber, clientemail,projectname, projectlocation, projectdescription, projectadministratorname, installment3amount, installment3duedate, installment3date  FROM connectlinkdatabase WHERE id = %s", (project_id,))
-        row = cursor.fetchone()
-        if not row:
-            return "Project not found", 404
-
-        db_installment_date = row[11]
-
-
-        if installment_paid_date and installment_paid_date.strip():
-            # Date provided in request
-            if not db_installment_date or db_installment_date != installment_paid_date:
-                # Update database
-                cursor.execute("UPDATE connectlinkdatabase SET installment3date = %s WHERE id = %s", 
-                                (installment_paid_date, project_id))
-                connection.commit()
-                date_was_updated = True
-                print(f"Updated date to: {installment_paid_date}")
-            
-            try:
-                effective_date = datetime.strptime(installment_paid_date, '%Y-%m-%d').date()
-            except ValueError:
-                # Try different format if needed
-                print("failed to convert effective date to required format")
-                
-        else:
-            # No date in request, check database
-            if not db_installment_date:
-                return jsonify({
-                    'success': False,
-                    'error_message': 'Sorry, you have to input the date installment 3 was paid first before you can send receipt to client'
-                })
-            effective_date = db_installment_date
-
-        # Fetch company info
-        cursor.execute("SELECT * FROM connectlinkdetails;")
-        details = cursor.fetchall()
-        company = details[0] if details else {}
-
-        # Get logo
-        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
-        with open(logo_path, 'rb') as img:
-            logo_base64 = base64.b64encode(img.read()).decode('utf-8')
-
-        # HTML template
-        html = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                @page {{
-                    size: A5;
-                    margin: 5mm 5mm;
-                }}
-
-                body {{
-                    font-family: 'Helvetica', 'Arial', sans-serif;
-                    color: #2C3E50;
-                    line-height: 1.4;
-                    margin: 0;
-                    padding: 0;
-                    background: #fff;
-                    font-size: 10px;
-                }}
-
-                .receipt-container {{
-                    border: 1px solid #d0d0d0;
-                    padding: 15px;
-                    min-height: 680px;
-                    position: relative;
-                    background: white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-                }}
-
-                /* Professional header with company branding */
-                .header {{
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 20px;
-                    padding-bottom: 12px;
-                    border-bottom: 2px solid #1E2A56;
-                }}
-
-                .logo {{
-                    width: 180px;
-                }}
-
-                .receipt-title {{
-                    text-align: right;
-                }}
-
-                .receipt-title h2 {{
-                    color: #1E2A56;
-                    font-size: 22px;
-                    margin: 0;
-                    font-weight: 600;
-                    letter-spacing: 1px;
-                }}
-
-                .receipt-title p {{
-                    color: #666;
-                    font-size: 10px;
-                    margin: 3px 0 0;
-                }}
-
-                .receipt-metadata {{
-                    display: flex;
-                    justify-content: space-between;
-                    margin-top: 5px;
-                    font-size: 9px;
-                    color: #666;
-                }}
-
-                .receipt-number {{
-                    color: #1E2A56;
-                    font-weight: 600;
-                }}
-
-                .receipt-date {{
-                    color: #666;
-                }}
-
-                /* Section styling */
-                .section {{
-                    margin-bottom: 18px;
-                    border: 1px solid #e8e8e8;
-                    border-radius: 4px;
-                    overflow: hidden;
-                }}
-
-                .section-header {{
-                    background: #f5f7fa;
-                    padding: 8px 12px;
-                    font-weight: 600;
-                    font-size: 11px;
-                    color: #1E2A56;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    border-bottom: 1px solid #e0e0e0;
-                }}
-
-                .section-content {{
-                    padding: 12px;
-                }}
-
-                /* Two column grid */
-                .grid-2 {{
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 15px;
-                }}
-
-                .info-row {{
-                    display: flex;
-                    margin-bottom: 6px;
-                    font-size: 10px;
-                }}
-
-                .info-label {{
-                    width: 70px;
-                    color: #666;
-                    font-weight: 500;
-                }}
-
-                .info-value {{
-                    flex: 1;
-                    color: #2C3E50;
-                    font-weight: 400;
-                }}
-
-                /* Payment summary styling */
-                .payment-summary {{
-                    background: #fafbfd;
-                    border: 1px solid #e8e8e8;
-                    border-radius: 4px;
-                    padding: 15px;
-                    margin: 15px 0 5px;
-                }}
-
-                .payment-grid {{
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 10px;
-                    text-align: center;
-                }}
-
-                .payment-item {{
-                    padding: 8px 0;
-                }}
-
-                .payment-label {{
-                    font-size: 9px;
-                    color: #666;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    margin-bottom: 5px;
-                }}
-
-                .payment-amount {{
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #1E2A56;
-                }}
-
-                .payment-amount small {{
-                    font-size: 10px;
-                    font-weight: 400;
-                    color: #999;
-                }}
-
-                .payment-date {{
-                    font-size: 14px;
-                    font-weight: 500;
-                    color: #2C3E50;
-                }}
-
-                /* Status indicator */
-                .status-paid {{
-                    display: inline-block;
-                    background: #27ae60;
-                    color: white;
-                    font-size: 9px;
-                    font-weight: 600;
-                    padding: 3px 10px;
-                    border-radius: 12px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                }}
-
-                /* Footer */
-                .footer {{
-                    margin-top: 25px;
-                    padding-top: 12px;
-                    border-top: 1px solid #e0e0e0;
-                    font-size: 8px;
-                    color: #999;
-                    text-align: center;
-                }}
-
-                .footer-line {{
-                    margin: 3px 0;
-                }}
-
-                /* Utility classes */
-                .text-right {{
-                    text-align: right;
-                }}
-
-                .text-bold {{
-                    font-weight: 600;
-                }}
-
-                .mt-10 {{
-                    margin-top: 10px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="receipt-container">
-                <!-- Header with company branding -->
-                <div class="header">
-                    <img src="data:image/png;base64,{logo_base64}" class="logo">
-                    <div class="receipt-title">
-                        <h3>INSTALLMENT RECEIPT</h3>
-                        <p>Third Installment Payment</p>
-                        <div class="receipt-metadata">
-                            <span class="receipt-number">REF: CON-{row[0]}-INST3-{effective_date}</span>
-                        </div>
-                    </div>
+            <div class="payment-summary">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span class="status-paid">PAID</span>
+                    <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-{installment_num}</span>
                 </div>
-
-                <!-- Payment Summary at top (most important) -->
-                <div class="payment-summary">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <span class="status-paid">PAID</span>
-                        <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-3</span>
-                    </div>
-                    <div class="payment-grid">
-                        <div class="payment-item">
-                            <div class="payment-label">Amount</div>
-                            <div class="payment-amount">
-                                USD {format(int(float(row[9])), ',') if row[9] else '0'}<small>.{str(row[9]).split('.')[1] if row[9] and '.' in str(row[9]) else '00'}</small>
-                            </div>
-                        </div>
-                        <div class="payment-item">
-                            <div class="payment-label">Due Date</div>
-                            <div class="payment-date">{row[10].strftime('%d %b %Y') if row[10] else '—'}</div>
-                        </div>
-                        <div class="payment-item">
-                            <div class="payment-label">Paid Date</div>
-                            <div class="payment-date">{effective_date.strftime('%d %b %Y') if effective_date else '—'}</div>
+                <div class="payment-grid">
+                    <div class="payment-item">
+                        <div class="payment-label">Amount</div>
+                        <div class="payment-amount">
+                            USD {formatted_amount}
                         </div>
                     </div>
-                </div>
-
-                <!-- Client Information Section -->
-                <div class="section">
-                    <div class="section-header">CLIENT INFORMATION</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Name:</span>
-                                    <span class="info-value">{row[1]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Address:</span>
-                                    <span class="info-value">{row[2]}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Contact:</span>
-                                    <span class="info-value">0{row[3]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Email:</span>
-                                    <span class="info-value">{row[4]}</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="payment-item">
+                        <div class="payment-label">Due Date</div>
+                        <div class="payment-date">{due_date_str}</div>
                     </div>
-                </div>
-
-                <!-- Project Information Section -->
-                <div class="section">
-                    <div class="section-header">PROJECT INFORMATION</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Project:</span>
-                                    <span class="info-value">{row[5]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Location:</span>
-                                    <span class="info-value">{row[6]}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Scope:</span>
-                                    <span class="info-value">{row[7]}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Administrator:</span>
-                                    <span class="info-value">{row[8]}</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="payment-item">
+                        <div class="payment-label">Paid Date</div>
+                        <div class="payment-date">{paid_date_str}</div>
                     </div>
-                </div>
-
-                <!-- Payment Details Section -->
-                <div class="section">
-                    <div class="section-header">PAYMENT DETAILS</div>
-                    <div class="section-content">
-                        <div class="grid-2">
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Installment:</span>
-                                    <span class="info-value">Third Installment</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Amount:</span>
-                                    <span class="info-value">USD {format(float(row[9]), ',') if row[9] else '0'}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="info-row">
-                                    <span class="info-label">Due Date:</span>
-                                    <span class="info-value">{row[10].strftime('%d %B %Y') if row[10] else '—'}</span>
-                                </div>
-                                <div class="info-row">
-                                    <span class="info-label">Date Paid:</span>
-                                    <span class="info-value">{effective_date.strftime('%d %B %Y') if effective_date else '—'}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Professional Footer -->
-                <div class="footer">
-                    <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
-                    <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602 </div>
-                    <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
                 </div>
             </div>
-        </body>
-        </html>
-        """
-        pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
-        response = make_response(pdf)
-        response.headers["Content-Type"] = "application/pdf"
-        response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties Third Installment_Receipt_Project_{project_id}.pdf"
-        return response
+            <div class="section">
+                <div class="section-header">CLIENT INFORMATION</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Name:</span>
+                                <span class="info-value">{row[1]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Address:</span>
+                                <span class="info-value">{row[2]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Contact:</span>
+                                <span class="info-value">0{row[3]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Email:</span>
+                                <span class="info-value">{row[4]}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">PROJECT INFORMATION</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Project:</span>
+                                <span class="info-value">{row[5]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Location:</span>
+                                <span class="info-value">{row[6]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Scope:</span>
+                                <span class="info-value">{row[7]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Administrator:</span>
+                                <span class="info-value">{row[8]}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">PAYMENT DETAILS</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Installment:</span>
+                                <span class="info-value">{installment_title} Installment</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Amount:</span>
+                                <span class="info-value">USD {formatted_amount}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Due Date:</span>
+                                <span class="info-value">{due_date_long}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Date Paid:</span>
+                                <span class="info-value">{paid_date_long}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
+                <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602</div>
+                <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+
+
 
 
 def number_to_words(n):
