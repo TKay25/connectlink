@@ -17557,7 +17557,7 @@ def download_inst2_receipt(project_id):
         </body>
         </html>
         """
-pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+        pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
         response = make_response(pdf)
         response.headers["Content-Type"] = "application/pdf"
