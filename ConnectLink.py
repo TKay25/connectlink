@@ -17250,7 +17250,7 @@ def download_inst2_receipt(project_id):
                 }}
 
                 .logo {{
-                    width: 110px;
+                    width: 150px;
                 }}
 
                 .receipt-title {{
@@ -17429,7 +17429,7 @@ def download_inst2_receipt(project_id):
                 <div class="header">
                     <img src="data:image/png;base64,{logo_base64}" class="logo">
                     <div class="receipt-title">
-                        <h2>INSTALLMENT RECEIPT</h2>
+                        <h3>INSTALLMENT RECEIPT</h3>
                         <p>Second Installment Payment</p>
                         <div class="receipt-metadata">
                             <span class="receipt-number">REF: CON-{row[0]}-INST2</span>
