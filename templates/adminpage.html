@@ -2296,8 +2296,9 @@ body::before {
                                         <!-- Button 1: Get Receipt -->
                                         <div class="col-xl col-lg-3 col-md-6 col-sm-6">
                                             <div class="d-grid h-100">
-                                                <button type="button" class="btn btn-primary w-100 py-2">
-                                                    Get Receipt
+                                                <button class="btn btn-primary w-100" id="getinst3ReceiptBtn">
+                                                    <span id="inst3Text">Get Receipt</span>
+                                                    <span id="inst3Spinner" class="spinner-border spinner-border-sm d-none"></span>
                                                 </button>
                                             </div>
                                         </div>
@@ -7771,6 +7772,71 @@ document.getElementById("getinst2ReceiptBtn").addEventListener("click", async fu
     } catch (err) {
         console.error(err);
         alert("❌ Failed to download installment 2 receipt");
+    } finally {
+        // Hide spinner
+        btn.disabled = false;
+        spinner.classList.add("d-none");
+        textSpan.textContent = "Get Receipt";
+    }
+});
+
+
+
+
+document.getElementById("getinst3ReceiptBtn").addEventListener("click", async function(e) {
+    e.preventDefault();
+
+    const projectId = document.getElementById("updateProjectId").value;
+    const installment3PaidDate = document.getElementById("updateInstallment3Date").value;
+    const btn = this;
+    const spinner = document.getElementById("inst3Spinner");
+    const textSpan = document.getElementById("inst3Text");
+
+    // Check if project is selected
+    if (!projectId) {
+        alert('⚠️ No project selected!');
+        return;
+    }
+    
+    // Check if installment 3 paid date is empty/null/undefined
+    if (!installment3PaidDate || installment3PaidDate === '' || 
+        installment3PaidDate === 'null' || installment3PaidDate === 'undefined' ||
+        installment3PaidDate.trim() === '') {
+        alert('⚠️ Sorry, you have to input the date installment 3 was paid first before you can send receipt to client');
+        return;
+    }
+
+    // Show spinner
+    btn.disabled = true;
+    spinner.classList.remove("d-none");
+    textSpan.textContent = "Generating...";
+
+    try {
+        const response = await fetch(`/download_inst3_receipt/${projectId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                installment3_date: installment3PaidDate
+            })
+        });
+
+        if (!response.ok) throw new Error("Failed to generate receipt");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Installment3_Receipt_Project_${projectId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ Failed to download installment 3 receipt");
     } finally {
         // Hide spinner
         btn.disabled = false;
