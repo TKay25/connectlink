@@ -7051,14 +7051,24 @@ def webhook():
                                                                                 
                                                                                 <!-- Page 4 -->
 
+                                                                                <div class="section-header">TRANSPORT PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
+                                                                                </div>
+
                                                                                 <div class="section-header">POWER PROVISION</div>
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
                                                                                 </div>
 
-                                                                                <div class="section-header">TRANSPORT PROVISION</div>
+                                                                                <div class="section-header">WATER PROVISION</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
+                                                                                    <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
+                                                                                </div>
+
+                                                                                <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">Warranty for the roof and any defects identified during the period.</p>
                                                                                 </div>
                                                                                 
                                                                                 <div class="section-header">INDEMNITY CLAUSE</div>
@@ -7076,20 +7086,21 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
                                                                                 
-                                                                                <div class="section-header">DISPUTE RESOLUTION</div>
-                                                                                <div class="terms-box">
-                                                                                    <p style="font-size:11px;">Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
-                                                                                </div>
-                                                                                
-                                                                                <div class="section-header">GOVERNING LAW</div>
-                                                                                <div class="terms-box">
-                                                                                    <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
-                                                                                </div>
                                                                                 
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
                                                                                 
                                                                                 <!-- Page 5 -->
+
+                                                                                <div class="section-header">DISPUTE RESOLUTION</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
+                                                                                </div>
+
+                                                                                <div class="section-header">GOVERNING LAW</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
+                                                                                </div>
 
                                                                                 <div class="section-header">ENTIRE AGREEMENT</div>
                                                                                 <div class="terms-box">
@@ -11508,16 +11519,26 @@ def download_contract(project_id):
                     
                     <!-- Page 4 -->
 
-                    <div class="section-header">POWER PROVISION</div>
-                    <div class="terms-box">
-                        <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
-                    </div>
-                    
                     <div class="section-header">TRANSPORT PROVISION</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
                     </div>
 
+                    <div class="section-header">POWER PROVISION</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
+                    </div>
+
+                    <div class="section-header">WATER PROVISION</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
+                    </div>
+
+                    <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">Warranty for the roof and any defects identified during the period.</p>
+                    </div>
+                    
                     <div class="section-header">INDEMNITY CLAUSE</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
@@ -11533,6 +11554,12 @@ def download_contract(project_id):
                         </ol>
                     </div>
                     
+                    
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
@@ -11542,11 +11569,6 @@ def download_contract(project_id):
                     <div class="terms-box">
                         <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
                     </div>
-                    
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
 
                     <div class="section-header">ENTIRE AGREEMENT</div>
                     <div class="terms-box">
