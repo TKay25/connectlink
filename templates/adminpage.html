@@ -7654,9 +7654,25 @@ document.getElementById("getinst1ReceiptBtn").addEventListener("click", async fu
     e.preventDefault();
 
     const projectId = document.getElementById("updateProjectId").value; // get project ID
+    const installment1PaidDate = document.getElementById("updateInstallment1Date").value;
     const btn = this;
     const spinner = document.getElementById("inst1Spinner");
     const textSpan = document.getElementById("inst1Text");
+
+        
+    // Check if project is selected
+    if (!projectId) {
+        alert('⚠️ No project selected!');
+        return;
+    }
+    
+    // Check if installment 1 paid date is empty/null/undefined
+    if (!installment1PaidDate || installment1PaidDate === '' || 
+        installment1PaidDate === 'null' || installment1PaidDate === 'undefined' ||
+        installment1PaidDate.trim() === '') {
+        alert('⚠️ Sorry, you have to input the date installment 1 was paid first before you can send receipt to client');
+        return;
+    }
 
     // Show spinner
     btn.disabled = true;
