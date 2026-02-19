@@ -17000,7 +17000,12 @@ def download_inst_receipt(project_id):
                 date_was_updated = True
                 print(f"Updated date to: {installment_paid_date}")
             
-            effective_date = installment_paid_date
+            try:
+                effective_date = datetime.strptime(installment_paid_date, '%Y-%m-%d').date()
+            except ValueError:
+                # Try different format if needed
+                print("failed to convert effective date to required format")
+                
         else:
             # No date in request, check database
             if not db_installment_date:
