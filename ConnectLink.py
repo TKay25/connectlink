@@ -17651,9 +17651,9 @@ def generate_receipt_html(row, effective_date, logo_base64, installment_title, i
             .receipt-title {{
                 text-align: right;
             }}
-            .receipt-title h3 {{
+            .receipt-title h5 {{
                 color: #1E2A56;
-                font-size: 22px;
+                font-size: 16px;
                 margin: 0;
                 font-weight: 600;
                 letter-spacing: 1px;
@@ -17780,7 +17780,7 @@ def generate_receipt_html(row, effective_date, logo_base64, installment_title, i
             <div class="header">
                 <img src="data:image/png;base64,{logo_base64}" class="logo">
                 <div class="receipt-title">
-                    <h3>INSTALLMENT RECEIPT</h3>
+                    <h5>INSTALLMENT RECEIPT</h5>
                     <p>{installment_title} Installment Payment</p>
                     <div class="receipt-metadata">
                         <span class="receipt-number">REF: CON-{row[0]}-INST{installment_num}-{effective_date}</span>
