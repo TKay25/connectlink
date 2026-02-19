@@ -17221,374 +17221,343 @@ def download_inst2_receipt(project_id):
                 }}
 
                 body {{
-                    font-family: 'Arial', sans-serif;
+                    font-family: 'Helvetica', 'Arial', sans-serif;
                     color: #2C3E50;
-                    line-height: 1.3;
+                    line-height: 1.4;
                     margin: 0;
                     padding: 0;
-                    position: relative;
                     background: #fff;
-                    font-size: 11px;
+                    font-size: 10px;
                 }}
 
-                /* Receipt container with border */
                 .receipt-container {{
-                    border: 1.5px solid #1E2A56;
-                    padding: 12px;
+                    border: 1px solid #d0d0d0;
+                    padding: 15px;
                     min-height: 680px;
                     position: relative;
                     background: white;
-                    border-radius: 3px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
                 }}
 
-                /* Light watermark */
-                .watermark {{
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%) rotate(-30deg);
-                    font-size: 70px;
-                    font-weight: bold;
-                    color: rgba(30, 42, 86, 0.05);
-                    z-index: 1;
-                    pointer-events: none;
-                    white-space: nowrap;
-                    text-transform: uppercase;
-                    letter-spacing: 3px;
-                }}
-
-                /* Header */
+                /* Professional header with company branding */
                 .header {{
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 15px;
-                    padding-bottom: 8px;
-                    border-bottom: 1px dashed #1E2A56;
-                    position: relative;
-                    z-index: 2;
+                    margin-bottom: 20px;
+                    padding-bottom: 12px;
+                    border-bottom: 2px solid #1E2A56;
                 }}
 
                 .logo {{
-                    width: 150px;
+                    width: 110px;
                 }}
 
-                .receipt-title h3 {{
+                .receipt-title {{
+                    text-align: right;
+                }}
+
+                .receipt-title h2 {{
                     color: #1E2A56;
-                    font-size: 18px;
+                    font-size: 22px;
                     margin: 0;
-                    font-weight: 700;
-                    text-transform: uppercase;
+                    font-weight: 600;
                     letter-spacing: 1px;
                 }}
 
                 .receipt-title p {{
                     color: #666;
+                    font-size: 10px;
+                    margin: 3px 0 0;
+                }}
+
+                .receipt-metadata {{
+                    display: flex;
+                    justify-content: space-between;
+                    margin-top: 5px;
                     font-size: 9px;
-                    margin: 2px 0 0;
-                    text-align: right;
+                    color: #666;
                 }}
 
                 .receipt-number {{
-                    background: #1E2A56;
-                    color: white;
-                    padding: 3px 8px;
-                    border-radius: 12px;
-                    font-size: 9px;
-                    font-weight: bold;
-                    display: inline-block;
-                    margin-top: 3px;
+                    color: #1E2A56;
+                    font-weight: 600;
                 }}
 
-                /* Client Details Section - REDUCED FONT SIZE */
-                .client-section {{
-                    margin-bottom: 12px;
-                    position: relative;
-                    z-index: 2;
-                    background: #f8f9fc;
-                    border: 1px solid #e0e4f0;
+                .receipt-date {{
+                    color: #666;
+                }}
+
+                /* Section styling */
+                .section {{
+                    margin-bottom: 18px;
+                    border: 1px solid #e8e8e8;
                     border-radius: 4px;
-                    padding: 10px;
-                    font-size: 9px;  /* REDUCED */
+                    overflow: hidden;
                 }}
 
                 .section-header {{
+                    background: #f5f7fa;
+                    padding: 8px 12px;
+                    font-weight: 600;
+                    font-size: 11px;
                     color: #1E2A56;
-                    font-size: 12px;  /* KEPT ORIGINAL */
-                    font-weight: 700;
-                    margin: 0 0 8px 0;
-                    padding-bottom: 3px;
-                    border-bottom: 1px solid #d0d8e8;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
+                    border-bottom: 1px solid #e0e0e0;
                 }}
 
-                /* Two column layout for client details */
-                .client-grid {{
+                .section-content {{
+                    padding: 12px;
+                }}
+
+                /* Two column grid */
+                .grid-2 {{
                     display: grid;
                     grid-template-columns: 1fr 1fr;
-                    gap: 10px;
+                    gap: 15px;
                 }}
 
                 .info-row {{
                     display: flex;
-                    margin-bottom: 4px;
-                    font-size: 9px;  /* REDUCED */
+                    margin-bottom: 6px;
+                    font-size: 10px;
                 }}
 
                 .info-label {{
-                    font-weight: 600;
-                    width: 65px;
-                    color: #4a5568;
-                    font-size: 9px;  /* REDUCED */
+                    width: 70px;
+                    color: #666;
+                    font-weight: 500;
                 }}
 
                 .info-value {{
                     flex: 1;
-                    color: #1E2A56;
-                    font-weight: 500;
-                    font-size: 9px;  /* REDUCED */
+                    color: #2C3E50;
+                    font-weight: 400;
                 }}
 
-                /* Project section - REDUCED FONT SIZE */
-                .project-section {{
-                    margin-bottom: 12px;
-                    position: relative;
-                    z-index: 2;
-                    background: #f8f9fc;
-                    border: 1px solid #e0e4f0;
+                /* Payment summary styling */
+                .payment-summary {{
+                    background: #fafbfd;
+                    border: 1px solid #e8e8e8;
                     border-radius: 4px;
-                    padding: 10px;
-                    font-size: 9px;  /* REDUCED */
+                    padding: 15px;
+                    margin: 15px 0 5px;
                 }}
 
-                /* Payment section - ORIGINAL SIZE */
-                .payment-section {{
-                    margin: 12px 0;
-                    position: relative;
-                    z-index: 2;
-                }}
-
-                .payment-box {{
-                    background: #eef2f9;
-                    border: 1.5px solid #1E2A56;
-                    border-radius: 5px;
-                    padding: 10px;
+                .payment-grid {{
                     display: grid;
                     grid-template-columns: repeat(3, 1fr);
-                    gap: 8px;
-                    margin-top: 5px;
+                    gap: 10px;
+                    text-align: center;
                 }}
 
                 .payment-item {{
-                    text-align: center;
+                    padding: 8px 0;
                 }}
 
                 .payment-label {{
-                    font-size: 8px;
+                    font-size: 9px;
                     color: #666;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
-                    margin-bottom: 3px;
+                    margin-bottom: 5px;
                 }}
 
-                .payment-value {{
-                    font-size: 14px;
-                    font-weight: 700;
-                    color: #1E2A56;
-                }}
-
-                .payment-value small {{
-                    font-size: 8px;
-                    font-weight: normal;
-                    color: #666;
-                }}
-
-                /* Amount in words - ORIGINAL SIZE */
-                .amount-words {{
-                    background: #fff;
-                    border: 1px dashed #1E2A56;
-                    padding: 6px 10px;
-                    margin: 8px 0;
-                    font-size: 9px;
-                    color: #4a5568;
-                    border-radius: 3px;
-                }}
-
-                .amount-words strong {{
-                    color: #1E2A56;
-                    text-transform: uppercase;
-                    font-size: 9px;
-                }}
-
-                /* Footer - ORIGINAL SIZE */
-                .footer {{
-                    margin-top: 20px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-end;
-                    position: relative;
-                    z-index: 2;
-                }}
-
-                .signature-box {{
-                    text-align: center;
-                    width: 45%;
-                }}
-
-                .signature-line {{
-                    border-top: 1px solid #1E2A56;
-                    width: 100%;
-                    margin: 3px 0;
-                    padding-top: 3px;
-                }}
-
-                .signature-title {{
-                    font-size: 8px;
-                    color: #666;
+                .payment-amount {{
+                    font-size: 18px;
                     font-weight: 600;
+                    color: #1E2A56;
+                }}
+
+                .payment-amount small {{
+                    font-size: 10px;
+                    font-weight: 400;
+                    color: #999;
+                }}
+
+                .payment-date {{
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #2C3E50;
+                }}
+
+                /* Status indicator */
+                .status-paid {{
+                    display: inline-block;
+                    background: #27ae60;
+                    color: white;
+                    font-size: 9px;
+                    font-weight: 600;
+                    padding: 3px 10px;
+                    border-radius: 12px;
+                    text-transform: uppercase;
                     letter-spacing: 0.5px;
                 }}
 
-                .stamp {{
-                    margin-top: 5px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    color: #1E2A56;
-                    opacity: 0.2;
-                    font-style: italic;
+                /* Footer */
+                .footer {{
+                    margin-top: 25px;
+                    padding-top: 12px;
+                    border-top: 1px solid #e0e0e0;
+                    font-size: 8px;
+                    color: #999;
+                    text-align: center;
                 }}
 
-                .receipt-footer {{
+                .footer-line {{
+                    margin: 3px 0;
+                }}
+
+                /* Utility classes */
+                .text-right {{
+                    text-align: right;
+                }}
+
+                .text-bold {{
+                    font-weight: 600;
+                }}
+
+                .mt-10 {{
                     margin-top: 10px;
-                    text-align: center;
-                    font-size: 7px;
-                    color: #999;
-                    border-top: 1px solid #eee;
-                    padding-top: 5px;
                 }}
             </style>
         </head>
         <body>
             <div class="receipt-container">
-                <div class="watermark">PAID</div>
-                
-                <!-- Header -->
+                <!-- Header with company branding -->
                 <div class="header">
                     <img src="data:image/png;base64,{logo_base64}" class="logo">
                     <div class="receipt-title">
-                        <h3>RECEIPT</h3>
-                        <p>Second Installment</p>
-                        <span class="receipt-number">RCT-{row[0]}-INST2</span>
-                    </div>
-                </div>
-
-                <!-- CLIENT DETAILS - Reduced font size -->
-                <div class="client-section">
-                    <div class="section-header">CLIENT DETAILS</div>
-                    <div class="client-grid">
-                        <!-- Left column -->
-                        <div>
-                            <div class="info-row">
-                                <span class="info-label">Name:</span>
-                                <span class="info-value">{row[1]}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Address:</span>
-                                <span class="info-value">{row[2]}</span>
-                            </div>
-                        </div>
-                        <!-- Right column -->
-                        <div>
-                            <div class="info-row">
-                                <span class="info-label">Contact:</span>
-                                <span class="info-value">0{row[3]}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Email:</span>
-                                <span class="info-value">{row[4]}</span>
-                            </div>
+                        <h2>RECEIPT</h2>
+                        <p>Second Installment Payment</p>
+                        <div class="receipt-metadata">
+                            <span class="receipt-number">REF: CON-{row[0]}-INST2</span>
+                            <span class="receipt-date">{datetime.now().strftime('%d %b %Y')}</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- PROJECT DETAILS - Reduced font size -->
-                <div class="project-section">
-                    <div class="section-header">PROJECT DETAILS</div>
-                    <div class="client-grid">
-                        <!-- Left column -->
-                        <div>
-                            <div class="info-row">
-                                <span class="info-label">Project:</span>
-                                <span class="info-value">{row[5]}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Location:</span>
-                                <span class="info-value">{row[6]}</span>
-                            </div>
-                        </div>
-                        <!-- Right column -->
-                        <div>
-                            <div class="info-row">
-                                <span class="info-label">Scope:</span>
-                                <span class="info-value">{row[7]}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Admin:</span>
-                                <span class="info-value">{row[8]}</span>
-                            </div>
-                        </div>
+                <!-- Payment Summary at top (most important) -->
+                <div class="payment-summary">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span class="status-paid">PAID</span>
+                        <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-{int(datetime.now().timestamp())}</span>
                     </div>
-                </div>
-
-                <!-- Payment Details - Original size -->
-                <div class="payment-section">
-                    <div class="section-header">PAYMENT DETAILS - SECOND INSTALLMENT</div>
-                    <div class="payment-box">
+                    <div class="payment-grid">
                         <div class="payment-item">
                             <div class="payment-label">Amount</div>
-                            <div class="payment-value">USD {format(int(row[9]), ',') if row[9] else '—'}<small>.00</small></div>
+                            <div class="payment-amount">${format(int(row[9]), ',') if row[9] else '0'}<small>.00</small></div>
                         </div>
                         <div class="payment-item">
                             <div class="payment-label">Due Date</div>
-                            <div class="payment-value">{row[10].strftime('%d/%m/%y') if row[10] else '—'}</div>
+                            <div class="payment-date">{row[10].strftime('%d %b %Y') if row[10] else '—'}</div>
                         </div>
                         <div class="payment-item">
                             <div class="payment-label">Paid Date</div>
-                            <div class="payment-value">{effective_date.strftime('%d/%m/%y') if effective_date else '—'}</div>
+                            <div class="payment-date">{effective_date.strftime('%d %b %Y') if effective_date else '—'}</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Amount in words - Original size -->
-                <div class="amount-words">
-                    <strong>Amount in words:</strong> 
-                    {number_to_words(int(row[9])) if row[9] else 'Zero'} United States Dollars Only
+                <!-- Client Information Section -->
+                <div class="section">
+                    <div class="section-header">CLIENT INFORMATION</div>
+                    <div class="section-content">
+                        <div class="grid-2">
+                            <div>
+                                <div class="info-row">
+                                    <span class="info-label">Name:</span>
+                                    <span class="info-value">{row[1]}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Address:</span>
+                                    <span class="info-value">{row[2]}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="info-row">
+                                    <span class="info-label">Contact:</span>
+                                    <span class="info-value">0{row[3]}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Email:</span>
+                                    <span class="info-value">{row[4]}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Footer - Original size -->
+                <!-- Project Information Section -->
+                <div class="section">
+                    <div class="section-header">PROJECT INFORMATION</div>
+                    <div class="section-content">
+                        <div class="grid-2">
+                            <div>
+                                <div class="info-row">
+                                    <span class="info-label">Project:</span>
+                                    <span class="info-value">{row[5]}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Location:</span>
+                                    <span class="info-value">{row[6]}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="info-row">
+                                    <span class="info-label">Scope:</span>
+                                    <span class="info-value">{row[7]}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Administrator:</span>
+                                    <span class="info-value">{row[8]}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Details Section -->
+                <div class="section">
+                    <div class="section-header">PAYMENT DETAILS</div>
+                    <div class="section-content">
+                        <div class="grid-2">
+                            <div>
+                                <div class="info-row">
+                                    <span class="info-label">Installment:</span>
+                                    <span class="info-value">Second Installment</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Amount:</span>
+                                    <span class="info-value">USD {format(int(row[9]), ',') if row[9] else '0'}.00</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="info-row">
+                                    <span class="info-label">Due Date:</span>
+                                    <span class="info-value">{row[10].strftime('%d %B %Y') if row[10] else '—'}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Date Paid:</span>
+                                    <span class="info-value">{effective_date.strftime('%d %B %Y') if effective_date else '—'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Professional Footer -->
                 <div class="footer">
-                    <div class="signature-box">
-                        <div class="signature-line"></div>
-                        <div class="signature-title">Authorized Signatory</div>
-                        <div class="stamp">CONNECTLINK</div>
-                    </div>
-                    <div class="signature-box">
-                        <div class="signature-line"></div>
-                        <div class="signature-title">Client Signature</div>
-                        <div class="stamp">RECEIVED</div>
-                    </div>
-                </div>
-
-                <!-- Receipt footer -->
-                <div class="receipt-footer">
-                    This is a system-generated receipt • Valid without signature • E&OE
+                    <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
+                    <div class="footer-line">For any inquiries, please contact accounts@connectlink.com | +263 78 123 4567</div>
+                    <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
                 </div>
             </div>
         </body>
         </html>
         """
-        pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
         response = make_response(pdf)
         response.headers["Content-Type"] = "application/pdf"
