@@ -7086,6 +7086,11 @@ def webhook():
                                                                                     <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
                                                                                 </div>
                                                                                 
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 5 -->
+
                                                                                 <div class="section-header">ENTIRE AGREEMENT</div>
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">This document constitutes the entire agreement between the parties and supersedes all prior discussions, negotiations, and agreements. No modification shall be valid unless in writing and signed by both parties.</p>
@@ -11538,6 +11543,11 @@ def download_contract(project_id):
                         <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
                     </div>
                     
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
                     <div class="section-header">ENTIRE AGREEMENT</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">This document constitutes the entire agreement between the parties and supersedes all prior discussions, negotiations, and agreements. No modification shall be valid unless in writing and signed by both parties.</p>
