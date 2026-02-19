@@ -2243,8 +2243,9 @@ body::before {
                                         <!-- Button 1 -->
                                         <div class="col-xl col-lg-3 col-md-6 col-sm-6">
                                             <div class="d-grid h-100">
-                                                <button type="button" class="btn btn-primary w-100 py-2">
-                                                    Get Receipt
+                                                <button class="btn btn-primary w-100" id="getinst2ReceiptBtn">
+                                                    <span id="inst2Text">Get Receipt</span>
+                                                    <span id="inst2Spinner" class="spinner-border spinner-border-sm d-none"></span>
                                                 </button>
                                             </div>
                                         </div>
@@ -7650,6 +7651,8 @@ document.getElementById("getdepositReceiptBtn").addEventListener("click", async 
     }
 });
 
+
+
 document.getElementById("getinst1ReceiptBtn").addEventListener("click", async function(e) {
     e.preventDefault();
 
@@ -7711,6 +7714,71 @@ document.getElementById("getinst1ReceiptBtn").addEventListener("click", async fu
         textSpan.textContent = "Get Receipt";
     }
 });
+
+
+
+document.getElementById("getinst2ReceiptBtn").addEventListener("click", async function(e) {
+    e.preventDefault();
+
+    const projectId = document.getElementById("updateProjectId").value;
+    const installment2PaidDate = document.getElementById("updateInstallment2Date").value;
+    const btn = this;
+    const spinner = document.getElementById("inst2Spinner");
+    const textSpan = document.getElementById("inst2Text");
+
+    // Check if project is selected
+    if (!projectId) {
+        alert('⚠️ No project selected!');
+        return;
+    }
+    
+    // Check if installment 2 paid date is empty/null/undefined
+    if (!installment2PaidDate || installment2PaidDate === '' || 
+        installment2PaidDate === 'null' || installment2PaidDate === 'undefined' ||
+        installment2PaidDate.trim() === '') {
+        alert('⚠️ Sorry, you have to input the date installment 2 was paid first before you can send receipt to client');
+        return;
+    }
+
+    // Show spinner
+    btn.disabled = true;
+    spinner.classList.remove("d-none");
+    textSpan.textContent = "Generating...";
+
+    try {
+        const response = await fetch(`/download_inst2_receipt/${projectId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                installment2_date: installment2PaidDate
+            })
+        });
+
+        if (!response.ok) throw new Error("Failed to generate receipt");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Installment2_Receipt_Project_${projectId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ Failed to download installment 2 receipt");
+    } finally {
+        // Hide spinner
+        btn.disabled = false;
+        spinner.classList.add("d-none");
+        textSpan.textContent = "Get Receipt";
+    }
+});
+
 
 
 </script>

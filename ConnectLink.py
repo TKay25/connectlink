@@ -16975,6 +16975,7 @@ def send_template_with_button(to_number, project_id):
         return {"error": {"message": str(e)}}
 
 
+
 @app.route('/download_inst1_receipt/<project_id>', methods=['POST'])
 def download_inst_receipt(project_id):
     with get_db() as (cursor, connection):
@@ -17112,11 +17113,11 @@ def download_inst_receipt(project_id):
         </head>
         <body>
 
-            <div class="watermark">FIRST INSTALLMENT</div>
+            <div class="watermark">INSTALLMENT</div>
 
             <div class="header">
                 <img src="data:image/png;base64,{logo_base64}" class="logo">
-                <h5>Installment Receipt</h5>
+                <h5>First Installment Receipt</h5>
             </div>
 
             <div class="section-title">Client Information</div>
@@ -17155,6 +17156,455 @@ def download_inst_receipt(project_id):
         response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties First Installment_Receipt_Project_{project_id}.pdf"
         return response
 
+
+
+@app.route('/download_inst2_receipt/<project_id>', methods=['POST'])
+def download_inst2_receipt(project_id):
+    with get_db() as (cursor, connection):
+        # Fetch project info
+        data = request.get_json()
+        installment_paid_date = data.get('installment2_date')
+
+        cursor.execute("SELECT id, clientname, clientaddress, clientwanumber, clientemail,projectname, projectlocation, projectdescription, projectadministratorname, installment2amount, installment2duedate, installment2date  FROM connectlinkdatabase WHERE id = %s", (project_id,))
+        row = cursor.fetchone()
+        if not row:
+            return "Project not found", 404
+
+        db_installment_date = row[11]
+
+
+        if installment_paid_date and installment_paid_date.strip():
+            # Date provided in request
+            if not db_installment_date or db_installment_date != installment_paid_date:
+                # Update database
+                cursor.execute("UPDATE connectlinkdatabase SET installment2date = %s WHERE id = %s", 
+                                (installment_paid_date, project_id))
+                connection.commit()
+                date_was_updated = True
+                print(f"Updated date to: {installment_paid_date}")
+            
+            try:
+                effective_date = datetime.strptime(installment_paid_date, '%Y-%m-%d').date()
+            except ValueError:
+                # Try different format if needed
+                print("failed to convert effective date to required format")
+                
+        else:
+            # No date in request, check database
+            if not db_installment_date:
+                return jsonify({
+                    'success': False,
+                    'error_message': 'Sorry, you have to input the date installment 2 was paid first before you can send receipt to client'
+                })
+            effective_date = db_installment_date
+
+        # Fetch company info
+        cursor.execute("SELECT * FROM connectlinkdetails;")
+        details = cursor.fetchall()
+        company = details[0] if details else {}
+
+        # Get logo
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+        with open(logo_path, 'rb') as img:
+            logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+
+        # HTML template
+        html = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                @page {{
+                    size: A5;
+                    margin: 5mm 7mm;
+                }}
+
+                body {{
+                    font-family: 'Arial', sans-serif;
+                    color: #2C3E50;
+                    line-height: 1.4;
+                    margin: 0;
+                    padding: 0;
+                    position: relative;
+                    background: #fff;
+                }}
+
+                /* Receipt container with border */
+                .receipt-container {{
+                    border: 2px solid #1E2A56;
+                    padding: 15px;
+                    min-height: 680px;
+                    position: relative;
+                    background: white;
+                    border-radius: 4px;
+                }}
+
+                /* Diagonal watermark */
+                .watermark {{
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) rotate(-30deg);
+                    font-size: 90px;
+                    font-weight: bold;
+                    color: rgba(30, 42, 86, 0.06);
+                    z-index: 1;
+                    pointer-events: none;
+                    white-space: nowrap;
+                    text-transform: uppercase;
+                    letter-spacing: 5px;
+                }}
+
+                /* Header with logo and title */
+                .header {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                    padding-bottom: 15px;
+                    border-bottom: 2px dashed #1E2A56;
+                    position: relative;
+                    z-index: 2;
+                }}
+
+                .logo-section {{
+                    display: flex;
+                    flex-direction: column;
+                }}
+
+                .logo {{
+                    width: 130px;
+                    margin-bottom: 5px;
+                }}
+
+                .company-tagline {{
+                    font-size: 10px;
+                    color: #666;
+                    letter-spacing: 1px;
+                }}
+
+                .receipt-title {{
+                    text-align: right;
+                }}
+
+                .receipt-title h2 {{
+                    color: #1E2A56;
+                    font-size: 24px;
+                    margin: 0;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: 2px;
+                }}
+
+                .receipt-title p {{
+                    color: #666;
+                    font-size: 12px;
+                    margin: 5px 0 0;
+                    font-style: italic;
+                }}
+
+                .receipt-number {{
+                    background: #1E2A56;
+                    color: white;
+                    padding: 5px 12px;
+                    border-radius: 20px;
+                    font-size: 12px;
+                    font-weight: bold;
+                    display: inline-block;
+                    margin-top: 8px;
+                }}
+
+                /* Info boxes with receipt styling */
+                .info-grid {{
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 12px;
+                    margin: 15px 0;
+                    position: relative;
+                    z-index: 2;
+                }}
+
+                .info-card {{
+                    background: #f8f9fc;
+                    border: 1px solid #e0e4f0;
+                    border-radius: 6px;
+                    padding: 12px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+                }}
+
+                .info-card.full-width {{
+                    grid-column: span 2;
+                }}
+
+                .card-title {{
+                    color: #1E2A56;
+                    font-size: 14px;
+                    font-weight: 700;
+                    margin: 0 0 10px 0;
+                    padding-bottom: 5px;
+                    border-bottom: 1px solid #d0d8e8;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }}
+
+                .info-row {{
+                    display: flex;
+                    margin-bottom: 6px;
+                    font-size: 13px;
+                }}
+
+                .info-label {{
+                    font-weight: 600;
+                    width: 85px;
+                    color: #4a5568;
+                }}
+
+                .info-value {{
+                    flex: 1;
+                    color: #1E2A56;
+                    font-weight: 500;
+                }}
+
+                /* Payment details with highlight */
+                .payment-section {{
+                    margin: 15px 0;
+                    position: relative;
+                    z-index: 2;
+                }}
+
+                .payment-box {{
+                    background: #eef2f9;
+                    border: 2px solid #1E2A56;
+                    border-radius: 8px;
+                    padding: 15px;
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 10px;
+                    margin-top: 5px;
+                }}
+
+                .payment-item {{
+                    text-align: center;
+                }}
+
+                .payment-label {{
+                    font-size: 11px;
+                    color: #666;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    margin-bottom: 5px;
+                }}
+
+                .payment-value {{
+                    font-size: 18px;
+                    font-weight: 800;
+                    color: #1E2A56;
+                }}
+
+                .payment-value small {{
+                    font-size: 11px;
+                    font-weight: normal;
+                    color: #666;
+                }}
+
+                /* Amount in words */
+                .amount-words {{
+                    background: #fff;
+                    border: 1px dashed #1E2A56;
+                    padding: 8px 12px;
+                    margin: 10px 0;
+                    font-size: 12px;
+                    color: #4a5568;
+                    border-radius: 4px;
+                }}
+
+                .amount-words strong {{
+                    color: #1E2A56;
+                    text-transform: uppercase;
+                }}
+
+                /* Footer with signatures */
+                .footer {{
+                    margin-top: 25px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-end;
+                    position: relative;
+                    z-index: 2;
+                }}
+
+                .signature-box {{
+                    text-align: center;
+                    width: 45%;
+                }}
+
+                .signature-line {{
+                    border-top: 1px solid #1E2A56;
+                    width: 100%;
+                    margin: 5px 0;
+                    padding-top: 5px;
+                }}
+
+                .signature-title {{
+                    font-size: 11px;
+                    color: #666;
+                    font-weight: 600;
+                    letter-spacing: 1px;
+                }}
+
+                .stamp {{
+                    margin-top: 10px;
+                    font-size: 20px;
+                    font-weight: bold;
+                    color: #1E2A56;
+                    opacity: 0.3;
+                    font-style: italic;
+                }}
+
+                .receipt-footer {{
+                    margin-top: 15px;
+                    text-align: center;
+                    font-size: 9px;
+                    color: #999;
+                    border-top: 1px solid #eee;
+                    padding-top: 8px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="receipt-container">
+                <div class="watermark">PAID</div>
+                
+                <!-- Header -->
+                <div class="header">
+                    <div class="logo-section">
+                        <img src="data:image/png;base64,{logo_base64}" class="logo">
+                        <span class="company-tagline">Property Development & Management</span>
+                    </div>
+                    <div class="receipt-title">
+                        <h2>RECEIPT</h2>
+                        <p>Official Payment Receipt</p>
+                        <span class="receipt-number">RCT-{row[0]}-INST2</span>
+                    </div>
+                </div>
+
+                <!-- Client and Project Info Grid -->
+                <div class="info-grid">
+                    <!-- Client Information -->
+                    <div class="info-card">
+                        <div class="card-title">CLIENT DETAILS</div>
+                        <div class="info-row">
+                            <span class="info-label">Name:</span>
+                            <span class="info-value">{row[1]}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Address:</span>
+                            <span class="info-value">{row[2]}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Contact:</span>
+                            <span class="info-value">0{row[3]}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">{row[4]}</span>
+                        </div>
+                    </div>
+
+                    <!-- Project Information -->
+                    <div class="info-card">
+                        <div class="card-title">PROJECT DETAILS</div>
+                        <div class="info-row">
+                            <span class="info-label">Project:</span>
+                            <span class="info-value">{row[5]}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Location:</span>
+                            <span class="info-value">{row[6]}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Scope:</span>
+                            <span class="info-value">{row[7]}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Admin:</span>
+                            <span class="info-value">{row[8]}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Details -->
+                <div class="payment-section">
+                    <div class="card-title" style="margin-left: 5px;">PAYMENT DETAILS - SECOND INSTALLMENT</div>
+                    <div class="payment-box">
+                        <div class="payment-item">
+                            <div class="payment-label">Amount</div>
+                            <div class="payment-value">USD {format(int(row[9]), ',') if row[9] else '—'}<small>.00</small></div>
+                        </div>
+                        <div class="payment-item">
+                            <div class="payment-label">Due Date</div>
+                            <div class="payment-value">{row[10].strftime('%d/%m/%y') if row[10] else '—'}</div>
+                        </div>
+                        <div class="payment-item">
+                            <div class="payment-label">Paid Date</div>
+                            <div class="payment-value">{effective_date.strftime('%d/%m/%y') if effective_date else '—'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Amount in words -->
+                <div class="amount-words">
+                    <strong>Amount in words:</strong> 
+                    {number_to_words(int(row[9])) if row[9] else 'Zero'} United States Dollars Only
+                </div>
+
+                <!-- Footer with signatures -->
+                <div class="footer">
+                    <div class="signature-box">
+                        <div class="signature-title">Authorized Signatory</div>
+                        <div class="stamp">CONNECTLINK</div>
+                    </div>
+                </div>
+
+                <!-- Receipt footer -->
+                <div class="receipt-footer">
+                    This is a system-generated receipt • Valid without signature • Keep for your records
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+
+        response = make_response(pdf)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties First Installment_Receipt_Project_{project_id}.pdf"
+        return response
+
+def number_to_words(n):
+    """Convert number to words (simple version)"""
+    if not n:
+        return "Zero"
+    
+    ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
+    teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 
+             'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
+    tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+    
+    n = int(n)
+    
+    if n < 10:
+        return ones[n]
+    elif n < 20:
+        return teens[n-10]
+    elif n < 100:
+        return tens[n//10] + (' ' + ones[n%10] if n%10 != 0 else '')
+    elif n < 1000:
+        return ones[n//100] + ' Hundred' + (' and ' + number_to_words(n%100) if n%100 != 0 else '')
+    else:
+        return str(n)  # Fallback for large numbers
 
 @app.route('/download_deposit_receipt/<project_id>')
 def download_deposit_receipt(project_id):
