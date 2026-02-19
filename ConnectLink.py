@@ -17432,8 +17432,7 @@ def download_inst2_receipt(project_id):
                         <h3>INSTALLMENT RECEIPT</h3>
                         <p>Second Installment Payment</p>
                         <div class="receipt-metadata">
-                            <span class="receipt-number">REF: CON-{row[0]}-INST2</span>
-                            <span class="receipt-date">{effective_date}</span>
+                            <span class="receipt-number">REF: CON-{row[0]}-INST2-{effective_date}</span>
                         </div>
                     </div>
                 </div>
