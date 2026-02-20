@@ -3556,35 +3556,6 @@ def webhook():
 
 
                                                     elif message_type == "button":
-                                                        
-                                                        button = message.get("button", {})
-                                                        button_text = button.get("text", "")
-                                                        payload = button.get("payload", "")
-                                                        
-                                                        print(f"🔘 Template button clicked: {button_text}")
-                                                        print(f"📦 Button payload: {payload}")
-                                                        
-                                                        # Find which receipt type this payload matches
-                                                        matched_type = None
-                                                        project_id = None
-                                                        
-                                                        for receipt_type, config in RECEIPT_CONFIG.items():
-                                                            if payload and payload.startswith(config['payload_prefix']):
-                                                                matched_type = receipt_type
-                                                                project_id = payload.replace(config['payload_prefix'], '')
-                                                                break
-                                                        
-                                                        if matched_type and project_id:
-                                                            config = RECEIPT_CONFIG[matched_type]
-                                                            print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
-                                                            
-                                                            # Send processing message
-                                                            send_text_message(sender_id, config['processing_message'])
-                                                            
-                                                            # Send PDF receipt
-                                                            send_receipt_via_whatsapp(sender_id, project_id, matched_type, config)
-                                                        else:
-                                                            print(f"❌ Unknown payload: {payload}")
 
                                                         # Unified function to send any receipt via WhatsApp
                                                         def send_receipt_via_whatsapp(recipient_number, project_id, receipt_type, config):
@@ -4029,6 +4000,37 @@ def webhook():
                                                             except Exception as e:
                                                                 print(f"❌ Text message error: {str(e)}")
                                                                 return None
+                                                        
+                                                        button = message.get("button", {})
+                                                        button_text = button.get("text", "")
+                                                        payload = button.get("payload", "")
+                                                        
+                                                        print(f"🔘 Template button clicked: {button_text}")
+                                                        print(f"📦 Button payload: {payload}")
+                                                        
+                                                        # Find which receipt type this payload matches
+                                                        matched_type = None
+                                                        project_id = None
+                                                        
+                                                        for receipt_type, config in RECEIPT_CONFIG.items():
+                                                            if payload and payload.startswith(config['payload_prefix']):
+                                                                matched_type = receipt_type
+                                                                project_id = payload.replace(config['payload_prefix'], '')
+                                                                break
+                                                        
+                                                        if matched_type and project_id:
+                                                            config = RECEIPT_CONFIG[matched_type]
+                                                            print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
+                                                            
+                                                            # Send processing message
+                                                            send_text_message(sender_id, config['processing_message'])
+                                                            
+                                                            # Send PDF receipt
+                                                            send_receipt_via_whatsapp(sender_id, project_id, matched_type, config)
+                                                        else:
+                                                            print(f"❌ Unknown payload: {payload}")
+
+
 
                                                     else:
 
@@ -5829,35 +5831,6 @@ def webhook():
 
                                                         elif message_type == "button":
 
-                                                            button = message.get("button", {})
-                                                            button_text = button.get("text", "")
-                                                            payload = button.get("payload", "")
-                                                            
-                                                            print(f"🔘 Template button clicked: {button_text}")
-                                                            print(f"📦 Button payload: {payload}")
-                                                            
-                                                            # Find which receipt type this payload matches
-                                                            matched_type = None
-                                                            project_id = None
-                                                            
-                                                            for receipt_type, config in RECEIPT_CONFIG.items():
-                                                                if payload and payload.startswith(config['payload_prefix']):
-                                                                    matched_type = receipt_type
-                                                                    project_id = payload.replace(config['payload_prefix'], '')
-                                                                    break
-                                                            
-                                                            if matched_type and project_id:
-                                                                config = RECEIPT_CONFIG[matched_type]
-                                                                print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
-                                                                
-                                                                # Send processing message
-                                                                send_text_message(sender_id, config['processing_message'])
-                                                                
-                                                                # Send PDF receipt
-                                                                send_receipt_via_whatsapp(sender_id, project_id, matched_type, config)
-                                                            else:
-                                                                print(f"❌ Unknown payload: {payload}")
-
                                                             # Unified function to send any receipt via WhatsApp
                                                             def send_receipt_via_whatsapp(recipient_number, project_id, receipt_type, config):
                                                                 """Send any receipt PDF via WhatsApp"""
@@ -6301,6 +6274,37 @@ def webhook():
                                                                 except Exception as e:
                                                                     print(f"❌ Text message error: {str(e)}")
                                                                     return None
+
+
+                                                            button = message.get("button", {})
+                                                            button_text = button.get("text", "")
+                                                            payload = button.get("payload", "")
+                                                            
+                                                            print(f"🔘 Template button clicked: {button_text}")
+                                                            print(f"📦 Button payload: {payload}")
+                                                            
+                                                            # Find which receipt type this payload matches
+                                                            matched_type = None
+                                                            project_id = None
+                                                            
+                                                            for receipt_type, config in RECEIPT_CONFIG.items():
+                                                                if payload and payload.startswith(config['payload_prefix']):
+                                                                    matched_type = receipt_type
+                                                                    project_id = payload.replace(config['payload_prefix'], '')
+                                                                    break
+                                                            
+                                                            if matched_type and project_id:
+                                                                config = RECEIPT_CONFIG[matched_type]
+                                                                print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
+                                                                
+                                                                # Send processing message
+                                                                send_text_message(sender_id, config['processing_message'])
+                                                                
+                                                                # Send PDF receipt
+                                                                send_receipt_via_whatsapp(sender_id, project_id, matched_type, config)
+                                                            else:
+                                                                print(f"❌ Unknown payload: {payload}")
+
 
 
                                                         else:
