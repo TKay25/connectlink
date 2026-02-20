@@ -5378,167 +5378,98 @@ $(document).ready(function() {
 // Dynamic handler for all Send Receipt buttons (Deposit + Installments)
 $(document).ready(function() {
     
-    // Configuration for all receipt types
+    // Your JavaScript config - make sure these receiptType values match RECEIPT_CONFIG keys
     const sendReceiptConfig = {
-        // Deposit receipt (special case - no due date)
         deposit: {
             buttonId: 'sendReceiptBtn',
             dateFieldId: 'updateDatePaid',
             textId: 'sendReceiptText',
             spinnerId: 'sendReceiptSpinner',
-            endpoint: '/send_deposit_receipt_to_client',
-            alertMessage: 'deposit',
-            type: 'deposit',
-            dateParamName: 'deposit_date',
-            amountField: 'depositorbullet',
-            dbDateField: 'datedepositorbullet'
+            receiptType: 'deposit',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'deposit'
         },
-        // Installment 1
         1: {
             buttonId: 'sendReceiptBtninst1',
             dateFieldId: 'updateInstallment1Date',
             textId: 'sendReceiptText1',
             spinnerId: 'sendReceiptSpinner1',
-            endpoint: '/send_receipt_to_client_inst1',
-            alertMessage: 'installment 1',
-            type: 'installment',
-            installmentNum: 1,
-            dateParamName: 'installment1_paid_date',
-            amountField: 'installment1amount',
-            dbDateField: 'installment1date',
-            dueDateField: 'installment1duedate'
+            receiptType: 'installment1',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 1'
         },
-        // Installment 2
         2: {
             buttonId: 'sendReceiptBtninst2',
             dateFieldId: 'updateInstallment2Date',
             textId: 'sendReceiptText2',
             spinnerId: 'sendReceiptSpinner2',
-            endpoint: '/send_receipt_to_client_inst2',
-            alertMessage: 'installment 2',
-            type: 'installment',
-            installmentNum: 2,
-            dateParamName: 'installment2_paid_date',
-            amountField: 'installment2amount',
-            dbDateField: 'installment2date',
-            dueDateField: 'installment2duedate'
+            receiptType: 'installment2',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 2'
         },
-        // Installment 3
         3: {
             buttonId: 'sendReceiptBtninst3',
             dateFieldId: 'updateInstallment3Date',
             textId: 'sendReceiptText3',
             spinnerId: 'sendReceiptSpinner3',
-            endpoint: '/send_receipt_to_client_inst3',
-            alertMessage: 'installment 3',
-            type: 'installment',
-            installmentNum: 3,
-            dateParamName: 'installment3_paid_date',
-            amountField: 'installment3amount',
-            dbDateField: 'installment3date',
-            dueDateField: 'installment3duedate'
+            receiptType: 'installment3',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 3'
         },
-        // Add more installments as needed (4-10)
         4: {
             buttonId: 'sendReceiptBtninst4',
             dateFieldId: 'updateInstallment4Date',
             textId: 'sendReceiptText4',
             spinnerId: 'sendReceiptSpinner4',
-            endpoint: '/send_receipt_to_client_inst4',
-            alertMessage: 'installment 4',
-            type: 'installment',
-            installmentNum: 4,
-            dateParamName: 'installment4_paid_date',
-            amountField: 'installment4amount',
-            dbDateField: 'installment4date',
-            dueDateField: 'installment4duedate'
+            receiptType: 'installment4',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 4'
         },
         5: {
             buttonId: 'sendReceiptBtninst5',
             dateFieldId: 'updateInstallment5Date',
             textId: 'sendReceiptText5',
             spinnerId: 'sendReceiptSpinner5',
-            endpoint: '/send_receipt_to_client_inst5',
-            alertMessage: 'installment 5',
-            type: 'installment',
-            installmentNum: 5,
-            dateParamName: 'installment5_paid_date',
-            amountField: 'installment5amount',
-            dbDateField: 'installment5date',
-            dueDateField: 'installment5duedate'
+            receiptType: 'installment5',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 5'
         },
         6: {
             buttonId: 'sendReceiptBtninst6',
             dateFieldId: 'updateInstallment6Date',
             textId: 'sendReceiptText6',
             spinnerId: 'sendReceiptSpinner6',
-            endpoint: '/send_receipt_to_client_inst6',
-            alertMessage: 'installment 6',
-            type: 'installment',
-            installmentNum: 6,
-            dateParamName: 'installment6_paid_date',
-            amountField: 'installment6amount',
-            dbDateField: 'installment6date',
-            dueDateField: 'installment6duedate'
+            receiptType: 'installment6',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 6'
         },
         7: {
             buttonId: 'sendReceiptBtninst7',
             dateFieldId: 'updateInstallment7Date',
             textId: 'sendReceiptText7',
             spinnerId: 'sendReceiptSpinner7',
-            endpoint: '/send_receipt_to_client_inst7',
-            alertMessage: 'installment 7',
-            type: 'installment',
-            installmentNum: 7,
-            dateParamName: 'installment7_paid_date',
-            amountField: 'installment7amount',
-            dbDateField: 'installment7date',
-            dueDateField: 'installment7duedate'
+            receiptType: 'installment7',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 7'
         },
         8: {
             buttonId: 'sendReceiptBtninst8',
             dateFieldId: 'updateInstallment8Date',
             textId: 'sendReceiptText8',
             spinnerId: 'sendReceiptSpinner8',
-            endpoint: '/send_receipt_to_client_inst8',
-            alertMessage: 'installment 8',
-            type: 'installment',
-            installmentNum: 8,
-            dateParamName: 'installment8_paid_date',
-            amountField: 'installment8amount',
-            dbDateField: 'installment8date',
-            dueDateField: 'installment8duedate'
+            receiptType: 'installment8',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 8'
         },
         9: {
             buttonId: 'sendReceiptBtninst9',
             dateFieldId: 'updateInstallment9Date',
             textId: 'sendReceiptText9',
             spinnerId: 'sendReceiptSpinner9',
-            endpoint: '/send_receipt_to_client_inst9',
-            alertMessage: 'installment 9',
-            type: 'installment',
-            installmentNum: 9,
-            dateParamName: 'installment9_paid_date',
-            amountField: 'installment9amount',
-            dbDateField: 'installment9date',
-            dueDateField: 'installment9duedate'
+            receiptType: 'installment9',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 9'
         },
         10: {
             buttonId: 'sendReceiptBtninst10',
             dateFieldId: 'updateInstallment10Date',
             textId: 'sendReceiptText10',
             spinnerId: 'sendReceiptSpinner10',
-            endpoint: '/send_receipt_to_client_inst10',
-            alertMessage: 'installment 10',
-            type: 'installment',
-            installmentNum: 10,
-            dateParamName: 'installment10_paid_date',
-            amountField: 'installment10amount',
-            dbDateField: 'installment10date',
-            dueDateField: 'installment10duedate'
+            receiptType: 'installment10',  // This must match RECEIPT_CONFIG key
+            alertMessage: 'installment 10'
         }
+        // ... etc for all installments
     };
-
     // Handle Deposit Receipt button (special case)
     $('#sendReceiptBtn').on('click', function() {
         handleSendReceipt(sendReceiptConfig.deposit);
