@@ -5375,700 +5375,298 @@ $(document).ready(function() {
 </script>
 <script>
 
-    
+// Dynamic handler for all Send Receipt buttons (Deposit + Installments)
 $(document).ready(function() {
-
-
     
-    $('#sendReceiptBtninst6').on('click', function() {
-        const projectId = $('#updateProjectId').val();
-        const installment6PaidDate = $('#updateInstallment6Date').val();
-        
-        // Check if project is selected
-        if (!projectId) {
-            alert('⚠️ No project selected!');
-            return;
+    // Configuration for all receipt types
+    const sendReceiptConfig = {
+        // Deposit receipt (special case - no due date)
+        deposit: {
+            buttonId: 'sendReceiptBtn',
+            dateFieldId: 'updateDatePaid',
+            textId: 'sendReceiptText',
+            spinnerId: 'sendReceiptSpinner',
+            endpoint: '/send_deposit_receipt_to_client',
+            alertMessage: 'deposit',
+            type: 'deposit',
+            dateParamName: 'deposit_date',
+            amountField: 'depositorbullet',
+            dbDateField: 'datedepositorbullet'
+        },
+        // Installment 1
+        1: {
+            buttonId: 'sendReceiptBtninst1',
+            dateFieldId: 'updateInstallment1Date',
+            textId: 'sendReceiptText1',
+            spinnerId: 'sendReceiptSpinner1',
+            endpoint: '/send_receipt_to_client_inst1',
+            alertMessage: 'installment 1',
+            type: 'installment',
+            installmentNum: 1,
+            dateParamName: 'installment1_paid_date',
+            amountField: 'installment1amount',
+            dbDateField: 'installment1date',
+            dueDateField: 'installment1duedate'
+        },
+        // Installment 2
+        2: {
+            buttonId: 'sendReceiptBtninst2',
+            dateFieldId: 'updateInstallment2Date',
+            textId: 'sendReceiptText2',
+            spinnerId: 'sendReceiptSpinner2',
+            endpoint: '/send_receipt_to_client_inst2',
+            alertMessage: 'installment 2',
+            type: 'installment',
+            installmentNum: 2,
+            dateParamName: 'installment2_paid_date',
+            amountField: 'installment2amount',
+            dbDateField: 'installment2date',
+            dueDateField: 'installment2duedate'
+        },
+        // Installment 3
+        3: {
+            buttonId: 'sendReceiptBtninst3',
+            dateFieldId: 'updateInstallment3Date',
+            textId: 'sendReceiptText3',
+            spinnerId: 'sendReceiptSpinner3',
+            endpoint: '/send_receipt_to_client_inst3',
+            alertMessage: 'installment 3',
+            type: 'installment',
+            installmentNum: 3,
+            dateParamName: 'installment3_paid_date',
+            amountField: 'installment3amount',
+            dbDateField: 'installment3date',
+            dueDateField: 'installment3duedate'
+        },
+        // Add more installments as needed (4-10)
+        4: {
+            buttonId: 'sendReceiptBtninst4',
+            dateFieldId: 'updateInstallment4Date',
+            textId: 'sendReceiptText4',
+            spinnerId: 'sendReceiptSpinner4',
+            endpoint: '/send_receipt_to_client_inst4',
+            alertMessage: 'installment 4',
+            type: 'installment',
+            installmentNum: 4,
+            dateParamName: 'installment4_paid_date',
+            amountField: 'installment4amount',
+            dbDateField: 'installment4date',
+            dueDateField: 'installment4duedate'
+        },
+        5: {
+            buttonId: 'sendReceiptBtninst5',
+            dateFieldId: 'updateInstallment5Date',
+            textId: 'sendReceiptText5',
+            spinnerId: 'sendReceiptSpinner5',
+            endpoint: '/send_receipt_to_client_inst5',
+            alertMessage: 'installment 5',
+            type: 'installment',
+            installmentNum: 5,
+            dateParamName: 'installment5_paid_date',
+            amountField: 'installment5amount',
+            dbDateField: 'installment5date',
+            dueDateField: 'installment5duedate'
+        },
+        6: {
+            buttonId: 'sendReceiptBtninst6',
+            dateFieldId: 'updateInstallment6Date',
+            textId: 'sendReceiptText6',
+            spinnerId: 'sendReceiptSpinner6',
+            endpoint: '/send_receipt_to_client_inst6',
+            alertMessage: 'installment 6',
+            type: 'installment',
+            installmentNum: 6,
+            dateParamName: 'installment6_paid_date',
+            amountField: 'installment6amount',
+            dbDateField: 'installment6date',
+            dueDateField: 'installment6duedate'
+        },
+        7: {
+            buttonId: 'sendReceiptBtninst7',
+            dateFieldId: 'updateInstallment7Date',
+            textId: 'sendReceiptText7',
+            spinnerId: 'sendReceiptSpinner7',
+            endpoint: '/send_receipt_to_client_inst7',
+            alertMessage: 'installment 7',
+            type: 'installment',
+            installmentNum: 7,
+            dateParamName: 'installment7_paid_date',
+            amountField: 'installment7amount',
+            dbDateField: 'installment7date',
+            dueDateField: 'installment7duedate'
+        },
+        8: {
+            buttonId: 'sendReceiptBtninst8',
+            dateFieldId: 'updateInstallment8Date',
+            textId: 'sendReceiptText8',
+            spinnerId: 'sendReceiptSpinner8',
+            endpoint: '/send_receipt_to_client_inst8',
+            alertMessage: 'installment 8',
+            type: 'installment',
+            installmentNum: 8,
+            dateParamName: 'installment8_paid_date',
+            amountField: 'installment8amount',
+            dbDateField: 'installment8date',
+            dueDateField: 'installment8duedate'
+        },
+        9: {
+            buttonId: 'sendReceiptBtninst9',
+            dateFieldId: 'updateInstallment9Date',
+            textId: 'sendReceiptText9',
+            spinnerId: 'sendReceiptSpinner9',
+            endpoint: '/send_receipt_to_client_inst9',
+            alertMessage: 'installment 9',
+            type: 'installment',
+            installmentNum: 9,
+            dateParamName: 'installment9_paid_date',
+            amountField: 'installment9amount',
+            dbDateField: 'installment9date',
+            dueDateField: 'installment9duedate'
+        },
+        10: {
+            buttonId: 'sendReceiptBtninst10',
+            dateFieldId: 'updateInstallment10Date',
+            textId: 'sendReceiptText10',
+            spinnerId: 'sendReceiptSpinner10',
+            endpoint: '/send_receipt_to_client_inst10',
+            alertMessage: 'installment 10',
+            type: 'installment',
+            installmentNum: 10,
+            dateParamName: 'installment10_paid_date',
+            amountField: 'installment10amount',
+            dbDateField: 'installment10date',
+            dueDateField: 'installment10duedate'
         }
-        
-        // Check if installment 6 paid date is empty/null/undefined
-        if (!installment6PaidDate || installment6PaidDate === '' || 
-            installment6PaidDate === 'null' || installment6PaidDate === 'undefined' ||
-            installment6PaidDate.trim() === '') {
-            alert('⚠️ Sorry, you have to input the date installment 6 was paid first before you can send receipt to client');
-            return;
-        }
-        
-        // Validate date format (optional but recommended)
-        if (!isValidDate(installment6PaidDate)) {
-            alert('⚠️ Please enter a valid date for installment 6 payment');
-            return;
-        }
-        
-        const $btn = $(this);
-        const $textSpan = $('#sendReceiptText6');
-        const $spinner = $('#sendReceiptSpinner6');
-        const originalText = $textSpan.html();
-        
-        // Show spinner
-        $btn.prop('disabled', true);
-        $textSpan.addClass('d-none');
-        $spinner.removeClass('d-none');
-        
-        // Send AJAX request with both project_id and installment6_paid_date
-        $.ajax({
-            url: '/send_receipt_to_client_inst6',
-            type: 'POST',
-            data: {
-                project_id: projectId,
-                installment6_paid_date: installment6PaidDate,
-                installment_number: 6  // Optional: to identify which installment
-            },
-            success: function(data) {
-                // Show alert with response data
-                if (data.success) {
-                    alert(
-                        '✅ SUCCESS!\n\n' +
-                        (data.success_message || 'Receipt sent successfully!') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
-                        '• Installment Date: ' + installment6PaidDate
-                    );
-                } else {
-                    alert(
-                        '❌ FAILED!\n\n' +
-                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown')
-                    );
-                }
-                
-                // Reset button
-                resetButton();
-            },
-            error: function(xhr, status, error) {
-                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
-                resetButton();
-            }
-        });
-        
-        // Function to reset button
-        function resetButton() {
-            $btn.prop('disabled', false);
-            $textSpan.removeClass('d-none');
-            $spinner.addClass('d-none');
-            $textSpan.html(originalText);
-        }
-        
-        // Function to validate date
-        function isValidDate(dateString) {
-            const regex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateString.match(regex)) return false;
-            
-            const date = new Date(dateString);
-            const timestamp = date.getTime();
-            
-            // Check if date is valid
-            if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
-                return false;
-            }
-            
-            return date.toISOString().startsWith(dateString);
-        }
-    });
+    };
 
-
-
-
-    
-    $('#sendReceiptBtninst5').on('click', function() {
-        const projectId = $('#updateProjectId').val();
-        const installment5PaidDate = $('#updateInstallment5Date').val();
-        
-        // Check if project is selected
-        if (!projectId) {
-            alert('⚠️ No project selected!');
-            return;
-        }
-        
-        // Check if installment 5 paid date is empty/null/undefined
-        if (!installment5PaidDate || installment5PaidDate === '' || 
-            installment5PaidDate === 'null' || installment5PaidDate === 'undefined' ||
-            installment5PaidDate.trim() === '') {
-            alert('⚠️ Sorry, you have to input the date installment 5 was paid first before you can send receipt to client');
-            return;
-        }
-        
-        // Validate date format (optional but recommended)
-        if (!isValidDate(installment5PaidDate)) {
-            alert('⚠️ Please enter a valid date for installment 5 payment');
-            return;
-        }
-        
-        const $btn = $(this);
-        const $textSpan = $('#sendReceiptText5');
-        const $spinner = $('#sendReceiptSpinner5');
-        const originalText = $textSpan.html();
-        
-        // Show spinner
-        $btn.prop('disabled', true);
-        $textSpan.addClass('d-none');
-        $spinner.removeClass('d-none');
-        
-        // Send AJAX request with both project_id and installment5_paid_date
-        $.ajax({
-            url: '/send_receipt_to_client_inst5',
-            type: 'POST',
-            data: {
-                project_id: projectId,
-                installment5_paid_date: installment5PaidDate,
-                installment_number: 5  // Optional: to identify which installment
-            },
-            success: function(data) {
-                // Show alert with response data
-                if (data.success) {
-                    alert(
-                        '✅ SUCCESS!\n\n' +
-                        (data.success_message || 'Receipt sent successfully!') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
-                        '• Installment Date: ' + installment5PaidDate
-                    );
-                } else {
-                    alert(
-                        '❌ FAILED!\n\n' +
-                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown')
-                    );
-                }
-                
-                // Reset button
-                resetButton();
-            },
-            error: function(xhr, status, error) {
-                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
-                resetButton();
-            }
-        });
-        
-        // Function to reset button
-        function resetButton() {
-            $btn.prop('disabled', false);
-            $textSpan.removeClass('d-none');
-            $spinner.addClass('d-none');
-            $textSpan.html(originalText);
-        }
-        
-        // Function to validate date
-        function isValidDate(dateString) {
-            const regex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateString.match(regex)) return false;
-            
-            const date = new Date(dateString);
-            const timestamp = date.getTime();
-            
-            // Check if date is valid
-            if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
-                return false;
-            }
-            
-            return date.toISOString().startsWith(dateString);
-        }
-    });
-
-
-
-
-
-    $('#sendReceiptBtninst4').on('click', function() {
-        const projectId = $('#updateProjectId').val();
-        const installment4PaidDate = $('#updateInstallment4Date').val();
-        
-        // Check if project is selected
-        if (!projectId) {
-            alert('⚠️ No project selected!');
-            return;
-        }
-        
-        // Check if installment 4 paid date is empty/null/undefined
-        if (!installment4PaidDate || installment4PaidDate === '' || 
-            installment4PaidDate === 'null' || installment4PaidDate === 'undefined' ||
-            installment4PaidDate.trim() === '') {
-            alert('⚠️ Sorry, you have to input the date installment 4 was paid first before you can send receipt to client');
-            return;
-        }
-        
-        // Validate date format (optional but recommended)
-        if (!isValidDate(installment4PaidDate)) {
-            alert('⚠️ Please enter a valid date for installment 4 payment');
-            return;
-        }
-        
-        const $btn = $(this);
-        const $textSpan = $('#sendReceiptText4');
-        const $spinner = $('#sendReceiptSpinner4');
-        const originalText = $textSpan.html();
-        
-        // Show spinner
-        $btn.prop('disabled', true);
-        $textSpan.addClass('d-none');
-        $spinner.removeClass('d-none');
-        
-        // Send AJAX request with both project_id and installment4_paid_date
-        $.ajax({
-            url: '/send_receipt_to_client_inst4',
-            type: 'POST',
-            data: {
-                project_id: projectId,
-                installment4_paid_date: installment4PaidDate,
-                installment_number: 4  // Optional: to identify which installment
-            },
-            success: function(data) {
-                // Show alert with response data
-                if (data.success) {
-                    alert(
-                        '✅ SUCCESS!\n\n' +
-                        (data.success_message || 'Receipt sent successfully!') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
-                        '• Installment Date: ' + installment4PaidDate
-                    );
-                } else {
-                    alert(
-                        '❌ FAILED!\n\n' +
-                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown')
-                    );
-                }
-                
-                // Reset button
-                resetButton();
-            },
-            error: function(xhr, status, error) {
-                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
-                resetButton();
-            }
-        });
-        
-        // Function to reset button
-        function resetButton() {
-            $btn.prop('disabled', false);
-            $textSpan.removeClass('d-none');
-            $spinner.addClass('d-none');
-            $textSpan.html(originalText);
-        }
-        
-        // Function to validate date
-        function isValidDate(dateString) {
-            const regex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateString.match(regex)) return false;
-            
-            const date = new Date(dateString);
-            const timestamp = date.getTime();
-            
-            // Check if date is valid
-            if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
-                return false;
-            }
-            
-            return date.toISOString().startsWith(dateString);
-        }
-    });
-
-
-
-
-
-
-    $('#sendReceiptBtninst3').on('click', function() {
-        const projectId = $('#updateProjectId').val();
-        const installment3PaidDate = $('#updateInstallment3Date').val();
-        
-        // Check if project is selected
-        if (!projectId) {
-            alert('⚠️ No project selected!');
-            return;
-        }
-        
-        // Check if installment 3 paid date is empty/null/undefined
-        if (!installment3PaidDate || installment3PaidDate === '' || 
-            installment3PaidDate === 'null' || installment3PaidDate === 'undefined' ||
-            installment3PaidDate.trim() === '') {
-            alert('⚠️ Sorry, you have to input the date installment 3 was paid first before you can send receipt to client');
-            return;
-        }
-        
-        // Validate date format (optional but recommended)
-        if (!isValidDate(installment3PaidDate)) {
-            alert('⚠️ Please enter a valid date for installment 3 payment');
-            return;
-        }
-        
-        const $btn = $(this);
-        const $textSpan = $('#sendReceiptText3');
-        const $spinner = $('#sendReceiptSpinner3');
-        const originalText = $textSpan.html();
-        
-        // Show spinner
-        $btn.prop('disabled', true);
-        $textSpan.addClass('d-none');
-        $spinner.removeClass('d-none');
-        
-        // Send AJAX request with both project_id and installment3_paid_date
-        $.ajax({
-            url: '/send_receipt_to_client_inst3',
-            type: 'POST',
-            data: {
-                project_id: projectId,
-                installment3_paid_date: installment3PaidDate,
-                installment_number: 3  // Optional: to identify which installment
-            },
-            success: function(data) {
-                // Show alert with response data
-                if (data.success) {
-                    alert(
-                        '✅ SUCCESS!\n\n' +
-                        (data.success_message || 'Receipt sent successfully!') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
-                        '• Installment Date: ' + installment3PaidDate
-                    );
-                } else {
-                    alert(
-                        '❌ FAILED!\n\n' +
-                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown')
-                    );
-                }
-                
-                // Reset button
-                resetButton();
-            },
-            error: function(xhr, status, error) {
-                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
-                resetButton();
-            }
-        });
-        
-        // Function to reset button
-        function resetButton() {
-            $btn.prop('disabled', false);
-            $textSpan.removeClass('d-none');
-            $spinner.addClass('d-none');
-            $textSpan.html(originalText);
-        }
-        
-        // Function to validate date
-        function isValidDate(dateString) {
-            const regex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateString.match(regex)) return false;
-            
-            const date = new Date(dateString);
-            const timestamp = date.getTime();
-            
-            // Check if date is valid
-            if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
-                return false;
-            }
-            
-            return date.toISOString().startsWith(dateString);
-        }
-    });
-
-
-
-    $('#sendReceiptBtninst2').on('click', function() {
-        const projectId = $('#updateProjectId').val();
-        const installment2PaidDate = $('#updateInstallment2Date').val();
-        
-        // Check if project is selected
-        if (!projectId) {
-            alert('⚠️ No project selected!');
-            return;
-        }
-        
-        // Check if installment 2 paid date is empty/null/undefined
-        if (!installment2PaidDate || installment2PaidDate === '' || 
-            installment2PaidDate === 'null' || installment2PaidDate === 'undefined' ||
-            installment2PaidDate.trim() === '') {
-            alert('⚠️ Sorry, you have to input the date installment 2 was paid first before you can send receipt to client');
-            return;
-        }
-        
-        // Validate date format (optional but recommended)
-        if (!isValidDate(installment2PaidDate)) {
-            alert('⚠️ Please enter a valid date for installment 2 payment');
-            return;
-        }
-        
-        const $btn = $(this);
-        const $textSpan = $('#sendReceiptText2');
-        const $spinner = $('#sendReceiptSpinner2');
-        const originalText = $textSpan.html();
-        
-        // Show spinner
-        $btn.prop('disabled', true);
-        $textSpan.addClass('d-none');
-        $spinner.removeClass('d-none');
-        
-        // Send AJAX request with both project_id and installment2_paid_date
-        $.ajax({
-            url: '/send_receipt_to_client_inst2',
-            type: 'POST',
-            data: {
-                project_id: projectId,
-                installment2_paid_date: installment2PaidDate,
-                installment_number: 2  // Optional: to identify which installment
-            },
-            success: function(data) {
-                // Show alert with response data
-                if (data.success) {
-                    alert(
-                        '✅ SUCCESS!\n\n' +
-                        (data.success_message || 'Receipt sent successfully!') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
-                        '• Installment Date: ' + installment2PaidDate
-                    );
-                } else {
-                    alert(
-                        '❌ FAILED!\n\n' +
-                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown')
-                    );
-                }
-                
-                // Reset button
-                resetButton();
-            },
-            error: function(xhr, status, error) {
-                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
-                resetButton();
-            }
-        });
-        
-        // Function to reset button
-        function resetButton() {
-            $btn.prop('disabled', false);
-            $textSpan.removeClass('d-none');
-            $spinner.addClass('d-none');
-            $textSpan.html(originalText);
-        }
-        
-        // Function to validate date
-        function isValidDate(dateString) {
-            const regex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateString.match(regex)) return false;
-            
-            const date = new Date(dateString);
-            const timestamp = date.getTime();
-            
-            // Check if date is valid
-            if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
-                return false;
-            }
-            
-            return date.toISOString().startsWith(dateString);
-        }
-    });
-
-
-
-
-
-
-    // Handle Send Receipt button click for installment 1
-    $('#sendReceiptBtninst1').on('click', function() {
-        const projectId = $('#updateProjectId').val();
-        const installment1PaidDate = $('#updateInstallment1Date').val();
-        
-        // Check if project is selected
-        if (!projectId) {
-            alert('⚠️ No project selected!');
-            return;
-        }
-        
-        // Check if installment 1 paid date is empty/null/undefined
-        if (!installment1PaidDate || installment1PaidDate === '' || 
-            installment1PaidDate === 'null' || installment1PaidDate === 'undefined' ||
-            installment1PaidDate.trim() === '') {
-            alert('⚠️ Sorry, you have to input the date installment 1 was paid first before you can send receipt to client');
-            return;
-        }
-        
-        // Validate date format (optional but recommended)
-        if (!isValidDate(installment1PaidDate)) {
-            alert('⚠️ Please enter a valid date for installment 1 payment');
-            return;
-        }
-        
-        const $btn = $(this);
-        const $textSpan = $('#sendReceiptText1');
-        const $spinner = $('#sendReceiptSpinner1');
-        const originalText = $textSpan.html();
-        
-        // Show spinner
-        $btn.prop('disabled', true);
-        $textSpan.addClass('d-none');
-        $spinner.removeClass('d-none');
-        
-        // Send AJAX request with both project_id and installment1_paid_date
-        $.ajax({
-            url: '/send_receipt_to_client_inst1',
-            type: 'POST',
-            data: {
-                project_id: projectId,
-                installment1_paid_date: installment1PaidDate,
-                installment_number: 1  // Optional: to identify which installment
-            },
-            success: function(data) {
-                // Show alert with response data
-                if (data.success) {
-                    alert(
-                        '✅ SUCCESS!\n\n' +
-                        (data.success_message || 'Receipt sent successfully!') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
-                        '• Installment Date: ' + installment1PaidDate
-                    );
-                } else {
-                    alert(
-                        '❌ FAILED!\n\n' +
-                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown')
-                    );
-                }
-                
-                // Reset button
-                resetButton();
-            },
-            error: function(xhr, status, error) {
-                alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
-                resetButton();
-            }
-        });
-        
-        // Function to reset button
-        function resetButton() {
-            $btn.prop('disabled', false);
-            $textSpan.removeClass('d-none');
-            $spinner.addClass('d-none');
-            $textSpan.html(originalText);
-        }
-        
-        // Function to validate date
-        function isValidDate(dateString) {
-            const regex = /^\d{4}-\d{2}-\d{2}$/;
-            if (!dateString.match(regex)) return false;
-            
-            const date = new Date(dateString);
-            const timestamp = date.getTime();
-            
-            // Check if date is valid
-            if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
-                return false;
-            }
-            
-            return date.toISOString().startsWith(dateString);
-        }
-    });
-
-
-
-
-    // Handle Send Receipt button click
+    // Handle Deposit Receipt button (special case)
     $('#sendReceiptBtn').on('click', function() {
+        handleSendReceipt(sendReceiptConfig.deposit);
+    });
+
+    // Handle all Installment buttons dynamically
+    for (let i = 1; i <= 10; i++) {
+        if (sendReceiptConfig[i]) {
+            $(`#${sendReceiptConfig[i].buttonId}`).on('click', function() {
+                handleSendReceipt(sendReceiptConfig[i]);
+            });
+        }
+    }
+
+    // Universal handler function
+    function handleSendReceipt(config) {
         const projectId = $('#updateProjectId').val();
+        const paidDate = $(`#${config.dateFieldId}`).val();
         
+        // Check if project is selected
         if (!projectId) {
             alert('⚠️ No project selected!');
             return;
         }
         
-        const btn = document.getElementById("sendReceiptBtn");
+        // Check if paid date is empty
+        if (!paidDate || paidDate.trim() === '') {
+            alert(`⚠️ Sorry, you have to input the date ${config.alertMessage} was paid first`);
+            return;
+        }
         
-        // Show spinner - disable button
-        btn.disabled = true;
-        btn.innerHTML = `
-            <span class="spinner-border spinner-border-sm me-2"></span>
-            Sending to Client...
-        `;
+        // Validate date format
+        if (!isValidDate(paidDate)) {
+            alert(`⚠️ Please enter a valid date for ${config.alertMessage} payment`);
+            return;
+        }
         
-        // Create form data
-        const formData = new FormData();
-        formData.append('project_id', projectId);
+        const $btn = $(`#${config.buttonId}`);
+        const $textSpan = $(`#${config.textId}`);
+        const $spinner = $(`#${config.spinnerId}`);
+        const originalText = $textSpan.html();
+        
+        // Show spinner
+        $btn.prop('disabled', true);
+        $textSpan.addClass('d-none');
+        $spinner.removeClass('d-none');
+        
+        // Prepare data for AJAX
+        let postData = {
+            project_id: projectId,
+            [config.dateParamName]: paidDate
+        };
+        
+        // Add installment number if it's an installment
+        if (config.type === 'installment') {
+            postData.installment_number = config.installmentNum;
+        }
         
         // Send AJAX request
-        fetch('/send_receipt_to_client', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Show alert with response data
-            if (data.success) {
-                alert(
-                    '✅ SUCCESS!\n\n' +
-                    (data.success_message || 'Receipt sent successfully!') + '\n\n' +
-                    'Details:\n' +
-                    '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                    '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                    '• Project: ' + (data.details?.project_name || 'Unknown')
-                );
-            } else {
-                alert(
-                    '❌ FAILED!\n\n' +
-                    (data.error_message || data.message || 'Unknown error') + '\n\n' +
-                    'Details:\n' +
-                    '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                    '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                    '• Project: ' + (data.details?.project_name || 'Unknown')
-                );
+        $.ajax({
+            url: config.endpoint,
+            type: 'POST',
+            data: postData,
+            success: function(data) {
+                if (data.success) {
+                    // Customize message based on receipt type
+                    let successMsg = data.success_message || 
+                        `${config.alertMessage.charAt(0).toUpperCase() + config.alertMessage.slice(1)} receipt sent successfully!`;
+                    
+                    alert(
+                        '✅ SUCCESS!\n\n' +
+                        successMsg + '\n\n' +
+                        'Details:\n' +
+                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
+                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
+                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
+                        `• ${config.alertMessage} Date: ` + paidDate + '\n' +
+                        (data.details?.date_updated ? '• Database updated with new date' : '')
+                    );
+                } else {
+                    alert(
+                        '❌ FAILED!\n\n' +
+                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
+                        'Please ensure:\n' +
+                        '• The date is correct\n' +
+                        '• The client has a valid WhatsApp number\n' +
+                        '• The WhatsApp template is approved'
+                    );
+                }
+                
+                // Reset button
+                resetButton();
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', xhr.responseText);
+                
+                let errorMsg = error;
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    errorMsg = response.error_message || response.message || error;
+                } catch(e) {
+                    // Use default error message
+                }
+                
+                alert(`❌ ERROR!\n\nFailed to send receipt for ${config.alertMessage}:\n${errorMsg}`);
+                resetButton();
             }
-            
-            // Reset button after showing alert
-            resetButton();
-        })
-        .catch(error => {
-            alert('❌ ERROR!\n\nFailed to send receipt: ' + error);
-            resetButton();
         });
         
         // Function to reset button
         function resetButton() {
-            btn.disabled = false;
-            btn.innerHTML = `<i class="bi bi-whatsapp"></i> Send Receipt to Client`;
+            $btn.prop('disabled', false);
+            $textSpan.removeClass('d-none');
+            $spinner.addClass('d-none');
+            $textSpan.html(originalText);
         }
-    });
+    }
+
+    // Date validation function
+    function isValidDate(dateString) {
+        const regex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateString.match(regex)) return false;
+        
+        const date = new Date(dateString);
+        return date instanceof Date && !isNaN(date);
+    }
 });
+
 </script>
 <script>
     // Load months when modal opens
