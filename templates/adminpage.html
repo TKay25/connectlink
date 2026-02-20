@@ -5378,226 +5378,218 @@ $(document).ready(function() {
 // Dynamic handler for all Send Receipt buttons (Deposit + Installments)
 $(document).ready(function() {
     
-    // Your JavaScript config - make sure these receiptType values match RECEIPT_CONFIG keys
-    const sendReceiptConfig = {
-        deposit: {
-            buttonId: 'sendReceiptBtn',
-            dateFieldId: 'updateDatePaid',
-            textId: 'sendReceiptText',
-            spinnerId: 'sendReceiptSpinner',
-            receiptType: 'deposit',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'deposit'
-        },
-        1: {
-            buttonId: 'sendReceiptBtninst1',
-            dateFieldId: 'updateInstallment1Date',
-            textId: 'sendReceiptText1',
-            spinnerId: 'sendReceiptSpinner1',
-            receiptType: 'installment1',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 1'
-        },
-        2: {
-            buttonId: 'sendReceiptBtninst2',
-            dateFieldId: 'updateInstallment2Date',
-            textId: 'sendReceiptText2',
-            spinnerId: 'sendReceiptSpinner2',
-            receiptType: 'installment2',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 2'
-        },
-        3: {
-            buttonId: 'sendReceiptBtninst3',
-            dateFieldId: 'updateInstallment3Date',
-            textId: 'sendReceiptText3',
-            spinnerId: 'sendReceiptSpinner3',
-            receiptType: 'installment3',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 3'
-        },
-        4: {
-            buttonId: 'sendReceiptBtninst4',
-            dateFieldId: 'updateInstallment4Date',
-            textId: 'sendReceiptText4',
-            spinnerId: 'sendReceiptSpinner4',
-            receiptType: 'installment4',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 4'
-        },
-        5: {
-            buttonId: 'sendReceiptBtninst5',
-            dateFieldId: 'updateInstallment5Date',
-            textId: 'sendReceiptText5',
-            spinnerId: 'sendReceiptSpinner5',
-            receiptType: 'installment5',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 5'
-        },
-        6: {
-            buttonId: 'sendReceiptBtninst6',
-            dateFieldId: 'updateInstallment6Date',
-            textId: 'sendReceiptText6',
-            spinnerId: 'sendReceiptSpinner6',
-            receiptType: 'installment6',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 6'
-        },
-        7: {
-            buttonId: 'sendReceiptBtninst7',
-            dateFieldId: 'updateInstallment7Date',
-            textId: 'sendReceiptText7',
-            spinnerId: 'sendReceiptSpinner7',
-            receiptType: 'installment7',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 7'
-        },
-        8: {
-            buttonId: 'sendReceiptBtninst8',
-            dateFieldId: 'updateInstallment8Date',
-            textId: 'sendReceiptText8',
-            spinnerId: 'sendReceiptSpinner8',
-            receiptType: 'installment8',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 8'
-        },
-        9: {
-            buttonId: 'sendReceiptBtninst9',
-            dateFieldId: 'updateInstallment9Date',
-            textId: 'sendReceiptText9',
-            spinnerId: 'sendReceiptSpinner9',
-            receiptType: 'installment9',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 9'
-        },
-        10: {
-            buttonId: 'sendReceiptBtninst10',
-            dateFieldId: 'updateInstallment10Date',
-            textId: 'sendReceiptText10',
-            spinnerId: 'sendReceiptSpinner10',
-            receiptType: 'installment10',  // This must match RECEIPT_CONFIG key
-            alertMessage: 'installment 10'
-        }
-        // ... etc for all installments
-    };
-    // Handle Deposit Receipt button (special case)
-    $('#sendReceiptBtn').on('click', function() {
-        handleSendReceipt(sendReceiptConfig.deposit);
-    });
-
-    // Handle all Installment buttons dynamically
-    for (let i = 1; i <= 10; i++) {
-        if (sendReceiptConfig[i]) {
-            $(`#${sendReceiptConfig[i].buttonId}`).on('click', function() {
-                handleSendReceipt(sendReceiptConfig[i]);
-            });
-        }
+// Your JavaScript config - make sure these receiptType values match RECEIPT_CONFIG keys
+const sendReceiptConfig = {
+    deposit: {
+        buttonId: 'sendReceiptBtn',
+        dateFieldId: 'updateDatePaid',
+        textId: 'sendReceiptText',
+        spinnerId: 'sendReceiptSpinner',
+        receiptType: 'deposit',  // This must match RECEIPT_CONFIG key
+        alertMessage: 'deposit'
+    },
+    1: {
+        buttonId: 'sendReceiptBtninst1',
+        dateFieldId: 'updateInstallment1Date',
+        textId: 'sendReceiptText1',
+        spinnerId: 'sendReceiptSpinner1',
+        receiptType: 'installment1',  // This must match RECEIPT_CONFIG key
+        alertMessage: 'installment 1'
+    },
+    2: {
+        buttonId: 'sendReceiptBtninst2',
+        dateFieldId: 'updateInstallment2Date',
+        textId: 'sendReceiptText2',
+        spinnerId: 'sendReceiptSpinner2',
+        receiptType: 'installment2',  // This must match RECEIPT_CONFIG key
+        alertMessage: 'installment 2'
+    },
+    3: {
+        buttonId: 'sendReceiptBtninst3',
+        dateFieldId: 'updateInstallment3Date',
+        textId: 'sendReceiptText3',
+        spinnerId: 'sendReceiptSpinner3',
+        receiptType: 'installment3',
+        alertMessage: 'installment 3'
+    },
+    4: {
+        buttonId: 'sendReceiptBtninst4',
+        dateFieldId: 'updateInstallment4Date',
+        textId: 'sendReceiptText4',
+        spinnerId: 'sendReceiptSpinner4',
+        receiptType: 'installment4',
+        alertMessage: 'installment 4'
+    },
+    5: {
+        buttonId: 'sendReceiptBtninst5',
+        dateFieldId: 'updateInstallment5Date',
+        textId: 'sendReceiptText5',
+        spinnerId: 'sendReceiptSpinner5',
+        receiptType: 'installment5',
+        alertMessage: 'installment 5'
+    },
+    6: {
+        buttonId: 'sendReceiptBtninst6',
+        dateFieldId: 'updateInstallment6Date',
+        textId: 'sendReceiptText6',
+        spinnerId: 'sendReceiptSpinner6',
+        receiptType: 'installment6',
+        alertMessage: 'installment 6'
+    },
+    7: {
+        buttonId: 'sendReceiptBtninst7',
+        dateFieldId: 'updateInstallment7Date',
+        textId: 'sendReceiptText7',
+        spinnerId: 'sendReceiptSpinner7',
+        receiptType: 'installment7',
+        alertMessage: 'installment 7'
+    },
+    8: {
+        buttonId: 'sendReceiptBtninst8',
+        dateFieldId: 'updateInstallment8Date',
+        textId: 'sendReceiptText8',
+        spinnerId: 'sendReceiptSpinner8',
+        receiptType: 'installment8',
+        alertMessage: 'installment 8'
+    },
+    9: {
+        buttonId: 'sendReceiptBtninst9',
+        dateFieldId: 'updateInstallment9Date',
+        textId: 'sendReceiptText9',
+        spinnerId: 'sendReceiptSpinner9',
+        receiptType: 'installment9',
+        alertMessage: 'installment 9'
+    },
+    10: {
+        buttonId: 'sendReceiptBtninst10',
+        dateFieldId: 'updateInstallment10Date',
+        textId: 'sendReceiptText10',
+        spinnerId: 'sendReceiptSpinner10',
+        receiptType: 'installment10',
+        alertMessage: 'installment 10'
     }
+};
 
-    // Universal handler function
-    function handleSendReceipt(config) {
-        const projectId = $('#updateProjectId').val();
-        const paidDate = $(`#${config.dateFieldId}`).val();
-        
-        // Check if project is selected
-        if (!projectId) {
-            alert('⚠️ No project selected!');
-            return;
-        }
-        
-        // Check if paid date is empty
-        if (!paidDate || paidDate.trim() === '') {
-            alert(`⚠️ Sorry, you have to input the date ${config.alertMessage} was paid first`);
-            return;
-        }
-        
-        // Validate date format
-        if (!isValidDate(paidDate)) {
-            alert(`⚠️ Please enter a valid date for ${config.alertMessage} payment`);
-            return;
-        }
-        
-        const $btn = $(`#${config.buttonId}`);
-        const $textSpan = $(`#${config.textId}`);
-        const $spinner = $(`#${config.spinnerId}`);
-        const originalText = $textSpan.html();
-        
-        // Show spinner
-        $btn.prop('disabled', true);
-        $textSpan.addClass('d-none');
-        $spinner.removeClass('d-none');
-        
-        // Prepare data for AJAX
-        let postData = {
-            project_id: projectId,
-            [config.dateParamName]: paidDate
-        };
-        
-        // Add installment number if it's an installment
-        if (config.type === 'installment') {
-            postData.installment_number = config.installmentNum;
-        }
-        
-        // Send AJAX request
-        $.ajax({
-            url: config.endpoint,
-            type: 'POST',
-            data: postData,
-            success: function(data) {
-                if (data.success) {
-                    // Customize message based on receipt type
-                    let successMsg = data.success_message || 
-                        `${config.alertMessage.charAt(0).toUpperCase() + config.alertMessage.slice(1)} receipt sent successfully!`;
-                    
-                    alert(
-                        '✅ SUCCESS!\n\n' +
-                        successMsg + '\n\n' +
-                        'Details:\n' +
-                        '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
-                        '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
-                        '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
-                        `• ${config.alertMessage} Date: ` + paidDate + '\n' +
-                        (data.details?.date_updated ? '• Database updated with new date' : '')
-                    );
-                } else {
-                    alert(
-                        '❌ FAILED!\n\n' +
-                        (data.error_message || data.message || 'Unknown error') + '\n\n' +
-                        'Please ensure:\n' +
-                        '• The date is correct\n' +
-                        '• The client has a valid WhatsApp number\n' +
-                        '• The WhatsApp template is approved'
-                    );
-                }
-                
-                // Reset button
-                resetButton();
-            },
-            error: function(xhr, status, error) {
-                console.error('AJAX Error:', xhr.responseText);
-                
-                let errorMsg = error;
-                try {
-                    const response = JSON.parse(xhr.responseText);
-                    errorMsg = response.error_message || response.message || error;
-                } catch(e) {
-                    // Use default error message
-                }
-                
-                alert(`❌ ERROR!\n\nFailed to send receipt for ${config.alertMessage}:\n${errorMsg}`);
-                resetButton();
-            }
-        });
-        
-        // Function to reset button
-        function resetButton() {
-            $btn.prop('disabled', false);
-            $textSpan.removeClass('d-none');
-            $spinner.addClass('d-none');
-            $textSpan.html(originalText);
-        }
-    }
-
-    // Date validation function
-    function isValidDate(dateString) {
-        const regex = /^\d{4}-\d{2}-\d{2}$/;
-        if (!dateString.match(regex)) return false;
-        
-        const date = new Date(dateString);
-        return date instanceof Date && !isNaN(date);
-    }
+// Handle Deposit Receipt button
+$('#sendReceiptBtn').on('click', function() {
+    handleSendReceipt(sendReceiptConfig.deposit);
 });
 
+// Handle all Installment buttons dynamically
+for (let i = 1; i <= 10; i++) {
+    if (sendReceiptConfig[i]) {
+        $(`#${sendReceiptConfig[i].buttonId}`).on('click', function() {
+            handleSendReceipt(sendReceiptConfig[i]);
+        });
+    }
+}
+
+// Universal handler function
+function handleSendReceipt(config) {
+    const projectId = $('#updateProjectId').val();
+    const paidDate = $(`#${config.dateFieldId}`).val();
+    
+    // Check if project is selected
+    if (!projectId) {
+        alert('⚠️ No project selected!');
+        return;
+    }
+    
+    // Check if paid date is empty
+    if (!paidDate || paidDate.trim() === '') {
+        alert(`⚠️ Sorry, you have to input the date ${config.alertMessage} was paid first`);
+        return;
+    }
+    
+    // Validate date format
+    if (!isValidDate(paidDate)) {
+        alert(`⚠️ Please enter a valid date for ${config.alertMessage} payment`);
+        return;
+    }
+    
+    const $btn = $(`#${config.buttonId}`);
+    const $textSpan = $(`#${config.textId}`);
+    const $spinner = $(`#${config.spinnerId}`);
+    const originalText = $textSpan.html();
+    
+    // Show spinner
+    $btn.prop('disabled', true);
+    $textSpan.addClass('d-none');
+    $spinner.removeClass('d-none');
+    
+    // Send AJAX request to UNIFIED ENDPOINT
+    $.ajax({
+        url: '/send_receipt_to_client',  // SINGLE ENDPOINT for all receipt types
+        type: 'POST',
+        data: {
+            project_id: projectId,
+            paid_date: paidDate,
+            receipt_type: config.receiptType  // This is the key fix!
+        },
+        success: function(data) {
+            if (data.success) {
+                // Customize message based on receipt type
+                let successMsg = data.success_message || 
+                    `${config.alertMessage.charAt(0).toUpperCase() + config.alertMessage.slice(1)} receipt sent successfully!`;
+                
+                alert(
+                    '✅ SUCCESS!\n\n' +
+                    successMsg + '\n\n' +
+                    'Details:\n' +
+                    '• Client: ' + (data.details?.client_name || 'Unknown') + '\n' +
+                    '• WhatsApp: ' + (data.details?.whatsapp_number || 'Unknown') + '\n' +
+                    '• Project: ' + (data.details?.project_name || 'Unknown') + '\n' +
+                    `• ${config.alertMessage} Date: ` + paidDate + '\n' +
+                    (data.details?.date_updated ? '• Database updated with new date' : '')
+                );
+            } else {
+                alert(
+                    '❌ FAILED!\n\n' +
+                    (data.error_message || data.message || 'Unknown error') + '\n\n' +
+                    'Please ensure:\n' +
+                    '• The date is correct\n' +
+                    '• The client has a valid WhatsApp number\n' +
+                    '• The WhatsApp template is approved'
+                );
+            }
+            
+            // Reset button
+            resetButton();
+        },
+        error: function(xhr, status, error) {
+            console.error('AJAX Error:', xhr.responseText);
+            
+            let errorMsg = error;
+            try {
+                const response = JSON.parse(xhr.responseText);
+                errorMsg = response.error_message || response.message || error;
+            } catch(e) {
+                // Use default error message
+            }
+            
+            alert(`❌ ERROR!\n\nFailed to send receipt for ${config.alertMessage}:\n${errorMsg}`);
+            resetButton();
+        }
+    });
+    
+    // Function to reset button
+    function resetButton() {
+        $btn.prop('disabled', false);
+        $textSpan.removeClass('d-none');
+        $spinner.addClass('d-none');
+        $textSpan.html(originalText);
+    }
+}
+
+// Date validation function
+function isValidDate(dateString) {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateString.match(regex)) return false;
+    
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date);
+}
+});
 </script>
 <script>
     // Load months when modal opens
