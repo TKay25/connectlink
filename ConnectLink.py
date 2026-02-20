@@ -13015,7 +13015,7 @@ def get_updated_table_data():
 RECEIPT_CONFIG = {
     'deposit': {
         'payload_prefix': 'deposit_receipt_',
-        'template_name': 'depositreceipt',  # Your WhatsApp template name
+        'template_name': 'depreceipt',  # Your WhatsApp template name
         'amount_field': 'depositorbullet',
         'date_field': 'datedepositorbullet',
         'button_index': '0',
