@@ -13155,66 +13155,21 @@ RECEIPT_CONFIG = {
         'processing_message': '⏳ Generating receipt for your tenth installment...',
         'has_due_date': True
     }
-    # Add 7-10 similarly if needed
 }
 
-# Deposit endpoint
-@app.route('/send_deposit_receipt_to_client', methods=['POST'])
-def send_deposit_receipt_to_client():
-    return send_receipt_to_client()  # Reuse your unified function
-
-# Installment endpoints (1-10)
-@app.route('/send_receipt_to_client_inst1', methods=['POST'])
-def send_receipt_to_client_inst1():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst2', methods=['POST'])
-def send_receipt_to_client_inst2():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst3', methods=['POST'])
-def send_receipt_to_client_inst3():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst4', methods=['POST'])
-def send_receipt_to_client_inst4():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst5', methods=['POST'])
-def send_receipt_to_client_inst5():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst6', methods=['POST'])
-def send_receipt_to_client_inst6():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst7', methods=['POST'])
-def send_receipt_to_client_inst7():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst8', methods=['POST'])
-def send_receipt_to_client_inst8():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst9', methods=['POST'])
-def send_receipt_to_client_inst9():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client_inst10', methods=['POST'])
-def send_receipt_to_client_inst10():
-    return send_receipt_to_client()
-
-@app.route('/send_receipt_to_client', methods=['POST'])
+@app.route('/send_receipt_to_client', methods=['POST'])  # MUST have methods=['POST']
 def send_receipt_to_client():
     """Unified endpoint to send any receipt via WhatsApp"""
     try:
         project_id = request.form.get('project_id')
         paid_date = request.form.get('paid_date')
-        receipt_type = request.form.get('receipt_type')  # 'deposit', 'installment1', etc.
+        receipt_type = request.form.get('receipt_type')
+        
+        print(f"📨 Received: project_id={project_id}, paid_date={paid_date}, receipt_type={receipt_type}")
         
         config = RECEIPT_CONFIG.get(receipt_type)
         if not config:
-            return jsonify({'success': False, 'error_message': 'Invalid receipt type'})
+            return jsonify({'success': False, 'error_message': f'Invalid receipt type: {receipt_type}'})
         
         with get_db() as (cursor, connection):
             # Get current data
@@ -13233,7 +13188,7 @@ def send_receipt_to_client():
             # Process date
             date_was_updated = False
             if paid_date and paid_date.strip():
-                if not db_paid_date or db_paid_date != paid_date:
+                if not db_paid_date or str(db_paid_date) != paid_date:
                     cursor.execute(f"UPDATE connectlinkdatabase SET {config['date_field']} = %s WHERE id = %s", 
                                  (paid_date, project_id))
                     connection.commit()
@@ -13245,7 +13200,7 @@ def send_receipt_to_client():
                         'success': False,
                         'error_message': f'Sorry, you have to input the {config["title"].lower()} date first'
                     })
-                effective_date = db_paid_date
+                effective_date = db_paid_date.strftime('%Y-%m-%d') if hasattr(db_paid_date, 'strftime') else db_paid_date
             
             # Format WhatsApp number
             whatsapp_number = str(whatsapp_number).strip()
@@ -13255,13 +13210,13 @@ def send_receipt_to_client():
             else:
                 formatted_number = '263' + whatsapp_number
             
-            # Send WhatsApp
+            # Send WhatsApp template
             response = send_template_with_button(formatted_number, project_id, receipt_type)
             
-            if 'messages' in response:
+            if response and 'messages' in response:
                 return jsonify({
                     'success': True,
-                    'success_message': f'{config["title"]} receipt sent to {client_name} ({formatted_number})',
+                    'success_message': f'{config["title"]} receipt sent to {client_name}',
                     'details': {
                         'client_name': client_name,
                         'whatsapp_number': formatted_number,
@@ -13271,13 +13226,13 @@ def send_receipt_to_client():
                     }
                 })
             else:
-                error_msg = response.get('error', {}).get('message', 'Unknown error')
+                error_msg = response.get('error', {}).get('message', 'Unknown error') if response else 'No response'
                 return jsonify({'success': False, 'error_message': f'Failed to send: {error_msg}'})
                 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"❌ Error in send_receipt_to_client: {str(e)}")
         return jsonify({'success': False, 'error_message': f'System error: {str(e)}'})
-
+    
 def send_template_with_button(to_number, project_id, receipt_type):
     """Send template with button containing project_id in payload"""
     config = RECEIPT_CONFIG.get(receipt_type)
