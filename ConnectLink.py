@@ -13158,6 +13158,51 @@ RECEIPT_CONFIG = {
     # Add 7-10 similarly if needed
 }
 
+# Deposit endpoint
+@app.route('/send_deposit_receipt_to_client', methods=['POST'])
+def send_deposit_receipt_to_client():
+    return send_receipt_to_client()  # Reuse your unified function
+
+# Installment endpoints (1-10)
+@app.route('/send_receipt_to_client_inst1', methods=['POST'])
+def send_receipt_to_client_inst1():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst2', methods=['POST'])
+def send_receipt_to_client_inst2():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst3', methods=['POST'])
+def send_receipt_to_client_inst3():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst4', methods=['POST'])
+def send_receipt_to_client_inst4():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst5', methods=['POST'])
+def send_receipt_to_client_inst5():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst6', methods=['POST'])
+def send_receipt_to_client_inst6():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst7', methods=['POST'])
+def send_receipt_to_client_inst7():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst8', methods=['POST'])
+def send_receipt_to_client_inst8():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst9', methods=['POST'])
+def send_receipt_to_client_inst9():
+    return send_receipt_to_client()
+
+@app.route('/send_receipt_to_client_inst10', methods=['POST'])
+def send_receipt_to_client_inst10():
+    return send_receipt_to_client()
 
 @app.route('/send_receipt_to_client', methods=['POST'])
 def send_receipt_to_client():
