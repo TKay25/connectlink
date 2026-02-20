@@ -17905,17 +17905,53 @@ def generate_receipt_html(row, effective_date, logo_base64, installment_title, i
     </html>
     """
 
-@app.route('/download_deposit_receipt/<project_id>')
-def download_deposit_receipt(project_id):
-    with get_db() as (cursor, connection):
-        # Fetch project info
 
-        cursor.execute("SELECT id, clientname, clientaddress, clientwanumber, clientemail,projectname, projectlocation, projectdescription, projectadministratorname, depositorbullet, datedepositorbullet  FROM connectlinkdatabase WHERE id = %s", (project_id,))
+@app.route('/download_deposit_receipt/<project_id>', methods=['POST'])
+def download_deposit_receipt(project_id):
+    """
+    Generate and download deposit receipt for a project
+    """
+    with get_db() as (cursor, connection):
+        # Get data from request
+        data = request.get_json()
+        deposit_paid_date = data.get('deposit_date')
+        
+        # Fetch project info - using your actual column names
+        cursor.execute("""
+            SELECT id, clientname, clientaddress, clientwanumber, clientemail, 
+                   projectname, projectlocation, projectdescription, projectadministratorname,
+                   depositorbullet, datedepositorbullet 
+            FROM connectlinkdatabase WHERE id = %s
+        """, (project_id,))
+        
         row = cursor.fetchone()
         if not row:
-            return "Project not found", 404
+            return jsonify({'error': 'Project not found'}), 404
 
-        # Fetch company info
+        db_deposit_date = row[10]  # datedepositorbullet is at index 10
+
+        # Handle date validation and update
+        if deposit_paid_date and deposit_paid_date.strip():
+            if not db_deposit_date or db_deposit_date != deposit_paid_date:
+                cursor.execute("UPDATE connectlinkdatabase SET datedepositorbullet = %s WHERE id = %s", 
+                             (deposit_paid_date, project_id))
+                connection.commit()
+                print(f"Updated deposit date to: {deposit_paid_date}")
+            
+            try:
+                effective_date = datetime.strptime(deposit_paid_date, '%Y-%m-%d').date()
+            except ValueError:
+                print("Failed to convert effective date to required format")
+                effective_date = db_deposit_date
+        else:
+            if not db_deposit_date:
+                return jsonify({
+                    'success': False,
+                    'error_message': 'Sorry, you have to input the deposit date first'
+                }), 400
+            effective_date = db_deposit_date
+
+        # Get company info
         cursor.execute("SELECT * FROM connectlinkdetails;")
         details = cursor.fetchall()
         company = details[0] if details else {}
@@ -17925,134 +17961,335 @@ def download_deposit_receipt(project_id):
         with open(logo_path, 'rb') as img:
             logo_base64 = base64.b64encode(img.read()).decode('utf-8')
 
-        # HTML template
-        html = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                @page {{
-                    size: A5;
-                    margin: 10mm 7mm;
-                }}
+        # Generate deposit receipt HTML (without due date)
+        html = generate_deposit_receipt_html(row, effective_date, logo_base64)
 
-                body {{
-                    font-family: 'Arial', sans-serif;
-                    color: #1E2A56;
-                    line-height: 1.5;
-                    margin: 0;
-                    position: relative;
-                }}
-
-                /* Watermark on top */
-                .watermark {{
-                    position: absolute;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%) rotate(-30deg);
-                    font-size: 80px;
-                    color: rgba(200, 200, 200, 0.2);
-                    z-index: 9999; /* on top */
-                    pointer-events: none;
-                    white-space: nowrap;
-                }}
-
-                .header {{
-                    text-align: center;
-                    margin-bottom: 25px;
-                    position: relative;
-                    z-index: 1;
-                }}
-                .logo {{
-                    width: 150px;
-                    margin-bottom: 10px;
-                }}
-                h5 {{
-                    font-size: 16px;
-                    margin: 5px 0;
-                    font-weight: 800;
-                }}
-
-                .section-title {{
-                    font-size: 16px;
-                    margin-top: 25px;
-                    margin-bottom: 8px;
-                    border-bottom: 2px solid #1E2A56;
-                    font-weight: 800;
-                    position: relative;
-                    z-index: 1;
-                }}
-
-                .info-box {{
-                    padding: 15px;
-                    border: 1px solid #d3d6e4;
-                    border-radius: 8px;
-                    background: #f4f6fb;
-                    margin-bottom: 15px;
-                    box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
-                    position: relative;
-                    z-index: 1;
-                }}
-
-                .info-box p {{
-                    margin: 5px 0;
-                    font-size: 14px;
-                }}
-
-                .footer {{
-                    margin-top: 30px;
-                    text-align: right;
-                    font-size: 12px;
-                    color: #666;
-                    position: relative;
-                    z-index: 1;
-                }}
-            </style>
-        </head>
-        <body>
-
-            <div class="watermark">DEPOSIT</div>
-
-            <div class="header">
-                <img src="data:image/png;base64,{logo_base64}" class="logo">
-                <h5>Deposit Receipt</h5>
-            </div>
-
-            <div class="section-title">Client Information</div>
-            <div class="info-box">
-                <p><strong>Name:</strong> {row[1]}</p>
-                <p><strong>Address:</strong> {row[2]}</p>
-                <p><strong>Contact:</strong> 0{row[3]}</p>
-                <p><strong>Email:</strong> {row[4]}</p>
-            </div>
-
-            <div class="section-title">Project Information</div>
-            <div class="info-box">
-                <p><strong>Project Name:</strong> {row[5]}</p>
-                <p><strong>Location:</strong> {row[6]}</p>
-                <p><strong>Project Scope:</strong> {row[7]}</p>
-                <p><strong>Administrator:</strong> {row[8]}</p>
-            </div>
-
-            <div class="section-title">Deposit Details</div>
-            <div class="info-box">
-                <p><strong>Deposit Paid:</strong> USD {row[9] if row[9] else '—'}</p>
-                <p><strong>Date Paid:</strong> {row[10].strftime('%d %B %Y') if row[10] else '—'}</p>
-            </div>
-
-        </body>
-        </html>
-        """
-
-
-
+        # Generate PDF
         pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
         response = make_response(pdf)
         response.headers["Content-Type"] = "application/pdf"
         response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties Deposit_Receipt_Project_{project_id}.pdf"
         return response
+
+def generate_deposit_receipt_html(row, effective_date, logo_base64):
+    """
+    Generate HTML for deposit receipt
+    """
+    amount = row[9]  # depositorbullet
+    # No due date field in your database
+    
+    # Format amount with comma thousands separator and small grey decimal
+    if amount:
+        if '.' in str(amount):
+            whole, decimal = str(amount).split('.')
+            decimal = decimal[:2].ljust(2, '0')
+        else:
+            whole, decimal = str(amount), '00'
+        formatted_whole = format(int(whole), ',')
+        formatted_amount = f"{formatted_whole}.{decimal}"
+    else:
+        formatted_whole = '0'
+        formatted_amount = '0.00'
+        decimal = '00'
+    
+    # Format paid date
+    paid_date_str = effective_date.strftime('%d %b %Y') if effective_date else '—'
+    paid_date_long = effective_date.strftime('%d %B %Y') if effective_date else '—'
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{
+                size: A5;
+                margin: 5mm 5mm;
+            }}
+            body {{
+                font-family: 'Helvetica', 'Arial', sans-serif;
+                color: #2C3E50;
+                line-height: 1.4;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+                font-size: 10px;
+            }}
+            .receipt-container {{
+                border: 1px solid #d0d0d0;
+                padding: 15px;
+                min-height: 680px;
+                position: relative;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }}
+            .header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 12px;
+                border-bottom: 2px solid #1E2A56;
+            }}
+            .logo {{
+                width: 180px;
+            }}
+            .receipt-title {{
+                text-align: right;
+            }}
+            .receipt-title h5 {{
+                color: #1E2A56;
+                font-size: 16px;
+                margin: 0;
+                font-weight: 600;
+                letter-spacing: 1px;
+            }}
+            .receipt-title p {{
+                color: #666;
+                font-size: 10px;
+                margin: 3px 0 0;
+            }}
+            .receipt-metadata {{
+                display: flex;
+                justify-content: space-between;
+                margin-top: 5px;
+                font-size: 9px;
+                color: #666;
+            }}
+            .receipt-number {{
+                color: #1E2A56;
+                font-weight: 600;
+            }}
+            .section {{
+                margin-bottom: 18px;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                overflow: hidden;
+            }}
+            .section-header {{
+                background: #f5f7fa;
+                padding: 8px 12px;
+                font-weight: 600;
+                font-size: 11px;
+                color: #1E2A56;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 1px solid #e0e0e0;
+            }}
+            .section-content {{
+                padding: 12px;
+            }}
+            .grid-2 {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }}
+            .info-row {{
+                display: flex;
+                margin-bottom: 6px;
+                font-size: 10px;
+            }}
+            .info-label {{
+                width: 70px;
+                color: #666;
+                font-weight: 500;
+            }}
+            .info-value {{
+                flex: 1;
+                color: #2C3E50;
+                font-weight: 400;
+            }}
+            .payment-summary {{
+                background: #fafbfd;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                padding: 15px;
+                margin: 15px 0 5px;
+            }}
+            .payment-grid {{
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                text-align: center;
+            }}
+            .payment-item {{
+                padding: 8px 0;
+            }}
+            .payment-label {{
+                font-size: 9px;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 5px;
+            }}
+            .payment-amount {{
+                font-size: 18px;
+                font-weight: 600;
+                color: #1E2A56;
+            }}
+            .amount-whole {{
+                font-size: 18px;
+                font-weight: 600;
+                color: #1E2A56;
+            }}
+            .amount-decimal {{
+                font-size: 10px;
+                font-weight: 400;
+                color: #999;
+                vertical-align: super;
+                margin-left: 1px;
+            }}
+            .payment-date {{
+                font-size: 14px;
+                font-weight: 500;
+                color: #2C3E50;
+            }}
+            .status-paid {{
+                display: inline-block;
+                background: #27ae60;
+                color: white;
+                font-size: 9px;
+                font-weight: 600;
+                padding: 3px 10px;
+                border-radius: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            .footer {{
+                margin-top: 25px;
+                padding-top: 12px;
+                border-top: 1px solid #e0e0e0;
+                font-size: 8px;
+                color: #999;
+                text-align: center;
+            }}
+            .footer-line {{
+                margin: 3px 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="receipt-container">
+            <div class="header">
+                <img src="data:image/png;base64,{logo_base64}" class="logo">
+                <div class="receipt-title">
+                    <h5>DEPOSIT RECEIPT</h5>
+                    <p>Initial Deposit Payment</p>
+                    <div class="receipt-metadata">
+                        <span class="receipt-number">REF: CON-{row[0]}-DEP-{effective_date.strftime('%Y%m%d') if effective_date else '000000'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="payment-summary">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span class="status-paid">PAID</span>
+                    <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-DEP</span>
+                </div>
+                <div class="payment-grid">
+                    <div class="payment-item">
+                        <div class="payment-label">Amount</div>
+                        <div class="payment-amount">
+                            USD <span class="amount-whole">{formatted_whole}</span>.<span class="amount-decimal">{decimal}</span>
+                        </div>
+                    </div>
+                    <div class="payment-item">
+                        <div class="payment-label">Date Paid</div>
+                        <div class="payment-date">{paid_date_str}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">CLIENT INFORMATION</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Name:</span>
+                                <span class="info-value">{row[1]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Address:</span>
+                                <span class="info-value">{row[2]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Contact:</span>
+                                <span class="info-value">0{row[3]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Email:</span>
+                                <span class="info-value">{row[4]}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">PROJECT INFORMATION</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Project:</span>
+                                <span class="info-value">{row[5]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Location:</span>
+                                <span class="info-value">{row[6]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Scope:</span>
+                                <span class="info-value">{row[7]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Administrator:</span>
+                                <span class="info-value">{row[8]}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">PAYMENT DETAILS</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Payment:</span>
+                                <span class="info-value">Initial Deposit</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Amount:</span>
+                                <span class="info-value">USD {formatted_amount}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Date Paid:</span>
+                                <span class="info-value">{paid_date_long}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
+                <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602</div>
+                <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
 @app.route('/logout')
 def logout():

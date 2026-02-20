@@ -7608,47 +7608,6 @@ document.getElementById('removeUserModal').addEventListener('hidden.bs.modal', f
 </script>
 <script>
 
-document.getElementById("getdepositReceiptBtn").addEventListener("click", async function(e) {
-    e.preventDefault();
-
-    const projectId = document.getElementById("updateProjectId").value; // get project ID
-    const btn = this;
-    const spinner = document.getElementById("depositSpinner");
-    const textSpan = document.getElementById("depositText");
-
-    // Show spinner
-    btn.disabled = true;
-    spinner.classList.remove("d-none");
-    textSpan.textContent = "Generating...";
-
-    try {
-        const response = await fetch(`/download_deposit_receipt/${projectId}`, {
-            method: 'GET'
-        });
-
-        if (!response.ok) throw new Error("Failed to generate receipt");
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Deposit_Receipt_Project_${projectId}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-
-    } catch (err) {
-        console.error(err);
-        alert("❌ Failed to download deposit receipt");
-    } finally {
-        // Hide spinner
-        btn.disabled = false;
-        spinner.classList.add("d-none");
-        textSpan.textContent = "Get Receipt";
-    }
-});
-
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded - initializing receipt buttons');
