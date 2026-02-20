@@ -3582,20 +3582,20 @@ def webhook():
                                                                     # Get project details for filename and caption
                                                                     with get_db() as (cursor, connection):
                                                                         cursor.execute("""
-                                                                            SELECT clientname, projectname, depositorbullet 
+                                                                            SELECT clientname, projectname, depositorbullet, datedepositorbullet
                                                                             FROM connectlinkdatabase WHERE id = %s
                                                                         """, (project_id,))
                                                                         row = cursor.fetchone()
                                                                         
                                                                         if row:
-                                                                            client_name, project_name, deposit_amount = row
+                                                                            client_name, project_name, deposit_amount, date_deposited = row
                                                                             filename = f"Deposit_Receipt_{client_name}_{project_id}.pdf"
                                                                             caption = f"""📄 *DEPOSIT RECEIPT*
 
                                                                             Client: {client_name}
                                                                             Project: {project_name}
                                                                             Amount: USD {deposit_amount if deposit_amount else '0'}
-                                                                            Date: {datetime.now().strftime('%d %B %Y')}
+                                                                            Date Paid: {date_deposited.strftime('%d %B %Y')}
 
                                                                             Send 'Hello' to view your contracts or to log enquiries."""
                                                                         else:
@@ -3884,8 +3884,8 @@ def webhook():
                                                                             Send 'Hello' to view your contracts or to log enquiries."""
                     
                                                                         else:
-                                                                            filename = f"Deposit_Receipt_{project_id}.pdf"
-                                                                            caption = f"📄 Deposit Receipt - Project {project_id}"
+                                                                            filename = f"Installment_Receipt_{project_id}.pdf"
+                                                                            caption = f"📄 Instalment Receipt - Project {project_id}"
                                                                     
                                                                     print(f"📤 Uploading PDF to WhatsApp...")
                                                                     
