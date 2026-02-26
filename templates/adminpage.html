@@ -4305,15 +4305,14 @@ body::before {
 <script>
 
 document.addEventListener('DOMContentLoaded', function() {
-
-    // Open the Other Details Modal and load existing data
-function openOtherDetailsModal() {
-    // Get the modal instance
-    const otherModal = new bootstrap.Modal(document.getElementById('otherDetailsModal'));    
-    // Show the modal
-    otherModal.show();
-}
-
+    // Attach function to window object to make it global
+    window.openOtherDetailsModal = function() {
+        const otherModal = new bootstrap.Modal(document.getElementById('otherDetailsModal'));
+        otherModal.show();
+    };
+    
+    // Any other initialization code
+    console.log('DOM ready');
 });
 </script>
 
