@@ -4303,6 +4303,103 @@ body::before {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script>
+    // Open the Other Details Modal and load existing data
+function openOtherDetailsModal() {
+    // Get the modal instance
+    const otherModal = new bootstrap.Modal(document.getElementById('otherDetailsModal'));
+    
+    // Load existing data from hidden fields or storage
+    loadOtherDetailsData();
+    
+    // Show the modal
+    otherModal.show();
+}
+
+// Load existing data into the modal
+function loadOtherDetailsData() {
+    // This would typically come from your project data
+    // For now, we'll check if there are any existing hidden inputs
+    
+    // Example: Load from data attributes or hidden fields
+    const projectId = document.getElementById('updateProjectId').value;
+    
+    // You can make an AJAX call here to get the full client details
+    // Or populate from existing form fields
+    
+    // For now, just check if there are any existing values in hidden fields
+    const email = document.querySelector('input[name="client_email"]')?.value || '';
+    const phone = document.querySelector('input[name="client_phone"]')?.value || '';
+    const address = document.querySelector('input[name="client_address"]')?.value || '';
+    const nextOfKin = document.querySelector('input[name="client_next_of_kin"]')?.value || '';
+    const completionStatus = document.querySelector('select[name="completion_status"]')?.value || '';
+    
+    // Populate modal fields
+    document.getElementById('otherEmail').value = email;
+    document.getElementById('otherPhone').value = phone;
+    document.getElementById('otherAddress').value = address;
+    document.getElementById('otherNextOfKin').value = nextOfKin;
+    document.getElementById('updateCompletionStatus').value = completionStatus;
+}
+
+// Save details from modal
+function saveOtherDetails() {
+    // Create or update hidden inputs in the main form
+    updateHiddenInputs();
+    
+    // Close the modal
+    const otherModal = bootstrap.Modal.getInstance(document.getElementById('otherDetailsModal'));
+    otherModal.hide();
+    
+    // Show success message (optional)
+    alert('Other details saved successfully!');
+}
+
+// Update hidden inputs in the main form
+function updateHiddenInputs() {
+    const form = document.getElementById('updateProjectForm');
+    
+    // Define all fields to save
+    const fields = [
+        { id: 'updateCompletionStatus', name: 'completion_status' },
+        { id: 'updatePriority', name: 'priority' },
+        { id: 'otherEmail', name: 'client_email' },
+        { id: 'otherPhone', name: 'client_phone' },
+        { id: 'otherAltPhone', name: 'client_alt_phone' },
+        { id: 'otherWhatsApp', name: 'client_whatsapp' },
+        { id: 'otherAddress', name: 'client_address' },
+        { id: 'otherCity', name: 'client_city' },
+        { id: 'otherState', name: 'client_state' },
+        { id: 'otherZip', name: 'client_zip' },
+        { id: 'otherCountry', name: 'client_country' },
+        { id: 'otherNextOfKin', name: 'client_next_of_kin' },
+        { id: 'otherRelationship', name: 'client_next_of_kin_relation' },
+        { id: 'otherNextOfKinPhone', name: 'client_next_of_kin_phone' },
+        { id: 'otherNextOfKinEmail', name: 'client_next_of_kin_email' },
+        { id: 'otherNotes', name: 'client_notes' }
+    ];
+    
+    // Remove existing hidden inputs with these names
+    fields.forEach(field => {
+        const existingInput = form.querySelector(`input[name="${field.name}"], select[name="${field.name}"]`);
+        if (existingInput && existingInput.tagName === 'SELECT') {
+            // For select elements, update their value directly
+            existingInput.value = document.getElementById(field.id).value;
+        } else {
+            // Remove any existing hidden inputs
+            const hiddenInput = form.querySelector(`input[type="hidden"][name="${field.name}"]`);
+            if (hiddenInput) hiddenInput.remove();
+            
+            // Create new hidden input
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = field.name;
+            input.value = document.getElementById(field.id).value;
+            form.appendChild(input);
+        }
+    });
+}
+</script>
+<script>
 // Function to set question from suggestions
 function setQuestion(text) {
     document.getElementById('aiQuestion').value = text;
