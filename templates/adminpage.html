@@ -2057,33 +2057,6 @@ body::before {
                 </div>
                 <div class="modal-body">
                     <div class="row g-3">
-                        <!-- Completion Status Section -->
-                        <div class="col-12">
-                            <h6 class="fw-bold" style="color: #1E2A56;">Project Status</h6>
-                            <hr class="mt-0">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Completion Status</label>
-                            <select class="form-select" id="updateCompletionStatus" name="completion_status">
-                                <option value="ph" disabled selected hidden>Select Status</option>
-                                <option value="Not Started">Not Started</option>
-                                <option value="Ongoing">Ongoing</option>
-                                <option value="On Hold">On Hold</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Priority Level</label>
-                            <select class="form-select" id="updatePriority" name="priority">
-                                <option value="Low">Low</option>
-                                <option value="Medium" selected>Medium</option>
-                                <option value="High">High</option>
-                                <option value="Urgent">Urgent</option>
-                            </select>
-                        </div>
                         
                         <!-- Contact Information -->
                         <div class="col-12 mt-3">
@@ -2131,6 +2104,24 @@ body::before {
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Phone Number</label>
                             <input type="tel" class="form-control" id="otherNextOfKinPhone" name="client_next_of_kin_phone" placeholder="+1 234 567 8900">
+                        </div>
+
+                        <!-- Completion Status Section -->
+                        <div class="col-12">
+                            <h6 class="fw-bold" style="color: #1E2A56;">Project Status</h6>
+                            <hr class="mt-0">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Completion Status</label>
+                            <select class="form-select" id="updateCompletionStatus" name="completion_status">
+                                <option value="ph" disabled selected hidden>Select Status</option>
+                                <option value="Not Started">Not Started</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="On Hold">On Hold</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
                         </div>
                         
                     </div>
