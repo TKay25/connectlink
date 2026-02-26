@@ -2060,29 +2060,29 @@ body::before {
                         
                         <!-- Contact Information -->
                         <div class="col-12 mt-3">
-                            <h6 class="fw-bold" style="color: #1E2A56;">Client Contact Information</h6>
+                            <h6 class="fw-bold" style="color: #1E2A56;">Client Information</h6>
                             <hr class="mt-0">
                         </div>
-                        
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">National ID</label>
+                            <input type="text" class="form-control" id="updateClientNationalIdNumber" name="client_national_id">
+                        </div>
+
+
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Email Address</label>
-                            <input type="email" class="form-control" id="otherEmail" name="client_email" placeholder="client@example.com">
+                            <input type="email" class="form-control" id="updateClientEmail" name="client_email">
                         </div>
                         
                         <div class="col-md-6">
                             <label class="form-label fw-bold">WhatsApp Number</label>
-                            <input type="tel" class="form-control" id="otherWhatsApp" name="client_whatsapp" placeholder="+1 234 567 8902">
-                        </div>
-                        
-                        <!-- Address Information -->
-                        <div class="col-12 mt-3">
-                            <h6 class="fw-bold" style="color: #1E2A56;">Address Information</h6>
-                            <hr class="mt-0">
+                            <input type="tel" class="form-control" id="updateClientWhatsAppNumber" name="client_whatsapp">
                         </div>
                         
                         <div class="col-12">
                             <label class="form-label fw-bold">Street Address</label>
-                            <input type="text" class="form-control" id="otherAddress" name="client_address" placeholder="123 Main St">
+                            <input type="text" class="form-control" id="updateClientResidentialAddress" name="client_address">
                         </div>
                         
                         <!-- Next of Kin Information -->
@@ -4306,99 +4306,14 @@ body::before {
     // Open the Other Details Modal and load existing data
 function openOtherDetailsModal() {
     // Get the modal instance
-    const otherModal = new bootstrap.Modal(document.getElementById('otherDetailsModal'));
-    
-    // Load existing data from hidden fields or storage
-    loadOtherDetailsData();
-    
+    const otherModal = new bootstrap.Modal(document.getElementById('otherDetailsModal'));    
     // Show the modal
     otherModal.show();
 }
-
-// Load existing data into the modal
-function loadOtherDetailsData() {
-    // This would typically come from your project data
-    // For now, we'll check if there are any existing hidden inputs
-    
-    // Example: Load from data attributes or hidden fields
-    const projectId = document.getElementById('updateProjectId').value;
-    
-    // You can make an AJAX call here to get the full client details
-    // Or populate from existing form fields
-    
-    // For now, just check if there are any existing values in hidden fields
-    const email = document.querySelector('input[name="client_email"]')?.value || '';
-    const phone = document.querySelector('input[name="client_phone"]')?.value || '';
-    const address = document.querySelector('input[name="client_address"]')?.value || '';
-    const nextOfKin = document.querySelector('input[name="client_next_of_kin"]')?.value || '';
-    const completionStatus = document.querySelector('select[name="completion_status"]')?.value || '';
-    
-    // Populate modal fields
-    document.getElementById('otherEmail').value = email;
-    document.getElementById('otherPhone').value = phone;
-    document.getElementById('otherAddress').value = address;
-    document.getElementById('otherNextOfKin').value = nextOfKin;
-    document.getElementById('updateCompletionStatus').value = completionStatus;
-}
-
-// Save details from modal
-function saveOtherDetails() {
-    // Create or update hidden inputs in the main form
-    updateHiddenInputs();
-    
-    // Close the modal
-    const otherModal = bootstrap.Modal.getInstance(document.getElementById('otherDetailsModal'));
-    otherModal.hide();
-    
-    // Show success message (optional)
-    alert('Other details saved successfully!');
-}
-
-// Update hidden inputs in the main form
-function updateHiddenInputs() {
-    const form = document.getElementById('updateProjectForm');
-    
-    // Define all fields to save
-    const fields = [
-        { id: 'updateCompletionStatus', name: 'completion_status' },
-        { id: 'updatePriority', name: 'priority' },
-        { id: 'otherEmail', name: 'client_email' },
-        { id: 'otherPhone', name: 'client_phone' },
-        { id: 'otherAltPhone', name: 'client_alt_phone' },
-        { id: 'otherWhatsApp', name: 'client_whatsapp' },
-        { id: 'otherAddress', name: 'client_address' },
-        { id: 'otherCity', name: 'client_city' },
-        { id: 'otherState', name: 'client_state' },
-        { id: 'otherZip', name: 'client_zip' },
-        { id: 'otherCountry', name: 'client_country' },
-        { id: 'otherNextOfKin', name: 'client_next_of_kin' },
-        { id: 'otherRelationship', name: 'client_next_of_kin_relation' },
-        { id: 'otherNextOfKinPhone', name: 'client_next_of_kin_phone' },
-        { id: 'otherNextOfKinEmail', name: 'client_next_of_kin_email' },
-        { id: 'otherNotes', name: 'client_notes' }
-    ];
-    
-    // Remove existing hidden inputs with these names
-    fields.forEach(field => {
-        const existingInput = form.querySelector(`input[name="${field.name}"], select[name="${field.name}"]`);
-        if (existingInput && existingInput.tagName === 'SELECT') {
-            // For select elements, update their value directly
-            existingInput.value = document.getElementById(field.id).value;
-        } else {
-            // Remove any existing hidden inputs
-            const hiddenInput = form.querySelector(`input[type="hidden"][name="${field.name}"]`);
-            if (hiddenInput) hiddenInput.remove();
-            
-            // Create new hidden input
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = field.name;
-            input.value = document.getElementById(field.id).value;
-            form.appendChild(input);
-        }
-    });
-}
 </script>
+
+
+
 <script>
 // Function to set question from suggestions
 function setQuestion(text) {
@@ -8109,6 +8024,11 @@ $(document).ready(function() {
         // You'll need to check what column index each data is in
         const momid = rowData[0]; // First column (ID)
         const clientName = rowData[1]; // Second column (Client Name)
+        const clientnationalidnumber = rowData[2]; // Third column (Client National ID Number)
+        const clientresaddress = rowData[3]; // Fourth column (Client Residential Address)
+        const clientwhatsapp = rowData[4]; // Fifth column (Client WhatsApp Number)
+        const clientemail = rowData[5]; // Sixth column (Client Email)
+
         const projectName = rowData[10]; // Tenth column (Project Name)
         const projectStartDateref = rowData[14]; // Tenth column (Project Name)
         const projectScope = rowData[12]; // Project Scope
@@ -8167,6 +8087,10 @@ $(document).ready(function() {
         // Set values in the modal
         $('#updateProjectId').val(id);
         $('#updateClientName').val(clientName);
+        $('#updateClientNationalIdNumber').val(clientnationalidnumber);
+        $('#updateClientResidentialAddress').val(clientresaddress);
+        $('#updateClientWhatsAppNumber').val(clientwhatsapp);
+        $('#updateClientEmail').val(clientemail);
         $('#updateProjectName').val(projectName);
         $('#updateAdminName').val(adminName);
         $('#updateTotalContractAmount').val(totalcontractamount);
