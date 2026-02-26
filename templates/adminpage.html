@@ -2045,6 +2045,105 @@ body::before {
         </div>
     </div>
 
+    <!-- Other Details Modal -->
+    <div class="modal fade" id="otherDetailsModal" tabindex="-1" aria-labelledby="otherDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #1E2A56; color: white;">
+                    <h6 class="modal-title" id="otherDetailsModalLabel">
+                        <i class="bi bi-file-person"></i> OTHER DETAILS
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <!-- Completion Status Section -->
+                        <div class="col-12">
+                            <h6 class="fw-bold" style="color: #1E2A56;">Project Status</h6>
+                            <hr class="mt-0">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Completion Status</label>
+                            <select class="form-select" id="updateCompletionStatus" name="completion_status">
+                                <option value="ph" disabled selected hidden>Select Status</option>
+                                <option value="Not Started">Not Started</option>
+                                <option value="Ongoing">Ongoing</option>
+                                <option value="On Hold">On Hold</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Priority Level</label>
+                            <select class="form-select" id="updatePriority" name="priority">
+                                <option value="Low">Low</option>
+                                <option value="Medium" selected>Medium</option>
+                                <option value="High">High</option>
+                                <option value="Urgent">Urgent</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Contact Information -->
+                        <div class="col-12 mt-3">
+                            <h6 class="fw-bold" style="color: #1E2A56;">Client Contact Information</h6>
+                            <hr class="mt-0">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Email Address</label>
+                            <input type="email" class="form-control" id="otherEmail" name="client_email" placeholder="client@example.com">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">WhatsApp Number</label>
+                            <input type="tel" class="form-control" id="otherWhatsApp" name="client_whatsapp" placeholder="+1 234 567 8902">
+                        </div>
+                        
+                        <!-- Address Information -->
+                        <div class="col-12 mt-3">
+                            <h6 class="fw-bold" style="color: #1E2A56;">Address Information</h6>
+                            <hr class="mt-0">
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Street Address</label>
+                            <input type="text" class="form-control" id="otherAddress" name="client_address" placeholder="123 Main St">
+                        </div>
+                        
+                        <!-- Next of Kin Information -->
+                        <div class="col-12 mt-3">
+                            <h6 class="fw-bold" style="color: #1E2A56;">Next of Kin</h6>
+                            <hr class="mt-0">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Full Name</label>
+                            <input type="text" class="form-control" id="otherNextOfKin" name="client_next_of_kin" placeholder="John Doe">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Relationship</label>
+                            <input type="text" class="form-control" id="otherRelationship" name="client_next_of_kin_relation" placeholder="Spouse, Parent, etc.">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Phone Number</label>
+                            <input type="tel" class="form-control" id="otherNextOfKinPhone" name="client_next_of_kin_phone" placeholder="+1 234 567 8900">
+                        </div>
+                        
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="saveOtherDetails()">
+                        <i class="bi bi-save"></i> Save Details
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Update Project Modal -->
     <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
@@ -2098,16 +2197,11 @@ body::before {
                             </div>
 
                             <!-- Completion Status - Adjusted width -->
-                            <div class="col-lg-1 col-md-2 col-sm-6">
-                                <label for="updateCompletionStatus" class="form-label fw-bold">Completion Status</label>
-                                <select class="form-select" id="updateCompletionStatus" name="completion_status">
-                                    <option value="ph" disabled selected hidden>Select Status</option>
-                                    <option value="Not Started">Not Started</option>
-                                    <option value="Ongoing">Ongoing</option>
-                                    <option value="On Hold">On Hold</option>
-                                    <option value="Completed">Completed</option>
-                                    <option value="Cancelled">Cancelled</option>
-                                </select>
+                            <div class="col-lg-2 col-md-3 col-sm-6">
+                                <label for="updateOtherDetails" class="form-label fw-bold">Other Details</label>
+                                <button type="button" class="btn btn-outline-primary w-100" onclick="openOtherDetailsModal()">
+                                    <i class="bi bi-three-dots"></i> Click to View/Edit
+                                </button>
                             </div>
                         </div>
                         
