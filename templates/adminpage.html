@@ -5080,19 +5080,22 @@ function formatPhone(phone) {
     if (!phone) return 'N/A';
     const cleaned = phone.toString().replace(/\D/g, '');
     
-    if (cleaned.startsWith('263')) {
-        if (cleaned.length === 12) {
-            return `263 ${cleaned.substr(3, 3)} ${cleaned.substr(6, 3)} ${cleaned.substr(9, 3)}`;
+    // Remove trailing zero if present
+    const trimmed = cleaned.endsWith('0') ? cleaned.slice(0, -1) : cleaned;
+    
+    if (trimmed.startsWith('263')) {
+        if (trimmed.length === 12) {
+            return `263 ${trimmed.substr(3, 3)} ${trimmed.substr(6, 3)} ${trimmed.substr(9, 3)}`;
         }
-        return `263 ${cleaned.substr(3)}`;
-    } else if (cleaned.startsWith('0')) {
-        const withoutZero = cleaned.substr(1);
+        return `263 ${trimmed.substr(3)}`;
+    } else if (trimmed.startsWith('0')) {
+        const withoutZero = trimmed.substr(1);
         if (withoutZero.length === 9) {
             return `263 ${withoutZero.substr(0, 3)} ${withoutZero.substr(3, 3)} ${withoutZero.substr(6, 3)}`;
         }
         return `263 ${withoutZero}`;
     }
-    return `263 ${cleaned}`;
+    return `263 ${trimmed}`;
 }
 
 // ==================== META TEMPLATE FUNCTIONS ====================
