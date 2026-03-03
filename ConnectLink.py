@@ -8586,12 +8586,20 @@ def download_contract(project_id):
 
                     <div class="section-header">TRANSPORT PROVISION</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
+                        <ol>
+                            <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
+                            <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
+                            <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                        </ol>
+
                     </div>
 
                     <div class="section-header">POWER PROVISION</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
+                        <ol>
+                            <li>Where electrical power is required and unavailable due to load shedding or power outages, the Client shall provide a suitable generator and fuel at their own cost unless otherwise agreed in writing.</li>
+                            <li>Delays arising from power unavailability shall extend the completion period.</li>
+                        </ol>
                     </div>
 
                     <div class="section-header">WATER PROVISION</div>
