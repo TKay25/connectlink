@@ -8684,11 +8684,6 @@ def download_contract(project_id):
                         </ol>
                     </div>
                     
-                    <div class="section-header">LIMITATION OF LIABILITY</div>
-                    <div class="terms-box">
-                        <p style="font-size:11px;">The Contractor's total liability arising from this Agreement shall not exceed the total Contract Price, except in cases of gross negligence or wilful misconduct.</p>
-                    </div>
-
 
                     <!-- Page break -->
                     <div class="page-break"></div>
@@ -8696,6 +8691,11 @@ def download_contract(project_id):
                     <!-- Page 5 -->
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                    <div class="section-header">LIMITATION OF LIABILITY</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">The Contractor's total liability arising from this Agreement shall not exceed the total Contract Price, except in cases of gross negligence or wilful misconduct.</p>
+                    </div>
 
                     <div class="section-header">INDEMNITY CLAUSE</div>
                     <div class="terms-box">
@@ -8733,6 +8733,13 @@ def download_contract(project_id):
                             <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
                         </ol>
                     </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
                     
                     <div class="section-header">GOVERNING LAW</div>
                     <div class="terms-box">
