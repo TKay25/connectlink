@@ -8642,6 +8642,14 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 6 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+
                     <div class="section-header">RISK AND INSURANCE</div>
                     <div class="terms-box">
                         <ol>
@@ -8672,13 +8680,6 @@ def download_contract(project_id):
                     </div>
 
                     
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
                     <div class="section-header">FORCE MAJEURE</div>
                     <div class="terms-box">
                         <ol>
@@ -8695,6 +8696,13 @@ def download_contract(project_id):
                             <li>Time for performance shall be extended for the duration of the force majeure event.</li>
                         </ol>
                     </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">TERMINATION</div>
                     <div class="terms-box">
