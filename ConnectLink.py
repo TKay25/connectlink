@@ -8550,6 +8550,8 @@ def download_contract(project_id):
                     
                     <!-- Page 4 -->
 
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                     <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                     <div class="terms-box">
                         <ol>
@@ -8588,9 +8590,6 @@ def download_contract(project_id):
                         </ol>
                     </div>
                     
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
                     <div class="section-header">TRANSPORT PROVISION</div>
                     <div class="terms-box">
                         <ol>
@@ -8600,6 +8599,13 @@ def download_contract(project_id):
                         </ol>
 
                     </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">POWER PROVISION</div>
                     <div class="terms-box">
