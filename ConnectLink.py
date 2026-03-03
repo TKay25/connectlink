@@ -5509,7 +5509,7 @@ def webhook():
                                                                                 <!-- Page 3 -->
 
                                                                                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
-                                                                                
+
                                                                                 <div class="section-header">PAYMENT TERMS</div>
                                                                                 <div class="terms-box">
                                                                                     <ul style="list-style-type: circle;">
@@ -5523,45 +5523,36 @@ def webhook():
                                                                                 </div>
                                                                                 
                                                                                 <div class="section-header">PROJECT TIMELINE</div>
-                                                                                <ol>
-                                                                                    <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of;
-                                                                                        <ol>
-                                                                                            <li>Receipt of the agreed initial deposit payment and;</li> 
-                                                                                            <li>Provision of site access by the Client.</li>
-                                                                                        </ol>
-                                                                                    </li>
-                                                                                    <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
-                                                                                    <li>The completion period shall be extended where delays are caused by;
-                                                                                        <ol>
-                                                                                            <li>Variations requested by the Client;</li>
-                                                                                            <li>Late payments;</li>
-                                                                                            <li>Failure by the Client to obtain statutory approvals;</li>
-                                                                                            <li>Force majeure events;</li>
-                                                                                            <li>Shortage of materials beyond the Contractor's reasonable control.</li>
-                                                                                        </ol>
-                                                                                    </li>
-                                                                                    <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
-                                                                                    <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
-                                                                                </ol>
-                                                                                
-
-                                                                                <div class="section-header">OWNERSHIP CLAUSE</div>
                                                                                 <div class="terms-box">
-                                                                                    <ul style="list-style-type: circle;">
-                                                                                        <li>All installed items, materials, and equipment remain the property of <strong>ConnectLink Properties</strong> until full and final payment is received from the Client.</li>
-                                                                                        <li>ConnectLink Properties reserves the right to remove, repossess, or withhold any installed items should the Client fail to make payments within the stipulated timelines.</li>
-                                                                                        <li>Ownership transfers to the Client only upon settlement of the entire contract amount.</li>
-                                                                                    </ul>
+                                                                                    <ol>
+                                                                                        <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of;
+                                                                                            <ol>
+                                                                                                <li>Receipt of the agreed initial deposit payment and;</li> 
+                                                                                                <li>Provision of site access by the Client.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
+                                                                                        <li>The completion period shall be extended where delays are caused by;
+                                                                                            <ol>
+                                                                                                <li>Variations requested by the Client;</li>
+                                                                                                <li>Late payments;</li>
+                                                                                                <li>Failure by the Client to obtain statutory approvals;</li>
+                                                                                                <li>Force majeure events;</li>
+                                                                                                <li>Shortage of materials beyond the Contractor's reasonable control.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
+                                                                                        <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
+                                                                                    </ol>
                                                                                 </div>
                                                                                 
-                                                                                <div class="section-header">DESIGN CONFIRMATION</div>
+                                                                                <div class="section-header">SITE SECURITY</div>
                                                                                 <div class="terms-box">
-                                                                                    <ul style="list-style-type: circle;">
-                                                                                        <li>Signing of this contract and payment of the deposit constitutes acknowledgement, confirmation, and authorization to proceed with construction of the proposed design submitted with the quotation.</li>
-                                                                                        <li>Any alterations or modifications must be communicated and agreed upon <strong>before</strong> signing this contract.</li>
-                                                                                        <li>All additions or variations to the approved design will be treated as change orders and will incur additional costs, billed separately or added to the original quotation.</li>
-                                                                                    </ul>
-                                                                                </div>
+                                                                                    <ol>
+                                                                                        <li>The Client shall ensure reasonable site security, including secure access control.</li>
+                                                                                        <li>The Contractor shall not be liable for theft, vandalism, or damage occurring on site unless caused by its proven negligence.</li>
+                                                                                    </ol>
+                                                                                </div> 
 
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
@@ -5570,37 +5561,46 @@ def webhook():
 
                                                                                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
-                                                                                <div class="section-header">TRANSPORT PROVISION</div>
+                                                                                <div class="section-header">FORCE MAJEURE</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">Contractor will provide free transport within 20km radius of Harare. There after transport will be USD 0.50 per kilometer.</p>
+                                                                                    <ol>
+                                                                                        <li>Neither party shall be liable for delay or failure to perform obligations caused by events beyond their reasonable control, including but not limited to:
+                                                                                            <ol>
+                                                                                                <li>Acts of God;</li>
+                                                                                                <li>War, civil unrest, or government restrictions;</li>
+                                                                                                <li>Utility failures or prolonged load shedding;</li>
+                                                                                                <li>Material shortages;</li>
+                                                                                                <li>Currency instability rendering procurement of materials commercially impracticable despite reasonable mitigation efforts.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>The affected party shall notify the other in writing within a reasonable time.</li>
+                                                                                        <li>Time for performance shall be extended for the duration of the force majeure event.</li>
+                                                                                    </ol>
                                                                                 </div>
 
-                                                                                <div class="section-header">POWER PROVISION</div>
+                                                                                <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">In the event of power outages requiring electricity for construction activities, the Client shall provide a suitable generator and fuel at their own expense for the duration required.</p>
+                                                                                    <ol>
+                                                                                        <li>Signing of this Agreement and payment of the deposit shall constitute acknowledgment and approval of the submitted design</li>
+                                                                                        <li>No variation or alteration shall be valid unless:
+                                                                                            <ul>
+                                                                                                <li>Requested in writing;</li>
+                                                                                                <li>Costed by the Contractor; and</li>
+                                                                                                <li>Approved in writing by both parties.</li>
+                                                                                            </ul>
+                                                                                        </li>
+                                                                                        <li>Approved variations shall:
+                                                                                            <ol>`
+                                                                                                <li>Be treated as Change Orders;</li>
+                                                                                                <li>Adjust the Contract Price accordingly; and</li>
+                                                                                                <li>Extend the completion period where necessary.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>The Contractor shall not be obliged to proceed with any variation until written approval and payment of any required adjustment is received.</li>
+                                                                                    </ol>
                                                                                 </div>
 
-                                                                                <div class="section-header">WATER PROVISION</div>
-                                                                                <div class="terms-box">
-                                                                                    <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
-                                                                                </div>
 
-                                                                                <div class="section-header">ACCOMMODATION PROVISION</div>
-                                                                                <div class="terms-box">
-                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
-                                                                                </div>
-
-                                                                                <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
-                                                                                <div class="terms-box">
-                                                                                    <p style="font-size:11px;">12 Months Warranty for the roof and any defects identified during the period.</p>
-                                                                                </div>
-                                                                                
-                                                                                <div class="section-header">INDEMNITY CLAUSE</div>
-                                                                                <div class="terms-box">
-                                                                                    <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
-                                                                                </div>
-                                                                                
-                                                                                
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
                                                                                 
@@ -5608,33 +5608,178 @@ def webhook():
 
                                                                                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
+                                                                                <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>Ownership of all materials, goods, and installed items shall remain vested in <strong>ConnectLink Properties</strong> until full and final payment of the Contract Price.</li>
+                                                                                        <li>Where materials have been incorporated into the works and cannot be removed without material damage, the Contractor shall retain a contractual right to claim the value thereof.</li>
+                                                                                        <li>The Client shall not alienate, encumber, pledge, or dispose of unpaid materials prior to full settlement.</li>
+                                                                                        <li>In the event of payment default, the Contractor shall be entitled to approach a competent court of Zimbabwe for:
+                                                                                            <ol>
+                                                                                                <li>An order authorizing repossession; or</li>
+                                                                                                <li>Recovery of the outstanding balance together with interest and costs.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>Nothing in this clause shall permit unlawful self-help repossession.</li>
+                                                                                    </ol>
+                                                                                </div>
+
+                                                                                <div class="section-header">TRANSPORT PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
+                                                                                        <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
+                                                                                        <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                                                                                    </ol>
+                                                                                </div>
+
+                                                                                <div class="section-header">POWER PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>Where electrical power is required and unavailable due to load shedding or power outages, the Client shall provide a suitable generator and fuel at their own cost unless otherwise agreed in writing.</li>
+                                                                                        <li>Delays arising from power unavailability shall extend the completion period.</li>
+                                                                                    </ol>
+                                                                                </div>
+
+                                                                                <div class="section-header">WATER PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
+                                                                                </div>
+
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 6 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                                                                                <div class="section-header">ACCOMMODATION PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
+                                                                                </div>
+
+                                                                                <div class="section-header">DEFECTS LIABILITY</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
+                                                                                        <li>The warranty shall not apply to:
+                                                                                            <ol>
+                                                                                                <li>Normal wear and tear;</li>
+                                                                                                <li>Misuse or negligence by the Client;</li>
+                                                                                                <li>Structural defects not attributable to the Contractor;</li>
+                                                                                                <li>Materials supplied by the Client.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
+                                                                                        <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
+                                                                                    </ol>
+                                                                                </div>
+
+                                                                                <div class="section-header">RISK AND INSURANCE</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>The risk in the works, materials, and equipment shall remain with the Contractor until Practical Completion.</li>
+                                                                                        <li>Upon Practical Completion, risk shall pass to the Client.</li>
+                                                                                        <li>The Client shall be responsible for insuring the works against fire, theft, vandalism, and other insurable risks from the date of Practical Completion.</li>
+                                                                                        <li>Unless otherwise agreed in writing, the Contractor shall not be responsible for loss or damage caused by:
+                                                                                            <ol>
+                                                                                                <li>Civil unrest;</li>
+                                                                                                <li>Theft not attributable to Contractor negligence;</li>
+                                                                                                <li>Acts of third parties beyond Contractor control;</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
+                                                                                        <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
+                                                                                    </ol>
+                                                                                </div>
+                                                                                
+
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 5 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                                                                                <div class="section-header">LIMITATION OF LIABILITY</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">The Contractor's total liability arising from this Agreement shall not exceed the total Contract Price, except in cases of gross negligence or wilful misconduct.</p>
+                                                                                </div>
+
+                                                                                <div class="section-header">INDEMNITY CLAUSE</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
+                                                                                </div>
+
                                                                                 <div class="section-header">TERMINATION</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">This Agreement may be terminated by either party if the other party:</p>
                                                                                     <ol>
-                                                                                        <li>Fails to perform any material obligation under this Agreement and such failure continues for 30 days after written notice.</li>
-                                                                                        <li>Becomes insolvent, bankrupt, or enters into receivership.</li>
-                                                                                        <li>Breaches any term of this Agreement causing substantial harm to the other party.</li>
+                                                                                        <li>Either party may terminate this Agreement if the other:
+                                                                                            <ol>
+                                                                                                <li>Commits a material breach and fails to remedy such breach within fourteen (14) days of written notice;</li>
+                                                                                                <li>Becomes insolvent in terms of the Insolvency Act [Chapter 6:07];</li>
+                                                                                                <li>Is placed under liquidation or judicial management.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>Upon termination:
+                                                                                            <ol>
+                                                                                                <li>The Client shall pay for all work completed and materials ordered up to the date of termination;</li>
+                                                                                                <li>Deposits shall be refundable only after deduction of costs incurred;</li>
+                                                                                                <li>The Contractor may suspend further works immediately.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>Termination shall not prejudice accrued rights, including the right to claim damages.</li>
                                                                                     </ol>
                                                                                 </div>
 
                                                                                 <div class="section-header">DISPUTE RESOLUTION</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
+                                                                                    <ol>
+                                                                                        <li>The parties shall first attempt amicable resolution within fourteen (14) days.</li>
+                                                                                        <li>Failing resolution, the dispute shall be referred to arbitration in Harare in terms of the Arbitration Act [Chapter 7:15].</li>
+                                                                                        <li>The arbitration shall be conducted by a single arbitrator appointed by mutual agreement, failing which the arbitrator shall be appointed by the Commercial Arbitration Centre of Zimbabwe.</li>
+                                                                                        <li>The arbitration award shall be final and binding.</li>
+                                                                                        <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
+                                                                                    </ol>
                                                                                 </div>
 
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 5 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
+                                                                                
                                                                                 <div class="section-header">GOVERNING LAW</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
+                                                                                    <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
+                                                                                </div>
+
+                                                                                <div class="section-header">NOTICES</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>Any notice required in terms of this Agreement shall be in writing.</li>
+                                                                                        <li>Notices shall be delivered::
+                                                                                            <ul>
+                                                                                                <li>By hand (with signed acknowledgment of receipt);</li>
+                                                                                                <li>By registered mail;</li>
+                                                                                                <li>By courier; or</li>
+                                                                                                <li>By email to the designated address of the receiving party.</li>
+                                                                                            </ul>
+                                                                                        </li>
+                                                                                        <li>Notices sent by email shall be deemed received on the date of transmission, provided no delivery failure notification is received.</li>
+                                                                                    </ol>
                                                                                 </div>
 
                                                                                 <div class="section-header">ENTIRE AGREEMENT</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">This document constitutes the entire agreement between the parties and supersedes all prior discussions, negotiations, and agreements. No modification shall be valid unless in writing and signed by both parties.</p>
-                                                                                </div>
-                                                                                
+                                                                                    <ol>
+                                                                                        <li>This document constitutes the entire agreement between the parties and supersedes all prior negotiations or representations.</li>
+                                                                                        <li>No amendment or variation shall be valid unless reduced to writing and signed by both parties.</li>
+                                                                                    </ol>
+                                                                                </div>  
                                                                             </div>
-                                                                            
+
                                                                             <!-- Signature Area (will appear at bottom of each page) -->
                                                                             <div class="signature-area">
                                                                                 <div class="signature-block">
