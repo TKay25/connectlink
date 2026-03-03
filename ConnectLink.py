@@ -8552,6 +8552,23 @@ def download_contract(project_id):
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
+                    <div class="section-header">FORCE MAJEURE</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Neither party shall be liable for delay or failure to perform obligations caused by events beyond their reasonable control, including but not limited to:
+                                <ol>
+                                    <li>Acts of God;</li>
+                                    <li>War, civil unrest, or government restrictions;</li>
+                                    <li>Utility failures or prolonged load shedding;</li>
+                                    <li>Material shortages;</li>
+                                    <li>Currency instability rendering procurement of materials commercially impracticable despite reasonable mitigation efforts.</li>
+                                </ol>
+                            </li>
+                            <li>The affected party shall notify the other in writing within a reasonable time.</li>
+                            <li>Time for performance shall be extended for the duration of the force majeure event.</li>
+                        </ol>
+                    </div>
+
                     <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                     <div class="terms-box">
                         <ol>
@@ -8589,16 +8606,7 @@ def download_contract(project_id):
                             <li>Nothing in this clause shall permit unlawful self-help repossession.</li>
                         </ol>
                     </div>
-                    
-                    <div class="section-header">TRANSPORT PROVISION</div>
-                    <div class="terms-box">
-                        <ol>
-                            <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
-                            <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
-                            <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
-                        </ol>
-
-                    </div>
+                
 
                     <!-- Page break -->
                     <div class="page-break"></div>
@@ -8606,6 +8614,15 @@ def download_contract(project_id):
                     <!-- Page 5 -->
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                    <div class="section-header">TRANSPORT PROVISION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
+                            <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
+                            <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                        </ol>
+                    </div>
 
                     <div class="section-header">POWER PROVISION</div>
                     <div class="terms-box">
@@ -8679,23 +8696,6 @@ def download_contract(project_id):
                         <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
                     </div>
 
-                    
-                    <div class="section-header">FORCE MAJEURE</div>
-                    <div class="terms-box">
-                        <ol>
-                            <li>Neither party shall be liable for delay or failure to perform obligations caused by events beyond their reasonable control, including but not limited to:
-                                <ol>
-                                    <li>Acts of God;</li>
-                                    <li>War, civil unrest, or government restrictions;</li>
-                                    <li>Utility failures or prolonged load shedding;</li>
-                                    <li>Material shortages;</li>
-                                    <li>Currency instability rendering procurement of materials commercially impracticable despite reasonable mitigation efforts.</li>
-                                </ol>
-                            </li>
-                            <li>The affected party shall notify the other in writing within a reasonable time.</li>
-                            <li>Time for performance shall be extended for the duration of the force majeure event.</li>
-                        </ol>
-                    </div>
 
                     <!-- Page break -->
                     <div class="page-break"></div>
