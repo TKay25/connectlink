@@ -5526,7 +5526,15 @@ def webhook():
                                                                                 <ol>
                                                                                     <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of Receipt of the agreed initial deposit payment and Provision of site access by the Client.</li>
                                                                                     <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
-                                                                                    <li>The completion period shall be extended where delays are caused by;.</li>
+                                                                                    <li>The completion period shall be extended where delays are caused by;
+                                                                                        <ol>
+                                                                                            <li>Variations requested by the Client;</li>
+                                                                                            <li>Late payments;</li>
+                                                                                            <li>Failure by the Client to obtain statutory approvals;</li>
+                                                                                            <li>Force majeure events;</li>
+                                                                                            <li>Shortage of materials beyond the Contractor's reasonable control.</li>
+                                                                                        </ol>
+                                                                                    </li>
                                                                                     <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
                                                                                     <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
                                                                                 </ol>
@@ -8506,9 +8514,11 @@ def download_contract(project_id):
                         <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
                         <li>The completion period shall be extended where delays are caused by;
                             <ol>
-                                <li>Force majeure events including but not limited to natural disasters, war, or civil unrest.</li>
-                                <li>Client-requested changes or additional work not covered in the original scope.</li>
-                                <li>Delay in approvals or site access by the Client.</li>
+                                <li>Variations requested by the Client;</li>
+                                <li>Late payments;</li>
+                                <li>Failure by the Client to obtain statutory approvals;</li>
+                                <li>Force majeure events;</li>
+                                <li>Shortage of materials beyond the Contractor's reasonable control.</li>
                             </ol>
                         </li>
                         <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
