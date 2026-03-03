@@ -5348,6 +5348,42 @@ def webhook():
                                                                                     color: #666;
                                                                                     margin-top: 5px;
                                                                                 }}
+
+                                                                                ol {{
+                                                                                    list-style-type: none; /* Remove default numbers */
+                                                                                    counter-reset: item; /* Create a counter for top level */
+                                                                                    padding-left: 0;
+                                                                                }}
+
+                                                                                ol > li {{
+                                                                                    counter-increment: item; /* Increment top level */
+                                                                                    margin-bottom: 10px;
+                                                                                }}
+
+                                                                                /* Target top-level list items that contain nested lists */
+                                                                                ol > li::before {{
+                                                                                    content: counter(item) ". "; /* Adds "1. ", "2. " etc */
+                                                                                    font-weight: bold;
+                                                                                    margin-right: 5px;
+                                                                                }}
+
+                                                                                /* Style for the nested lists (Second level) */
+                                                                                ol ol {{
+                                                                                    counter-reset: subitem; /* Reset counter for sub-items */
+                                                                                    margin-top: 5px;
+                                                                                    margin-left: 30px; /* Indent the whole sub-list */
+                                                                                    list-style-type: none;
+                                                                                }}
+
+                                                                                ol ol > li {{
+                                                                                    counter-increment: subitem; /* Increment sub-item */
+                                                                                    margin-bottom: 5px;
+                                                                                }}
+
+                                                                                ol ol > li::before {{
+                                                                                    content: counter(item) "." counter(subitem) ". "; /* Generates "1.1", "1.2" etc */
+                                                                                    margin-right: 5px;
+                                                                                }}
                                                                                 
                                                                                 .footer-note {{
                                                                                     text-align: center;
