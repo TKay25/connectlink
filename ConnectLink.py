@@ -8539,7 +8539,7 @@ def download_contract(project_id):
                     
                     <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                     <div class="terms-box">
-                        <ol style="list-style-type: none;">
+                        <ol>
                             <li>Signing of this Agreement and payment of the deposit shall constitute acknowledgment and approval of the submitted design</li>
                             <li>No variation or alteration shall be valid unless:
                                 <ul>
@@ -8561,7 +8561,7 @@ def download_contract(project_id):
 
                     <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
                     <div class="terms-box">
-                        <ol style="list-style-type: none;">
+                        <ol>
                             <li>Ownership of all materials, goods, and installed items shall remain vested in <strong>ConnectLink Properties</strong> until full and final payment of the Contract Price.</li>
                             <li>Where materials have been incorporated into the works and cannot be removed without material damage, the Contractor shall retain a contractual right to claim the value thereof.</li>
                             <li>The Client shall not alienate, encumber, pledge, or dispose of unpaid materials prior to full settlement.</li>
