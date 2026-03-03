@@ -8514,7 +8514,7 @@ def download_contract(project_id):
                     </div>
                     
                     <div class="section-header">PROJECT TIMELINE</div>
-                    <div class="terms-box"
+                    <div class="terms-box">
                         <ol>
                             <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of;
                                 <ol>
