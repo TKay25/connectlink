@@ -8591,6 +8591,14 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                     <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
                     <div class="terms-box">
                         <ol>
@@ -8606,14 +8614,6 @@ def download_contract(project_id):
                             <li>Nothing in this clause shall permit unlawful self-help repossession.</li>
                         </ol>
                     </div>
-                
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">TRANSPORT PROVISION</div>
                     <div class="terms-box">
@@ -8642,6 +8642,13 @@ def download_contract(project_id):
                         <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
                     </div>
 
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 6 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                     <div class="section-header">DEFECTS LIABILITY</div>
                     <div class="terms-box">
                         <ol>
@@ -8658,15 +8665,7 @@ def download_contract(project_id):
                             <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                         </ol>
                     </div>
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
                     
-                    <!-- Page 6 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
-
                     <div class="section-header">RISK AND INSURANCE</div>
                     <div class="terms-box">
                         <ol>
