@@ -8537,6 +8537,19 @@ def download_contract(project_id):
                         </ol>
                     </div>
                     
+                    <div class="section-header">SITE SECURITY</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>The Client shall ensure reasonable site security, including secure access control.</li>
+                            <li>The Contractor shall not be liable for theft, vandalism, or damage occurring on site unless caused by its proven negligence.</li>
+                        </ol>
+                    </div> 
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 4 -->
+
                     <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                     <div class="terms-box">
                         <ol>
@@ -8575,12 +8588,6 @@ def download_contract(project_id):
                         </ol>
                     </div>
                     
-
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 4 -->
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
@@ -8646,15 +8653,6 @@ def download_contract(project_id):
                             <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                         </ol>
                     </div>
-
-
-                    <div class="section-header">SITE SECURITY</div>
-                    <div class="terms-box">
-                        <ol>
-                            <li>1The Client shall ensure reasonable site security, including secure access control.</li>
-                            <li>The Contractor shall not be liable for theft, vandalism, or damage occurring on site unless caused by its proven negligence.</li>
-                        </ol>
-                    </div> 
                     
 
                     <div class="section-header">LIMITATION OF LIABILITY</div>
