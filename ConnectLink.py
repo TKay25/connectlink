@@ -8547,7 +8547,7 @@ def download_contract(project_id):
                                 </ul>
                             </li>
                             <li>Approved variations shall:
-                                <ol>
+                                <ol>`
                                     <li>Be treated as Change Orders;</li>
                                     <li>Adjust the Contract Price accordingly; and</li>
                                     <li>Extend the completion period where necessary.</li>
@@ -8560,9 +8560,16 @@ def download_contract(project_id):
                     <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
                     <div class="terms-box">
                         <ol style="list-style-type: circle;">
-                            <li>All installed items, materials, and equipment remain the property of <strong>ConnectLink Properties</strong> until full and final payment is received from the Client.</li>
-                            <li>ConnectLink Properties reserves the right to remove, repossess, or withhold any installed items should the Client fail to make payments within the stipulated timelines.</li>
-                            <li>Ownership transfers to the Client only upon settlement of the entire contract amount.</li>
+                            <li>Ownership of all materials, goods, and installed items shall remain vested in <strong>ConnectLink Properties</strong> until full and final payment of the Contract Price.</li>
+                            <li>Where materials have been incorporated into the works and cannot be removed without material damage, the Contractor shall retain a contractual right to claim the value thereof.</li>
+                            <li>The Client shall not alienate, encumber, pledge, or dispose of unpaid materials prior to full settlement.</li>
+                            <li>In the event of payment default, the Contractor shall be entitled to approach a competent court of Zimbabwe for:
+                                <ol>
+                                    <li>An order authorizing repossession; or</li>
+                                    <li>Recovery of the outstanding balance together with interest and costs.</li>
+                                </ol>
+                            </li>
+                            <li>Nothing in this clause shall permit unlawful self-help repossession.</li>
                         </ol>
                     </div>
                     
@@ -8595,9 +8602,21 @@ def download_contract(project_id):
                         <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
                     </div>
 
-                    <div class="section-header">DEFECTS LIABILITY CLAUSE</div>
+                    <div class="section-header">DEFECTS LIABILITY</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">12 Months Warranty for the roof and any defects identified during the period.</p>
+                        <ol>
+                            <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
+                            <li>The warranty shall not apply to:
+                                <ol>
+                                    <li>Normal wear and tear;</li>
+                                    <li>Misuse or negligence by the Client;</li>
+                                    <li>Structural defects not attributable to the Contractor;</li>
+                                    <li>Materials supplied by the Client.</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
+                            <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
+                        </ol>
                     </div>
                     
                     <div class="section-header">INDEMNITY CLAUSE</div>
