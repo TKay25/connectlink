@@ -8535,24 +8535,38 @@ def download_contract(project_id):
                         <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
                     </ol>
                     
-
-                    <div class="section-header">OWNERSHIP CLAUSE</div>
+                    <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                     <div class="terms-box">
-                        <ul style="list-style-type: circle;">
+                        <ol style="list-style-type: circle;">
+                            <li>Signing of this Agreement and payment of the deposit shall constitute acknowledgment and approval of the submitted design</li>
+                            <li>No variation or alteration shall be valid unless:
+                                <ul>
+                                    <li>Requested in writing;</li>
+                                    <li>Costed by the Contractor; and</li>
+                                    <li>Approved in writing by both parties.</li>
+                                </ul>
+                            </li>
+                            <li>Approved variations shall:
+                                <ol>
+                                    <li>Be treated as Change Orders;</li>
+                                    <li>Adjust the Contract Price accordingly; and</li>
+                                    <li>Extend the completion period where necessary.</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor shall not be obliged to proceed with any variation until written approval and payment of any required adjustment is received.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
+                    <div class="terms-box">
+                        <ol style="list-style-type: circle;">
                             <li>All installed items, materials, and equipment remain the property of <strong>ConnectLink Properties</strong> until full and final payment is received from the Client.</li>
                             <li>ConnectLink Properties reserves the right to remove, repossess, or withhold any installed items should the Client fail to make payments within the stipulated timelines.</li>
                             <li>Ownership transfers to the Client only upon settlement of the entire contract amount.</li>
-                        </ul>
+                        </ol>
                     </div>
                     
-                    <div class="section-header">DESIGN CONFIRMATION</div>
-                    <div class="terms-box">
-                        <ul style="list-style-type: circle;">
-                            <li>Signing of this contract and payment of the deposit constitutes acknowledgement, confirmation, and authorization to proceed with construction of the proposed design submitted with the quotation.</li>
-                            <li>Any alterations or modifications must be communicated and agreed upon <strong>before</strong> signing this contract.</li>
-                            <li>All additions or variations to the approved design will be treated as change orders and will incur additional costs, billed separately or added to the original quotation.</li>
-                        </ul>
-                    </div>
+
 
                     <!-- Page break -->
                     <div class="page-break"></div>
