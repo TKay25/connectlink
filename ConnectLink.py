@@ -8514,26 +8514,28 @@ def download_contract(project_id):
                     </div>
                     
                     <div class="section-header">PROJECT TIMELINE</div>
-                    <ol>
-                        <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of;
-                            <ol>
-                                <li>Receipt of the agreed initial deposit payment and;</li> 
-                                <li>Provision of site access by the Client.</li>
-                            </ol>
-                        </li>
-                        <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
-                        <li>The completion period shall be extended where delays are caused by;
-                            <ol>
-                                <li>Variations requested by the Client;</li>
-                                <li>Late payments;</li>
-                                <li>Failure by the Client to obtain statutory approvals;</li>
-                                <li>Force majeure events;</li>
-                                <li>Shortage of materials beyond the Contractor's reasonable control.</li>
-                            </ol>
-                        </li>
-                        <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
-                        <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
-                    </ol>
+                    <div class="terms-box"
+                        <ol>
+                            <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of;
+                                <ol>
+                                    <li>Receipt of the agreed initial deposit payment and;</li> 
+                                    <li>Provision of site access by the Client.</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
+                            <li>The completion period shall be extended where delays are caused by;
+                                <ol>
+                                    <li>Variations requested by the Client;</li>
+                                    <li>Late payments;</li>
+                                    <li>Failure by the Client to obtain statutory approvals;</li>
+                                    <li>Force majeure events;</li>
+                                    <li>Shortage of materials beyond the Contractor's reasonable control.</li>
+                                </ol>
+                            </li>
+                            <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
+                            <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
+                        </ol>
+                    </div>
                     
                     <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                     <div class="terms-box">
