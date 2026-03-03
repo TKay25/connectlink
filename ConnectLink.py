@@ -5474,20 +5474,23 @@ def webhook():
 
                                                                                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
                                                                                 
-                                                                                <div class="section-header">LATE PAYMENT AND INTEREST</div>
+                                                                                <div class="section-header">PAYMENT TERMS</div>
                                                                                 <div class="terms-box">
                                                                                     <ul style="list-style-type: circle;">
-                                                                                        <li>If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of <strong>{project['latepaymentinterest']}%</strong> per annum.</li>
-                                                                                        <li>Interest is calculated daily and compounded monthly from the due date until full payment is received.</li>
-                                                                                        <li>All payments shall first be applied to interest due, then to the principal amount.</li>
+                                                                                        <li>The Client shall pay the Contract Price in accordance with the agreed payment schedule.</li>
+                                                                                        <li>All payments shall be made in United States Dollars (USD) unless otherwise agreed in writing.</li>
+                                                                                        <li>Any amount not paid on the due date shall attract mora interest at a rate of <strong>{project['latepaymentinterest']}%</strong> per annum above the prevailing Reserve Bank of Zimbabwe lending rate, calculated daily and compounded monthly from the due date until full payment.</li>
+                                                                                        <li>Interest shall accrue automatically without the need for formal demand.</li>
+                                                                                        <li>All payments received shall first be applied to accrued interest, then legal costs (if any), and thereafter to the principal sum.</li>
+                                                                                        <li>In the event of default exceeding 14 days, the Contractor reserves the right to suspend works upon written notice until payment is regularized.</li>
                                                                                     </ul>
                                                                                 </div>
                                                                                 
                                                                                 <div class="section-header">PROJECT TIMELINE</div>
                                                                                 <ol>
-                                                                                    <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of receiving the first payment.</li>
-                                                                                    <li>The Contractor shall complete the project within <strong>{project['project_duration']} days</strong> from commencement date.</li>
-                                                                                    <li>The Client shall make payments strictly as per the payment schedule outlined above.</li>
+                                                                                    <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of Receipt of the agreed initial deposit payment and Provision of site access by the Client.</li>
+                                                                                    <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
+                                                                                    <li>The completion period shall be extended where delays are caused by;.</li>
                                                                                     <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
                                                                                     <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
                                                                                 </ol>
@@ -8287,6 +8290,42 @@ def download_contract(project_id):
                         color: #666;
                         margin-top: 5px;
                     }}
+
+                    ol {{
+                        list-style-type: none; /* Remove default numbers */
+                        counter-reset: item; /* Create a counter for top level */
+                        padding-left: 0;
+                    }}
+
+                    ol > li {{
+                        counter-increment: item; /* Increment top level */
+                        margin-bottom: 10px;
+                    }}
+
+                    /* Target top-level list items that contain nested lists */
+                    ol > li::before {{
+                        content: counter(item) ". "; /* Adds "1. ", "2. " etc */
+                        font-weight: bold;
+                        margin-right: 5px;
+                    }}
+
+                    /* Style for the nested lists (Second level) */
+                    ol ol {{
+                        counter-reset: subitem; /* Reset counter for sub-items */
+                        margin-top: 5px;
+                        margin-left: 30px; /* Indent the whole sub-list */
+                        list-style-type: none;
+                    }}
+
+                    ol ol > li {{
+                        counter-increment: subitem; /* Increment sub-item */
+                        margin-bottom: 5px;
+                    }}
+
+                    ol ol > li::before {{
+                        content: counter(item) "." counter(subitem) ". "; /* Generates "1.1", "1.2" etc */
+                        margin-right: 5px;
+                    }}
                     
                     .footer-note {{
                         text-align: center;
@@ -8424,9 +8463,15 @@ def download_contract(project_id):
                     
                     <div class="section-header">PROJECT TIMELINE</div>
                     <ol>
-                        <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of receiving the first payment.</li>
-                        <li>The Contractor shall complete the project within <strong>{project['project_duration']} days</strong> from commencement date.</li>
-                        <li>The Client shall make payments strictly as per the payment schedule outlined above.</li>
+                        <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of Receipt of the agreed initial deposit payment and Provision of site access by the Client.</li>
+                        <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
+                        <li>The completion period shall be extended where delays are caused by;
+                            <ol>
+                                <li>Force majeure events including but not limited to natural disasters, war, or civil unrest.</li>
+                                <li>Client-requested changes or additional work not covered in the original scope.</li>
+                                <li>Delay in approvals or site access by the Client.</li>
+                            </ol>
+                        </li>
                         <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
                         <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
                     </ol>
