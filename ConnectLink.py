@@ -5524,7 +5524,12 @@ def webhook():
                                                                                 
                                                                                 <div class="section-header">PROJECT TIMELINE</div>
                                                                                 <ol>
-                                                                                    <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of Receipt of the agreed initial deposit payment and Provision of site access by the Client.</li>
+                                                                                    <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of;
+                                                                                        <ol>
+                                                                                            <li>Receipt of the agreed initial deposit payment and;</li> 
+                                                                                            <li>Provision of site access by the Client.</li>
+                                                                                        </ol>
+                                                                                    </li>
                                                                                     <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
                                                                                     <li>The completion period shall be extended where delays are caused by;
                                                                                         <ol>
@@ -8510,7 +8515,12 @@ def download_contract(project_id):
                     
                     <div class="section-header">PROJECT TIMELINE</div>
                     <ol>
-                        <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of Receipt of the agreed initial deposit payment and Provision of site access by the Client.</li>
+                        <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of;
+                            <ol>
+                                <li>Receipt of the agreed initial deposit payment and;</li> 
+                                <li>Provision of site access by the Client.</li>
+                            </ol>
+                        </li>
                         <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
                         <li>The completion period shall be extended where delays are caused by;
                             <ol>
