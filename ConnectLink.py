@@ -8628,6 +8628,39 @@ def download_contract(project_id):
                             <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                         </ol>
                     </div>
+
+                    <div class="section-header">RISK AND INSURANCE</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>The risk in the works, materials, and equipment shall remain with the Contractor until Practical Completion.</li>
+                            <li>Upon Practical Completion, risk shall pass to the Client.</li>
+                            <li>The Client shall be responsible for insuring the works against fire, theft, vandalism, and other insurable risks from the date of Practical Completion.</li>
+                            <li>Unless otherwise agreed in writing, the Contractor shall not be responsible for loss or damage caused by:
+                                <ol>
+                                    <li>Civil unrest;</li>
+                                    <li>Theft not attributable to Contractor negligence;</li>
+                                    <li>Acts of third parties beyond Contractor control;</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
+                            <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
+                        </ol>
+                    </div>
+
+
+                    <div class="section-header">SITE SECURITY</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>1The Client shall ensure reasonable site security, including secure access control.</li>
+                            <li>The Contractor shall not be liable for theft, vandalism, or damage occurring on site unless caused by its proven negligence.</li>
+                        </ol>
+                    </div> 
+                    
+
+                    <div class="section-header">LIMITATION OF LIABILITY</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">The Contractor's total liability arising from this Agreement shall not exceed the total Contract Price, except in cases of gross negligence or wilful misconduct.</p>
+                    </div>
                     
                     <div class="section-header">INDEMNITY CLAUSE</div>
                     <div class="terms-box">
@@ -8642,31 +8675,83 @@ def download_contract(project_id):
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
+                    <div class="section-header">FORCE MAJEURE</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Neither party shall be liable for delay or failure to perform obligations caused by events beyond their reasonable control, including but not limited to:
+                                <ol>
+                                    <li>Acts of God;</li>
+                                    <li>War, civil unrest, or government restrictions;</li>
+                                    <li>Utility failures or prolonged load shedding;</li>
+                                    <li>Material shortages;</li>
+                                    <li>Currency instability rendering procurement of materials commercially impracticable despite reasonable mitigation efforts.</li>
+                                </ol>
+                            </li>
+                            <li>The affected party shall notify the other in writing within a reasonable time.</li>
+                            <li>Time for performance shall be extended for the duration of the force majeure event.</li>
+                        </ol>
+                    </div>
+
                     <div class="section-header">TERMINATION</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">This Agreement may be terminated by either party if the other party:</p>
                         <ol>
-                            <li>Fails to perform any material obligation under this Agreement and such failure continues for 30 days after written notice.</li>
-                            <li>Becomes insolvent, bankrupt, or enters into receivership.</li>
-                            <li>Breaches any term of this Agreement causing substantial harm to the other party.</li>
+                            <li>Either party may terminate this Agreement if the other:
+                                <ol>
+                                    <li>Commits a material breach and fails to remedy such breach within fourteen (14) days of written notice;</li>
+                                    <li>Becomes insolvent in terms of the Insolvency Act [Chapter 6:07];</li>
+                                    <li>Is placed under liquidation or judicial management.</li>
+                                </ol>
+                            </li>
+                            <li>Upon termination:
+                                <ol>
+                                    <li>The Client shall pay for all work completed and materials ordered up to the date of termination;</li>
+                                    <li>Deposits shall be refundable only after deduction of costs incurred;</li>
+                                    <li>The Contractor may suspend further works immediately.</li>
+                                </ol>
+                            </li>
+                            <li>Termination shall not prejudice accrued rights, including the right to claim damages.</li>
                         </ol>
                     </div>
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">Any disputes arising from this Agreement shall be resolved through amicable negotiation. If unresolved within 30 days, the matter shall be referred to arbitration under the Arbitration Act of Zimbabwe by a single arbitrator appointed by mutual agreement.</p>
+                        <ol>
+                            <li>The parties shall first attempt amicable resolution within fourteen (14) days.</li>
+                            <li>Failing resolution, the dispute shall be referred to arbitration in Harare in terms of the Arbitration Act [Chapter 7:15].</li>
+                            <li>The arbitration shall be conducted by a single arbitrator appointed by mutual agreement, failing which the arbitrator shall be appointed by the Commercial Arbitration Centre of Zimbabwe.</li>
+                            <li>The arbitration award shall be final and binding.</li>
+                            <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
+                        </ol>
                     </div>
                     
                     <div class="section-header">GOVERNING LAW</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of the Republic of Zimbabwe. The courts of Zimbabwe shall have exclusive jurisdiction over any matters arising from this Agreement.</p>
+                        <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
+                    </div>
+
+                    <div class="section-header">NOTICES</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Any notice required in terms of this Agreement shall be in writing.</li>
+                            <li>Notices shall be delivered::
+                                <ul>
+                                    <li>By hand (with signed acknowledgment of receipt);</li>
+                                    <li>By registered mail;</li>
+                                    <li>By courier; or</li>
+                                    <li>By email to the designated address of the receiving party.</li>
+                                </ul>
+                            </li>
+                            <li>Notices sent by email shall be deemed received on the date of transmission, provided no delivery failure notification is received.</li>
+                        </ol>
                     </div>
 
                     <div class="section-header">ENTIRE AGREEMENT</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">This document constitutes the entire agreement between the parties and supersedes all prior discussions, negotiations, and agreements. No modification shall be valid unless in writing and signed by both parties.</p>
-                    </div>
-                    
+                        <ol>
+                            <li>This document constitutes the entire agreement between the parties and supersedes all prior negotiations or representations.</li>
+                            <li>No amendment or variation shall be valid unless reduced to writing and signed by both parties.</li>
+                        </ol>
+                    </div>  
                 </div>
                 
                 <!-- Signature Area (will appear at bottom of each page) -->
