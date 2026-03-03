@@ -8488,12 +8488,15 @@ def download_contract(project_id):
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
                     
-                    <div class="section-header">LATE PAYMENT AND INTEREST</div>
+                    <div class="section-header">PAYMENT TERMS</div>
                     <div class="terms-box">
                         <ul style="list-style-type: circle;">
-                            <li>If the Client fails to make any payment on or before the due date, the Client shall be liable to pay interest at a rate of <strong>{project['latepaymentinterest']}%</strong> per annum.</li>
-                            <li>Interest is calculated daily and compounded monthly from the due date until full payment is received.</li>
-                            <li>All payments shall first be applied to interest due, then to the principal amount.</li>
+                            <li>The Client shall pay the Contract Price in accordance with the agreed payment schedule.</li>
+                            <li>All payments shall be made in United States Dollars (USD) unless otherwise agreed in writing.</li>
+                            <li>Any amount not paid on the due date shall attract mora interest at a rate of <strong>{project['latepaymentinterest']}%</strong> per annum above the prevailing Reserve Bank of Zimbabwe lending rate, calculated daily and compounded monthly from the due date until full payment.</li>
+                            <li>Interest shall accrue automatically without the need for formal demand.</li>
+                            <li>All payments received shall first be applied to accrued interest, then legal costs (if any), and thereafter to the principal sum.</li>
+                            <li>In the event of default exceeding 14 days, the Contractor reserves the right to suspend works upon written notice until payment is regularized.</li>
                         </ul>
                     </div>
                     
