@@ -8327,11 +8327,11 @@ def download_contract(project_id):
                         text-align: center;
                         background: linear-gradient(90deg, #1E2A56, #2A3A78);
                         color: white;
-                        padding: 8px 10px;
+                        padding: 6px 8px;
                         border-radius: 8px;
-                        font-size: 13px;
+                        font-size: 12px;
                         margin-top: 20px;
-                        margin-bottom: 15px;
+                        margin-bottom: 12px;
                         font-weight: 700;
                         letter-spacing: 0.8px;
                         box-shadow: 0 3px 6px rgba(0,0,0,0.1);
@@ -8339,12 +8339,12 @@ def download_contract(project_id):
                     
                     .section-header {{
                         background: #f0f5ff;
-                        padding: 8px 10px;
+                        padding: 6px 8px;
                         border-left: 4px solid #1E2A56;
                         margin: 20px 0 20px 0;
                         font-weight: 700;
                         color: #1E2A56;
-                        font-size: 12px;
+                        font-size: 11px;
                         border-radius: 0 8px 8px 0;
                     }}
                     
@@ -8435,8 +8435,8 @@ def download_contract(project_id):
                     .terms-box {{
                         background: #f8faff;
                         border-left: 4px solid #1E2A56;
-                        padding: 10px;
-                        margin: 10px 0;
+                        padding: 5px;
+                        margin: 7px 0;
                         border-radius: 0 8px 8px 0;
                     }}
                     
@@ -8474,7 +8474,7 @@ def download_contract(project_id):
                     }}
                     
                     .signature-space {{
-                        height: 30px;
+                        height: 28px;
                         border-bottom: 1px solid #1E2A56;
                         margin-top: 3px;
                     }}
