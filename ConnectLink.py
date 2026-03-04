@@ -8690,6 +8690,11 @@ def download_contract(project_id):
                         </ol>
                     </div> 
 
+                    <div class="section-header">ACCOMMODATION PROVISION</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
+                    </div>
+
                     <!-- Page break -->
                     <div class="page-break"></div>
                     
@@ -8788,11 +8793,6 @@ def download_contract(project_id):
                     <!-- Page 6 -->
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
-                    <div class="section-header">ACCOMMODATION PROVISION</div>
-                    <div class="terms-box">
-                        <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
-                    </div>
 
                     <div class="section-header">DEFECTS LIABILITY</div>
                     <div class="terms-box">
