@@ -8741,7 +8741,16 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
+                    <div class="section-header">TRANSPORT PROVISION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
+                            <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
+                            <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                        </ol>
+                    </div>
 
+                    
                     <!-- Page break -->
                     <div class="page-break"></div>
                     
