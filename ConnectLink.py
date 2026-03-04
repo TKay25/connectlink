@@ -8750,7 +8750,7 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
-                    
+
                     <!-- Page break -->
                     <div class="page-break"></div>
                     
@@ -8774,12 +8774,20 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
-                    <div class="section-header">TRANSPORT PROVISION</div>
+                    <div class="section-header">DEFECTS LIABILITY</div>
                     <div class="terms-box">
                         <ol>
-                            <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
-                            <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
-                            <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                            <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
+                            <li>The warranty shall not apply to:
+                                <ol>
+                                    <li>Normal wear and tear;</li>
+                                    <li>Misuse or negligence by the Client;</li>
+                                    <li>Structural defects not attributable to the Contractor;</li>
+                                    <li>Materials supplied by the Client.</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
+                            <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                         </ol>
                     </div>
 
@@ -8802,23 +8810,6 @@ def download_contract(project_id):
                     <!-- Page 6 -->
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
-                    <div class="section-header">DEFECTS LIABILITY</div>
-                    <div class="terms-box">
-                        <ol>
-                            <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
-                            <li>The warranty shall not apply to:
-                                <ol>
-                                    <li>Normal wear and tear;</li>
-                                    <li>Misuse or negligence by the Client;</li>
-                                    <li>Structural defects not attributable to the Contractor;</li>
-                                    <li>Materials supplied by the Client.</li>
-                                </ol>
-                            </li>
-                            <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
-                            <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
-                        </ol>
-                    </div>
 
                     <div class="section-header">RISK AND INSURANCE</div>
                     <div class="terms-box">
