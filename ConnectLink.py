@@ -5554,6 +5554,11 @@ def webhook():
                                                                                     </ol>
                                                                                 </div> 
 
+                                                                                <div class="section-header">ACCOMMODATION PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
+                                                                                </div>
+
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
                                                                                 
@@ -5600,6 +5605,15 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
+                                                                                <div class="section-header">TRANSPORT PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
+                                                                                        <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
+                                                                                        <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                                                                                    </ol>
+                                                                                </div>
+
 
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
@@ -5624,12 +5638,20 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
-                                                                                <div class="section-header">TRANSPORT PROVISION</div>
+                                                                                <div class="section-header">DEFECTS LIABILITY</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
-                                                                                        <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
-                                                                                        <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
-                                                                                        <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                                                                                        <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
+                                                                                        <li>The warranty shall not apply to:
+                                                                                            <ol>
+                                                                                                <li>Normal wear and tear;</li>
+                                                                                                <li>Misuse or negligence by the Client;</li>
+                                                                                                <li>Structural defects not attributable to the Contractor;</li>
+                                                                                                <li>Materials supplied by the Client.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
+                                                                                        <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                                                                                     </ol>
                                                                                 </div>
 
@@ -5653,28 +5675,6 @@ def webhook():
 
                                                                                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
-                                                                                <div class="section-header">ACCOMMODATION PROVISION</div>
-                                                                                <div class="terms-box">
-                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
-                                                                                </div>
-
-                                                                                <div class="section-header">DEFECTS LIABILITY</div>
-                                                                                <div class="terms-box">
-                                                                                    <ol>
-                                                                                        <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
-                                                                                        <li>The warranty shall not apply to:
-                                                                                            <ol>
-                                                                                                <li>Normal wear and tear;</li>
-                                                                                                <li>Misuse or negligence by the Client;</li>
-                                                                                                <li>Structural defects not attributable to the Contractor;</li>
-                                                                                                <li>Materials supplied by the Client.</li>
-                                                                                            </ol>
-                                                                                        </li>
-                                                                                        <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
-                                                                                        <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
-                                                                                    </ol>
-                                                                                </div>
-
                                                                                 <div class="section-header">RISK AND INSURANCE</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -5692,14 +5692,6 @@ def webhook():
                                                                                         <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                                                                                     </ol>
                                                                                 </div>
-                                                                                
-
-                                                                                <!-- Page break -->
-                                                                                <div class="page-break"></div>
-                                                                                
-                                                                                <!-- Page 5 -->
-
-                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                                                                                 <div class="section-header">LIMITATION OF LIABILITY</div>
                                                                                 <div class="terms-box">
@@ -5732,6 +5724,15 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 5 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+
+
                                                                                 <div class="section-header">DISPUTE RESOLUTION</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -5743,13 +5744,6 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
-                                                                                <!-- Page break -->
-                                                                                <div class="page-break"></div>
-                                                                                
-                                                                                <!-- Page 5 -->
-
-                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
-                                                                                
                                                                                 <div class="section-header">GOVERNING LAW</div>
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
@@ -5777,7 +5771,8 @@ def webhook():
                                                                                         <li>This document constitutes the entire agreement between the parties and supersedes all prior negotiations or representations.</li>
                                                                                         <li>No amendment or variation shall be valid unless reduced to writing and signed by both parties.</li>
                                                                                     </ol>
-                                                                                </div>  
+                                                                                </div> 
+                                                                                
                                                                             </div>
 
                                                                             <!-- Signature Area (will appear at bottom of each page) -->
