@@ -8828,14 +8828,6 @@ def download_contract(project_id):
                             <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                         </ol>
                     </div>
-                    
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">LIMITATION OF LIABILITY</div>
                     <div class="terms-box">
@@ -8867,6 +8859,15 @@ def download_contract(project_id):
                             <li>Termination shall not prejudice accrued rights, including the right to claim damages.</li>
                         </ol>
                     </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
