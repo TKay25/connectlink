@@ -8880,13 +8880,6 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-                    
                     <div class="section-header">GOVERNING LAW</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
@@ -8914,7 +8907,8 @@ def download_contract(project_id):
                             <li>This document constitutes the entire agreement between the parties and supersedes all prior negotiations or representations.</li>
                             <li>No amendment or variation shall be valid unless reduced to writing and signed by both parties.</li>
                         </ol>
-                    </div>  
+                    </div> 
+                    
                 </div>
                 
                 <!-- Signature Area (will appear at bottom of each page) -->
