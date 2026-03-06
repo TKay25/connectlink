@@ -8040,7 +8040,7 @@ $(document).ready(function() {
         const clientresaddress = rowData[3].replace(/\\r\\n/g, '\n'); // Fourth column (Client Residential Address)
         const clientwhatsapp = rowData[4]; // Fifth column (Client WhatsApp Number)
         const clientemail = rowData[5]; // Sixth column (Client Email)
-        const clientnextofkinname = rowData[6]; // Seventh column (Client Next of Kin Name)
+        const clientnextofkinname = rowData[6].replace(/&nbsp;/g, ' ').replace(/\s+/g, ' '); // Seventh column (Client Next of Kin Name)
         const clientnextofkinaddress = rowData[7].replace(/\\r\\n/g, '\n'); // Eighth column (Client Next of Kin Address)
         const clientnextofkinphone = rowData[8]; // Ninth column (Client Next of Kin Phone)
         const clientnextofkinrelationship = rowData[9]; // Tenth column (Client Next of Kin Relationship)
