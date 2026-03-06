@@ -2080,9 +2080,9 @@ body::before {
                             <input type="tel" class="form-control" id="updateClientWhatsAppNumber" name="client_whatsapp">
                         </div>
                         
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <label class="form-label fw-bold">Street Address</label>
-                            <input type="text" class="form-control" id="updateClientResidentialAddress" name="client_address">
+                            <textarea class="form-control" id="updateClientResidentialAddress" name="client_address" rows="3"></textarea>
                         </div>
                         
                         <!-- Next of Kin Information -->
@@ -2093,17 +2093,22 @@ body::before {
                         
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Full Name</label>
-                            <input type="text" class="form-control" id="otherNextOfKin" name="client_next_of_kin" placeholder="John Doe">
+                            <input type="text" class="form-control" id="updateClientNextOfKinName" name="client_next_of_kin" placeholder="John Doe">
                         </div>
                         
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Relationship</label>
-                            <input type="text" class="form-control" id="otherRelationship" name="client_next_of_kin_relation" placeholder="Spouse, Parent, etc.">
+                            <input type="text" class="form-control" id="updateClientNextOfKinRelationship" name="client_next_of_kin_relation" placeholder="Spouse, Parent, etc.">
                         </div>
                         
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Phone Number</label>
-                            <input type="tel" class="form-control" id="otherNextOfKinPhone" name="client_next_of_kin_phone" placeholder="+1 234 567 8900">
+                            <input type="tel" class="form-control" id="updateClientNextOfKinPhone" name="client_next_of_kin_phone" placeholder="+1 234 567 8900">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Street Address</label>
+                            <textarea class="form-control" id="updateClientNextOfKinAddress" name="client_next_of_kin_address" rows="3"></textarea>
                         </div>
 
                         <!-- Completion Status Section -->
@@ -8035,7 +8040,10 @@ $(document).ready(function() {
         const clientresaddress = rowData[3]; // Fourth column (Client Residential Address)
         const clientwhatsapp = rowData[4]; // Fifth column (Client WhatsApp Number)
         const clientemail = rowData[5]; // Sixth column (Client Email)
-
+        const clientnextofkinname = rowData[6]; // Seventh column (Client Next of Kin Name)
+        const clientnextofkinaddress = rowData[7]; // Eighth column (Client Next of Kin Address)
+        const clientnextofkinphone = rowData[8]; // Ninth column (Client Next of Kin Phone)
+        const clientnextofkinrelationship = rowData[9]; // Tenth column (Client Next of Kin Relationship)
         const projectName = rowData[10]; // Tenth column (Project Name)
         const projectStartDateref = rowData[14]; // Tenth column (Project Name)
         const projectScope = rowData[12]; // Project Scope
@@ -8098,6 +8106,12 @@ $(document).ready(function() {
         $('#updateClientResidentialAddress').val(clientresaddress);
         $('#updateClientWhatsAppNumber').val(clientwhatsapp);
         $('#updateClientEmail').val(clientemail);
+        $('#updateClientNextOfKinName').val(clientnextofkinname);
+        $('#updateClientNextOfKinAddress').val(clientnextofkinaddress);
+        $('#updateClientNextOfKinPhone').val(clientnextofkinphone);
+        $('#updateClientNextOfKinRelationship').val(clientnextofkinrelationship);
+
+
         $('#updateProjectName').val(projectName);
         $('#updateAdminName').val(adminName);
         $('#updateTotalContractAmount').val(totalcontractamount);
