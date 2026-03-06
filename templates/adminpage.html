@@ -2049,94 +2049,99 @@ body::before {
     <div class="modal fade" id="otherDetailsModal" tabindex="-1" aria-labelledby="otherDetailsModalLabel" aria-hidden="true" style="z-index: 9999 !important;">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header" style="background-color: #1E2A56; color: white;">
-                    <h6 class="modal-title" id="otherDetailsModalLabel">
-                        <i class="bi bi-file-person"></i> OTHER DETAILS
-                    </h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        
-                        <!-- Contact Information -->
-                        <div class="col-12 mt-3">
-                            <h6 class="fw-bold" style="color: #1E2A56;">Client Information</h6>
-                            <hr class="mt-0">
-                        </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">National ID</label>
-                            <input type="text" class="form-control" id="updateClientNationalIdNumber" name="client_national_id">
-                        </div>
+                <form id="updateotherdetailsForm" method="POST" action="/update_other_details">
 
-
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Email Address</label>
-                            <input type="email" class="form-control" id="updateClientEmail" name="client_email">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">WhatsApp Number</label>
-                            <input type="tel" class="form-control" id="updateClientWhatsAppNumber" name="client_whatsapp">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Street Address</label>
-                            <textarea class="form-control" id="updateClientResidentialAddress" name="client_address" rows="3"></textarea>
-                        </div>
-                        
-                        <!-- Next of Kin Information -->
-                        <div class="col-12 mt-3">
-                            <h6 class="fw-bold" style="color: #1E2A56;">Next of Kin</h6>
-                            <hr class="mt-0">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Full Name</label>
-                            <input type="text" class="form-control" id="updateClientNextOfKinName" name="client_next_of_kin" placeholder="John Doe">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Relationship</label>
-                            <input type="text" class="form-control" id="updateClientNextOfKinRelationship" name="client_next_of_kin_relation" placeholder="Spouse, Parent, etc.">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Phone Number</label>
-                            <input type="tel" class="form-control" id="updateClientNextOfKinPhone" name="client_next_of_kin_phone" placeholder="+1 234 567 8900">
-                        </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Street Address</label>
-                            <textarea class="form-control" id="updateClientNextOfKinAddress" name="client_next_of_kin_address" rows="3"></textarea>
-                        </div>
-
-                        <!-- Completion Status Section -->
-                        <div class="col-12">
-                            <h6 class="fw-bold" style="color: #1E2A56;">Project Status</h6>
-                            <hr class="mt-0">
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Completion Status</label>
-                            <select class="form-select" id="updateCompletionStatus" name="completion_status">
-                                <option value="ph" disabled selected hidden>Select Status</option>
-                                <option value="Not Started">Not Started</option>
-                                <option value="Ongoing">Ongoing</option>
-                                <option value="On Hold">On Hold</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
-                        </div>
-                        
+                    <div class="modal-header" style="background-color: #1E2A56; color: white;">
+                        <h6 class="modal-title" id="otherDetailsModalLabel">
+                            <i class="bi bi-file-person"></i> OTHER DETAILS
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" onclick="saveOtherDetails()">
-                        <i class="bi bi-save"></i> Save Details
-                    </button>
-                </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            
+                            <!-- Contact Information -->
+                            <div class="col-12 mt-3">
+                                <h6 class="fw-bold" style="color: #1E2A56;">Client Information</h6>
+                                <hr class="mt-0">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">National ID</label>
+                                <input type="text" class="form-control" id="updateClientNationalIdNumber" name="client_national_id">
+                            </div>
+
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Email Address</label>
+                                <input type="email" class="form-control" id="updateClientEmail" name="client_email">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">WhatsApp Number</label>
+                                <input type="tel" class="form-control" id="updateClientWhatsAppNumber" name="client_whatsapp">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Street Address</label>
+                                <textarea class="form-control" id="updateClientResidentialAddress" name="client_address" rows="3"></textarea>
+                            </div>
+                            
+                            <!-- Next of Kin Information -->
+                            <div class="col-12 mt-3">
+                                <h6 class="fw-bold" style="color: #1E2A56;">Next of Kin</h6>
+                                <hr class="mt-0">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Full Name</label>
+                                <input type="text" class="form-control" id="updateClientNextOfKinName" name="client_next_of_kin" placeholder="John Doe">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Relationship</label>
+                                <input type="text" class="form-control" id="updateClientNextOfKinRelationship" name="client_next_of_kin_relation" placeholder="Spouse, Parent, etc.">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Phone Number</label>
+                                <input type="tel" class="form-control" id="updateClientNextOfKinPhone" name="client_next_of_kin_phone" placeholder="+1 234 567 8900">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Street Address</label>
+                                <textarea class="form-control" id="updateClientNextOfKinAddress" name="client_next_of_kin_address" rows="3"></textarea>
+                            </div>
+
+                            <!-- Completion Status Section -->
+                            <div class="col-12">
+                                <h6 class="fw-bold" style="color: #1E2A56;">Project Status</h6>
+                                <hr class="mt-0">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Completion Status</label>
+                                <select class="form-select" id="updateCompletionStatus" name="completion_status">
+                                    <option value="ph" disabled selected hidden>Select Status</option>
+                                    <option value="Not Started">Not Started</option>
+                                    <option value="Ongoing">Ongoing</option>
+                                    <option value="On Hold">On Hold</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                            
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary3" onclick="saveOtherDetails()">
+                            <i class="bi bi-save"></i> Save Details
+                        </button>
+                    </div>
+
+                </form>
             </div>
         </div>
     </div>
@@ -5381,6 +5386,63 @@ document.getElementById('updateProjectForm').addEventListener('submit', async fu
         submitBtn.innerHTML = 'Save Changes';
     }
 });
+
+
+document.getElementById('updateProjectForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const form = this;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const loaderxyz = document.getElementById("edsLoader2");
+    
+    // Show loader
+    if (loaderxyz) loaderxyz.style.display = "flex";
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+    
+    try {
+        // 1. Update project in database
+        const response = await fetch('/update_project', {
+            method: 'POST',
+            body: new FormData(form)
+        });
+        
+        const data = await response.json();
+        
+        // Hide loader
+        if (loaderxyz) loaderxyz.style.display = "none";
+        
+        if (data && data.success) {
+            // Show success message
+            alert('✅ Project updated successfully!');
+            
+            // 2. Refresh the ENTIRE DataTable
+            await refreshEntireTable();
+            
+            // 3. Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('updateModal'));
+            if (modal) {
+                modal.hide();
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Save Changes';
+
+        } else {
+            const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
+            alert('❌ ' + errorMsg);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Save Changes';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        if (loaderxyz) loaderxyz.style.display = "none";
+        alert('❌ Network error occurred');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Save Changes';
+    }
+});
+
 
 // Function to refresh ENTIRE DataTable - FIXED VERSION
 async function refreshEntireTable() {
