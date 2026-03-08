@@ -12366,10 +12366,10 @@ def update_other_details():
         cursor.execute(query, values)
         connection.commit()
 
-        flash("Project updated successfully!", "success")
+        flash("Project details updated successfully!", "success")
         return jsonify({
             'success': True,
-            'message': 'Project updated successfully!'
+            'message': 'Project details updated successfully!'
         })
 
 @app.route('/update_project', methods=['POST'])

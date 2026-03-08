@@ -5419,7 +5419,7 @@ document.getElementById('updateotherdetailsForm').addEventListener('submit', asy
             await refreshEntireTable();
             
             // 3. Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('updateModal'));
+            const modal = bootstrap.Modal.getInstance(document.getElementById('otherDetailsModal'));
             if (modal) {
                 modal.hide();
             }
