@@ -12315,6 +12315,63 @@ def last_day_of_month(d):
 def clean_date_update(value):
     return value if value not in ("", None) else None
 
+
+
+
+@app.route('/update_other_details', methods=['POST'])
+def update_other_details():
+
+    with get_db() as (cursor, connection):
+
+        project_id = request.form.get('project_id')
+        clientnationalid = request.form.get('client_national_id')
+        clientemail = request.form.get('client_email')
+        clientwhatsapp = request.form.get('client_whatsapp')
+        clientaddress = request.form.get('client_address')
+        clientnextofkin = request.form.get('client_next_of_kin')
+        clientnextofkinrelationship = request.form.get('client_next_of_kin_relation')
+        clientnextofkinphone = request.form.get('client_next_of_kin_phone')
+        clientnextofkinaddress = request.form.get('client_next_of_kin_address')
+        projectcompletionstatus = request.form.get('completion_status')
+
+        # --- EXAMPLE SQL (modify for your DB) ---
+        query = """
+            UPDATE connectlinkdatabase
+            SET 
+                clientidnumber = %s,
+                clientemail = %s,
+                clientwanumber = %s,
+                clientaddress = %s,
+                clientnextofkinname = %s,
+                nextofkinrelationship = %s,
+                clientnextofkinphone = %s,
+                clientnextofkinaddress = %s,
+                projectcompletionstatus = %s
+            WHERE id = %s
+        """
+        
+        values = (
+            clientnationalid,
+            clientemail,
+            clientwhatsapp,
+            clientaddress,
+            clientnextofkin,
+            clientnextofkinrelationship,
+            clientnextofkinphone,
+            clientnextofkinaddress,
+            projectcompletionstatus,
+            project_id
+        )
+
+        cursor.execute(query, values)
+        connection.commit()
+
+        flash("Project updated successfully!", "success")
+        return jsonify({
+            'success': True,
+            'message': 'Project updated successfully!'
+        })
+
 @app.route('/update_project', methods=['POST'])
 def update_project():
 
