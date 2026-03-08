@@ -1451,6 +1451,24 @@ body::before {
             <div class="grid-item"></div>
         </div>
     </div>
+
+    <div class="eds-loader" id="edsLoader3" style="display: none;z-index: 100000000;">
+        <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
+
+        <br><br>
+        <p style="font-weight: 700;color: white;font-size: 1.2rem;">Your changes are being saved {{user_name}}, Please Wait...</p>
+
+        <div class="loader-bar">
+            <div class="loader-progress"></div>
+        </div>
+        
+        <div class="eds-grid">
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+            <div class="grid-item"></div>
+        </div>
+    </div>
     
     <div class="sidebar p-2">
         <br><br>
@@ -2059,6 +2077,9 @@ body::before {
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
+
+                        <input type="hidden" id="updateProjectId" name="project_id">
+
                         <div class="row g-3">
                             
                             <!-- Contact Information -->
@@ -5392,7 +5413,7 @@ document.getElementById('updateotherdetailsForm').addEventListener('submit', asy
     
     const form = this;
     const submitBtn = form.querySelector('button[type="submit"]');
-    const loaderxyz = document.getElementById("edsLoader2");
+    const loaderxyz = document.getElementById("edsLoader3");
     
     // Show loader
     if (loaderxyz) loaderxyz.style.display = "flex";
@@ -5413,7 +5434,7 @@ document.getElementById('updateotherdetailsForm').addEventListener('submit', asy
         
         if (data && data.success) {
             // Show success message
-            alert('✅ Details updated successfully!');
+            alert('✅ Project details updated successfully!');
             
             // 2. Refresh the ENTIRE DataTable
             await refreshEntireTable();
