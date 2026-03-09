@@ -12379,6 +12379,7 @@ def update_project():
 
         clientname = request.form.get('ClientName')
         project_id = request.form.get('project_id')
+        print(f"proj id {project_id}")
         completion_status = request.form.get('completion_status')
         project_name = request.form.get('ProjectName')
         project_start_date = request.form.get('ProjectStartDate')
