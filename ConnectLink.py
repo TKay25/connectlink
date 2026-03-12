@@ -8714,28 +8714,6 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
-                    <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
-                    <div class="terms-box">
-                        <ol>
-                            <li>Signing of this Agreement and payment of the deposit shall constitute acknowledgment and approval of the submitted design</li>
-                            <li>No variation or alteration shall be valid unless:
-                                <ul>
-                                    <li>Requested in writing;</li>
-                                    <li>Costed by the Contractor; and</li>
-                                    <li>Approved in writing by both parties.</li>
-                                </ul>
-                            </li>
-                            <li>Approved variations shall:
-                                <ol>`
-                                    <li>Be treated as Change Orders;</li>
-                                    <li>Adjust the Contract Price accordingly; and</li>
-                                    <li>Extend the completion period where necessary.</li>
-                                </ol>
-                            </li>
-                            <li>The Contractor shall not be obliged to proceed with any variation until written approval and payment of any required adjustment is received.</li>
-                        </ol>
-                    </div>
-
                     <div class="section-header">TRANSPORT PROVISION</div>
                     <div class="terms-box">
                         <ol>
