@@ -8723,14 +8723,6 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
                     <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
                     <div class="terms-box">
                         <ol>
@@ -8746,6 +8738,13 @@ def download_contract(project_id):
                             <li>Nothing in this clause shall permit unlawful self-help repossession.</li>
                         </ol>
                     </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">DEFECTS LIABILITY</div>
                     <div class="terms-box">
@@ -8777,13 +8776,6 @@ def download_contract(project_id):
                         <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
                     </div>
 
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 6 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
                     <div class="section-header">RISK AND INSURANCE</div>
                     <div class="terms-box">
                         <ol>
@@ -8801,6 +8793,15 @@ def download_contract(project_id):
                             <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                         </ol>
                     </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 6 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+
 
                     <div class="section-header">LIMITATION OF LIABILITY</div>
                     <div class="terms-box">
@@ -8833,15 +8834,6 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
-
-
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
                         <ol>
@@ -8852,6 +8844,14 @@ def download_contract(project_id):
                             <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
                         </ol>
                     </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
 
                     <div class="section-header">GOVERNING LAW</div>
                     <div class="terms-box">
