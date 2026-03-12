@@ -8714,6 +8714,28 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
+                    <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Signing of this Agreement and payment of the deposit shall constitute acknowledgment and approval of the submitted design</li>
+                            <li>No variation or alteration shall be valid unless:
+                                <ul>
+                                    <li>Requested in writing;</li>
+                                    <li>Costed by the Contractor; and</li>
+                                    <li>Approved in writing by both parties.</li>
+                                </ul>
+                            </li>
+                            <li>Approved variations shall:
+                                <ol>`
+                                    <li>Be treated as Change Orders;</li>
+                                    <li>Adjust the Contract Price accordingly; and</li>
+                                    <li>Extend the completion period where necessary.</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor shall not be obliged to proceed with any variation until written approval and payment of any required adjustment is received.</li>
+                        </ol>
+                    </div>
+
                     <div class="section-header">TRANSPORT PROVISION</div>
                     <div class="terms-box">
                         <ol>
@@ -8722,6 +8744,14 @@ def download_contract(project_id):
                             <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
                         </ol>
                     </div>
+
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
                     <div class="terms-box">
@@ -8738,13 +8768,6 @@ def download_contract(project_id):
                             <li>Nothing in this clause shall permit unlawful self-help repossession.</li>
                         </ol>
                     </div>
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">DEFECTS LIABILITY</div>
                     <div class="terms-box">
@@ -8776,6 +8799,13 @@ def download_contract(project_id):
                         <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
                     </div>
 
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 6 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                     <div class="section-header">RISK AND INSURANCE</div>
                     <div class="terms-box">
                         <ol>
@@ -8793,15 +8823,6 @@ def download_contract(project_id):
                             <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
                         </ol>
                     </div>
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 6 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
-
 
                     <div class="section-header">LIMITATION OF LIABILITY</div>
                     <div class="terms-box">
@@ -8834,6 +8855,15 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+
+
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
                         <ol>
@@ -8844,14 +8874,6 @@ def download_contract(project_id):
                             <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
                         </ol>
                     </div>
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
 
                     <div class="section-header">GOVERNING LAW</div>
                     <div class="terms-box">
