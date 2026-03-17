@@ -10785,7 +10785,9 @@ def download_audit_report():
         df = pd.DataFrame(audit_data)
         
         # Create Excel file in memory
-        output = BytesIO()
+        output = io.BytesIO()
+        
+        # Use ExcelWriter with proper configuration
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name='Audit Report', index=False)
             
@@ -10813,17 +10815,26 @@ def download_audit_report():
                 adjusted_width = min(max_length + 2, 50)
                 worksheet.column_dimensions[column_letter].width = adjusted_width
         
+        # IMPORTANT: Get the value from BytesIO
         output.seek(0)
         
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"installment_audit_report_{timestamp}.xlsx"
+        
+        # Send file with proper headers
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=f'installment_audit_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            download_name=filename,
+            max_age=0  # Prevent caching
         )
+        
     except Exception as e:
+        print(f"Error generating report: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
+        
 def get_enquiries_data():
     """Get enquiries data for template"""
     try:
