@@ -4460,6 +4460,179 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<script>
+
+// Load audit data when modal is opened
+document.getElementById('auditInstallmentsBtn').addEventListener('click', function() {
+    loadAuditData();
+});
+
+function loadAuditData() {
+    fetch('/api/installment-audit')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayAuditResults(data.data, data.stats);
+            } else {
+                alert('Error loading audit data: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to load audit data');
+        });
+}
+
+function displayAuditResults(auditData, stats) {
+    // Update stats
+    document.getElementById('auditTotalProjects').textContent = stats.total;
+    document.getElementById('auditVarianceCount').textContent = stats.variance_count;
+    document.getElementById('auditBalancedCount').textContent = stats.balanced_count;
+    document.getElementById('totalVarianceAmount').textContent = '$' + stats.total_variance.toFixed(2);
+    
+    // Update table
+    const tbody = document.getElementById('auditResultsBody');
+    tbody.innerHTML = '';
+    
+    auditData.forEach(item => {
+        const row = document.createElement('tr');
+        if (item.has_variance) {
+            row.style.backgroundColor = '#fff3cd'; // Light yellow for variance
+        }
+        
+        row.innerHTML = `
+            <td>${item.project_id}</td>
+            <td>${item.client_name}</td>
+            <td>${item.project_name}</td>
+            <td>$${item.total_contract.toFixed(2)}</td>
+            <td>$${item.deposit.toFixed(2)}</td>
+            <td>$${item.balance_due.toFixed(2)}</td>
+            <td>$${item.sum_installments.toFixed(2)}</td>
+            <td class="${item.has_variance ? 'text-danger fw-bold' : 'text-success'}">
+                $${item.variance.toFixed(2)}
+            </td>
+            <td>
+                <span class="badge ${item.has_variance ? 'bg-warning' : 'bg-success'}">
+                    ${item.status}
+                </span>
+            </td>
+            <td>
+                ${item.has_variance ? 
+                    `<button class="btn btn-sm btn-warning auto-correct-btn" data-project-id="${item.project_id}">
+                        <i class="bi bi-lightning-charge"></i> Auto-Correct
+                    </button>` : 
+                    '<span class="text-muted">Balanced</span>'
+                }
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Add event listeners to auto-correct buttons
+    document.querySelectorAll('.auto-correct-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const projectId = this.dataset.projectId;
+            autoCorrectProject(projectId);
+        });
+    });
+}
+
+function autoCorrectProject(projectId) {
+    if (!confirm('Are you sure you want to auto-correct this project?')) {
+        return;
+    }
+    
+    fetch(`/api/auto-correct-project/${projectId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            loadAuditData(); // Reload the audit data
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to auto-correct project');
+    });
+}
+
+// Auto-correct all button
+document.getElementById('autoCorrectAllBtn').addEventListener('click', function() {
+    if (!confirm('Are you sure you want to auto-correct ALL projects? This action cannot be undone.')) {
+        return;
+    }
+    
+    fetch('/api/auto-correct-all-projects', {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Auto-correct completed!\nSuccessfully corrected: ${data.successful_count}\nFailed: ${data.failed_count}`);
+            loadAuditData(); // Reload the audit data
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to auto-correct all projects');
+    });
+});
+
+// Download audit report
+document.getElementById('downloadAuditReportBtn').addEventListener('click', function() {
+    // Get current audit data from the table
+    const rows = document.querySelectorAll('#auditResultsBody tr');
+    const auditData = [];
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 9) {
+            auditData.push({
+                'project_id': cells[0].textContent,
+                'client_name': cells[1].textContent,
+                'project_name': cells[2].textContent,
+                'total_contract': parseFloat(cells[3].textContent.replace('$', '')),
+                'deposit': parseFloat(cells[4].textContent.replace('$', '')),
+                'balance_due': parseFloat(cells[5].textContent.replace('$', '')),
+                'sum_installments': parseFloat(cells[6].textContent.replace('$', '')),
+                'variance': parseFloat(cells[7].textContent.replace('$', '')),
+                'status': cells[8].querySelector('.badge').textContent.trim()
+            });
+        }
+    });
+    
+    // Send to server to generate Excel
+    fetch('/api/download-audit-report', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ data: auditData })
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `installment_audit_report_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to download report');
+    });
+});
+
+</script>
 
 
 <script>

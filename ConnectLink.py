@@ -10595,6 +10595,235 @@ def run1(userid):
             "enquiries_data": enquiries_data  # Pure Python list, NO HTML
             }
 
+def get_installment_audit_data():
+    with get_db() as (cursor, connection):
+        # Get all projects
+        query = "SELECT * FROM connectlinkdatabase;"
+        cursor.execute(query)
+        projects = cursor.fetchall()
+        column_names = [desc[0] for desc in cursor.description]
+        
+        df = pd.DataFrame(projects, columns=column_names)
+        
+        audit_results = []
+        
+        for _, row in df.iterrows():
+            project_id = row['id']
+            client_name = row['clientname']
+            project_name = row['projectname']
+            total_contract = float(row['totalcontractamount'] or 0)
+            deposit = float(row['depositorbullet'] or 0)
+            balance_due = total_contract - deposit
+            
+            # Calculate sum of all installments
+            sum_installments = 0
+            for i in range(1, 11):
+                amount_col = f'installment{i}amount'
+                if amount_col in row and pd.notna(row[amount_col]):
+                    sum_installments += float(row[amount_col])
+            
+            variance = balance_due - sum_installments
+            
+            audit_results.append({
+                'project_id': project_id,
+                'client_name': client_name,
+                'project_name': project_name,
+                'total_contract': round(total_contract, 2),
+                'deposit': round(deposit, 2),
+                'balance_due': round(balance_due, 2),
+                'sum_installments': round(sum_installments, 2),
+                'variance': round(variance, 2),
+                'has_variance': abs(variance) > 0.01,  # Tolerance for floating point
+                'status': 'Variance' if abs(variance) > 0.01 else 'Balanced'
+            })
+        
+        return audit_results
+
+# Add this function to auto-correct a single project
+def auto_correct_project(project_id):
+    with get_db() as (cursor, connection):
+        # Get project data
+        query = f"SELECT * FROM connectlinkdatabase WHERE id = {project_id};"
+        cursor.execute(query)
+        project = cursor.fetchone()
+        column_names = [desc[0] for desc in cursor.description]
+        
+        if not project:
+            return {'success': False, 'message': 'Project not found'}
+        
+        # Convert to dictionary for easier access
+        project_dict = dict(zip(column_names, project))
+        
+        total_contract = float(project_dict.get('totalcontractamount', 0) or 0)
+        deposit = float(project_dict.get('depositorbullet', 0) or 0)
+        balance_due = total_contract - deposit
+        
+        # Calculate sum of installments and find first unpaid installment
+        sum_installments = 0
+        first_unpaid_index = None
+        installments_data = []
+        
+        for i in range(1, 11):
+            amount_col = f'installment{i}amount'
+            due_date_col = f'installment{i}duedate'
+            paid_date_col = f'installment{i}date'
+            
+            amount = float(project_dict.get(amount_col, 0) or 0)
+            paid_date = project_dict.get(paid_date_col)
+            
+            sum_installments += amount
+            
+            installments_data.append({
+                'index': i,
+                'amount': amount,
+                'paid_date': paid_date,
+                'due_date': project_dict.get(due_date_col)
+            })
+            
+            # Track first unpaid installment (no paid date and due date exists or is future)
+            if first_unpaid_index is None and pd.isna(paid_date):
+                first_unpaid_index = i
+        
+        variance = balance_due - sum_installments
+        
+        # If no variance or no unpaid installment found, return
+        if abs(variance) <= 0.01 or first_unpaid_index is None:
+            return {
+                'success': False, 
+                'message': 'No correction needed or no unpaid installment found'
+            }
+        
+        # Get the first unpaid installment amount
+        first_unpaid_amount = installments_data[first_unpaid_index - 1]['amount']
+        new_amount = first_unpaid_amount + variance
+        
+        # Update the installment
+        update_query = f"""
+            UPDATE connectlinkdatabase 
+            SET installment{first_unpaid_index}amount = %s 
+            WHERE id = %s
+        """
+        cursor.execute(update_query, (new_amount, project_id))
+        connection.commit()
+        
+        return {
+            'success': True,
+            'message': f'Project {project_id} corrected. Added/Subtracted {variance:.2f} to installment {first_unpaid_index}',
+            'project_id': project_id,
+            'installment_index': first_unpaid_index,
+            'old_amount': first_unpaid_amount,
+            'new_amount': new_amount,
+            'variance': variance
+        }
+
+# Add this function to auto-correct all projects
+def auto_correct_all_projects():
+    with get_db() as (cursor, connection):
+        # Get all projects
+        query = "SELECT id FROM connectlinkdatabase;"
+        cursor.execute(query)
+        projects = cursor.fetchall()
+        
+        results = []
+        for project in projects:
+            project_id = project[0]
+            result = auto_correct_project(project_id)
+            results.append(result)
+        
+        successful = [r for r in results if r.get('success')]
+        failed = [r for r in results if not r.get('success')]
+        
+        return {
+            'success': True,
+            'total_processed': len(results),
+            'successful_count': len(successful),
+            'failed_count': len(failed),
+            'results': results
+        }
+
+# Add Flask routes
+@app.route('/api/installment-audit', methods=['GET'])
+def installment_audit():
+    try:
+        audit_data = get_installment_audit_data()
+        return jsonify({
+            'success': True,
+            'data': audit_data,
+            'stats': {
+                'total': len(audit_data),
+                'variance_count': len([d for d in audit_data if d['has_variance']]),
+                'balanced_count': len([d for d in audit_data if not d['has_variance']]),
+                'total_variance': sum([d['variance'] for d in audit_data if d['has_variance']])
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/auto-correct-project/<int:project_id>', methods=['POST'])
+def auto_correct_project_route(project_id):
+    try:
+        result = auto_correct_project(project_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/auto-correct-all-projects', methods=['POST'])
+def auto_correct_all_projects_route():
+    try:
+        result = auto_correct_all_projects()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/download-audit-report', methods=['POST'])
+def download_audit_report():
+    try:
+        data = request.json
+        audit_data = data.get('data', [])
+        
+        # Create DataFrame
+        df = pd.DataFrame(audit_data)
+        
+        # Create Excel file in memory
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Audit Report', index=False)
+            
+            # Get the workbook and worksheet
+            workbook = writer.book
+            worksheet = writer.sheets['Audit Report']
+            
+            # Format headers
+            for col in range(1, len(df.columns) + 1):
+                cell = worksheet.cell(row=1, column=col)
+                cell.font = openpyxl.styles.Font(bold=True)
+                cell.fill = openpyxl.styles.PatternFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+                cell.font = openpyxl.styles.Font(color='FFFFFF', bold=True)
+            
+            # Auto-adjust column widths
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'installment_audit_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 def get_enquiries_data():
     """Get enquiries data for template"""
     try:
