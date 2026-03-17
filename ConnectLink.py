@@ -84,14 +84,12 @@ def initialize_database_tables():
 
             cursor.execute("""UPDATE connectlinkdatabase SET monthstopay = 0 WHERE id = %s""", (121,))
 
-
             cursor.execute("""
                 SELECT table_name
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
                 ORDER BY table_name;
             """)
-
 
             tables = cursor.fetchall()
 
