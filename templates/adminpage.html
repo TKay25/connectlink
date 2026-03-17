@@ -2960,6 +2960,111 @@ body::before {
     </div>
 </div>
 
+<!-- Audit Installments Modal -->
+<div class="modal fade" id="auditInstallmentsModal" tabindex="-1" aria-labelledby="auditInstallmentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#1E2A56;color:white;">
+                <h6 class="modal-title" id="auditInstallmentsModalLabel">
+                    <i class="bi bi-credit-card-2-front-fill"></i> INSTALLMENTS SCHEDULE AUDIT
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: brightness(0) invert(1);"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Summary Stats -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Total Projects</h6>
+                                <h3 id="auditTotalProjects">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-warning bg-opacity-25">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Projects with Variance</h6>
+                                <h3 id="auditVarianceCount">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-success bg-opacity-25">
+                            <div class="card-body">
+                                <h6 class="card-title text-muted">Balanced Projects</h6>
+                                <h3 id="auditBalancedCount">0</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Auto-Correct All Button -->
+                <div class="mb-3 d-flex justify-content-end">
+                    <button class="btn btn-warning" id="autoCorrectAllBtn">
+                        <i class="bi bi-lightning-charge-fill"></i> Auto-Correct All Projects
+                    </button>
+                </div>
+                
+                <!-- Quick Stats Preview -->
+                <div class="alert alert-light border mb-3">
+                    <div class="row mb-2">
+                        <div class="col-12">
+                            <small class="text-muted d-block">Audit Summary:</small>
+                            <div id="auditFilterSummary" class="fw-bold small">Projects with installment variances</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Total Variance Amount:</small>
+                            <span class="fw-bold fs-5 text-danger" id="totalVarianceAmount">$0.00</span>
+                        </div>
+                        <div class="col-6">
+                            <span class="badge bg-info me-1">📊</span>
+                            <small class="text-muted">File Format:</small>
+                            <div>
+                                <span class="badge bg-success">Excel (.xlsx)</span>
+                                <span class="badge bg-primary ms-1">Audit Report</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Audit Results Table -->
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-bordered table-hover" id="auditResultsTable">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                            <tr>
+                                <th>Project ID</th>
+                                <th>Client Name</th>
+                                <th>Project Name</th>
+                                <th>Total Contract</th>
+                                <th>Deposit</th>
+                                <th>Balance Due</th>
+                                <th>Sum of Installments</th>
+                                <th>Variance</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditResultsBody">
+                            <!-- Data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
+                    Close
+                </button>
+                <button type="button" class="btn btn-primary" id="downloadAuditReportBtn">
+                    <i class="bi bi-download"></i> Download Audit Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Download Modal -->
 <div class="modal fade" id="downloadInstallmentsModal" tabindex="-1" aria-labelledby="downloadInstallmentsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
