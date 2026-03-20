@@ -368,7 +368,7 @@ def initialize_database_tables():
                 cursor.execute(sql_stmt)
 
 
-            '''try:
+            try:
                 # Create the update query for PostgreSQL
                 update_query = """
                 UPDATE connectlinkdatabase 
@@ -437,7 +437,7 @@ def initialize_database_tables():
                 RETURNING *;
                 """
                 
-                cursor.execute(update_query, (100,))
+                cursor.execute(update_query, (125,))
                 updated_row = cursor.fetchone()
                 connection.commit()
                 
@@ -446,7 +446,7 @@ def initialize_database_tables():
             except Exception as e:
                 connection.rollback()
                 print(f"Error updating dates: {e}")
-                return jsonify({'error': str(e)}), 500'''
+                return jsonify({'error': str(e)}), 500
 
 
             
