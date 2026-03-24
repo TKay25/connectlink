@@ -224,7 +224,7 @@ def initialize_database_tables():
                 UPDATE connectlinkenquiries 
                 SET clientwhatsapp = %s 
                 WHERE id = %s;
-            """, (66929667916, 20))
+            """, (447721083190, 17))
 
             cursor.execute("""
                 UPDATE connectlinkenquiries 
@@ -232,7 +232,11 @@ def initialize_database_tables():
                 WHERE id = %s;
             """, (27848087547, 23))
 
-
+            cursor.execute("""
+                UPDATE connectlinkenquiries 
+                SET clientwhatsapp = 263000000000 + clientwhatsapp 
+                WHERE id BETWEEN 9 AND 11;
+            """)
 
             '''cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
