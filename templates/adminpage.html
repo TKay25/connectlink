@@ -4088,8 +4088,8 @@ body::before {
                                         <td>#{{ enquiry.id }}</td>
                                         <td>{{ enquiry.timestamp }}</td>
                                         <td>
-                                            <a href="https://wa.me/263{{ enquiry.clientwhatsapp }}" target="_blank">
-                                                {{ enquiry.clientwhatsapp }}
+                                            <a href="https://wa.me/{{ enquiry.clientwhatsapp }}" target="_blank">
+                                                +{{ enquiry.clientwhatsapp }}
                                             </a>
                                         </td>
                                         <td>{{ enquiry.username }}</td>
