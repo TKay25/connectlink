@@ -4349,7 +4349,7 @@ def webhook():
                                                                             "to": admin_number,
                                                                             "type": "template",
                                                                             "template": {
-                                                                                "name": "admin_enquiry_template",  # Your template name
+                                                                                "name": "enqauto2",  # Your template name
                                                                                 "language": {"code": "en"},
                                                                                 "components": [
                                                                                     {
@@ -6857,7 +6857,7 @@ def webhook():
                                                                             "to": admin_number,
                                                                             "type": "template",
                                                                             "template": {
-                                                                                "name": "admin_enquiry_template",  # Your template name
+                                                                                "name": "enqauto2",  # Your template name
                                                                                 "language": {"code": "en"},
                                                                                 "components": [
                                                                                     {
@@ -6908,7 +6908,7 @@ def webhook():
                                                                         result = send_admin_notification(admin_number, client_whatsapp, enquiry_data)
                                                                         print(f"Response: {result}")
 
-                                                                        
+
                                                                     return jsonify({
                                                                         'status': 'success',
                                                                         'message': 'Enquiry saved successfully',
