@@ -211,7 +211,7 @@ def initialize_database_tables():
             """)'''
 
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id BETWEEN 1 AND 8;""")
-            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 24;""")
+            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 25;""")
 
             cursor.execute("""
                 ALTER TABLE appenqtemp 
