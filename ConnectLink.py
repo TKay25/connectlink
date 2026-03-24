@@ -213,13 +213,13 @@ def initialize_database_tables():
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id BETWEEN 1 AND 8;""")
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 24;""")
 
-            '''cursor.execute("""
-                ALTER TABLE connectlinkenquiries 
-                ALTER COLUMN clientwhatsapp TYPE BIGINT;
+            cursor.execute("""
+                ALTER TABLE appenqtemp 
+                ALTER COLUMN wanumber TYPE BIGINT;
             """)
 
             # Update clientwhatsapp for record with id 6
-            cursor.execute("""
+            '''cursor.execute("""
                 UPDATE connectlinkenquiries 
                 SET clientwhatsapp = %s 
                 WHERE id = %s;
@@ -4165,7 +4165,7 @@ def webhook():
                                                                     SELECT * FROM appenqtemp
                                                                     WHERE wanumber::TEXT LIKE %s
                                                                 """
-                                                                cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                cursor.execute(query, (f"%{sender_id}",))
                                                                 resultenqtemp = cursor.fetchone()
 
                                                                 enquiry_type = resultenqtemp[2]
@@ -4176,7 +4176,7 @@ def webhook():
                                                                         DELETE FROM appenqtemp
                                                                         WHERE wanumber::TEXT LIKE %s
                                                                     """
-                                                                    cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                    cursor.execute(query, (f"%{sender_id}",))
                                                                     connection.commit
 
                                                                 # The form_response is already in the clean format we need
@@ -4490,7 +4490,7 @@ def webhook():
                                                                         SELECT * FROM appenqtemp
                                                                         WHERE wanumber::TEXT LIKE %s
                                                                     """
-                                                                    cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                    cursor.execute(query, (f"%{sender_id}",))
                                                                     resultenqtemp = cursor.fetchone()
 
                                                                     if resultenqtemp:
@@ -4499,7 +4499,7 @@ def webhook():
                                                                             DELETE FROM appenqtemp
                                                                             WHERE wanumber::TEXT LIKE %s
                                                                         """
-                                                                        cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                        cursor.execute(query, (f"%{sender_id}",))
                                                                         connection.commit()
 
                                                                     insert_query = """
@@ -6672,7 +6672,7 @@ def webhook():
                                                                     SELECT * FROM appenqtemp
                                                                     WHERE wanumber::TEXT LIKE %s
                                                                 """
-                                                                cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                cursor.execute(query, (f"%{sender_id}",))
                                                                 resultenqtemp = cursor.fetchone()
 
                                                                 enquiry_type = resultenqtemp[2]
@@ -6683,7 +6683,7 @@ def webhook():
                                                                         DELETE FROM appenqtemp
                                                                         WHERE wanumber::TEXT LIKE %s
                                                                     """
-                                                                    cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                    cursor.execute(query, (f"%{sender_id}",))
                                                                     connection.commit
 
                                                                 # The form_response is already in the clean format we need
@@ -6997,7 +6997,7 @@ def webhook():
                                                                         SELECT * FROM appenqtemp
                                                                         WHERE wanumber::TEXT LIKE %s
                                                                     """
-                                                                    cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                    cursor.execute(query, (f"%{sender_id}",))
                                                                     resultenqtemp = cursor.fetchone()
 
                                                                     if resultenqtemp:
@@ -7006,7 +7006,7 @@ def webhook():
                                                                             DELETE FROM appenqtemp
                                                                             WHERE wanumber::TEXT LIKE %s
                                                                         """
-                                                                        cursor.execute(query, (f"%{sender_id[-9:]}",))
+                                                                        cursor.execute(query, (f"%{sender_id}",))
                                                                         connection.commit()
 
                                                                     insert_query = """
