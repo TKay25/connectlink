@@ -214,6 +214,11 @@ def initialize_database_tables():
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 19;""")
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 21;""")
 
+            cursor.execute("""
+                ALTER TABLE connectlinkenquiries 
+                ALTER COLUMN clientwhatsapp TYPE BIGINT;
+            """)
+
             # Update clientwhatsapp for record with id 6
             cursor.execute("""
                 UPDATE connectlinkenquiries 
