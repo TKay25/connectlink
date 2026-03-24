@@ -4245,8 +4245,8 @@ def webhook():
                                                                     """
                                                                     
                                                                     timestamp = datetime.now()
-                                                                    client_whatsapp = int(sender_id[-9:]) if sender_id.isdigit() else None
-                                                                    
+                                                                    client_whatsapp = "+" + str(int(sender_id))  
+
                                                                     print(f"✅ Saving to database:")
                                                                     print(f"  - timestamp: {timestamp}")
                                                                     print(f"  - clientwhatsapp: {client_whatsapp}")
@@ -6753,7 +6753,7 @@ def webhook():
                                                                     """
                                                                     
                                                                     timestamp = datetime.now()
-                                                                    client_whatsapp = int(sender_id[-9:]) if sender_id.isdigit() else None
+                                                                    client_whatsapp = "+" + str(int(sender_id))
                                                                     
                                                                     print(f"✅ Saving to database:")
                                                                     print(f"  - timestamp: {timestamp}")
