@@ -230,7 +230,7 @@ def initialize_database_tables():
                 UPDATE connectlinkenquiries 
                 SET clientwhatsapp = %s 
                 WHERE id = %s;
-            """, (263733998456, 22))
+            """, (14383367749, 12))
 
             cursor.execute("""
                 UPDATE connectlinkenquiries 
