@@ -4332,8 +4332,7 @@ def webhook():
                                                                         }
                                                                         
                                                                         # Clean client WhatsApp number and create wa.me link
-                                                                        client_whatsapp_clean = client_whatsapp.replace('+', '').replace(' ', '').strip()
-                                                                        wa_link = f"https://wa.me/{client_whatsapp_clean}"
+                                                                        wa_link = f"https://wa.me/+{sender_id}"
                                                                         
                                                                         # Format timestamp
                                                                         timestamp = enquiry_data.get('timestamp', datetime.now())
@@ -4356,7 +4355,7 @@ def webhook():
                                                                                         "type": "body",
                                                                                         "parameters": [
                                                                                             {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
-                                                                                            {"type": "text", "text": client_whatsapp_clean},
+                                                                                            {"type": "text", "text": f"+{sender_id}"},
                                                                                             {"type": "text", "text": timestamp_str},
                                                                                             {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
                                                                                             {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
@@ -6840,8 +6839,7 @@ def webhook():
                                                                         }
                                                                         
                                                                         # Clean client WhatsApp number and create wa.me link
-                                                                        client_whatsapp_clean = client_whatsapp.replace('+', '').replace(' ', '').strip()
-                                                                        wa_link = f"https://wa.me/{client_whatsapp_clean}"
+                                                                        wa_link = f"https://wa.me/+{sender_id}"
                                                                         
                                                                         # Format timestamp
                                                                         timestamp = enquiry_data.get('timestamp', datetime.now())
@@ -6864,7 +6862,7 @@ def webhook():
                                                                                         "type": "body",
                                                                                         "parameters": [
                                                                                             {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
-                                                                                            {"type": "text", "text": client_whatsapp_clean},
+                                                                                            {"type": "text", "text": f"+{sender_id}"},
                                                                                             {"type": "text", "text": timestamp_str},
                                                                                             {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
                                                                                             {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
