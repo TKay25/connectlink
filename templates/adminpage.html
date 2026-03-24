@@ -6491,16 +6491,23 @@ function loadEnquiriesData() {
         });
 }
 
-// Show/hide loading
+// Show/hide loading - FIXED with null checks
 function showLoading(show) {
     const loadingRow = document.getElementById('loadingRow');
     const noDataMessage = document.getElementById('noDataMessage');
+    
+    // Add null checks
+    if (!loadingRow || !noDataMessage) {
+        console.warn('Loading elements not found in DOM');
+        return;
+    }
     
     if (show) {
         loadingRow.classList.remove('d-none');
         noDataMessage.classList.add('d-none');
     } else {
         loadingRow.classList.add('d-none');
+        noDataMessage.classList.remove('d-none');
     }
 }
 
@@ -6523,7 +6530,7 @@ function showError(message) {
     `;
 }
 
-// Update statistics
+// Update statistics - with null checks
 function updateStatistics(data) {
     const counts = {
         total: data.length,
@@ -6540,13 +6547,27 @@ function updateStatistics(data) {
         }
     });
     
-    document.getElementById('totalEnquiries').textContent = counts.total;
-    document.getElementById('kitchenCount').textContent = counts.kitchen_cabinets;
-    document.getElementById('buildingCount').textContent = counts.building;
-    document.getElementById('renovationCount').textContent = counts.renovation;
-    document.getElementById('otherCount').textContent = counts.otherenq;
-    document.getElementById('recordCount').textContent = `${counts.total} records`;
-    document.getElementById('totalRecords').textContent = counts.total;
+    // Add null checks for each element
+    const totalEnquiries = document.getElementById('totalEnquiries');
+    if (totalEnquiries) totalEnquiries.textContent = counts.total;
+    
+    const kitchenCount = document.getElementById('kitchenCount');
+    if (kitchenCount) kitchenCount.textContent = counts.kitchen_cabinets;
+    
+    const buildingCount = document.getElementById('buildingCount');
+    if (buildingCount) buildingCount.textContent = counts.building;
+    
+    const renovationCount = document.getElementById('renovationCount');
+    if (renovationCount) renovationCount.textContent = counts.renovation;
+    
+    const otherCount = document.getElementById('otherCount');
+    if (otherCount) otherCount.textContent = counts.otherenq;
+    
+    const recordCount = document.getElementById('recordCount');
+    if (recordCount) recordCount.textContent = `${counts.total} records`;
+    
+    const totalRecords = document.getElementById('totalRecords');
+    if (totalRecords) totalRecords.textContent = counts.total;
 }
 
 // Apply filters
