@@ -214,6 +214,14 @@ def initialize_database_tables():
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 19;""")
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 21;""")
 
+            # Update clientwhatsapp for record with id 6
+            cursor.execute("""
+                UPDATE connectlinkenquiries 
+                SET clientwhatsapp = %s 
+                WHERE id = %s;
+            """, (, 20))
+
+
             '''cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
 
@@ -4248,7 +4256,7 @@ def webhook():
                                                                     """
                                                                     
                                                                     timestamp = datetime.now()
-                                                                    client_whatsapp = "+" + str(int(sender_id))  
+                                                                    client_whatsapp = int(sender_id) 
 
                                                                     print(f"✅ Saving to database:")
                                                                     print(f"  - timestamp: {timestamp}")
@@ -6755,7 +6763,7 @@ def webhook():
                                                                     """
                                                                     
                                                                     timestamp = datetime.now()
-                                                                    client_whatsapp = "+" + str(int(sender_id))
+                                                                    client_whatsapp = int(sender_id)
                                                                     
                                                                     print(f"✅ Saving to database:")
                                                                     print(f"  - timestamp: {timestamp}")
