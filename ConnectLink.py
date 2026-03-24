@@ -4323,29 +4323,83 @@ def webhook():
                                                                     )
 
                                                                     
-                                                                    # Also notify admin/team
-                                                                    admin_notification = f"""
-                                                                        🔔 *NEW ENQUIRY RECEIVED*
+                                                                    def send_admin_notification(admin_number, client_whatsapp, enquiry_data):
+                                                                        url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+                                                                        
+                                                                        headers = {
+                                                                            'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                            'Content-Type': 'application/json'
+                                                                        }
+                                                                        
+                                                                        # Clean client WhatsApp number and create wa.me link
+                                                                        client_whatsapp_clean = client_whatsapp.replace('+', '').replace(' ', '').strip()
+                                                                        wa_link = f"https://wa.me/{client_whatsapp_clean}"
+                                                                        
+                                                                        # Format timestamp
+                                                                        timestamp = enquiry_data.get('timestamp', datetime.now())
+                                                                        if isinstance(timestamp, datetime):
+                                                                            timestamp_str = timestamp.strftime('%d %B %Y %H:%M')
+                                                                        else:
+                                                                            timestamp_str = str(timestamp)
+                                                                        
+                                                                        # Template payload with URL button
+                                                                        payload = {
+                                                                            "messaging_product": "whatsapp",
+                                                                            "recipient_type": "individual",
+                                                                            "to": admin_number,
+                                                                            "type": "template",
+                                                                            "template": {
+                                                                                "name": "admin_enquiry_template",  # Your template name
+                                                                                "language": {"code": "en"},
+                                                                                "components": [
+                                                                                    {
+                                                                                        "type": "body",
+                                                                                        "parameters": [
+                                                                                            {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
+                                                                                            {"type": "text", "text": client_whatsapp_clean},
+                                                                                            {"type": "text", "text": timestamp_str},
+                                                                                            {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
+                                                                                            {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
+                                                                                            {"type": "text", "text": enquiry_data.get('has_attachment')}
+                                                                                        ]
+                                                                                    },
+                                                                                    {
+                                                                                        "type": "button",
+                                                                                        "sub_type": "url",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {
+                                                                                                "type": "text",
+                                                                                                "text": wa_link  # Full wa.me URL
+                                                                                            }
+                                                                                        ]
+                                                                                    }
+                                                                                ]
+                                                                            }
+                                                                        }
+                                                                        
+                                                                        # Send request
+                                                                        response = requests.post(url, headers=headers, json=payload)
+                                                                        return response.json()
 
-                                                                        📋 *Reference ID:* #{enquiry_id}
-                                                                        📱 *Client WhatsApp:* {sender_id}
-                                                                        📅 *Timestamp:* {timestamp.strftime('%d %B %Y %H:%M')}
-                                                                        🏷️ *Category:* {enquiry_type_display}
-                                                                        📝 *Details:* {user_message or 'No additional details'}
-                                                                        📎 *Attachment:* {'Yes' if has_attachment else 'No'}
+                                                                    # Usage
+                                                                    admin_numbers = ["263774822568", "263773368558"]
+                                                                    client_whatsapp = sender_id
 
-                                                                        Please follow up with the client.
-                                                                        """
-                                                                    
-                                                                    # Send to admin/team
-                                                                    admin_numbers = ["263774822568","263773368558"]
-                                                                    
                                                                     for admin_number in admin_numbers:
                                                                         print(f"✅ Notifying admin: {admin_number}")
-                                                                        send_whatsapp_message(
-                                                                            admin_number,
-                                                                            admin_notification
-                                                                        )
+                                                                        
+                                                                        enquiry_data = {
+                                                                            'enquiry_id': enquiry_id,
+                                                                            'user_message': user_message,
+                                                                            'enquiry_type_display': enquiry_type_display,
+                                                                            'has_attachment': 'Yes' if has_attachment else 'No',
+                                                                            'timestamp': datetime.now()
+                                                                        }
+                                                                        
+                                                                        result = send_admin_notification(admin_number, client_whatsapp, enquiry_data)
+                                                                        print(f"Response: {result}")
+                                                                        
                                                                     
                                                                     return jsonify({
                                                                         'status': 'success',
@@ -10226,6 +10280,7 @@ def run1(userid):
         print(usersdata)
 
         usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email','whatsapp'])
+
 
         usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button class="btn btn-danger-2" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="{row['id']}" data-user-name="{html.escape(str(row.get('name', '')))}"data-user-email="{html.escape(str(row.get('email', '')))}">Remove</button></div>''', axis=1)
         usersdatamain = usersdatamain[['id', 'datecreated','name','email','whatsapp','Action']]
