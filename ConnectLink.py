@@ -4365,7 +4365,7 @@ def webhook():
                                                                                     },
                                                                                     {
                                                                                         "type": "button",
-                                                                                        "sub_type": "url",
+                                                                                        "sub_type": "quick_reply",
                                                                                         "index": 0,
                                                                                         "parameters": [
                                                                                             {
@@ -6873,7 +6873,7 @@ def webhook():
                                                                                     },
                                                                                     {
                                                                                         "type": "button",
-                                                                                        "sub_type": "url",
+                                                                                        "sub_type": "quick_reply",
                                                                                         "index": 0,
                                                                                         "parameters": [
                                                                                             {
