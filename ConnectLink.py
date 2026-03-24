@@ -4510,7 +4510,7 @@ def webhook():
                                                                     """
                                                                     
                                                                     digits = "".join(filter(str.isdigit, sender_id))
-                                                                    client_whatsapp = int(digits[-9:]) if len(digits) >= 9 else None
+                                                                    client_whatsapp = int(digits)
                                                                     
                                                                     cursor.execute(
                                                                         insert_query,
@@ -7017,7 +7017,7 @@ def webhook():
                                                                     """
                                                                     
                                                                     digits = "".join(filter(str.isdigit, sender_id))
-                                                                    client_whatsapp = int(digits[-9:]) if len(digits) >= 9 else None
+                                                                    client_whatsapp = int(digits)
                                                                     
                                                                     cursor.execute(
                                                                         insert_query,
