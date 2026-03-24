@@ -211,10 +211,9 @@ def initialize_database_tables():
             """)'''
 
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id BETWEEN 1 AND 8;""")
-            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 19;""")
-            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 21;""")
+            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 24;""")
 
-            cursor.execute("""
+            '''cursor.execute("""
                 ALTER TABLE connectlinkenquiries 
                 ALTER COLUMN clientwhatsapp TYPE BIGINT;
             """)
@@ -236,7 +235,7 @@ def initialize_database_tables():
                 UPDATE connectlinkenquiries 
                 SET clientwhatsapp = 263000000000 + clientwhatsapp 
                 WHERE id BETWEEN 13 AND 16;
-            """)
+            """)'''
 
             '''cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
