@@ -211,6 +211,9 @@ def initialize_database_tables():
             """)'''
 
             cursor.execute("""DELETE FROM connectlinkenquiries WHERE id BETWEEN 1 AND 8;""")
+            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 19;""")
+            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 21;""")
+
             '''cursor.execute("""DELETE FROM connectlinkadmin WHERE id BETWEEN 1 AND 6;""")
             cursor.execute("""TRUNCATE TABLE connectlinknotes;""")'''
 
