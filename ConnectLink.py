@@ -13160,24 +13160,6 @@ def update_project():
         cursor.execute(query, values)
         connection.commit()
 
-        with get_db() as (cursor, connection):
-            updated_count = 0
-            for i in range(1, 11):
-                amount_col = f'installment{i}amount'
-                due_date_col = f'installment{i}duedate'
-                
-                cursor.execute(f"""
-                    UPDATE connectlinkdatabase 
-                    SET {due_date_col} = NULL
-                    WHERE ({amount_col} = 0 OR {amount_col} IS NULL)
-                    AND {due_date_col} IS NOT NULL
-                """)
-                updated_count += cursor.rowcount
-                
-            print(updated_count)
-            
-        connection.commit()
-
         flash("Project updated successfully!", "success")
         return jsonify({
             'success': True,
