@@ -13064,7 +13064,7 @@ def update_project():
                 installment7amount = float(installment7amountupdate)
                 installment8amount = float(installment8amountupdate)
                 installment9amount = float(installment9amountupdate)
-                installment10amount = float(installment9amountupdate)
+                installment10amount = float(installment10amountupdate)
 
         # --- EXAMPLE SQL (modify for your DB) ---
         query = """
