@@ -8209,7 +8209,7 @@ def api_login():
 @app.route('/api/logout', methods=['POST'])
 def api_logout():
     session.clear()
-    return jsonify({'success': True, 'message': 'Logged out successfully'})
+    return render_template('mainindex.html')  # Or send_from_directory for static HTML
 
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
