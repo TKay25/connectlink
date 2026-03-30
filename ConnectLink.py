@@ -8616,14 +8616,14 @@ def get_dashboard_stats():
 
 
 
-@app.route('/login')
-def login_page():
+@app.route('/projectslogin')
+def projects_login_page():
     return send_from_directory('templates', 'login.html')
 
-@app.route('/pos-system.html')
-def pos_static():
+@app.route('/loginhardware.html')
+def pos_static_login():
     """Serve the POS HTML"""
-    return send_from_directory('templates', 'pos-system.html')
+    return send_from_directory('templates', 'login hardware.html')
 
 # ==================== INITIALIZE DATABASE ====================
 
