@@ -8620,7 +8620,7 @@ def get_dashboard_stats():
 def projects_login_page():
     return send_from_directory('templates', 'login.html')
 
-@app.route('/loginhardware.html')
+@app.route('/loginhardware')
 def pos_static_login():
     """Serve the POS HTML"""
     return send_from_directory('templates', 'login hardware.html')
