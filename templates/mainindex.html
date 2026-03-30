@@ -35,7 +35,7 @@
             overflow-x: hidden;
         }
 
-        /* Diagonal Split Background - Shifted to the right (blue takes 35% of left side) */
+        /* Diagonal Split Background */
         body::before {
             content: '';
             position: fixed;
@@ -211,41 +211,6 @@
             margin-bottom: 3px;
         }
 
-        /* Loading Overlay */
-        /* Loading Overlay - Hidden by default */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(10, 43, 62, 0.98);
-            display: none;  /* This is already there, but ensure it's hidden */
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 9999;
-        }
-
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            color: white;
-            font-size: 0.8rem;
-        }
-
         /* Login Button Styling */
         .btn-login {
             border-color: var(--primary);
@@ -318,12 +283,6 @@
     </style>
 </head>
 <body>
-
-<!-- Loading Overlay -->
-<div class="loading-overlay" id="loadingOverlay">
-    <div class="loading-spinner"></div>
-    <div class="loading-text">Loading System...</div>
-</div>
 
 <!-- Navbar -->
 <nav class="navbar">
@@ -398,57 +357,9 @@
 </footer>
 
 <script>
-
-    // Redirect function with loading animation
-    let isLoading = false;
-    
     function redirectTo(url) {
-        if (isLoading) return;
-        isLoading = true;
-        
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const loadingText = loadingOverlay.querySelector('.loading-text');
-        
-        if (url.includes('pos') || url.includes('hardware')) {
-            loadingText.textContent = 'Launching POS Terminal...';
-        } else if (url.includes('building') || url.includes('projects')) {
-            loadingText.textContent = 'Loading Projects Portal...';
-        } else {
-            loadingText.textContent = 'Loading System...';
-        }
-        
-        loadingOverlay.style.display = 'flex';
-        
-        setTimeout(() => {
-            window.location.href = url;
-        }, 400);
+        window.location.href = url;
     }
-    
-    // Hide loading overlay on page load
-    function hideLoadingOverlay() {
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-        }
-        isLoading = false;
-    }
-    
-    // Run when DOM is ready
-    document.addEventListener('DOMContentLoaded', hideLoadingOverlay);
-    
-    // Handle page show (for back/forward cache)
-    window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            hideLoadingOverlay();
-        }
-    });
-    
-    // Handle page visibility change (tab switching)
-    document.addEventListener('visibilitychange', function() {
-        if (!document.hidden) {
-            hideLoadingOverlay();
-        }
-    });
     
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
@@ -458,9 +369,6 @@
             redirectTo('/projectslogin');
         }
     });
-    
-    // Final cleanup on window load
-    window.addEventListener('load', hideLoadingOverlay);
 </script>
 </body>
 </html>
