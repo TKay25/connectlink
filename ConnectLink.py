@@ -13540,10 +13540,6 @@ def pos_system():
     """POS System page"""
     return send_from_directory('templates', 'pos-system.html')
 
-@app.route('/admin')
-def admin_dashboard():
-    """Admin Dashboard page"""
-    return send_from_directory('templates', 'admin-dashboard.html')  # Create this page
 
 # If you want to serve the landing page as index
 # Make sure your login page is at /login
