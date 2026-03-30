@@ -6058,7 +6058,7 @@ function setupEventListeners() {
     
     function setupLogout() {
         const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) logoutBtn.addEventListener('click', async () => { try { await fetch('/api/logoutpos', { method: 'POST', credentials: 'include' }); } catch (e) {} localStorage.clear(); window.location.href = '/login'; });
+        if (logoutBtn) logoutBtn.addEventListener('click', async () => { try { await fetch('/api/logoutpos', { method: 'POST', credentials: 'include' }); } catch (e) {} localStorage.clear(); window.location.href = '/api/logoutpos'; });
     }
     
     // ==================== INITIALIZATION ====================
