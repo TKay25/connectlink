@@ -13533,7 +13533,7 @@ def update_enquiry_status(enquiry_id):
 @app.route('/')
 def landing_page():
     """Landing page with product cards"""
-    return render_template('landing.html')  # Or send_from_directory for static HTML
+    return render_template('mainindex.html')  # Or send_from_directory for static HTML
 
 @app.route('/pos-system.html')
 def pos_system():
