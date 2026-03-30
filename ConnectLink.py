@@ -8614,13 +8614,11 @@ def get_dashboard_stats():
 
 # ==================== TEMPLATE ROUTES ====================
 
-@app.route('/')
-def index():
-    return send_from_directory('templates', 'login hardware.html')
+
 
 @app.route('/login')
 def login_page():
-    return send_from_directory('templates', 'login hardware.html')
+    return send_from_directory('templates', 'login.html')
 
 @app.route('/pos-system.html')
 def pos_static():
