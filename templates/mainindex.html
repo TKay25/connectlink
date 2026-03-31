@@ -25,8 +25,12 @@
             --gray-500: #6B7280;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --radius-sm: 0.5rem;
+            --radius-md: 0.75rem;
             --radius-lg: 1rem;
             --radius-xl: 1.25rem;
+            --radius-2xl: 1.5rem;
+            --radius-full: 9999px;
         }
 
         body {
@@ -53,7 +57,7 @@
             z-index: -2;
         }
 
-        /* Navbar - Compact */
+        /* Navbar */
         .navbar {
             background: rgba(255, 255, 255, 0.98);
             box-shadow: var(--shadow-sm);
@@ -70,6 +74,13 @@
             align-items: center;
             gap: 10px;
             text-decoration: none;
+            border-radius: var(--radius-md);
+            padding: 4px 8px;
+            transition: all 0.2s;
+        }
+
+        .navbar-brand:hover {
+            background: rgba(0, 0, 0, 0.02);
         }
 
         .navbar-brand img {
@@ -82,30 +93,24 @@
             color: var(--primary);
         }
 
-        /* Main Content - Full Height without Scroll */
+        /* Main Content */
         .main-content {
             height: 100vh;
             display: flex;
             align-items: center;
-            padding: 10px 5% 0;
-        }
-
-        .container-fluid-custom {
-            width: 100%;
-            max-width: 1400px;
-            margin: 0 auto;
+            padding: 60px 5% 0;
         }
 
         /* Left Column */
         .hero-left {
-            padding-right: 20px;
+            padding-right: 30px;
         }
 
         .hero-badge {
             display: inline-block;
             background: var(--accent);
             padding: 3px 12px;
-            border-radius: 30px;
+            border-radius: var(--radius-full);
             font-size: 0.6rem;
             font-weight: 600;
             color: white;
@@ -113,7 +118,7 @@
         }
 
         .hero-logo {
-            height: 60px;
+            height: 45px;
             width: auto;
             margin-bottom: 16px;
         }
@@ -135,7 +140,7 @@
 
         /* Right Column */
         .portal-right {
-            padding-left: 70px;
+            padding-left: 60px;
         }
 
         .portal-header {
@@ -146,7 +151,7 @@
             background: var(--accent);
             color: white;
             padding: 3px 12px;
-            border-radius: 30px;
+            border-radius: var(--radius-full);
             font-size: 0.55rem;
             font-weight: 600;
             display: inline-block;
@@ -156,7 +161,7 @@
         .portal-header h2 {
             font-size: 1.2rem;
             font-weight: 700;
-            color: var(--primary);
+            color: var(--gray-500);
             margin-bottom: 4px;
         }
 
@@ -174,15 +179,15 @@
 
         .system-card {
             background: white;
-            border-radius: var(--radius-lg);
+            border-radius: var(--radius-xl);
             box-shadow: var(--shadow-sm);
             transition: all 0.2s ease;
             cursor: pointer;
             padding: 16px 20px;
             display: flex;
-            max-width: max-content;
             gap: 14px;
             align-items: center;
+            justify-content: space-between;
             border: 1px solid var(--gray-200);
         }
 
@@ -196,7 +201,7 @@
             width: 44px;
             height: 44px;
             background: var(--gray-100);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -224,7 +229,7 @@
         .system-card h2 {
             font-size: 0.9rem;
             font-weight: 700;
-            color: var(--primary);
+            color: var(--gray-700);
             margin-bottom: 4px;
         }
 
@@ -232,7 +237,7 @@
             color: var(--gray-500);
             font-size: 0.6rem;
             line-height: 1.35;
-            margin-bottom: 8px;
+            margin-bottom: 0;
         }
 
         .btn-explore {
@@ -242,12 +247,14 @@
             background: transparent;
             color: var(--accent);
             border: 1px solid var(--accent);
-            padding: 3px 12px;
-            border-radius: 30px;
+            padding: 6px 16px;
+            border-radius: var(--radius-full);
             font-weight: 500;
             font-size: 0.6rem;
             transition: all 0.2s;
             cursor: pointer;
+            flex-shrink: 0;
+            margin-left: 10px;
         }
 
         .btn-explore:hover {
@@ -276,11 +283,12 @@
 
         .login-modal {
             background: white;
-            border-radius: var(--radius-xl);
+            border-radius: var(--radius-2xl);
             width: 90%;
-            max-width: 400px;
+            max-width: 380px;
             box-shadow: var(--shadow-md);
             animation: modalFadeIn 0.2s ease;
+            overflow: hidden;
         }
 
         @keyframes modalFadeIn {
@@ -296,40 +304,40 @@
 
         .modal-header {
             background: var(--primary);
-            padding: 20px 20px 16px;
+            padding: 24px 24px 20px;
             text-align: center;
-            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
             position: relative;
         }
 
         .modal-header .modal-logo {
-            width: 48px;
-            margin-bottom: 10px;
+            width: 55px;
+            margin-bottom: 12px;
         }
 
         .modal-header h3 {
             color: white;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             font-weight: 700;
-            margin-bottom: 3px;
+            margin-bottom: 4px;
         }
 
         .modal-header p {
             color: rgba(255, 255, 255, 0.8);
-            font-size: 0.65rem;
+            font-size: 0.7rem;
         }
 
         .close-modal {
             position: absolute;
-            top: 12px;
-            right: 15px;
+            top: 15px;
+            right: 18px;
             background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             cursor: pointer;
-            width: 26px;
-            height: 26px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -339,22 +347,23 @@
 
         .close-modal:hover {
             background: var(--accent);
+            transform: rotate(90deg);
         }
 
         .modal-body {
-            padding: 20px;
+            padding: 24px;
         }
 
         .form-group {
-            margin-bottom: 14px;
+            margin-bottom: 18px;
         }
 
         .form-group label {
             display: block;
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             font-weight: 600;
-            color: var(--gray-500);
-            margin-bottom: 5px;
+            color: var(--gray-600);
+            margin-bottom: 6px;
         }
 
         .input-group-modal {
@@ -367,15 +376,15 @@
             top: 50%;
             transform: translateY(-50%);
             color: var(--gray-400);
-            font-size: 0.75rem;
+            font-size: 0.8rem;
         }
 
         .form-input-modal {
             width: 100%;
-            padding: 8px 12px 8px 36px;
-            font-size: 0.75rem;
+            padding: 10px 12px 10px 38px;
+            font-size: 0.8rem;
             border: 1px solid var(--gray-200);
-            border-radius: var(--radius-lg);
+            border-radius: var(--radius-md);
             transition: all 0.2s;
             outline: none;
         }
@@ -394,18 +403,25 @@
             border: none;
             color: var(--gray-400);
             cursor: pointer;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
+            border-radius: var(--radius-sm);
+            padding: 5px;
+        }
+
+        .password-toggle-modal:hover {
+            color: var(--accent);
+            background: rgba(181, 13, 13, 0.05);
         }
 
         .modal-login-btn {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: var(--radius-lg);
+            border-radius: var(--radius-full);
             font-weight: 600;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             cursor: pointer;
             transition: all 0.2s;
             margin-top: 5px;
@@ -413,22 +429,23 @@
 
         .modal-login-btn:hover {
             background: var(--accent-light);
+            transform: translateY(-1px);
         }
 
         .modal-footer-links {
             text-align: center;
-            margin-top: 14px;
-            padding-top: 12px;
+            margin-top: 18px;
+            padding-top: 15px;
             border-top: 1px solid var(--gray-200);
             display: flex;
             justify-content: center;
-            gap: 18px;
+            gap: 20px;
         }
 
         .modal-footer-links a {
             color: var(--gray-500);
             text-decoration: none;
-            font-size: 0.6rem;
+            font-size: 0.65rem;
         }
 
         .modal-footer-links a:hover {
@@ -438,13 +455,48 @@
         .error-message {
             background: #fee2e2;
             color: #dc2626;
-            padding: 6px 10px;
-            border-radius: var(--radius-lg);
-            font-size: 0.65rem;
-            margin-bottom: 12px;
+            padding: 8px 12px;
+            border-radius: var(--radius-md);
+            font-size: 0.7rem;
+            margin-bottom: 15px;
             display: none;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 42, 86, 0.95);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
 
         /* Footer */
@@ -462,22 +514,6 @@
             color: var(--gray-500);
             font-size: 0.55rem;
             margin: 0;
-        }
-
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .hero-left h1 {
-                font-size: 1.5rem;
-            }
-            .hero-logo {
-                height: 38px;
-            }
-            .portal-right {
-                padding-left: 30px;
-            }
-            .system-card {
-                padding: 14px 16px;
-            }
         }
 
         @media (max-width: 768px) {
@@ -500,7 +536,6 @@
             }
             .portal-right {
                 padding-left: 0;
-                width: 100%;
             }
             .portal-header {
                 text-align: center;
@@ -514,40 +549,27 @@
                 margin-top: 30px;
             }
         }
-
-        @media (max-width: 480px) {
-            .hero-left h1 {
-                font-size: 1.3rem;
-            }
-            .hero-logo {
-                height: 32px;
-            }
-            .system-card {
-                padding: 12px;
-            }
-            .card-icon {
-                width: 36px;
-                height: 36px;
-            }
-            .card-icon i {
-                font-size: 1rem;
-            }
-            .system-card h2 {
-                font-size: 0.8rem;
-            }
-        }
     </style>
 </head>
 <body>
 
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink Logo">
+            <span class="brand-text">ConnectLink</span>
+        </a>
+    </div>
+</nav>
 
 <!-- Main Content -->
 <div class="main-content">
-    <div class="container-fluid-custom">
-        <div class="row align-items-top">
+    <div class="container-fluid">
+        <div class="row align-items-center">
             <!-- Left Column -->
             <div class="col-lg-6 hero-left">
-                <span class="hero-badge"><i class="fas fa-crown me-1"></i> Enterprise Solutions by EDS</span>
+                <span class="hero-badge"><i class="fas fa-crown me-1"></i> Enterprise Solutions</span>
                 <div><img src="/static/images/web-logo-white.png" alt="Logo" class="hero-logo"></div>
                 <h1>Building Projects<br>& Hardware Solutions</h1>
                 <p class="lead-text">ConnectLink construction project management and hardware retail operations</p>
@@ -558,7 +580,7 @@
                 <div class="portal-header">
                     <span class="badge"><i class="fas fa-compass me-1"></i> Choose Your Portal</span>
                     <h2>Select Your Workspace</h2>
-                    <p>Access Portals below</p>
+                    <p>Access the right tools for your role</p>
                 </div>
                 
                 <div class="cards-container">
@@ -568,8 +590,8 @@
                         <div class="card-content">
                             <h2>Building Projects</h2>
                             <p>Construction project management, contracts, payment tracking</p>
-                            <button class="btn-explore">Access Portal <i class="fas fa-arrow-right"></i></button>
                         </div>
+                        <button class="btn-explore">Access Portal <i class="fas fa-arrow-right"></i></button>
                     </div>
                     
                     <!-- Hardware POS Card -->
@@ -578,8 +600,8 @@
                         <div class="card-content">
                             <h2>Hardware POS</h2>
                             <p>Complete retail management for ConnectLink hardware operations</p>
-                            <button class="btn-explore">Launch POS <i class="fas fa-arrow-right"></i></button>
                         </div>
+                        <button class="btn-explore">Launch POS <i class="fas fa-arrow-right"></i></button>
                     </div>
                 </div>
             </div>
@@ -587,29 +609,30 @@
     </div>
 </div>
 
-<!-- Simple Modal -->
+<!-- Modal -->
 <div class="modal-overlay" id="loginModal">
     <div class="login-modal">
         <div class="modal-header">
             <button class="close-modal" id="closeModalBtn"><i class="fas fa-times"></i></button>
             <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
-            <h3 id="modalTitle">Building Projects Login</h3>
+            <h3 id="modalTitle">Building Projects</h3>
+            <p id="modalSubtitle">Sign in to access your dashboard</p>
         </div>
         <div class="modal-body">
             <div class="error-message" id="errorMessage"><i class="fas fa-exclamation-circle"></i> Invalid credentials</div>
             <form id="loginFormModal">
                 <div class="form-group">
-                    <label>Email</label>
+                    <label>Email Address</label>
                     <div class="input-group-modal">
                         <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
-                        <input type="email" class="form-input-modal" id="modalEmail" placeholder="admin@connectlink.co.zw">
+                        <input type="email" class="form-input-modal" id="modalEmail" placeholder="admin@connectlink.co.zw" autocomplete="email">
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
                     <div class="input-group-modal">
                         <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                        <input type="password" class="form-input-modal" id="modalPassword" placeholder="••••••••">
+                        <input type="password" class="form-input-modal" id="modalPassword" placeholder="••••••••" autocomplete="current-password">
                         <button type="button" class="password-toggle-modal" id="toggleModalPassword"><i class="fas fa-eye"></i></button>
                     </div>
                 </div>
@@ -621,6 +644,12 @@
             </form>
         </div>
     </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Authenticating...</div>
 </div>
 
 <!-- Footer -->
@@ -635,14 +664,15 @@
     const modal = document.getElementById('loginModal');
     const closeBtn = document.getElementById('closeModalBtn');
     const modalTitle = document.getElementById('modalTitle');
+    const modalSubtitle = document.getElementById('modalSubtitle');
     const form = document.getElementById('loginFormModal');
     const errorMsg = document.getElementById('errorMessage');
     const emailInput = document.getElementById('modalEmail');
     const passwordInput = document.getElementById('modalPassword');
     const submitBtn = document.getElementById('loginSubmitBtn');
     const togglePassword = document.getElementById('toggleModalPassword');
+    const loadingOverlay = document.getElementById('loadingOverlay');
     
-    // Toggle password visibility
     togglePassword.addEventListener('click', () => {
         const type = passwordInput.type === 'password' ? 'text' : 'password';
         passwordInput.type = type;
@@ -650,15 +680,16 @@
         togglePassword.querySelector('i').classList.toggle('fa-eye-slash');
     });
     
-    // Open modal on card click
     document.querySelectorAll('.system-card').forEach(card => {
         card.addEventListener('click', function(e) {
             if (e.target.closest('.btn-explore')) e.stopPropagation();
             currentPortal = this.dataset.portal;
             if (currentPortal === 'projects') {
-                modalTitle.textContent = 'Building Projects Login';
+                modalTitle.textContent = 'Building Projects';
+                modalSubtitle.textContent = 'Sign in to access project management dashboard';
             } else {
                 modalTitle.textContent = 'Hardware POS';
+                modalSubtitle.textContent = 'Sign in to access retail management system';
             }
             errorMsg.style.display = 'none';
             emailInput.value = '';
@@ -681,53 +712,62 @@
     
     function isValidEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
     
+    function showMessage(message, isError = true) {
+        errorMsg.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
+        if (!isError) {
+            errorMsg.style.background = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
+            errorMsg.style.color = '#059669';
+            errorMsg.style.borderLeftColor = '#059669';
+        } else {
+            errorMsg.style.background = '#fee2e2';
+            errorMsg.style.color = '#dc2626';
+            errorMsg.style.borderLeftColor = '#dc2626';
+        }
+        errorMsg.style.display = 'flex';
+        setTimeout(() => errorMsg.style.display = 'none', 4000);
+    }
+    
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
+        
         const email = emailInput.value.trim();
         const password = passwordInput.value.trim();
         
         if (!email || !password) {
-            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Please fill in all fields';
-            errorMsg.style.display = 'flex';
+            showMessage('Please fill in all fields');
             return;
         }
         if (!isValidEmail(email)) {
-            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Enter a valid email address';
-            errorMsg.style.display = 'flex';
+            showMessage('Please enter a valid email address');
             return;
         }
         
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Signing in...';
+        loadingOverlay.style.display = 'flex';
         submitBtn.disabled = true;
-        errorMsg.style.display = 'none';
         
         try {
-            await new Promise(resolve => setTimeout(resolve, 800));
-            window.location.href = portalUrls[currentPortal];
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            showMessage('Login successful! Redirecting...', false);
+            setTimeout(() => {
+                window.location.href = portalUrls[currentPortal];
+            }, 1000);
         } catch (error) {
-            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle"></i> Login failed. Try again.';
-            errorMsg.style.display = 'flex';
-            submitBtn.innerHTML = originalText;
+            loadingOverlay.style.display = 'none';
             submitBtn.disabled = false;
+            showMessage('Login failed. Please check your credentials.');
         }
     });
     
     document.getElementById('forgotPasswordLink').addEventListener('click', function(e) {
         e.preventDefault();
-        errorMsg.innerHTML = '<i class="fas fa-info-circle"></i> Contact your administrator to reset password';
-        errorMsg.style.display = 'flex';
-        setTimeout(() => errorMsg.style.display = 'none', 3000);
+        showMessage('Password reset feature coming soon. Contact your administrator.');
     });
     
     document.getElementById('needHelpLink').addEventListener('click', function(e) {
         e.preventDefault();
-        errorMsg.innerHTML = '<i class="fas fa-headset"></i> support@connectlink.co.zw';
-        errorMsg.style.display = 'flex';
-        setTimeout(() => errorMsg.style.display = 'none', 3000);
+        showMessage('Contact support: support@connectlink.co.zw');
     });
     
-    // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
         if (modal.classList.contains('active')) return;
         if (e.key === '1') window.location.href = '/loginhardware';
