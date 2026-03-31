@@ -20,7 +20,7 @@
     --primary: #1E2A56;
     --primary-light: #2d3a75;
     --primary-dark: #141e40;
-    --accent: #b50d0d;
+    --accent: #141e40;
     --accent-light: #c63f3f;
     --success: #10b981;
     --danger: #ef4444;
@@ -58,60 +58,82 @@ body {
     color: var(--gray-700);
 }
 
-/* Sidebar - Collapsible with Icons Always Visible */
+/* Improved Sidebar Styles - Add to your existing CSS */
 .sidebar {
     width: var(--sidebar-collapsed);
-    background: var(--white);
+    background:var(--primary-dark);
     color: var(--gray-700);
     position: fixed;
     height: 100vh;
     display: flex;
     flex-direction: column;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.05);
     border-right: 1px solid var(--gray-200);
     z-index: 100;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: 12px 0;
-    transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 10px 0;
+    transition: width 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
     white-space: nowrap;
 }
 
 .sidebar:hover {
     width: var(--sidebar-expanded);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
 }
 
-/* Logo Area */
+/* Logo Area - Improved */
 .sidebar .logo {
     max-width: 100%;
-    margin: 8px auto 12px;
-    padding: 0 8px;
+    margin: 0 auto 20px;
+    padding: 0 6px;
     display: flex;
     justify-content: center;
+    transition: all 0.25s ease;
 }
 
 .sidebar .logo img {
-    max-width: 40px;
+    max-width: 42px;
     height: auto;
-    transition: all 0.2s;
+    transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .sidebar:hover .logo img {
-    max-width: 120px;
+    max-width: 140px;
 }
 
-/* Sidebar Text Elements */
+/* Sidebar Title - Improved */
 .sidebar h6 {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     text-transform: uppercase;
-    color: var(--gray-400);
+    color: var(--white);
     text-align: center;
-    margin: 8px 0 12px;
+    margin: 8px 0 16px;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s, visibility 0.2s;
+    transition: opacity 0.2s 0.05s, visibility 0.2s;
+    position: relative;
+}
+
+.sidebar h6::before,
+.sidebar h6::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 20px;
+    height: 1px;
+    background: var(--white);
+}
+
+.sidebar h6::before {
+    left: 10px;
+}
+
+.sidebar h6::after {
+    right: 10px;
 }
 
 .sidebar:hover h6 {
@@ -119,30 +141,52 @@ body {
     visibility: visible;
 }
 
-/* Sidebar Buttons - Icons Always Visible */
+/* Sidebar Buttons - Enhanced */
 .sidebar .btn {
     background: transparent;
     border: none;
-    color: var(--gray-600);
+    color: var(--white);
     width: 100%;
-    margin: 2px 0;
-    padding: 10px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 0.7rem;
+    margin: 4px 0;
+    padding: 6px 7px;
+    border-radius: 12px;
+    font-size: 0.6rem;
     font-weight: 500;
     text-align: left;
-    transition: all 0.15s ease;
+    transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Button Ripple Effect */
+.sidebar .btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(30, 42, 86, 0.1);
+    transform: translate(-50%, -50%);
+    transition: width 0.4s, height 0.4s;
+}
+
+.sidebar .btn:active::before {
+    width: 200%;
+    height: 200%;
 }
 
 .sidebar .btn span {
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s, visibility 0.2s;
+    transition: opacity 0.2s 0.05s, visibility 0.2s;
     white-space: nowrap;
+    font-weight: 500;
 }
 
 .sidebar:hover .btn span {
@@ -151,26 +195,159 @@ body {
 }
 
 .sidebar .btn i {
-    width: 24px;
-    font-size: 1.1rem;
+    width: 13px;
+    font-size: 1rem;
     flex-shrink: 0;
     text-align: center;
-    color: var(--gray-500);
+    color: var(--white);
+    transition: all 0.2s ease;
 }
 
+/* Button Hover Effects */
 .sidebar .btn:hover {
     background: var(--gray-100);
-    color: var(--primary);
+    transform: translateX(4px);
 }
 
 .sidebar .btn:hover i {
     color: var(--accent);
+    transform: scale(1.05);
 }
+
+.sidebar .btn:hover span {
+    color: var(--primary);
+}
+
+/* Active Button State (optional - add class 'active' to current page button) */
+.sidebar .btn.active {
+    background: var(--gray-100);
+    border-left: 3px solid var(--accent);
+}
+
+.sidebar .btn.active i {
+    color: var(--accent);
+}
+
+.sidebar .btn.active span {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Divider between buttons */
+.sidebar .divider {
+    height: 1px;
+    background: var(--gray-200);
+    margin: 12px 16px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.sidebar:hover .divider {
+    opacity: 1;
+}
+
+/* Scrollbar styling for sidebar */
+.sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: var(--gray-100);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* Bottom section with user info (optional) */
+.sidebar-footer {
+    margin-top: auto;
+    padding: 6px 4px;
+    border-top: 1px solid var(--gray-200);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s 0.05s, visibility 0.2s;
+}
+
+.sidebar:hover .sidebar-footer {
+    opacity: 1;
+    visibility: visible;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.user-details {
+    flex: 1;
+}
+
+.user-name {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 2px;
+}
+
+.user-role {
+    font-size: 0.6rem;
+    color: var(--gray-500);
+}
+
+.logout-btn {
+    background: transparent;
+    border: none;
+    color: var(--gray-500);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: color 0.2s;
+}
+
+.logout-btn:hover {
+    color: var(--danger);
+}
+
+/* Animation for expanded/collapsed */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.sidebar:hover .btn span {
+    animation: fadeIn 0.2s ease;
+}
+
 
 /* Main Content */
 .main-content {
     margin-left: var(--sidebar-collapsed);
-    padding: 16px 20px;
+    padding: 8px 10px;
     width: calc(100% - var(--sidebar-collapsed));
     min-height: 100vh;
     transition: margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -187,7 +364,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 16px;
+    padding: 8px 10px;
     background: var(--white);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
@@ -218,7 +395,7 @@ header {
 .nav-tabs .nav-link {
     color: var(--gray-500);
     font-weight: 500;
-    padding: 8px 16px;
+    padding: 8px 12px;
     font-size: 0.75rem;
     border: none;
     background: transparent;
@@ -259,7 +436,7 @@ header {
     border-radius: var(--radius-md);
     border: 1px solid var(--gray-200);
     box-shadow: var(--shadow-sm);
-    padding: 12px;
+    padding: 8px;
     margin-top: 12px;
 }
 
@@ -273,7 +450,7 @@ header {
 .modal-header {
     background: var(--primary);
     color: var(--white);
-    padding: 12px 16px;
+    padding: 8px 12px;
     border: none;
 }
 
@@ -281,7 +458,7 @@ header {
     background-color: rgba(255, 255, 255, 0.2);
     opacity: 1;
     border-radius: 50%;
-    padding: 6px;
+    padding: 4px;
     background-size: 12px;
 }
 
@@ -292,20 +469,20 @@ header {
 
 .modal-body {
     font-size: 0.7rem;
-    padding: 16px;
+    padding: 10px;
     color: var(--gray-700);
 }
 
 .modal-footer {
     border-top: 1px solid var(--gray-200);
-    padding: 12px 16px;
+    padding: 8px 12px;
     gap: 8px;
 }
 
 /* Forms - Compact */
 .form-control, .form-select, .form-control-blue {
     font-size: 0.7rem;
-    padding: 6px 10px;
+    padding: 4px 8px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--gray-200);
     background: var(--white);
@@ -332,7 +509,7 @@ header {
     background: var(--gray-50);
     border: 1px solid var(--gray-200);
     border-radius: var(--radius-sm);
-    padding: 6px 10px;
+    padding: 4px 8px;
     font-size: 0.7rem;
 }
 
@@ -350,7 +527,7 @@ header {
     border-radius: 1.5rem;
     font-weight: 500;
     font-size: 0.65rem;
-    padding: 5px 12px;
+    padding: 4px 8px;
     transition: all 0.15s;
 }
 
@@ -364,7 +541,7 @@ header {
     border: none;
     border-radius: 1.5rem;
     font-size: 0.65rem;
-    padding: 5px 12px;
+    padding: 4px 8px;
 }
 
 .btn-outline-accent {
@@ -373,7 +550,7 @@ header {
     color: var(--accent);
     border-radius: 1.5rem;
     font-size: 0.65rem;
-    padding: 4px 11px;
+    padding: 4px 8px;
 }
 
 .btn-outline-accent:hover {
@@ -392,13 +569,13 @@ header {
     background: var(--gray-50);
     color: var(--gray-600);
     font-weight: 600;
-    padding: 8px 8px;
+    padding: 4px 4px;
     text-align: center;
     border-bottom: 1px solid var(--gray-200);
 }
 
 .table-theme td {
-    padding: 6px 8px;
+    padding: 3px 5px;
     color: var(--gray-700);
     text-align: center;
     border-bottom: 1px solid var(--gray-100);
@@ -419,7 +596,7 @@ header {
 .summary-card {
     background: var(--white);
     border-radius: var(--radius-sm);
-    padding: 8px 12px;
+    padding: 4px 8px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -427,7 +604,7 @@ header {
 }
 
 .summary-card .icon {
-    font-size: 1.2rem;
+    font-size: 1rem;
     color: var(--primary);
 }
 
@@ -456,7 +633,7 @@ header {
 .graph-card {
     background: var(--white);
     border-radius: var(--radius-sm);
-    padding: 12px;
+    padding: 8px;
     border: 1px solid var(--gray-200);
 }
 
@@ -541,7 +718,7 @@ header {
 /* Badges - Compact */
 .badge {
     font-weight: 500;
-    padding: 2px 6px;
+    padding: 2px 4px;
     border-radius: 1rem;
     font-size: 0.6rem;
 }
@@ -559,14 +736,14 @@ header {
         grid-template-columns: 1fr;
     }
     .nav-tabs .nav-link {
-        padding: 6px 12px;
+        padding: 3px 6px;
         font-size: 0.7rem;
     }
     .modal-dialog {
         margin: 10px;
     }
     .main-content {
-        padding: 12px;
+        padding: 6px;
     }
 }
 
@@ -862,7 +1039,7 @@ header {
 
                             <!-- CLIENT DETAILS CARD -->
                             <div class="col-md-4">
-                                <div class="card" style="padding:15px;">
+                                <div class="card" style="padding:10px;">
 
                                     <h6 style="background-color:#1E2A56; font-weight:800;color: white;text-align: center;padding: 1%;">CLIENT DETAILS</h6>
 
@@ -910,7 +1087,7 @@ header {
 
                             <!-- NEXT OF KIN DETAILS CARD -->
                             <div class="col-md-4">
-                                <div class="card" style="padding:15px;">
+                                <div class="card" style="padding:10px;">
 
                                     <h6 style="background-color:#1E2A56; font-weight:800;color: white;text-align: center;padding: 1%;">NEXT OF KIN DETAILS</h6>
 
@@ -950,7 +1127,7 @@ header {
 
 
                             <div class="col-md-4">
-                                <div class="card" style="padding:15px;">
+                                <div class="card" style="padding:10px;">
                                     <!-- CONTRACTOR DETAILS -->
                                     <h6 style="background-color:#1E2A56; font-weight:800;color: white;text-align: center;padding: 1%;">CONTRACTOR DETAILS</h6>
 
@@ -993,7 +1170,7 @@ header {
                             </div>
 
                             <div class="col-md-6">
-                                <div class="card" style="padding:15px;">
+                                <div class="card" style="padding:10px;">
                                     <!-- PROJECT DETAILS -->
                                     <h6 style="background-color:#1E2A56; font-weight:800;color: white;text-align: center;padding: 1%;">PROJECT DETAILS</h6>
 
@@ -1053,7 +1230,7 @@ header {
                             </div>
 
                             <div class="col-md-6">
-                                <div class="card" style="padding:15px;">
+                                <div class="card" style="padding:10px;">
 
                         
                                     <!-- PAYMENT TERMS -->
@@ -1210,7 +1387,7 @@ header {
                                     name="admin_passcode" 
                                     required 
                                     placeholder="Enter admin passcode"
-                                    style="width: 100%; padding-right: 40px; padding: 10px 15px; border-radius: 8px; border: 2px solid #1E2A56; background-color: #e6f0ff; color: #1E2A56; transition: all 0.3s ease;">
+                                    style="width: 100%; padding-right: 20px; padding: 5px 8px; border-radius: 8px; border: 2px solid #1E2A56; background-color: #e6f0ff; color: #1E2A56; transition: all 0.3s ease;">
                                 
                                 <i id="toggleAdminPassword" 
                                 class="bi bi-eye" 
@@ -1404,7 +1581,7 @@ header {
                                 <div style="
                                     border: 2px solid #1E2A56;
                                     border-radius: 8px;
-                                    padding: 12px;
+                                    padding: 8px;
                                     height: 100%;
                                 ">
 
@@ -1445,7 +1622,7 @@ header {
 
                                                 
                         <!-- Scrollable Container -->
-                        <div style="max-height: 350px; overflow-y: auto; padding-right: 10px;">
+                        <div style="max-height: 350px; overflow-y: auto; padding-right: 8px;">
 
                             <div class="card mb-3">
                                 <div class="card-header bg-light">
@@ -2543,7 +2720,7 @@ header {
                 <div class="tab-content">
                     <!-- Due Soon Tab -->
                     <div class="tab-pane fade show active" id="dueSoon" role="tabpanel">
-                        <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                        <div style="max-height: 400px; overflow-y: auto; padding: 8px;">
                             <table class="table table-hover table-theme">
                                 <thead>
                                     <tr>
