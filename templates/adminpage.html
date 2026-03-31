@@ -1412,6 +1412,58 @@ body::before {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Quotation Modal Styling */
+.modal-body table {
+    margin-bottom: 0;
+}
+
+.modal-body table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.modal-body table tbody tr:hover {
+    background-color: rgba(30, 42, 86, 0.05);
+}
+
+#quotationItemsTable tr td:last-child {
+    font-weight: 600;
+    color: #1E2A56;
+}
+
+.quotation-header-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.quotation-header-info p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.quotation-total-section {
+    background: linear-gradient(135deg, #e8f4f8 0%, #f0f7fa 100%) !important;
+    border: 2px solid #1E2A56 !important;
+}
+
+.collapse {
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary {
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(30, 42, 86, 0.2);
+}
+
+.modal-lg {
+    max-width: 700px;
+}
+
 </style>
     </style>
 </head>
@@ -4529,6 +4581,87 @@ body::before {
                 <div class="modal-footer">
                     <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="generateQuotationBtn">Generate Quotation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quotation Preview Modal -->
+    <div class="modal fade" id="quotationPreviewModal" tabindex="-1" aria-labelledby="quotationPreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #1E2A56; color: white;">
+                    <h6 class="modal-title" id="quotationPreviewModalLabel">
+                        <i class="bi bi-eye"></i> Quotation Preview
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="max-height: 600px; overflow-y: auto;">
+                    <!-- Client & Project Info -->
+                    <div class="mb-4 p-3 border rounded" style="background-color: #f8f9fa;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p style="margin: 0; font-size: 0.9rem;"><strong>Client Name:</strong> <span id="previewClientName"></span></p>
+                                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;"><strong>Category:</strong> <span id="previewCategory"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p style="margin: 0; font-size: 0.9rem;"><strong>Date:</strong> <span id="previewDate"></span></p>
+                                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;"><strong>Size:</strong> <span id="previewSize">- square meters</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items & Costs Table -->
+                    <div class="mb-4">
+                        <h6 style="font-weight: bold; margin-bottom: 1rem;">Selected Items</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered" style="margin-bottom: 0;">
+                                <thead style="background-color: #1E2A56; color: white;">
+                                    <tr>
+                                        <th style="font-size: 0.85rem;">Item</th>
+                                        <th style="font-size: 0.85rem; text-align: center;">Quantity</th>
+                                        <th style="font-size: 0.85rem; text-align: right;">Unit Cost</th>
+                                        <th style="font-size: 0.85rem; text-align: right;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="quotationItemsTable">
+                                    <!-- Items will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Total Cost Summary -->
+                    <div class="mb-4 p-3 border rounded" style="background-color: #e8f4f8; border-color: #1E2A56 !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span style="font-size: 1.1rem; font-weight: bold;">Total Cost:</span>
+                            <span style="font-size: 1.3rem; font-weight: bold; color: #1E2A56;">USD <span id="quotationTotalCost">0.00</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Gantt Chart Collapsible Section -->
+                    <div class="mb-3">
+                        <button class="btn btn-outline-primary btn-sm w-100" type="button" data-bs-toggle="collapse" data-bs-target="#ganttChartContainer" aria-expanded="false" style="font-weight: bold;">
+                            <i class="bi bi-bar-chart-fill"></i> View Gantt Chart
+                        </button>
+                        <div class="collapse mt-3" id="ganttChartContainer">
+                            <div class="border rounded p-3" style="background-color: #f8f9fa; min-height: 300px;">
+                                <div id="ganttChartContent" style="width: 100%; height: 300px; display: flex; align-items: center; justify-content: center;">
+                                    <p style="color: #666;">Gantt chart will be displayed here</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Back</button>
+                    <button type="button" class="btn btn-success" id="downloadQuotationBtn" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); border: none;">
+                        <i class="bi bi-download"></i> Download Quotation & Gantt Chart
+                    </button>
+                    <button type="button" class="btn btn-primary" id="sendQuotationBtn">
+                        <i class="bi bi-send"></i> Send Quotation & Gantt Chart
+                    </button>
                 </div>
             </div>
         </div>
@@ -9387,6 +9520,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const today = new Date().toISOString().split('T')[0];
         $('#quotationDate').val(today);
 
+        // Pricing data for items
+        const itemPricing = {
+            floor: { name: 'Floor', qty: 1, unitCost: 25000 },
+            ceiling: { name: 'Ceiling', qty: 1, unitCost: 15000 },
+            walls: { name: 'Walls (Painting)', qty: 1, unitCost: 20000 },
+            doors: { name: 'Doors', qty: 1, unitCost: 10000 },
+            windows: { name: 'Windows', qty: 1, unitCost: 12000 },
+            paint: { name: 'Paint & Finish', qty: 1, unitCost: 18000 },
+            electrical: { name: 'Electrical Work', qty: 1, unitCost: 30000 },
+            plumbing: { name: 'Plumbing Work', qty: 1, unitCost: 25000 }
+        };
+
         // Show/Hide Size field and Construction Details based on category selection
         $('#quotationCategory').change(function() {
             const selectedCategory = $(this).val();
@@ -9457,38 +9602,87 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Collect form data
-            const formData = new FormData();
-            formData.append('category', category);
-            formData.append('clientName', clientName);
-            formData.append('date', quotationDate);
-            
+            // Populate preview modal
+            let selectedItems = [];
+            let totalCost = 0;
+
             if (category === 'construction') {
-                formData.append('size', $('#quotationSize').val());
-                
-                // Collect selected construction items
-                const selectedItems = [];
+                // Create items data for construction
                 $('.construction-item:checked').each(function() {
-                    selectedItems.push($(this).val());
+                    const itemKey = $(this).val();
+                    const itemData = itemPricing[itemKey];
+                    const itemTotal = itemData.unitCost * itemData.qty;
+                    
+                    selectedItems.push({
+                        name: itemData.name,
+                        qty: itemData.qty,
+                        unitCost: itemData.unitCost,
+                        total: itemTotal
+                    });
+                    totalCost += itemTotal;
                 });
-                formData.append('constructionItems', JSON.stringify(selectedItems));
+            } else {
+                // For non-construction categories, add a single item
+                const categoryName = category.replace('_', ' ').charAt(0).toUpperCase() + category.slice(1);
+                selectedItems.push({
+                    name: categoryName + ' Service',
+                    qty: 1,
+                    unitCost: 50000,
+                    total: 50000
+                });
+                totalCost = 50000;
             }
 
-            // TODO: Send to backend to generate quotation
-            // For now, show success message
-            alert('Quotation data collected:\n\n' +
-                  'Category: ' + category + '\n' +
-                  'Client: ' + clientName + '\n' +
-                  'Date: ' + quotationDate +
-                  (category === 'construction' ? '\nSize: ' + $('#quotationSize').val() : ''));
+            // Update preview modal content
+            $('#previewClientName').text(clientName);
+            $('#previewCategory').text(category.replace('_', ' ').toUpperCase());
+            $('#previewDate').text(new Date(quotationDate).toLocaleDateString('en-IN'));
+            $('#previewSize').text(category === 'construction' ? $('#quotationSize').val() : '-');
 
-            // Close the modal
+            // Populate items table
+            let tableHTML = '';
+            selectedItems.forEach(item => {
+                tableHTML += `<tr>
+                    <td style="font-size: 0.85rem;">${item.name}</td>
+                    <td style="font-size: 0.85rem; text-align: center;">${item.qty}</td>
+                    <td style="font-size: 0.85rem; text-align: right;">USD ${item.unitCost.toLocaleString('en-IN')}</td>
+                    <td style="font-size: 0.85rem; text-align: right;"><strong>USD ${item.total.toLocaleString('en-IN')}</strong></td>
+                </tr>`;
+            });
+            $('#quotationItemsTable').html(tableHTML);
+
+            // Update total cost
+            $('#quotationTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+            // Store data for later use
+            window.quotationData = {
+                category: category,
+                clientName: clientName,
+                date: quotationDate,
+                size: category === 'construction' ? $('#quotationSize').val() : null,
+                items: selectedItems,
+                totalCost: totalCost
+            };
+
+            // Close generator modal and show preview modal
             $('#quotationgeneratorModal').modal('hide');
-            
-            // Reset form
-            $('#quotationGeneratorForm')[0].reset();
-            $('#quotationDate').val(today);
-            $('#quotationCategory').change(); // Reset conditional fields
+            setTimeout(() => {
+                $('#quotationPreviewModal').modal('show');
+            }, 300);
+        });
+
+        // Download Quotation & Gantt button
+        $('#downloadQuotationBtn').click(function() {
+            const data = window.quotationData;
+            alert('Download feature:\nQuotation for ' + data.clientName + '\nTotal: USD ' + data.totalCost.toLocaleString('en-IN') + '\n\nThis will generate PDF files for quotation and Gantt chart.');
+            // TODO: Implement actual download functionality
+        });
+
+        // Send Quotation & Gantt button
+        $('#sendQuotationBtn').click(function() {
+            const data = window.quotationData;
+            alert('Send feature:\nQuotation will be sent to ' + data.clientName + '\nTotal: USD ' + data.totalCost.toLocaleString('en-IN') + '\n\nThis will send email with quotation and Gantt chart.');
+            // TODO: Implement actual send functionality
         });
 
         // Reset form when modal is closed
@@ -9496,6 +9690,12 @@ document.addEventListener('DOMContentLoaded', () => {
             $('#quotationGeneratorForm')[0].reset();
             $('#quotationDate').val(today);
             $('#quotationCategory').change();
+        });
+
+        // Hide preview modal properly
+        $('#quotationPreviewModal').on('hidden.bs.modal', function() {
+            // Reset for next use
+            window.quotationData = null;
         });
     });
 
