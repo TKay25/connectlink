@@ -648,135 +648,178 @@
 </footer>
 
 <script>
-    const portalUrls = { projects: '/projectslogin', hardware: '/loginhardware' };
-    let currentPortal = 'projects';
-    
-    const modal = document.getElementById('loginModal');
-    const closeBtn = document.getElementById('closeModalBtn');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalSubtitle = document.getElementById('modalSubtitle');
-    const form = document.getElementById('loginFormModal');
-    const errorMsg = document.getElementById('errorMessage');
-    const emailInput = document.getElementById('modalEmail');
-    const passwordInput = document.getElementById('modalPassword');
-    const submitBtn = document.getElementById('loginSubmitBtn');
-    const togglePassword = document.getElementById('toggleModalPassword');
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    
-    togglePassword.addEventListener('click', () => {
-        const type = passwordInput.type === 'password' ? 'text' : 'password';
-        passwordInput.type = type;
-        togglePassword.querySelector('i').classList.toggle('fa-eye');
-        togglePassword.querySelector('i').classList.toggle('fa-eye-slash');
-    });
-    
-    document.querySelectorAll('.system-card').forEach(card => {
-        card.addEventListener('click', function(e) {
-            if (e.target.closest('.btn-explore')) e.stopPropagation();
-            currentPortal = this.dataset.portal;
-            if (currentPortal === 'projects') {
-                modalTitle.textContent = 'Building Projects';
-                modalSubtitle.textContent = 'Sign in to access project management dashboard';
-            } else {
-                modalTitle.textContent = 'Hardware POS';
-                modalSubtitle.textContent = 'Sign in to access retail management system';
-            }
-            errorMsg.style.display = 'none';
-            emailInput.value = '';
-            passwordInput.value = '';
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-            setTimeout(() => emailInput.focus(), 100);
-        });
-    });
-    
-    function closeModal() {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-        errorMsg.style.display = 'none';
-    }
-    
-    closeBtn.addEventListener('click', closeModal);
-    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('active')) closeModal(); });
-    
-    function showMessage(message, isError = true) {
-        errorMsg.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
-        if (!isError) {
-            errorMsg.style.background = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
-            errorMsg.style.color = '#059669';
-            errorMsg.style.borderLeftColor = '#059669';
-        } else {
-            errorMsg.style.background = '#fee2e2';
-            errorMsg.style.color = '#dc2626';
-            errorMsg.style.borderLeftColor = '#dc2626';
-        }
-        errorMsg.style.display = 'flex';
-        setTimeout(() => errorMsg.style.display = 'none', 4000);
-    }
-    
-    // Handle form submission with AJAX to match your Flask endpoint
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginFormModal');
+        const togglePassword = document.getElementById('toggleModalPassword');
+        const passwordInput = document.getElementById('modalPassword');
+        const rememberCheckbox = document.getElementById('rememberCheckboxModal');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const errorMessage = document.getElementById('errorMessage');
         
-        const email = emailInput.value.trim();
-        const password = passwordInput.value.trim();
-        
-        if (!email || !password) {
-            showMessage('Please fill in all fields');
-            return;
+        // Password visibility toggle
+        if (togglePassword) {
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                // Toggle icon
+                const icon = this.querySelector('i');
+                if (type === 'text') {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            });
         }
         
-        // Show loading overlay
-        loadingOverlay.style.display = 'flex';
-        submitBtn.disabled = true;
-        
-        // Create FormData object
-        const formData = new FormData();
-        formData.append('emaillogin', email);
-        formData.append('passwordlogin', password);
-        
-        try {
-            // Send POST request to your Flask login endpoint
-            const response = await fetch('/login', {
-                method: 'POST',
-                body: formData
+        // Remember me checkbox
+        if (rememberCheckbox) {
+            rememberCheckbox.addEventListener('click', function() {
+                this.classList.toggle('checked');
+                localStorage.setItem('rememberMe', this.classList.contains('checked'));
             });
             
-            const result = await response.json();
-            
-            if (result.success) {
-                showMessage('Login successful! Redirecting...', false);
-                setTimeout(() => {
-                    window.location.href = '/Dashboard';
-                }, 1000);
-            } else {
-                loadingOverlay.style.display = 'none';
-                submitBtn.disabled = false;
-                showMessage(result.message || 'Login failed. Please check your credentials.');
+            // Load saved email if remember me was checked
+            if (localStorage.getItem('rememberMe') === 'true') {
+                rememberCheckbox.classList.add('checked');
+                const savedEmail = localStorage.getItem('savedEmail');
+                if (savedEmail) {
+                    document.getElementById('modalEmail').value = savedEmail;
+                }
             }
-        } catch (error) {
-            console.error('Login error:', error);
-            loadingOverlay.style.display = 'none';
-            submitBtn.disabled = false;
-            showMessage('Network error. Please try again.');
         }
-    });
-    
-    document.getElementById('forgotPasswordLink').addEventListener('click', function(e) {
-        e.preventDefault();
-        showMessage('Password reset feature coming soon. Contact your administrator.');
-    });
-    
-    document.getElementById('needHelpLink').addEventListener('click', function(e) {
-        e.preventDefault();
-        showMessage('Contact support: support@connectlink.co.zw');
-    });
-    
-    document.addEventListener('keydown', function(e) {
-        if (modal.classList.contains('active')) return;
-        if (e.key === '1') window.location.href = '/loginhardware';
-        else if (e.key === '2') window.location.href = '/projectslogin';
+        
+        // Helper functions
+        function isValidEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+        
+        function showMessage(message, isError = true) {
+            errorMessage.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
+            if (!isError) {
+                errorMessage.style.background = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
+                errorMessage.style.color = '#059669';
+                errorMessage.style.borderLeftColor = '#059669';
+            } else {
+                errorMessage.style.background = '#fee2e2';
+                errorMessage.style.color = '#dc2626';
+                errorMessage.style.borderLeftColor = '#dc2626';
+            }
+            errorMessage.style.display = 'flex';
+            
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Form submission - exact same approach as your admin login
+        if (loginForm) {
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // Validate form
+                const email = document.getElementById('modalEmail').value.trim();
+                const password = document.getElementById('modalPassword').value.trim();
+                
+                if (!email || !password) {
+                    showMessage('Please fill in all fields');
+                    return;
+                }
+                
+                if (!isValidEmail(email)) {
+                    showMessage('Please enter a valid email address');
+                    return;
+                }
+                
+                // Save email if remember me is checked
+                if (rememberCheckbox && rememberCheckbox.classList.contains('checked')) {
+                    localStorage.setItem('savedEmail', email);
+                }
+                
+                // Show loading overlay
+                loadingOverlay.style.display = 'flex';
+                
+                // Add subtle animation to button
+                const submitBtn = loginForm.querySelector('.modal-login-btn');
+                if (submitBtn) submitBtn.style.transform = 'scale(0.98)';
+                
+                try {
+                    // Submit the form normally - this will redirect to dashboard on success
+                    loginForm.submit();
+                    
+                } catch (error) {
+                    showMessage('Login failed. Please check your credentials.');
+                    loadingOverlay.style.display = 'none';
+                    if (submitBtn) submitBtn.style.transform = '';
+                }
+            });
+        }
+        
+        // Forgot password handler
+        const forgotLink = document.getElementById('forgotPasswordLink');
+        if (forgotLink) {
+            forgotLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                showMessage('Password reset feature coming soon!', false);
+            });
+        }
+        
+        // Need help handler
+        const needHelpLink = document.getElementById('needHelpLink');
+        if (needHelpLink) {
+            needHelpLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                showMessage('Contact support: support@connectlink.co.zw', false);
+            });
+        }
+        
+        // Input field focus effects
+        const inputs = document.querySelectorAll('.form-input-modal');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.classList.add('focused');
+            });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.classList.remove('focused');
+            });
+        });
+        
+        // Keyboard shortcuts for cards (1 and 2)
+        document.addEventListener('keydown', function(e) {
+            const modal = document.getElementById('loginModal');
+            if (modal && modal.classList.contains('active')) return;
+            if (e.key === '1') window.location.href = '/loginhardware';
+            else if (e.key === '2') window.location.href = '/projectslogin';
+        });
+        
+        // Add focus effect on modal open
+        const modalOverlay = document.getElementById('loginModal');
+        if (modalOverlay) {
+            modalOverlay.addEventListener('DOMNodeInserted', function() {
+                setTimeout(() => {
+                    const emailInput = document.getElementById('modalEmail');
+                    if (emailInput) {
+                        emailInput.focus();
+                        emailInput.parentElement.classList.add('focused');
+                    }
+                }, 100);
+            });
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('loginModal');
+                if (modal && modal.classList.contains('active')) {
+                    modal.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            }
+        });
     });
 </script>
 </body>
