@@ -15857,9 +15857,8 @@ def generate_deposit_receipt_html(row, effective_date, logo_base64):
 def logout():
     # Clear the session data to log the user out
     session.clear()
-
     # Redirect to the landing page or login page after logout
-    return redirect(url_for('userlogin'))
+    return render_template('mainindex.html')  # Or send_from_directory for static HTML
 
 @app.teardown_appcontext
 def close_db(error):
