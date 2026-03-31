@@ -10,7 +10,6 @@ from flask import Flask, request, jsonify, session, render_template, redirect, u
 from datetime import datetime, timedelta, date
 import calendar
 import pandas as pd
-from xhtml2pdf import pisa
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import seaborn as sns
