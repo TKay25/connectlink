@@ -20,32 +20,24 @@
             --accent: #b50d0d;
             --accent-light: #c63f3f;
             --white: #FFFFFF;
-            --gray-50: #F9FAFB;
             --gray-100: #F3F4F6;
             --gray-200: #E5E7EB;
-            --gray-300: #D1D5DB;
-            --gray-400: #9CA3AF;
             --gray-500: #6B7280;
-            --gray-600: #4B5563;
-            --gray-700: #374151;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-            --radius-sm: 0.5rem;
-            --radius-md: 0.75rem;
             --radius-lg: 1rem;
             --radius-xl: 1.25rem;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
             background: var(--white);
-            position: relative;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Simple Diagonal Background */
+        /* Diagonal Background */
         body::after {
             content: '';
             position: fixed;
@@ -61,13 +53,14 @@
             z-index: -2;
         }
 
-        /* Navbar */
+        /* Navbar - Compact */
         .navbar {
             background: rgba(255, 255, 255, 0.98);
             box-shadow: var(--shadow-sm);
             padding: 0.5rem 2rem;
-            position: sticky;
+            position: fixed;
             top: 0;
+            width: 100%;
             z-index: 100;
             border-bottom: 1px solid var(--gray-200);
         }
@@ -80,26 +73,32 @@
         }
 
         .navbar-brand img {
-            height: 32px;
+            height: 28px;
         }
 
         .brand-text {
             font-weight: 700;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--primary);
         }
 
-        /* Main Content */
+        /* Main Content - Full Height without Scroll */
         .main-content {
-            min-height: calc(100vh - 70px);
+            height: 100vh;
             display: flex;
             align-items: center;
-            padding: 40px 5%;
+            padding: 10px 5% 0;
+        }
+
+        .container-fluid-custom {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
         }
 
         /* Left Column */
         .hero-left {
-            padding-right: 40px;
+            padding-right: 30px;
         }
 
         .hero-badge {
@@ -110,67 +109,67 @@
             font-size: 0.6rem;
             font-weight: 600;
             color: white;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .hero-logo {
-            height: 50px;
+            height: 45px;
             width: auto;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
 
         .hero-left h1 {
-            font-size: 2rem;
+            font-size: 1.8rem;
             font-weight: 800;
             color: white;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             line-height: 1.2;
         }
 
         .hero-left .lead-text {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: rgba(255, 255, 255, 0.85);
-            max-width: 450px;
-            line-height: 1.5;
+            max-width: 420px;
+            line-height: 1.4;
         }
 
         /* Right Column */
         .portal-right {
-            padding-left: 150px;
+            padding-left: 60px;
         }
 
         .portal-header {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
         .portal-header .badge {
             background: var(--accent);
             color: white;
-            padding: 4px 14px;
+            padding: 3px 12px;
             border-radius: 30px;
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             font-weight: 600;
             display: inline-block;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
 
         .portal-header h2 {
-            font-size: 1.3rem;
+            font-size: 1.2rem;
             font-weight: 700;
-            color: var(--gray-800);
-            margin-bottom: 5px;
+            color: var(--gray-500);
+            margin-bottom: 4px;
         }
 
         .portal-header p {
             color: var(--gray-500);
-            font-size: 0.7rem;
+            font-size: 0.65rem;
         }
 
         /* Cards */
         .cards-container {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 14px;
         }
 
         .system-card {
@@ -179,22 +178,22 @@
             box-shadow: var(--shadow-sm);
             transition: all 0.2s ease;
             cursor: pointer;
-            padding: 20px 24px;
+            padding: 16px 20px;
             display: flex;
-            gap: 16px;
+            gap: 14px;
             align-items: center;
             border: 1px solid var(--gray-200);
         }
 
         .system-card:hover {
-            transform: translateY(-3px);
+            transform: translateY(-2px);
             box-shadow: var(--shadow-md);
             border-color: var(--accent-light);
         }
 
         .card-icon {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             background: var(--gray-100);
             border-radius: 12px;
             display: flex;
@@ -209,7 +208,7 @@
         }
 
         .card-icon i {
-            font-size: 1.3rem;
+            font-size: 1.2rem;
             color: var(--primary);
         }
 
@@ -222,30 +221,30 @@
         }
 
         .system-card h2 {
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: 700;
-            color: var(--gray-800);
-            margin-bottom: 5px;
+            color: var(--gray-700);
+            margin-bottom: 4px;
         }
 
         .system-card p {
             color: var(--gray-500);
-            font-size: 0.65rem;
-            line-height: 1.4;
-            margin-bottom: 10px;
+            font-size: 0.6rem;
+            line-height: 1.35;
+            margin-bottom: 8px;
         }
 
         .btn-explore {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             background: transparent;
             color: var(--accent);
             border: 1px solid var(--accent);
-            padding: 4px 14px;
+            padding: 3px 12px;
             border-radius: 30px;
             font-weight: 500;
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             transition: all 0.2s;
             cursor: pointer;
         }
@@ -255,7 +254,7 @@
             color: white;
         }
 
-        /* Simple Modal - Lightweight */
+        /* Modal */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -278,8 +277,8 @@
             background: white;
             border-radius: var(--radius-xl);
             width: 90%;
-            max-width: 380px;
-            box-shadow: var(--shadow-lg);
+            max-width: 400px;
+            box-shadow: var(--shadow-md);
             animation: modalFadeIn 0.2s ease;
         }
 
@@ -296,39 +295,40 @@
 
         .modal-header {
             background: var(--primary);
-            padding: 24px 24px 20px;
+            padding: 20px 20px 16px;
             text-align: center;
             border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            position: relative;
         }
 
         .modal-header .modal-logo {
-            width: 55px;
-            margin-bottom: 12px;
+            width: 48px;
+            margin-bottom: 10px;
         }
 
         .modal-header h3 {
             color: white;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 700;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
 
         .modal-header p {
             color: rgba(255, 255, 255, 0.8);
-            font-size: 0.7rem;
+            font-size: 0.65rem;
         }
 
         .close-modal {
             position: absolute;
-            top: 15px;
-            right: 18px;
+            top: 12px;
+            right: 15px;
             background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             cursor: pointer;
-            width: 28px;
-            height: 28px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -341,19 +341,19 @@
         }
 
         .modal-body {
-            padding: 24px;
+            padding: 20px;
         }
 
         .form-group {
-            margin-bottom: 18px;
+            margin-bottom: 14px;
         }
 
         .form-group label {
             display: block;
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             font-weight: 600;
-            color: var(--gray-600);
-            margin-bottom: 6px;
+            color: var(--gray-500);
+            margin-bottom: 5px;
         }
 
         .input-group-modal {
@@ -366,15 +366,15 @@
             top: 50%;
             transform: translateY(-50%);
             color: var(--gray-400);
-            font-size: 0.8rem;
+            font-size: 0.75rem;
         }
 
         .form-input-modal {
             width: 100%;
-            padding: 10px 12px 10px 38px;
-            font-size: 0.8rem;
+            padding: 8px 12px 8px 36px;
+            font-size: 0.75rem;
             border: 1px solid var(--gray-200);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-lg);
             transition: all 0.2s;
             outline: none;
         }
@@ -393,22 +393,18 @@
             border: none;
             color: var(--gray-400);
             cursor: pointer;
-            font-size: 0.8rem;
-        }
-
-        .password-toggle-modal:hover {
-            color: var(--accent);
+            font-size: 0.75rem;
         }
 
         .modal-login-btn {
             width: 100%;
-            padding: 10px;
+            padding: 8px;
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-lg);
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             cursor: pointer;
             transition: all 0.2s;
             margin-top: 5px;
@@ -416,23 +412,22 @@
 
         .modal-login-btn:hover {
             background: var(--accent-light);
-            transform: translateY(-1px);
         }
 
         .modal-footer-links {
             text-align: center;
-            margin-top: 18px;
-            padding-top: 15px;
+            margin-top: 14px;
+            padding-top: 12px;
             border-top: 1px solid var(--gray-200);
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 18px;
         }
 
         .modal-footer-links a {
             color: var(--gray-500);
             text-decoration: none;
-            font-size: 0.65rem;
+            font-size: 0.6rem;
         }
 
         .modal-footer-links a:hover {
@@ -442,48 +437,62 @@
         .error-message {
             background: #fee2e2;
             color: #dc2626;
-            padding: 8px 12px;
-            border-radius: var(--radius-md);
-            font-size: 0.7rem;
-            margin-bottom: 15px;
+            padding: 6px 10px;
+            border-radius: var(--radius-lg);
+            font-size: 0.65rem;
+            margin-bottom: 12px;
             display: none;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         /* Footer */
         .footer {
-            padding: 20px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            padding: 12px;
             text-align: center;
             border-top: 1px solid var(--gray-200);
+            background: transparent;
         }
 
         .footer p {
             color: var(--gray-500);
-            font-size: 0.6rem;
-        }
-
-        .keyboard-hint {
-            position: fixed;
-            bottom: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 4px 10px;
-            border-radius: 30px;
             font-size: 0.55rem;
-            color: white;
-            z-index: 100;
+            margin: 0;
         }
 
-        @media (max-width: 992px) {
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero-left h1 {
+                font-size: 1.5rem;
+            }
+            .hero-logo {
+                height: 38px;
+            }
+            .portal-right {
+                padding-left: 30px;
+            }
+            .system-card {
+                padding: 14px 16px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                overflow: auto;
+                height: auto;
+            }
             .main-content {
+                height: auto;
                 flex-direction: column;
-                padding: 30px 5%;
+                padding: 80px 5% 60px;
             }
             .hero-left {
                 text-align: center;
                 padding-right: 0;
-                margin-bottom: 40px;
+                margin-bottom: 30px;
             }
             .hero-left .lead-text {
                 margin: 0 auto;
@@ -499,67 +508,77 @@
                 max-width: 450px;
                 margin: 0 auto;
             }
+            .footer {
+                position: relative;
+                margin-top: 30px;
+            }
         }
 
-        @media (max-width: 576px) {
+        @media (max-width: 480px) {
             .hero-left h1 {
-                font-size: 1.5rem;
+                font-size: 1.3rem;
             }
             .hero-logo {
-                height: 40px;
+                height: 32px;
             }
             .system-card {
-                padding: 16px;
+                padding: 12px;
             }
             .card-icon {
-                width: 40px;
-                height: 40px;
+                width: 36px;
+                height: 36px;
             }
-            .keyboard-hint {
-                display: none;
+            .card-icon i {
+                font-size: 1rem;
+            }
+            .system-card h2 {
+                font-size: 0.8rem;
             }
         }
     </style>
 </head>
 <body>
 
+
 <!-- Main Content -->
-<div class="main-content container">
-    <div class="row align-items-center">
-        <!-- Left Column -->
-        <div class="col-lg-6 hero-left">
-            <span class="hero-badge"><i class="fas fa-crown me-1"></i> Enterprise Solutions</span>
-            <div><img src="/static/images/web-logo-white.png" alt="Logo" class="hero-logo"></div>
-            <h1>Building Projects<br>& Hardware Solutions</h1>
-            <p class="lead-text">ConnectLink construction project management<br>and hardware retail operations</p>
-        </div>
-        
-        <!-- Right Column -->
-        <div class="col-lg-6 portal-right">
-            <div class="portal-header">
-                <span class="badge"><i class="fas fa-compass me-1"></i> Choose Your Portal</span>
-                <h2>Select Your Workspace</h2>
-                <p>Access the right tools for your role</p>
+<div class="main-content">
+    <div class="container-fluid-custom">
+        <div class="row align-items-center">
+            <!-- Left Column -->
+            <div class="col-lg-6 hero-left">
+                <span class="hero-badge"><i class="fas fa-crown me-1"></i> Enterprise Solutions</span>
+                <div><img src="/static/images/web-logo-white.png" alt="Logo" class="hero-logo"></div>
+                <h1>Building Projects<br>& Hardware Solutions</h1>
+                <p class="lead-text">ConnectLink construction project management and hardware retail operations</p>
             </div>
             
-            <div class="cards-container">
-                <!-- Building Projects Card -->
-                <div class="system-card" data-portal="projects">
-                    <div class="card-icon"><i class="fas fa-hard-hat"></i></div>
-                    <div class="card-content">
-                        <h2>Building Projects</h2>
-                        <p>Construction project management, contracts, payment tracking</p>
-                        <button class="btn-explore">Access Portal <i class="fas fa-arrow-right"></i></button>
-                    </div>
+            <!-- Right Column -->
+            <div class="col-lg-6 portal-right">
+                <div class="portal-header">
+                    <span class="badge"><i class="fas fa-compass me-1"></i> Choose Your Portal</span>
+                    <h2>Select Your Workspace</h2>
+                    <p>Access the right tools for your role</p>
                 </div>
                 
-                <!-- Hardware POS Card -->
-                <div class="system-card" data-portal="hardware">
-                    <div class="card-icon"><i class="fas fa-cash-register"></i></div>
-                    <div class="card-content">
-                        <h2>Hardware POS</h2>
-                        <p>Complete retail management for ConnectLink hardware operations</p>
-                        <button class="btn-explore">Launch POS <i class="fas fa-arrow-right"></i></button>
+                <div class="cards-container">
+                    <!-- Building Projects Card -->
+                    <div class="system-card" data-portal="projects">
+                        <div class="card-icon"><i class="fas fa-hard-hat"></i></div>
+                        <div class="card-content">
+                            <h2>Building Projects</h2>
+                            <p>Construction project management, contracts, payment tracking</p>
+                            <button class="btn-explore">Access Portal <i class="fas fa-arrow-right"></i></button>
+                        </div>
+                    </div>
+                    
+                    <!-- Hardware POS Card -->
+                    <div class="system-card" data-portal="hardware">
+                        <div class="card-icon"><i class="fas fa-cash-register"></i></div>
+                        <div class="card-content">
+                            <h2>Hardware POS</h2>
+                            <p>Complete retail management for ConnectLink hardware operations</p>
+                            <button class="btn-explore">Launch POS <i class="fas fa-arrow-right"></i></button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -570,11 +589,10 @@
 <!-- Simple Modal -->
 <div class="modal-overlay" id="loginModal">
     <div class="login-modal">
-        <div class="modal-header" style="position: relative;">
+        <div class="modal-header">
             <button class="close-modal" id="closeModalBtn"><i class="fas fa-times"></i></button>
             <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
-            <h3 id="modalTitle">Building Projects</h3>
-            <p id="modalSubtitle">Sign in to access your dashboard</p>
+            <h3 id="modalTitle">Building Projects Login</h3>
         </div>
         <div class="modal-body">
             <div class="error-message" id="errorMessage"><i class="fas fa-exclamation-circle"></i> Invalid credentials</div>
@@ -606,8 +624,7 @@
 
 <!-- Footer -->
 <footer class="footer">
-    <p>© 2026 ConnectLink Properties & Hardware</p>
-    <p>From Concept to Creation — Let's Build Together</p>
+    <p>© 2026 ConnectLink Properties & Hardware | From Concept to Creation — Let's Build Together</p>
 </footer>
 
 <script>
@@ -617,7 +634,6 @@
     const modal = document.getElementById('loginModal');
     const closeBtn = document.getElementById('closeModalBtn');
     const modalTitle = document.getElementById('modalTitle');
-    const modalSubtitle = document.getElementById('modalSubtitle');
     const form = document.getElementById('loginFormModal');
     const errorMsg = document.getElementById('errorMessage');
     const emailInput = document.getElementById('modalEmail');
@@ -639,11 +655,9 @@
             if (e.target.closest('.btn-explore')) e.stopPropagation();
             currentPortal = this.dataset.portal;
             if (currentPortal === 'projects') {
-                modalTitle.textContent = 'Building Projects';
-                modalSubtitle.textContent = 'Sign in to access project management';
+                modalTitle.textContent = 'Building Projects Login';
             } else {
                 modalTitle.textContent = 'Hardware POS';
-                modalSubtitle.textContent = 'Sign in to access retail system';
             }
             errorMsg.style.display = 'none';
             emailInput.value = '';
