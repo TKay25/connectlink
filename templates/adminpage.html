@@ -1484,6 +1484,11 @@ body::before {
         </button>
 
         <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
+                id="quotationgeneratorBtn" data-bs-toggle="modal" data-bs-target="#quotationgeneratorModal">
+            <span><i class="bi bi-newspaper"></i>   Generate A Quotation</span>
+        </button>
+
+        <button class="btn w-100 d-flex justify-content-between align-items-center border rounded-2 mb-2 p-2"
                 id="createuserBtn" data-bs-toggle="modal" data-bs-target="#systemUserModal">
             <span><i class="bi bi-person-fill-add"></i> Manage System Users</span>
         </button>
@@ -4419,6 +4424,111 @@ body::before {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quotation Generator Modal -->
+    <div class="modal fade" id="quotationgeneratorModal" tabindex="-1" aria-labelledby="quotationgeneratorModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #1E2A56; color: white;">
+                    <h6 class="modal-title" id="quotationgeneratorModalLabel">
+                        <i class="bi bi-newspaper"></i> Generate Quotation
+                    </h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="quotationGeneratorForm">
+                        <!-- Category Dropdown -->
+                        <div class="mb-3">
+                            <label for="quotationCategory" class="form-label" style="font-weight: bold;">Quotation Category <span class="text-danger">*</span></label>
+                            <select class="form-control" id="quotationCategory" name="category" required>
+                                <option value="">-- Select Category --</option>
+                                <option value="construction">Construction</option>
+                                <option value="kitchen">Kitchen and Cabinets</option>
+                                <option value="tv_units">TV Units</option>
+                                <option value="doors">Doors</option>
+                                <option value="windows">Windows</option>
+                                <option value="flooring">Flooring</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Client Name -->
+                        <div class="mb-3">
+                            <label for="quotationClientName" class="form-label" style="font-weight: bold;">Client Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quotationClientName" name="clientName" placeholder="Enter client name" required>
+                        </div>
+
+                        <!-- Size Field (Conditional - Construction) -->
+                        <div class="mb-3" id="quotationSizeContainer" style="display: none;">
+                            <label for="quotationSize" class="form-label" style="font-weight: bold;">Size <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quotationSize" name="size" placeholder="e.g., 1200 sq ft, 50x30 ft">
+                        </div>
+
+                        <!-- Date Field (Auto-filled) -->
+                        <div class="mb-3">
+                            <label for="quotationDate" class="form-label" style="font-weight: bold;">Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="quotationDate" name="date" required readonly>
+                        </div>
+
+                        <!-- Tickboxes for Construction Details (Conditional) -->
+                        <div id="constructionDetailsContainer" style="display: none;">
+                            <div class="mb-3">
+                                <label style="font-weight: bold; display: block; margin-bottom: 0.75rem;">Construction Details</label>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span style="font-size: 0.9rem;">Select items to include in quotation:</span>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllCheckbox" style="font-size: 0.8rem;">Select All</button>
+                                </div>
+                                <div class="border rounded p-3" style="background-color: #f8f9fa;">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input construction-item" type="checkbox" id="floorCheck" name="constructionItems" value="floor">
+                                                <label class="form-check-label" for="floorCheck">Floor</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input construction-item" type="checkbox" id="ceilingCheck" name="constructionItems" value="ceiling">
+                                                <label class="form-check-label" for="ceilingCheck">Ceiling</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input construction-item" type="checkbox" id="wallsCheck" name="constructionItems" value="walls">
+                                                <label class="form-check-label" for="wallsCheck">Walls</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input construction-item" type="checkbox" id="doorsCheck" name="constructionItems" value="doors">
+                                                <label class="form-check-label" for="doorsCheck">Doors</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input construction-item" type="checkbox" id="windowsCheck" name="constructionItems" value="windows">
+                                                <label class="form-check-label" for="windowsCheck">Windows</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input construction-item" type="checkbox" id="paintCheck" name="constructionItems" value="paint">
+                                                <label class="form-check-label" for="paintCheck">Paint</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input construction-item" type="checkbox" id="electricalCheck" name="constructionItems" value="electrical">
+                                                <label class="form-check-label" for="electricalCheck">Electrical</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input construction-item" type="checkbox" id="plumbingCheck" name="constructionItems" value="plumbing">
+                                                <label class="form-check-label" for="plumbingCheck">Plumbing</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="generateQuotationBtn">Generate Quotation</button>
                 </div>
             </div>
         </div>
@@ -9271,12 +9381,123 @@ document.addEventListener('DOMContentLoaded', () => {
 
     });
 
+    // Quotation Generator Modal Logic
+    $(document).ready(function() {
+        // Set today's date automatically
+        const today = new Date().toISOString().split('T')[0];
+        $('#quotationDate').val(today);
 
+        // Show/Hide Size field and Construction Details based on category selection
+        $('#quotationCategory').change(function() {
+            const selectedCategory = $(this).val();
+            
+            if (selectedCategory === 'construction') {
+                $('#quotationSizeContainer').show();
+                $('#constructionDetailsContainer').show();
+                $('#quotationSize').prop('required', true);
+            } else {
+                $('#quotationSizeContainer').hide();
+                $('#constructionDetailsContainer').hide();
+                $('#quotationSize').prop('required', false);
+                $('#quotationSize').val('');
+                // Clear all construction item checkboxes if construction is not selected
+                $('.construction-item').prop('checked', false);
+            }
+        });
 
+        // Select All functionality for construction items
+        $('#selectAllCheckbox').click(function() {
+            const isChecked = !$('.construction-item:first').prop('checked');
+            $('.construction-item').prop('checked', isChecked);
+            
+            // Update button text
+            if (isChecked) {
+                $(this).text('Deselect All');
+            } else {
+                $(this).text('Select All');
+            }
+        });
 
+        // Update Select All button text when individual checkboxes change
+        $('.construction-item').change(function() {
+            const totalItems = $('.construction-item').length;
+            const checkedItems = $('.construction-item:checked').length;
+            
+            if (checkedItems === totalItems) {
+                $('#selectAllCheckbox').text('Deselect All');
+            } else {
+                $('#selectAllCheckbox').text('Select All');
+            }
+        });
 
+        // Handle Generate Quotation button click
+        $('#generateQuotationBtn').click(function() {
+            // Get form data
+            const category = $('#quotationCategory').val();
+            const clientName = $('#quotationClientName').val();
+            const quotationDate = $('#quotationDate').val();
+            
+            if (!category || !clientName || !quotationDate) {
+                alert('Please fill in all required fields.');
+                return;
+            }
 
+            // If construction is selected, validate additional fields
+            if (category === 'construction') {
+                const size = $('#quotationSize').val();
+                if (!size) {
+                    alert('Please enter the size for construction.');
+                    return;
+                }
+                
+                const constructionItems = $('.construction-item:checked');
+                if (constructionItems.length === 0) {
+                    alert('Please select at least one construction detail.');
+                    return;
+                }
+            }
 
+            // Collect form data
+            const formData = new FormData();
+            formData.append('category', category);
+            formData.append('clientName', clientName);
+            formData.append('date', quotationDate);
+            
+            if (category === 'construction') {
+                formData.append('size', $('#quotationSize').val());
+                
+                // Collect selected construction items
+                const selectedItems = [];
+                $('.construction-item:checked').each(function() {
+                    selectedItems.push($(this).val());
+                });
+                formData.append('constructionItems', JSON.stringify(selectedItems));
+            }
+
+            // TODO: Send to backend to generate quotation
+            // For now, show success message
+            alert('Quotation data collected:\n\n' +
+                  'Category: ' + category + '\n' +
+                  'Client: ' + clientName + '\n' +
+                  'Date: ' + quotationDate +
+                  (category === 'construction' ? '\nSize: ' + $('#quotationSize').val() : ''));
+
+            // Close the modal
+            $('#quotationgeneratorModal').modal('hide');
+            
+            // Reset form
+            $('#quotationGeneratorForm')[0].reset();
+            $('#quotationDate').val(today);
+            $('#quotationCategory').change(); // Reset conditional fields
+        });
+
+        // Reset form when modal is closed
+        $('#quotationgeneratorModal').on('hidden.bs.modal', function() {
+            $('#quotationGeneratorForm')[0].reset();
+            $('#quotationDate').val(today);
+            $('#quotationCategory').change();
+        });
+    });
 
 </script>
 

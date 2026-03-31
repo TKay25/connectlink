@@ -182,7 +182,7 @@
         // Export buttons
         document.getElementById('exportCashflowExcel')?.addEventListener('click', ()=> window.location.href='/export_cashflow');
         document.getElementById('sendRemindersNow')?.addEventListener('click', ()=> fetch('/api/payment-reminders').then(()=>alert('Reminders processed.')));
-        document.getElementById('aiInsightBtn')?.addEventListener('click', ()=> alert('🤖 AI: Total Contract Value: $' + ({ num_projects } * 10000) + ' approx. Upcoming payments: check payments tab.'));
+        document.getElementById('aiInsightBtn')?.addEventListener('click', ()=> alert('🤖 AI: Total Contract Value: $' + ({{ num_projects } * 10000) + ' approx. Upcoming payments: check payments tab.'));
         document.getElementById('exportEnquiriesBtn')?.addEventListener('click', ()=> window.location.href='/export-enquiries');
         document.getElementById('triggerPortfolioDownload')?.addEventListener('click', ()=> window.location.href='/export-projects-portfolio');
         document.getElementById('downloadInstallmentsBtn')?.addEventListener('click', ()=> window.location.href='/download_installments');
