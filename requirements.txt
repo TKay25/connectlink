@@ -24,4 +24,3 @@ scikit-learn
 statsmodels
 numpy
 python-socketio
-bidi
