@@ -13,7 +13,9 @@ weasyprint
 paynow
 apscheduler
 bleach
-google-generativeai==0.3.2
+google-generativeai>=0.8.0
+protobuf>=5.27.0
+google-api-core>=2.19.0
 Flask-CORS
 psycopg2-binary
 pytz
