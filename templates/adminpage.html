@@ -1034,7 +1034,7 @@
 
 <!-- Update Project Modal - Blur Overlay Version -->
 <div id="updateModal" class="modal-overlay">
-    <div class="modal-container xlarge">
+    <div class="modal-container">
         <div class="modal-header-custom">
             <h3><i class="bi bi-card-checklist"></i> PROJECT PROGRESS UPDATE</h3>
             <button class="close-modal" onclick="closeModal('updateModal')">
@@ -1205,585 +1205,561 @@
     </div>
 </div>
 
-        <!-- CHANGE INSTALLMENT DATE MODAL -->
-    <div class="modal fade" id="changeInstallmentDateModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-
-                <div class="modal-header" style="background:#1E2A56;color:white;">
-                    <h6 class="modal-title">FIRST INSTALLMENT DUE DATE CHANGE</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-
-                    <input type="hidden" id="modalProjectId">
-
-                    <label class="fw-bold">New Due Date</label>
-                    <input type="date" class="form-control editable-field" id="modalNewDueDate">
-
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-
-                    <button type="button" class="btn btn-primary" id="saveNewInstallmentDateBtn" style="width: max-content;">
-                        <span id="saveDateText">Save Changes</span>
-                        <span id="saveDateSpinner" class="spinner-border spinner-border-sm d-none"></span>
-                    </button>
-                </div>
-
+<!-- CHANGE INSTALLMENT DATE MODAL - Blur Overlay Version -->
+<div id="changeInstallmentDateModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-calendar-date"></i> FIRST INSTALLMENT DUE DATE CHANGE</h3>
+            <button class="close-modal" onclick="closeModal('changeInstallmentDateModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <input type="hidden" id="modalProjectId">
+            <div class="form-group">
+                <label class="form-label fw-bold">New Due Date</label>
+                <input type="date" class="form-control editable-field" id="modalNewDueDate">
             </div>
         </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('changeInstallmentDateModal')">Close</button>
+            <button type="button" class="btn btn-primary" id="saveNewInstallmentDateBtn">
+                <span id="saveDateText">Save Changes</span>
+                <span id="saveDateSpinner" class="spinner-border spinner-border-sm d-none"></span>
+            </button>
+        </div>
     </div>
+</div>
 
-<!-- Simple Download Modal -->
-<div class="modal fade" id="downloadPortfolioModal" tabindex="-1" aria-labelledby="downloadPortfolioModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header" style="background:#1E2A56;color:white;">
-                <h6 class="modal-title" id="downloadPortfolioModalLabel">
-                    <i class="bi bi-download"></i> DOWNLOAD MASTER PROJECTS FILE
-                </h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- Simple Download Modal - Blur Overlay Version -->
+<div id="downloadPortfolioModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-download"></i> DOWNLOAD MASTER PROJECTS FILE</h3>
+            <button class="close-modal" onclick="closeModal('downloadPortfolioModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="mb-4">
+                <label class="form-label fw-bold mb-3 d-flex align-items-center">
+                    <i class="bi bi-filter me-2"></i> Select Projects to Include
+                </label>
+                
+                <select class="form-select form-select-lg" id="downloadFilter">
+                    <option value="all">📋 All Projects</option>
+                    <!-- Months will be loaded here -->
+                </select>
+                
+                <div class="mt-2 text-muted small">
+                    <i class="bi bi-info-circle"></i> 
+                    <span id="filterHelpText">Download complete project list in Excel format</span>
+                </div>
             </div>
-            <div class="modal-body">
-                <!-- Simple Selection -->
-                <div class="mb-4">
-                    <label class="form-label fw-bold mb-3 d-flex align-items-center">
-                        <i class="bi bi-filter me-2"></i> Select Projects to Include
-                    </label>
-                    
-                    <select class="form-select form-select-lg" id="downloadFilter">
-                        <option value="all">📋 All Projects</option>
-                        <!-- Months will be loaded here -->
-                    </select>
-                    
-                    <div class="mt-2 text-muted small">
-                        <i class="bi bi-info-circle"></i> 
-                        <span id="filterHelpText">Download complete project list in Excel format</span>
+            
+            <!-- Quick Stats Preview -->
+            <div class="alert alert-light border">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted d-block">Estimated records:</small>
+                        <span class="fw-bold fs-5" id="recordCount">--</span>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted d-block">File format:</small>
+                        <span class="badge bg-success">Excel (.xlsx)</span>
                     </div>
                 </div>
-                
-                <!-- Quick Stats Preview -->
-                <div class="alert alert-light border">
-                    <div class="d-flex justify-content-between align-items-center">
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('downloadPortfolioModal')">Close</button>
+            <button type="button" class="btn btn-primary" id="downloadBtn">
+                <i class="bi bi-download"></i> Generate & Download
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Audit Installments Modal - Blur Overlay Version -->
+<div id="auditInstallmentsModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-credit-card-2-front-fill"></i> INSTALLMENTS SCHEDULE AUDIT</h3>
+            <button class="close-modal" onclick="closeModal('auditInstallmentsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <!-- Summary Stats -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">Total Projects</h6>
+                            <h3 id="auditTotalProjects">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-warning bg-opacity-25">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">Projects with Variance</h6>
+                            <h3 id="auditVarianceCount">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-success bg-opacity-25">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">Balanced Projects</h6>
+                            <h3 id="auditBalancedCount">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Auto-Correct All Button -->
+            <div class="mb-3 d-flex justify-content-end">
+                <button class="btn btn-warning" id="autoCorrectAllBtn">
+                    <i class="bi bi-lightning-charge-fill"></i> Auto-Correct All Projects
+                </button>
+            </div>
+            
+            <!-- Quick Stats Preview -->
+            <div class="alert alert-light border mb-3">
+                <div class="row mb-2">
+                    <div class="col-12">
+                        <small class="text-muted d-block">Audit Summary:</small>
+                        <div id="auditFilterSummary" class="fw-bold small">Projects with installment variances (Variance = Balance Due minus Sum of Installments)</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <small class="text-muted d-block">Total Variance Amount:</small>
+                        <span class="fw-bold fs-5 text-danger" id="totalVarianceAmount">$0.00</span>
+                    </div>
+                    <div class="col-6">
+                        <span class="badge bg-info me-1">📊</span>
+                        <small class="text-muted">File Format:</small>
                         <div>
-                            <small class="text-muted d-block">Estimated records:</small>
-                            <span class="fw-bold fs-5" id="recordCount">--</span>
-                        </div>
-                        <div class="text-end">
-                            <small class="text-muted d-block">File format:</small>
                             <span class="badge bg-success">Excel (.xlsx)</span>
+                            <span class="badge bg-primary ms-1">Audit Report</span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
-                    Close
-                </button>
-                <button type="button" class="btn btn-primary" id="downloadBtn" style="width: max-content;">
-                    <i class="bi bi-download"></i> Generate & Download
-                </button>
+            
+            <!-- Audit Results Table -->
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-bordered table-hover" id="auditResultsTable">
+                    <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                        <tr>
+                            <th>Project ID</th>
+                            <th>Client Name</th>
+                            <th>Project Name</th>
+                            <th>Total Contract</th>
+                            <th>Deposit</th>
+                            <th>Balance Due</th>
+                            <th>Sum of Installments</th>
+                            <th>Variance</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditResultsBody">
+                        <!-- Data will be loaded here -->
+                    </tbody>
+                </table>
             </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('auditInstallmentsModal')">Close</button>
+            <button type="button" class="btn btn-primary" id="downloadAuditReportBtn">
+                <i class="bi bi-download"></i> Download Audit Report
+            </button>
+        </div>
+    </div>
+</div>
+<!-- Download Installments Modal - Blur Overlay Version -->
+<div id="downloadInstallmentsModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-download"></i> DOWNLOAD INSTALLMENTS SCHEDULE</h3>
+            <button class="close-modal" onclick="closeModal('downloadInstallmentsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <!-- Project Start Month Selection -->
+            <div class="mb-4">
+                <label class="form-label fw-bold mb-3 d-flex align-items-center">
+                    <i class="bi bi-calendar-plus me-2"></i> Select Project Start Month
+                </label>
+                
+                <select class="form-select" id="projectStartFilter">
+                    <option value="all">📅 All Time</option>
+                    <!-- Project start months will be loaded here -->
+                </select>
+                
+                <div class="mt-1 text-muted small">
+                    <i class="bi bi-info-circle"></i> Filter by when projects started
+                </div>
+            </div>
+            
+            <!-- Due Month Selection -->
+            <div class="mb-4">
+                <label class="form-label fw-bold mb-3 d-flex align-items-center">
+                    <i class="bi bi-calendar-check me-2"></i> Select Due Month (Optional)
+                </label>
+                
+                <select class="form-select" id="dueMonthFilter">
+                    <option value="all">📅 All Due Dates</option>
+                    <!-- Due months will be loaded here -->
+                </select>
+                
+                <div class="mt-1 text-muted small">
+                    <i class="bi bi-info-circle"></i> Filter by installment due dates
+                </div>
+            </div>
+            
+            <!-- Quick Stats Preview -->
+            <div class="alert alert-light border">
+                <div class="row mb-2">
+                    <div class="col-12">
+                        <small class="text-muted d-block">Filter Summary:</small>
+                        <div id="filterSummary" class="fw-bold small">All projects, all due dates</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-4">
+                        <small class="text-muted d-block">Total:</small>
+                        <span class="fw-bold fs-5" id="totalInstallmentsCount">--</span>
+                    </div>
+                    <div class="col-4">
+                        <span class="badge bg-success me-1">✅</span>
+                        <small class="text-muted">Paid:</small>
+                        <div class="fw-bold" id="paidCount">--</div>
+                    </div>
+                    <div class="col-4">
+                        <span class="badge bg-warning me-1">⏰</span>
+                        <small class="text-muted">Due:</small>
+                        <div class="fw-bold" id="dueCount">--</div>
+                    </div>
+                </div>
+                <hr class="my-2">
+                <div class="row">
+                    <div class="col-12">
+                        <small class="text-muted d-block">File Format:</small>
+                        <span class="badge bg-success">Excel (.xlsx)</span>
+                        <span class="badge bg-info ms-1">Separate Paid/Due Sheets</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('downloadInstallmentsModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" id="downloadInstallmentsBtn">
+                <i class="bi bi-download"></i> Generate & Download
+            </button>
         </div>
     </div>
 </div>
 
-<!-- Audit Installments Modal -->
-<div class="modal fade" id="auditInstallmentsModal" tabindex="-1" aria-labelledby="auditInstallmentsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl">
-        <div class="modal-content">
-            <div class="modal-header" style="background:#1E2A56;color:white;">
-                <h6 class="modal-title" id="auditInstallmentsModalLabel">
-                    <i class="bi bi-credit-card-2-front-fill"></i> INSTALLMENTS SCHEDULE AUDIT
-                </h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: brightness(0) invert(1);"></button>
+<!-- SENT REMINDERS MODAL - Blur Overlay Version -->
+<div id="sentRemindersModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-clock-history me-2"></i> Sent WhatsApp Reminders</h3>
+            <button class="close-modal" onclick="closeModal('sentRemindersModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <!-- Filter Controls -->
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="sentRemindersSearch" class="form-control" placeholder="Search client or project...">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <select id="sentRemindersStatusFilter" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="soon">Due Soon</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <select id="sentRemindersDateFilter" class="form-select">
+                        <option value="">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                    </select>
+                </div>
             </div>
-            <div class="modal-body">
-                <!-- Summary Stats -->
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h6 class="card-title text-muted">Total Projects</h6>
-                                <h3 id="auditTotalProjects">0</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card bg-warning bg-opacity-25">
-                            <div class="card-body">
-                                <h6 class="card-title text-muted">Projects with Variance</h6>
-                                <h3 id="auditVarianceCount">0</h3>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card bg-success bg-opacity-25">
-                            <div class="card-body">
-                                <h6 class="card-title text-muted">Balanced Projects</h6>
-                                <h3 id="auditBalancedCount">0</h3>
+            
+            <!-- Summary Stats -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Total Sent</h6>
+                                    <p class="mb-0" id="totalSentCount">0</p>
+                                </div>
+                                <i class="bi bi-send fs-4 text-primary"></i>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Auto-Correct All Button -->
-                <div class="mb-3 d-flex justify-content-end">
-                    <button class="btn btn-warning" id="autoCorrectAllBtn">
-                        <i class="bi bi-lightning-charge-fill"></i> Auto-Correct All Projects
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Overdue</h6>
+                                    <p class="mb-0" id="overdueSentCount">0</p>
+                                </div>
+                                <i class="bi bi-exclamation-triangle fs-4 text-danger"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Due Soon</h6>
+                                    <p class="mb-0" id="soonSentCount">0</p>
+                                </div>
+                                <i class="bi bi-clock fs-4 text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Failed</h6>
+                                    <p class="mb-0" id="failedSentCount">0</p>
+                                </div>
+                                <i class="bi bi-x-circle fs-4 text-secondary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading Indicator -->
+            <div id="sentRemindersLoading" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading sent reminders...</p>
+            </div>
+            
+            <!-- Sent Reminders Table -->
+            <div id="sentRemindersContainer" style="max-height: 500px; overflow-y: auto; display: none;">
+                <table class="table table-hover table-sm">
+                    <thead class="sticky-top" style="background-color: #f8f9fa;">
+                        <tr>
+                            <th>#</th>
+                            <th><i class="bi bi-person me-1"></i> Client</th>
+                            <th><i class="bi bi-phone me-1"></i> WhatsApp</th>
+                            <th><i class="bi bi-briefcase me-1"></i> Project</th>
+                            <th><i class="bi bi-hash me-1"></i> Installment</th>
+                            <th><i class="bi bi-cash me-1"></i> Amount</th>
+                            <th><i class="bi bi-tag me-1"></i> Status</th>
+                            <th><i class="bi bi-calendar me-1"></i> Days Info</th>
+                            <th><i class="bi bi-clock me-1"></i> Sent At</th>
+                            <th><i class="bi bi-info-circle me-1"></i> Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sentRemindersTableBody">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('sentRemindersModal')">Close</button>
+            <button type="button" class="btn btn-primary" onclick="loadSentReminders()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- PAYMENT REMINDERS MODAL - Blur Overlay Version -->
+<div id="paymentRemindersModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-bell-fill"></i> Payment Reminders</h3>
+            <button class="close-modal" onclick="closeModal('paymentRemindersModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <!-- Summary Cards -->
+            <div class="dashboard-summary mb-4">
+                <div class="summary-card">
+                    <div class="icon">
+                        <i class="bi bi-clock text-warning"></i>
+                    </div>
+                    <div class="details">
+                        <h5>Due Soon</h5>
+                        <p id="dueSoonCount" class="text-warning">0</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="icon">
+                        <i class="bi bi-exclamation-triangle text-danger"></i>
+                    </div>
+                    <div class="details">
+                        <h5>Overdue</h5>
+                        <p id="overdueCount" class="text-danger">0</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="icon">
+                        <i class="bi bi-cash-stack text-info"></i>
+                    </div>
+                    <div class="details">
+                        <h5>Total Amount</h5>
+                        <p id="totalAmount" class="text-info">$0</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="icon">
+                        <i class="bi bi-people text-primary"></i>
+                    </div>
+                    <div class="details">
+                        <h5>Clients</h5>
+                        <p id="totalClients" class="text-primary">0</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="icon">
+                        <i class="bi bi-whatsapp text-success"></i>
+                    </div>
+                    <div class="details">
+                        <h5>Ready to Send</h5>
+                        <p id="readyToSend" class="text-success">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-3" id="reminderTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="dueSoon-tab" data-bs-toggle="tab" data-bs-target="#dueSoon" type="button" role="tab">
+                        <i class="bi bi-clock me-1"></i> Due within next 3 days 
+                        <span class="badge bg-warning ms-2" id="dueSoonBadge">0</span>
                     </button>
-                </div>
-                
-                <!-- Quick Stats Preview -->
-                <div class="alert alert-light border mb-3">
-                    <div class="row mb-2">
-                        <div class="col-12">
-                            <small class="text-muted d-block">Audit Summary:</small>
-                            <div id="auditFilterSummary" class="fw-bold small">Projects with installment variances (Variance = Balance Due minus Sum of Installments)</div>
-                        </div>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">
+                        <i class="bi bi-exclamation-triangle me-1"></i> Overdue 
+                        <span class="badge bg-danger ms-2" id="overdueBadge">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
+                        <i class="bi bi-list-ul me-1"></i> All Reminders
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Due Soon Tab -->
+                <div class="tab-pane fade show active" id="dueSoon" role="tabpanel">
+                    <div style="max-height: 400px; overflow-y: auto; padding: 8px;">
+                        <table class="table table-hover table-theme">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Client</th>
+                                    <th>WhatsApp</th>
+                                    <th>Project</th>
+                                    <th>Installment</th>
+                                    <th>Amount</th>
+                                    <th>Due Date</th>
+                                    <th>Days Left</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dueSoonTableBody">
+                                <!-- Filled by JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="row">
-                        <div class="col-6">
-                            <small class="text-muted d-block">Total Variance Amount:</small>
-                            <span class="fw-bold fs-5 text-danger" id="totalVarianceAmount">$0.00</span>
-                        </div>
-                        <div class="col-6">
-                            <span class="badge bg-info me-1">📊</span>
-                            <small class="text-muted">File Format:</small>
-                            <div>
-                                <span class="badge bg-success">Excel (.xlsx)</span>
-                                <span class="badge bg-primary ms-1">Audit Report</span>
-                            </div>
-                        </div>
+                </div>
+
+                <!-- Overdue Tab -->
+                <div class="tab-pane fade" id="overdue" role="tabpanel">
+                    <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                        <table class="table table-hover table-theme">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Client</th>
+                                    <th>WhatsApp</th>
+                                    <th>Project</th>
+                                    <th>Installment</th>
+                                    <th>Amount</th>
+                                    <th>Due Date</th>
+                                    <th>Days Overdue</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overdueTableBody">
+                                <!-- Filled by JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                
-                <!-- Audit Results Table -->
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-bordered table-hover" id="auditResultsTable">
-                        <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
-                            <tr>
-                                <th>Project ID</th>
-                                <th>Client Name</th>
-                                <th>Project Name</th>
-                                <th>Total Contract</th>
-                                <th>Deposit</th>
-                                <th>Balance Due</th>
-                                <th>Sum of Installments</th>
-                                <th>Variance</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="auditResultsBody">
-                            <!-- Data will be loaded here -->
-                        </tbody>
-                    </table>
+
+                <!-- All Tab -->
+                <div class="tab-pane fade" id="all" role="tabpanel">
+                    <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                        <table class="table table-hover table-theme">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Client</th>
+                                    <th>WhatsApp</th>
+                                    <th>Project</th>
+                                    <th>Installment</th>
+                                    <th>Amount</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allRemindersTableBody">
+                                <!-- Filled by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
-                    Close
-                </button>
-                <button type="button" class="btn btn-primary" id="downloadAuditReportBtn">
-                    <i class="bi bi-download"></i> Download Audit Report
-                </button>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Download Modal -->
-<div class="modal fade" id="downloadInstallmentsModal" tabindex="-1" aria-labelledby="downloadInstallmentsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header" style="background:#1E2A56;color:white;">
-                <h6 class="modal-title" id="downloadInstallmentsModalLabel">
-                    <i class="bi bi-download"></i> DOWNLOAD INSTALLMENTS SCHEDULE
-                </h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Project Start Month Selection -->
-                <div class="mb-4">
-                    <label class="form-label fw-bold mb-3 d-flex align-items-center">
-                        <i class="bi bi-calendar-plus me-2"></i> Select Project Start Month
-                    </label>
-                    
-                    <select class="form-select" id="projectStartFilter">
-                        <option value="all">📅 All Time</option>
-                        <!-- Project start months will be loaded here -->
-                    </select>
-                    
-                    <div class="mt-1 text-muted small">
-                        <i class="bi bi-info-circle"></i> Filter by when projects started
-                    </div>
-                </div>
-                
-                <!-- Due Month Selection -->
-                <div class="mb-4">
-                    <label class="form-label fw-bold mb-3 d-flex align-items-center">
-                        <i class="bi bi-calendar-check me-2"></i> Select Due Month (Optional)
-                    </label>
-                    
-                    <select class="form-select" id="dueMonthFilter">
-                        <option value="all">📅 All Due Dates</option>
-                        <!-- Due months will be loaded here -->
-                    </select>
-                    
-                    <div class="mt-1 text-muted small">
-                        <i class="bi bi-info-circle"></i> Filter by installment due dates
-                    </div>
-                </div>
-                
-                <!-- Quick Stats Preview -->
-                <div class="alert alert-light border">
-                    <div class="row mb-2">
-                        <div class="col-12">
-                            <small class="text-muted d-block">Filter Summary:</small>
-                            <div id="filterSummary" class="fw-bold small">All projects, all due dates</div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-4">
-                            <small class="text-muted d-block">Total:</small>
-                            <span class="fw-bold fs-5" id="totalInstallmentsCount">--</span>
-                        </div>
-                        <div class="col-4">
-                            <span class="badge bg-success me-1">✅</span>
-                            <small class="text-muted">Paid:</small>
-                            <div class="fw-bold" id="paidCount">--</div>
-                        </div>
-                        <div class="col-4">
-                            <span class="badge bg-warning me-1">⏰</span>
-                            <small class="text-muted">Due:</small>
-                            <div class="fw-bold" id="dueCount">--</div>
-                        </div>
-                    </div>
-                    <hr class="my-2">
-                    <div class="row">
-                        <div class="col-12">
-                            <small class="text-muted d-block">File Format:</small>
-                            <span class="badge bg-success">Excel (.xlsx)</span>
-                            <span class="badge bg-info ms-1">Separate Paid/Due Sheets</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-danger" data-bs-dismiss="modal">
-                    Cancel
-                </button>
-                <button type="button" class="btn btn-primary" id="downloadInstallmentsBtn" style="width: max-content;">
-                    <i class="bi bi-download"></i> Generate & Download
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- SENT REMINDERS MODAL -->
-<div class="modal fade" id="sentRemindersModal" tabindex="-1" aria-labelledby="sentRemindersModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="sentRemindersModalLabel">
-                    <i class="bi bi-clock-history me-2"></i> Sent WhatsApp Reminders
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Filter Controls -->
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="text" id="sentRemindersSearch" class="form-control" placeholder="Search client or project...">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <select id="sentRemindersStatusFilter" class="form-select">
-                            <option value="">All Status</option>
-                            <option value="overdue">Overdue</option>
-                            <option value="soon">Due Soon</option>
-                            <option value="failed">Failed</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <select id="sentRemindersDateFilter" class="form-select">
-                            <option value="">All Time</option>
-                            <option value="today">Today</option>
-                            <option value="week">This Week</option>
-                            <option value="month">This Month</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- Summary Stats -->
-                <div class="row mb-3">
-                    <div class="col-md-3">
-                        <div class="card bg-light">
-                            <div class="card-body py-2">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-0">Total Sent</h6>
-                                        <p class="mb-0" id="totalSentCount">0</p>
-                                    </div>
-                                    <i class="bi bi-send fs-4 text-primary"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-light">
-                            <div class="card-body py-2">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-0">Overdue</h6>
-                                        <p class="mb-0" id="overdueSentCount">0</p>
-                                    </div>
-                                    <i class="bi bi-exclamation-triangle fs-4 text-danger"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-light">
-                            <div class="card-body py-2">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-0">Due Soon</h6>
-                                        <p class="mb-0" id="soonSentCount">0</p>
-                                    </div>
-                                    <i class="bi bi-clock fs-4 text-warning"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-light">
-                            <div class="card-body py-2">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h6 class="mb-0">Failed</h6>
-                                        <p class="mb-0" id="failedSentCount">0</p>
-                                    </div>
-                                    <i class="bi bi-x-circle fs-4 text-secondary"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Loading Indicator -->
-                <div id="sentRemindersLoading" class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2 text-muted">Loading sent reminders...</p>
-                </div>
-                
-                <!-- Sent Reminders Table -->
-                <div id="sentRemindersContainer" style="max-height: 500px; overflow-y: auto; display: none;">
-                    <table class="table table-hover table-sm">
-                        <thead class="sticky-top" style="background-color: var(--bg-color);">
-                            <tr>
-                                <th>#</th>
-                                <th><i class="bi bi-person me-1"></i> Client</th>
-                                <th><i class="bi bi-phone me-1"></i> WhatsApp</th>
-                                <th><i class="bi bi-briefcase me-1"></i> Project</th>
-                                <th><i class="bi bi-hash me-1"></i> Installment</th>
-                                <th><i class="bi bi-cash me-1"></i> Amount</th>
-                                <th><i class="bi bi-tag me-1"></i> Status</th>
-                                <th><i class="bi bi-calendar me-1"></i> Days Info</th>
-                                <th><i class="bi bi-clock me-1"></i> Sent At</th>
-                                <th><i class="bi bi-info-circle me-1"></i> Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="sentRemindersTableBody">
-                            <!-- Will be populated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="loadSentReminders()">
-                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- PAYMENT REMINDERS MODAL - Add this anywhere in your HTML body -->
-<div class="modal fade" id="paymentRemindersModal" tabindex="-1" aria-labelledby="paymentRemindersModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="paymentRemindersModalLabel">
-                    <i class="bi bi-bell-fill"></i> Payment Reminders
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Summary Cards -->
-                <div class="dashboard-summary mb-4">
-                    <div class="summary-card">
-                        <div class="icon">
-                            <i class="bi bi-clock text-warning"></i>
-                        </div>
-                        <div class="details">
-                            <h5>Due Soon</h5>
-                            <p id="dueSoonCount" class="text-warning">0</p>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="icon">
-                            <i class="bi bi-exclamation-triangle text-danger"></i>
-                        </div>
-                        <div class="details">
-                            <h5>Overdue</h5>
-                            <p id="overdueCount" class="text-danger">0</p>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="icon">
-                            <i class="bi bi-cash-stack text-info"></i>
-                        </div>
-                        <div class="details">
-                            <h5>Total Amount</h5>
-                            <p id="totalAmount" class="text-info">$0</p>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="icon">
-                            <i class="bi bi-people text-primary"></i>
-                        </div>
-                        <div class="details">
-                            <h5>Clients</h5>
-                            <p id="totalClients" class="text-primary">0</p>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="icon">
-                            <i class="bi bi-whatsapp text-success"></i>
-                        </div>
-                        <div class="details">
-                            <h5>Ready to Send</h5>
-                            <p id="readyToSend" class="text-success">0</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tabs -->
-                <ul class="nav nav-tabs mb-3" id="reminderTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="dueSoon-tab" data-bs-toggle="tab" data-bs-target="#dueSoon" type="button" role="tab">
-                            <i class="bi bi-clock me-1"></i> Due within next 3 days 
-                            <span class="badge bg-warning ms-2" id="dueSoonBadge">0</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">
-                            <i class="bi bi-exclamation-triangle me-1"></i> Overdue 
-                            <span class="badge bg-danger ms-2" id="overdueBadge">0</span>
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">
-                            <i class="bi bi-list-ul me-1"></i> All Reminders
-                        </button>
-                    </li>
-                </ul>
-
-                <!-- Tab Content -->
-                <div class="tab-content">
-                    <!-- Due Soon Tab -->
-                    <div class="tab-pane fade show active" id="dueSoon" role="tabpanel">
-                        <div style="max-height: 400px; overflow-y: auto; padding: 8px;">
-                            <table class="table table-hover table-theme">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Client</th>
-                                        <th>WhatsApp</th>
-                                        <th>Project</th>
-                                        <th>Installment</th>
-                                        <th>Amount</th>
-                                        <th>Due Date</th>
-                                        <th>Days Left</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dueSoonTableBody">
-                                    <!-- Filled by JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Overdue Tab -->
-                    <div class="tab-pane fade" id="overdue" role="tabpanel">
-                        <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
-                            <table class="table table-hover table-theme">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Client</th>
-                                        <th>WhatsApp</th>
-                                        <th>Project</th>
-                                        <th>Installment</th>
-                                        <th>Amount</th>
-                                        <th>Due Date</th>
-                                        <th>Days Overdue</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="overdueTableBody">
-                                    <!-- Filled by JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- All Tab -->
-                    <div class="tab-pane fade" id="all" role="tabpanel">
-                        <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
-                            <table class="table table-hover table-theme">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Client</th>
-                                        <th>WhatsApp</th>
-                                        <th>Project</th>
-                                        <th>Installment</th>
-                                        <th>Amount</th>
-                                        <th>Due Date</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="allRemindersTableBody">
-                                    <!-- Filled by JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-outline-info" id="viewSentRemindersBtn">
-                    <i class="bi bi-clock-history me-1"></i> View Sent Reminders
-                </button>
-                <button type="button" class="btn btn-success" id="sendAllRemindersBtn">
-                    <i class="bi bi-whatsapp me-1"></i> Send All Reminders
-                </button>
-            </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('paymentRemindersModal')">Close</button>
+            <button type="button" class="btn btn-outline-info" id="viewSentRemindersBtn" onclick="openModal('sentRemindersModal')">
+                <i class="bi bi-clock-history me-1"></i> View Sent Reminders
+            </button>
+            <button type="button" class="btn btn-success" id="sendAllRemindersBtn">
+                <i class="bi bi-whatsapp me-1"></i> Send All Reminders
+            </button>
         </div>
     </div>
 </div>
@@ -1794,308 +1770,303 @@
 
 
 
-<!-- View Interim Enquiries Modal -->
-<div class="modal fade" id="viewEnquiriesModal" tabindex="-1" aria-labelledby="viewEnquiriesModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen" style="max-width: 1400px;">
-        <div class="modal-content" style="height: 95vh;">
-            <!-- Modal Header -->
-            <div class="modal-header" style="background:#1E2A56;color:white;">
-                <div class="d-flex align-items-center w-100">
-                    <div class="me-3">
-                        <i class="bi bi-search fs-3"></i>
-                    </div>
-                    <div class="flex-grow-1">
-                        <h5 class="modal-title mb-0 fw-bold">INTERIM ENQUIRIES MANAGEMENT</h5>
-                        <small class="opacity-85">View and manage temporary enquiries</small>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-white text-primary px-3 py-2" id="recordCount">0 records</span>
-                        <button type="button" class="btn btn-light btn-sm px-3" onclick="loadEnquiriesData()">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
+<!-- View Interim Enquiries Modal - Blur Overlay Version -->
+<div id="viewEnquiriesModal" class="modal-overlay">
+    <div class="modal-container fullscreen">
+        <div class="modal-header-custom">
+            <div class="d-flex align-items-center w-100">
+                <div class="me-3">
+                    <i class="bi bi-search fs-3"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h3 class="mb-0 fw-bold">INTERIM ENQUIRIES MANAGEMENT</h3>
+                    <small class="opacity-85">View and manage temporary enquiries</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-white text-dark px-3 py-2" id="recordCountHeader">0 records</span>
+                    <button type="button" class="btn btn-light btn-sm px-3" onclick="loadEnquiriesData()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                    <button class="close-modal" onclick="closeModal('viewEnquiriesModal')">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
                 </div>
             </div>
-            
-            <!-- Modal Body -->
-            <div class="modal-body p-0 d-flex flex-column">
-                <!-- Statistics Bar -->
-                <div class="border-bottom bg-light py-3 px-4">
-                    <div class="row g-3">
-                        <div class="col-auto">
-                            <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
-                                <i class="bi bi-inbox text-primary me-2 fs-5"></i>
-                                <div>
-                                    <div class="fw-bold text-dark fs-4" id="totalEnquiries">0</div>
-                                    <small class="text-muted">Total</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-auto">
-                            <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
-                                <i class="bi bi-cup-straw text-success me-2 fs-5"></i>
-                                <div>
-                                    <div class="fw-bold text-dark fs-4" id="kitchenCount">0</div>
-                                    <small class="text-muted">Kitchen</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-auto">
-                            <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
-                                <i class="bi bi-building text-warning me-2 fs-5"></i>
-                                <div>
-                                    <div class="fw-bold text-dark fs-4" id="buildingCount">0</div>
-                                    <small class="text-muted">Building</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-auto">
-                            <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
-                                <i class="bi bi-house-up text-info me-2 fs-5"></i>
-                                <div>
-                                    <div class="fw-bold text-dark fs-4" id="renovationCount">0</div>
-                                    <small class="text-muted">Renovation</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-auto">
-                            <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
-                                <i class="bi bi-three-dots text-secondary me-2 fs-5"></i>
-                                <div>
-                                    <div class="fw-bold text-dark fs-4" id="otherCount">0</div>
-                                    <small class="text-muted">Other</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Main Content Area -->
-                <div class="flex-grow-1 d-flex" style="min-height: 0;">
-                    <!-- Left Sidebar - Filters -->
-                    <div class="border-end bg-white" style="width: 300px; flex-shrink: 0;">
-                        <div class="p-3" style="height: 100%; overflow-y: auto;">
-                            <!-- Quick Filters -->
-                            <div class="mb-4">
-                                <h6 class="text-dark mb-3 fw-bold">
-                                    <i class="bi bi-lightning text-primary me-2"></i>
-                                    Quick Filters
-                                </h6>
-                                <div class="d-flex flex-wrap gap-2">
-                                    <button class="btn btn-sm btn-outline-primary active" onclick="filterByType('all')" id="filterAll">
-                                        All
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-success" onclick="filterByType('kitchen_cabinets')" id="filterKitchen">
-                                        Kitchen
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-warning" onclick="filterByType('building')" id="filterBuilding">
-                                        Building
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-info" onclick="filterByType('renovation')" id="filterRenovation">
-                                        Renovation
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="filterByType('otherenq')" id="filterOther">
-                                        Other
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Search Filters -->
-                            <div class="mb-4">
-                                <h6 class="text-dark mb-3 fw-bold">
-                                    <i class="bi bi-search text-primary me-2"></i>
-                                    Search Filters
-                                </h6>
-                                <div class="mb-3">
-                                    <label class="form-label small text-muted mb-1">Enquiry Type</label>
-                                    <select class="form-select form-select-sm" id="enquiryTypeFilter" onchange="applyFilters()">
-                                        <option value="all">All Types</option>
-                                        <option value="kitchen_cabinets">Kitchen & Cabinets</option>
-                                        <option value="building">Building</option>
-                                        <option value="renovation">Renovation</option>
-                                        <option value="otherenq">Other</option>
-                                    </select>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label small text-muted mb-1">WhatsApp Number</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">
-                                            <i class="bi bi-whatsapp text-success"></i>
-                                        </span>
-                                        <input type="text" class="form-control" id="whatsappFilter" 
-                                               placeholder="Search number..." onkeyup="applyFilters()">
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label small text-muted mb-1">Enquiry ID</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">
-                                            <i class="bi bi-hash"></i>
-                                        </span>
-                                        <input type="text" class="form-control" id="idFilter" 
-                                               placeholder="Search ID..." onkeyup="applyFilters()">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Bulk Actions -->
-                            <div class="mb-4">
-                                <h6 class="text-dark mb-3 fw-bold">
-                                    <i class="bi bi-check2-square text-primary me-2"></i>
-                                    Bulk Actions
-                                </h6>
-                                <div class="d-grid gap-2">
-                                    <button class="btn btn-sm btn-outline-success" onclick="copySelectedNumbers()">
-                                        <i class="bi bi-copy me-1"></i> Copy Numbers
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteSelectedEnquiries()">
-                                        <i class="bi bi-trash me-1"></i> Delete Selected
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
-                                        <i class="bi bi-x me-1"></i> Clear Selection
-                                    </button>
-                                </div>
-                                <div class="mt-2 text-center small text-muted" id="selectedInfo">
-                                    0 selected
-                                </div>
-                            </div>
-
-                            <!-- Export Section -->
-                            <div class="mb-4">
-                                <h6 class="text-dark mb-3 fw-bold">
-                                    <i class="bi bi-download text-primary me-2"></i>
-                                    Export Data
-                                </h6>
-                                <div class="d-grid gap-2">
-                                    <button class="btn btn-sm btn-success" onclick="exportToExcel()">
-                                        <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
-                                    </button>
-                                    <button class="btn btn-sm btn-primary" onclick="exportToCSV()">
-                                        <i class="bi bi-filetype-csv me-1"></i> Export CSV
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary" onclick="printReport()">
-                                        <i class="bi bi-printer me-1"></i> Print Report
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Refresh Section -->
+        </div>
+        
+        <div class="modal-body-custom p-0 d-flex flex-column" style="height: calc(85vh - 70px);">
+            <!-- Statistics Bar -->
+            <div class="border-bottom bg-light py-3 px-4">
+                <div class="row g-3">
+                    <div class="col-auto">
+                        <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
+                            <i class="bi bi-inbox text-primary me-2 fs-5"></i>
                             <div>
-                                <button class="btn btn-sm btn-outline-primary w-100" onclick="loadEnquiriesData()">
-                                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh Data
-                                </button>
-                                <div class="mt-2 text-center small text-muted">
-                                    <i class="bi bi-clock me-1"></i>
-                                    Updated: <span id="lastUpdated">Just now</span>
-                                </div>
+                                <div class="fw-bold text-dark fs-4" id="totalEnquiries">0</div>
+                                <small class="text-muted">Total</small>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Main Table Area -->
-                    <div class="flex-grow-1" style="min-width: 0;">
-                        <!-- Table Header -->
-                        <div class="border-bottom bg-white py-2 px-3">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <div class="form-check me-3">
-                                        <input class="form-check-input" type="checkbox" id="selectAll" 
-                                               onchange="toggleSelectAll()">
-                                    </div>
-                                    <h6 class="mb-0 text-dark fw-bold">
-                                        <i class="bi bi-table text-primary me-2"></i>
-                                        Enquiries List
-                                    </h6>
-                                    <span class="badge bg-light text-dark ms-3" id="filteredCount">0</span>
-                                </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="input-group input-group-sm" style="width: 250px;">
-                                        <input type="text" class="form-control" id="globalSearch" 
-                                               placeholder="Search all columns..." onkeyup="applyGlobalSearch()">
-                                        <button class="btn btn-outline-secondary" type="button">
-                                            <i class="bi bi-search"></i>
-                                        </button>
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="scrollToTop()">
-                                        <i class="bi bi-arrow-up"></i>
-                                    </button>
-                                </div>
+                    <div class="col-auto">
+                        <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
+                            <i class="bi bi-cup-straw text-success me-2 fs-5"></i>
+                            <div>
+                                <div class="fw-bold text-dark fs-4" id="kitchenCount">0</div>
+                                <small class="text-muted">Kitchen</small>
                             </div>
                         </div>
-
-                        <!-- Table Container -->
-                        <div class="position-relative flex-grow-1" style="overflow: auto;">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="bg-light sticky-top" style="top: 0;">
-                                    <tr>
-                                        <th class="px-4 py-3" style="width: 80px;">
-                                            <span class="small text-muted">#</span>
-                                        </th>
-                                        <th class="px-4 py-3" style="width: 150px;">
-                                            <span class="small text-muted">ENQUIRY ID</span>
-                                        </th>
-                                        <th class="px-4 py-3" style="min-width: 350px;">
-                                            <i class="bi bi-whatsapp text-success me-1"></i>
-                                            <span class="small text-muted">WHATSAPP NUMBER</span>
-                                        </th>
-                                        <th class="px-4 py-3" style="width: 200px;">
-                                            <i class="bi bi-tag me-1"></i>
-                                            <span class="small text-muted">ENQUIRY TYPE</span>
-                                        </th>
-                                        <th class="px-4 py-3 text-center" style="width: 150px;">
-                                            <i class="bi bi-gear me-1"></i>
-                                            <span class="small text-muted">ACTIONS</span>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody id="enquiriesTableBody">
-                                    <!-- Loading State -->
-                                    <tr id="loadingRow">
-                                        <td colspan="5" class="text-center py-5">
-                                            <div class="d-flex flex-column align-items-center">
-                                                <div class="spinner-border text-primary" role="status">
-                                                    <span class="visually-hidden">Loading...</span>
-                                                </div>
-                                                <p class="mt-3 text-muted">Loading enquiries data...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-
-                            <!-- No Data Message -->
-                            <div class="text-center py-5 d-none" id="noDataMessage">
-                                <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
-                                    <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
-                                    <h5 class="text-muted mb-2">No Enquiries Found</h5>
-                                    <p class="text-muted small mb-4">No records match your search criteria</p>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="resetFilters()">
-                                        <i class="bi bi-arrow-clockwise me-1"></i> Reset Filters
-                                    </button>
-                                </div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
+                            <i class="bi bi-building text-warning me-2 fs-5"></i>
+                            <div>
+                                <div class="fw-bold text-dark fs-4" id="buildingCount">0</div>
+                                <small class="text-muted">Building</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
+                            <i class="bi bi-house-up text-info me-2 fs-5"></i>
+                            <div>
+                                <div class="fw-bold text-dark fs-4" id="renovationCount">0</div>
+                                <small class="text-muted">Renovation</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="d-flex align-items-center bg-white rounded px-3 py-2 shadow-sm">
+                            <i class="bi bi-three-dots text-secondary me-2 fs-5"></i>
+                            <div>
+                                <div class="fw-bold text-dark fs-4" id="otherCount">0</div>
+                                <small class="text-muted">Other</small>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Modal Footer -->
-            <div class="modal-footer border-top py-2 px-3">
-                <div class="d-flex justify-content-between align-items-center w-100">
-                    <div class="text-muted small">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Total: <span class="fw-bold" id="totalRecords">0</span> records | 
-                        Showing: <span class="fw-bold" id="showingRecords">0</span> records
+            <!-- Main Content Area -->
+            <div class="flex-grow-1 d-flex" style="min-height: 0;">
+                <!-- Left Sidebar - Filters -->
+                <div class="border-end bg-white" style="width: 300px; flex-shrink: 0;">
+                    <div class="p-3" style="height: 100%; overflow-y: auto;">
+                        <!-- Quick Filters -->
+                        <div class="mb-4">
+                            <h6 class="text-dark mb-3 fw-bold">
+                                <i class="bi bi-lightning text-primary me-2"></i>
+                                Quick Filters
+                            </h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-outline-primary active" onclick="filterByType('all')" id="filterAll">
+                                    All
+                                </button>
+                                <button class="btn btn-sm btn-outline-success" onclick="filterByType('kitchen_cabinets')" id="filterKitchen">
+                                    Kitchen
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" onclick="filterByType('building')" id="filterBuilding">
+                                    Building
+                                </button>
+                                <button class="btn btn-sm btn-outline-info" onclick="filterByType('renovation')" id="filterRenovation">
+                                    Renovation
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="filterByType('otherenq')" id="filterOther">
+                                    Other
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Search Filters -->
+                        <div class="mb-4">
+                            <h6 class="text-dark mb-3 fw-bold">
+                                <i class="bi bi-search text-primary me-2"></i>
+                                Search Filters
+                            </h6>
+                            <div class="mb-3">
+                                <label class="form-label small text-muted mb-1">Enquiry Type</label>
+                                <select class="form-select form-select-sm" id="enquiryTypeFilter" onchange="applyFilters()">
+                                    <option value="all">All Types</option>
+                                    <option value="kitchen_cabinets">Kitchen & Cabinets</option>
+                                    <option value="building">Building</option>
+                                    <option value="renovation">Renovation</option>
+                                    <option value="otherenq">Other</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small text-muted mb-1">WhatsApp Number</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-whatsapp text-success"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="whatsappFilter" 
+                                           placeholder="Search number..." onkeyup="applyFilters()">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small text-muted mb-1">Enquiry ID</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-hash"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="idFilter" 
+                                           placeholder="Search ID..." onkeyup="applyFilters()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bulk Actions -->
+                        <div class="mb-4">
+                            <h6 class="text-dark mb-3 fw-bold">
+                                <i class="bi bi-check2-square text-primary me-2"></i>
+                                Bulk Actions
+                            </h6>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-sm btn-outline-success" onclick="copySelectedNumbers()">
+                                    <i class="bi bi-copy me-1"></i> Copy Numbers
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSelectedEnquiries()">
+                                    <i class="bi bi-trash me-1"></i> Delete Selected
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                                    <i class="bi bi-x me-1"></i> Clear Selection
+                                </button>
+                            </div>
+                            <div class="mt-2 text-center small text-muted" id="selectedInfo">
+                                0 selected
+                            </div>
+                        </div>
+
+                        <!-- Export Section -->
+                        <div class="mb-4">
+                            <h6 class="text-dark mb-3 fw-bold">
+                                <i class="bi bi-download text-primary me-2"></i>
+                                Export Data
+                            </h6>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-sm btn-success" onclick="exportToExcel()">
+                                    <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+                                </button>
+                                <button class="btn btn-sm btn-primary" onclick="exportToCSV()">
+                                    <i class="bi bi-filetype-csv me-1"></i> Export CSV
+                                </button>
+                                <button class="btn btn-sm btn-secondary" onclick="printReport()">
+                                    <i class="bi bi-printer me-1"></i> Print Report
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Refresh Section -->
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary w-100" onclick="loadEnquiriesData()">
+                                <i class="bi bi-arrow-clockwise me-1"></i> Refresh Data
+                            </button>
+                            <div class="mt-2 text-center small text-muted">
+                                <i class="bi bi-clock me-1"></i>
+                                Updated: <span id="lastUpdated">Just now</span>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary me-2" data-bs-dismiss="modal">
-                            <i class="bi bi-x-lg me-1"></i> Close
-                        </button>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="loadEnquiriesData()">
-                            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
-                        </button>
+                </div>
+
+                <!-- Main Table Area -->
+                <div class="flex-grow-1" style="min-width: 0;">
+                    <!-- Table Header -->
+                    <div class="border-bottom bg-white py-2 px-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="form-check me-3">
+                                    <input class="form-check-input" type="checkbox" id="selectAll" 
+                                           onchange="toggleSelectAll()">
+                                </div>
+                                <h6 class="mb-0 text-dark fw-bold">
+                                    <i class="bi bi-table text-primary me-2"></i>
+                                    Enquiries List
+                                </h6>
+                                <span class="badge bg-light text-dark ms-3" id="filteredCount">0</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="input-group input-group-sm" style="width: 250px;">
+                                    <input type="text" class="form-control" id="globalSearch" 
+                                           placeholder="Search all columns..." onkeyup="applyGlobalSearch()">
+                                    <button class="btn btn-outline-secondary" type="button">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="scrollToTop()">
+                                    <i class="bi bi-arrow-up"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Table Container -->
+                    <div class="position-relative flex-grow-1" style="overflow: auto; height: calc(100% - 60px);">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light sticky-top" style="top: 0;">
+                                <tr>
+                                    <th class="px-4 py-3" style="width: 80px;">
+                                        <span class="small text-muted">#</span>
+                                    </th>
+                                    <th class="px-4 py-3" style="width: 150px;">
+                                        <span class="small text-muted">ENQUIRY ID</span>
+                                    </th>
+                                    <th class="px-4 py-3" style="min-width: 350px;">
+                                        <i class="bi bi-whatsapp text-success me-1"></i>
+                                        <span class="small text-muted">WHATSAPP NUMBER</span>
+                                    </th>
+                                    <th class="px-4 py-3" style="width: 200px;">
+                                        <i class="bi bi-tag me-1"></i>
+                                        <span class="small text-muted">ENQUIRY TYPE</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center" style="width: 150px;">
+                                        <i class="bi bi-gear me-1"></i>
+                                        <span class="small text-muted">ACTIONS</span>
+                                    </th>
+                                 </tr>
+                            </thead>
+                            <tbody id="enquiriesTableBody">
+                                <tr id="loadingRow">
+                                    <td colspan="5" class="text-center py-5">
+                                        <div class="d-flex flex-column align-items-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-3 text-muted">Loading enquiries data...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="text-center py-5 d-none" id="noDataMessage">
+                            <div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
+                                <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
+                                <h5 class="text-muted mb-2">No Enquiries Found</h5>
+                                <p class="text-muted small mb-4">No records match your search criteria</p>
+                                <button class="btn btn-sm btn-outline-primary" onclick="resetFilters()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> Reset Filters
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer-custom py-2 px-3">
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <div class="text-muted small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Total: <span class="fw-bold" id="totalRecords">0</span> records | 
+                    Showing: <span class="fw-bold" id="showingRecords">0</span> records
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="closeModal('viewEnquiriesModal')">
+                        <i class="bi bi-x-lg me-1"></i> Close
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="loadEnquiriesData()">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
                 </div>
             </div>
         </div>
@@ -2566,51 +2537,51 @@
         </div>
     </main>
 
-            <!-- Remove User Modal -->
-    <div class="modal fade" id="removeUserModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">USER REMOVAL CONFIRMATION</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- Remove User Modal - Blur Overlay Version -->
+<div id="removeUserModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom" style="background: var(--crimson-sidebar, #9B1D2C);">
+            <h3><i class="bi bi-exclamation-triangle-fill"></i> USER REMOVAL CONFIRMATION</h3>
+            <button class="close-modal" onclick="closeModal('removeUserModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <form id="removeUserForm">
+            <div class="modal-body-custom">
+                <p>Are you sure you want to remove the following user?</p>
+                
+                <div class="alert alert-info">
+                    <strong>Name:</strong> <span id="modalUserName">Loading...</span><br>
+                    <strong>Email:</strong> <span id="modalUserEmail">Loading...</span>
                 </div>
 
-                <form id="removeUserForm">
-                    <div class="modal-body">
-                        <p>Are you sure you want to remove the following user?</p>
-                        
-                        <div class="alert alert-info">
-                            <strong>Name:</strong> <span id="modalUserName">Loading...</span><br>
-                            <strong>Email:</strong> <span id="modalUserEmail">Loading...</span>
-                        </div>
+                <div class="form-group mt-3">
+                    <label for="passcodeInput" class="form-label fw-bold">Enter Admin Passcode to Confirm</label>
+                    <input type="password" class="form-control" id="passcodeInput" name="passcode" required>
+                </div>
 
-                        <div class="form-group mt-3">
-                            <label for="passcodeInput" class="form-label">Enter Admin Passcode to Confirm</label>
-                            <input type="password" class="form-control" id="passcodeInput" name="passcode" required>
-                        </div>
-
-                        <input type="hidden" name="user_id" id="modalUserId">
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger">Remove User</button>
-                    </div>
-                </form>
+                <input type="hidden" name="user_id" id="modalUserId">
             </div>
-        </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('removeUserModal')">Cancel</button>
+                <button type="submit" class="btn btn-danger">Remove User</button>
+            </div>
+        </form>
     </div>
+</div>
 
-    <div id="aiModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
-        <div class="modal-content" style="background-color: white; margin: 5% auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 800px; max-height: 80vh; overflow-y: auto;">
-            <span class="close" style="float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #666;">&times;</span>
-            
-            <h3 style="color: #4285f4; margin-bottom: 20px;">
-                <i class="fas fa-robot"></i> Google AI Data Analyst
-            </h3>
-            
-            <div id="aiChat" style="height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #f9f9f9;">
-                <div class="ai-message" style="background: #e8f0fe; padding: 10px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #4285f4;">
+<!-- AI Modal - Blur Overlay Version -->
+<div id="aiModal" class="modal-overlay">
+    <div class="modal-container ai-modal">
+        <div class="modal-header-custom" style="background: linear-gradient(135deg, #0A2B3E, #1E4A6E);">
+            <h3><i class="fas fa-robot"></i> Google AI Data Analyst</h3>
+            <button class="close-modal" onclick="closeModal('aiModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <div id="aiChat" style="height: 400px; overflow-y: auto; border: 1px solid var(--gray-200); border-radius: 12px; padding: 15px; margin-bottom: 15px; background: #f9f9f9;">
+                <div class="ai-message" style="background: #e8f0fe; padding: 12px; border-radius: 12px; margin-bottom: 10px; border-left: 4px solid #4285f4;">
                     <strong><i class="fas fa-robot"></i> AI Assistant:</strong><br>
                     Hello! I can analyze your project database. Ask me anything about:
                     <ul style="margin: 5px 0 5px 20px;">
@@ -2625,321 +2596,311 @@
             </div>
             
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <input type="text" id="aiQuestion" placeholder="Ask about your data..." style="flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; font-size: 16px;">
-                <button id="sendQuestion" class="btn btn-primary" style="background: #4285f4; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                <input type="text" id="aiQuestion" placeholder="Ask about your data..." style="flex: 1; padding: 12px; border: 2px solid var(--gray-200); border-radius: 12px; font-size: 14px;">
+                <button id="sendQuestion" class="btn btn-primary" style="background: #4285f4; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: bold; cursor: pointer;">
                     <i class="fas fa-paper-plane"></i> Ask
                 </button>
             </div>
             
-            <div style="background: #f1f8e9; padding: 12px; border-radius: 6px; border-left: 4px solid #34a853;">
+            <div style="background: #f1f8e9; padding: 12px; border-radius: 12px; border-left: 4px solid #34a853;">
                 <strong>Try asking:</strong>
                 <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What is my total contract value?')">Total contract value</span>
-                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('How much deposit have I collected?')">Total deposits</span>
-                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('Show me payment method breakdown')">Payment methods</span>
-                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What are my recent projects?')">Recent projects</span>
-                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('Show monthly cash flow')">Monthly cash flow</span>
-                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What are upcoming payments?')">Upcoming payments</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What is my total contract value?')">Total contract value</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('How much deposit have I collected?')">Total deposits</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('Show me payment method breakdown')">Payment methods</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What are my recent projects?')">Recent projects</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('Show monthly cash flow')">Monthly cash flow</span>
+                    <span class="suggestion" style="background: #e8f0fe; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #dbeafe;" onclick="setQuestion('What are upcoming payments?')">Upcoming payments</span>
                 </div>
             </div>
         </div>
-    </div>
-
-    <div class="modal fade" id="editContractorModal" tabindex="-1" aria-labelledby="editContractorModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content rounded-4 border-0 shadow" style="font-size: 0.82rem;">
-
-                <div class="modal-header py-2">
-                    <h6 class="modal-title fw-bold" id="editContractorModalLabel" style="font-size: 0.9rem;">
-                        <i class="bi bi-building-fill-gear me-1" style="font-size: 0.85rem;"></i>
-                        CONTRACTOR DETAILS EDITOR
-                    </h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
-                </div>
-
-                <div class="modal-body p-3">
-
-                    <form id="contractorEditForm">
-
-                        <div class="row mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold mb-1" style="font-size: 0.75rem;">Company Name</label>
-                                <input type="text" class="form-control form-control-sm editable-field" value="{{ companyname }}">
-                            </div>
-                        </div>
-
-                        <div class="row mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold mb-1" style="font-size: 0.75rem;">Phone 1</label>
-                                <input type="text" class="form-control form-control-sm editable-field" value="{{ contact1 }}">
-                            </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold mb-1" style="font-size: 0.75rem;">Phone 2</label>
-                                <input type="text" class="form-control form-control-sm editable-field" value="{{ contact2 }}">
-                            </div>
-
-                            <div class="col-md-6 mt-2">
-                                <label class="form-label fw-semibold mb-1" style="font-size: 0.75rem;">Email</label>
-                                <input type="email" class="form-control form-control-sm editable-field" value="{{ compemail }}">
-                            </div>
-
-                            <div class="col-md-6 mt-2">
-                                <label class="form-label fw-semibold mb-1" style="font-size: 0.75rem;">TIN Number</label>
-                                <input type="text" class="form-control form-control-sm editable-field" value="{{ tinnumber }}">
-                            </div>
-                        </div>
-
-                        <div class="row mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold mb-1" style="font-size: 0.75rem;">Address</label>
-                                <input type="text" class="form-control form-control-sm editable-field" value="{{ address }}">
-                            </div>
-                        </div>
-
-                    </form>
-
-                </div>
-
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-danger btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary btn-sm px-3">Save Changes</button>
-                </div>
-
-            </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('aiModal')">Close</button>
         </div>
     </div>
+</div>
 
-        <!-- Notes Modal -->
-    <div class="modal fade" id="notesModal" tabindex="-1" aria-labelledby="notesModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header" style="background-color: #1E2A56; color: white;">
-                    <h6 class="modal-title" id="notesModalLabel">
-                        <i class="bi bi-list-ol"></i><span id="modalClientName"></span> - <span id="modalProjectName"></span> NOTES
-                    </h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="transform: scale(.8);"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="notesProjectId">
-
-                    <!-- Display Container for Existing Notes -->
-                    <div class="notes-display-container mb-4">
-                        <h6 class="mb-3">Existing Notes:</h6>
-                        <div id="notesList" class="border rounded p-3" style="max-height: 300px; overflow-y: auto; background-color: #f8f9fa;">
-                            <!-- Notes will be loaded here -->
-                            <div class="text-center py-4 text-muted">
-                                <i class="bi bi-journal-text display-6"></i>
-                                <p class="mt-2">No notes yet. Add your first note below.</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Add New Note Section -->
-                    <div class="add-note-section">
-                        <h6 class="mb-3">Add New Note:</h6>
-                        <div class="mb-3">
-                            <textarea class="form-control" id="newNoteText" rows="3" placeholder="Enter your note here..." style="resize: vertical;"></textarea>
-                        </div>
-                        <div class="d-flex justify-content-end">
-                            <button type="button" class="btn btn-primary" id="addNoteBtn">
-                                <i class="bi bi-plus-circle me-2"></i>Add Note
-                            </button>
-                        </div>
+<!-- Edit Contractor Modal - Blur Overlay Version -->
+<div id="editContractorModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-building-fill-gear me-1"></i> CONTRACTOR DETAILS EDITOR</h3>
+            <button class="close-modal" onclick="closeModal('editContractorModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <form id="contractorEditForm">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold mb-1">Company Name</label>
+                        <input type="text" class="form-control editable-field" name="company_name" value="{{ companyname }}">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold mb-1">Phone 1</label>
+                        <input type="text" class="form-control editable-field" name="phone1" value="{{ contact1 }}">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold mb-1">Phone 2</label>
+                        <input type="text" class="form-control editable-field" name="phone2" value="{{ contact2 }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold mb-1">Email</label>
+                        <input type="email" class="form-control editable-field" name="email" value="{{ compemail }}">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold mb-1">TIN Number</label>
+                        <input type="text" class="form-control editable-field" name="tin_number" value="{{ tinnumber }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold mb-1">Address</label>
+                        <textarea class="form-control editable-field" name="address" rows="2">{{ address }}</textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('editContractorModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" id="saveContractorBtn">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Notes Modal - Blur Overlay Version -->
+<div id="notesModal" class="modal-overlay">
+    <div class="modal-container large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-list-ol"></i> <span id="modalClientName"></span> - <span id="modalProjectName"></span> NOTES</h3>
+            <button class="close-modal" onclick="closeModal('notesModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <input type="hidden" id="notesProjectId">
+            <input type="hidden" id="notesClientWaNumber">
+            <input type="hidden" id="notesClientNextOfKinNumber">
+
+            <!-- Display Container for Existing Notes -->
+            <div class="notes-display-container mb-4">
+                <h6 class="mb-3 fw-bold">Existing Notes:</h6>
+                <div id="notesList" class="border rounded p-3" style="max-height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-journal-text display-6"></i>
+                        <p class="mt-2">No notes yet. Add your first note below.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Add New Note Section -->
+            <div class="add-note-section">
+                <h6 class="mb-3 fw-bold">Add New Note:</h6>
+                <div class="mb-3">
+                    <textarea class="form-control" id="newNoteText" rows="3" placeholder="Enter your note here..." style="resize: vertical;"></textarea>
+                </div>
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn btn-primary" id="addNoteBtn">
+                        <i class="bi bi-plus-circle me-2"></i>Add Note
+                    </button>
                 </div>
             </div>
         </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('notesModal')">Close</button>
+        </div>
     </div>
+</div>
 
-    <!-- Quotation Generator Modal -->
-    <div class="modal fade" id="quotationgeneratorModal" tabindex="-1" aria-labelledby="quotationgeneratorModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header" style="background-color: #1E2A56; color: white;">
-                    <h6 class="modal-title" id="quotationgeneratorModalLabel">
-                        <i class="bi bi-newspaper"></i> Generate Quotation
-                    </h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- Quotation Generator Modal - Blur Overlay Version -->
+<div id="quotationgeneratorModal" class="modal-overlay">
+    <div class="modal-container large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-newspaper"></i> Generate Quotation</h3>
+            <button class="close-modal" onclick="closeModal('quotationgeneratorModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <form id="quotationGeneratorForm">
+                <!-- Category Dropdown -->
+                <div class="mb-3">
+                    <label for="quotationCategory" class="form-label fw-bold">Quotation Category <span class="text-danger">*</span></label>
+                    <select class="form-control" id="quotationCategory" name="category" required>
+                        <option value="">-- Select Category --</option>
+                        <option value="construction">Construction</option>
+                        <option value="kitchen">Kitchen and Cabinets</option>
+                        <option value="tv_units">TV Units</option>
+                        <option value="doors">Doors</option>
+                        <option value="windows">Windows</option>
+                        <option value="flooring">Flooring</option>
+                        <option value="other">Other</option>
+                    </select>
                 </div>
-                <div class="modal-body">
-                    <form id="quotationGeneratorForm">
-                        <!-- Category Dropdown -->
-                        <div class="mb-3">
-                            <label for="quotationCategory" class="form-label" style="font-weight: bold;">Quotation Category <span class="text-danger">*</span></label>
-                            <select class="form-control" id="quotationCategory" name="category" required>
-                                <option value="">-- Select Category --</option>
-                                <option value="construction">Construction</option>
-                                <option value="kitchen">Kitchen and Cabinets</option>
-                                <option value="tv_units">TV Units</option>
-                                <option value="doors">Doors</option>
-                                <option value="windows">Windows</option>
-                                <option value="flooring">Flooring</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
 
-                        <!-- Client Name -->
-                        <div class="mb-3">
-                            <label for="quotationClientName" class="form-label" style="font-weight: bold;">Client Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="quotationClientName" name="clientName" placeholder="Enter client name" required>
-                        </div>
+                <!-- Client Name -->
+                <div class="mb-3">
+                    <label for="quotationClientName" class="form-label fw-bold">Client Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="quotationClientName" name="clientName" placeholder="Enter client name" required>
+                </div>
 
-                        <!-- Size Field (Conditional - Construction) -->
-                        <div class="mb-3" id="quotationSizeContainer" style="display: none;">
-                            <label for="quotationSize" class="form-label" style="font-weight: bold;">Size <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="quotationSize" name="size" placeholder="e.g., 1200 sq ft, 50x30 ft">
-                        </div>
+                <!-- Size Field (Conditional - Construction) -->
+                <div class="mb-3" id="quotationSizeContainer" style="display: none;">
+                    <label for="quotationSize" class="form-label fw-bold">Size <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="quotationSize" name="size" placeholder="e.g., 1200 sq ft, 50x30 ft">
+                </div>
 
-                        <!-- Date Field (Auto-filled) -->
-                        <div class="mb-3">
-                            <label for="quotationDate" class="form-label" style="font-weight: bold;">Date <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control" id="quotationDate" name="date" required readonly>
-                        </div>
+                <!-- Date Field (Auto-filled) -->
+                <div class="mb-3">
+                    <label for="quotationDate" class="form-label fw-bold">Date <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" id="quotationDate" name="date" required readonly>
+                </div>
 
-                        <!-- Tickboxes for Construction Details (Conditional) -->
-                        <div id="constructionDetailsContainer" style="display: none;">
-                            <div class="mb-3">
-                                <label style="font-weight: bold; display: block; margin-bottom: 0.75rem;">Construction Details</label>
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span style="font-size: 0.9rem;">Select items to include in quotation:</span>
-                                    <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllCheckbox" style="font-size: 0.8rem;">Select All</button>
+                <!-- Tickboxes for Construction Details (Conditional) -->
+                <div id="constructionDetailsContainer" style="display: none;">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold d-block mb-2">Construction Details</label>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">Select items to include in quotation:</span>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllCheckbox">Select All</button>
+                        </div>
+                        <div class="border rounded p-3" style="background-color: #f8f9fa;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input construction-item" type="checkbox" id="floorCheck" name="constructionItems" value="floor">
+                                        <label class="form-check-label" for="floorCheck">Floor</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input construction-item" type="checkbox" id="ceilingCheck" name="constructionItems" value="ceiling">
+                                        <label class="form-check-label" for="ceilingCheck">Ceiling</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input construction-item" type="checkbox" id="wallsCheck" name="constructionItems" value="walls">
+                                        <label class="form-check-label" for="wallsCheck">Walls</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input construction-item" type="checkbox" id="doorsCheck" name="constructionItems" value="doors">
+                                        <label class="form-check-label" for="doorsCheck">Doors</label>
+                                    </div>
                                 </div>
-                                <div class="border rounded p-3" style="background-color: #f8f9fa;">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="floorCheck" name="constructionItems" value="floor">
-                                                <label class="form-check-label" for="floorCheck">Floor</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="ceilingCheck" name="constructionItems" value="ceiling">
-                                                <label class="form-check-label" for="ceilingCheck">Ceiling</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="wallsCheck" name="constructionItems" value="walls">
-                                                <label class="form-check-label" for="wallsCheck">Walls</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="doorsCheck" name="constructionItems" value="doors">
-                                                <label class="form-check-label" for="doorsCheck">Doors</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="windowsCheck" name="constructionItems" value="windows">
-                                                <label class="form-check-label" for="windowsCheck">Windows</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="paintCheck" name="constructionItems" value="paint">
-                                                <label class="form-check-label" for="paintCheck">Paint</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="electricalCheck" name="constructionItems" value="electrical">
-                                                <label class="form-check-label" for="electricalCheck">Electrical</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="plumbingCheck" name="constructionItems" value="plumbing">
-                                                <label class="form-check-label" for="plumbingCheck">Plumbing</label>
-                                            </div>
-                                        </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input construction-item" type="checkbox" id="windowsCheck" name="constructionItems" value="windows">
+                                        <label class="form-check-label" for="windowsCheck">Windows</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input construction-item" type="checkbox" id="paintCheck" name="constructionItems" value="paint">
+                                        <label class="form-check-label" for="paintCheck">Paint</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input construction-item" type="checkbox" id="electricalCheck" name="constructionItems" value="electrical">
+                                        <label class="form-check-label" for="electricalCheck">Electrical</label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input construction-item" type="checkbox" id="plumbingCheck" name="constructionItems" value="plumbing">
+                                        <label class="form-check-label" for="plumbingCheck">Plumbing</label>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </form>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="generateQuotationBtn">Generate Quotation</button>
+            </form>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('quotationgeneratorModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" id="generateQuotationBtn">Generate Quotation</button>
+        </div>
+    </div>
+</div>
+
+<!-- Quotation Preview Modal - Blur Overlay Version -->
+<div id="quotationPreviewModal" class="modal-overlay">
+    <div class="modal-container large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-eye"></i> Quotation Preview</h3>
+            <button class="close-modal" onclick="closeModal('quotationPreviewModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
+            <!-- Client & Project Info -->
+            <div class="mb-4 p-3 border rounded" style="background-color: #f8f9fa;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Client Name:</strong> <span id="previewClientName"></span></p>
+                        <p class="mb-0"><strong>Category:</strong> <span id="previewCategory"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Date:</strong> <span id="previewDate"></span></p>
+                        <p class="mb-0"><strong>Size:</strong> <span id="previewSize">- square meters</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items & Costs Table -->
+            <div class="mb-4">
+                <h6 class="fw-bold mb-3">Selected Items</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
+                            <tr>
+                                <th style="font-size: 0.8rem;">Item</th>
+                                <th style="font-size: 0.8rem; text-align: center;">Quantity</th>
+                                <th style="font-size: 0.8rem; text-align: right;">Unit Cost</th>
+                                <th style="font-size: 0.8rem; text-align: right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quotationItemsTable">
+                            <!-- Items will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Total Cost Summary -->
+            <div class="mb-4 p-3 border rounded" style="background-color: #e8f4f8; border-left: 4px solid var(--crimson-sidebar, #9B1D2C);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">Total Cost:</span>
+                    <span class="fw-bold fs-4" style="color: var(--crimson-sidebar, #9B1D2C);">USD <span id="quotationTotalCost">0.00</span></span>
+                </div>
+            </div>
+
+            <!-- Gantt Chart Collapsible Section -->
+            <div class="mb-3">
+                <button class="btn btn-outline-primary btn-sm w-100" type="button" onclick="toggleGanttChart()" style="font-weight: bold;">
+                    <i class="bi bi-bar-chart-fill"></i> View Gantt Chart
+                </button>
+                <div class="mt-3" id="ganttChartContainer" style="display: none;">
+                    <div class="border rounded p-3" style="background-color: #f8f9fa; min-height: 300px;">
+                        <div id="ganttChartContent" style="width: 100%; height: 300px; display: flex; align-items: center; justify-content: center;">
+                            <p style="color: #666;">Gantt chart will be displayed here</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Quotation Preview Modal -->
-    <div class="modal fade" id="quotationPreviewModal" tabindex="-1" aria-labelledby="quotationPreviewModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header" style="background-color: #1E2A56; color: white;">
-                    <h6 class="modal-title" id="quotationPreviewModalLabel">
-                        <i class="bi bi-eye"></i> Quotation Preview
-                    </h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" style="max-height: 600px; overflow-y: auto;">
-                    <!-- Client & Project Info -->
-                    <div class="mb-4 p-3 border rounded" style="background-color: #f8f9fa;">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p style="margin: 0; font-size: 0.9rem;"><strong>Client Name:</strong> <span id="previewClientName"></span></p>
-                                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;"><strong>Category:</strong> <span id="previewCategory"></span></p>
-                            </div>
-                            <div class="col-md-6">
-                                <p style="margin: 0; font-size: 0.9rem;"><strong>Date:</strong> <span id="previewDate"></span></p>
-                                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;"><strong>Size:</strong> <span id="previewSize">- square meters</span></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Items & Costs Table -->
-                    <div class="mb-4">
-                        <h6 style="font-weight: bold; margin-bottom: 1rem;">Selected Items</h6>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-bordered" style="margin-bottom: 0;">
-                                <thead style="background-color: #1E2A56; color: white;">
-                                    <tr>
-                                        <th style="font-size: 0.85rem;">Item</th>
-                                        <th style="font-size: 0.85rem; text-align: center;">Quantity</th>
-                                        <th style="font-size: 0.85rem; text-align: right;">Unit Cost</th>
-                                        <th style="font-size: 0.85rem; text-align: right;">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="quotationItemsTable">
-                                    <!-- Items will be populated here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Total Cost Summary -->
-                    <div class="mb-4 p-3 border rounded" style="background-color: #e8f4f8; border-color: #1E2A56 !important;">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span style="font-size: 1.1rem; font-weight: bold;">Total Cost:</span>
-                            <span style="font-size: 1.3rem; font-weight: bold; color: #1E2A56;">USD <span id="quotationTotalCost">0.00</span></span>
-                        </div>
-                    </div>
-
-                    <!-- Gantt Chart Collapsible Section -->
-                    <div class="mb-3">
-                        <button class="btn btn-outline-primary btn-sm w-100" type="button" data-bs-toggle="collapse" data-bs-target="#ganttChartContainer" aria-expanded="false" style="font-weight: bold;">
-                            <i class="bi bi-bar-chart-fill"></i> View Gantt Chart
-                        </button>
-                        <div class="collapse mt-3" id="ganttChartContainer">
-                            <div class="border rounded p-3" style="background-color: #f8f9fa; min-height: 300px;">
-                                <div id="ganttChartContent" style="width: 100%; height: 300px; display: flex; align-items: center; justify-content: center;">
-                                    <p style="color: #666;">Gantt chart will be displayed here</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Back</button>
-                    <button type="button" class="btn btn-success" id="downloadQuotationBtn" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); border: none;">
-                        <i class="bi bi-download"></i> Download Quotation & Gantt Chart
-                    </button>
-                    <button type="button" class="btn btn-primary" id="sendQuotationBtn">
-                        <i class="bi bi-send"></i> Send Quotation & Gantt Chart
-                    </button>
-                </div>
-            </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('quotationPreviewModal')">Back</button>
+            <button type="button" class="btn btn-success" id="downloadQuotationBtn">
+                <i class="bi bi-download"></i> Download Quotation & Gantt Chart
+            </button>
+            <button type="button" class="btn btn-primary" id="sendQuotationBtn">
+                <i class="bi bi-send"></i> Send Quotation & Gantt Chart
+            </button>
         </div>
     </div>
+</div>
 
     <input type="hidden" id="locations-data" value='{{ locations|tojson }}'>
     <input type="hidden" id="frequencies-data" value='{{ frequencies|tojson }}'>
