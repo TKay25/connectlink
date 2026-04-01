@@ -1120,7 +1120,7 @@
                 <div style="max-height: 350px; overflow-y: auto; padding-right: 8px;">
                     <!-- Installment 1 -->
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><h6 class="mb-0">Installment 1 Details</h6></div>
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 1 Details</h6></div>
                         <div class="card-body">
                             <div class="row g-3 align-items-center">
                                 <div class="col-xl col-lg-3 col-md-4 col-sm-6">
@@ -1163,7 +1163,7 @@
 
                     <!-- Installment 2 -->
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><h6 class="mb-0">Installment 2 Details</h6></div>
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 2 Details</h6></div>
                         <div class="card-body">
                             <div class="row g-3 align-items-center">
                                 <div class="col-sm-6 col-md-4 col-lg"><label class="form-label fw-bold mb-1 small">Amount (USD)</label><input type="text" class="form-control editable-field" id="updateInstallment2Amount" name="Installment2Amount"></div>
@@ -1178,7 +1178,7 @@
                     <!-- Installment 3-10 (same pattern - condensed for brevity, keep your existing content) -->
                     <!-- Installment 3 -->
                     <div class="card mb-3">
-                        <div class="card-header bg-light"><h6 class="mb-0">Installment 3 Details</h6></div>
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 3 Details</h6></div>
                         <div class="card-body">
                             <div class="row g-3 align-items-center">
                                 <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="text" class="form-control editable-field" id="updateInstallment3Amount" name="Installment3Amount" placeholder="Amount"></div>
@@ -1186,6 +1186,97 @@
                                 <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment3Date" name="installment3_paid_date"></div>
                                 <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100 get-receipt-btn" data-installment="3"><span id="inst3Text">Get Receipt</span></button></div>
                                 <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst3"><i class="bi bi-whatsapp"></i> Send Receipt</button></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 4 Details</h6></div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="text" class="form-control editable-field" id="updateInstallment4Amount" name="Installment4Amount" placeholder="Amount"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment4DueDate" name="Installment4DueDate"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment4Date" name="installment4_paid_date"></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100 get-receipt-btn" data-installment="4"><span id="inst4Text">Get Receipt</span></button></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst4"><i class="bi bi-whatsapp"></i> Send Receipt</button></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 5 Details</h6></div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="text" class="form-control editable-field" id="updateInstallment5Amount" name="Installment5Amount" placeholder="Amount"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment5DueDate" name="Installment5DueDate"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment5Date" name="installment5_paid_date"></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100 get-receipt-btn" data-installment="5"><span id="inst5Text">Get Receipt</span></button></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst5"><i class="bi bi-whatsapp"></i> Send Receipt</button></div>
+                            </div>
+                        </div>
+                    </div>     
+                    
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 6 Details</h6></div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="text" class="form-control editable-field" id="updateInstallment6Amount" name="Installment6Amount" placeholder="Amount"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment6DueDate" name="Installment6DueDate"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment6Date" name="installment6_paid_date"></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100 get-receipt-btn" data-installment="6"><span id="inst6Text">Get Receipt</span></button></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst6"><i class="bi bi-whatsapp"></i> Send Receipt</button></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 7 Details</h6></div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="text" class="form-control editable-field" id="updateInstallment7Amount" name="Installment7Amount" placeholder="Amount"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment7DueDate" name="Installment7DueDate"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment7Date" name="installment7_paid_date"></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100 get-receipt-btn" data-installment="7"><span id="inst7Text">Get Receipt</span></button></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst7"><i class="bi bi-whatsapp"></i> Send Receipt</button></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 8 Details</h6></div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="text" class="form-control editable-field" id="updateInstallment8Amount" name="Installment8Amount" placeholder="Amount"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment8DueDate" name="Installment8DueDate"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment8Date" name="installment8_paid_date"></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100 get-receipt-btn" data-installment="8"><span id="inst8Text">Get Receipt</span></button></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst8"><i class="bi bi-whatsapp"></i> Send Receipt</button></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 9 Details</h6></div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="text" class="form-control editable-field" id="updateInstallment9Amount" name="Installment9Amount" placeholder="Amount"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment9DueDate" name="Installment9DueDate"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment9Date" name="installment9_paid_date"></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100 get-receipt-btn" data-installment="9"><span id="inst9Text">Get Receipt</span></button></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst9"><i class="bi bi-whatsapp"></i> Send Receipt</button></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-light"><h6 class="mb-0" style="color: var(--dark-blue-deep)">Installment 10 Details</h6></div>
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="text" class="form-control editable-field" id="updateInstallment10Amount" name="Installment10Amount" placeholder="Amount"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment10DueDate" name="Installment10DueDate"></div>
+                                <div class="col-xl col-lg-3 col-md-4 col-sm-6"><input type="date" class="form-control editable-field" id="updateInstallment10Date" name="installment10_paid_date"></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100 get-receipt-btn" data-installment="10"><span id="inst10Text">Get Receipt</span></button></div>
+                                <div class="col-xl col-lg-3 col-md-6 col-sm-6"><button type="button" class="btn btn-primary w-100" id="sendReceiptBtninst10"><i class="bi bi-whatsapp"></i> Send Receipt</button></div>
                             </div>
                         </div>
                     </div>
