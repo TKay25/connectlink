@@ -106,7 +106,7 @@
             transition: all 0.2s;
             cursor: pointer;
         }
-        .sidebar .btn-side i { width: 24px; font-size: 1.1rem; color: var(--dark-blue-deep); }
+        .sidebar .btn-side i { width: 24px; font-size: 1.1rem; color: var(--dark-blue-deep); margin-left:0.2rem; }
         .sidebar:hover .btn-side i { width: 24px; font-size: 1.1rem; color: var(--white); }
         .sidebar .btn-side span { opacity: 0; visibility: hidden; transition: 0.2s; }
         .sidebar:hover .btn-side span { opacity: 1; visibility: visible; }
@@ -251,10 +251,13 @@
             border-radius: 20px;
             padding: 1rem;
         }
+        .form-group label{
+            color: var(--dark-blue-deep);
+        }
         /* form controls */
         .form-control, .form-select {
             background: var(--white);
-            border: 1px solid var(--dark-deep);
+            border: 1px solid var(--dark-blue-deep);
             color: var(--dark-blue-deep);
             border-radius: 14px;
         }
