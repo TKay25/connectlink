@@ -28,8 +28,8 @@
             --gray-border: #DCE3EC;
             --text-light: #0E1F42;
             --text-muted: #0E1F42;
-            --sidebar-collapsed: 76px;
-            --sidebar-expanded: 270px;
+            --sidebar-collapsed: 70px;
+            --sidebar-expanded: 150px;
             --sidebar-icon-only: 72px;
 
         }
@@ -253,12 +253,12 @@
         /* form controls */
         .form-control, .form-select {
             background: var(--white);
-            border: 1px solid rgba(193,43,62,0.5);
-            color: white;
+            border: 1px solid var(--dark-deep);
+            color: var(--dark-blue-deep);
             border-radius: 14px;
         }
-        .form-control:focus { border-color: var(--crimson-bright); box-shadow: 0 0 0 3px rgba(193,43,62,0.3); color: white; }
-        .form-label { color: #CFDEF5; font-weight: 500; }
+        .form-control:focus { background-color: var(--crimson-bright); box-shadow: 0 0 0 3px rgba(193,43,62,0.3); color: white; }
+        .form-label { color: var(--dark-blue-deep); font-weight: 500; }
         /* loader */
         .eds-loader { background: rgba(10,26,58,0.96); backdrop-filter: blur(8px); }
         .loader-progress { background: var(--crimson-bright); }
