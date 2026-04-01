@@ -11305,7 +11305,7 @@ def run1(userid):
         # Get the most frequent location
         most_frequent_location = locations.value_counts(dropna=True).idxmax()
 
-        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary3 download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button> <button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary3 update-project-btn">Update</button> </div>''', axis=1)        
+        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button> <button class="btn btn-primary notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn">Update</button> </div>''', axis=1)        
         
         datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
         datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
@@ -14688,18 +14688,18 @@ def get_updated_table_data():
                 action_buttons = f'''
                 <div style="display: flex; gap: 10px;">
                     <a href="/download_contract/{project_id}" 
-                       class="btn btn-primary3 download-contract-btn" 
+                       class="btn btn-primary download-contract-btn" 
                        data-id="{project_id}" 
                        onclick="handleDownloadClick(this)">
                        Download Contract
                     </a>
-                    <button class="btn btn-primary3 view-project-btn" 
+                    <button class="btn btn-primary view-project-btn" 
                             data-bs-toggle="modal" 
                             data-bs-target="#viewprojectModal" 
                             data-id="{project_id}">
                         View Project
                     </button>
-                    <button class="btn btn-primary3 notes-btn" 
+                    <button class="btn btn-primary notes-btn" 
                             data-bs-toggle="modal" 
                             data-bs-target="#notesModal" 
                             data-id="{project_id}" 
@@ -14707,7 +14707,7 @@ def get_updated_table_data():
                             data-client-name="{client_name}">
                         Notes
                     </button>
-                    <button class="btn btn-primary3 update-project-btn"
+                    <button class="btn btn-primary update-project-btn"
                             data-id="{project_id}"
                             data-bs-toggle="modal" 
                             data-bs-target="#updateModal">
