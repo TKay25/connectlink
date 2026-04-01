@@ -312,6 +312,7 @@
     justify-content: flex-end;
     gap: 12px;
 }
+
         .btn-primary {
             background: var(--dark-blue-deep);
             border: none;
@@ -409,6 +410,24 @@
 </head>
 
 <body>
+
+<!-- Hidden elements needed for JavaScript functionality -->
+<input type="hidden" id="company_name" value="{{ companyname }}">
+<input type="hidden" id="currentIdeditdepartment" value="">
+
+<!-- Missing modals that your JS references -->
+<div class="modal fade" id="editModalpriv" tabindex="-1"></div>
+<div class="modal fade" id="editModalapprover" tabindex="-1"></div>
+<div class="modal fade" id="editLeaveDaysAccumulatorModal" tabindex="-1"></div>
+<div class="modal fade" id="manualaddemployeeModal" tabindex="-1"></div>
+<div class="modal fade" id="editModaldepartment" tabindex="-1"></div>
+
+<!-- Missing table elements -->
+<table id="alladminsTable" style="display: none;"><tbody></tbody></table>
+<table id="allpaymentscdTable" style="display: none;"><tbody></tbody></table>
+<table id="allenquiriesTable" style="display: none;"><tbody></tbody></table>
+<table id="employeesaccumulatorsTable" style="display: none;"><tbody></tbody></table>
+
     <div class="eds-loader" id="edsLoader" style="display: none;">
         <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
 
