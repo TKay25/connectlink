@@ -410,11 +410,19 @@
             position: sticky;
             top: 0;
             z-index: 10;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .table-theme td {
             color: var(--dark-blue-deep);
             border-bottom: 1px solid rgba(221, 146, 146, 0.3);
             font-size: 0.7rem;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .table-theme tr:nth-child(even) td {
@@ -475,6 +483,17 @@
         ::-webkit-scrollbar-thumb { background: var(--crimson-sidebar); border-radius: 10px; }
         .text-crimson { color: var(--crimson-bright); }
         hr { border-color: var(--dark-blue-deep); }
+        /* Ensure all tables have centered text and single-row cells */
+        .table {
+            text-align: center;
+        }
+        .table th, .table td {
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
     </style>
 </head>
 
