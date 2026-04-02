@@ -3114,7 +3114,7 @@ document.addEventListener('keydown', function(e) {
 <script>
 
 // Load audit data when modal is opened
-document.getElementById('auditInstallmentsBtn').addEventListener('click', function() {
+document.getElementById('auditInstallmentsBtn')?.addEventListener('click', function() {
     loadAuditData();
 });
 
@@ -3212,7 +3212,7 @@ function autoCorrectProject(projectId) {
 }
 
 // Auto-correct all button
-document.getElementById('autoCorrectAllBtn').addEventListener('click', function() {
+document.getElementById('autoCorrectAllBtn')?.addEventListener('click', function() {
     if (!confirm('Are you sure you want to auto-correct ALL projects? This action cannot be undone.')) {
         return;
     }
@@ -3236,7 +3236,7 @@ document.getElementById('autoCorrectAllBtn').addEventListener('click', function(
 });
 
 // Download audit report
-document.getElementById('downloadAuditReportBtn').addEventListener('click', function() {
+document.getElementById('downloadAuditReportBtn')?.addEventListener('click', function() {
     // Get current audit data from the table
     const rows = document.querySelectorAll('#auditResultsBody tr');
     const auditData = [];
@@ -4290,7 +4290,7 @@ if (document.readyState === 'loading') {
 </script>
 <script>
 // Submit update form via AJAX - FIXED VERSION
-document.getElementById('updateProjectForm').addEventListener('submit', async function(e) {
+document.getElementById('updateProjectForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     
     const form = this;
@@ -4346,7 +4346,7 @@ document.getElementById('updateProjectForm').addEventListener('submit', async fu
 });
 
 
-document.getElementById('updateotherdetailsForm').addEventListener('submit', async function(e) {
+document.getElementById('updateotherdetailsForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     
     const form = this;
@@ -4497,7 +4497,7 @@ function downloadCashflowFile() {
 
 // Add event listener
 $(document).ready(function() {
-    document.getElementById("exportcashflowBtn").addEventListener("click", downloadCashflowFile);
+    document.getElementById("exportcashflowBtn")?.addEventListener("click", downloadCashflowFile);
 });
 
 
@@ -4706,7 +4706,7 @@ $(document).ready(function() {
 </script>
 <script>
     // Load months when modal opens
-document.getElementById('downloadInstallmentsModal').addEventListener('show.bs.modal', function() {
+document.getElementById('downloadInstallmentsModal')?.addEventListener('show.bs.modal', function() {
     loadProjectStartMonths();
     loadDueMonths();
     updateCounts();
@@ -4769,8 +4769,8 @@ async function loadDueMonths() {
 }
 
 // Update counts when filters change
-document.getElementById('projectStartFilter').addEventListener('change', updateCounts);
-document.getElementById('dueMonthFilter').addEventListener('change', updateCounts);
+document.getElementById('projectStartFilter')?.addEventListener('change', updateCounts);
+document.getElementById('dueMonthFilter')?.addEventListener('change', updateCounts);
 
 // Update counts based on filters
 async function updateCounts() {
@@ -4830,7 +4830,7 @@ function getMonthDisplayText(monthValue, defaultText) {
 }
 
 // Download button click
-document.getElementById('downloadInstallmentsBtn').addEventListener('click', function() {
+document.getElementById('downloadInstallmentsBtn')?.addEventListener('click', function() {
     const projectStartMonth = document.getElementById('projectStartFilter').value;
     const dueMonth = document.getElementById('dueMonthFilter').value;
     
@@ -4914,7 +4914,7 @@ function showInstallmentsDownloadSuccess(selection) {
 
 <script>
     // Initialize modal
-document.getElementById('downloadPortfolioModal').addEventListener('show.bs.modal', function() {
+document.getElementById('downloadPortfolioModal')?.addEventListener('show.bs.modal', function() {
     loadDownloadOptions();
 });
 
@@ -4966,7 +4966,7 @@ function loadDownloadOptions() {
 }
 
 // Update help text based on selection
-document.getElementById('downloadFilter').addEventListener('change', function() {
+document.getElementById('downloadFilter')?.addEventListener('change', function() {
     const helpText = document.getElementById('filterHelpText');
     const recordCount = document.getElementById('recordCount');
     
@@ -4995,7 +4995,7 @@ document.getElementById('downloadFilter').addEventListener('change', function() 
 });
 
 // Download button click
-document.getElementById('downloadBtn').addEventListener('click', function() {
+document.getElementById('downloadBtn')?.addEventListener('click', function() {
     const dropdown = document.getElementById('downloadFilter');
     const selectedValue = dropdown.value;
     
@@ -5999,8 +5999,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Based on your columnMapping, you want to show:
     // id(0), momid(46), clientname(1), projectname(10), projectadministratorname(13), projectstartdate(14), action(47)
     // Hide everything else: indices 2-9, 11-12, 15-45
-    
-    window.dataTable = $('#allprojectsTable').DataTable({
+
+    if ($('#allprojectsTable').length) {
+        try {
+            window.dataTable = $('#allprojectsTable').DataTable({
         order: [[0, 'desc']],
         paging: false,
         searching: true,
@@ -6015,11 +6017,15 @@ document.addEventListener('DOMContentLoaded', function() {
             { targets: [0,1,10,13,14,59], visible: true }
         ]
     });
+    } catch (error) {
+        console.warn('DataTable initialization failed for allprojectsTable:', error);
+    }
+    }
     
     console.log('DataTable initialized with column visibility settings');
     
     // Keep your filter code but FIX the reinitialization
-    document.getElementById('applyFilterBtn').addEventListener('click', function() {
+    document.getElementById('applyFilterBtn')?.addEventListener('click', function() {
         const selectedMonth = document.getElementById('monthFilter').value;
         
         console.log('Applying filter for month:', selectedMonth);
@@ -6058,7 +6064,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // Reinitialize with SAME column settings
-                    window.dataTable = $('#allprojectsTable').DataTable({
+                    if ($('#allprojectsTable').length) {
+                        try {
+                            window.dataTable = $('#allprojectsTable').DataTable({
                         order: [[0, 'desc']],
                         paging: false,
                         searching: true,
@@ -6072,6 +6080,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             { targets: [0,1,10,13,14,59], visible: true }
                         ]
                     });
+                    } catch (error) {
+                        console.warn('DataTable reinitialization failed after filter:', error);
+                    }
+                    }
                     
                     console.log('DataTable reinitialized after filter');
                 } else {
@@ -6181,7 +6193,7 @@ function decodeHtmlEntities(text) {
 }
 
 // Handle modal show event
-document.getElementById('removeUserModal').addEventListener('show.bs.modal', function(event) {
+document.getElementById('removeUserModal')?.addEventListener('show.bs.modal', function(event) {
     const button = event.relatedTarget;
     
     // Extract data from button attributes
@@ -6200,7 +6212,7 @@ document.getElementById('removeUserModal').addEventListener('show.bs.modal', fun
 });
 
 // Handle form submission (using your pattern)
-document.getElementById("removeUserForm").addEventListener("submit", async function(e) {
+document.getElementById("removeUserForm")?.addEventListener("submit", async function(e) {
     e.preventDefault(); // Stop normal form submit
 
     const passcode = document.getElementById("passcodeInput").value.trim();
@@ -6254,7 +6266,7 @@ document.getElementById("removeUserForm").addEventListener("submit", async funct
 });
 
 // Optional: Clear form when modal is hidden
-document.getElementById('removeUserModal').addEventListener('hidden.bs.modal', function() {
+document.getElementById('removeUserModal')?.addEventListener('hidden.bs.modal', function() {
     document.getElementById('removeUserForm').reset();
     document.getElementById('modalUserId').value = '';
     document.getElementById('modalUserName').textContent = 'Loading...';
@@ -6466,7 +6478,7 @@ async function handleDepositReceipt(e) {
 document.addEventListener("DOMContentLoaded", function() {
 
 // When "Change First Installment Due Date" button is clicked, open modal and set project ID
-document.getElementById("changeInstallmentDateBtn").addEventListener("click", function() {
+document.getElementById("changeInstallmentDateBtn")?.addEventListener("click", function() {
     const projectId = document.getElementById("updateProjectId").value; // From main modal
     document.getElementById("modalProjectId").value = projectId;
 
@@ -6480,7 +6492,7 @@ document.getElementById("changeInstallmentDateBtn").addEventListener("click", fu
 });
 
 // Handle Save Changes
-document.getElementById("saveNewInstallmentDateBtn").addEventListener("click", function() {
+document.getElementById("saveNewInstallmentDateBtn")?.addEventListener("click", function() {
     const projectId = document.getElementById("modalProjectId").value;
     const newDate = document.getElementById("modalNewDueDate").value;
     const saveText = document.getElementById("saveDateText");
@@ -6541,7 +6553,7 @@ document.getElementById("saveNewInstallmentDateBtn").addEventListener("click", f
     });
 
     // When submitting form, store Quill HTML into hidden input
-    document.getElementById("addProjectForm").addEventListener("submit", function() {
+    document.getElementById("addProjectForm")?.addEventListener("submit", function() {
         document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
     });
 </script>
@@ -6616,7 +6628,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <script>
 
-document.getElementById("downloadpaymentshistory").addEventListener("click", function () {
+document.getElementById("downloadpaymentshistory")?.addEventListener("click", function () {
     const projectId = document.getElementById("updateProjectId").value;
 
     if (!projectId) {
@@ -7899,34 +7911,46 @@ document.addEventListener('DOMContentLoaded', () => {
     $(document).ready(function () {
 
         if ($('#alladminsTable').length) {
-            $('#alladminsTable').DataTable({
-                paging: true,    // Enable pagination
-                searching: true, // Enable search
-                ordering: true,  // Enable sorting
-                info: true,      // Show table information
-                pageLength: 8,       // Force max 5 entries per page
-                lengthChange: false, // Disable entries per page dropdown
-            });
+            try {
+                $('#alladminsTable').DataTable({
+                    paging: true,    // Enable pagination
+                    searching: true, // Enable search
+                    ordering: true,  // Enable sorting
+                    info: true,      // Show table information
+                    pageLength: 8,       // Force max 5 entries per page
+                    lengthChange: false, // Disable entries per page dropdown
+                });
+            } catch (error) {
+                console.warn('DataTable initialization failed for alladminsTable:', error);
+            }
         }
 
         if ($('#allpaymentscdTable').length) {
-            $('#allpaymentscdTable').DataTable({
-                paging: false,    // Enable pagination
-                searching: true, // Enable search
-                ordering: true,  // Enable sorting
-                info: true,      // Show table information
-            });
+            try {
+                $('#allpaymentscdTable').DataTable({
+                    paging: false,    // Enable pagination
+                    searching: true, // Enable search
+                    ordering: true,  // Enable sorting
+                    info: true,      // Show table information
+                });
+            } catch (error) {
+                console.warn('DataTable initialization failed for allpaymentscdTable:', error);
+            }
         }
 
         if ($('#allenquiriesTable').length) {
-            $('#allenquiriesTable').DataTable({
-                paging: false,    // Enable pagination
-                searching: true, // Enable search
-                ordering: true,  // Enable sorting
-                info: true,      // Show table information
-                pageLength: 8,       // Force max 5 entries per page
-                lengthChange: false, // Disable entries per page dropdown
-            });
+            try {
+                $('#allenquiriesTable').DataTable({
+                    paging: false,    // Enable pagination
+                    searching: true, // Enable search
+                    ordering: true,  // Enable sorting
+                    info: true,      // Show table information
+                    pageLength: 8,       // Force max 5 entries per page
+                    lengthChange: false, // Disable entries per page dropdown
+                });
+            } catch (error) {
+                console.warn('DataTable initialization failed for allenquiriesTable:', error);
+            }
         }
 
     });
