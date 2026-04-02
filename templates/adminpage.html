@@ -398,9 +398,11 @@
             background: var(--white);
             border-radius: 18px;
             overflow: visible;
-            width: auto;
-            table-layout: auto;
+            width: 100%;
+            table-layout: fixed;
             margin-bottom: 0;
+            border-collapse: collapse;
+            box-sizing: border-box;
         }
         .table-theme th {
             background: var(--crimson-dark-side);
@@ -408,26 +410,36 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-size: 0.55rem;
+            font-size: 0.5rem;
             border-bottom: 1px solid rgba(193, 43, 62, 0.3);
             position: sticky;
             top: 0;
             z-index: 10;
             text-align: center;
-            white-space: nowrap;
-            padding: 6px 6px;
+            white-space: normal;
+            word-break: break-word;
+            padding: 4px 4px;
+            line-height: 1.2;
         }
         .table-theme td {
             color: var(--dark-blue-deep);
             border-bottom: 1px solid rgba(221, 146, 146, 0.3);
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             text-align: center;
-            white-space: nowrap;
-            padding: 5px 6px;
-            max-width: 150px;
+            white-space: normal;
+            padding: 3px 4px;
             overflow: hidden;
             text-overflow: ellipsis;
             position: relative;
+            line-height: 1.3;
+            word-break: break-word;
+            max-height: 40px;
+        }
+        
+        .table-theme td:has(button, a, input, select),
+        .table-theme td.expanded {
+            max-height: none;
+            overflow: visible;
         }
         
         .table-theme td:not(:has(button, a, input, select)) {
@@ -437,7 +449,6 @@
         .table-theme td.expanded {
             white-space: normal;
             word-break: break-word;
-            max-width: 400px;
             height: auto;
         }
         
@@ -445,7 +456,7 @@
             content: ' ...';
             color: var(--crimson-bright);
             font-weight: 700;
-            font-size: 0.75rem;
+            font-size: 0.65rem;
         }
         
         .table-theme td.expandable.expanded::after {
@@ -455,6 +466,35 @@
         .table-theme td.expandable:hover {
             background: rgba(193, 43, 62, 0.1);
             border-radius: 4px;
+        }
+        
+        /* Keep action buttons visible and compact */
+        .table-theme td:last-child {
+            position: sticky;
+            right: 0;
+            background: var(--white);
+            z-index: 5;
+            max-height: none;
+            overflow: visible;
+            padding: 2px 3px;
+            width: 200px;
+        }
+        
+        .table-theme th:last-child {
+            position: sticky;
+            right: 0;
+            z-index: 11;
+            width: 200px;
+        }
+        
+        .table-theme td:last-child button,
+        .table-theme td:last-child a {
+            display: inline-block;
+            font-size: 0.48rem;
+            padding: 2px 3px;
+            margin: 1px 0.5px;
+            white-space: nowrap;
+            border: none;
         }
         
         .table-theme tr:nth-child(even) td {
@@ -535,10 +575,22 @@
             font-weight: 700;
         }
         .container2 {
-            overflow-x: auto !important;
+            overflow-x: hidden !important;
             overflow-y: auto !important;
             width: 100%;
         }
+        
+        .container2 table {
+            width: 100%;
+            table-layout: fixed;
+        }
+        
+        .container2 tbody tr {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+        
         /* Hide duplicate search in projects table and adjust spacing */
         #projects-tab .row.mb-5 {
             margin-bottom: 0.5rem !important;
@@ -2755,6 +2807,10 @@
                                 </div>
                             </div>
                             
+                        </div>
+
+                        <div style="font-size: 0.85rem; color: #1E2A56; font-weight: 500; margin-bottom: 10px;">
+                            <span id="projectsResultsCount">Showing projects</span>
                         </div>
 
                         <div class="container2 mainalldata" style="max-height: 400px; overflow-y: auto;">
@@ -6175,6 +6231,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('DataTable initialized with column visibility settings');
     
+    // Initialize results counter
+    const resultsCounter = document.getElementById('projectsResultsCount');
+    if (resultsCounter && window.dataTable) {
+        const totalCount = window.dataTable.rows().count();
+        resultsCounter.textContent = `Showing ${totalCount} projects`;
+    }
+    
     // Auto-filter when month selection changes
     document.getElementById('monthFilter')?.addEventListener('change', function() {
         const selectedMonth = document.getElementById('monthFilter').value;
@@ -6237,6 +6300,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     console.log('DataTable reinitialized after filter');
+                    
+                    // Update results counter
+                    const resultsCounter = document.getElementById('projectsResultsCount');
+                    if (resultsCounter && window.dataTable) {
+                        const totalCount = window.dataTable.rows().count();
+                        resultsCounter.textContent = `Showing ${totalCount} projects`;
+                    }
                 } else {
                     alert('Error loading data: ' + data.message);
                 }
@@ -6252,6 +6322,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchTerm = this.value;
         if (window.dataTable) {
             window.dataTable.search(searchTerm).draw();
+            
+            // Update results counter
+            const resultsCounter = document.getElementById('projectsResultsCount');
+            if (resultsCounter) {
+                const filteredCount = window.dataTable.rows({search: 'applied'}).count();
+                const totalCount = window.dataTable.rows().count();
+                resultsCounter.textContent = `Showing ${filteredCount} of ${totalCount} projects`;
+            }
         }
     });
     
@@ -6265,31 +6343,37 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Check if cell has truncated content (text is too long or overflowing)
-        const hasOverflow = td.offsetWidth < td.scrollWidth;
-        const hasLongText = td.textContent.trim().length > 30;
-        
-        if (hasOverflow || hasLongText) {
-            td.classList.add('expandable');
-            
-            if (td.classList.contains('expanded')) {
-                // Collapse
-                td.classList.remove('expanded');
-                td.style.maxWidth = '150px';
-                td.style.whiteSpace = 'nowrap';
-                td.style.overflow = 'hidden';
-                td.style.textOverflow = 'ellipsis';
-            } else {
-                // Expand
-                td.classList.add('expanded');
-                td.style.maxWidth = '400px';
-                td.style.whiteSpace = 'normal';
-                td.style.wordBreak = 'break-word';
-                td.style.overflow = 'visible';
-                td.style.textOverflow = 'clip';
-            }
-        }
+        // Toggle expand/collapse
+        td.classList.toggle('expanded');
     });
+    
+    // Auto-mark cells as expandable if they have content that would be truncated
+    function markExpandableCells() {
+        document.querySelectorAll('table.table-theme td').forEach(td => {
+            // Skip cells with interactive elements
+            if (td.querySelector('button, a, input, select')) {
+                return;
+            }
+            
+            // Check if cell content is longer than a single line (would be truncated at 40px max-height)
+            const text = td.textContent.trim();
+            if (text.length > 20) {
+                td.classList.add('expandable');
+            }
+        });
+    }
+    
+    // Run on initial page load
+    markExpandableCells();
+    
+    // Rerun after table filter/reload (using mutation observer)
+    const tableContainer = document.querySelector('.mainalldata');
+    if (tableContainer) {
+        const observer = new MutationObserver(function() {
+            setTimeout(markExpandableCells, 100);
+        });
+        observer.observe(tableContainer, { childList: true, subtree: true });
+    }
 });
 
 
