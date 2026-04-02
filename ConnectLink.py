@@ -8873,9 +8873,9 @@ def export_projects_portfolio():
                 df_notes.to_excel(writer, index=False, sheet_name="Notes")
                 df_portfolio_deleted.to_excel(writer, index=False, sheet_name="Deleted Projects")
                 
-                # ========= SHEET 4 — PROJECT 134 WORK SCOPE (if exists) =========
-                project_134_exists = len(df_projects[df_projects['id'] == 134]) > 0
-                if project_134_exists:
+                # ========= SHEET 4 — PROJECT 125 WORK SCOPE (if exists) =========
+                project_125_exists = len(df_projects[df_projects['id'] == 125]) > 0
+                if project_125_exists:
                     work_scope_data = {
                         'Work Scope': [
                             'Bathroom Plumbing',
@@ -8959,7 +8959,7 @@ def export_projects_portfolio():
                         ]
                     }
                     df_work_scope = pd.DataFrame(work_scope_data)
-                    df_work_scope.to_excel(writer, index=False, sheet_name="Project 134 Work Scope")
+                    df_work_scope.to_excel(writer, index=False, sheet_name="Project 125 Work Scope")
 
 
             output.seek(0)
@@ -9346,11 +9346,11 @@ def download_contract(project_id):
 
             project['generated_on'] = datetime.now().strftime('%d %B %Y')
 
-            # Build work scope table HTML if project_id is 134
+            # Build work scope table HTML if project_id is 125
             work_scope_html = ""
-            if int(project_id) == 134:
+            if int(project_id) == 125:
                 work_scope_data = [
-                    ('Bathroom Plumbing', '31/04/2026', '3/4/2026', 4),
+                    ('Bathroom Plumbing', '31/03/2026', '3/4/2026', 4),
                     ('Main Kitchen', '27/3/2026', '4/4/2026', 7),
                     ('Bedroom Cabinets', '28/3/2026', '4/4/2026', 6),
                     ('TV unit', '5/4/2026', '6/4/2026', 1),
@@ -9389,6 +9389,7 @@ def download_contract(project_id):
                             {work_scope_rows}
                         </tbody>
                     </table>
+                    <div class="page-break"></div>
                 """
 
             logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
