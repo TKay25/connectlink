@@ -9278,16 +9278,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-
-
-    document.getElementById('formatexcellmsbookexport').addEventListener('click', () => {
-            window.location.href = '/export_lms_book_excel';
-        });
-
-    document.getElementById('formatpdflmsbookexport').addEventListener('click', () => {
-        window.location.href = '/export_lms_book_pdf';
-    });
-
   });
 
 
@@ -9296,6 +9286,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </script>
 <script>
     $(document).ready(function () {
+if ($('#alladminsTable').length) {
 
         $('#alladminsTable').DataTable({
             paging: true,    // Enable pagination
@@ -9305,6 +9296,8 @@ document.addEventListener('DOMContentLoaded', () => {
             pageLength: 8,       // Force max 5 entries per page
             lengthChange: false, // Disable entries per page dropdown
         });
+}
+if ($('#allpaymentscdTable').length) {
 
         $('#allpaymentscdTable').DataTable({
             paging: false,    // Enable pagination
@@ -9312,9 +9305,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ordering: true,  // Enable sorting
             info: true,      // Show table information
         });
+}
 
-
-
+if ($('#allenquiriesTable').length) {
         $('#allenquiriesTable').DataTable({
             paging: false,    // Enable pagination
             searching: true, // Enable search
@@ -9323,7 +9316,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pageLength: 8,       // Force max 5 entries per page
             lengthChange: false, // Disable entries per page dropdown
         });
-
+}
     });
 
     // Quotation Generator Modal Logic
