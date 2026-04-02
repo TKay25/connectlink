@@ -539,6 +539,13 @@
             overflow-y: auto !important;
             width: 100%;
         }
+        /* Hide duplicate search in projects table and adjust spacing */
+        #projects-tab .row.mb-5 {
+            margin-bottom: 0.5rem !important;
+        }
+        #projects-tab .container.mt-6 {
+            margin-top: 0.5rem !important;
+        }
     </style>
 </head>
 
@@ -2625,6 +2632,10 @@
                                     </select>
                                 </div>
                             </div>
+                        </div>
+
+                        <div style="font-size: 0.85rem; color: #1E2A56; font-weight: 500; margin-bottom: 10px;">
+                            <span id="resultsCount">Showing 0 enquiries</span>
                         </div>
 
                         <div class="container2" style="max-height: 500px; overflow-y: auto;">
@@ -5996,7 +6007,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        resultsCount.textContent = `Showing ${visibleCount} of ${enquiryRows.length} enquiries`;
+        if (resultsCount) {
+            resultsCount.textContent = `Showing ${visibleCount} of ${enquiryRows.length} enquiries`;
+        }
         console.log('Visible count:', visibleCount);
     }
     

@@ -9539,9 +9539,9 @@ def download_contract(project_id):
                     .scope-box {{
                         border: 1.5px solid #1E2A56;
                         border-radius: 10px;
-                        padding: 10px;
+                        padding: 8px;
                         font-size: 11px;
-                        min-height: 100px;
+                        min-height: 70px;
                         background: #fafbff;
                         margin-bottom: 15px;
                         line-height: 1.3;
