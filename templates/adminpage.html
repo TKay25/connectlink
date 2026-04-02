@@ -6170,8 +6170,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 
-    // Add search functionality
-    document.getElementById('tableSearch')?.addEventListener('keyup', function() {
+    // Add search functionality - filters all columns as you type
+    document.getElementById('tableSearch')?.addEventListener('input', function() {
         const searchTerm = this.value;
         if (window.dataTable) {
             window.dataTable.search(searchTerm).draw();
