@@ -2669,11 +2669,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-2">
-                                <button class="btn btn-primary" id="applyFilterBtn" style="width: max-content;">
-                                    <i class="bi bi-funnel"></i> Apply Filter
-                                </button>
-                            </div>
+
 
                             <div class="col-md-3">
                                 <div class="input-group" style="font-size: 0.7rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
@@ -6102,8 +6098,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('DataTable initialized with column visibility settings');
     
-    // Keep your filter code but FIX the reinitialization
-    document.getElementById('applyFilterBtn')?.addEventListener('click', function() {
+    // Auto-filter when month selection changes
+    document.getElementById('monthFilter')?.addEventListener('change', function() {
         const selectedMonth = document.getElementById('monthFilter').value;
         
         console.log('Applying filter for month:', selectedMonth);
