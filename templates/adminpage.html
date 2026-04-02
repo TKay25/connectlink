@@ -423,9 +423,44 @@
 <div class="modal fade" id="editModaldepartment" tabindex="-1"></div>
 
 <!-- Missing table elements -->
-<table id="alladminsTable" style="display: none;"><tbody></tbody></table>
-<table id="allpaymentscdTable" style="display: none;"><tbody></tbody></table>
-<table id="allenquiriesTable" style="display: none;"><tbody></tbody></table>
+<table id="alladminsTable" style="display: none;">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Contact</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+<table id="allpaymentscdTable" style="display: none;">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Project</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+<table id="allenquiriesTable" style="display: none;">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Date</th>
+            <th>Client</th>
+            <th>Username</th>
+            <th>Category</th>
+            <th>Message</th>
+            <th>Status</th>
+            <th>Document</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
 <table id="employeesaccumulatorsTable" style="display: none;"><tbody></tbody></table>
 
     <div class="eds-loader" id="edsLoader" style="display: none;">
@@ -7910,7 +7945,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script>
     $(document).ready(function () {
 
-        if ($('#alladminsTable').length) {
+        if ($('#alladminsTable').length && $('#alladminsTable tbody tr').length > 0) {
             try {
                 $('#alladminsTable').DataTable({
                     paging: true,    // Enable pagination
@@ -7925,7 +7960,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if ($('#allpaymentscdTable').length) {
+        if ($('#allpaymentscdTable').length && $('#allpaymentscdTable tbody tr').length > 0) {
             try {
                 $('#allpaymentscdTable').DataTable({
                     paging: false,    // Enable pagination
@@ -7938,7 +7973,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if ($('#allenquiriesTable').length) {
+        if ($('#allenquiriesTable').length && $('#allenquiriesTable tbody tr').length > 0) {
             try {
                 $('#allenquiriesTable').DataTable({
                     paging: false,    // Enable pagination
