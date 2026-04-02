@@ -6277,6 +6277,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add expand/collapse functionality for table cells
     function initTableCellTruncation() {
+        // Truncate table data cells
         document.querySelectorAll('table.table-theme td').forEach(td => {
             // Skip cells with interactive elements
             if (td.querySelector('button, a, input, select')) {
@@ -6285,34 +6286,50 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const fullText = td.textContent.trim();
             
-            // If text exceeds 20 characters, truncate it
-            if (fullText.length > 20) {
+            // If text exceeds 16 characters, truncate it
+            if (fullText.length > 16) {
                 // Store full text as data attribute
                 td.setAttribute('data-full-text', fullText);
                 td.classList.add('truncated');
                 
                 // Display truncated text with ...
-                td.textContent = fullText.substring(0, 20) + '...';
+                td.textContent = fullText.substring(0, 16) + '...';
                 td.style.cursor = 'pointer';
+            }
+        });
+        
+        // Truncate table headers
+        document.querySelectorAll('table.table-theme th').forEach(th => {
+            const fullText = th.textContent.trim();
+            
+            // If text exceeds 16 characters, truncate it
+            if (fullText.length > 16) {
+                // Store full text as data attribute
+                th.setAttribute('data-full-text', fullText);
+                th.classList.add('truncated');
+                
+                // Display truncated text with ...
+                th.textContent = fullText.substring(0, 16) + '...';
+                th.style.cursor = 'pointer';
             }
         });
     }
     
     // Handle click to expand/collapse
     document.addEventListener('click', function(e) {
-        const td = e.target.closest('table.table-theme td');
-        if (!td || !td.classList.contains('truncated')) return;
+        const element = e.target.closest('table.table-theme td.truncated, table.table-theme th.truncated');
+        if (!element) return;
         
-        const fullText = td.getAttribute('data-full-text');
+        const fullText = element.getAttribute('data-full-text');
         
-        if (td.classList.contains('expanded')) {
+        if (element.classList.contains('expanded')) {
             // Collapse - show truncated text
-            td.classList.remove('expanded');
-            td.textContent = fullText.substring(0, 20) + '...';
+            element.classList.remove('expanded');
+            element.textContent = fullText.substring(0, 16) + '...';
         } else {
             // Expand - show full text
-            td.classList.add('expanded');
-            td.textContent = fullText;
+            element.classList.add('expanded');
+            element.textContent = fullText;
         }
     });
     
