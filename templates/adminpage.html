@@ -3077,6 +3077,13 @@ function openModal(modalId) {
     if (modal) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+        
+        // Load months when download installments modal opens
+        if (modalId === 'downloadInstallmentsModal') {
+            loadProjectStartMonths();
+            loadDueMonths();
+            updateCounts();
+        }
     }
 }
 
@@ -4696,14 +4703,7 @@ $(document).ready(function() {
 
 </script>
 <script>
-    // Load months when modal opens
-document.getElementById('downloadInstallmentsModal')?.addEventListener('show.bs.modal', function() {
-    loadProjectStartMonths();
-    loadDueMonths();
-    updateCounts();
-});
-
-// Load project start months
+// Months loading functions
 async function loadProjectStartMonths() {
     try {
         const response = await fetch('/get_project_start_months');

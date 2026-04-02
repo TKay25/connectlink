@@ -13063,6 +13063,23 @@ def download_installments():
             from datetime import datetime
             from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
             
+            # Deduplicate data to remove exact duplicates
+            def deduplicate_list(data_list):
+                """Remove duplicate installment records"""
+                seen = set()
+                deduplicated = []
+                for item in data_list:
+                    # Create unique key from id, installment_info, and amount
+                    key = (item['id'], item.get('installment_info', ''), str(item.get('amount_paid', item.get('amount_due', ''))))
+                    if key not in seen:
+                        seen.add(key)
+                        deduplicated.append(item)
+                return deduplicated
+            
+            paid_data = deduplicate_list(paid_data)
+            due_data = deduplicate_list(due_data)
+            overdue_data = deduplicate_list(overdue_data)
+            
             # Create DataFrames
             paid_df = pd.DataFrame(paid_data)
             due_df = pd.DataFrame(due_data)
