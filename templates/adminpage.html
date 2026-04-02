@@ -441,18 +441,12 @@
             height: auto;
         }
         
-        .table-theme td.expandable::after {
-            content: ' ...';
-            color: var(--crimson-bright);
-            font-weight: 700;
-            font-size: 0.75rem;
+        .table-theme td.truncated {
+            cursor: pointer;
+            user-select: none;
         }
         
-        .table-theme td.expandable.expanded::after {
-            content: ' ↑';
-        }
-        
-        .table-theme td.expandable:hover {
+        .table-theme td.truncated:hover {
             background: rgba(193, 43, 62, 0.1);
             border-radius: 4px;
         }
@@ -6282,40 +6276,57 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Add expand/collapse functionality for table cells
+    function initTableCellTruncation() {
+        document.querySelectorAll('table.table-theme td').forEach(td => {
+            // Skip cells with interactive elements
+            if (td.querySelector('button, a, input, select')) {
+                return;
+            }
+            
+            const fullText = td.textContent.trim();
+            
+            // If text exceeds 20 characters, truncate it
+            if (fullText.length > 20) {
+                // Store full text as data attribute
+                td.setAttribute('data-full-text', fullText);
+                td.classList.add('truncated');
+                
+                // Display truncated text with ...
+                td.textContent = fullText.substring(0, 20) + '...';
+                td.style.cursor = 'pointer';
+            }
+        });
+    }
+    
+    // Handle click to expand/collapse
     document.addEventListener('click', function(e) {
         const td = e.target.closest('table.table-theme td');
-        if (!td) return;
+        if (!td || !td.classList.contains('truncated')) return;
         
-        // Don't expand if cell contains buttons or links
-        if (td.querySelector('button, a, input, select')) {
-            return;
-        }
+        const fullText = td.getAttribute('data-full-text');
         
-        // Check if cell has truncated content (text is too long or overflowing)
-        const hasOverflow = td.offsetWidth < td.scrollWidth;
-        const hasLongText = td.textContent.trim().length > 30;
-        
-        if (hasOverflow || hasLongText) {
-            td.classList.add('expandable');
-            
-            if (td.classList.contains('expanded')) {
-                // Collapse
-                td.classList.remove('expanded');
-                td.style.maxWidth = '150px';
-                td.style.whiteSpace = 'nowrap';
-                td.style.overflow = 'hidden';
-                td.style.textOverflow = 'ellipsis';
-            } else {
-                // Expand
-                td.classList.add('expanded');
-                td.style.maxWidth = '400px';
-                td.style.whiteSpace = 'normal';
-                td.style.wordBreak = 'break-word';
-                td.style.overflow = 'visible';
-                td.style.textOverflow = 'clip';
-            }
+        if (td.classList.contains('expanded')) {
+            // Collapse - show truncated text
+            td.classList.remove('expanded');
+            td.textContent = fullText.substring(0, 20) + '...';
+        } else {
+            // Expand - show full text
+            td.classList.add('expanded');
+            td.textContent = fullText;
         }
     });
+    
+    // Initialize on page load
+    initTableCellTruncation();
+    
+    // Reinitialize after table reload/filter
+    const tableContainer = document.querySelector('.mainalldata');
+    if (tableContainer) {
+        const observer = new MutationObserver(function() {
+            setTimeout(initTableCellTruncation, 100);
+        });
+        observer.observe(tableContainer, { childList: true, subtree: true });
+    }
 });
 
 
