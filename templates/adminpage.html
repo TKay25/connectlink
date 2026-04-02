@@ -7875,13 +7875,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    document.getElementById('formatexcellmsbookexport').addEventListener('click', () => {
+    const excelExportBtn = document.getElementById('formatexcellmsbookexport');
+    if (excelExportBtn) {
+        excelExportBtn.addEventListener('click', () => {
             window.location.href = '/export_lms_book_excel';
         });
+    }
 
-    document.getElementById('formatpdflmsbookexport').addEventListener('click', () => {
-        window.location.href = '/export_lms_book_pdf';
-    });
+    const pdfExportBtn = document.getElementById('formatpdflmsbookexport');
+    if (pdfExportBtn) {
+        pdfExportBtn.addEventListener('click', () => {
+            window.location.href = '/export_lms_book_pdf';
+        });
+    }
 
   });
 
@@ -7892,32 +7898,36 @@ document.addEventListener('DOMContentLoaded', () => {
 <script>
     $(document).ready(function () {
 
-        $('#alladminsTable').DataTable({
-            paging: true,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-        });
+        if ($('#alladminsTable').length) {
+            $('#alladminsTable').DataTable({
+                paging: true,    // Enable pagination
+                searching: true, // Enable search
+                ordering: true,  // Enable sorting
+                info: true,      // Show table information
+                pageLength: 8,       // Force max 5 entries per page
+                lengthChange: false, // Disable entries per page dropdown
+            });
+        }
 
-        $('#allpaymentscdTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-        });
+        if ($('#allpaymentscdTable').length) {
+            $('#allpaymentscdTable').DataTable({
+                paging: false,    // Enable pagination
+                searching: true, // Enable search
+                ordering: true,  // Enable sorting
+                info: true,      // Show table information
+            });
+        }
 
-
-
-        $('#allenquiriesTable').DataTable({
-            paging: false,    // Enable pagination
-            searching: true, // Enable search
-            ordering: true,  // Enable sorting
-            info: true,      // Show table information
-            pageLength: 8,       // Force max 5 entries per page
-            lengthChange: false, // Disable entries per page dropdown
-        });
+        if ($('#allenquiriesTable').length) {
+            $('#allenquiriesTable').DataTable({
+                paging: false,    // Enable pagination
+                searching: true, // Enable search
+                ordering: true,  // Enable sorting
+                info: true,      // Show table information
+                pageLength: 8,       // Force max 5 entries per page
+                lengthChange: false, // Disable entries per page dropdown
+            });
+        }
 
     });
 
