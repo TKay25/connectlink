@@ -9550,18 +9550,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Select All functionality for construction items
-        $('#selectAllCheckbox').click(function() {
-            const isChecked = !$('.construction-item:first').prop('checked');
-            $('.construction-item').prop('checked', isChecked);
-            
-            // Update button text
-            if (isChecked) {
-                $(this).text('Deselect All');
-            } else {
-                $(this).text('Select All');
-            }
-        });
+$('#quotationgeneratorModal').on('shown.bs.modal', function() {
+    $('#selectAllCheckbox').off('click').on('click', function() {
+        const isChecked = !$('.construction-item:first').prop('checked');
+        $('.construction-item').prop('checked', isChecked);
+        
+        // Update button text
+        if (isChecked) {
+            $(this).text('Deselect All');
+        } else {
+            $(this).text('Select All');
+        }
+    });
+});
 
         // Update Select All button text when individual checkboxes change
         $('.construction-item').change(function() {
