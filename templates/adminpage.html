@@ -3342,11 +3342,6 @@ document.addEventListener('DOMContentLoaded', function() {
         aiQuestion.focus();
     });
     
-    // Close modal
-    closeBtn.addEventListener('click', function() {
-        modal.style.display = 'none';
-    });
-    
     // Close when clicking outside
     window.addEventListener('click', function(event) {
         if (event.target === modal) {
