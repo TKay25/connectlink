@@ -12934,6 +12934,19 @@ def download_installments():
             cursor.execute(query, params)
             all_installments = cursor.fetchall()
             
+            # Deduplicate rows from database - remove exact duplicate project records
+            seen = set()
+            deduped_installments = []
+            for row in all_installments:
+                # Use first 8 fields (id through projectstartdate) as the unique key
+                # This identifies the project, not the individual installment
+                row_key = row[:8]  # id, clientname, clientwanumber, clientemail, projectname, projectdescription, momid, projectstartdate
+                if row_key not in seen:
+                    seen.add(row_key)
+                    deduped_installments.append(row)
+            
+            all_installments = deduped_installments
+            
             # Get column names
             columns = [
                 'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
