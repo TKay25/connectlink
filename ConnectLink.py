@@ -9890,9 +9890,9 @@ def download_contract(project_id):
 
                     <div class="section-header">ELECTRICITY, WATER AND SEWERAGE CONNECTIONS</div>
                     <div class="terms-box">
-                        <ol>
+                        <ul>
                             <li>Connections for ZESA, City council water and sewerage will be done by the Client.</li>
-                        </ol>
+                        </ul>
                     </div>
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
