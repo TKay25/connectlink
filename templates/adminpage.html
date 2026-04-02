@@ -311,6 +311,13 @@
     width: 95%;
 }
 
+.modal-container.fullscreen {
+    max-width: 95vw;
+    width: 95vw;
+    max-height: 90vh;
+    height: 90vh;
+}
+
 @keyframes modalFadeIn {
     from {
         opacity: 0;
@@ -2513,31 +2520,36 @@
 
 
                 <div class="tab-pane fade" id="enquiries-tab">
-                    <button class="btn btn-primary mt-3"
+                    <button class="btn btn-primary mt-1"
                             id="exportenquiriesBtn"
                             style="width: max-content;"
                             onclick="downloadenquiries()">
                         <i class="bi bi-download"></i> Download Enquiries File
                     </button>
 
-                    <button class="btn btn-primary mt-3"
-                            id="exportenquiriesBtn"
+                    <button class="btn btn-primary mt-1"
+                            id="viewInterimEnquiriesBtn"
                             style="width: max-content;"
-                            data-bs-toggle="modal"
-                            data-bs-target="#viewEnquiriesModal">
+                            onclick="openModal('viewEnquiriesModal')">
                         <i class="bi bi-search"></i> View Interim Enquiries
                     </button>
 
-                    <div class="container mt-5">
-                        <div class="container2" style="max-height: 500px; overflow-y: auto;">
-
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <input type="text" id="enquirySearch" class="form-control form-control-sm" 
-                                        placeholder="Search enquiries..." style="font-size: 12px;">
+                    <div class="container mt-6 card">
+                        <div class="row mb-5 align-items-center">
+                            <div class="col-md-3">
+                                <div class="input-group" style="font-size: 0.7rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
+                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56; padding: 0.2rem 0.3rem;">
+                                        <i class="bi bi-search" style="font-size: 0.6rem;"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="enquirySearch" placeholder="Search enquiries..." style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.7rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
                                 </div>
-                                <div class="col-md-3">
-                                    <select id="categoryFilter" class="form-select form-select-sm" style="font-size: 12px;">
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group" style="font-size: 0.7rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
+                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56; padding: 0.2rem 0.3rem;">
+                                        <i class="bi bi-filter" style="font-size: 0.6rem;"></i>
+                                    </span>
+                                    <select id="categoryFilter" class="form-select" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.7rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
                                         <option value="">All Categories</option>
                                         <option value="Kitchen & Cabinets">Kitchen & Cabinets</option>
                                         <option value="Building">Building</option>
@@ -2545,25 +2557,23 @@
                                         <option value="Other">Other</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
-                                    <select id="statusFilter" class="form-select form-select-sm" style="font-size: 12px;">
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group" style="font-size: 0.7rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
+                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56; padding: 0.2rem 0.3rem;">
+                                        <i class="bi bi-toggles" style="font-size: 0.6rem;"></i>
+                                    </span>
+                                    <select id="statusFilter" class="form-select" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.7rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
                                         <option value="">All Status</option>
                                         <option value="pending">Pending</option>
                                         <option value="in_progress">In Progress</option>
                                         <option value="completed">Completed</option>
                                     </select>
                                 </div>
-                                <div class="col-md-2">
-                                    <button id="clearFilters" class="btn btn-sm btn-outline-secondary w-100" style="font-size: 12px;">
-                                        Clear
-                                    </button>
-                                </div>
                             </div>
-                            
-                            <!-- Results Count -->
-                            <div class="mb-2">
-                                <small id="resultsCount" class="text-muted"></small>
-                            </div>
+                        </div>
+
+                        <div class="container2" style="max-height: 500px; overflow-y: auto;">
 
                             <table class="table-theme">
                                 <thead>
