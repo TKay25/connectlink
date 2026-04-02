@@ -117,12 +117,6 @@
             border-color: #7f8c8d;
         }
 
-        .sidebar .btn-side.active {
-            background: #3498db;
-            color: white;
-            border-color: #2980b9;
-        }
-
         .sidebar .btn-side i {
             font-size: 1.1rem;
             width: 20px;
@@ -188,17 +182,8 @@
             backdrop-filter: blur(10px);
         }
 
-        /* Active state indicator */
-        .sidebar .btn-side.active {
-            background: rgba(193, 43, 62, 0.2);
-            border-color: var(--crimson-bright);
-            box-shadow:
-                0 4px 15px rgba(193, 43, 62, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
-        }
 
         .sidebar .btn-side.active i {
-            background: var(--crimson-bright);
             color: var(--white);
             transform: scale(1.05);
         }
@@ -206,7 +191,6 @@
         .sidebar .btn-side.active::after {
             width: 4px;
             height: 60%;
-            background: var(--crimson-bright);
             border-radius: 2px;
             position: absolute;
             right: 8px;
