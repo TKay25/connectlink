@@ -3392,9 +3392,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function Pushpaymentreminders() {
     console.log('Opening Payment Reminders...');
     
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('paymentRemindersModal'));
-    modal.show();
+    // Show modal using custom modal system
+    openModal('paymentRemindersModal');
     
     // Load data
     loadPaymentReminders();
@@ -3409,14 +3408,10 @@ let sentRemindersData = [];
 // Function to open sent reminders modal
 function openSentReminders() {
     // Close payment reminders modal first
-    const paymentModal = bootstrap.Modal.getInstance(document.getElementById('paymentRemindersModal'));
-    if (paymentModal) {
-        paymentModal.hide();
-    }
+    closeModal('paymentRemindersModal');
     
     // Open sent reminders modal
-    const modal = new bootstrap.Modal(document.getElementById('sentRemindersModal'));
-    modal.show();
+    openModal('sentRemindersModal');
     
     // Load sent reminders
     loadSentReminders();
