@@ -12762,23 +12762,30 @@ def get_installments_count():
             project_start_month = request.args.get('datedepositorbullet')
             due_month = request.args.get('due_month')
             
-            # Build base query
-            query = """
-                SELECT COUNT(*) as total FROM connectlinkdatabase WHERE 1=1
-            """
+            # Parse due month if provided
+            due_year = None
+            due_month_num = None
+            if due_month and due_month != 'all':
+                due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
+            
+            # Build WHERE clause for project filters
+            where_clauses = []
             params = []
             
-            # Add project start month filter
+            # Project start month filter
             if project_start_month and project_start_month != 'all':
                 year, month_num = project_start_month.split('-')
-                query += " AND EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                where_clauses.append(
+                    "EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                )
                 params.extend([year, month_num])
             
-            # Add due month filter
+            # Due month filter (at project level - projects that have installments due in selected month)
             if due_month and due_month != 'all':
-                year, month_num = due_month.split('-')
-                query += """
-                    AND (
+                due_condition = """
+                    (
                         (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
                         (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
                         (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
@@ -12791,30 +12798,91 @@ def get_installments_count():
                         (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
                     )
                 """
-                params.extend([year, month_num] * 6)
+                where_clauses.append(due_condition)
+                params.extend([due_year, due_month_num] * 10)
             
-            # Get total count
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+            
+            # Query to get all projects matching project filters
+            query = f"""
+                SELECT 
+                    id, clientname, clientwanumber, clientemail, projectname,
+                    projectdescription, momid, projectstartdate,
+                    installment1amount, installment1duedate, installment1date,
+                    installment2amount, installment2duedate, installment2date,
+                    installment3amount, installment3duedate, installment3date,
+                    installment4amount, installment4duedate, installment4date,
+                    installment5amount, installment5duedate, installment5date,
+                    installment6amount, installment6duedate, installment6date,
+                    installment7amount, installment7duedate, installment7date,
+                    installment8amount, installment8duedate, installment8date,
+                    installment9amount, installment9duedate, installment9date,
+                    installment10amount, installment10duedate, installment10date
+                FROM connectlinkdatabase 
+                {where_clause}
+            """
+            
             cursor.execute(query, params)
-            total = cursor.fetchone()[0]
+            all_projects = cursor.fetchall()
             
-            # Get paid count (any installment date not null)
-            paid_query = query.replace("WHERE 1=1", 
-                "WHERE 1=1 AND (installment1date IS NOT NULL OR installment2date IS NOT NULL OR installment3date IS NOT NULL OR installment4date IS NOT NULL OR installment5date IS NOT NULL OR installment6date IS NOT NULL OR installment7date IS NOT NULL OR installment8date IS NOT NULL OR installment9date IS NOT NULL OR installment10date IS NOT NULL)")
+            # Count installments
+            total_count = 0
+            paid_count = 0
+            due_count = 0
             
-            cursor.execute(paid_query, params)
-            paid = cursor.fetchone()[0]
+            from datetime import datetime
+            today = datetime.now().date()
             
-            # Get due count (all installment dates null)
-            due_query = query.replace("WHERE 1=1", 
-                "WHERE 1=1 AND (installment1date IS NULL AND installment2date IS NULL AND installment3date IS NULL AND installment4date IS NULL AND installment5date IS NULL AND installment6date IS NULL AND installment7date IS NULL AND installment8date IS NULL AND installment9date IS NULL AND installment10date IS NULL)")
+            for row in all_projects:
+                row_dict = dict(zip([
+                    'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                    'projectdescription', 'momid', 'projectstartdate',
+                    'installment1amount', 'installment1duedate', 'installment1date',
+                    'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date',
+                    'installment4amount', 'installment4duedate', 'installment4date',
+                    'installment5amount', 'installment5duedate', 'installment5date',
+                    'installment6amount', 'installment6duedate', 'installment6date',
+                    'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date'
+                ], row))
+                
+                # Process each installment
+                for i in range(1, 11):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    
+                    # Skip if no amount
+                    if not amount or float(amount) <= 0:
+                        continue
+                    
+                    due_date = row_dict.get(f'installment{i}duedate')
+                    payment_date = row_dict.get(f'installment{i}date')
+                    
+                    # Apply due month filter at installment level
+                    if due_month and due_month != 'all':
+                        if not due_date:
+                            continue
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        if due_date_date.year != int(due_year) or due_date_date.month != int(due_month_num):
+                            continue
+                    
+                    total_count += 1
+                    
+                    if payment_date:
+                        paid_count += 1
+                    elif due_date:
+                        due_count += 1
             
-            cursor.execute(due_query, params)
-            due = cursor.fetchone()[0]
-            
-            return jsonify({'total': total, 'paid': paid, 'due': due})
+            return jsonify({'total': total_count, 'paid': paid_count, 'due': due_count})
         
     except Exception as e:
         print(f"Error counting installments: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'total': 0, 'paid': 0, 'due': 0, 'error': str(e)}), 500
 
 
@@ -12848,6 +12916,8 @@ def download_installments():
             due_month_num = None
             if due_month and due_month != 'all':
                 due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
             
             # Build WHERE clause for both filters
             where_clauses = []
