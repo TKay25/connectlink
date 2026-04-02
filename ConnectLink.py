@@ -9888,7 +9888,12 @@ def download_contract(project_id):
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
-
+                    <div class="section-header">ELECTRICITY, WATER AND SEWERAGE CONNECTIONS</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Connections for ZESA, City council water and sewerage will be done by the Client.</li>
+                        </ol>
+                    </div>
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
