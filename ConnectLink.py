@@ -10769,13 +10769,14 @@ def get_payment_reminders_data(df):
     today = date.today()
     due_soon = []
     overdue = []
+    underpaid = []
     
     # Make sure we're working with a copy
     df = df.copy()
     
     # Convert date columns to datetime
     date_columns = []
-    for i in range(1, 7):
+    for i in range(1, 11):
         due_col = f'installment{i}duedate'
         paid_col = f'installment{i}date'
         
@@ -10793,21 +10794,34 @@ def get_payment_reminders_data(df):
             whatsapp_number = str(row.get('clientwanumber', ''))
             project_name = str(row.get('projectname', 'Unknown'))
             project_id = int(row.get('id', index))
+            total_contract_amount = 0
             
-            # Check each installment (1-6)
-            for i in range(1, 7):
-                due_date_col = f'installment{i}duedate'
-                paid_date_col = f'installment{i}date'
+            try:
+                total_contract_amount = float(row.get('totalcontractamount', 0))
+            except:
+                total_contract_amount = 0
+            
+            # Calculate total paid so far
+            total_paid = 0
+            
+            # Add deposit amount
+            try:
+                deposit = float(row.get('depositorbullet', 0))
+                total_paid += deposit
+            except:
+                pass
+            
+            # Add all paid installments
+            last_payment_date = None
+            all_installments_paid = True
+            
+            for i in range(1, 11):
                 amount_col = f'installment{i}amount'
+                paid_col = f'installment{i}date'
                 
-                # Get due date
-                due_date = row.get(due_date_col)
-                if pd.isna(due_date):
-                    continue
-                
-                # Get amount (handle various formats)
                 amount = 0
                 amount_val = row.get(amount_col)
+                
                 if pd.notna(amount_val):
                     try:
                         amount = float(amount_val)
@@ -10818,43 +10832,75 @@ def get_payment_reminders_data(df):
                     continue
                 
                 # Check if paid
-                paid_date = row.get(paid_date_col)
+                paid_date = row.get(paid_col)
                 is_paid = pd.notna(paid_date)
                 
+                if is_paid:
+                    total_paid += amount
+                    if last_payment_date is None or paid_date > last_payment_date:
+                        last_payment_date = paid_date
+                else:
+                    all_installments_paid = False
+                
+                # Check for unpaid installments
                 if not is_paid:
-                    due_date_date = due_date.date()
-                    days_diff = (due_date_date - today).days
+                    due_date = row.get(f'installment{i}duedate')
+                    if pd.notna(due_date):
+                        due_date_date = due_date.date()
+                        days_diff = (due_date_date - today).days
+                        
+                        payment_info = {
+                            'project_id': project_id,
+                            'client_name': client_name,
+                            'whatsapp_number': whatsapp_number,
+                            'project_name': project_name,
+                            'installment_number': i,
+                            'amount_due': amount,
+                            'due_date': due_date_date.strftime('%Y-%m-%d'),
+                            'days_diff': days_diff
+                        }
+                        
+                        if days_diff < 0:
+                            payment_info['days_overdue'] = abs(days_diff)
+                            overdue.append(payment_info)
+                        elif days_diff <= 3:
+                            due_soon.append(payment_info)
+            
+            # Check for underpayment
+            if all_installments_paid and last_payment_date is not None:
+                balance_due = total_contract_amount - total_paid
+                
+                if balance_due > 0:
+                    last_payment_date_date = last_payment_date.date()
+                    days_since_last_payment = (today - last_payment_date_date).days
                     
-                    payment_info = {
+                    underpaid_info = {
                         'project_id': project_id,
                         'client_name': client_name,
                         'whatsapp_number': whatsapp_number,
                         'project_name': project_name,
-                        'installment_number': i,
-                        'amount_due': amount,
-                        'due_date': due_date_date.strftime('%Y-%m-%d'),
-                        'days_diff': days_diff
+                        'total_contract_amount': total_contract_amount,
+                        'total_paid': total_paid,
+                        'balance_due': balance_due,
+                        'last_payment_date': last_payment_date_date.strftime('%Y-%m-%d'),
+                        'days_overdue': days_since_last_payment
                     }
-                    
-                    print(payment_info)
-
-                    if days_diff < 0:
-                        payment_info['days_overdue'] = abs(days_diff)
-                        overdue.append(payment_info)
-                    elif days_diff <= 3:
-                        due_soon.append(payment_info)
+                    underpaid.append(underpaid_info)
                         
         except Exception as e:
+            print(f"Error processing row: {e}")
             continue
     
     # Sort results
     due_soon.sort(key=lambda x: x['days_diff'])
     overdue.sort(key=lambda x: x['days_overdue'], reverse=True)
+    underpaid.sort(key=lambda x: x['days_overdue'], reverse=True)
     
     return {
         'due_soon': due_soon,
         'overdue': overdue,
-        'all_payments': due_soon + overdue
+        'underpaid': underpaid,
+        'all_payments': due_soon + overdue + underpaid
     }
 
 @app.route('/api/payment-reminders', methods=['GET'])
@@ -11012,18 +11058,110 @@ def api_payment_reminders():
                             overdue.append(payment_info)
                         elif days_diff <= 3:
                             due_soon.append(payment_info)
+
+                except Exception as e:
+                    print(e)
+            
+            # Query for underpaid clients (all installments paid but balance due)
+            underpaid = []
+            cursor.execute("""
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    d.totalcontractamount,
+                    d.depositorbullet,
+                    d.datedepositorbullet,
+                    d.installment1amount, d.installment1date,
+                    d.installment2amount, d.installment2date,
+                    d.installment3amount, d.installment3date,
+                    d.installment4amount, d.installment4date,
+                    d.installment5amount, d.installment5date,
+                    d.installment6amount, d.installment6date,
+                    d.installment7amount, d.installment7date,
+                    d.installment8amount, d.installment8date,
+                    d.installment9amount, d.installment9date,
+                    d.installment10amount, d.installment10date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.totalcontractamount > 0
+            """)
+            
+            underpaid_results = cursor.fetchall()
+            
+            for row in underpaid_results:
+                try:
+                    project_id = row[0]
+                    client_name = row[1]
+                    whatsapp_number = row[2]
+                    project_name = row[3]
+                    total_contract = float(row[4]) if row[4] else 0
+                    
+                    # Calculate total paid
+                    total_paid = 0
+                    last_payment_date = None
+                    
+                    # Add deposit
+                    deposit = float(row[5]) if row[5] else 0
+                    total_paid += deposit
+                    
+                    if row[6]:  # deposit date
+                        last_payment_date = row[6]
+                    
+                    # Check all 10 installments
+                    all_paid = True
+                    for i in range(10):
+                        amount_idx = 7 + (i * 2)
+                        date_idx = amount_idx + 1
+                        
+                        if amount_idx < len(row) and row[amount_idx]:
+                            amount = float(row[amount_idx]) if row[amount_idx] else 0
+                            paid_date = row[date_idx] if date_idx < len(row) else None
                             
+                            if amount > 0:
+                                if paid_date:
+                                    total_paid += amount
+                                    if last_payment_date is None or paid_date > last_payment_date:
+                                        last_payment_date = paid_date
+                                else:
+                                    all_paid = False
+                    
+                    # Check for underpayment
+                    if all_paid and last_payment_date:
+                        balance_due = total_contract - total_paid
+                        
+                        if balance_due > 0:
+                            last_payment_dt = last_payment_date if isinstance(last_payment_date, datetime.date) else datetime.strptime(str(last_payment_date), '%Y-%m-%d').date()
+                            days_overdue = (today - last_payment_dt).days
+                            
+                            underpaid.append({
+                                'project_id': project_id,
+                                'client_name': client_name,
+                                'whatsapp_number': whatsapp_number,
+                                'project_name': project_name,
+                                'total_contract_amount': total_contract,
+                                'total_paid': total_paid,
+                                'balance_due': balance_due,
+                                'last_payment_date': last_payment_dt.strftime('%Y-%m-%d'),
+                                'days_overdue': days_overdue
+                            })
                 except Exception as e:
                     continue
+            
+            # Sort underpaid by days overdue
+            underpaid.sort(key=lambda x: x['days_overdue'], reverse=True)
             
             return jsonify({
                 'due_soon': due_soon,
                 'overdue': overdue,
-                'all_payments': due_soon + overdue,
+                'underpaid': underpaid,
+                'all_payments': due_soon + overdue + underpaid,
                 'counts': {
                     'due_soon': len(due_soon),
                     'overdue': len(overdue),
-                    'total': len(due_soon) + len(overdue)
+                    'underpaid': len(underpaid),
+                    'total': len(due_soon) + len(overdue) + len(underpaid)
                 },
                 'today': today.strftime('%Y-%m-%d')
             })
@@ -11034,6 +11172,7 @@ def api_payment_reminders():
             'error': 'Server error',
             'due_soon': [],
             'overdue': [],
+            'underpaid': [],
             'all_payments': []
         }), 500
 
