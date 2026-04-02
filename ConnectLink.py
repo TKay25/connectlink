@@ -8872,6 +8872,94 @@ def export_projects_portfolio():
                 df_projects.to_excel(writer, index=False, sheet_name="Projects Database")
                 df_notes.to_excel(writer, index=False, sheet_name="Notes")
                 df_portfolio_deleted.to_excel(writer, index=False, sheet_name="Deleted Projects")
+                
+                # ========= SHEET 4 — PROJECT 134 WORK SCOPE (if exists) =========
+                project_134_exists = len(df_projects[df_projects['id'] == 134]) > 0
+                if project_134_exists:
+                    work_scope_data = {
+                        'Work Scope': [
+                            'Bathroom Plumbing',
+                            'Main Kitchen',
+                            'Bedroom Cabinets',
+                            'TV unit',
+                            'Boundary wall',
+                            'Kitchenette',
+                            'Electricals',
+                            'Manhole construction',
+                            'Painting',
+                            'Gate',
+                            'Tank Stand',
+                            'Landscaping',
+                            'Final fix Plumbing',
+                            'Final fix Electricals',
+                            'Verandah roof',
+                            'Garage roof',
+                            'Verandah Tiles',
+                            'Floor Tiles'
+                        ],
+                        'Start date': [
+                            '31/04/2026',
+                            '27/3/2026',
+                            '28/3/2026',
+                            '5/4/2026',
+                            '10/4/2026',
+                            '5/4/2026',
+                            '4/4/2026',
+                            '4/4/2026',
+                            '6/4/2026',
+                            '12/4/2026',
+                            '26/4/2026',
+                            '1/5/2026',
+                            '6/5/2026',
+                            '6/5/2026',
+                            '11/05/2026',
+                            '16/5/2026',
+                            '17/5/2026',
+                            '17/5/2026'
+                        ],
+                        'End date': [
+                            '3/4/2026',
+                            '4/4/2026',
+                            '4/4/2026',
+                            '6/4/2026',
+                            '',
+                            '7/4/2026',
+                            '8/4/2026',
+                            '9/4/2026',
+                            '11/4/2026',
+                            '13/4/2026',
+                            '30/4/2026',
+                            '10/5/2026',
+                            '10/5/2026',
+                            '10/5/2026',
+                            '16/5/2026',
+                            '21/5/2026',
+                            '23/5/2025',
+                            '23/5/2025'
+                        ],
+                        'Days': [
+                            4,
+                            7,
+                            6,
+                            1,
+                            '',
+                            2,
+                            4,
+                            5,
+                            5,
+                            1,
+                            4,
+                            9,
+                            4,
+                            4,
+                            5,
+                            5,
+                            6,
+                            6
+                        ]
+                    }
+                    df_work_scope = pd.DataFrame(work_scope_data)
+                    df_work_scope.to_excel(writer, index=False, sheet_name="Project 134 Work Scope")
 
 
             output.seek(0)
@@ -9258,6 +9346,51 @@ def download_contract(project_id):
 
             project['generated_on'] = datetime.now().strftime('%d %B %Y')
 
+            # Build work scope table HTML if project_id is 134
+            work_scope_html = ""
+            if int(project_id) == 134:
+                work_scope_data = [
+                    ('Bathroom Plumbing', '31/04/2026', '3/4/2026', 4),
+                    ('Main Kitchen', '27/3/2026', '4/4/2026', 7),
+                    ('Bedroom Cabinets', '28/3/2026', '4/4/2026', 6),
+                    ('TV unit', '5/4/2026', '6/4/2026', 1),
+                    ('Boundary wall', '10/4/2026', '', ''),
+                    ('Kitchenette', '5/4/2026', '7/4/2026', 2),
+                    ('Electricals', '4/4/2026', '8/4/2026', 4),
+                    ('Manhole construction', '4/4/2026', '9/4/2026', 5),
+                    ('Painting', '6/4/2026', '11/4/2026', 5),
+                    ('Gate', '12/4/2026', '13/4/2026', 1),
+                    ('Tank Stand', '26/4/2026', '30/4/2026', 4),
+                    ('Landscaping', '1/5/2026', '10/5/2026', 9),
+                    ('Final fix Plumbing', '6/5/2026', '10/5/2026', 4),
+                    ('Final fix Electricals', '6/5/2026', '10/5/2026', 4),
+                    ('Verandah roof', '11/05/2026', '16/5/2026', 5),
+                    ('Garage roof', '16/5/2026', '21/5/2026', 5),
+                    ('Verandah Tiles', '17/5/2026', '23/5/2025', 6),
+                    ('Floor Tiles', '17/5/2026', '23/5/2025', 6),
+                ]
+                
+                work_scope_rows = ""
+                for scope, start, end, days in work_scope_data:
+                    work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{scope}</td><td style='text-align: center; padding: 8px;'>{start}</td><td style='text-align: center; padding: 8px;'>{end}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days}</td></tr>"
+                
+                work_scope_html = f"""
+                    <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
+                    <table class="payment-table" style="margin-top: 12px; margin-bottom: 20px; font-size: 12px;">
+                        <thead>
+                            <tr style="background: #1E2A56; color: white;">
+                                <th style="width: 45%; text-align: left; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Work Scope</th>
+                                <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Start Date</th>
+                                <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">End Date</th>
+                                <th style="width: 12%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Days</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 11px;">
+                            {work_scope_rows}
+                        </tbody>
+                    </table>
+                """
+
             logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
             with open(logo_path, 'rb') as img_file:
                 logo_base64 = base64.b64encode(img_file.read()).decode('utf-8')
@@ -9631,7 +9764,8 @@ def download_contract(project_id):
                     
                     <div class="section-header">PROJECT SCOPE</div>
                     <div class="scope-box">{project['project_description']}</div>
-                
+                    
+                    {work_scope_html}
 
                     <h4 class="section-title">PAYMENT TERMS</h4>
                     <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>

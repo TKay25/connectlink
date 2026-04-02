@@ -398,6 +398,8 @@
             background: var(--white);
             border-radius: 18px;
             overflow: hidden;
+            width: 100%;
+            table-layout: fixed;
         }
         .table-theme th {
             background: var(--crimson-dark-side);
@@ -405,7 +407,7 @@
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             border-bottom: 1px solid rgba(193, 43, 62, 0.3);
             position: sticky;
             top: 0;
@@ -414,15 +416,17 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            padding: 6px 3px;
         }
         .table-theme td {
             color: var(--dark-blue-deep);
             border-bottom: 1px solid rgba(221, 146, 146, 0.3);
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             text-align: center;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            padding: 5px 3px;
         }
         
         .table-theme tr:nth-child(even) td {
@@ -483,9 +487,12 @@
         ::-webkit-scrollbar-thumb { background: var(--crimson-sidebar); border-radius: 10px; }
         .text-crimson { color: var(--crimson-bright); }
         hr { border-color: var(--dark-blue-deep); }
-        /* Ensure all tables have centered text and single-row cells */
+        /* Ensure all tables have centered text and single-row cells, no horizontal scrolling */
         .table {
             text-align: center;
+            width: 100%;
+            table-layout: fixed;
+            margin-bottom: 0;
         }
         .table th, .table td {
             text-align: center;
@@ -493,6 +500,17 @@
             overflow: hidden;
             text-overflow: ellipsis;
             vertical-align: middle;
+            padding: 5px 3px;
+            font-size: 0.65rem;
+        }
+        .table thead th {
+            font-size: 0.6rem;
+            padding: 6px 3px;
+            font-weight: 700;
+        }
+        .container2 {
+            overflow: auto !important;
+            width: 100%;
         }
     </style>
 </head>
