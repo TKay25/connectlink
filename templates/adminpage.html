@@ -2653,12 +2653,12 @@
                         <div class="row mb-5 align-items-center">
                             <div class="col-md-3">
 
-                                <div class="input-group" style="font-size: 0.7rem; padding: 2px 2px;">
+                                <div class="input-group" style="font-size: 0.7rem; padding: 1px 1px;">
 
                                     <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56;">
                                         <i class="bi bi-calendar-month"></i>
                                     </span>
-                                    <select class="form-select" id="monthFilter" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.7rem;">
+                                    <select class="form-select" id="monthFilter" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.7rem; padding: 0.2rem 0.4rem;">
                                         {% for month in month_options %}
                                             <option value="{{ month.value }}" 
                                                     {% if loop.first %}selected{% endif %}>
@@ -2673,6 +2673,15 @@
                                 <button class="btn btn-primary" id="applyFilterBtn" style="width: max-content;">
                                     <i class="bi bi-funnel"></i> Apply Filter
                                 </button>
+                            </div>
+
+                            <div class="col-md-3">
+                                <div class="input-group" style="font-size: 0.7rem; padding: 1px 1px;">
+                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56;">
+                                        <i class="bi bi-search"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="tableSearch" placeholder="Search projects..." style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.7rem; padding: 0.2rem 0.4rem;">
+                                </div>
                             </div>
                             
                         </div>
@@ -6074,7 +6083,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.dataTable = $('#allprojectsTable').DataTable({
         order: [[0, 'desc']],
         paging: false,
-        searching: true,
+        searching: false,
         ordering: true,
         info: true,
         pageLength: 7,
@@ -6138,7 +6147,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             window.dataTable = $('#allprojectsTable').DataTable({
                         order: [[0, 'desc']],
                         paging: false,
-                        searching: true,
+                        searching: false,
                         ordering: true,
                         info: true,
                         pageLength: 7,
@@ -6163,6 +6172,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error:', error);
                 alert('Failed to load filtered projects');
             });
+    });
+
+    // Add search functionality
+    document.getElementById('tableSearch')?.addEventListener('keyup', function() {
+        const searchTerm = this.value;
+        if (window.dataTable) {
+            window.dataTable.search(searchTerm).draw();
+        }
     });
 });
 
