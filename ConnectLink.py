@@ -8941,7 +8941,7 @@ def Dashboard():
 
                 print(e)
 
-                return redirect(url_for('userlogin'))
+                return redirect(url_for('projectslogin'))
 
         else:
                 return redirect(url_for('userlogin'))
