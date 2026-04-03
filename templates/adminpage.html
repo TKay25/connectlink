@@ -2648,8 +2648,7 @@
                     <button class="btn btn-primary mt-1"
                             id="exportprojectportBtn"
                             style="width: max-content;"
-                            data-bs-toggle="modal"
-                            data-bs-target="#downloadPortfolioModal">
+                            onclick="openModal('downloadPortfolioModal')">
                         <i class="bi bi-download"></i> Download Master File
                     </button>
 
@@ -3163,6 +3162,11 @@ function openModal(modalId) {
             loadProjectStartMonths();
             loadDueMonths();
             updateCounts();
+        }
+        
+        // Load data when download portfolio modal opens
+        if (modalId === 'downloadPortfolioModal') {
+            loadDownloadOptions();
         }
     }
 }
@@ -4997,11 +5001,6 @@ function showInstallmentsDownloadSuccess(selection) {
 </script>
 
 <script>
-    // Initialize modal
-document.getElementById('downloadPortfolioModal')?.addEventListener('show.bs.modal', function() {
-    loadDownloadOptions();
-});
-
 // Load options into dropdown
 function loadDownloadOptions() {
     const dropdown = document.getElementById('downloadFilter');
