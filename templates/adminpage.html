@@ -3301,18 +3301,23 @@ function autoCorrectProject(projectId) {
     fetch(`/api/auto-correct-project/${projectId}`, {
         method: 'POST'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert(data.message);
             loadAuditData(); // Reload the audit data
         } else {
-            alert('Error: ' + data.message);
+            alert('Error: ' + (data.message || data.error || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Failed to auto-correct project');
+        alert('Failed to auto-correct installments schedule audit: ' + error.message);
     });
 }
 
@@ -3322,21 +3327,35 @@ document.getElementById('autoCorrectAllBtn')?.addEventListener('click', function
         return;
     }
     
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+    
     fetch('/api/auto-correct-all-projects', {
         method: 'POST'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             alert(`Auto-correct completed!\nSuccessfully corrected: ${data.successful_count}\nFailed: ${data.failed_count}`);
             loadAuditData(); // Reload the audit data
         } else {
-            alert('Error: ' + data.error);
+            alert('Error: ' + (data.message || data.error || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Failed to auto-correct all projects');
+        alert('Failed to auto-correct installments schedule audit: ' + error.message);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     });
 });
 

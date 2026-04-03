@@ -11950,9 +11950,9 @@ def get_installment_audit_data():
 # Add this function to auto-correct a single project
 def auto_correct_project(project_id):
     with get_db() as (cursor, connection):
-        # Get project data
-        query = f"SELECT * FROM connectlinkdatabase WHERE id = {project_id};"
-        cursor.execute(query)
+        # Get project data (using parameterized query for safety)
+        query = "SELECT * FROM connectlinkdatabase WHERE id = %s;"
+        cursor.execute(query, (project_id,))
         project = cursor.fetchone()
         column_names = [desc[0] for desc in cursor.description]
         
@@ -12026,27 +12026,42 @@ def auto_correct_project(project_id):
 
 # Add this function to auto-correct all projects
 def auto_correct_all_projects():
-    with get_db() as (cursor, connection):
-        # Get all projects
-        query = "SELECT id FROM connectlinkdatabase;"
-        cursor.execute(query)
-        projects = cursor.fetchall()
-        
-        results = []
-        for project in projects:
-            project_id = project[0]
-            result = auto_correct_project(project_id)
-            results.append(result)
-        
-        successful = [r for r in results if r.get('success')]
-        failed = [r for r in results if not r.get('success')]
-        
+    try:
+        with get_db() as (cursor, connection):
+            # Get all projects
+            query = "SELECT id FROM connectlinkdatabase;"
+            cursor.execute(query)
+            projects = cursor.fetchall()
+            
+            results = []
+            for project in projects:
+                try:
+                    project_id = project[0]
+                    result = auto_correct_project(project_id)
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'success': False,
+                        'message': f'Error processing project {project_id}: {str(e)}',
+                        'project_id': project_id
+                    })
+            
+            successful = [r for r in results if r.get('success')]
+            failed = [r for r in results if not r.get('success')]
+            
+            return {
+                'success': True,
+                'total_processed': len(results),
+                'successful_count': len(successful),
+                'failed_count': len(failed),
+                'results': results
+            }
+    except Exception as e:
+        import logging
+        logging.error(f'Error in auto_correct_all_projects: {str(e)}')
         return {
-            'success': True,
-            'total_processed': len(results),
-            'successful_count': len(successful),
-            'failed_count': len(failed),
-            'results': results
+            'success': False,
+            'message': f'Error processing batch correction: {str(e)}'
         }
 
 # Add Flask routes
