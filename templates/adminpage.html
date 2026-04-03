@@ -7601,11 +7601,22 @@ document.addEventListener("DOMContentLoaded", function () {
     document.addEventListener('click', function(e) {
         if (e.target && e.target.classList.contains('view-project-btn')) {
 
-            const projectId = e.target.getAttribute('data-id');
+            const btn = e.target.closest('.view-project-btn');
+            const projectId = btn ? btn.getAttribute('data-id') : null;
+
+            if (!projectId) {
+                console.error('Project ID not found on button');
+                return;
+            }
 
             // Fetch project details from backend
             fetch(`/get_project/${projectId}`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
 
                 // Define the exact order you want
@@ -7693,7 +7704,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
             })
             .catch(err => {
-                alert('Failed to fetch project details: ' + err);
+                console.error('Error fetching project details:', err);
+                alert('Failed to fetch project details. Please check the console for more information.');
             });
 
         }
