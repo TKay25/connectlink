@@ -218,6 +218,51 @@ def initialize_database_tables():
                 );
             """)
 
+            # Check if quotation_rates table is empty and populate with initial data
+            cursor.execute("SELECT COUNT(*) FROM quotation_rates")
+            count = cursor.fetchone()[0]
+            
+            if count == 0:
+                # Insert initial quotation rates data
+                quotation_data = [
+                    ('Setting out', 0, 1),
+                    ('Excavation', 0.05, 2.9),
+                    ('Footing', 0.0375, 12),
+                    ('Box', 0.075, 20),
+                    ('Slab', 0.025, 15),
+                    ('Window sill level', 0.058333333, 20),
+                    ('Backfilling and compaction', 0.025, 7),
+                    ('Window head', 0.025974026, 20),
+                    ('Ring Beam', 0.032467532, 23),
+                    ('Wall plate', 0.038961039, 10),
+                    ('Roofing', 0.083333333, 35),
+                    ('Aluminium', 0.041666667, 16),
+                    ('Shattering', 0.038961039, 10),
+                    ('Steel Fixing', 0.097402597, 35),
+                    ('Deck Pouring', 0.032467532, 20),
+                    ('1st Fix Electricals', 0.02597403, 23),
+                    ('1st Fix Plumbing', 0.025974026, 9.25),
+                    ('External Plastering', 0.045454545, 5.5),
+                    ('Internal Plastering', 0.051948052, 5.5),
+                    ('Ceiling', 0.064935065, 13),
+                    ('Skimming', 0.045454545, 3.5),
+                    ('Flooring', 0.032467532, 3.5),
+                    ('Tiling', 0.051948052, 12),
+                    ('Wall Tiling', 0.023529412, 0),
+                    ('Painting', 0.051948052, 15),
+                    ('Final fix Plumbing', 0.025974026, 9.25),
+                    ('Final fix Electricals', 0.025974026, 5),
+                    ('Cleaning', 0, 0)
+                ]
+                
+                cursor.executemany("""
+                    INSERT INTO quotation_rates (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                    VALUES (%s, %s, %s)
+                """, quotation_data)
+                
+                connection.commit()
+                print(f"✓ Initialized quotation_rates table with {len(quotation_data)} items")
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'

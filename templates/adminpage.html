@@ -375,11 +375,15 @@
 }
 
 .modal-body-custom {
-    padding: 0;
+    padding: 24px;
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+}
+
+.modal-body-custom[style*="padding: 0"] {
+    padding: 0 !important;
 }
 
 .modal-footer-custom {
