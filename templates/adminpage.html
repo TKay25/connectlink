@@ -8868,47 +8868,44 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const items = window.ganttChartData;
-            const dates = items.map(i => new Date(i.endDate));
-            const maxDate = new Date(Math.max(...dates));
-            const minDate = new Date(Math.min(...items.map(i => new Date(i.startDate))));
-            const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
-
-            const dayWidth = 35;
-            const ganttWidth = totalDays * dayWidth;
 
             let html = `
-                <div style="overflow-x: auto; border: 1px solid #ddd; border-radius: 4px; background: white;">
-                    <table style="width: 100%; border-collapse: collapse; min-width: ${ganttWidth + 200}px; font-size: 0.8rem;">
-                        <thead style="background: #f0f0f0; position: sticky; top: 0;">
-                            <tr>
-                                <th style="padding: 8px; border: 1px solid #ddd; width: 160px; text-align: left; font-weight: bold;">Task</th>
-                                <th style="padding: 8px; border: 1px solid #ddd; width: 60px; text-align: center; font-weight: bold;">Days</th>
-                                <th colspan="${Math.ceil(totalDays / 5)}" style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">Timeline</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
+                            <th style="padding: 10px; text-align: left; font-weight: bold;">#</th>
+                            <th style="padding: 10px; text-align: left; font-weight: bold;">Work Scope</th>
+                            <th style="padding: 10px; text-align: center; font-weight: bold;">Start date</th>
+                            <th style="padding: 10px; text-align: center; font-weight: bold;">End date</th>
+                            <th style="padding: 10px; text-align: center; font-weight: bold;">Days</th>
+                            <th style="padding: 10px; text-align: right; font-weight: bold;">Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
 
-            items.forEach(item => {
-                const itemStart = new Date(item.startDate);
-                const itemEnd = new Date(item.endDate);
-                const startOffset = Math.ceil((itemStart - minDate) / (1000 * 60 * 60 * 24));
-                const duration = calculateDays(itemStart, itemEnd);
+            items.forEach((item, index) => {
+                const startDate = new Date(item.startDate);
+                const endDate = new Date(item.endDate);
+                const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-                html += `<tr>
-                    <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9; font-weight: 500; word-break: break-word;">${item.item}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: #2196F3;">${duration}</td>`;
-
-                for (let i = 0; i < totalDays; i += 5) {
-                    if (i >= startOffset && i < startOffset + duration) {
-                        html += `<td style="padding: 4px; border: 1px solid #ddd; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);"></td>`;
-                    } else {
-                        html += `<td style="padding: 4px; border: 1px solid #ddd; background: #fafafa;"></td>`;
-                    }
-                }
-                html += '</tr>';
+                html += `
+                    <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                        <td style="padding: 10px; text-align: left; font-weight: bold;">${index + 1}</td>
+                        <td style="padding: 10px; text-align: left;">${item.item}</td>
+                        <td style="padding: 10px; text-align: center;">${formattedStart}</td>
+                        <td style="padding: 10px; text-align: center;">${formattedEnd}</td>
+                        <td style="padding: 10px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
+                        <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                `;
             });
 
-            html += '</tbody></table></div>';
+            html += `
+                    </tbody>
+                </table>
+            `;
             content.innerHTML = html;
             content.style.height = 'auto';
         }
