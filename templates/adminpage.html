@@ -8508,20 +8508,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (category === 'construction') {
                 // Initialize Gantt with selected items in order
                 const sqm = parseFloat($('#quotationSize').val());
-                ganttItems = orderedConstructionItems.map(item => {
+                ganttItems = [];
+                let currentStartDate = new Date();
+
+                orderedConstructionItems.forEach(item => {
                     const rateData = quotationRatesCache.find(r => r.id == item.id);
                     const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
                     const duration = Math.round(daysPerSqm * sqm);
                     
-                    return {
+                    const endDate = new Date(currentStartDate);
+                    endDate.setDate(endDate.getDate() + duration - 1);
+                    
+                    ganttItems.push({
                         id: item.id,
                         item: item.item,
                         price: item.price,
                         daysPerSqMeter: daysPerSqm,
-                        startDate: new Date().toISOString().split('T')[0],
-                        endDate: new Date(Date.now() + (duration * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+                        startDate: currentStartDate.toISOString().split('T')[0],
+                        endDate: endDate.toISOString().split('T')[0],
                         days: duration
-                    };
+                    });
+                    
+                    // Next task starts where this one ends + 1 day
+                    currentStartDate = new Date(endDate);
+                    currentStartDate.setDate(currentStartDate.getDate() + 1);
                 });
                 
                 setTimeout(() => {
