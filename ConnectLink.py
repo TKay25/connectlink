@@ -16970,21 +16970,24 @@ def get_work_plans():
         
         with get_db() as (cursor, connection):
             # Query to get work plans with project, client, and cost information
+            # Using correct column names for connectlinkdatabase table
             cursor.execute("""
                 SELECT 
-                    p.project_name,
-                    q.client_name,
+                    p.projectname,
+                    p.clientname,
                     qi.item_name,
                     qs.start_date,
                     qs.end_date,
                     qi.total_price,
                     q.markup_percentage
                 FROM connectlinkdatabase p
-                JOIN quotations q ON p.quotation_id = q.id
-                JOIN quotation_items qi ON q.id = qi.quotation_id
-                JOIN quotation_schedules qs ON q.id = qs.quotation_id
-                WHERE qs.start_date >= %s AND qs.end_date <= %s
-                ORDER BY p.project_name, qs.start_date
+                INNER JOIN quotations q ON p.quotation_id = q.id
+                INNER JOIN quotation_items qi ON q.id = qi.quotation_id
+                INNER JOIN quotation_schedules qs ON q.id = qs.quotation_id
+                WHERE p.quotation_id IS NOT NULL
+                AND qs.start_date >= %s::date 
+                AND qs.end_date <= %s::date
+                ORDER BY p.projectname, qs.start_date
             """, (start_date, end_date))
             
             rows = cursor.fetchall()
@@ -16992,9 +16995,9 @@ def get_work_plans():
             work_plans = []
             for row in rows:
                 work_plans.append({
-                    'projectName': row[0],
-                    'clientName': row[1],
-                    'itemName': row[2],
+                    'projectName': row[0] if row[0] else 'N/A',
+                    'clientName': row[1] if row[1] else 'N/A',
+                    'itemName': row[2] if row[2] else 'N/A',
                     'startDate': row[3].strftime('%Y-%m-%d') if row[3] else None,
                     'endDate': row[4].strftime('%Y-%m-%d') if row[4] else None,
                     'itemCost': float(row[5]) if row[5] else 0,
