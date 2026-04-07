@@ -479,6 +479,15 @@
         }
         .form-control:focus { box-shadow: 0 0 0 2px var(--dark-blue-deep); color: var(--dark-blue-deep); background: rgba(47, 15, 255, 0.074)}
         .form-label { color: var(--dark-blue-deep); font-weight: 500; }
+        /* Select options styling */
+        select option {
+            color: var(--dark-blue-deep);
+            background-color: var(--white);
+        }
+        select option:checked {
+            background-color: var(--dark-blue-deep);
+            color: var(--white);
+        }
         /* loader */
         .eds-loader { background: rgba(10,26,58,0.96); backdrop-filter: blur(8px); }
         .loader-progress { background: var(--crimson-bright); }
