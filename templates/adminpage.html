@@ -3809,6 +3809,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const projectId = document.getElementById('updateProjectId').value;
             const startDates = Array.from(document.querySelectorAll('.gantt-start-date')).map(input => input.value);
             const endDates = Array.from(document.querySelectorAll('.gantt-end-date')).map(input => input.value);
+            const daysValues = Array.from(document.querySelectorAll('.gantt-days')).map(input => parseInt(input.value) || 0);
             
             if (!projectId) {
                 alert('No project selected');
@@ -3819,7 +3820,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const updatedSchedules = window.ganttSchedules.map((schedule, index) => ({
                 ...schedule,
                 startDate: startDates[index],
-                endDate: endDates[index]
+                endDate: endDates[index],
+                days: daysValues[index]
             }));
             
             // Send updates to backend

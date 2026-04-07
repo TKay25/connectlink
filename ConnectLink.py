@@ -16926,15 +16926,16 @@ def update_project_schedule(project_id):
             
             quotation_id = result[0]
             
-            # Update each schedule's start and end dates
+            # Update each schedule's start and end dates and days
             for idx, schedule in enumerate(schedules):
                 cursor.execute("""
                     UPDATE quotation_schedules
-                    SET start_date = %s, end_date = %s
+                    SET start_date = %s, end_date = %s, days = %s
                     WHERE quotation_id = %s AND task_order = %s
                 """, (
                     schedule.get('startDate'),
                     schedule.get('endDate'),
+                    schedule.get('days', 0),
                     quotation_id,
                     idx + 1
                 ))
