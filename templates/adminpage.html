@@ -8612,6 +8612,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 schedules: ganttData || []
             };
 
+            console.log('Sending quotation data:', quotationData);
+
             // Save to database
             fetch('/api/save-quotation', {
                 method: 'POST',
@@ -8620,14 +8622,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 body: JSON.stringify(quotationData)
             })
-            .then(response => response.json())
+            .then(response => {
+                // First check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(text => {
+                        throw new Error('Invalid response format: ' + text.substring(0, 200));
+                    });
+                }
+                return response.json();
+            })
             .then(result => {
                 if (result.success) {
                     console.log('Quotation saved successfully. ID:', result.quotation_id);
+                    alert('Quotation saved successfully! (ID: ' + result.quotation_id + ')');
                     // Now generate the PDF
                     generateQuotationPDF();
                 } else {
-                    alert('Error saving quotation: ' + result.error);
+                    alert('Error saving quotation: ' + (result.error || 'Unknown error'));
                 }
             })
             .catch(error => {

@@ -284,8 +284,7 @@ def initialize_database_tables():
                     project_size DECIMAL(10, 2),
                     total_cost DECIMAL(15, 2) NOT NULL,
                     markup_percentage DECIMAL(5, 2),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
 
@@ -16455,12 +16454,19 @@ def save_quotation():
     try:
         data = request.json
         
+        # Check if data is None
+        if data is None:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided or invalid Content-Type'
+            }), 400
+        
         client_name = data.get('clientName', 'Unknown')
         quotation_date = data.get('quotationDate', date.today().isoformat())
         category = data.get('category', 'General')
-        project_size = float(data.get('size', 0))
-        total_cost = float(data.get('totalCost', 0))
-        markup = float(data.get('markup', 0))
+        project_size = float(data.get('size', 0)) if data.get('size') else 0
+        total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
+        markup = float(data.get('markup', 0)) if data.get('markup') else 0
         items = data.get('items', [])
         schedules = data.get('schedules', [])
         
@@ -16477,31 +16483,41 @@ def save_quotation():
             
             # Insert quotation items
             for idx, item in enumerate(items):
+                item_name = item.get('name') or item.get('item', 'Item')
+                quantity = float(item.get('sqm', 0)) if item.get('sqm') else 0
+                unit_rate = float(item.get('inhouseRate', 0)) if item.get('inhouseRate') else 0
+                total_price = float(item.get('total', 0)) if item.get('total') else 0
+                
                 cursor.execute("""
                     INSERT INTO quotation_items
                     (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (
                     quotation_id,
-                    item.get('name') or item.get('item', 'Item'),
-                    float(item.get('sqm', 0)),
-                    float(item.get('inhouseRate', 0)),
-                    float(item.get('total', 0)),
+                    item_name,
+                    quantity,
+                    unit_rate,
+                    total_price,
                     idx + 1
                 ))
             
             # Insert quotation schedules
             for idx, schedule in enumerate(schedules):
+                work_scope = schedule.get('item', 'Task')
+                start_date = schedule.get('startDate')
+                end_date = schedule.get('endDate')
+                days = int(schedule.get('days', 0)) if schedule.get('days') else 0
+                
                 cursor.execute("""
                     INSERT INTO quotation_schedules
                     (quotation_id, work_scope, start_date, end_date, days, task_order)
                     VALUES (%s, %s, %s, %s, %s, %s)
                 """, (
                     quotation_id,
-                    schedule.get('item', 'Task'),
-                    schedule.get('startDate'),
-                    schedule.get('endDate'),
-                    int(schedule.get('days', 0)),
+                    work_scope,
+                    start_date,
+                    end_date,
+                    days,
                     idx + 1
                 ))
             
