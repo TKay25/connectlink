@@ -16724,5 +16724,56 @@ def save_project_schedule():
             'error': str(e)
         }), 500
 
+@app.route('/api/existing-clients', methods=['GET'])
+def get_existing_clients():
+    """Retrieve all unique existing clients from projects"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get all unique clients with their details from connectlinkdatabase
+            cursor.execute("""
+                SELECT DISTINCT 
+                    clientname,
+                    clientidnumber,
+                    clientaddress,
+                    clientwanumber,
+                    clientemail,
+                    clientnextofkinname,
+                    clientnextofkinaddress,
+                    clientnextofkinphone,
+                    nextofkinrelationship
+                FROM connectlinkdatabase
+                WHERE clientname IS NOT NULL AND clientname != ''
+                ORDER BY clientname ASC
+            """)
+            
+            clients = cursor.fetchall()
+            
+            result = []
+            for client in clients:
+                result.append({
+                    'clientName': client[0],
+                    'clientId': client[1],
+                    'clientAddress': client[2],
+                    'clientWhatsapp': client[3],
+                    'clientEmail': client[4],
+                    'nextOfKinName': client[5],
+                    'nextOfKinAddress': client[6],
+                    'nextOfKinPhone': client[7],
+                    'nextOfKinRelationship': client[8]
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching existing clients: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port = 55, debug = True)

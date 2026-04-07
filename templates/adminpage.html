@@ -740,6 +740,16 @@
                         <div class="card" style="padding:8px; background: var(--white);">
                             <h6 style="background-color:#1E2A56; font-weight:800; color: white; text-align: center; padding: 1%; border-radius: 10px; font-size: 0.8rem;">CLIENT DETAILS</h6>
 
+                            <div class="form-group mb-2">
+                                <label for="existing_client_select" class="form-label fw-bold" style="font-size: 0.85rem;">Select Existing Client:</label>
+                                <select class="form-control editable-field" id="existing_client_select" name="existing_client_select">
+                                    <option value="" selected disabled>-- Search or Select Client --</option>
+                                </select>
+                                <small class="text-muted">Selecting will auto-fill client and next of kin details</small>
+                            </div>
+
+                            <hr style="margin: 0.5rem 0; border-top: 1px dashed #ccc;">
+
                             <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
                                 <label for="client_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Full Name:</label>
                                 <div class="col">
@@ -3296,6 +3306,93 @@ function closeModal(modalId) {
     }
 }
 
+// Initialize existing clients dropdown with search capability
+function initializeExistingClientsDropdown() {
+    const selectElement = document.getElementById('existing_client_select');
+    
+    if (!selectElement) {
+        console.warn('existing_client_select element not found');
+        return;
+    }
+    
+    // Fetch all existing clients
+    fetch('/api/existing-clients')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.data && data.data.length > 0) {
+                // Clear existing options except the placeholder
+                selectElement.innerHTML = '<option value="" selected disabled>-- Search or Select Client --</option>';
+                
+                // Add each client as an option
+                data.data.forEach(client => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(client); // Store full client object as value
+                    option.textContent = client.clientName;
+                    selectElement.appendChild(option);
+                });
+                
+                console.log(`Loaded ${data.data.length} existing clients`);
+                
+                // Initialize Choices.js for better search capability
+                const choicesInstance = new Choices(selectElement, {
+                    removeItemButton: true,
+                    allowHTML: true,
+                    placeholderValue: '-- Search or Select Client --',
+                    noResultsText: 'No clients found',
+                    noChoicesText: 'No clients available',
+                    itemSelectText: 'Click to select',
+                    shouldSort: true,
+                    shouldSortItems: true,
+                    searchResultLimit: 10,
+                    searchFields: ['label'],
+                    queryInputThreshold: 1
+                });
+                
+                // Add change event listener
+                selectElement.addEventListener('change', function() {
+                    if (this.value) {
+                        try {
+                            const selectedClient = JSON.parse(this.value);
+                            autofillClientDetails(selectedClient);
+                        } catch (e) {
+                            console.error('Error parsing selected client:', e);
+                        }
+                    }
+                });
+            } else {
+                console.log('No existing clients found');
+                selectElement.innerHTML = '<option value="" selected disabled>No existing clients found</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching existing clients:', error);
+            selectElement.innerHTML = '<option value="" selected disabled>Error loading clients</option>';
+        });
+}
+
+// Auto-fill client and next of kin details when a client is selected
+function autofillClientDetails(clientData) {
+    // Fill client details
+    document.getElementById('client_name').value = clientData.clientName || '';
+    document.getElementById('client_national_id').value = clientData.clientId || '';
+    document.getElementById('client_address').value = clientData.clientAddress || '';
+    document.getElementById('client_whatsapp_number').value = clientData.clientWhatsapp || '';
+    document.getElementById('client_email').value = clientData.clientEmail || '';
+    
+    // Fill next of kin details
+    document.getElementById('next_of_kin_name').value = clientData.nextOfKinName || '';
+    document.getElementById('next_of_kin_address').value = clientData.nextOfKinAddress || '';
+    document.getElementById('next_of_kin_contact_number').value = clientData.nextOfKinPhone || '';
+    document.getElementById('relationship').value = clientData.nextOfKinRelationship || '';
+    
+    console.log('Client details auto-filled:', clientData.clientName);
+}
+
 // Close modal when clicking outside
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('modal-overlay')) {
@@ -4729,6 +4826,9 @@ function downloadCashflowFile() {
 // Add event listener
 $(document).ready(function() {
     document.getElementById("exportcashflowBtn")?.addEventListener("click", downloadCashflowFile);
+    
+    // Initialize existing clients dropdown
+    initializeExistingClientsDropdown();
 });
 
 
