@@ -3557,8 +3557,69 @@ function selectProjectQuotation(quotation) {
     previewText.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M)`;
     previewDiv.style.display = 'block';
     
+    // Recalculate adjusted dates if project start date is set
+    adjustScheduleDates(quotation);
+    
     console.log('Quotation selected:', quotation.id, quotation);
 }
+
+function adjustScheduleDates(quotation) {
+    const projectStartDateInput = document.getElementById('project_start_date');
+    const projectStartDate = projectStartDateInput.value;
+    
+    // If no project start date, we can't adjust yet
+    if (!projectStartDate || !quotation || !quotation.schedules || quotation.schedules.length === 0) {
+        return;
+    }
+    
+    // Get the first schedule item's start date from the quotation
+    const firstSchedule = quotation.schedules[0];
+    if (!firstSchedule.startDate) {
+        console.log('No start date in first schedule item');
+        return;
+    }
+    
+    const quotationStartDate = new Date(firstSchedule.startDate);
+    const selectedProjectStartDate = new Date(projectStartDate);
+    
+    // Calculate the offset in days
+    const offsetDays = Math.floor((selectedProjectStartDate - quotationStartDate) / (1000 * 60 * 60 * 24));
+    
+    // Store adjusted schedules in the quotation object
+    quotation.adjustedSchedules = quotation.schedules.map(schedule => {
+        const origStart = new Date(schedule.startDate);
+        const origEnd = new Date(schedule.endDate);
+        
+        // Add offset to both dates
+        const adjustedStart = new Date(origStart.getTime() + offsetDays * 24 * 60 * 60 * 1000);
+        const adjustedEnd = new Date(origEnd.getTime() + offsetDays * 24 * 60 * 60 * 1000);
+        
+        return {
+            workScope: schedule.workScope,
+            startDate: adjustedStart.toISOString().split('T')[0],
+            endDate: adjustedEnd.toISOString().split('T')[0],
+            days: schedule.days
+        };
+    });
+    
+    // Store in window for later use when saving
+    window.selectedQuotation.adjustedSchedules = quotation.adjustedSchedules;
+    
+    console.log('Adjusted schedule dates by', offsetDays, 'days', window.selectedQuotation.adjustedSchedules);
+}
+
+// Add event listener for project start date changes
+document.addEventListener('DOMContentLoaded', function() {
+    const projectStartDateInput = document.getElementById('project_start_date');
+    if (projectStartDateInput) {
+        projectStartDateInput.addEventListener('change', function() {
+            // If a quotation is already selected, recalculate dates
+            if (window.selectedQuotation) {
+                adjustScheduleDates(window.selectedQuotation);
+            }
+        });
+    }
+});
 
 // Close modal when clicking outside
 document.addEventListener('click', function(e) {
@@ -3567,6 +3628,7 @@ document.addEventListener('click', function(e) {
         document.body.style.overflow = '';
     }
 });
+
 
 // Close on Escape key
 document.addEventListener('keydown', function(e) {

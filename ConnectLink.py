@@ -9482,9 +9482,26 @@ def download_contract(project_id):
                     schedules = cursor.fetchall()
                     
                     if schedules:
+                        # Get project start date
+                        project_start_date = row[14]  # project_start_date from project row
+                        
+                        # Get the first schedule's start date to calculate offset
+                        first_schedule_start = schedules[0][1] if schedules[0][1] else None
+                        
+                        # Calculate date offset in days
+                        date_offset = 0
+                        if first_schedule_start and project_start_date:
+                            date_offset = (project_start_date - first_schedule_start).days
+                        
                         work_scope_rows = ""
                         for idx, schedule in enumerate(schedules, 1):
                             work_scope, start_date, end_date, days = schedule
+                            
+                            # Apply date offset to schedule dates
+                            if start_date and date_offset != 0:
+                                start_date = start_date + timedelta(days=date_offset)
+                            if end_date and date_offset != 0:
+                                end_date = end_date + timedelta(days=date_offset)
                             
                             # Format dates
                             start_str = start_date.strftime("%d/%m/%Y") if start_date else ""
