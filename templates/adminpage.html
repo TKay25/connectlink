@@ -8137,14 +8137,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Only initialize DataTables on visible tables that contain actual data
     });
 
+    // Global variables for quotation and Gantt chart
+    let quotationRatesCache = [];
+    let ganttItems = [];
+
     // Quotation Generator Modal Logic
     $(document).ready(function() {
         // Set today's date automatically
         const today = new Date().toISOString().split('T')[0];
         $('#quotationDate').val(today);
-
-        // Global quotation rates cache
-        let quotationRatesCache = [];
 
         // Load quotation rates from database and render
         function loadConstructionItemsFromDatabase() {
@@ -8757,8 +8758,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // ===== GANTT CHART BUILDER FUNCTIONALITY =====
-        let ganttItems = [];
-
         function initializeGanttChart() {
             // Initialize empty if new, load if exists
             if (ganttItems.length === 0) {
