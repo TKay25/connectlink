@@ -1570,34 +1570,26 @@
                         <i class="bi bi-funnel me-2"></i> Filter Work Plans By Date
                     </label>
                     <div class="row">
-                        <div class="col-md-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="filterWorkPlans('today')">
-                                <i class="bi bi-calendar-day"></i> Today
-                            </button>
-                        </div>
-                        <div class="col-md-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="filterWorkPlans('week')">
-                                <i class="bi bi-calendar-week"></i> This Week
-                            </button>
-                        </div>
-                        <div class="col-md-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="filterWorkPlans('month')">
-                                <i class="bi bi-calendar-month"></i> This Month
-                            </button>
-                        </div>
-                        <div class="col-md-2">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="filterWorkPlans('year')">
-                                <i class="bi bi-calendar"></i> This Year
-                            </button>
-                        </div>
                         <div class="col-md-4">
+                            <select class="form-select form-select-sm" id="workPlanDateFilter" onchange="filterWorkPlansFromDropdown()">
+                                <option value="">-- Select Date Range --</option>
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="year">This Year</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4" id="customDateRangeContainer" style="display: none;">
                             <div class="input-group input-group-sm">
                                 <input type="date" id="customStartDate" class="form-control" placeholder="Start Date">
                                 <input type="date" id="customEndDate" class="form-control" placeholder="End Date">
-                                <button class="btn btn-primary" onclick="filterWorkPlans('custom')">
-                                    <i class="bi bi-search"></i> Apply
-                                </button>
                             </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary btn-sm w-100" id="applyWorkPlanFilter" onclick="applyWorkPlanFilter()">
+                                <i class="bi bi-search"></i> Apply
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -2874,11 +2866,11 @@
                         <i class="bi bi-download"></i> Download Master File
                     </button>
                     
-                    <button class="btn btn-success mt-1"
+                    <button class="btn btn-primary mt-1"
                             id="workPlanBtn"
                             style="width: max-content;"
                             onclick="openModal('workPlanModal')">
-                        <i class="bi bi-calendar-check"></i> Work Plan Summary
+                        <i class="bi bi-calendar-check"></i> View Work Plan
                     </button>
 
                     <!-- Add this button anywhere in your page -->
@@ -3958,6 +3950,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Work Plan Summary Functions
 window.currentWorkPlanData = [];
+
+function filterWorkPlansFromDropdown() {
+    const filterType = document.getElementById('workPlanDateFilter').value;
+    const customContainer = document.getElementById('customDateRangeContainer');
+    
+    if (!filterType) {
+        customContainer.style.display = 'none';
+        return;
+    }
+    
+    if (filterType === 'custom') {
+        customContainer.style.display = 'block';
+        return;
+    }
+    
+    customContainer.style.display = 'none';
+    filterWorkPlans(filterType);
+}
+
+function applyWorkPlanFilter() {
+    const filterType = document.getElementById('workPlanDateFilter').value;
+    
+    if (!filterType) {
+        alert('Please select a date range');
+        return;
+    }
+    
+    if (filterType === 'custom') {
+        const customStart = document.getElementById('customStartDate').value;
+        const customEnd = document.getElementById('customEndDate').value;
+        
+        if (!customStart || !customEnd) {
+            alert('Please enter both start and end dates');
+            return;
+        }
+    }
+    
+    filterWorkPlans(filterType);
+}
 
 function filterWorkPlans(filterType) {
     const today = new Date(2026, 3, 7); // April 7, 2026
