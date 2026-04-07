@@ -274,6 +274,51 @@ def initialize_database_tables():
                 );
             """)
 
+            # Create quotations table to store quotation headers
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotations (
+                    id SERIAL PRIMARY KEY,
+                    client_name VARCHAR(255) NOT NULL,
+                    quotation_date DATE NOT NULL,
+                    category VARCHAR(100) NOT NULL,
+                    project_size DECIMAL(10, 2),
+                    total_cost DECIMAL(15, 2) NOT NULL,
+                    markup_percentage DECIMAL(5, 2),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Create quotation_items table to store construction items
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_items (
+                    id SERIAL PRIMARY KEY,
+                    quotation_id INT NOT NULL,
+                    item_name VARCHAR(255) NOT NULL,
+                    quantity DECIMAL(10, 2),
+                    unit_rate DECIMAL(12, 2),
+                    total_price DECIMAL(15, 2),
+                    item_order INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+                );
+            """)
+
+            # Create quotation_schedules table to store project schedule items
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_schedules (
+                    id SERIAL PRIMARY KEY,
+                    quotation_id INT NOT NULL,
+                    work_scope VARCHAR(255) NOT NULL,
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    days INT,
+                    task_order INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+                );
+            """)
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'
@@ -16397,6 +16442,202 @@ def save_quotation_rates():
             })
     except Exception as e:
         logging.error(f'Error saving quotation rates: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/save-quotation', methods=['POST'])
+def save_quotation():
+    """Save complete quotation with items and schedules to the database"""
+    try:
+        data = request.json
+        
+        client_name = data.get('clientName', 'Unknown')
+        quotation_date = data.get('quotationDate', date.today().isoformat())
+        category = data.get('category', 'General')
+        project_size = float(data.get('size', 0))
+        total_cost = float(data.get('totalCost', 0))
+        markup = float(data.get('markup', 0))
+        items = data.get('items', [])
+        schedules = data.get('schedules', [])
+        
+        with get_db() as (cursor, connection):
+            # Insert quotation header
+            cursor.execute("""
+                INSERT INTO quotations 
+                (client_name, quotation_date, category, project_size, total_cost, markup_percentage)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (client_name, quotation_date, category, project_size, total_cost, markup))
+            
+            quotation_id = cursor.fetchone()[0]
+            
+            # Insert quotation items
+            for idx, item in enumerate(items):
+                cursor.execute("""
+                    INSERT INTO quotation_items
+                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    quotation_id,
+                    item.get('name') or item.get('item', 'Item'),
+                    float(item.get('sqm', 0)),
+                    float(item.get('inhouseRate', 0)),
+                    float(item.get('total', 0)),
+                    idx + 1
+                ))
+            
+            # Insert quotation schedules
+            for idx, schedule in enumerate(schedules):
+                cursor.execute("""
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    quotation_id,
+                    schedule.get('item', 'Task'),
+                    schedule.get('startDate'),
+                    schedule.get('endDate'),
+                    int(schedule.get('days', 0)),
+                    idx + 1
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Quotation saved successfully',
+                'quotation_id': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error saving quotation: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/get-quotations', methods=['GET'])
+def get_quotations():
+    """Retrieve all quotations with merged items and schedules"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get all quotations
+            cursor.execute("""
+                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage,created_at
+                FROM quotations
+                ORDER BY created_at DESC
+            """)
+            quotations = cursor.fetchall()
+            
+            result = []
+            for quotation in quotations:
+                quotation_id = quotation[0]
+                
+                # Get items for this quotation
+                cursor.execute("""
+                    SELECT item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items
+                    WHERE quotation_id = %s
+                    ORDER BY item_order ASC
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                
+                # Get schedules for this quotation
+                cursor.execute("""
+                    SELECT work_scope, start_date, end_date, days, task_order
+                    FROM quotation_schedules
+                    WHERE quotation_id = %s
+                    ORDER BY task_order ASC
+                """, (quotation_id,))
+                schedules = cursor.fetchall()
+                
+                result.append({
+                    'id': quotation_id,
+                    'clientName': quotation[1],
+                    'quotationDate': quotation[2].isoformat() if quotation[2] else None,
+                    'category': quotation[3],
+                    'projectSize': float(quotation[4]) if quotation[4] else 0,
+                    'totalCost': float(quotation[5]),
+                    'markup': float(quotation[6]) if quotation[6] else 0,
+                    'items': [
+                        {
+                            'name': item[0],
+                            'quantity': float(item[1]) if item[1] else 0,
+                            'unitRate': float(item[2]) if item[2] else 0,
+                            'totalPrice': float(item[3]) if item[3] else 0
+                        }
+                        for item in items
+                    ],
+                    'schedules': [
+                        {
+                            'workScope': schedule[0],
+                            'startDate': schedule[1].isoformat() if schedule[1] else None,
+                            'endDate': schedule[2].isoformat() if schedule[2] else None,
+                            'days': int(schedule[3]) if schedule[3] else 0
+                        }
+                        for schedule in schedules
+                    ],
+                    'createdAt': quotation[7].isoformat() if quotation[7] else None
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotations: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/project-schedule', methods=['POST'])
+def save_project_schedule_new():
+    """Alternative endpoint for saving project schedules"""
+    try:
+        data = request.json
+        quotation_id = data.get('quotationId')
+        schedules = data.get('schedules', [])
+        
+        if not quotation_id:
+            return jsonify({
+                'success': False,
+                'message': 'Quotation ID is required'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Delete existing schedules for this quotation
+            cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
+            
+            # Insert new schedules
+            for idx, schedule in enumerate(schedules):
+                cursor.execute("""
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    quotation_id,
+                    schedule.get('item', 'Task'),
+                    schedule.get('startDate'),
+                    schedule.get('endDate'),
+                    int(schedule.get('days', 0)),
+                    idx + 1
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully saved {len(schedules)} schedule items'
+            })
+    except Exception as e:
+        logging.error(f'Error saving project schedule: {str(e)}')
         if 'connection' in locals():
             connection.rollback()
         return jsonify({

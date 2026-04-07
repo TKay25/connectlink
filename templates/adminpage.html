@@ -2305,6 +2305,10 @@
                 </li>
 
                 <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#quotations-tab"><i class="bi bi-file-earmark-text"></i>    QUOTATIONS</button>
+                </li>
+
+                <li class="nav-item">
                     <button class="nav-link" data-bs-toggle="tab" data-bs-target="#enquiries-tab"><i class="bi bi-person-badge-fill"></i>    ENQUIRIES PORTAL</button>
                 </li>
 
@@ -2450,7 +2454,19 @@
 
                 </div>
 
-
+                <!-- QUOTATIONS TAB PANE -->
+                <div class="tab-pane fade" id="quotations-tab">
+                    <div class="container mt-4">
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h3 class="mb-4"><i class="bi bi-file-earmark-text"></i> Saved Quotations</h3>
+                                <div id="quotationsContainer" style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    <p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="tab-pane fade" id="dashboard-tab">
 
@@ -3153,7 +3169,7 @@
         <div class="modal-footer-custom">
             <button type="button" class="btn btn-primary" onclick="closeModal('quotationPreviewModal')">Back</button>
             <button type="button" class="btn btn-primary" id="downloadQuotationBtn">
-                <i class="bi bi-download"></i> Download Quotation & Gantt Chart
+                <i class="bi bi-download"></i> Save & Download Quotation & Gantt Chart
             </button>
             <button type="button" class="btn btn-primary" id="sendQuotationBtn">
                 <i class="bi bi-send"></i> Send Quotation & Gantt Chart
@@ -3207,9 +3223,7 @@
         </div>
         <div class="modal-footer-custom">
             <button type="button" class="btn btn-primary" onclick="closeModal('ganttChartBuilderModal')">Cancel</button>
-            <button type="button" class="btn btn-primary" id="saveGanttChartBtn">
-                <i class="bi bi-check-circle"></i> Save Schedule & Preview Quotation
-            </button>
+            <button type="button" class="btn btn-primary" id="saveGanttChartBtn">Preview Quotation</button>
         </div>
     </div>
 </div>
@@ -8575,8 +8589,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Download Quotation & Gantt button
         $('#downloadQuotationBtn').click(function() {
-            generateQuotationPDF();
+            saveAndDownloadQuotation();
         });
+
+        function saveAndDownloadQuotation() {
+            const data = window.quotationData;
+            const ganttData = window.ganttChartData || [];
+
+            if (!data) {
+                alert('No quotation data available. Please create a quotation first.');
+                return;
+            }
+
+            // Prepare data for saving
+            const quotationData = {
+                clientName: data.clientName,
+                quotationDate: data.quotationDate,
+                category: data.category,
+                size: data.size,
+                totalCost: data.totalCost,
+                markup: data.markup,
+                items: data.items || [],
+                schedules: ganttData || []
+            };
+
+            // Save to database
+            fetch('/api/save-quotation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(quotationData)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    console.log('Quotation saved successfully. ID:', result.quotation_id);
+                    // Now generate the PDF
+                    generateQuotationPDF();
+                } else {
+                    alert('Error saving quotation: ' + result.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving quotation: ' + error.message);
+            });
+        }
 
         function generateQuotationPDF() {
             const data = window.quotationData;
@@ -8599,10 +8658,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalCost = data.totalCost || baseCost;
             const items = data.items || [];
 
-            // Create HTML content for PDF
             let htmlContent = '<div style="font-family: Arial, sans-serif; background: white; color: #333; padding: 0; margin: 0;">';
             
-            // Header with Logo
             htmlContent += `
                 <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #0A1A3A 0%, #0E1F42 100%); color: white; border-bottom: 4px solid #9B1D2C;">
                     <div style="margin-bottom: 10px;">
@@ -9191,6 +9248,179 @@ document.addEventListener('DOMContentLoaded', () => {
         const end = new Date(endDate);
         const diffTime = Math.abs(end - start);
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
+
+    // Load quotations when tab is shown
+    const quotationsTab = document.getElementById('quotations-tab');
+    if (quotationsTab) {
+        quotationsTab.addEventListener('shown.bs.tab', function() {
+            loadQuotations();
+        });
+    }
+
+    function loadQuotations() {
+        const container = document.getElementById('quotationsContainer');
+        container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>';
+        
+        fetch('/api/get-quotations')
+            .then(response => response.json())
+            .then(result => {
+                if (result.success && result.data) {
+                    displayQuotations(result.data);
+                } else {
+                    container.innerHTML = '<p class="text-danger text-center" style="padding: 40px;">Error loading quotations</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                container.innerHTML = '<p class="text-danger text-center" style="padding: 40px;">Error loading quotations: ' + error.message + '</p>';
+            });
+    }
+
+    function displayQuotations(quotations) {
+        const container = document.getElementById('quotationsContainer');
+        
+        if (!quotations || quotations.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">No quotations saved yet</p>';
+            return;
+        }
+
+        let html = `
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
+                            <th style="padding: 12px; text-align: left; font-weight: bold;">#</th>
+                            <th style="padding: 12px; text-align: left; font-weight: bold;">Client Name</th>
+                            <th style="padding: 12px; text-align: left; font-weight: bold;">Category</th>
+                            <th style="padding: 12px; text-align: center; font-weight: bold;">Project Size</th>
+                            <th style="padding: 12px; text-align: center; font-weight: bold;">Markup %</th>
+                            <th style="padding: 12px; text-align: right; font-weight: bold;">Total Cost</th>
+                            <th style="padding: 12px; text-align: center; font-weight: bold;">Date</th>
+                            <th style="padding: 12px; text-align: center; font-weight: bold;">Items</th>
+                            <th style="padding: 12px; text-align: center; font-weight: bold;">Tasks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        quotations.forEach((quotation, index) => {
+            const formattedDate = new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const itemCount = quotation.items ? quotation.items.length : 0;
+            const taskCount = quotation.schedules ? quotation.schedules.length : 0;
+            const totalCost = quotation.totalCost || 0;
+            
+            html += `
+                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; cursor: pointer;" onclick="toggleQuotationDetails(${quotation.id})">
+                    <td style="padding: 12px; text-align: left; font-weight: bold;">${index + 1}</td>
+                    <td style="padding: 12px; text-align: left;">${quotation.clientName || 'N/A'}</td>
+                    <td style="padding: 12px; text-align: left;">${quotation.category || 'N/A'}</td>
+                    <td style="padding: 12px; text-align: center;">${quotation.projectSize || 'N/A'}</td>
+                    <td style="padding: 12px; text-align: center;">${quotation.markup || '0'}%</td>
+                    <td style="padding: 12px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 12px; text-align: center;">${formattedDate}</td>
+                    <td style="padding: 12px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${itemCount}</span></td>
+                    <td style="padding: 12px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">${taskCount}</span></td>
+                </tr>
+                <tr id="details-${quotation.id}" style="display: none;">
+                    <td colspan="9" style="padding: 0;">
+                        <div id="detail-content-${quotation.id}" style="padding: 15px; background: #f5f5f5;"></div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        container.innerHTML = html;
+    }
+
+    function toggleQuotationDetails(quotationId) {
+        const detailsRow = document.getElementById('details-' + quotationId);
+        if (detailsRow.style.display === 'none') {
+            detailsRow.style.display = 'table-row';
+            loadQuotationDetails(quotationId);
+        } else {
+            detailsRow.style.display = 'none';
+        }
+    }
+
+    function loadQuotationDetails(quotationId) {
+        const contentDiv = document.getElementById('detail-content-' + quotationId);
+        contentDiv.innerHTML = 'Loading details...';
+        
+        // Get the quotation data from the display data
+        fetch('/api/get-quotations')
+            .then(response => response.json())
+            .then(result => {
+                if (result.success && result.data) {
+                    const quotation = result.data.find(q => q.id === quotationId);
+                    if (quotation) {
+                        displayQuotationDetails(quotation, contentDiv);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                contentDiv.innerHTML = 'Error loading details';
+            });
+    }
+
+    function displayQuotationDetails(quotation, container) {
+        let html = '<div style="margin-bottom: 20px;">';
+        
+        // Items section
+        if (quotation.items && quotation.items.length > 0) {
+            html += '<h5 style="color: #0A1A3A; margin-top: 10px; margin-bottom: 10px;"><i class="bi bi-list-check"></i> Construction Items</h5>';
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">';
+            html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 8px; text-align: left;">Item</th><th style="padding: 8px; text-align: center;">Qty</th><th style="padding: 8px; text-align: right;">Unit Rate</th><th style="padding: 8px; text-align: right;">Total</th></tr></thead>';
+            html += '<tbody>';
+            
+            quotation.items.forEach(item => {
+                const totalPrice = item.totalPrice || (item.quantity * item.unitRate);
+                html += `
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px; text-align: left;">${item.name || 'N/A'}</td>
+                        <td style="padding: 8px; text-align: center;">${item.quantity || 0}</td>
+                        <td style="padding: 8px; text-align: right;">USD ${(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 8px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+        }
+        
+        // Schedules section
+        if (quotation.schedules && quotation.schedules.length > 0) {
+            html += '<h5 style="color: #0A1A3A; margin-top: 15px; margin-bottom: 10px;"><i class="bi bi-calendar-event"></i> Project Schedule</h5>';
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">';
+            html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 8px; text-align: left;">Work Scope</th><th style="padding: 8px; text-align: center;">Start Date</th><th style="padding: 8px; text-align: center;">End Date</th><th style="padding: 8px; text-align: center;">Days</th></tr></thead>';
+            html += '<tbody>';
+            
+            quotation.schedules.forEach(schedule => {
+                const startDate = new Date(schedule.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const endDate = new Date(schedule.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                
+                html += `
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 8px; text-align: left;">${schedule.workScope || 'N/A'}</td>
+                        <td style="padding: 8px; text-align: center;">${startDate}</td>
+                        <td style="padding: 8px; text-align: center;">${endDate}</td>
+                        <td style="padding: 8px; text-align: center; color: #2196F3; font-weight: bold;">${schedule.days || 0}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+        }
+        
+        html += '</div>';
+        container.innerHTML = html;
     }
 
 </script>
