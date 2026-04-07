@@ -479,15 +479,24 @@
         }
         .form-control:focus { box-shadow: 0 0 0 2px var(--dark-blue-deep); color: var(--dark-blue-deep); background: rgba(47, 15, 255, 0.074)}
         .form-label { color: var(--dark-blue-deep); font-weight: 500; }
-        /* Select options styling */
-        select option {
-            color: var(--dark-blue-deep);
-            background-color: var(--white);
+        
+        /* Choices.js Dropdown Styling */
+        .choices__list--dropdown .choices__item {
+            color: var(--dark-blue-deep) !important;
+            background-color: var(--white) !important;
         }
-        select option:checked {
-            background-color: var(--dark-blue-deep);
-            color: var(--white);
+        .choices__list--dropdown .choices__item--selectable {
+            color: var(--dark-blue-deep) !important;
         }
+        .choices__list--dropdown .choices__item--selectable:hover {
+            background-color: rgba(14, 31, 66, 0.1) !important;
+            color: var(--dark-blue-deep) !important;
+        }
+        .choices__list--dropdown .choices__item--selectable.is-highlighted {
+            background-color: var(--dark-blue-deep) !important;
+            color: var(--white) !important;
+        }
+        
         /* loader */
         .eds-loader { background: rgba(10,26,58,0.96); backdrop-filter: blur(8px); }
         .loader-progress { background: var(--crimson-bright); }
@@ -913,7 +922,7 @@
                             <div class="form-group mb-3">
                                 <label for="project_quotation_select" class="form-label fw-bold" style="font-size: 0.7rem;">Link Quotation (Work Plan):</label>
                                 <select class="form-control editable-field" id="project_quotation_select" name="project_quotation_select" style="color: var(--dark-blue-deep); font-size: 0.7rem;">
-                                    <option value="" selected disabled>-- Select a Quotation to Link Work Plan --</option>
+                                    <option value="" selected disabled style="color: var(--dark-blue-deep);">-- Select a Quotation to Link Work Plan --</option>
                                 </select>
                                 <small class="text-muted">Optional: Select a quotation to display its work schedule in the project PDF</small>
                                 <div id="selected_quotation_preview" style="margin-top: 6px; padding: 4px; background: #f0f5ff; border-left: 3px solid #1E2A56; display: none; color: var(--dark-blue-deep);">
