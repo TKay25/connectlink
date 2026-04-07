@@ -732,6 +732,9 @@
         </div>
         <div class="modal-body-custom">
             <form id="addProjectForm">
+                <!-- Hidden field to store selected quotation ID -->
+                <input type="hidden" id="project_quotation_id" name="project_quotation_id" value="">
+                
                 <!-- Row for side-by-side cards -->
                 <div class="row g-3">
 
@@ -896,6 +899,17 @@
                                 </div>
                                 <div id="projectScopeEditor" class="editable-field" style="height: 130px; background: #fff;"></div>
                                 <input type="hidden" id="project_description" name="project_description" required>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="project_quotation_select" class="form-label fw-bold" style="font-size: 0.9rem;">Link Quotation (Work Plan):</label>
+                                <select class="form-control editable-field" id="project_quotation_select" name="project_quotation_select">
+                                    <option value="" selected disabled>-- Select a Quotation to Link Work Plan --</option>
+                                </select>
+                                <small class="text-muted">Optional: Select a quotation to display its work schedule in the project PDF</small>
+                                <div id="selected_quotation_preview" style="margin-top: 8px; padding: 8px; background: #f0f5ff; border-left: 3px solid #1E2A56; display: none;">
+                                    <strong style="color: #1E2A56;">Selected:</strong> <span id="selected_quotation_name" style="color: #2A3A78;"></span>
+                                </div>
                             </div>
 
                             <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
@@ -3393,6 +3407,94 @@ function autofillClientDetails(clientData) {
     console.log('Client details auto-filled:', clientData.clientName);
 }
 
+// Initialize project quotations dropdown with search capability
+function initializeProjectQuotationsDropdown() {
+    const selectElement = document.getElementById('project_quotation_select');
+    
+    if (!selectElement) {
+        console.warn('project_quotation_select element not found');
+        return;
+    }
+    
+    // Fetch all quotations
+    fetch('/api/get-quotations')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.data && data.data.length > 0) {
+                // Clear existing options except the placeholder
+                selectElement.innerHTML = '<option value="" selected disabled>-- Select a Quotation to Link Work Plan --</option>';
+                
+                // Add each quotation as an option
+                data.data.forEach(quotation => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(quotation); // Store full quotation object as value
+                    option.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
+                    selectElement.appendChild(option);
+                });
+                
+                console.log(`Loaded ${data.data.length} quotations`);
+                
+                // Initialize Choices.js for better search capability
+                const choicesInstance = new Choices(selectElement, {
+                    removeItemButton: false,
+                    allowHTML: true,
+                    placeholderValue: '-- Select a Quotation to Link Work Plan --',
+                    noResultsText: 'No quotations found',
+                    noChoicesText: 'No quotations available',
+                    itemSelectText: 'Click to select',
+                    shouldSort: true,
+                    shouldSortItems: true,
+                    searchResultLimit: 10,
+                    queryInputThreshold: 1
+                });
+                
+                // Add change event listener
+                selectElement.addEventListener('change', function() {
+                    if (this.value) {
+                        try {
+                            const selectedQuotation = JSON.parse(this.value);
+                            selectProjectQuotation(selectedQuotation);
+                        } catch (e) {
+                            console.error('Error parsing selected quotation:', e);
+                        }
+                    } else {
+                        document.getElementById('selected_quotation_preview').style.display = 'none';
+                    }
+                });
+            } else {
+                console.log('No quotations found');
+                selectElement.innerHTML = '<option value="" selected disabled>No quotations available</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching quotations:', error);
+            selectElement.innerHTML = '<option value="" selected disabled>Error loading quotations</option>';
+        });
+}
+
+// Handle quotation selection for project
+function selectProjectQuotation(quotation) {
+    // Store quotation data for later use when saving project
+    window.selectedQuotation = quotation;
+    
+    // Store quotation ID in hidden field for form submission
+    document.getElementById('project_quotation_id').value = quotation.id || '';
+    
+    // Show preview of selected quotation
+    const previewDiv = document.getElementById('selected_quotation_preview');
+    const previewText = document.getElementById('selected_quotation_name');
+    
+    previewText.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M)`;
+    previewDiv.style.display = 'block';
+    
+    console.log('Quotation selected:', quotation.id, quotation);
+}
+
 // Close modal when clicking outside
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('modal-overlay')) {
@@ -4829,6 +4931,9 @@ $(document).ready(function() {
     
     // Initialize existing clients dropdown
     initializeExistingClientsDropdown();
+    
+    // Initialize project quotations dropdown
+    initializeProjectQuotationsDropdown();
 });
 
 

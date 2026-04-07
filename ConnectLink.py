@@ -501,6 +501,7 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment10date date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS latepaymentinterest INT;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS quotation_id INT;",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;",
@@ -9457,10 +9458,64 @@ def download_contract(project_id):
             }
 
             project['generated_on'] = datetime.now().strftime('%d %B %Y')
+            
+            # Get quotation_id from the project row
+            # Need to find the column index for quotation_id
+            try:
+                quotation_id_index = column_names.index('quotation_id')
+                quotation_id = row[quotation_id_index]
+            except (ValueError, IndexError):
+                quotation_id = None
 
-            # Build work scope table HTML if project_id is 125
+            # Build work scope table HTML from linked quotation if available
             work_scope_html = ""
-            if int(project_id) == 125:
+            if quotation_id:
+                try:
+                    # Fetch work schedules from quotation
+                    cursor.execute("""
+                        SELECT work_scope, start_date, end_date, days
+                        FROM quotation_schedules
+                        WHERE quotation_id = %s
+                        ORDER BY task_order ASC
+                    """, (quotation_id,))
+                    
+                    schedules = cursor.fetchall()
+                    
+                    if schedules:
+                        work_scope_rows = ""
+                        for idx, schedule in enumerate(schedules, 1):
+                            work_scope, start_date, end_date, days = schedule
+                            
+                            # Format dates
+                            start_str = start_date.strftime("%d/%m/%Y") if start_date else ""
+                            end_str = end_date.strftime("%d/%m/%Y") if end_date else ""
+                            days_str = str(days) if days else ""
+                            
+                            work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{idx}. {work_scope}</td><td style='text-align: center; padding: 8px;'>{start_str}</td><td style='text-align: center; padding: 8px;'>{end_str}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days_str}</td></tr>"
+                        
+                        work_scope_html = f"""
+                            <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
+                            <table class="payment-table" style="margin-top: 12px; margin-bottom: 20px; font-size: 12px;">
+                                <thead>
+                                    <tr style="background: #1E2A56; color: white;">
+                                        <th style="width: 45%; text-align: left; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Work Scope</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Start Date</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">End Date</th>
+                                        <th style="width: 12%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Days</th>
+                                    </tr>
+                                </thead>
+                                <tbody style="font-size: 11px;">
+                                    {work_scope_rows}
+                                </tbody>
+                            </table>
+                            <div class="page-break"></div>
+                        """
+                except Exception as e:
+                    logging.error(f"Error fetching quotation schedules: {e}")
+                    work_scope_html = ""
+            
+            # Fallback: use hardcoded work scope for project_id 125 if no quotation is linked
+            if not work_scope_html and int(project_id) == 125:
                 work_scope_data = [
                     ('Bathroom Plumbing', '31/03/2026', '3/4/2026', 4),
                     ('Main Kitchen', '27/3/2026', '4/4/2026', 7),
@@ -14914,6 +14969,10 @@ def contract_log():
 
                 capturer = session.get('user_name', '')
                 capturerid = session.get('userid')
+                
+                # Get quotation_id if a quotation was selected
+                quotation_id_str = request.form.get('project_quotation_id')
+                quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
 
                 try:
 
@@ -14924,13 +14983,13 @@ def contract_log():
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
                             paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
-                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate
+                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate, quotation_id
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         );
                     """
 
@@ -14982,7 +15041,8 @@ def contract_log():
                         installment7duedate,
                         installment8duedate,
                         installment9duedate,
-                        installment10duedate
+                        installment10duedate,
+                        quotation_id
                     )
 
         
