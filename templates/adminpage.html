@@ -1975,11 +1975,11 @@
             </div>
         </div>
         <div class="modal-footer-custom">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('paymentRemindersModal')">Close</button>
-            <button type="button" class="btn btn-outline-info" id="viewSentRemindersBtn" onclick="openModal('sentRemindersModal')">
+            <button type="button" class="btn btn-danger" onclick="closeModal('paymentRemindersModal')">Close</button>
+            <button type="button" class="btn btn-primary" id="viewSentRemindersBtn" onclick="openModal('sentRemindersModal')">
                 <i class="bi bi-clock-history me-1"></i> View Sent Reminders
             </button>
-            <button type="button" class="btn btn-success" id="sendAllRemindersBtn">
+            <button type="button" class="btn btn-primary" id="sendAllRemindersBtn">
                 <i class="bi bi-whatsapp me-1"></i> Send All Reminders
             </button>
         </div>
@@ -2165,13 +2165,13 @@
                                 Export Data
                             </h6>
                             <div class="d-grid gap-2">
-                                <button class="btn btn-sm btn-success" onclick="exportToExcel()">
+                                <button class="btn btn-sm btn-primary" onclick="exportToExcel()">
                                     <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
                                 </button>
                                 <button class="btn btn-sm btn-primary" onclick="exportToCSV()">
                                     <i class="bi bi-filetype-csv me-1"></i> Export CSV
                                 </button>
-                                <button class="btn btn-sm btn-secondary" onclick="printReport()">
+                                <button class="btn btn-sm btn-primary" onclick="printReport()">
                                     <i class="bi bi-printer me-1"></i> Print Report
                                 </button>
                             </div>
@@ -4348,7 +4348,7 @@ async function sendMetaTemplate(paymentData) {
         if (result.success) {
             // Success - update button
             sendBtn.innerHTML = '<i class="bi bi-check me-1"></i> Sent';
-            sendBtn.classList.remove('btn-primary3');
+            sendBtn.classList.remove('btn-primary');
             sendBtn.classList.add('btn-success');
             sendBtn.disabled = true;
             
@@ -4370,7 +4370,7 @@ async function sendMetaTemplate(paymentData) {
             sendBtn.innerHTML = '<i class="bi bi-whatsapp me-1"></i> Send';
             sendBtn.disabled = false;
             sendBtn.classList.remove('btn-success');
-            sendBtn.classList.add('btn-primary3');
+            sendBtn.classList.add('btn-primary');
         }
         
         alert(`❌ Failed to send: ${error.message}`);
@@ -9432,7 +9432,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Download button at the top
         html += `<div style="margin-bottom: 15px;">
-            <button class="btn btn-success btn-sm" onclick="downloadQuotationPDFFromPortal(${quotation.id})" style="width: auto;">
+            <button class="btn btn-primary btn-sm" onclick="downloadQuotationPDFFromPortal(${quotation.id})" style="width: auto;">
                 <i class="bi bi-download"></i> Download PDF
             </button>
         </div>`;
