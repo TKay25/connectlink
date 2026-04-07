@@ -8641,18 +8641,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div>
                             <div style="background-color: #0A1A3A; color: white; padding: 10px; margin-bottom: 10px; border-radius: 4px; font-weight: bold; font-size: 12px;">QUOTATION SUMMARY</div>
                             <table style="width: 100%; font-size: 12px; line-height: 1.8;">
-                                <tr style="border-bottom: 1px solid #eee;">
-                                    <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Base Cost:</td>
-                                    <td style="text-align: right; padding: 5px 0;">USD ${baseCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #eee;">
-                                    <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Markup (%):</td>
-                                    <td style="text-align: right; padding: 5px 0;">${markup}%</td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #eee;">
-                                    <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Markup Amount:</td>
-                                    <td style="text-align: right; padding: 5px 0;">USD ${markupAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                </tr>
                                 <tr style="background-color: #f5f5f5; border: 2px solid #9B1D2C;">
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 8px; font-size: 13px;">TOTAL COST:</td>
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 8px; text-align: right; font-size: 14px;">USD ${totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -8703,7 +8691,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Start Date</th>
                                     <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">End Date</th>
                                     <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Days</th>
-                                    <th style="padding: 8px; text-align: right; border: 1px solid #ddd;">Cost</th>
                                 </tr>
                             </thead>
                             <tbody>`;
@@ -8723,7 +8710,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${formattedStart}</td>
                         <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${formattedEnd}</td>
                         <td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #0A1A3A; font-weight: bold;">${days}</td>
-                        <td style="padding: 8px; text-align: right; border: 1px solid #ddd; color: #9B1D2C; font-weight: bold;">USD ${price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>`;
             });
 
