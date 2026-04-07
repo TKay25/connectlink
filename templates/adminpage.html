@@ -1634,11 +1634,11 @@
                         </div>
                         <div class="col-md-4">
                             <small class="text-muted d-block">Total Base Cost:</small>
-                            <span class="fw-bold fs-6" id="totalBaseCost">₵0.00</span>
+                            <span class="fw-bold fs-6" id="totalBaseCost">USD 0.00</span>
                         </div>
                         <div class="col-md-4">
                             <small class="text-muted d-block">Total Net Cost:</small>
-                            <span class="fw-bold fs-6 text-success" id="totalNetCost">₵0.00</span>
+                            <span class="fw-bold fs-6 text-success" id="totalNetCost">USD 0.00</span>
                         </div>
                     </div>
                 </div>
@@ -4051,17 +4051,17 @@ function displayWorkPlans(workPlans) {
             <td>${plan.itemName || 'N/A'}</td>
             <td>${plan.startDate || 'N/A'}</td>
             <td>${plan.endDate || 'N/A'}</td>
-            <td>₵${baseCost.toFixed(2)}</td>
+            <td>USD ${baseCost.toFixed(2)}</td>
             <td>${markupPercent.toFixed(1)}%</td>
-            <td class=\"fw-bold\">₵${netCost.toFixed(2)}</td>
+            <td class=\"fw-bold\">USD ${netCost.toFixed(2)}</td>
         `;
         tbody.appendChild(row);
     });
     
     // Update summary
     document.getElementById('totalProjects').textContent = projectsSet.size;
-    document.getElementById('totalBaseCost').textContent = '₵' + totalBaseCost.toFixed(2);
-    document.getElementById('totalNetCost').textContent = '₵' + totalNetCost.toFixed(2);
+    document.getElementById('totalBaseCost').textContent = 'USD ' + totalBaseCost.toFixed(2);
+    document.getElementById('totalNetCost').textContent = 'USD ' + totalNetCost.toFixed(2);
     summaryDiv.style.display = 'block';
     
     // Show export buttons
@@ -4086,8 +4086,8 @@ function exportWorkPlansToExcel(workPlans, totalBaseCost, totalNetCost) {
     });
     
     csvContent += `\nSummary\n`;
-    csvContent += `Total Base Cost,₵${totalBaseCost.toFixed(2)}\n`;
-    csvContent += `Total Net Cost,₵${totalNetCost.toFixed(2)}\n`;
+    csvContent += `Total Base Cost,USD ${totalBaseCost.toFixed(2)}\n`;
+    csvContent += `Total Net Cost,USD ${totalNetCost.toFixed(2)}\n`;
     
     const element = document.createElement('a');
     element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent));
