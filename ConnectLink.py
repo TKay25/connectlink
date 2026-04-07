@@ -10342,13 +10342,14 @@ def delete_project():
                     FROM information_schema.columns 
                     WHERE table_name = 'connectlinkdatabase' 
                     AND column_name != 'id'
+                    AND column_name != 'quotation_id'
                     ORDER BY ordinal_position
                 """)
                 columns = [row[0] for row in cursor.fetchall()]
                 
-                print(f"DEBUG: Found {len(columns)} columns excluding id")
+                print(f"DEBUG: Found {len(columns)} columns excluding id and quotation_id")
                 
-                # Build the column list for SELECT (exclude id from source)
+                # Build the column list for SELECT (exclude id and quotation_id from source)
                 select_columns = ', '.join([f'd.{col}' for col in columns])
                 
                 # Build the column list for INSERT - MUST include id first!
