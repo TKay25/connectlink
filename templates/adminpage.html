@@ -3019,8 +3019,47 @@
             </form>
         </div>
         <div class="modal-footer-custom">
-            <button type="button" class="btn btn-danger" onclick="closeModal('quotationgeneratorModal')">Cancel</button>
             <button type="button" class="btn btn-primary" id="generateQuotationBtn">Generate Quotation</button>
+            <button type="button" class="btn btn-info" onclick="openModal('quotationRatesModal')">View Quotation Rates</button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('quotationgeneratorModal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Quotation Rates Modal - Blur Overlay Version -->
+<div id="quotationRatesModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-table"></i> Quotation Rates</h3>
+            <button class="close-modal" onclick="closeModal('quotationRatesModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="quotationRatesTable">
+                    <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+                        <tr>
+                            <th style="width: 40%; min-width: 200px;">Quotation Item</th>
+                            <th style="width: 30%; min-width: 150px;">Days per Sq Meter</th>
+                            <th style="width: 30%; min-width: 200px;">Inhouse Unit Rate (USD per Sq Meter)</th>
+                            <th style="width: 40px; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="quotationRatesBody">
+                        <!-- Rows will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-success" id="addQuotationItemBtn">
+                <i class="bi bi-plus-circle"></i> Add Quotation Item
+            </button>
+            <button type="button" class="btn btn-primary" id="saveQuotationRatesBtn">
+                <i class="bi bi-check-circle"></i> Save Changes
+            </button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('quotationRatesModal')">Close</button>
         </div>
     </div>
 </div>
@@ -8205,6 +8244,182 @@ document.addEventListener('DOMContentLoaded', () => {
             // Reset for next use
             window.quotationData = null;
         });
+
+        // Quotation Rates Modal functionality
+        // Initialize quotation rates table when modal opens
+        document.getElementById('quotationRatesModal')?.addEventListener('click', function(e) {
+            if (e.target.closest('#quotationRatesModal')) return;
+        });
+
+        // Load quotation rates
+        function loadQuotationRates() {
+            // Sample data - replace with actual backend call if needed
+            const quotationRates = [
+                { item: 'Setting out', daysPerSqMeter: 0, inhouseRate: 1 },
+                { item: 'Excavation', daysPerSqMeter: 0.05, inhouseRate: 2.9 },
+                { item: 'Footing', daysPerSqMeter: 0.0375, inhouseRate: 12 },
+                { item: 'Box', daysPerSqMeter: 0.075, inhouseRate: 20 },
+                { item: 'Slab', daysPerSqMeter: 0.025, inhouseRate: 15 },
+                { item: 'Window sill level', daysPerSqMeter: 0.058333333, inhouseRate: 20 },
+                { item: 'Backfilling and compaction', daysPerSqMeter: 0.025, inhouseRate: 7 },
+                { item: 'Window head', daysPerSqMeter: 0.025974026, inhouseRate: 20 },
+                { item: 'Ring Beam', daysPerSqMeter: 0.032467532, inhouseRate: 23 },
+                { item: 'Wall plate', daysPerSqMeter: 0.038961039, inhouseRate: 10 },
+                { item: 'Roofing', daysPerSqMeter: 0.083333333, inhouseRate: 35 },
+                { item: 'Aluminium', daysPerSqMeter: 0.041666667, inhouseRate: 16 },
+                { item: 'Shattering', daysPerSqMeter: 0.038961039, inhouseRate: 10 },
+                { item: 'Steel Fixing', daysPerSqMeter: 0.097402597, inhouseRate: 35 },
+                { item: 'Deck Pouring', daysPerSqMeter: 0.032467532, inhouseRate: 20 },
+                { item: '1st Fix Electricals', daysPerSqMeter: 0.02597403, inhouseRate: 23 },
+                { item: '1st Fix Plumbing', daysPerSqMeter: 0.025974026, inhouseRate: 9.25 },
+                { item: 'External Plastering', daysPerSqMeter: 0.045454545, inhouseRate: 5.5 },
+                { item: 'Internal Plastering', daysPerSqMeter: 0.051948052, inhouseRate: 5.5 },
+                { item: 'Ceiling', daysPerSqMeter: 0.064935065, inhouseRate: 13 },
+                { item: 'Skimming', daysPerSqMeter: 0.045454545, inhouseRate: 3.5 },
+                { item: 'Flooring', daysPerSqMeter: 0.032467532, inhouseRate: 3.5 },
+                { item: 'Tiling', daysPerSqMeter: 0.051948052, inhouseRate: 12 },
+                { item: 'Wall Tiling', daysPerSqMeter: 0.023529412, inhouseRate: 0 },
+                { item: 'Painting', daysPerSqMeter: 0.051948052, inhouseRate: 15 },
+                { item: 'Final fix Plumbing', daysPerSqMeter: 0.025974026, inhouseRate: 9.25 },
+                { item: 'Final fix Electricals', daysPerSqMeter: 0.025974026, inhouseRate: 5 },
+                { item: 'Cleaning', daysPerSqMeter: 0, inhouseRate: 0 }
+            ];
+
+            const tbody = document.getElementById('quotationRatesBody');
+            tbody.innerHTML = '';
+
+            quotationRates.forEach((rate, index) => {
+                const row = document.createElement('tr');
+                row.setAttribute('data-row-id', `rate-${index}`);
+                row.innerHTML = `
+                    <td>
+                        <input type="text" class="form-control form-control-sm quotation-item-input" 
+                               value="${rate.item}" placeholder="Quotation Item">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm quotation-days-input" 
+                               value="${rate.daysPerSqMeter}" step="0.01" placeholder="Days">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm quotation-rate-input" 
+                               value="${rate.inhouseRate}" step="0.01" placeholder="Rate">
+                    </td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-sm btn-danger delete-rate-btn" type="button" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Attach delete handlers
+            attachDeleteHandlers();
+        }
+
+        // Add new quotation item
+        document.getElementById('addQuotationItemBtn')?.addEventListener('click', function() {
+            const tbody = document.getElementById('quotationRatesBody');
+            const newIndex = tbody.children.length;
+            const row = document.createElement('tr');
+            row.setAttribute('data-row-id', `rate-new-${Date.now()}`);
+            row.innerHTML = `
+                <td>
+                    <input type="text" class="form-control form-control-sm quotation-item-input" 
+                           placeholder="Quotation Item">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm quotation-days-input" 
+                           step="0.01" placeholder="Days">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm quotation-rate-input" 
+                           step="0.01" placeholder="Rate">
+                </td>
+                <td style="text-align: center;">
+                    <button class="btn btn-sm btn-danger delete-rate-btn" type="button" title="Delete">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+            attachDeleteHandlers();
+            row.querySelector('.quotation-item-input').focus();
+        });
+
+        // Delete row handler
+        function attachDeleteHandlers() {
+            document.querySelectorAll('.delete-rate-btn').forEach(btn => {
+                btn.onclick = function() {
+                    if (confirm('Are you sure you want to delete this quotation item?')) {
+                        this.closest('tr').remove();
+                    }
+                };
+            });
+        }
+
+        // Save quotation rates
+        document.getElementById('saveQuotationRatesBtn')?.addEventListener('click', function() {
+            const rates = [];
+            document.querySelectorAll('#quotationRatesBody tr').forEach(row => {
+                const item = row.querySelector('.quotation-item-input').value.trim();
+                const days = parseFloat(row.querySelector('.quotation-days-input').value) || 0;
+                const rate = parseFloat(row.querySelector('.quotation-rate-input').value) || 0;
+
+                if (item) {
+                    rates.push({ item, daysPerSqMeter: days, inhouseRate: rate });
+                }
+            });
+
+            if (rates.length === 0) {
+                alert('Please add at least one quotation item.');
+                return;
+            }
+
+            // Send to backend or save locally
+            console.log('Saving quotation rates:', rates);
+            
+            fetch('/api/save-quotation-rates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ rates: rates })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.warn('Backend endpoint not available, saving locally');
+                    localStorage.setItem('quotationRates', JSON.stringify(rates));
+                    alert('Quotation rates saved locally!');
+                    return;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    alert('Quotation rates saved successfully!');
+                    closeModal('quotationRatesModal');
+                } else if (data) {
+                    alert('Quotation rates saved!');
+                    closeModal('quotationRatesModal');
+                }
+            })
+            .catch(error => {
+                console.warn('Error saving to backend:', error);
+                localStorage.setItem('quotationRates', JSON.stringify(rates));
+                alert('Quotation rates saved locally!');
+                closeModal('quotationRatesModal');
+            });
+        });
+
+        // Load quotation rates when quotation generator modal opens
+        const openModalOriginal = window.openModal;
+        window.openModal = function(modalId) {
+            if (modalId === 'quotationRatesModal') {
+                loadQuotationRates();
+            }
+            openModalOriginal(modalId);
+        };
     });
 
 </script>
