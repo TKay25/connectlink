@@ -8522,14 +8522,22 @@ document.addEventListener('DOMContentLoaded', () => {
             // For construction, show Gantt chart builder; otherwise show preview
             if (category === 'construction') {
                 // Initialize Gantt with selected items in order
-                ganttItems = orderedConstructionItems.map(item => ({
-                    id: item.id,
-                    item: item.item,
-                    price: item.price,
-                    startDate: new Date().toISOString().split('T')[0],
-                    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    days: 7
-                }));
+                const sqm = parseFloat($('#quotationSize').val());
+                ganttItems = orderedConstructionItems.map(item => {
+                    const rateData = quotationRatesCache.find(r => r.id == item.id);
+                    const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
+                    const duration = Math.round(daysPerSqm * sqm);
+                    
+                    return {
+                        id: item.id,
+                        item: item.item,
+                        price: item.price,
+                        daysPerSqMeter: daysPerSqm,
+                        startDate: new Date().toISOString().split('T')[0],
+                        endDate: new Date(Date.now() + (duration * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+                        days: duration
+                    };
+                });
                 
                 setTimeout(() => {
                     openModal('ganttChartBuilderModal');
@@ -8793,15 +8801,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (el.textContent.includes('Select Construction Item')) el.remove();
             });
 
+            const rateData = quotationRatesCache.find(r => r.item === itemName);
+            const sqm = parseFloat($('#quotationSize').val()) || 1;
+            const markup = parseFloat($('#quotationMarkup').val()) || 30;
+            const basePrice = (rateData ? rateData.inhouseRate : 0) * sqm;
+            const clientPrice = basePrice * (1 + (markup / 100));
+            const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
+            const duration = Math.round(daysPerSqm * sqm);
+
             const startDate = new Date();
             const endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 7);
+            endDate.setDate(endDate.getDate() + duration);
 
             ganttItems.push({
+                id: rateData ? rateData.id : null,
                 item: itemName,
+                price: clientPrice,
+                daysPerSqMeter: daysPerSqm,
                 startDate: formatDate(startDate),
                 endDate: formatDate(endDate),
-                days: calculateDays(startDate, endDate)
+                days: duration
             });
 
             renderGanttItemsList();
@@ -8816,22 +8835,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            let html = '';
+            let html = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
+                            <th style="padding: 10px; text-align: left; font-weight: bold;">#</th>
+                            <th style="padding: 10px; text-align: left; font-weight: bold;">Work Scope</th>
+                            <th style="padding: 10px; text-align: center; font-weight: bold;">Start date</th>
+                            <th style="padding: 10px; text-align: center; font-weight: bold;">End date</th>
+                            <th style="padding: 10px; text-align: center; font-weight: bold;">Days</th>
+                            <th style="padding: 10px; text-align: right; font-weight: bold;">Cost</th>
+                            <th style="padding: 10px; text-align: center; font-weight: bold;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
             ganttItems.forEach((item, index) => {
                 html += `
-                    <div style="background: white; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; position: relative;">
-                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                            <strong style="font-size: 0.9rem;">${index + 1}. ${item.item}</strong>
-                            <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 2px 6px; font-size: 0.75rem;">Delete</button>
-                        </div>
-                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 6px;">
-                            <div><strong>Start:</strong> <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="display: inline-block; width: auto; margin-top: 2px;"></div>
-                            <div style="margin-top: 6px;"><strong>End:</strong> <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="display: inline-block; width: auto; margin-top: 2px;"></div>
-                            <div style="margin-top: 6px; color: #2196F3;"><strong>Duration:</strong> ${item.days} days</div>
-                        </div>
-                    </div>
+                    <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                        <td style="padding: 10px; text-align: left; font-weight: bold;">${index + 1}</td>
+                        <td style="padding: 10px; text-align: left;">${item.item}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="font-size: 0.85rem;">
+                        </td>
+                        <td style="padding: 10px; text-align: center;">
+                            <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="font-size: 0.85rem;">
+                        </td>
+                        <td style="padding: 10px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
+                        <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 3px 8px; font-size: 0.75rem;">Delete</button>
+                        </td>
+                    </tr>
                 `;
             });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
             listEl.innerHTML = html;
         }
 
