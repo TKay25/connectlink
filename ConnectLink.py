@@ -206,6 +206,18 @@ def initialize_database_tables():
                 );
             """)
 
+            # Create quotation rates table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_rates (
+                    id SERIAL PRIMARY KEY,
+                    quotation_item VARCHAR(255) NOT NULL,
+                    days_per_sq_meter DECIMAL(10, 8) NOT NULL DEFAULT 0,
+                    inhouse_unit_rate DECIMAL(12, 2) NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'
@@ -16255,7 +16267,86 @@ def logout():
 @app.teardown_appcontext
 def close_db(error):
     """Close any remaining connections on app shutdown"""
-    pass  # No-op now since you're using context managers everywhere   
+    pass  # No-op now since you're using context managers everywhere
+
+# Quotation Rates API Endpoints
+@app.route('/api/get-quotation-rates', methods=['GET'])
+def get_quotation_rates():
+    """Retrieve all quotation rates from the database"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, quotation_item, days_per_sq_meter, inhouse_unit_rate
+                FROM quotation_rates
+                ORDER BY id ASC
+            """)
+            rates = cursor.fetchall()
+            
+            result = []
+            for rate in rates:
+                result.append({
+                    'id': rate[0],
+                    'item': rate[1],
+                    'daysPerSqMeter': float(rate[2]),
+                    'inhouseRate': float(rate[3])
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotation rates: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/save-quotation-rates', methods=['POST'])
+def save_quotation_rates():
+    """Save or update quotation rates to the database"""
+    try:
+        data = request.json
+        rates = data.get('rates', [])
+        
+        if not rates:
+            return jsonify({
+                'success': False,
+                'message': 'No rates provided'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Clear existing rates
+            cursor.execute("DELETE FROM quotation_rates")
+            
+            # Insert new rates
+            for rate in rates:
+                cursor.execute("""
+                    INSERT INTO quotation_rates 
+                    (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                    VALUES (%s, %s, %s)
+                """, (
+                    rate.get('item'),
+                    float(rate.get('daysPerSqMeter', 0)),
+                    float(rate.get('inhouseRate', 0))
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully saved {len(rates)} quotation rates',
+                'count': len(rates)
+            })
+    except Exception as e:
+        logging.error(f'Error saving quotation rates: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port = 55, debug = True)

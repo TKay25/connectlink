@@ -8257,8 +8257,27 @@ document.addEventListener('DOMContentLoaded', () => {
         // Quotation Rates Modal functionality
         // Load quotation rates
         function loadQuotationRates() {
-            // Sample data - replace with actual backend call if needed
-            const quotationRates = [
+            // Fetch quotation rates from backend
+            fetch('/api/get-quotation-rates')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load quotation rates');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const quotationRates = data.success ? data.data : getDefaultQuotationRates();
+                    populateQuotationRatesTable(quotationRates);
+                })
+                .catch(error => {
+                    console.warn('Error loading from backend:', error);
+                    // Use default data if backend fails
+                    populateQuotationRatesTable(getDefaultQuotationRates());
+                });
+        }
+
+        function getDefaultQuotationRates() {
+            return [
                 { item: 'Setting out', daysPerSqMeter: 0, inhouseRate: 1 },
                 { item: 'Excavation', daysPerSqMeter: 0.05, inhouseRate: 2.9 },
                 { item: 'Footing', daysPerSqMeter: 0.0375, inhouseRate: 12 },
@@ -8288,7 +8307,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 { item: 'Final fix Electricals', daysPerSqMeter: 0.025974026, inhouseRate: 5 },
                 { item: 'Cleaning', daysPerSqMeter: 0, inhouseRate: 0 }
             ];
+        }
 
+        function populateQuotationRatesTable(quotationRates) {
             const tbody = document.getElementById('quotationRatesBody');
             const fragment = document.createDocumentFragment();
 
@@ -8351,9 +8372,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Send to backend or save locally
-            console.log('Saving quotation rates:', rates);
-            
+            // Show loading state
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+
+            // Send to backend
             fetch('/api/save-quotation-rates', {
                 method: 'POST',
                 headers: {
@@ -8363,27 +8388,25 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(response => {
                 if (!response.ok) {
-                    console.warn('Backend endpoint not available, saving locally');
-                    localStorage.setItem('quotationRates', JSON.stringify(rates));
-                    alert('Quotation rates saved locally!');
-                    return;
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
             .then(data => {
-                if (data && data.success) {
-                    alert('Quotation rates saved successfully!');
+                if (data.success) {
+                    alert(`✓ Successfully saved ${data.count} quotation rates!`);
                     closeModal('quotationRatesModal');
-                } else if (data) {
-                    alert('Quotation rates saved!');
-                    closeModal('quotationRatesModal');
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.warn('Error saving to backend:', error);
-                localStorage.setItem('quotationRates', JSON.stringify(rates));
-                alert('Quotation rates saved locally!');
-                closeModal('quotationRatesModal');
+                console.error('Error:', error);
+                alert('Failed to save quotation rates: ' + error.message);
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             });
         });
 
