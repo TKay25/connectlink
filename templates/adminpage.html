@@ -2459,8 +2459,13 @@
                     <div class="container mt-4">
                         <div class="row mb-4">
                             <div class="col-md-12">
+                                <div style="margin-bottom: 15px;">
+                                    <button class="btn btn-primary btn-sm" onclick="reloadQuotations()" style="width: auto;">
+                                        <i class="bi bi-arrow-clockwise"></i> Reload Quotations
+                                    </button>
+                                </div>
                                 <div id="quotationsContainer" style="background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                    <p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>
+                                    <p class="text-muted text-center" style="padding: 40px;">Click "Reload Quotations" to load saved quotations...</p>
                                 </div>
                             </div>
                         </div>
@@ -9262,23 +9267,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Load quotations when tab is shown
-    const quotationsTab = document.getElementById('quotations-tab');
-    if (quotationsTab) {
-        quotationsTab.addEventListener('shown.bs.tab', function() {
-            console.log('Quotations tab shown event fired');
+    const quotationsTabButton = document.querySelector('button[data-bs-target="#quotations-tab"]');
+    console.log('Quotations tab button element:', quotationsTabButton);
+    
+    if (quotationsTabButton) {
+        // Bootstrap 5 uses 'shown.bs.tab' event
+        quotationsTabButton.addEventListener('shown.bs.tab', function(e) {
+            console.log('Quotations tab shown event fired', e);
             loadQuotations();
         });
+        console.log('Event listener attached to quotations tab button');
+    } else {
+        console.warn('Quotations tab button not found');
     }
 
     // Also set up a way to manually load quotations
     window.reloadQuotations = function() {
+        console.log('Manual reloadQuotations called');
         const container = document.getElementById('quotationsContainer');
         if (container) {
             loadQuotations();
+        } else {
+            console.error('quotationsContainer not found for manual reload');
         }
     };
     
     function loadQuotations() {
+        console.log('loadQuotations function called');
         const container = document.getElementById('quotationsContainer');
         if (!container) {
             console.error('quotationsContainer not found');
