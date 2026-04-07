@@ -3326,15 +3326,31 @@ function openModal(modalId) {
         // Reinitialize Quill editor when New Project modal opens
         if (modalId === 'addnewProjectModal') {
             setTimeout(() => {
-                // Clear the Quill editor's content
-                quillProjectScope.setContents([]);
-                quillProjectScope.enable();
-                // Reset the hidden input
-                document.getElementById("project_description").value = '';
-                // Focus the editor
-                const editorElement = document.querySelector('#projectScopeEditor .ql-editor');
-                if (editorElement) {
-                    editorElement.focus();
+                try {
+                    // Destroy old Quill instance if it exists
+                    if (quillProjectScope) {
+                        quillProjectScope = null;
+                    }
+                    
+                    // Clear the container
+                    const editorContainer = document.getElementById('projectScopeEditor');
+                    editorContainer.innerHTML = '';
+                    
+                    // Recreate Quill instance
+                    quillProjectScope = new Quill('#projectScopeEditor', {
+                        theme: 'snow',
+                        modules: {
+                            toolbar: '#projectScopeToolbar'
+                        }
+                    });
+                    
+                    // Reset the hidden input
+                    document.getElementById("project_description").value = '';
+                    
+                    // Focus the editor
+                    quillProjectScope.focus();
+                } catch (e) {
+                    console.error('Error reinitializing Quill:', e);
                 }
             }, 100);
         }
@@ -7021,16 +7037,14 @@ document.getElementById("saveNewInstallmentDateBtn")?.addEventListener("click", 
 })
 </script>
 <script>
-    var quillProjectScope = new Quill('#projectScopeEditor', {
-        theme: 'snow',
-        modules: {
-            toolbar: '#projectScopeToolbar'
-        }
-    });
+    // Quill editor will be initialized when modal opens (see openModal function)
+    var quillProjectScope;
 
     // When submitting form, store Quill HTML into hidden input
     document.getElementById("addProjectForm")?.addEventListener("submit", function() {
-        document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
+        if (quillProjectScope) {
+            document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
+        }
     });
 </script>
 
