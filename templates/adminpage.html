@@ -3323,6 +3323,22 @@ function openModal(modalId) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
         
+        // Reinitialize Quill editor when New Project modal opens
+        if (modalId === 'addnewProjectModal') {
+            setTimeout(() => {
+                // Clear the Quill editor's content
+                quillProjectScope.setContents([]);
+                quillProjectScope.enable();
+                // Reset the hidden input
+                document.getElementById("project_description").value = '';
+                // Focus the editor
+                const editorElement = document.querySelector('#projectScopeEditor .ql-editor');
+                if (editorElement) {
+                    editorElement.focus();
+                }
+            }, 100);
+        }
+        
         // Load months when download installments modal opens
         if (modalId === 'downloadInstallmentsModal') {
             loadProjectStartMonths();
@@ -3365,7 +3381,7 @@ function initializeExistingClientsDropdown() {
         .then(data => {
             if (data.success && data.data && data.data.length > 0) {
                 // Clear existing options except the placeholder
-                selectElement.innerHTML = '<option value="" selected disabled>-- Search or Select Client --</option>';
+                selectElement.innerHTML = '<option value="" style="font-size: 0.7rem;" selected disabled>-- Search or Select Client --</option>';
                 
                 // Add each client as an option
                 data.data.forEach(client => {
@@ -3452,7 +3468,7 @@ function initializeProjectQuotationsDropdown() {
         .then(data => {
             if (data.success && data.data && data.data.length > 0) {
                 // Clear existing options except the placeholder
-                selectElement.innerHTML = '<option value="" selected disabled>-- Select a Quotation to Link Work Plan --</option>';
+                selectElement.innerHTML = '<option value="" style="font-size: 0.7rem;" selected disabled>-- Select a Quotation to Link Work Plan --</option>';
                 
                 // Add each quotation as an option
                 data.data.forEach(quotation => {
