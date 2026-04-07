@@ -1515,7 +1515,7 @@
 
 <!-- GANTT CHART EDITOR MODAL -->
 <div id="ganttChartModal" class="modal-overlay">
-    <div class="modal-container xlarge">
+    <div class="modal-container" style="width: 40%;">
         <div class="modal-header-custom">
             <h3><i class="bi bi-diagram-3"></i> WORK SCHEDULE - GANTT CHART</h3>
             <button class="close-modal" onclick="closeModal('ganttChartModal')">
@@ -3719,7 +3719,9 @@ function populateGanttTable(schedules) {
                     style="font-size: 0.75rem;">
             </td>
             <td>
-                <small style="color: var(--dark-blue-deep); font-weight: 500;">${schedule.days || 0}</small>
+                <input type="number" class="form-control form-control-sm gantt-days" 
+                    data-index="${index}" value="${schedule.days || 0}" min="0"
+                    style="font-size: 0.75rem;">
             </td>
         `;
         tbody.appendChild(row);
@@ -3727,6 +3729,76 @@ function populateGanttTable(schedules) {
     
     // Store original schedules for comparison
     window.ganttSchedules = schedules;
+    
+    // Attach event listeners for auto-calculation
+    attachGanttCalculationListeners();
+}
+
+function attachGanttCalculationListeners() {
+    const startDateInputs = document.querySelectorAll('.gantt-start-date');
+    const endDateInputs = document.querySelectorAll('.gantt-end-date');
+    const daysInputs = document.querySelectorAll('.gantt-days');
+    
+    // Helper function to add days to a date
+    function addDaysToDate(dateStr, days) {
+        const date = new Date(dateStr);
+        date.setDate(date.getDate() + parseInt(days));
+        return date.toISOString().split('T')[0];
+    }
+    
+    // Helper function to calculate days between two dates
+    function calculateDaysDifference(startDateStr, endDateStr) {
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        const diffTime = endDate - startDate;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.max(0, diffDays);
+    }
+    
+    startDateInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const index = this.getAttribute('data-index');
+            const startDate = this.value;
+            const daysInput = document.querySelector(`.gantt-days[data-index="${index}"]`);
+            const endDateInput = document.querySelector(`.gantt-end-date[data-index="${index}"]`);
+            const days = parseInt(daysInput.value) || 0;
+            
+            if (startDate && days > 0) {
+                const newEndDate = addDaysToDate(startDate, days);
+                endDateInput.value = newEndDate;
+            }
+        });
+    });
+    
+    endDateInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const index = this.getAttribute('data-index');
+            const endDate = this.value;
+            const startDateInput = document.querySelector(`.gantt-start-date[data-index="${index}"]`);
+            const daysInput = document.querySelector(`.gantt-days[data-index="${index}"]`);
+            const startDate = startDateInput.value;
+            
+            if (startDate && endDate) {
+                const calculatedDays = calculateDaysDifference(startDate, endDate);
+                daysInput.value = calculatedDays;
+            }
+        });
+    });
+    
+    daysInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const index = this.getAttribute('data-index');
+            const days = parseInt(this.value) || 0;
+            const startDateInput = document.querySelector(`.gantt-start-date[data-index="${index}"]`);
+            const endDateInput = document.querySelector(`.gantt-end-date[data-index="${index}"]`);
+            const startDate = startDateInput.value;
+            
+            if (startDate && days > 0) {
+                const newEndDate = addDaysToDate(startDate, days);
+                endDateInput.value = newEndDate;
+            }
+        });
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
