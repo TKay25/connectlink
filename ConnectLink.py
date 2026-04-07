@@ -16852,5 +16852,107 @@ def get_existing_clients():
             'data': []
         }), 500
 
+@app.route('/api/get-project-schedule/<int:project_id>', methods=['GET'])
+def get_project_schedule(project_id):
+    """Retrieve work schedule for a project based on linked quotation"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get the quotation_id from the project
+            cursor.execute("""
+                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            result = cursor.fetchone()
+            
+            if not result or not result[0]:
+                return jsonify({
+                    'success': True,
+                    'schedules': [],
+                    'message': 'No quotation linked to this project'
+                })
+            
+            quotation_id = result[0]
+            
+            # Get the schedules from the linked quotation
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order ASC
+            """, (quotation_id,))
+            
+            schedules = cursor.fetchall()
+            
+            schedule_list = [
+                {
+                    'workScope': schedule[0],
+                    'startDate': schedule[1].isoformat() if schedule[1] else None,
+                    'endDate': schedule[2].isoformat() if schedule[2] else None,
+                    'days': int(schedule[3]) if schedule[3] else 0
+                }
+                for schedule in schedules
+            ]
+            
+            return jsonify({
+                'success': True,
+                'schedules': schedule_list,
+                'quotationId': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching project schedule: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/update-project-schedule/<int:project_id>', methods=['POST'])
+def update_project_schedule(project_id):
+    """Update work schedule dates for a project"""
+    try:
+        data = request.json
+        schedules = data.get('schedules', [])
+        
+        with get_db() as (cursor, connection):
+            # Get the quotation_id from the project
+            cursor.execute("""
+                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            result = cursor.fetchone()
+            
+            if not result or not result[0]:
+                return jsonify({
+                    'success': False,
+                    'message': 'No quotation linked to this project'
+                }), 400
+            
+            quotation_id = result[0]
+            
+            # Update each schedule's start and end dates
+            for idx, schedule in enumerate(schedules):
+                cursor.execute("""
+                    UPDATE quotation_schedules
+                    SET start_date = %s, end_date = %s
+                    WHERE quotation_id = %s AND task_order = %s
+                """, (
+                    schedule.get('startDate'),
+                    schedule.get('endDate'),
+                    quotation_id,
+                    idx + 1
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully updated {len(schedules)} schedule items'
+            })
+    except Exception as e:
+        logging.error(f'Error updating project schedule: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port = 55, debug = True)

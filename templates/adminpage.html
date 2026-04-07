@@ -1472,6 +1472,9 @@
                 </div>
             </div>
             <div class="modal-footer-custom">
+                <button type="button" class="btn btn-primary" id="viewEditGanttChartBtn" onclick="openGanttChartModal()">
+                    <i class="bi bi-diagram-3"></i> View/Edit Gantt Chart
+                </button>
                 <button type="button" class="btn btn-primary" id="downloadpaymentshistory">
                     <span id="downloadText">Download Payments History</span>
                     <span id="downloadSpinner" class="spinner-border spinner-border-sm d-none"></span>
@@ -1505,6 +1508,45 @@
             <button type="button" class="btn btn-primary" id="saveNewInstallmentDateBtn">
                 <span id="saveDateText">Save Changes</span>
                 <span id="saveDateSpinner" class="spinner-border spinner-border-sm d-none"></span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- GANTT CHART EDITOR MODAL -->
+<div id="ganttChartModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-diagram-3"></i> WORK SCHEDULE - GANTT CHART</h3>
+            <button class="close-modal" onclick="closeModal('ganttChartModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                <table class="table table-striped" id="ganttScheduleTable" style="font-size: 0.8rem;">
+                    <thead style="position: sticky; top: 0; background: var(--dark-blue-deep); color: white;">
+                        <tr>
+                            <th style="width: 35%;">Work Scope</th>
+                            <th style="width: 20%;">Start Date</th>
+                            <th style="width: 20%;">End Date</th>
+                            <th style="width: 15%;">Days</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ganttScheduleBody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="ganttNoData" class="alert alert-info mt-3">
+                <i class="bi bi-info-circle"></i> No work schedule linked to this project. Link a quotation to add a work schedule.
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('ganttChartModal')">Close</button>
+            <button type="button" class="btn btn-primary" id="saveGanttChangesBtn">
+                <span id="ganttSaveText">Save Work Schedule Changes</span>
+                <span id="ganttSaveSpinner" class="spinner-border spinner-border-sm d-none"></span>
             </button>
         </div>
     </div>
@@ -3617,6 +3659,115 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window.selectedQuotation) {
                 adjustScheduleDates(window.selectedQuotation);
             }
+        });
+    }
+});
+
+// Gantt Chart Modal Functions
+function openGanttChartModal() {
+    const projectId = document.getElementById('updateProjectId').value;
+    if (!projectId) {
+        alert('No project selected');
+        return;
+    }
+    
+    // Fetch the project's work schedule
+    fetch(`/api/get-project-schedule/${projectId}`)
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch work schedule');
+            return response.json();
+        })
+        .then(data => {
+            populateGanttTable(data.schedules || []);
+            openModal('ganttChartModal');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading work schedule: ' + error.message);
+        });
+}
+
+function populateGanttTable(schedules) {
+    const tbody = document.getElementById('ganttScheduleBody');
+    const noDataDiv = document.getElementById('ganttNoData');
+    
+    tbody.innerHTML = '';
+    
+    if (!schedules || schedules.length === 0) {
+        noDataDiv.style.display = 'block';
+        tbody.innerHTML = '';
+        return;
+    }
+    
+    noDataDiv.style.display = 'none';
+    
+    schedules.forEach((schedule, index) => {
+        const row = document.createElement('tr');
+        row.id = `gantt-row-${index}`;
+        row.innerHTML = `
+            <td>
+                <small style="color: var(--dark-blue-deep); font-weight: 500;">${schedule.workScope || ''}</small>
+            </td>
+            <td>
+                <input type="date" class="form-control form-control-sm gantt-start-date" 
+                    data-index="${index}" value="${schedule.startDate || ''}" 
+                    style="font-size: 0.75rem;">
+            </td>
+            <td>
+                <input type="date" class="form-control form-control-sm gantt-end-date" 
+                    data-index="${index}" value="${schedule.endDate || ''}" 
+                    style="font-size: 0.75rem;">
+            </td>
+            <td>
+                <small style="color: var(--dark-blue-deep); font-weight: 500;">${schedule.days || 0}</small>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Store original schedules for comparison
+    window.ganttSchedules = schedules;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Save Gantt chart changes
+    const saveGanttBtn = document.getElementById('saveGanttChangesBtn');
+    if (saveGanttBtn) {
+        saveGanttBtn.addEventListener('click', function() {
+            const projectId = document.getElementById('updateProjectId').value;
+            const startDates = Array.from(document.querySelectorAll('.gantt-start-date')).map(input => input.value);
+            const endDates = Array.from(document.querySelectorAll('.gantt-end-date')).map(input => input.value);
+            
+            if (!projectId) {
+                alert('No project selected');
+                return;
+            }
+            
+            // Create updated schedules array
+            const updatedSchedules = window.ganttSchedules.map((schedule, index) => ({
+                ...schedule,
+                startDate: startDates[index],
+                endDate: endDates[index]
+            }));
+            
+            // Send updates to backend
+            fetch(`/api/update-project-schedule/${projectId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ schedules: updatedSchedules })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to save schedule');
+                return response.json();
+            })
+            .then(data => {
+                alert('Work schedule updated successfully!');
+                closeModal('ganttChartModal');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving work schedule: ' + error.message);
+            });
         });
     }
 });
