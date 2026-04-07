@@ -9430,6 +9430,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayQuotationDetails(quotation, container) {
         let html = '<div style="margin-bottom: 10px;">';
         
+        // Download button at the top
+        html += `<div style="margin-bottom: 15px;">
+            <button class="btn btn-success btn-sm" onclick="downloadQuotationPDFFromPortal(${quotation.id})" style="width: auto;">
+                <i class="bi bi-download"></i> Download PDF
+            </button>
+        </div>`;
+        
         // Items section
         if (quotation.items && quotation.items.length > 0) {
             html += '<h5 style="color: #0A1A3A; margin-top: 6px; margin-bottom: 6px; font-size: 0.7rem;"><i class="bi bi-list-check"></i> Construction Items</h5>';
@@ -9478,6 +9485,350 @@ document.addEventListener('DOMContentLoaded', () => {
         
         html += '</div>';
         container.innerHTML = html;
+    }
+
+    function downloadQuotationPDFFromPortal(quotationId) {
+        // Fetch the quotation data from API
+        fetch('/api/get-quotations')
+            .then(response => response.json())
+            .then(result => {
+                if (result.success && result.data) {
+                    const quotation = result.data.find(q => q.id === quotationId);
+                    if (quotation) {
+                        // Generate PDF with this quotation data
+                        generateQuotationPDFFromData(quotation);
+                    } else {
+                        alert('Quotation not found');
+                    }
+                } else {
+                    alert('Error fetching quotation data');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            });
+    }
+
+    function generateQuotationPDFFromData(quotationData) {
+        // Convert API response format to match the current format
+        const data = {
+            clientName: quotationData.clientName,
+            quotationDate: quotationData.quotationDate,
+            category: quotationData.category,
+            size: quotationData.projectSize,
+            totalCost: quotationData.totalCost,
+            markup: quotationData.markup,
+            items: quotationData.items,
+            schedules: quotationData.schedules
+        };
+
+        let ganttData = [];
+        if (quotationData.schedules && quotationData.schedules.length > 0) {
+            ganttData = quotationData.schedules.map(schedule => ({
+                item: schedule.workScope,
+                startDate: schedule.startDate,
+                endDate: schedule.endDate,
+                days: schedule.days,
+                price: 0
+            }));
+        }
+
+        // Now generate the PDF - reuse the existing PDF generation logic
+        generatePDFContent(data, ganttData);
+    }
+
+    function generatePDFContent(data, ganttData) {
+        const reqlogoPath = "{{ url_for('static', filename='images/reqlogo.jpg') }}";
+
+        // Get logo as image
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const logoBase64 = canvas.toDataURL('image/jpeg');
+
+            // Build quotation info
+            let htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; color: #333; }
+                        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #9B1D2C; }
+                        .logo { max-width: 150px; margin-bottom: 15px; }
+                        .title { font-size: 24px; font-weight: bold; color: #0A1A3A; margin: 10px 0; }
+                        .section { margin: 20px 0; }
+                        .section-title { font-size: 14px; font-weight: bold; color: white; background-color: #0A1A3A; padding: 10px; margin-bottom: 10px; }
+                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                        th { background-color: #0A1A3A; color: white; font-weight: bold; }
+                        tr:nth-child(even) { background-color: #f9f9f9; }
+                        .total-row { background-color: #f0f0f0; font-weight: bold; }
+                        .project-info { background-color: #f5f5f5; padding: 15px; border-left: 4px solid #9B1D2C; margin-bottom: 20px; }
+                        .footer { margin-top: 30px; padding-top: 20px; border-top: 2px solid #ccc; font-size: 11px; color: #666; text-align: center; }
+                        .currency-right { text-align: right; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <img src="${logoBase64}" class="logo" alt="Logo">
+                        <div class="title">QUOTATION</div>
+                    </div>
+
+                    <div class="project-info">
+                        <strong>Project Information</strong><br>
+                        Client: ${data.clientName || 'N/A'}<br>
+                        Category: ${(data.category || 'N/A').replace(/_/g, ' ').toUpperCase()}<br>
+                        Project Size: ${data.size || 'N/A'}<br>
+                        Date: ${new Date(data.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">QUOTATION SUMMARY</div>
+                        <table>
+                            <tr class="total-row">
+                                <td><strong>Total Cost</strong></td>
+                                <td class="currency-right"><strong>USD ${Number(data.totalCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">CONSTRUCTION ITEMS</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Item Description</th>
+                                    <th style="text-align: center;">Quantity</th>
+                                    <th class="currency-right">Rate (USD)</th>
+                                    <th class="currency-right">Total (USD)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            // Add items
+            if (data.items && data.items.length > 0) {
+                data.items.forEach(item => {
+                    const itemTotal = Number(item.totalPrice || item.quantity * item.unitRate || 0);
+                    htmlContent += `
+                        <tr>
+                            <td>${item.name || 'Item'}</td>
+                            <td style="text-align: center;">${Number(item.quantity || 0)}</td>
+                            <td class="currency-right">${Number(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td class="currency-right">${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            htmlContent += `
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">PROJECT WORK PLAN</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Work Scope</th>
+                                    <th style="text-align: center;">Start Date</th>
+                                    <th style="text-align: center;">End Date</th>
+                                    <th style="text-align: center;">Days</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            // Add schedule/gantt items
+            if (ganttData && ganttData.length > 0) {
+                ganttData.forEach(schedule => {
+                    const startDate = new Date(schedule.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const endDate = new Date(schedule.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    htmlContent += `
+                        <tr>
+                            <td>${schedule.item || 'Task'}</td>
+                            <td style="text-align: center;">${startDate}</td>
+                            <td style="text-align: center;">${endDate}</td>
+                            <td style="text-align: center;">${Number(schedule.days || 0)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            htmlContent += `
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="footer">
+                        <p><strong>Terms & Conditions</strong></p>
+                        <p>This quotation is valid for 30 days from the date issued. Prices are subject to change based on market conditions and material availability.</p>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            // Generate PDF using html2pdf
+            const element = document.createElement('div');
+            element.innerHTML = htmlContent;
+            
+            const opt = {
+                margin: 10,
+                filename: 'quotation-' + data.clientName.replace(/\s+/g, '_') + '-' + new Date().getTime() + '.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+            };
+
+            html2pdf().set(opt).from(htmlContent).save();
+        };
+
+        img.onerror = function() {
+            console.warn('Could not load logo, generating PDF without logo');
+            // Generate PDF without logo
+            generatePDFWithoutLogo(data, ganttData);
+        };
+
+        img.src = reqlogoPath;
+    }
+
+    function generatePDFWithoutLogo(data, ganttData) {
+        let htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: Arial, sans-serif; color: #333; }
+                    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #9B1D2C; }
+                    .title { font-size: 24px; font-weight: bold; color: #0A1A3A; margin: 10px 0; }
+                    .section { margin: 20px 0; }
+                    .section-title { font-size: 14px; font-weight: bold; color: white; background-color: #0A1A3A; padding: 10px; margin-bottom: 10px; }
+                    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+                    th { background-color: #0A1A3A; color: white; font-weight: bold; }
+                    tr:nth-child(even) { background-color: #f9f9f9; }
+                    .total-row { background-color: #f0f0f0; font-weight: bold; }
+                    .project-info { background-color: #f5f5f5; padding: 15px; border-left: 4px solid #9B1D2C; margin-bottom: 20px; }
+                    .footer { margin-top: 30px; padding-top: 20px; border-top: 2px solid #ccc; font-size: 11px; color: #666; text-align: center; }
+                    .currency-right { text-align: right; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title">QUOTATION</div>
+                </div>
+
+                <div class="project-info">
+                    <strong>Project Information</strong><br>
+                    Client: ${data.clientName || 'N/A'}<br>
+                    Category: ${(data.category || 'N/A').replace(/_/g, ' ').toUpperCase()}<br>
+                    Project Size: ${data.size || 'N/A'}<br>
+                    Date: ${new Date(data.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </div>
+
+                <div class="section">
+                    <div class="section-title">QUOTATION SUMMARY</div>
+                    <table>
+                        <tr class="total-row">
+                            <td><strong>Total Cost</strong></td>
+                            <td class="currency-right"><strong>USD ${Number(data.totalCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">CONSTRUCTION ITEMS</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item Description</th>
+                                <th style="text-align: center;">Quantity</th>
+                                <th class="currency-right">Rate (USD)</th>
+                                <th class="currency-right">Total (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        // Add items
+        if (data.items && data.items.length > 0) {
+            data.items.forEach(item => {
+                const itemTotal = Number(item.totalPrice || item.quantity * item.unitRate || 0);
+                htmlContent += `
+                    <tr>
+                        <td>${item.name || 'Item'}</td>
+                        <td style="text-align: center;">${Number(item.quantity || 0)}</td>
+                        <td class="currency-right">${Number(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td class="currency-right">${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        htmlContent += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">PROJECT WORK PLAN</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Work Scope</th>
+                                <th style="text-align: center;">Start Date</th>
+                                <th style="text-align: center;">End Date</th>
+                                <th style="text-align: center;">Days</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        // Add schedule/gantt items
+        if (ganttData && ganttData.length > 0) {
+            ganttData.forEach(schedule => {
+                const startDate = new Date(schedule.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const endDate = new Date(schedule.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                htmlContent += `
+                    <tr>
+                        <td>${schedule.item || 'Task'}</td>
+                        <td style="text-align: center;">${startDate}</td>
+                        <td style="text-align: center;">${endDate}</td>
+                        <td style="text-align: center;">${Number(schedule.days || 0)}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        htmlContent += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="footer">
+                    <p><strong>Terms & Conditions</strong></p>
+                    <p>This quotation is valid for 30 days from the date issued. Prices are subject to change based on market conditions and material availability.</p>
+                </div>
+            </body>
+            </html>
+        `;
+
+        const opt = {
+            margin: 10,
+            filename: 'quotation-' + data.clientName.replace(/\s+/g, '_') + '-' + new Date().getTime() + '.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+        };
+
+        html2pdf().set(opt).from(htmlContent).save();
     }
 
 </script>
