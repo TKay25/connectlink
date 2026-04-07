@@ -9265,25 +9265,56 @@ document.addEventListener('DOMContentLoaded', () => {
     const quotationsTab = document.getElementById('quotations-tab');
     if (quotationsTab) {
         quotationsTab.addEventListener('shown.bs.tab', function() {
+            console.log('Quotations tab shown event fired');
             loadQuotations();
         });
     }
 
+    // Also set up a way to manually load quotations
+    window.reloadQuotations = function() {
+        const container = document.getElementById('quotationsContainer');
+        if (container) {
+            loadQuotations();
+        }
+    };
+    
     function loadQuotations() {
         const container = document.getElementById('quotationsContainer');
+        if (!container) {
+            console.error('quotationsContainer not found');
+            return;
+        }
+        
         container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>';
         
+        console.log('Starting fetch to /api/get-quotations');
+        
         fetch('/api/get-quotations')
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                if (!response.ok) {
+                    throw new Error('HTTP error, status = ' + response.status);
+                }
+                return response.json();
+            })
             .then(result => {
-                if (result.success && result.data) {
-                    displayQuotations(result.data);
+                console.log('API Response:', result);
+                if (result.success) {
+                    if (result.data && result.data.length > 0) {
+                        console.log('Display quotations:', result.data.length);
+                        displayQuotations(result.data);
+                    } else {
+                        console.log('No quotations in data');
+                        container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">No quotations saved yet</p>';
+                    }
                 } else {
-                    container.innerHTML = '<p class="text-danger text-center" style="padding: 40px;">Error loading quotations</p>';
+                    console.log('API returned success=false:', result.error);
+                    container.innerHTML = '<p class="text-warning text-center" style="padding: 40px;">Error: ' + (result.error || 'Unknown error') + '</p>';
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Fetch error:', error);
                 container.innerHTML = '<p class="text-danger text-center" style="padding: 40px;">Error loading quotations: ' + error.message + '</p>';
             });
     }

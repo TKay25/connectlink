@@ -16542,9 +16542,27 @@ def get_quotations():
     """Retrieve all quotations with merged items and schedules"""
     try:
         with get_db() as (cursor, connection):
+            # Check if table exists first
+            cursor.execute("""
+                SELECT EXISTS(
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'quotations'
+                );
+            """)
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logging.warning('Quotations table does not exist')
+                return jsonify({
+                    'success': True,
+                    'data': [],
+                    'count': 0,
+                    'message': 'No quotations yet'
+                })
+            
             # Get all quotations
             cursor.execute("""
-                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage,created_at
+                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage, created_at
                 FROM quotations
                 ORDER BY created_at DESC
             """)
@@ -16608,6 +16626,7 @@ def get_quotations():
             })
     except Exception as e:
         logging.error(f'Error fetching quotations: {str(e)}')
+        logging.error(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e)
