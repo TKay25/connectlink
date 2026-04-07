@@ -8447,7 +8447,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Populate preview modal
             let selectedItems = [];
             let totalCost = 0;
+            let baseCost = 0;
             let orderedConstructionItems = [];
+            let markup = 0;
 
             if (category === 'construction') {
                 // Get items in the ORDER they appear in the drag-drop area
@@ -8457,13 +8459,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const itemData = quotationRatesCache.find(item => item.id == itemId);
                     if (itemData) {
                         const sqm = parseFloat($('#quotationSize').val());
-                        const markup = parseFloat($('#quotationMarkup').val());
+                        markup = parseFloat($('#quotationMarkup').val());
                         const basePrice = itemData.inhouseRate * sqm;
                         const clientPrice = basePrice * (1 + (markup / 100));
 
                         selectedItems.push({
                             name: itemData.item,
-                            total: clientPrice
+                            total: clientPrice,
+                            sqm: sqm,
+                            inhouseRate: itemData.inhouseRate
                         });
 
                         orderedConstructionItems.push({
@@ -8472,6 +8476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             price: clientPrice
                         });
 
+                        baseCost += basePrice;
                         totalCost += clientPrice;
                     }
                 });
@@ -8482,6 +8487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: categoryName + ' Service',
                     total: 50000
                 });
+                baseCost = 50000;
                 totalCost = 50000;
             }
 
@@ -8505,12 +8511,17 @@ document.addEventListener('DOMContentLoaded', () => {
             $('#quotationTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
             // Store data for later use
+            const markupAmount = totalCost - baseCost;
             window.quotationData = {
                 category: category,
                 clientName: clientName,
+                quotationDate: quotationDate,
                 date: quotationDate,
                 size: category === 'construction' ? $('#quotationSize').val() : null,
                 items: selectedItems,
+                baseCost: baseCost,
+                markup: markup,
+                markupAmount: markupAmount,
                 totalCost: totalCost,
                 orderedConstructionItems: orderedConstructionItems || []
             };
