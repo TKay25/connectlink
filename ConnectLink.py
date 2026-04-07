@@ -16955,5 +16955,63 @@ def update_project_schedule(project_id):
             'error': str(e)
         }), 500
 
+@app.route('/api/work-plans', methods=['GET'])
+def get_work_plans():
+    """Get work plans filtered by date range"""
+    try:
+        start_date = request.args.get('startDate')
+        end_date = request.args.get('endDate')
+        
+        if not start_date or not end_date:
+            return jsonify({
+                'success': False,
+                'message': 'Start and end dates are required'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Query to get work plans with project, client, and cost information
+            cursor.execute("""
+                SELECT 
+                    p.project_name,
+                    q.client_name,
+                    qi.item_name,
+                    qs.start_date,
+                    qs.end_date,
+                    qi.total_price,
+                    q.markup_percentage
+                FROM connectlinkdatabase p
+                JOIN quotations q ON p.quotation_id = q.id
+                JOIN quotation_items qi ON q.id = qi.quotation_id
+                JOIN quotation_schedules qs ON q.id = qs.quotation_id
+                WHERE qs.start_date >= %s AND qs.end_date <= %s
+                ORDER BY p.project_name, qs.start_date
+            """, (start_date, end_date))
+            
+            rows = cursor.fetchall()
+            
+            work_plans = []
+            for row in rows:
+                work_plans.append({
+                    'projectName': row[0],
+                    'clientName': row[1],
+                    'itemName': row[2],
+                    'startDate': row[3].strftime('%Y-%m-%d') if row[3] else None,
+                    'endDate': row[4].strftime('%Y-%m-%d') if row[4] else None,
+                    'itemCost': float(row[5]) if row[5] else 0,
+                    'markupPercentage': float(row[6]) if row[6] else 0
+                })
+            
+            return jsonify({
+                'success': True,
+                'workPlans': work_plans,
+                'count': len(work_plans)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching work plans: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port = 55, debug = True)

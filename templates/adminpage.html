@@ -1553,6 +1553,109 @@
 </div>
 
 <!-- Simple Download Modal - Blur Overlay Version -->
+<!-- Work Plan Summary Modal -->
+<div id="workPlanModal" class="modal-overlay">
+    <div class="modal-container" style="width: 85%;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-calendar-check"></i> WORK PLAN SUMMARY</h3>
+            <button class="close-modal" onclick="closeModal('workPlanModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
+            <!-- Filter Section -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <label class="form-label fw-bold mb-3">
+                        <i class="bi bi-funnel me-2"></i> Filter Work Plans By Date
+                    </label>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="filterWorkPlans('today')">
+                                <i class="bi bi-calendar-day"></i> Today
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="filterWorkPlans('week')">
+                                <i class="bi bi-calendar-week"></i> This Week
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="filterWorkPlans('month')">
+                                <i class="bi bi-calendar-month"></i> This Month
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="filterWorkPlans('year')">
+                                <i class="bi bi-calendar"></i> This Year
+                            </button>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="input-group input-group-sm">
+                                <input type="date" id="customStartDate" class="form-control" placeholder="Start Date">
+                                <input type="date" id="customEndDate" class="form-control" placeholder="End Date">
+                                <button class="btn btn-primary" onclick="filterWorkPlans('custom')">
+                                    <i class="bi bi-search"></i> Apply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Summary Table -->
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="workPlanSummaryTable" style="font-size: 0.75rem;">
+                    <thead style="background-color: var(--dark-blue-deep); color: white;">
+                        <tr>
+                            <th>Project Name</th>
+                            <th>Client</th>
+                            <th>Task/Item</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Cost (Base)</th>
+                            <th>Markup %</th>
+                            <th>Net Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workPlanTableBody">
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-3">Select a date range to view work plans</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <!-- Total Summary -->
+                <div class="alert alert-info mt-3" id="workPlanTotalSummary" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">Total Projects:</small>
+                            <span class="fw-bold fs-6" id="totalProjects">0</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">Total Base Cost:</small>
+                            <span class="fw-bold fs-6" id="totalBaseCost">₵0.00</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted d-block">Total Net Cost:</small>
+                            <span class="fw-bold fs-6 text-success" id="totalNetCost">₵0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('workPlanModal')">Close</button>
+            <button type="button" class="btn btn-warning" id="exportWorkPlanExcelBtn" style="display:none;">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
+            </button>
+            <button type="button" class="btn btn-danger" id="exportWorkPlanPdfBtn" style="display:none;">
+                <i class="bi bi-file-earmark-pdf"></i> Export PDF
+            </button>
+        </div>
+    </div>
+</div>
+
 <div id="downloadPortfolioModal" class="modal-overlay">
     <div class="modal-container" style="width: 30%;">
         <div class="modal-header-custom">
@@ -2770,6 +2873,13 @@
                             onclick="openModal('downloadPortfolioModal')">
                         <i class="bi bi-download"></i> Download Master File
                     </button>
+                    
+                    <button class="btn btn-success mt-1"
+                            id="workPlanBtn"
+                            style="width: max-content;"
+                            onclick="openModal('workPlanModal')">
+                        <i class="bi bi-calendar-check"></i> Work Plan Summary
+                    </button>
 
                     <!-- Add this button anywhere in your page -->
                     <button id="aiAssistantBtn" class="btn btn-danger mt-1" style="font-weight: bold; cursor: pointer;">
@@ -3845,6 +3955,208 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Work Plan Summary Functions
+window.currentWorkPlanData = [];
+
+function filterWorkPlans(filterType) {
+    const today = new Date(2026, 3, 7); // April 7, 2026
+    let startDate, endDate;
+    
+    switch(filterType) {
+        case 'today':
+            startDate = new Date(today);
+            endDate = new Date(today);
+            break;
+        case 'week':
+            const dayOfWeek = today.getDay();
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() - dayOfWeek);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            break;
+        case 'month':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            break;
+        case 'year':
+            startDate = new Date(today.getFullYear(), 0, 1);
+            endDate = new Date(today.getFullYear(), 11, 31);
+            break;
+        case 'custom':
+            const customStart = document.getElementById('customStartDate').value;
+            const customEnd = document.getElementById('customEndDate').value;
+            if (!customStart || !customEnd) {
+                alert('Please select both start and end dates');
+                return;
+            }
+            startDate = new Date(customStart);
+            endDate = new Date(customEnd);
+            break;
+        default:
+            return;
+    }
+    
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+    
+    // Fetch work plans from backend
+    fetch(`/api/work-plans?startDate=${startStr}&endDate=${endStr}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.currentWorkPlanData = data.workPlans || [];
+                displayWorkPlans(window.currentWorkPlanData);
+            } else {
+                alert('Error loading work plans: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading work plans');
+        });
+}
+
+function displayWorkPlans(workPlans) {
+    const tbody = document.getElementById('workPlanTableBody');
+    const summaryDiv = document.getElementById('workPlanTotalSummary');
+    
+    if (!workPlans || workPlans.length === 0) {
+        tbody.innerHTML = '<tr><td colspan=\"8\" class=\"text-center text-muted py-3\">No work plans found for selected date range</td></tr>';
+        summaryDiv.style.display = 'none';
+        document.getElementById('exportWorkPlanExcelBtn').style.display = 'none';
+        document.getElementById('exportWorkPlanPdfBtn').style.display = 'none';
+        return;
+    }
+    
+    let totalBaseCost = 0;
+    let totalNetCost = 0;
+    let projectsSet = new Set();
+    
+    tbody.innerHTML = '';
+    
+    workPlans.forEach((plan, idx) => {
+        projectsSet.add(plan.projectName);
+        const baseCost = parseFloat(plan.itemCost) || 0;
+        const markupPercent = parseFloat(plan.markupPercentage) || 0;
+        const netCost = baseCost * (1 - markupPercent / 100);
+        
+        totalBaseCost += baseCost;
+        totalNetCost += netCost;
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${plan.projectName || 'N/A'}</td>
+            <td>${plan.clientName || 'N/A'}</td>
+            <td>${plan.itemName || 'N/A'}</td>
+            <td>${plan.startDate || 'N/A'}</td>
+            <td>${plan.endDate || 'N/A'}</td>
+            <td>₵${baseCost.toFixed(2)}</td>
+            <td>${markupPercent.toFixed(1)}%</td>
+            <td class=\"fw-bold\">₵${netCost.toFixed(2)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Update summary
+    document.getElementById('totalProjects').textContent = projectsSet.size;
+    document.getElementById('totalBaseCost').textContent = '₵' + totalBaseCost.toFixed(2);
+    document.getElementById('totalNetCost').textContent = '₵' + totalNetCost.toFixed(2);
+    summaryDiv.style.display = 'block';
+    
+    // Show export buttons
+    document.getElementById('exportWorkPlanExcelBtn').style.display = 'inline-block';
+    document.getElementById('exportWorkPlanPdfBtn').style.display = 'inline-block';
+    
+    // Attach export handlers
+    document.getElementById('exportWorkPlanExcelBtn').onclick = () => exportWorkPlansToExcel(workPlans, totalBaseCost, totalNetCost);
+    document.getElementById('exportWorkPlanPdfBtn').onclick = () => exportWorkPlansToPDF(workPlans, totalBaseCost, totalNetCost);
+}
+
+function exportWorkPlansToExcel(workPlans, totalBaseCost, totalNetCost) {
+    // Create a simple CSV export
+    let csvContent = 'Project Name,Client,Task/Item,Start Date,End Date,Base Cost,Markup %,Net Cost\n';
+    
+    workPlans.forEach(plan => {
+        const baseCost = parseFloat(plan.itemCost) || 0;
+        const markupPercent = parseFloat(plan.markupPercentage) || 0;
+        const netCost = baseCost * (1 - markupPercent / 100);
+        
+        csvContent += `\"${plan.projectName || ''}\",\"${plan.clientName || ''}\",\"${plan.itemName || ''}\",${plan.startDate || ''},${plan.endDate || ''},${baseCost.toFixed(2)},${markupPercent.toFixed(1)},${netCost.toFixed(2)}\n`;
+    });
+    
+    csvContent += `\nSummary\n`;
+    csvContent += `Total Base Cost,₵${totalBaseCost.toFixed(2)}\n`;
+    csvContent += `Total Net Cost,₵${totalNetCost.toFixed(2)}\n`;
+    
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent));
+    element.setAttribute('download', `work_plan_${new Date().toISOString().split('T')[0]}.csv`);
+    element.style.display = 'none';
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+}
+
+function exportWorkPlansToPDF(workPlans, totalBaseCost, totalNetCost) {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert('PDF library not available. Please try CSV export instead.');
+        return;
+    }
+    
+    const jsPDF = window.jspdf.jsPDF;
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(16);
+    doc.text('WORK PLAN SUMMARY', 10, 15);
+    
+    // Table data
+    let tableData = [];
+    workPlans.forEach(plan => {
+        const baseCost = parseFloat(plan.itemCost) || 0;
+        const markupPercent = parseFloat(plan.markupPercentage) || 0;
+        const netCost = baseCost * (1 - markupPercent / 100);
+        
+        tableData.push([
+            plan.projectName || 'N/A',
+            plan.clientName || 'N/A',
+            plan.itemName || 'N/A',
+            plan.startDate || 'N/A',
+            plan.endDate || 'N/A',
+            baseCost.toFixed(2),
+            markupPercent.toFixed(1) + '%',
+            netCost.toFixed(2)
+        ]);
+    });
+    
+    // Add summary row
+    tableData.push([
+        '',
+        '',
+        'TOTALS',
+        '',
+        '',
+        totalBaseCost.toFixed(2),
+        '',
+        totalNetCost.toFixed(2)
+    ]);
+    
+    // Create table
+    if (doc.autoTable) {
+        doc.autoTable({
+            head: [['Project', 'Client', 'Task', 'Start Date', 'End Date', 'Base Cost', 'Markup', 'Net Cost']],
+            body: tableData,
+            startY: 25,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [14, 31, 66], textColor: 255, fontStyle: 'bold' }
+        });
+    }
+    
+    // Download
+    doc.save(`work_plan_${new Date().toISOString().split('T')[0]}.pdf`);
+}
 
 // Close modal when clicking outside
 document.addEventListener('click', function(e) {
