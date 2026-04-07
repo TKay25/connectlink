@@ -3191,6 +3191,22 @@
                         <!-- Items will be populated here -->
                     </div>
                 </div>
+
+                <!-- Summary Section -->
+                <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 6px; border-left: 4px solid #4caf50;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">
+                                <strong>Total Project Duration:</strong> <span id="ganttTotalDays" style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">0</span> days
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">
+                                <strong>Total Cost:</strong> <span id="ganttTotalCost" style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">USD 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="modal-footer-custom">
@@ -8869,6 +8885,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 </table>
             `;
             listEl.innerHTML = html;
+            updateGanttSummary();
+        }
+
+        function updateGanttSummary() {
+            let totalDays = 0;
+            let totalCost = 0;
+
+            ganttItems.forEach(item => {
+                totalDays += item.days;
+                totalCost += item.price;
+            });
+
+            $('#ganttTotalDays').text(totalDays);
+            $('#ganttTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         }
 
         function updateGanttItemDate(index, type, value) {
