@@ -294,8 +294,13 @@
     max-width: 700px;
     max-height: 95vh;
     overflow-y: auto;
+    overflow-x: hidden;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     animation: modalFadeIn 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    will-change: transform;
+    -webkit-overflow-scrolling: touch;
 }
 
 .modal-container.large {
@@ -336,6 +341,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex: 0 0 auto;
 }
 
 .modal-header-custom h3 {
@@ -369,9 +375,11 @@
 }
 
 .modal-body-custom {
-    padding: 24px;
-    max-height: calc(85vh - 70px);
-    overflow-y: auto;
+    padding: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 .modal-footer-custom {
@@ -380,6 +388,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+    flex: 0 0 auto;
 }
 
         .btn-primary {
@@ -3035,10 +3044,10 @@
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover" id="quotationRatesTable">
-                    <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
+        <div class="modal-body-custom" style="padding: 0; display: flex; flex-direction: column;">
+            <div class="table-responsive" style="max-height: 100%; overflow-y: auto; border: none; flex: 1;">
+                <table class="table table-bordered" id="quotationRatesTable" style="margin-bottom: 0; table-layout: auto;">
+                    <thead class="table-light" style="position: sticky; top: 0; z-index: 11; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                         <tr>
                             <th style="width: 40%; min-width: 200px;">Quotation Item</th>
                             <th style="width: 30%; min-width: 150px;">Days per Sq Meter</th>
@@ -8246,11 +8255,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Quotation Rates Modal functionality
-        // Initialize quotation rates table when modal opens
-        document.getElementById('quotationRatesModal')?.addEventListener('click', function(e) {
-            if (e.target.closest('#quotationRatesModal')) return;
-        });
-
         // Load quotation rates
         function loadQuotationRates() {
             // Sample data - replace with actual backend call if needed
@@ -8286,77 +8290,48 @@ document.addEventListener('DOMContentLoaded', () => {
             ];
 
             const tbody = document.getElementById('quotationRatesBody');
-            tbody.innerHTML = '';
+            const fragment = document.createDocumentFragment();
 
             quotationRates.forEach((rate, index) => {
                 const row = document.createElement('tr');
                 row.setAttribute('data-row-id', `rate-${index}`);
                 row.innerHTML = `
-                    <td>
-                        <input type="text" class="form-control form-control-sm quotation-item-input" 
-                               value="${rate.item}" placeholder="Quotation Item">
-                    </td>
-                    <td>
-                        <input type="number" class="form-control form-control-sm quotation-days-input" 
-                               value="${rate.daysPerSqMeter}" step="0.01" placeholder="Days">
-                    </td>
-                    <td>
-                        <input type="number" class="form-control form-control-sm quotation-rate-input" 
-                               value="${rate.inhouseRate}" step="0.01" placeholder="Rate">
-                    </td>
-                    <td style="text-align: center;">
-                        <button class="btn btn-sm btn-danger delete-rate-btn" type="button" title="Delete">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
+                    <td><input type="text" class="form-control form-control-sm quotation-item-input" value="${rate.item}" placeholder="Quotation Item"></td>
+                    <td><input type="number" class="form-control form-control-sm quotation-days-input" value="${rate.daysPerSqMeter}" step="0.01" placeholder="Days"></td>
+                    <td><input type="number" class="form-control form-control-sm quotation-rate-input" value="${rate.inhouseRate}" step="0.01" placeholder="Rate"></td>
+                    <td style="text-align: center;"><button class="btn btn-sm btn-danger delete-rate-btn" type="button" title="Delete"><i class="bi bi-trash"></i></button></td>
                 `;
-                tbody.appendChild(row);
+                fragment.appendChild(row);
             });
 
-            // Attach delete handlers
-            attachDeleteHandlers();
+            tbody.innerHTML = '';
+            tbody.appendChild(fragment);
         }
 
         // Add new quotation item
         document.getElementById('addQuotationItemBtn')?.addEventListener('click', function() {
             const tbody = document.getElementById('quotationRatesBody');
-            const newIndex = tbody.children.length;
             const row = document.createElement('tr');
             row.setAttribute('data-row-id', `rate-new-${Date.now()}`);
             row.innerHTML = `
-                <td>
-                    <input type="text" class="form-control form-control-sm quotation-item-input" 
-                           placeholder="Quotation Item">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm quotation-days-input" 
-                           step="0.01" placeholder="Days">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm quotation-rate-input" 
-                           step="0.01" placeholder="Rate">
-                </td>
-                <td style="text-align: center;">
-                    <button class="btn btn-sm btn-danger delete-rate-btn" type="button" title="Delete">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
+                <td><input type="text" class="form-control form-control-sm quotation-item-input" placeholder="Quotation Item"></td>
+                <td><input type="number" class="form-control form-control-sm quotation-days-input" step="0.01" placeholder="Days"></td>
+                <td><input type="number" class="form-control form-control-sm quotation-rate-input" step="0.01" placeholder="Rate"></td>
+                <td style="text-align: center;"><button class="btn btn-sm btn-danger delete-rate-btn" type="button" title="Delete"><i class="bi bi-trash"></i></button></td>
             `;
             tbody.appendChild(row);
-            attachDeleteHandlers();
             row.querySelector('.quotation-item-input').focus();
         });
 
-        // Delete row handler
-        function attachDeleteHandlers() {
-            document.querySelectorAll('.delete-rate-btn').forEach(btn => {
-                btn.onclick = function() {
-                    if (confirm('Are you sure you want to delete this quotation item?')) {
-                        this.closest('tr').remove();
-                    }
-                };
-            });
-        }
+        // Delete row handler with event delegation
+        document.getElementById('quotationRatesBody')?.addEventListener('click', function(e) {
+            const deleteBtn = e.target.closest('.delete-rate-btn');
+            if (deleteBtn) {
+                if (confirm('Are you sure you want to delete this quotation item?')) {
+                    deleteBtn.closest('tr').remove();
+                }
+            }
+        });
 
         // Save quotation rates
         document.getElementById('saveQuotationRatesBtn')?.addEventListener('click', function() {
