@@ -3175,35 +3175,20 @@
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="modal-body-custom" style="padding: 0; display: flex; flex-direction: column;">
-            <div style="display: flex; height: 100%; gap: 0;">
-                <!-- Left Panel: Item Selection and Ordering -->
-                <div style="flex: 0 0 35%; padding: 20px; border-right: 1px solid #e0e0e0; overflow-y: auto;">
-                    <h5 style="margin-top: 0; font-weight: bold;">
-                        <i class="bi bi-list-check"></i> Construction Items
+        <div class="modal-body-custom" style="padding: 20px;">
+            <div style="display: flex; flex-direction: column;">
+                <!-- Items Table -->
+                <div>
+                    <h5 style="margin-top: 0; margin-bottom: 15px; font-weight: bold;">
+                        <i class="bi bi-list-check"></i> Construction Items Schedule
                     </h5>
                     <div style="margin-bottom: 15px;">
                         <button type="button" class="btn btn-sm btn-primary" id="addGanttItemBtn">
                             <i class="bi bi-plus"></i> Add Item
                         </button>
                     </div>
-                    <div id="ganttItemsList" style="border: 1px solid #ddd; border-radius: 6px; padding: 10px;">
+                    <div id="ganttItemsList" style="background: white; border-radius: 6px; overflow-x: auto;">
                         <!-- Items will be populated here -->
-                    </div>
-                </div>
-                
-                <!-- Right Panel: Gantt Chart Preview -->
-                <div style="flex: 1; padding: 20px; overflow-y: auto; background: #f9f9f9;">
-                    <h5 style="margin-top: 0; font-weight: bold;">
-                        <i class="bi bi-calendar-week"></i> Project Timeline
-                    </h5>
-                    <div id="ganttChartPreview" style="background: white; border: 1px solid #ddd; border-radius: 6px; padding: 15px; min-height: 400px;">
-                        <div style="text-align: center; color: #999; padding: 40px 20px;">
-                            Add items to see the Gantt chart preview
-                        </div>
-                    </div>
-                    <div style="margin-top: 15px; padding: 12px; background: white; border-radius: 6px; font-size: 0.9rem;">
-                        <strong>Project Duration:</strong> <span id="ganttDuration">-</span> days
                     </div>
                 </div>
             </div>
@@ -8884,87 +8869,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 new Date(ganttItems[index].startDate),
                 new Date(ganttItems[index].endDate)
             );
+            
+            // Auto-set next task start date to current task end date + 1 day
+            if (type === 'end' && index < ganttItems.length - 1) {
+                const nextStartDate = new Date(ganttItems[index].endDate);
+                nextStartDate.setDate(nextStartDate.getDate() + 1);
+                ganttItems[index + 1].startDate = formatDate(nextStartDate);
+                
+                // Recalculate next item's days
+                ganttItems[index + 1].days = calculateDays(
+                    new Date(ganttItems[index + 1].startDate),
+                    new Date(ganttItems[index + 1].endDate)
+                );
+            }
+            
             renderGanttItemsList();
-            renderGanttChartPreview();
         }
 
         function removeGanttItem(index) {
             ganttItems.splice(index, 1);
             renderGanttItemsList();
-            renderGanttChartPreview();
-        }
-
-        function renderGanttChartPreview() {
-            const previewEl = document.getElementById('ganttChartPreview');
-            const durationEl = document.getElementById('ganttDuration');
-
-            if (ganttItems.length === 0) {
-                previewEl.innerHTML = '<div style="text-align: center; color: #999; padding: 40px 20px;">Add items to see the Gantt chart preview</div>';
-                durationEl.textContent = '-';
-                return;
-            }
-
-            // Calculate project duration
-            const dates = ganttItems.map(i => new Date(i.endDate));
-            const maxDate = new Date(Math.max(...dates));
-            const minDate = new Date(Math.min(...ganttItems.map(i => new Date(i.startDate))));
-            const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
-            durationEl.textContent = totalDays;
-
-            // Generate Gantt HTML
-            const dayWidth = 40; // pixels per day
-            const ganttWidth = totalDays * dayWidth;
-
-            let html = `
-                <div style="overflow-x: auto; border: 1px solid #ddd; border-radius: 4px;">
-                    <table style="width: 100%; border-collapse: collapse; min-width: ${ganttWidth + 200}px; font-size: 0.85rem;">
-                        <thead style="background: #f5f5f5;">
-                            <tr>
-                                <th style="padding: 8px; border: 1px solid #ddd; width: 180px; text-align: left;">Task</th>
-                                <th colspan="${totalDays}" style="padding: 8px; border: 1px solid #ddd;">Timeline (Days)</th>
-                            </tr>
-                            <tr>
-                                <th style="padding: 4px; border: 1px solid #ddd; width: 180px;"></th>
-            `;
-
-            // Add day headers
-            for (let i = 0; i < totalDays; i++) {
-                const date = new Date(minDate);
-                date.setDate(date.getDate() + i);
-                if (i % 5 === 0) {
-                    html += `<th style="padding: 4px; border: 1px solid #ddd; width: ${dayWidth}px; font-size: 0.75rem; background: #f0f0f0;">${(i + 1)}</th>`;
-                } else {
-                    html += `<th style="padding: 4px; border: 1px solid #ddd; width: ${dayWidth}px;"></th>`;
-                }
-            }
-            html += '</tr></thead><tbody>';
-
-            // Add tasks
-            ganttItems.forEach(item => {
-                const itemStart = new Date(item.startDate);
-                const itemEnd = new Date(item.endDate);
-                const startOffset = Math.ceil((itemStart - minDate) / (1000 * 60 * 60 * 24));
-                const duration = Math.ceil((itemEnd - itemStart) / (1000 * 60 * 60 * 24)) + 1;
-
-                html += `<tr>
-                    <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9; font-weight: 500; word-break: break-word;">
-                        <span title="${item.item}">${item.item.substring(0, 25)}${item.item.length > 25 ? '...' : ''}</span>
-                    </td>`;
-
-                for (let i = 0; i < totalDays; i++) {
-                    if (i >= startOffset && i < startOffset + duration) {
-                        const isFirst = i === startOffset;
-                        const isLast = i === startOffset + duration - 1;
-                        html += `<td style="padding: 4px; border: 1px solid #ddd; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);"></td>`;
-                    } else {
-                        html += `<td style="padding: 4px; border: 1px solid #ddd; background: #fafafa;"></td>`;
-                    }
-                }
-                html += '</tr>';
-            });
-
-            html += '</tbody></table></div>';
-            previewEl.innerHTML = html;
         }
 
         document.getElementById('saveGanttChartBtn')?.addEventListener('click', function() {
