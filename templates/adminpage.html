@@ -2969,8 +2969,17 @@
 
                 <!-- Size Field (Conditional - Construction) -->
                 <div class="mb-3" id="quotationSizeContainer" style="display: none;">
-                    <label for="quotationSize" class="form-label fw-bold">Size <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="quotationSize" name="size" placeholder="e.g., 1200 sq ft, 50x30 ft">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="quotationSize" class="form-label fw-bold">Square Meters <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="quotationSize" name="size" placeholder="e.g., 1200" min="1" step="0.01">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="quotationMarkup" class="form-label fw-bold">Markup % <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="quotationMarkup" name="markup" placeholder="e.g., 30" min="0" max="500" value="30" step="0.1">
+                            <small class="text-muted">Add this % to inhouse prices</small>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Date Field (Auto-filled) -->
@@ -2979,52 +2988,27 @@
                     <input type="date" class="form-control" id="quotationDate" name="date" required readonly>
                 </div>
 
-                <!-- Tickboxes for Construction Details (Conditional) -->
-                <div id="constructionDetailsContainer" style="display: none;color: var(--dark-blue-deep);" >
+                <!-- Construction Items with Pricing (Conditional) -->
+                <div id="constructionDetailsContainer" style="display: none; color: var(--dark-blue-deep);">
                     <div class="mb-3">
-                        <label class="form-label fw-bold d-block mb-2">Construction Details</label>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="small">Select items to include in quotation:</span>
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllCheckbox">Select All</button>
-                        </div>
-                        <div class="border rounded p-3" style="background-color: #f8f9fa;">
+                        <label class="form-label fw-bold d-block mb-3">
+                            <i class="bi bi-list-check"></i> Construction Items & Pricing
+                        </label>
+                        <div class="alert alert-light border mb-3" style="font-size: 0.9rem;">
                             <div class="row">
                                 <div class="col-md-6">
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input construction-item" type="checkbox" id="floorCheck" name="constructionItems" value="floor">
-                                        <label class="form-check-label" for="floorCheck">Floor</label>
-                                    </div>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input construction-item" type="checkbox" id="ceilingCheck" name="constructionItems" value="ceiling">
-                                        <label class="form-check-label" for="ceilingCheck">Ceiling</label>
-                                    </div>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input construction-item" type="checkbox" id="wallsCheck" name="constructionItems" value="walls">
-                                        <label class="form-check-label" for="wallsCheck">Walls</label>
-                                    </div>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input construction-item" type="checkbox" id="doorsCheck" name="constructionItems" value="doors">
-                                        <label class="form-check-label" for="doorsCheck">Doors</label>
-                                    </div>
+                                    <div><strong>Base Rate:</strong> <span id="baseRate">--</span>/sqm</div>
+                                    <div><strong>Your Sqm:</strong> <span id="displaySqm">--</span></div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input construction-item" type="checkbox" id="windowsCheck" name="constructionItems" value="windows">
-                                        <label class="form-check-label" for="windowsCheck">Windows</label>
-                                    </div>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input construction-item" type="checkbox" id="paintCheck" name="constructionItems" value="paint">
-                                        <label class="form-check-label" for="paintCheck">Paint</label>
-                                    </div>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input construction-item" type="checkbox" id="electricalCheck" name="constructionItems" value="electrical">
-                                        <label class="form-check-label" for="electricalCheck">Electrical</label>
-                                    </div>
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input construction-item" type="checkbox" id="plumbingCheck" name="constructionItems" value="plumbing">
-                                        <label class="form-check-label" for="plumbingCheck">Plumbing</label>
-                                    </div>
+                                <div class="col-md-6 text-end">
+                                    <div><strong>Markup:</strong> <span id="displayMarkup">30%</span></div>
+                                    <div style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">Total: $<span id="constructionTotal">0.00</span></div>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="border rounded" style="background-color: #f8f9fa; max-height: 400px; overflow-y: auto;">
+                            <div id="constructionItemsList">
+                                <!-- Items will be populated here -->
                             </div>
                         </div>
                     </div>
@@ -3150,6 +3134,57 @@
             </button>
             <button type="button" class="btn btn-primary" id="sendQuotationBtn">
                 <i class="bi bi-send"></i> Send Quotation & Gantt Chart
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Gantt Chart Builder Modal -->
+<div id="ganttChartBuilderModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-diagram-3"></i> Project Gantt Chart Builder</h3>
+            <button class="close-modal" onclick="closeModal('ganttChartBuilderModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="padding: 0; display: flex; flex-direction: column;">
+            <div style="display: flex; height: 100%; gap: 0;">
+                <!-- Left Panel: Item Selection and Ordering -->
+                <div style="flex: 0 0 35%; padding: 20px; border-right: 1px solid #e0e0e0; overflow-y: auto;">
+                    <h5 style="margin-top: 0; font-weight: bold;">
+                        <i class="bi bi-list-check"></i> Construction Items
+                    </h5>
+                    <div style="margin-bottom: 15px;">
+                        <button type="button" class="btn btn-sm btn-primary" id="addGanttItemBtn">
+                            <i class="bi bi-plus"></i> Add Item
+                        </button>
+                    </div>
+                    <div id="ganttItemsList" style="border: 1px solid #ddd; border-radius: 6px; padding: 10px;">
+                        <!-- Items will be populated here -->
+                    </div>
+                </div>
+                
+                <!-- Right Panel: Gantt Chart Preview -->
+                <div style="flex: 1; padding: 20px; overflow-y: auto; background: #f9f9f9;">
+                    <h5 style="margin-top: 0; font-weight: bold;">
+                        <i class="bi bi-calendar-week"></i> Project Timeline
+                    </h5>
+                    <div id="ganttChartPreview" style="background: white; border: 1px solid #ddd; border-radius: 6px; padding: 15px; min-height: 400px;">
+                        <div style="text-align: center; color: #999; padding: 40px 20px;">
+                            Add items to see the Gantt chart preview
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; padding: 12px; background: white; border-radius: 6px; font-size: 0.9rem;">
+                        <strong>Project Duration:</strong> <span id="ganttDuration">-</span> days
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('ganttChartBuilderModal')">Cancel</button>
+            <button type="button" class="btn btn-success" id="saveGanttChartBtn">
+                <i class="bi bi-check-circle"></i> Save Schedule & Preview Quotation
             </button>
         </div>
     </div>
@@ -8224,11 +8259,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 totalCost: totalCost
             };
 
-            // Close generator modal and show preview modal
-            $('#quotationgeneratorModal').modal('hide');
-            setTimeout(() => {
-                $('#quotationPreviewModal').modal('show');
-            }, 300);
+            // Close generator modal
+            closeModal('quotationgeneratorModal');
+
+            // For construction, show Gantt chart builder; otherwise show preview
+            if (category === 'construction') {
+                // Reset gantt chart for new project
+                ganttItems = [];
+                setTimeout(() => {
+                    openModal('ganttChartBuilderModal');
+                }, 300);
+            } else {
+                setTimeout(() => {
+                    openModal('quotationPreviewModal');
+                }, 300);
+            }
         });
 
         // Download Quotation & Gantt button
@@ -8420,8 +8465,294 @@ document.addEventListener('DOMContentLoaded', () => {
             if (modalId === 'quotationRatesModal') {
                 loadQuotationRates();
             }
+            if (modalId === 'ganttChartBuilderModal') {
+                initializeGanttChart();
+            }
             openModalOriginal(modalId);
         };
+
+        // ===== GANTT CHART BUILDER FUNCTIONALITY =====
+        let ganttItems = [];
+
+        function initializeGanttChart() {
+            // Initialize empty if new, load if exists
+            if (ganttItems.length === 0) {
+                ganttItems = [];
+            }
+            renderGanttItemsList();
+            renderGanttChartPreview();
+        }
+
+        document.getElementById('addGanttItemBtn')?.addEventListener('click', function() {
+            // Fetch available items from backend
+            fetch('/api/get-quotation-rates')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAvailableItemsDialog(data.data);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        });
+
+        function showAvailableItemsDialog(availableItems) {
+            const existingItems = ganttItems.map(i => i.item);
+            const unusedItems = availableItems.filter(item => !existingItems.includes(item.item));
+
+            if (unusedItems.length === 0) {
+                alert('All available items have been added!');
+                return;
+            }
+
+            // Create a simple selection dialog
+            let html = '<div style="max-height: 400px; overflow-y: auto;">';
+            unusedItems.forEach(item => {
+                html += `<div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; hover: background #f5f5f5;" onclick="addItemToGantt('${item.item.replace(/'/g, "\\'")}')">
+                    <strong>${item.item}</strong>
+                    <small style="color: #999; display: block;">${item.daysPerSqMeter} days/sqm - $${item.inhouseRate}/sqm</small>
+                </div>`;
+            });
+            html += '</div>';
+
+            // Simple modal for selection
+            const dialog = document.createElement('div');
+            dialog.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 2px solid #333; border-radius: 8px; padding: 20px; z-index: 2000; max-width: 400px; width: 90%;';
+            dialog.innerHTML = `<h5>Select Construction Item</h5>${html}<button class="btn btn-secondary btn-sm" style="margin-top: 15px; width: 100%;" onclick="this.parentElement.remove()">Close</button>`;
+            document.body.appendChild(dialog);
+        }
+
+        function addItemToGantt(itemName) {
+            // Remove dialog
+            document.querySelectorAll('div[style*="position: fixed"]').forEach(el => {
+                if (el.textContent.includes('Select Construction Item')) el.remove();
+            });
+
+            const startDate = new Date();
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 7);
+
+            ganttItems.push({
+                item: itemName,
+                startDate: formatDate(startDate),
+                endDate: formatDate(endDate),
+                days: calculateDays(startDate, endDate)
+            });
+
+            renderGanttItemsList();
+            renderGanttChartPreview();
+        }
+
+        function renderGanttItemsList() {
+            const listEl = document.getElementById('ganttItemsList');
+            
+            if (ganttItems.length === 0) {
+                listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 30px 20px;">No items added yet.<br>Click "Add Item" to begin.</div>';
+                return;
+            }
+
+            let html = '';
+            ganttItems.forEach((item, index) => {
+                html += `
+                    <div style="background: white; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <strong style="font-size: 0.9rem;">${index + 1}. ${item.item}</strong>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 2px 6px; font-size: 0.75rem;">Delete</button>
+                        </div>
+                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 6px;">
+                            <div><strong>Start:</strong> <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="display: inline-block; width: auto; margin-top: 2px;"></div>
+                            <div style="margin-top: 6px;"><strong>End:</strong> <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="display: inline-block; width: auto; margin-top: 2px;"></div>
+                            <div style="margin-top: 6px; color: #2196F3;"><strong>Duration:</strong> ${item.days} days</div>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        function updateGanttItemDate(index, type, value) {
+            ganttItems[index][type === 'start' ? 'startDate' : 'endDate'] = value;
+            ganttItems[index].days = calculateDays(
+                new Date(ganttItems[index].startDate),
+                new Date(ganttItems[index].endDate)
+            );
+            renderGanttItemsList();
+            renderGanttChartPreview();
+        }
+
+        function removeGanttItem(index) {
+            ganttItems.splice(index, 1);
+            renderGanttItemsList();
+            renderGanttChartPreview();
+        }
+
+        function renderGanttChartPreview() {
+            const previewEl = document.getElementById('ganttChartPreview');
+            const durationEl = document.getElementById('ganttDuration');
+
+            if (ganttItems.length === 0) {
+                previewEl.innerHTML = '<div style="text-align: center; color: #999; padding: 40px 20px;">Add items to see the Gantt chart preview</div>';
+                durationEl.textContent = '-';
+                return;
+            }
+
+            // Calculate project duration
+            const dates = ganttItems.map(i => new Date(i.endDate));
+            const maxDate = new Date(Math.max(...dates));
+            const minDate = new Date(Math.min(...ganttItems.map(i => new Date(i.startDate))));
+            const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+            durationEl.textContent = totalDays;
+
+            // Generate Gantt HTML
+            const dayWidth = 40; // pixels per day
+            const ganttWidth = totalDays * dayWidth;
+
+            let html = `
+                <div style="overflow-x: auto; border: 1px solid #ddd; border-radius: 4px;">
+                    <table style="width: 100%; border-collapse: collapse; min-width: ${ganttWidth + 200}px; font-size: 0.85rem;">
+                        <thead style="background: #f5f5f5;">
+                            <tr>
+                                <th style="padding: 8px; border: 1px solid #ddd; width: 180px; text-align: left;">Task</th>
+                                <th colspan="${totalDays}" style="padding: 8px; border: 1px solid #ddd;">Timeline (Days)</th>
+                            </tr>
+                            <tr>
+                                <th style="padding: 4px; border: 1px solid #ddd; width: 180px;"></th>
+            `;
+
+            // Add day headers
+            for (let i = 0; i < totalDays; i++) {
+                const date = new Date(minDate);
+                date.setDate(date.getDate() + i);
+                if (i % 5 === 0) {
+                    html += `<th style="padding: 4px; border: 1px solid #ddd; width: ${dayWidth}px; font-size: 0.75rem; background: #f0f0f0;">${(i + 1)}</th>`;
+                } else {
+                    html += `<th style="padding: 4px; border: 1px solid #ddd; width: ${dayWidth}px;"></th>`;
+                }
+            }
+            html += '</tr></thead><tbody>';
+
+            // Add tasks
+            ganttItems.forEach(item => {
+                const itemStart = new Date(item.startDate);
+                const itemEnd = new Date(item.endDate);
+                const startOffset = Math.ceil((itemStart - minDate) / (1000 * 60 * 60 * 24));
+                const duration = Math.ceil((itemEnd - itemStart) / (1000 * 60 * 60 * 24)) + 1;
+
+                html += `<tr>
+                    <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9; font-weight: 500; word-break: break-word;">
+                        <span title="${item.item}">${item.item.substring(0, 25)}${item.item.length > 25 ? '...' : ''}</span>
+                    </td>`;
+
+                for (let i = 0; i < totalDays; i++) {
+                    if (i >= startOffset && i < startOffset + duration) {
+                        const isFirst = i === startOffset;
+                        const isLast = i === startOffset + duration - 1;
+                        html += `<td style="padding: 4px; border: 1px solid #ddd; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);"></td>`;
+                    } else {
+                        html += `<td style="padding: 4px; border: 1px solid #ddd; background: #fafafa;"></td>`;
+                    }
+                }
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            previewEl.innerHTML = html;
+        }
+
+        document.getElementById('saveGanttChartBtn')?.addEventListener('click', function() {
+            if (ganttItems.length === 0) {
+                alert('Please add at least one task to the schedule.');
+                return;
+            }
+
+            // Store gantt chart data
+            window.ganttChartData = ganttItems;
+            
+            // Close gantt modal and show quotation preview
+            closeModal('ganttChartBuilderModal');
+            setTimeout(() => {
+                openModal('quotationPreviewModal');
+            }, 300);
+        });
+
+        // Helper functions
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function calculateDays(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const diffTime = Math.abs(end - start);
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        }
+
+        // Display gantt chart in quotation preview
+        function toggleGanttChart() {
+            const container = document.getElementById('ganttChartContainer');
+            if (container) {
+                container.style.display = container.style.display === 'none' ? 'block' : 'none';
+                if (container.style.display === 'block') {
+                    displayGanttChartInPreview();
+                }
+            }
+        }
+
+        function displayGanttChartInPreview() {
+            const content = document.getElementById('ganttChartContent');
+            
+            if (!window.ganttChartData || window.ganttChartData.length === 0) {
+                content.innerHTML = '<p style="color: #999;">No gantt chart data available</p>';
+                return;
+            }
+
+            const items = window.ganttChartData;
+            const dates = items.map(i => new Date(i.endDate));
+            const maxDate = new Date(Math.max(...dates));
+            const minDate = new Date(Math.min(...items.map(i => new Date(i.startDate))));
+            const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1;
+
+            const dayWidth = 35;
+            const ganttWidth = totalDays * dayWidth;
+
+            let html = `
+                <div style="overflow-x: auto; border: 1px solid #ddd; border-radius: 4px; background: white;">
+                    <table style="width: 100%; border-collapse: collapse; min-width: ${ganttWidth + 200}px; font-size: 0.8rem;">
+                        <thead style="background: #f0f0f0; position: sticky; top: 0;">
+                            <tr>
+                                <th style="padding: 8px; border: 1px solid #ddd; width: 160px; text-align: left; font-weight: bold;">Task</th>
+                                <th style="padding: 8px; border: 1px solid #ddd; width: 60px; text-align: center; font-weight: bold;">Days</th>
+                                <th colspan="${Math.ceil(totalDays / 5)}" style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold;">Timeline</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+            items.forEach(item => {
+                const itemStart = new Date(item.startDate);
+                const itemEnd = new Date(item.endDate);
+                const startOffset = Math.ceil((itemStart - minDate) / (1000 * 60 * 60 * 24));
+                const duration = calculateDays(itemStart, itemEnd);
+
+                html += `<tr>
+                    <td style="padding: 8px; border: 1px solid #ddd; background: #f9f9f9; font-weight: 500; word-break: break-word;">${item.item}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: #2196F3;">${duration}</td>`;
+
+                for (let i = 0; i < totalDays; i += 5) {
+                    if (i >= startOffset && i < startOffset + duration) {
+                        html += `<td style="padding: 4px; border: 1px solid #ddd; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);"></td>`;
+                    } else {
+                        html += `<td style="padding: 4px; border: 1px solid #ddd; background: #fafafa;"></td>`;
+                    }
+                }
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+            content.style.height = 'auto';
+        }
     });
 
 </script>

@@ -263,6 +263,17 @@ def initialize_database_tables():
                 connection.commit()
                 print(f"✓ Initialized quotation_rates table with {len(quotation_data)} items")
 
+            # Create project_schedules table for Gantt charts
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS project_schedules (
+                    id SERIAL PRIMARY KEY,
+                    project_name VARCHAR(255) NOT NULL,
+                    schedule_data JSONB NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'
@@ -16386,6 +16397,50 @@ def save_quotation_rates():
             })
     except Exception as e:
         logging.error(f'Error saving quotation rates: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/save-project-schedule', methods=['POST'])
+def save_project_schedule():
+    """Save project Gantt chart schedule to the database"""
+    try:
+        data = request.json
+        schedule = data.get('schedule', [])
+        project_name = data.get('projectName', 'Untitled Project')
+        
+        if not schedule:
+            return jsonify({
+                'success': False,
+                'message': 'No schedule provided'
+            }), 400
+        
+        import json
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO project_schedules 
+                (project_name, schedule_data, created_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+            """, (
+                project_name,
+                json.dumps(schedule)
+            ))
+            
+            connection.commit()
+            schedule_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True,
+                'message': f'Project schedule saved successfully',
+                'scheduleId': schedule_id,
+                'itemCount': len(schedule)
+            })
+    except Exception as e:
+        logging.error(f'Error saving project schedule: {str(e)}')
         if 'connection' in locals():
             connection.rollback()
         return jsonify({
