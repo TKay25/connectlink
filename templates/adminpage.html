@@ -9344,7 +9344,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let html = `
             <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.6rem;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
                     <thead>
                         <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
                             <th style="padding: 4px; text-align: left; font-weight: bold;">#</th>
@@ -9368,7 +9368,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalCost = quotation.totalCost || 0;
             
             html += `
-                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; cursor: pointer;" onclick="toggleQuotationDetails(${quotation.id})">
+                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; cursor: pointer; font-size: 0.7rem;" onclick="toggleQuotationDetails(${quotation.id})">
                     <td style="padding: 4px; text-align: left; font-weight: bold;">${index + 1}</td>
                     <td style="padding: 4px; text-align: left;">${quotation.clientName || 'N/A'}</td>
                     <td style="padding: 4px; text-align: left;">${quotation.category || 'N/A'}</td>
@@ -9376,10 +9376,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 4px; text-align: center;">${quotation.markup || '0'}%</td>
                     <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td style="padding: 4px; text-align: center;">${formattedDate}</td>
-                    <td style="padding: 4px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 4px; border-radius: 4px; font-size: 0.6rem;">${itemCount}</span></td>
-                    <td style="padding: 4px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 4px; border-radius: 4px; font-size: 0.6rem;">${taskCount}</span></td>
+                    <td style="padding: 4px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 4px; border-radius: 4px; font-size: 0.7rem;">${itemCount}</span></td>
+                    <td style="padding: 4px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 4px; border-radius: 4px; font-size: 0.7rem;">${taskCount}</span></td>
                 </tr>
-                <tr id="details-${quotation.id}" style="display: none;">
+                <tr id="details-${quotation.id}" style="display: none; font-size: 0.7rem;">
                     <td colspan="9" style="padding: 0;">
                         <div id="detail-content-${quotation.id}" style="padding: 4px; background: #f5f5f5;"></div>
                     </td>
@@ -9428,23 +9428,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayQuotationDetails(quotation, container) {
-        let html = '<div style="margin-bottom: 20px;">';
+        let html = '<div style="margin-bottom: 10px;">';
         
         // Items section
         if (quotation.items && quotation.items.length > 0) {
             html += '<h5 style="color: #0A1A3A; margin-top: 10px; margin-bottom: 10px;"><i class="bi bi-list-check"></i> Construction Items</h5>';
-            html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">';
-            html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 8px; text-align: left;">Item</th><th style="padding: 8px; text-align: center;">Qty</th><th style="padding: 8px; text-align: right;">Unit Rate</th><th style="padding: 8px; text-align: right;">Total</th></tr></thead>';
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">';
+            html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 4px; text-align: left;">Item</th><th style="padding: 4px; text-align: center;">Qty</th><th style="padding: 4px; text-align: right;">Unit Rate</th><th style="padding: 4px; text-align: right;">Total</th></tr></thead>';
             html += '<tbody>';
             
             quotation.items.forEach(item => {
                 const totalPrice = item.totalPrice || (item.quantity * item.unitRate);
                 html += `
-                    <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 8px; text-align: left;">${item.name || 'N/A'}</td>
-                        <td style="padding: 8px; text-align: center;">${item.quantity || 0}</td>
-                        <td style="padding: 8px; text-align: right;">USD ${(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style="padding: 8px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <tr style="border-bottom: 1px solid #ddd; font-size: 0.7rem;">
+                        <td style="padding: 4px; text-align: left;">${item.name || 'N/A'}</td>
+                        <td style="padding: 4px; text-align: center;">${item.quantity || 0}</td>
+                        <td style="padding: 4px; text-align: right;">USD ${(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                 `;
             });
@@ -9455,8 +9455,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Schedules section
         if (quotation.schedules && quotation.schedules.length > 0) {
             html += '<h5 style="color: #0A1A3A; margin-top: 15px; margin-bottom: 10px;"><i class="bi bi-calendar-event"></i> Project Schedule</h5>';
-            html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">';
-            html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 8px; text-align: left;">Work Scope</th><th style="padding: 8px; text-align: center;">Start Date</th><th style="padding: 8px; text-align: center;">End Date</th><th style="padding: 8px; text-align: center;">Days</th></tr></thead>';
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">';
+            html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 4px; text-align: left;">Work Scope</th><th style="padding: 4px; text-align: center;">Start Date</th><th style="padding: 4px; text-align: center;">End Date</th><th style="padding: 4px; text-align: center;">Days</th></tr></thead>';
             html += '<tbody>';
             
             quotation.schedules.forEach(schedule => {
@@ -9464,11 +9464,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const endDate = new Date(schedule.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 
                 html += `
-                    <tr style="border-bottom: 1px solid #ddd;">
-                        <td style="padding: 8px; text-align: left;">${schedule.workScope || 'N/A'}</td>
-                        <td style="padding: 8px; text-align: center;">${startDate}</td>
-                        <td style="padding: 8px; text-align: center;">${endDate}</td>
-                        <td style="padding: 8px; text-align: center; color: #2196F3; font-weight: bold;">${schedule.days || 0}</td>
+                    <tr style="border-bottom: 1px solid #ddd; font-size: 0.7rem;">
+                        <td style="padding: 4px; text-align: left;">${schedule.workScope || 'N/A'}</td>
+                        <td style="padding: 4px; text-align: center;">${startDate}</td>
+                        <td style="padding: 4px; text-align: center;">${endDate}</td>
+                        <td style="padding: 4px; text-align: center; color: #2196F3; font-weight: bold;">${schedule.days || 0}</td>
                     </tr>
                 `;
             });
