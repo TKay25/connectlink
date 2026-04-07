@@ -3140,23 +3140,19 @@
                 </div>
             </div>
 
-            <!-- Gantt Chart Collapsible Section -->
+            <!-- Gantt Chart Display Section -->
             <div class="mb-3">
-                <button class="btn btn-primary btn-sm w-100" type="button" onclick="toggleGanttChart()" style="font-weight: bold;">
-                    <i class="bi bi-bar-chart-fill"></i> View Gantt Chart
-                </button>
-                <div class="mt-3" id="ganttChartContainer" style="display: none;">
-                    <div class="border rounded p-3" style="background-color: #f8f9fa; min-height: 300px;">
-                        <div id="ganttChartContent" style="width: 100%; height: 300px; display: flex; align-items: center; justify-content: center;">
-                            <p style="color: #666;">Gantt chart will be displayed here</p>
-                        </div>
+                <h5 style="margin-bottom: 1rem; font-weight: bold;">Project Schedule</h5>
+                <div id="ganttChartContainer" class="border rounded p-3" style="background-color: #f8f9fa; max-height: 400px; overflow-y: auto;">
+                    <div id="ganttChartContent" style="width: 100%; display: flex; align-items: center; justify-content: center; min-height: 300px;">
+                        <p style="color: #666;">Gantt chart will be displayed here</p>
                     </div>
                 </div>
             </div>
         </div>
         <div class="modal-footer-custom">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('quotationPreviewModal')">Back</button>
-            <button type="button" class="btn btn-success" id="downloadQuotationBtn">
+            <button type="button" class="btn btn-primary" onclick="closeModal('quotationPreviewModal')">Back</button>
+            <button type="button" class="btn btn-primary" id="downloadQuotationBtn">
                 <i class="bi bi-download"></i> Download Quotation & Gantt Chart
             </button>
             <button type="button" class="btn btn-primary" id="sendQuotationBtn">
@@ -8848,6 +8844,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal('ganttChartBuilderModal');
             setTimeout(() => {
                 openModal('quotationPreviewModal');
+                displayGanttChartInPreview();
             }, 300);
         });
 
