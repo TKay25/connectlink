@@ -8836,99 +8836,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderGanttItemsList();
         }
 
-        function renderGanttItemsList() {
-            const listEl = document.getElementById('ganttItemsList');
-            
-            if (ganttItems.length === 0) {
-                listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 30px 20px;">No items added yet.<br>Click "Add Item" to begin.</div>';
-                return;
-            }
-
-            let html = `
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <thead>
-                        <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
-                            <th style="padding: 10px; text-align: left; font-weight: bold;">#</th>
-                            <th style="padding: 10px; text-align: left; font-weight: bold;">Work Scope</th>
-                            <th style="padding: 10px; text-align: center; font-weight: bold;">Start date</th>
-                            <th style="padding: 10px; text-align: center; font-weight: bold;">End date</th>
-                            <th style="padding: 10px; text-align: center; font-weight: bold;">Days</th>
-                            <th style="padding: 10px; text-align: right; font-weight: bold;">Cost</th>
-                            <th style="padding: 10px; text-align: center; font-weight: bold;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            ganttItems.forEach((item, index) => {
-                html += `
-                    <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                        <td style="padding: 10px; text-align: left; font-weight: bold;">${index + 1}</td>
-                        <td style="padding: 10px; text-align: left;">${item.item}</td>
-                        <td style="padding: 10px; text-align: center;">
-                            <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="font-size: 0.85rem;">
-                        </td>
-                        <td style="padding: 10px; text-align: center;">
-                            <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="font-size: 0.85rem;">
-                        </td>
-                        <td style="padding: 10px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                        <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style="padding: 10px; text-align: center;">
-                            <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 3px 8px; font-size: 0.75rem;">Delete</button>
-                        </td>
-                    </tr>
-                `;
-            });
-
-            html += `
-                    </tbody>
-                </table>
-            `;
-            listEl.innerHTML = html;
-            updateGanttSummary();
-        }
-
-        function updateGanttSummary() {
-            let totalDays = 0;
-            let totalCost = 0;
-
-            ganttItems.forEach(item => {
-                totalDays += item.days;
-                totalCost += item.price;
-            });
-
-            $('#ganttTotalDays').text(totalDays);
-            $('#ganttTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        }
-
-        function updateGanttItemDate(index, type, value) {
-            ganttItems[index][type === 'start' ? 'startDate' : 'endDate'] = value;
-            ganttItems[index].days = calculateDays(
-                new Date(ganttItems[index].startDate),
-                new Date(ganttItems[index].endDate)
-            );
-            
-            // Auto-set next task start date to current task end date + 1 day
-            if (type === 'end' && index < ganttItems.length - 1) {
-                const nextStartDate = new Date(ganttItems[index].endDate);
-                nextStartDate.setDate(nextStartDate.getDate() + 1);
-                ganttItems[index + 1].startDate = formatDate(nextStartDate);
-                
-                // Recalculate next item's days
-                ganttItems[index + 1].days = calculateDays(
-                    new Date(ganttItems[index + 1].startDate),
-                    new Date(ganttItems[index + 1].endDate)
-                );
-            }
-            
-            renderGanttItemsList();
-        }
-
-        function removeGanttItem(index) {
-            ganttItems.splice(index, 1);
-            renderGanttItemsList();
-        }
-
         document.getElementById('saveGanttChartBtn')?.addEventListener('click', function() {
             if (ganttItems.length === 0) {
                 alert('Please add at least one task to the schedule.');
@@ -8944,21 +8851,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 openModal('quotationPreviewModal');
             }, 300);
         });
-
-        // Helper functions
-        function formatDate(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
-
-        function calculateDays(startDate, endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const diffTime = Math.abs(end - start);
-            return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        }
 
         // Display gantt chart in quotation preview
         function toggleGanttChart() {
@@ -9025,6 +8917,114 @@ document.addEventListener('DOMContentLoaded', () => {
             content.style.height = 'auto';
         }
     });
+
+    // Global helper functions (outside document.ready for HTML event handler access)
+    function renderGanttItemsList() {
+        const listEl = document.getElementById('ganttItemsList');
+        
+        if (ganttItems.length === 0) {
+            listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 30px 20px;">No items added yet.<br>Click "Add Item" to begin.</div>';
+            return;
+        }
+
+        let html = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                <thead>
+                    <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
+                        <th style="padding: 10px; text-align: left; font-weight: bold;">#</th>
+                        <th style="padding: 10px; text-align: left; font-weight: bold;">Work Scope</th>
+                        <th style="padding: 10px; text-align: center; font-weight: bold;">Start date</th>
+                        <th style="padding: 10px; text-align: center; font-weight: bold;">End date</th>
+                        <th style="padding: 10px; text-align: center; font-weight: bold;">Days</th>
+                        <th style="padding: 10px; text-align: right; font-weight: bold;">Cost</th>
+                        <th style="padding: 10px; text-align: center; font-weight: bold;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        ganttItems.forEach((item, index) => {
+            html += `
+                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                    <td style="padding: 10px; text-align: left; font-weight: bold;">${index + 1}</td>
+                    <td style="padding: 10px; text-align: left;">${item.item}</td>
+                    <td style="padding: 10px; text-align: center;">
+                        <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="font-size: 0.85rem;">
+                    </td>
+                    <td style="padding: 10px; text-align: center;">
+                        <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="font-size: 0.85rem;">
+                    </td>
+                    <td style="padding: 10px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
+                    <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 10px; text-align: center;">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 3px 8px; font-size: 0.75rem;">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+        `;
+        listEl.innerHTML = html;
+        updateGanttSummary();
+    }
+
+    function updateGanttSummary() {
+        let totalDays = 0;
+        let totalCost = 0;
+
+        ganttItems.forEach(item => {
+            totalDays += item.days;
+            totalCost += item.price;
+        });
+
+        $('#ganttTotalDays').text(totalDays);
+        $('#ganttTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    }
+
+    function updateGanttItemDate(index, type, value) {
+        ganttItems[index][type === 'start' ? 'startDate' : 'endDate'] = value;
+        ganttItems[index].days = calculateDays(
+            new Date(ganttItems[index].startDate),
+            new Date(ganttItems[index].endDate)
+        );
+        
+        // Auto-set next task start date to current task end date + 1 day
+        if (type === 'end' && index < ganttItems.length - 1) {
+            const nextStartDate = new Date(ganttItems[index].endDate);
+            nextStartDate.setDate(nextStartDate.getDate() + 1);
+            ganttItems[index + 1].startDate = formatDate(nextStartDate);
+            
+            // Recalculate next item's days
+            ganttItems[index + 1].days = calculateDays(
+                new Date(ganttItems[index + 1].startDate),
+                new Date(ganttItems[index + 1].endDate)
+            );
+        }
+        
+        renderGanttItemsList();
+    }
+
+    function removeGanttItem(index) {
+        ganttItems.splice(index, 1);
+        renderGanttItemsList();
+    }
+
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function calculateDays(startDate, endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end - start);
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
 
 </script>
 
