@@ -615,27 +615,27 @@
         <div class="modal-body-custom">
             <form id="createUserForm">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Full Name</label>
-                    <input type="text" class="form-control editable-field" name="userfullname" required>
+                    <label for="userFullName" class="form-label fw-bold">Full Name</label>
+                    <input type="text" class="form-control editable-field" id="userFullName" name="userfullname" required>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">WhatsApp Number</label>
-                    <input type="number" class="form-control editable-field" name="userwhatsapp" required>
+                    <label for="userWhatsApp" class="form-label fw-bold">WhatsApp Number</label>
+                    <input type="number" class="form-control editable-field" id="userWhatsApp" name="userwhatsapp" required>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Email</label>
-                    <input type="email" class="form-control editable-field" name="useremail" required>
+                    <label for="userEmail" class="form-label fw-bold">Email</label>
+                    <input type="email" class="form-control editable-field" id="userEmail" name="useremail" required>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Password</label>
-                    <input type="password" class="form-control editable-field" name="userpassword" required>
+                    <label for="userPassword" class="form-label fw-bold">Password</label>
+                    <input type="password" class="form-control editable-field" id="userPassword" name="userpassword" required>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Admin Permission Passcode</label>
+                    <label for="permissionPasscode" class="form-label fw-bold">Admin Permission Passcode</label>
                     <input type="text" class="form-control editable-field" name="permission_passcode" id="permissionPasscode" required>
                 </div>
             </form>
@@ -703,11 +703,11 @@
         <div class="modal-body-custom">
             <form id="adminForm">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Full Name</label>
+                    <label for="adminName" class="form-label fw-bold">Full Name</label>
                     <input type="text" class="form-control" id="adminName" name="adminName" placeholder="Enter Admin full name">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Contact Phone</label>
+                    <label for="adminPhone" class="form-label fw-bold">Contact Phone</label>
                     <input type="text" class="form-control" id="adminPhone" name="adminPhone" placeholder="e.g. +263 77 123 4567">
                 </div>
             </form>
@@ -825,17 +825,17 @@
                             </div>
 
                             <div class="form-group mb-2">
-                                <label>Address:</label>
-                                <input type="text" class="form-control editable-field" value="38A Coronation Avenue Greendale Harare" readonly>
+                                <label for="contractorAddress">Address:</label>
+                                <input type="text" class="form-control editable-field" id="contractorAddress" value="38A Coronation Avenue Greendale Harare" readonly>
                             </div>
 
                             <div class="form-group mb-2">
-                                <label>Contact Number</label>
-                                <input type="text" class="form-control editable-field" value="+263 773 368 558 ; +263 716 788 838" readonly>
+                                <label for="contractorPhone">Contact Number</label>
+                                <input type="text" class="form-control editable-field" id="contractorPhone" value="+263 773 368 558 ; +263 716 788 838" readonly>
                             </div>
 
                             <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Email:</label>
+                                <label for="contractor_email" class="col-auto col-form-label" style="padding-right: 0.5rem;">Email:</label>
                                 <div class="col">
                                     <input type="email" class="form-control editable-field" id="contractor_email" value="info@connectlinkproperties.co.zw" readonly>
                                 </div>
@@ -1089,22 +1089,22 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">National ID</label>
+                        <label for="updateClientNationalIdNumber" class="form-label fw-bold">National ID</label>
                         <input type="text" class="form-control" id="updateClientNationalIdNumber" name="client_national_id">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Email Address</label>
+                        <label for="updateClientEmail" class="form-label fw-bold">Email Address</label>
                         <input type="email" class="form-control" id="updateClientEmail" name="client_email">
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">WhatsApp Number</label>
+                        <label for="updateClientWhatsAppNumber" class="form-label fw-bold">WhatsApp Number</label>
                         <input type="tel" class="form-control" id="updateClientWhatsAppNumber" name="client_whatsapp">
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Street Address</label>
+                        <label for="updateClientResidentialAddress" class="form-label fw-bold">Street Address</label>
                         <textarea class="form-control" id="updateClientResidentialAddress" name="client_address" rows="3"></textarea>
                     </div>
                     
@@ -1115,22 +1115,22 @@
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Full Name</label>
+                        <label for="updateClientNextOfKinName" class="form-label fw-bold">Full Name</label>
                         <input type="text" class="form-control" id="updateClientNextOfKinName" name="client_next_of_kin" placeholder="John Doe">
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Relationship</label>
+                        <label for="updateClientNextOfKinRelationship" class="form-label fw-bold">Relationship</label>
                         <input type="text" class="form-control" id="updateClientNextOfKinRelationship" name="client_next_of_kin_relation" placeholder="Spouse, Parent, etc.">
                     </div>
                     
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Phone Number</label>
+                        <label for="updateClientNextOfKinPhone" class="form-label fw-bold">Phone Number</label>
                         <input type="tel" class="form-control" id="updateClientNextOfKinPhone" name="client_next_of_kin_phone" placeholder="+1 234 567 8900">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label fw-bold">Street Address</label>
+                        <label for="updateClientNextOfKinAddress" class="form-label fw-bold">Street Address</label>
                         <textarea class="form-control" id="updateClientNextOfKinAddress" name="client_next_of_kin_address" rows="3"></textarea>
                     </div>
 
@@ -1439,7 +1439,7 @@
         <div class="modal-body-custom">
             <input type="hidden" id="modalProjectId">
             <div class="form-group">
-                <label class="form-label fw-bold">New Due Date</label>
+                <label for="modalNewDueDate" class="form-label fw-bold">New Due Date</label>
                 <input type="date" class="form-control editable-field" id="modalNewDueDate">
             </div>
         </div>
@@ -2847,32 +2847,32 @@
             <form id="contractorEditForm">
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold mb-1">Company Name</label>
-                        <input type="text" class="form-control editable-field" name="company_name" value="{{ companyname }}">
+                        <label for="companyName" class="form-label fw-semibold mb-1">Company Name</label>
+                        <input type="text" class="form-control editable-field" id="companyName" name="company_name" value="{{ companyname }}">
                     </div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold mb-1">Phone 1</label>
-                        <input type="text" class="form-control editable-field" name="phone1" value="{{ contact1 }}">
+                        <label for="companyPhone1" class="form-label fw-semibold mb-1">Phone 1</label>
+                        <input type="text" class="form-control editable-field" id="companyPhone1" name="phone1" value="{{ contact1 }}">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold mb-1">Phone 2</label>
-                        <input type="text" class="form-control editable-field" name="phone2" value="{{ contact2 }}">
+                        <label for="companyPhone2" class="form-label fw-semibold mb-1">Phone 2</label>
+                        <input type="text" class="form-control editable-field" id="companyPhone2" name="phone2" value="{{ contact2 }}">
                     </div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold mb-1">Email</label>
-                        <input type="email" class="form-control editable-field" name="email" value="{{ compemail }}">
+                        <label for="companyEmail" class="form-label fw-semibold mb-1">Email</label>
+                        <input type="email" class="form-control editable-field" id="companyEmail" name="email" value="{{ compemail }}">
                     </div>
 
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold mb-1">TIN Number</label>
-                        <input type="text" class="form-control editable-field" name="tin_number" value="{{ tinnumber }}">
+                        <label for="companyTinNumber" class="form-label fw-semibold mb-1">TIN Number</label>
+                        <input type="text" class="form-control editable-field" id="companyTinNumber" name="tin_number" value="{{ tinnumber }}">
                     </div>
                 </div>
 
@@ -6059,7 +6059,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        resultsCount.textContent = `Showing ${visibleCount} of ${enquiryRows.length} enquiries`;
+        // Only update resultsCount if the element exists
+        if (resultsCount) {
+            resultsCount.textContent = `Showing ${visibleCount} of ${enquiryRows.length} enquiries`;
+        }
         console.log('Visible count:', visibleCount);
     }
     
@@ -6081,9 +6084,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (clearBtn) {
         clearBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            categoryFilter.value = '';
-            statusFilter.value = '';
+            if (searchInput) searchInput.value = '';
+            if (categoryFilter) categoryFilter.value = '';
+            if (statusFilter) statusFilter.value = '';
             filterEnquiries();
             console.log('Filters cleared');
         });
@@ -8579,6 +8582,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = window.quotationData;
             const ganttData = window.ganttChartData || [];
 
+            // Validate data exists
+            if (!data) {
+                alert('No quotation data available. Please create a quotation first.');
+                return;
+            }
+
+            // Provide defaults for missing properties
+            const clientName = data.clientName || 'Client';
+            const size = data.size || '0';
+            const category = data.category || 'General';
+            const quotationDate = data.quotationDate || new Date().toISOString().split('T')[0];
+            const baseCost = data.baseCost || 0;
+            const markup = data.markup || 0;
+            const markupAmount = data.markupAmount || 0;
+            const totalCost = data.totalCost || baseCost;
+            const items = data.items || [];
+
             // Create HTML content for PDF
             let htmlContent = '<div style="font-family: Arial, sans-serif; background: white; color: #333; padding: 0; margin: 0;">';
             
@@ -8602,19 +8622,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             <table style="width: 100%; font-size: 12px; line-height: 1.8;">
                                 <tr style="border-bottom: 1px solid #eee;">
                                     <td style="font-weight: bold; color: #9B1D2C; width: 40%; padding: 5px 0;">Client Name:</td>
-                                    <td style="padding: 5px 0;">${data.clientName}</td>
+                                    <td style="padding: 5px 0;">${clientName}</td>
                                 </tr>
                                 <tr style="border-bottom: 1px solid #eee;">
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Project Size:</td>
-                                    <td style="padding: 5px 0;">${data.size} Sq. Meters</td>
+                                    <td style="padding: 5px 0;">${size} Sq. Meters</td>
                                 </tr>
                                 <tr style="border-bottom: 1px solid #eee;">
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Category:</td>
-                                    <td style="padding: 5px 0;">${data.category}</td>
+                                    <td style="padding: 5px 0;">${category}</td>
                                 </tr>
                                 <tr>
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Date:</td>
-                                    <td style="padding: 5px 0;">${data.quotationDate}</td>
+                                    <td style="padding: 5px 0;">${quotationDate}</td>
                                 </tr>
                             </table>
                         </div>
@@ -8623,19 +8643,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             <table style="width: 100%; font-size: 12px; line-height: 1.8;">
                                 <tr style="border-bottom: 1px solid #eee;">
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Base Cost:</td>
-                                    <td style="text-align: right; padding: 5px 0;">USD ${data.baseCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td style="text-align: right; padding: 5px 0;">USD ${baseCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 </tr>
                                 <tr style="border-bottom: 1px solid #eee;">
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Markup (%):</td>
-                                    <td style="text-align: right; padding: 5px 0;">${data.markup}%</td>
+                                    <td style="text-align: right; padding: 5px 0;">${markup}%</td>
                                 </tr>
                                 <tr style="border-bottom: 1px solid #eee;">
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Markup Amount:</td>
-                                    <td style="text-align: right; padding: 5px 0;">USD ${data.markupAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td style="text-align: right; padding: 5px 0;">USD ${markupAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 </tr>
                                 <tr style="background-color: #f5f5f5; border: 2px solid #9B1D2C;">
                                     <td style="font-weight: bold; color: #9B1D2C; padding: 8px; font-size: 13px;">TOTAL COST:</td>
-                                    <td style="font-weight: bold; color: #9B1D2C; padding: 8px; text-align: right; font-size: 14px;">USD ${data.totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td style="font-weight: bold; color: #9B1D2C; padding: 8px; text-align: right; font-size: 14px;">USD ${totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 </tr>
                             </table>
                         </div>
@@ -8655,14 +8675,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             </thead>
                             <tbody>`;
                             
-            data.items.forEach((item, index) => {
-                const itemTotal = item.clientPrice;
+            items.forEach((item, index) => {
+                const itemTotal = item.clientPrice || item.total || 0;
+                const sqm = item.sqm || 1;
+                const rate = item.inhouseRate || 0;
                 htmlContent += `
                     <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; border-bottom: 1px solid #ddd;">
                         <td style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">${index + 1}</td>
-                        <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${item.item}</td>
-                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${item.sqm}</td>
-                        <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">USD ${item.inhouseRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${item.item || item.name}</td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${sqm}</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">USD ${rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td style="padding: 8px; text-align: right; border: 1px solid #ddd; color: #9B1D2C; font-weight: bold;">USD ${itemTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>`;
             });
@@ -8687,19 +8709,21 @@ document.addEventListener('DOMContentLoaded', () => {
                             <tbody>`;
             
             ganttData.forEach((item, index) => {
-                const startDate = new Date(item.startDate);
-                const endDate = new Date(item.endDate);
+                const startDate = new Date(item.startDate || new Date());
+                const endDate = new Date(item.endDate || new Date());
                 const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const price = item.price || 0;
+                const days = item.days || 0;
 
                 htmlContent += `
                     <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; border-bottom: 1px solid #ddd;">
                         <td style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">${index + 1}</td>
-                        <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${item.item}</td>
+                        <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${item.item || 'Item'}</td>
                         <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${formattedStart}</td>
                         <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${formattedEnd}</td>
-                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #0A1A3A; font-weight: bold;">${item.days}</td>
-                        <td style="padding: 8px; text-align: right; border: 1px solid #ddd; color: #9B1D2C; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #0A1A3A; font-weight: bold;">${days}</td>
+                        <td style="padding: 8px; text-align: right; border: 1px solid #ddd; color: #9B1D2C; font-weight: bold;">USD ${price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>`;
             });
 
@@ -8720,7 +8744,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Generate PDF
             const options = {
                 margin: 10,
-                filename: `Quotation_${data.clientName.replace(/\\s+/g, '_')}_${new Date().getTime()}.pdf`,
+                filename: `Quotation_${clientName.replace(/\\s+/g, '_')}_${new Date().getTime()}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
                 jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
