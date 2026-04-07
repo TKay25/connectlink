@@ -9431,9 +9431,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = '<div style="margin-bottom: 10px;">';
         
         // Download button at the top
-        html += `<div style="margin-bottom: 15px;">
-            <button class="btn btn-primary btn-sm" onclick="downloadQuotationPDFFromPortal(${quotation.id})" style="width: auto;">
-                <i class="bi bi-download"></i> Download PDF
+        html += `<div style="margin-bottom: 6px;">
+            <button class="btn btn-primary" onclick="downloadQuotationPDFFromPortal(${quotation.id})" style="width: auto;">
+                <i class="bi bi-download"></i> Download Quotation
             </button>
         </div>`;
         
@@ -9495,8 +9495,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (result.success && result.data) {
                     const quotation = result.data.find(q => q.id === quotationId);
                     if (quotation) {
-                        // Generate PDF with this quotation data
-                        generateQuotationPDFFromData(quotation);
+                        // Convert API format to window.quotationData format
+                        const data = {
+                            clientName: quotation.clientName,
+                            quotationDate: quotation.quotationDate,
+                            category: quotation.category,
+                            size: quotation.projectSize,
+                            totalCost: quotation.totalCost,
+                            markup: quotation.markup,
+                            baseCost: quotation.totalCost / (1 + (quotation.markup / 100)),
+                            markupAmount: quotation.totalCost - (quotation.totalCost / (1 + (quotation.markup / 100))),
+                            items: quotation.items.map(item => ({
+                                item: item.name,
+                                name: item.name,
+                                sqm: item.quantity,
+                                inhouseRate: item.unitRate,
+                                clientPrice: item.totalPrice,
+                                total: item.totalPrice
+                            }))
+                        };
+
+                        // Convert schedules to gantt format
+                        const ganttData = quotation.schedules.map(schedule => ({
+                            item: schedule.workScope,
+                            startDate: schedule.startDate,
+                            endDate: schedule.endDate,
+                            days: schedule.days,
+                            price: 0
+                        }));
+
+                        // Generate PDF with exact same design as save & download
+                        generatePDFFromPortal(data, ganttData);
                     } else {
                         alert('Quotation not found');
                     }
@@ -9510,319 +9539,146 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    function generateQuotationPDFFromData(quotationData) {
-        // Convert API response format to match the current format
-        const data = {
-            clientName: quotationData.clientName,
-            quotationDate: quotationData.quotationDate,
-            category: quotationData.category,
-            size: quotationData.projectSize,
-            totalCost: quotationData.totalCost,
-            markup: quotationData.markup,
-            items: quotationData.items,
-            schedules: quotationData.schedules
-        };
+    function generatePDFFromPortal(data, ganttData) {
+        // Use exact same PDF design as the Save & Download feature
+        const clientName = data.clientName || 'Client';
+        const size = data.size || '0';
+        const category = data.category || 'General';
+        const quotationDate = data.quotationDate || new Date().toISOString().split('T')[0];
+        const baseCost = data.baseCost || 0;
+        const markup = data.markup || 0;
+        const markupAmount = data.markupAmount || 0;
+        const totalCost = data.totalCost || baseCost;
+        const items = data.items || [];
 
-        let ganttData = [];
-        if (quotationData.schedules && quotationData.schedules.length > 0) {
-            ganttData = quotationData.schedules.map(schedule => ({
-                item: schedule.workScope,
-                startDate: schedule.startDate,
-                endDate: schedule.endDate,
-                days: schedule.days,
-                price: 0
-            }));
-        }
-
-        // Now generate the PDF - reuse the existing PDF generation logic
-        generatePDFContent(data, ganttData);
-    }
-
-    function generatePDFContent(data, ganttData) {
-        const reqlogoPath = "{{ url_for('static', filename='images/reqlogo.jpg') }}";
-
-        // Get logo as image
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = function() {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const logoBase64 = canvas.toDataURL('image/jpeg');
-
-            // Build quotation info
-            let htmlContent = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <style>
-                        body { font-family: Arial, sans-serif; color: #333; }
-                        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #9B1D2C; }
-                        .logo { max-width: 150px; margin-bottom: 15px; }
-                        .title { font-size: 24px; font-weight: bold; color: #0A1A3A; margin: 10px 0; }
-                        .section { margin: 20px 0; }
-                        .section-title { font-size: 14px; font-weight: bold; color: white; background-color: #0A1A3A; padding: 10px; margin-bottom: 10px; }
-                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-                        th { background-color: #0A1A3A; color: white; font-weight: bold; }
-                        tr:nth-child(even) { background-color: #f9f9f9; }
-                        .total-row { background-color: #f0f0f0; font-weight: bold; }
-                        .project-info { background-color: #f5f5f5; padding: 15px; border-left: 4px solid #9B1D2C; margin-bottom: 20px; }
-                        .footer { margin-top: 30px; padding-top: 20px; border-top: 2px solid #ccc; font-size: 11px; color: #666; text-align: center; }
-                        .currency-right { text-align: right; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <img src="${logoBase64}" class="logo" alt="Logo">
-                        <div class="title">QUOTATION</div>
-                    </div>
-
-                    <div class="project-info">
-                        <strong>Project Information</strong><br>
-                        Client: ${data.clientName || 'N/A'}<br>
-                        Category: ${(data.category || 'N/A').replace(/_/g, ' ').toUpperCase()}<br>
-                        Project Size: ${data.size || 'N/A'}<br>
-                        Date: ${new Date(data.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </div>
-
-                    <div class="section">
-                        <div class="section-title">QUOTATION SUMMARY</div>
-                        <table>
-                            <tr class="total-row">
-                                <td><strong>Total Cost</strong></td>
-                                <td class="currency-right"><strong>USD ${Number(data.totalCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+        let htmlContent = '<div style="font-family: Arial, sans-serif; background: white; color: #333; padding: 0; margin: 0;">';
+        
+        htmlContent += `
+            <div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #0A1A3A 0%, #0E1F42 100%); color: white; border-bottom: 4px solid #9B1D2C;">
+                <div style="margin-bottom: 10px;">
+                    <img src="{{ url_for('static', filename='images/reqlogo.jpg') }}" style="height: 50px;">
+                </div>
+                <h1 style="margin: 0; font-size: 28px; font-weight: bold;">PROJECT QUOTATION</h1>
+                <p style="margin: 5px 0 0 0; font-size: 12px; color: #ccc;">Professional Construction & Project Management</p>
+            </div>
+        `;
+        
+        // Quotation Details Section
+        htmlContent += `
+            <div style="padding: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; padding: 0 10px;">
+                    <div>
+                        <div style="background-color: #0A1A3A; color: white; padding: 10px; margin-bottom: 10px; border-radius: 4px; font-weight: bold; font-size: 12px;">PROJECT INFORMATION</div>
+                        <table style="width: 100%; font-size: 12px; line-height: 1.8;">
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="font-weight: bold; color: #9B1D2C; width: 40%; padding: 5px 0;">Client Name:</td>
+                                <td style="padding: 5px 0;">${clientName}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Project Size:</td>
+                                <td style="padding: 5px 0;">${size} Sq. Meters</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #eee;">
+                                <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Category:</td>
+                                <td style="padding: 5px 0;">${category}</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold; color: #9B1D2C; padding: 5px 0;">Date:</td>
+                                <td style="padding: 5px 0;">${quotationDate}</td>
                             </tr>
                         </table>
                     </div>
-
-                    <div class="section">
-                        <div class="section-title">CONSTRUCTION ITEMS</div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Item Description</th>
-                                    <th style="text-align: center;">Quantity</th>
-                                    <th class="currency-right">Rate (USD)</th>
-                                    <th class="currency-right">Total (USD)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-
-            // Add items
-            if (data.items && data.items.length > 0) {
-                data.items.forEach(item => {
-                    const itemTotal = Number(item.totalPrice || item.quantity * item.unitRate || 0);
-                    htmlContent += `
-                        <tr>
-                            <td>${item.name || 'Item'}</td>
-                            <td style="text-align: center;">${Number(item.quantity || 0)}</td>
-                            <td class="currency-right">${Number(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                            <td class="currency-right">${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        </tr>
-                    `;
-                });
-            }
-
-            htmlContent += `
-                            </tbody>
+                    <div>
+                        <div style="background-color: #0A1A3A; color: white; padding: 10px; margin-bottom: 10px; border-radius: 4px; font-weight: bold; font-size: 12px;">QUOTATION SUMMARY</div>
+                        <table style="width: 100%; font-size: 12px; line-height: 1.8;">
+                            <tr style="background-color: #f5f5f5; border: 2px solid #9B1D2C;">
+                                <td style="font-weight: bold; color: #9B1D2C; padding: 8px; font-size: 13px;">TOTAL COST:</td>
+                                <td style="font-weight: bold; color: #9B1D2C; padding: 8px; text-align: right; font-size: 14px;">USD ${totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            </tr>
                         </table>
                     </div>
-
-                    <div class="section">
-                        <div class="section-title">PROJECT WORK PLAN</div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Work Scope</th>
-                                    <th style="text-align: center;">Start Date</th>
-                                    <th style="text-align: center;">End Date</th>
-                                    <th style="text-align: center;">Days</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-
-            // Add schedule/gantt items
-            if (ganttData && ganttData.length > 0) {
-                ganttData.forEach(schedule => {
-                    const startDate = new Date(schedule.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                    const endDate = new Date(schedule.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                    htmlContent += `
-                        <tr>
-                            <td>${schedule.item || 'Task'}</td>
-                            <td style="text-align: center;">${startDate}</td>
-                            <td style="text-align: center;">${endDate}</td>
-                            <td style="text-align: center;">${Number(schedule.days || 0)}</td>
-                        </tr>
-                    `;
-                });
-            }
-
-            htmlContent += `
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="footer">
-                        <p><strong>Terms & Conditions</strong></p>
-                        <p>This quotation is valid for 30 days from the date issued. Prices are subject to change based on market conditions and material availability.</p>
-                    </div>
-                </body>
-                </html>
-            `;
-
-            // Generate PDF using html2pdf
-            const element = document.createElement('div');
-            element.innerHTML = htmlContent;
-            
-            const opt = {
-                margin: 10,
-                filename: 'quotation-' + data.clientName.replace(/\s+/g, '_') + '-' + new Date().getTime() + '.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-            };
-
-            html2pdf().set(opt).from(htmlContent).save();
-        };
-
-        img.onerror = function() {
-            console.warn('Could not load logo, generating PDF without logo');
-            // Generate PDF without logo
-            generatePDFWithoutLogo(data, ganttData);
-        };
-
-        img.src = reqlogoPath;
-    }
-
-    function generatePDFWithoutLogo(data, ganttData) {
-        let htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <style>
-                    body { font-family: Arial, sans-serif; color: #333; }
-                    .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #9B1D2C; }
-                    .title { font-size: 24px; font-weight: bold; color: #0A1A3A; margin: 10px 0; }
-                    .section { margin: 20px 0; }
-                    .section-title { font-size: 14px; font-weight: bold; color: white; background-color: #0A1A3A; padding: 10px; margin-bottom: 10px; }
-                    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-                    th { background-color: #0A1A3A; color: white; font-weight: bold; }
-                    tr:nth-child(even) { background-color: #f9f9f9; }
-                    .total-row { background-color: #f0f0f0; font-weight: bold; }
-                    .project-info { background-color: #f5f5f5; padding: 15px; border-left: 4px solid #9B1D2C; margin-bottom: 20px; }
-                    .footer { margin-top: 30px; padding-top: 20px; border-top: 2px solid #ccc; font-size: 11px; color: #666; text-align: center; }
-                    .currency-right { text-align: right; }
-                </style>
-            </head>
-            <body>
-                <div class="header">
-                    <div class="title">QUOTATION</div>
                 </div>
 
-                <div class="project-info">
-                    <strong>Project Information</strong><br>
-                    Client: ${data.clientName || 'N/A'}<br>
-                    Category: ${(data.category || 'N/A').replace(/_/g, ' ').toUpperCase()}<br>
-                    Project Size: ${data.size || 'N/A'}<br>
-                    Date: ${new Date(data.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </div>
-
-                <div class="section">
-                    <div class="section-title">QUOTATION SUMMARY</div>
-                    <table>
-                        <tr class="total-row">
-                            <td><strong>Total Cost</strong></td>
-                            <td class="currency-right"><strong>USD ${Number(data.totalCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
-                        </tr>
-                    </table>
-                </div>
-
-                <div class="section">
-                    <div class="section-title">CONSTRUCTION ITEMS</div>
-                    <table>
+                <div style="margin-bottom: 20px; padding: 0 10px;">
+                    <div style="background-color: #0A1A3A; color: white; padding: 10px; margin-bottom: 10px; border-radius: 4px; font-weight: bold; font-size: 12px;">CONSTRUCTION ITEMS</div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #ddd;">
                         <thead>
-                            <tr>
-                                <th>Item Description</th>
-                                <th style="text-align: center;">Quantity</th>
-                                <th class="currency-right">Rate (USD)</th>
-                                <th class="currency-right">Total (USD)</th>
+                            <tr style="background-color: #9B1D2C; color: white; font-weight: bold;">
+                                <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">#</th>
+                                <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Item Description</th>
+                                <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Qty (Sq.M)</th>
+                                <th style="padding: 8px; text-align: right; border: 1px solid #ddd;">Unit Rate</th>
+                                <th style="padding: 8px; text-align: right; border: 1px solid #ddd;">Total</th>
                             </tr>
                         </thead>
-                        <tbody>
-        `;
+                        <tbody>`;
+                        
+        items.forEach((item, index) => {
+            const itemTotal = item.clientPrice || item.total || 0;
+            const sqm = item.sqm || 1;
+            const rate = item.inhouseRate || 0;
+            htmlContent += `
+                <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">${index + 1}</td>
+                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${item.item || item.name}</td>
+                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${sqm}</td>
+                    <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">USD ${rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 8px; text-align: right; border: 1px solid #ddd; color: #9B1D2C; font-weight: bold;">USD ${itemTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>`;
+        });
 
-        // Add items
-        if (data.items && data.items.length > 0) {
-            data.items.forEach(item => {
-                const itemTotal = Number(item.totalPrice || item.quantity * item.unitRate || 0);
-                htmlContent += `
-                    <tr>
-                        <td>${item.name || 'Item'}</td>
-                        <td style="text-align: center;">${Number(item.quantity || 0)}</td>
-                        <td class="currency-right">${Number(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td class="currency-right">${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    </tr>
-                `;
-            });
-        }
+        htmlContent += `</tbody></table></div>`;
 
+        // Project Schedule / Gantt Chart
         htmlContent += `
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="section">
-                    <div class="section-title">PROJECT WORK PLAN</div>
-                    <table>
+                <div style="margin-bottom: 20px; padding: 0 10px;">
+                    <div style="background-color: #0A1A3A; color: white; padding: 10px; margin-bottom: 10px; border-radius: 4px; font-weight: bold; font-size: 12px;">PROJECT SCHEDULE</div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #ddd;">
                         <thead>
-                            <tr>
-                                <th>Work Scope</th>
-                                <th style="text-align: center;">Start Date</th>
-                                <th style="text-align: center;">End Date</th>
-                                <th style="text-align: center;">Days</th>
+                            <tr style="background-color: #9B1D2C; color: white; font-weight: bold;">
+                                <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">#</th>
+                                <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Work Scope</th>
+                                <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Start Date</th>
+                                <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">End Date</th>
+                                <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Days</th>
                             </tr>
                         </thead>
-                        <tbody>
-        `;
+                        <tbody>`;
+        
+        ganttData.forEach((item, index) => {
+            const startDate = new Date(item.startDate || new Date());
+            const endDate = new Date(item.endDate || new Date());
+            const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const days = item.days || 0;
 
-        // Add schedule/gantt items
-        if (ganttData && ganttData.length > 0) {
-            ganttData.forEach(schedule => {
-                const startDate = new Date(schedule.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                const endDate = new Date(schedule.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                htmlContent += `
-                    <tr>
-                        <td>${schedule.item || 'Task'}</td>
-                        <td style="text-align: center;">${startDate}</td>
-                        <td style="text-align: center;">${endDate}</td>
-                        <td style="text-align: center;">${Number(schedule.days || 0)}</td>
-                    </tr>
-                `;
-            });
-        }
+            htmlContent += `
+                <tr style="background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">${index + 1}</td>
+                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${item.item || 'Item'}</td>
+                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${formattedStart}</td>
+                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd;">${formattedEnd}</td>
+                    <td style="padding: 8px; text-align: center; border: 1px solid #ddd; color: #0A1A3A; font-weight: bold;">${days}</td>
+                </tr>`;
+        });
 
+        htmlContent += `</tbody></table></div>`;
+
+        // Footer
         htmlContent += `
-                        </tbody>
-                    </table>
+                <div style="border-top: 3px solid #9B1D2C; padding: 20px 10px; margin: 20px 10px 0 10px; background-color: #f0f0f0; border-radius: 4px; border-left: 4px solid #9B1D2C;">
+                    <p style="margin: 0; font-size: 11px; color: #666; line-height: 1.6;">
+                        <strong>Important Note:</strong> This quotation is valid for 30 days from the date of issue. 
+                        Please confirm your requirement before the expiry of this quotation. 
+                        All prices are in USD and inclusive of taxes. Payment terms to be discussed with the sales team.
+                    </p>
                 </div>
+            </div></div>`;
 
-                <div class="footer">
-                    <p><strong>Terms & Conditions</strong></p>
-                    <p>This quotation is valid for 30 days from the date issued. Prices are subject to change based on market conditions and material availability.</p>
-                </div>
-            </body>
-            </html>
-        `;
-
+        // Generate PDF using html2pdf with exact same settings
         const opt = {
-            margin: 10,
-            filename: 'quotation-' + data.clientName.replace(/\s+/g, '_') + '-' + new Date().getTime() + '.pdf',
+            margin: 5,
+            filename: 'quotation-' + clientName.replace(/\s+/g, '_') + '-' + new Date().getTime() + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2 },
             jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
