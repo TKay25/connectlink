@@ -2987,11 +2987,28 @@
                     <input type="date" class="form-control" id="quotationDate" name="date" required readonly>
                 </div>
 
-                <!-- Tickboxes for Construction Details (Conditional) -->
-                <div id="constructionDetailsContainer" style="display: none;color: var(--dark-blue-deep);" >
+                <!-- Construction Items with Pricing (Conditional) -->
+                <div id="constructionDetailsContainer" style="display: none; color: var(--dark-blue-deep);">
                     <div class="mb-3">
-                        <label class="form-label fw-bold d-block mb-2">Construction Details</label>
-                        
+                        <label class="form-label fw-bold d-block mb-3">
+                            <i class="bi bi-list-check"></i> Construction Items & Pricing
+                        </label>
+
+                        <!-- Summary Box -->
+                        <div class="alert alert-light border mb-3" style="font-size: 0.9rem;">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div><strong>Square Meters:</strong> <span id="displaySqm">--</span></div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div><strong>Markup:</strong> <span id="displayMarkup">30%</span></div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">Total: $<span id="constructionTotal">0.00</span></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Search Box for Items -->
                         <div class="mb-3">
                             <div class="d-flex gap-2">
@@ -3001,55 +3018,21 @@
                         </div>
 
                         <div class="row" style="gap: 10px;">
-                            <!-- Construction Items List (Searchable) -->
-                            <div class="col-md-6">
-                                <label class="small fw-bold mb-2 d-block">Available Items</label>
-                                <div class="border rounded p-3" style="background-color: #f8f9fa; max-height: 350px; overflow-y: auto;">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="floorCheck" name="constructionItems" value="floor">
-                                                <label class="form-check-label" for="floorCheck">Floor</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="ceilingCheck" name="constructionItems" value="ceiling">
-                                                <label class="form-check-label" for="ceilingCheck">Ceiling</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="wallsCheck" name="constructionItems" value="walls">
-                                                <label class="form-check-label" for="wallsCheck">Walls</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="doorsCheck" name="constructionItems" value="doors">
-                                                <label class="form-check-label" for="doorsCheck">Doors</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="windowsCheck" name="constructionItems" value="windows">
-                                                <label class="form-check-label" for="windowsCheck">Windows</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="paintCheck" name="constructionItems" value="paint">
-                                                <label class="form-check-label" for="paintCheck">Paint</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="electricalCheck" name="constructionItems" value="electrical">
-                                                <label class="form-check-label" for="electricalCheck">Electrical</label>
-                                            </div>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input construction-item" type="checkbox" id="plumbingCheck" name="constructionItems" value="plumbing">
-                                                <label class="form-check-label" for="plumbingCheck">Plumbing</label>
-                                            </div>
-                                        </div>
+                            <!-- Construction Items List with Pricing -->
+                            <div class="col-md-7">
+                                <label class="small fw-bold mb-2 d-block">Available Items (with calculations)</label>
+                                <div class="border rounded" style="background-color: #f8f9fa; max-height: 400px; overflow-y: auto;">
+                                    <div id="constructionItemsList">
+                                        <!-- Items will be loaded from database here -->
+                                        <p class="text-muted p-3">Loading items...</p>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Selected Items List -->
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <label class="small fw-bold mb-2 d-block">Selected Items</label>
-                                <textarea class="form-control" id="selectedItemsList" rows="8" readonly style="font-size: 0.85rem; background-color: #e8f5e9; border: 1px solid #4caf50;"></textarea>
+                                <textarea class="form-control" id="selectedItemsList" rows="11" readonly style="font-size: 0.85rem; background-color: #e8f5e9; border: 1px solid #4caf50; resize: none;"></textarea>
                             </div>
                         </div>
                     </div>
@@ -3134,9 +3117,7 @@
                         <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
                             <tr>
                                 <th style="font-size: 0.8rem;">Item</th>
-                                <th style="font-size: 0.8rem; text-align: center;">Quantity</th>
-                                <th style="font-size: 0.8rem; text-align: right;">Unit Cost</th>
-                                <th style="font-size: 0.8rem; text-align: right;">Total</th>
+                                <th style="font-size: 0.8rem; text-align: right;">Client Price</th>
                             </tr>
                         </thead>
                         <tbody id="quotationItemsTable">
@@ -8156,17 +8137,119 @@ document.addEventListener('DOMContentLoaded', () => {
         const today = new Date().toISOString().split('T')[0];
         $('#quotationDate').val(today);
 
-        // Pricing data for items
-        const itemPricing = {
-            floor: { name: 'Floor', qty: 1, unitCost: 25000 },
-            ceiling: { name: 'Ceiling', qty: 1, unitCost: 15000 },
-            walls: { name: 'Walls (Painting)', qty: 1, unitCost: 20000 },
-            doors: { name: 'Doors', qty: 1, unitCost: 10000 },
-            windows: { name: 'Windows', qty: 1, unitCost: 12000 },
-            paint: { name: 'Paint & Finish', qty: 1, unitCost: 18000 },
-            electrical: { name: 'Electrical Work', qty: 1, unitCost: 30000 },
-            plumbing: { name: 'Plumbing Work', qty: 1, unitCost: 25000 }
-        };
+        // Global quotation rates cache
+        let quotationRatesCache = [];
+
+        // Load quotation rates from database and render
+        function loadConstructionItemsFromDatabase() {
+            return fetch('/api/get-quotation-rates')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load construction items');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    quotationRatesCache = data.success ? data.data : [];
+                    renderConstructionItemsList();
+                })
+                .catch(error => {
+                    console.error('Error loading quotation rates:', error);
+                    $('#constructionItemsList').html('<p class="text-danger p-3">Failed to load items</p>');
+                });
+        }
+
+        // Render construction items with pricing
+        function renderConstructionItemsList() {
+            const sqm = parseFloat($('#quotationSize').val()) || 0;
+            const markup = parseFloat($('#quotationMarkup').val()) || 30;
+            
+            // Update display
+            $('#displaySqm').text(sqm > 0 ? sqm : '--');
+            $('#displayMarkup').text(markup + '%');
+            
+            if (quotationRatesCache.length === 0) {
+                $('#constructionItemsList').html('<p class="text-muted p-3">No items available</p>');
+                $('#constructionTotal').text('0.00');
+                return;
+            }
+
+            if (sqm <= 0) {
+                $('#constructionItemsList').html('<p class="text-muted p-3">Enter square meters to see pricing</p>');
+                $('#constructionTotal').text('0.00');
+                return;
+            }
+
+            let itemsHTML = '';
+            const markupMultiplier = 1 + (markup / 100);
+
+            quotationRatesCache.forEach((rate, index) => {
+                const basePrice = rate.inhouseRate * sqm;
+                const clientPrice = basePrice * markupMultiplier;
+
+                itemsHTML += `
+                    <div class="border-bottom p-3 construction-item-row" data-item-id="${rate.id}" data-item-name="${rate.item}" data-client-price="${clientPrice}" style="background-color: ${index % 2 === 0 ? '#fff' : '#f8f9fa'};">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <input type="checkbox" class="form-check-input construction-item-checkbox" style="margin-top: 3px; cursor: pointer;">
+                            <div style="flex: 1;">
+                                <div class="fw-bold" style="font-size: 0.95rem; margin-bottom: 4px;">${rate.item}</div>
+                                <small class="text-muted" style="display: block; line-height: 1.5;">
+                                    Base: <strong>$${rate.inhouseRate.toFixed(2)}</strong>/sqm 
+                                    × <strong>${sqm}</strong> sqm 
+                                    = <strong>$${basePrice.toFixed(2)}</strong>
+                                    <br>
+                                    +<strong>${markup}%</strong> markup 
+                                    = <strong style="color: #2196F3;">$${clientPrice.toFixed(2)}</strong>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            $('#constructionItemsList').html(itemsHTML);
+
+            // Reattach event handlers
+            $('.construction-item-checkbox').change(function() {
+                updateSelectedItemsList();
+                calculateConstructionTotal();
+            });
+
+            // Make item row clickable for checkbox
+            $('.construction-item-row').click(function(e) {
+                if (e.target.tagName !== 'INPUT') {
+                    const checkbox = $(this).find('.construction-item-checkbox');
+                    checkbox.prop('checked', !checkbox.prop('checked')).change();
+                }
+            });
+
+            updateSelectedItemsList();
+            calculateConstructionTotal();
+        }
+
+        // Calculate and display total construction cost
+        function calculateConstructionTotal() {
+            let total = 0;
+            $('.construction-item-checkbox:checked').each(function() {
+                total += parseFloat($(this).closest('.construction-item-row').data('client-price'));
+            });
+            $('#constructionTotal').text(total.toFixed(2));
+        }
+
+        // Update selected items list when checkboxes change
+        function updateSelectedItemsList() {
+            let selectedItems = [];
+            $('.construction-item-checkbox:checked').each(function() {
+                const itemName = $(this).closest('.construction-item-row').data('item-name');
+                selectedItems.push(itemName);
+            });
+            
+            if (selectedItems.length === 0) {
+                $('#selectedItemsList').val('');
+            } else {
+                $('#selectedItemsList').val(selectedItems.join('\n'));
+            }
+        }
 
         // Show/Hide Size field and Construction Details based on category selection
         $('#quotationCategory').change(function() {
@@ -8177,6 +8260,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 $('#constructionDetailsContainer').show();
                 $('#quotationSize').prop('required', true);
                 $('#quotationMarkup').prop('required', true);
+                
+                // Load and display items from database
+                loadConstructionItemsFromDatabase();
             } else {
                 $('#quotationSizeContainer').hide();
                 $('#constructionDetailsContainer').hide();
@@ -8184,61 +8270,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 $('#quotationSize').val('');
                 $('#quotationMarkup').prop('required', false);
                 $('#quotationMarkup').val('30');
-                // Clear all construction item checkboxes if construction is not selected
-                $('.construction-item').prop('checked', false);
                 $('#selectedItemsList').val('');
                 $('#constructionItemsSearch').val('');
-                // Show all items again
-                $('.construction-item').closest('.form-check').show();
             }
         });
 
-        // Update selected items list when checkboxes change
-        function updateSelectedItemsList() {
-            let selectedItems = [];
-            $('.construction-item:checked').each(function() {
-                const label = $(this).next('label').text();
-                selectedItems.push(label);
-            });
-            
-            if (selectedItems.length === 0) {
-                $('#selectedItemsList').val('');
-            } else {
-                $('#selectedItemsList').val(selectedItems.join('\n'));
-            }
-        }
+        // Update pricing when sqm changes
+        $('#quotationSize').on('input', function() {
+            renderConstructionItemsList();
+        });
+
+        // Update pricing when markup changes
+        $('#quotationMarkup').on('input', function() {
+            renderConstructionItemsList();
+        });
 
         // Search functionality for construction items
         $('#constructionItemsSearch').on('input', function() {
             const searchTerm = $(this).val().toLowerCase();
             
-            $('.construction-item').each(function() {
-                const label = $(this).next('label').text().toLowerCase();
-                const checkboxDiv = $(this).closest('.form-check');
+            $('.construction-item-row').each(function() {
+                const itemName = $(this).data('item-name').toLowerCase();
                 
-                if (searchTerm === '' || label.includes(searchTerm)) {
-                    checkboxDiv.show();
+                if (searchTerm === '' || itemName.includes(searchTerm)) {
+                    $(this).show();
                 } else {
-                    checkboxDiv.hide();
+                    $(this).hide();
                 }
             });
         });
 
         // Select All visible items button
         $('#selectAllVisibleBtn').click(function() {
-            const searchTerm = $('#constructionItemsSearch').val().toLowerCase();
-            const allChecked = true;
             let visibleCount = 0;
             let checkedCount = 0;
 
             // Count visible and checked items
-            $('.construction-item').each(function() {
-                const label = $(this).next('label').text().toLowerCase();
-                const checkboxDiv = $(this).closest('.form-check');
-                
-                if (checkboxDiv.is(':visible')) {
+            $('.construction-item-row').each(function() {
+                if ($(this).is(':visible')) {
                     visibleCount++;
-                    if ($(this).is(':checked')) {
+                    if ($(this).find('.construction-item-checkbox').is(':checked')) {
                         checkedCount++;
                     }
                 }
@@ -8247,19 +8318,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // If all visible items are already checked, uncheck them; otherwise check all visible
             const shouldCheck = checkedCount < visibleCount;
             
-            $('.construction-item').each(function() {
-                const checkboxDiv = $(this).closest('.form-check');
-                if (checkboxDiv.is(':visible')) {
-                    $(this).prop('checked', shouldCheck);
+            $('.construction-item-row').each(function() {
+                if ($(this).is(':visible')) {
+                    $(this).find('.construction-item-checkbox').prop('checked', shouldCheck);
                 }
             });
 
             updateSelectedItemsList();
-        });
-
-        // Update selected items when checkbox changes
-        $('.construction-item').change(function() {
-            updateSelectedItemsList();
+            calculateConstructionTotal();
         });
 
         // Handle Generate Quotation button click
@@ -8277,14 +8343,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // If construction is selected, validate additional fields
             if (category === 'construction') {
                 const size = $('#quotationSize').val();
-                if (!size) {
-                    alert('Please enter the size for construction.');
+                const markup = $('#quotationMarkup').val();
+                if (!size || !markup) {
+                    alert('Please enter square meters and markup percentage.');
                     return;
                 }
                 
-                const constructionItems = $('.construction-item:checked');
+                const constructionItems = $('.construction-item-checkbox:checked');
                 if (constructionItems.length === 0) {
-                    alert('Please select at least one construction detail.');
+                    alert('Please select at least one construction item.');
                     return;
                 }
             }
@@ -8294,27 +8361,23 @@ document.addEventListener('DOMContentLoaded', () => {
             let totalCost = 0;
 
             if (category === 'construction') {
-                // Create items data for construction
-                $('.construction-item:checked').each(function() {
-                    const itemKey = $(this).val();
-                    const itemData = itemPricing[itemKey];
-                    const itemTotal = itemData.unitCost * itemData.qty;
+                // Create items data for construction from selected checkboxes
+                $('.construction-item-checkbox:checked').each(function() {
+                    const itemRow = $(this).closest('.construction-item-row');
+                    const name = itemRow.data('item-name');
+                    const price = parseFloat(itemRow.data('client-price'));
                     
                     selectedItems.push({
-                        name: itemData.name,
-                        qty: itemData.qty,
-                        unitCost: itemData.unitCost,
-                        total: itemTotal
+                        name: name,
+                        total: price
                     });
-                    totalCost += itemTotal;
+                    totalCost += price;
                 });
             } else {
                 // For non-construction categories, add a single item
                 const categoryName = category.replace('_', ' ').charAt(0).toUpperCase() + category.slice(1);
                 selectedItems.push({
                     name: categoryName + ' Service',
-                    qty: 1,
-                    unitCost: 50000,
                     total: 50000
                 });
                 totalCost = 50000;
@@ -8331,9 +8394,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedItems.forEach(item => {
                 tableHTML += `<tr>
                     <td style="font-size: 0.85rem;">${item.name}</td>
-                    <td style="font-size: 0.85rem; text-align: center;">${item.qty}</td>
-                    <td style="font-size: 0.85rem; text-align: right;">USD ${item.unitCost.toLocaleString('en-IN')}</td>
-                    <td style="font-size: 0.85rem; text-align: right;"><strong>USD ${item.total.toLocaleString('en-IN')}</strong></td>
+                    <td style="font-size: 0.85rem; text-align: right;"><strong>USD ${item.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
                 </tr>`;
             });
             $('#quotationItemsTable').html(tableHTML);
