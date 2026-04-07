@@ -3029,10 +3029,15 @@
                                 </div>
                             </div>
 
-                            <!-- Selected Items List -->
+                            <!-- Drag-Drop Reordering Area -->
                             <div class="col-md-5">
-                                <label class="small fw-bold mb-2 d-block">Selected Items</label>
-                                <textarea class="form-control" id="selectedItemsList" rows="11" readonly style="font-size: 0.85rem; background-color: #e8f5e9; border: 1px solid #4caf50; resize: none;"></textarea>
+                                <label class="small fw-bold mb-2 d-block">Selected Items (Drag to Reorder)</label>
+                                <div class="border rounded p-2" id="selectedItemsDropZone" style="background-color: #f0f7ff; min-height: 400px; max-height: 400px; overflow-y: auto; border: 2px dashed #2196F3;">
+                                    <div id="selectedItemsContainer"></div>
+                                    <p class="text-muted p-3 text-center" id="emptyDropZoneMsg" style="margin: 150px auto;">
+                                        Select items from left panel<br>to add them here
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -8236,19 +8241,102 @@ document.addEventListener('DOMContentLoaded', () => {
             $('#constructionTotal').text(total.toFixed(2));
         }
 
-        // Update selected items list when checkboxes change
+        // Update selected items in drag-drop area
         function updateSelectedItemsList() {
+            // Get all checked items in order they appear in left panel
             let selectedItems = [];
             $('.construction-item-checkbox:checked').each(function() {
-                const itemName = $(this).closest('.construction-item-row').data('item-name');
-                selectedItems.push(itemName);
+                const itemRow = $(this).closest('.construction-item-row');
+                selectedItems.push({
+                    id: itemRow.data('item-id'),
+                    name: itemRow.data('item-name'),
+                    price: itemRow.data('client-price')
+                });
             });
-            
+
+            // Build the drag-drop items
+            let dragItemsHTML = '';
+            selectedItems.forEach((item, index) => {
+                dragItemsHTML += `
+                    <div class="selected-item-drag" data-item-id="${item.id}" draggable="true" style="
+                        background: white;
+                        border: 1px solid #2196F3;
+                        border-radius: 4px;
+                        padding: 10px;
+                        margin-bottom: 8px;
+                        cursor: move;
+                        user-select: none;
+                        transition: all 0.2s;
+                    ">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span style="color: #999; font-weight: bold; min-width: 25px;">${index + 1}</span>
+                            <div style="flex: 1;">
+                                <div style="font-weight: bold; font-size: 0.9rem; color: #333;">${item.name}</div>
+                                <small style="color: #999;">$${item.price.toFixed(2)}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger remove-selected-item" data-item-id="${item.id}" style="padding: 2px 6px;">×</button>
+                        </div>
+                    </div>
+                `;
+            });
+
             if (selectedItems.length === 0) {
-                $('#selectedItemsList').val('');
+                $('#selectedItemsContainer').html('');
+                $('#emptyDropZoneMsg').show();
             } else {
-                $('#selectedItemsList').val(selectedItems.join('\n'));
+                $('#selectedItemsContainer').html(dragItemsHTML);
+                $('#emptyDropZoneMsg').hide();
+
+                // Attach drag handlers
+                attachDragHandlers();
+
+                // Attach remove handlers
+                $('.remove-selected-item').click(function(e) {
+                    e.stopPropagation();
+                    const itemId = $(this).data('item-id');
+                    $(`[data-item-id="${itemId}"].construction-item-checkbox`).closest('.construction-item-row').find('.construction-item-checkbox').prop('checked', false).change();
+                });
             }
+        }
+
+        // Drag and drop functionality
+        let draggedElement = null;
+
+        function attachDragHandlers() {
+            const items = document.querySelectorAll('.selected-item-drag');
+            const dropZone = document.getElementById('selectedItemsContainer');
+
+            items.forEach(item => {
+                item.addEventListener('dragstart', function(e) {
+                    draggedElement = this;
+                    this.style.opacity = '0.5';
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                item.addEventListener('dragend', function(e) {
+                    this.style.opacity = '1';
+                    draggedElement = null;
+                });
+
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    if (draggedElement && draggedElement !== this) {
+                        const allItems = Array.from(dropZone.querySelectorAll('.selected-item-drag'));
+                        const draggedIndex = allItems.indexOf(draggedElement);
+                        const targetIndex = allItems.indexOf(this);
+
+                        if (draggedIndex < targetIndex) {
+                            this.parentNode.insertBefore(draggedElement, this.nextSibling);
+                        } else {
+                            this.parentNode.insertBefore(draggedElement, this);
+                        }
+                    }
+                });
+            });
+
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+            });
         }
 
         // Show/Hide Size field and Construction Details based on category selection
@@ -8270,7 +8358,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 $('#quotationSize').val('');
                 $('#quotationMarkup').prop('required', false);
                 $('#quotationMarkup').val('30');
-                $('#selectedItemsList').val('');
+                $('#selectedItemsContainer').html('');
+                $('#emptyDropZoneMsg').show();
                 $('#constructionItemsSearch').val('');
             }
         });
@@ -8349,8 +8438,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 
-                const constructionItems = $('.construction-item-checkbox:checked');
-                if (constructionItems.length === 0) {
+                const selectedDragItems = document.querySelectorAll('.selected-item-drag');
+                if (selectedDragItems.length === 0) {
                     alert('Please select at least one construction item.');
                     return;
                 }
@@ -8359,19 +8448,33 @@ document.addEventListener('DOMContentLoaded', () => {
             // Populate preview modal
             let selectedItems = [];
             let totalCost = 0;
+            let orderedConstructionItems = [];
 
             if (category === 'construction') {
-                // Create items data for construction from selected checkboxes
-                $('.construction-item-checkbox:checked').each(function() {
-                    const itemRow = $(this).closest('.construction-item-row');
-                    const name = itemRow.data('item-name');
-                    const price = parseFloat(itemRow.data('client-price'));
-                    
-                    selectedItems.push({
-                        name: name,
-                        total: price
-                    });
-                    totalCost += price;
+                // Get items in the ORDER they appear in the drag-drop area
+                document.querySelectorAll('.selected-item-drag').forEach((dragItem) => {
+                    const itemId = dragItem.getAttribute('data-item-id');
+                    // Find the original item data from quotationRatesCache
+                    const itemData = quotationRatesCache.find(item => item.id == itemId);
+                    if (itemData) {
+                        const sqm = parseFloat($('#quotationSize').val());
+                        const markup = parseFloat($('#quotationMarkup').val());
+                        const basePrice = itemData.inhouseRate * sqm;
+                        const clientPrice = basePrice * (1 + (markup / 100));
+
+                        selectedItems.push({
+                            name: itemData.item,
+                            total: clientPrice
+                        });
+
+                        orderedConstructionItems.push({
+                            id: itemData.id,
+                            item: itemData.item,
+                            price: clientPrice
+                        });
+
+                        totalCost += clientPrice;
+                    }
                 });
             } else {
                 // For non-construction categories, add a single item
@@ -8409,7 +8512,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 date: quotationDate,
                 size: category === 'construction' ? $('#quotationSize').val() : null,
                 items: selectedItems,
-                totalCost: totalCost
+                totalCost: totalCost,
+                orderedConstructionItems: orderedConstructionItems || []
             };
 
             // Close generator modal
@@ -8417,10 +8521,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // For construction, show Gantt chart builder; otherwise show preview
             if (category === 'construction') {
-                // Reset gantt chart for new project
-                ganttItems = [];
+                // Initialize Gantt with selected items in order
+                ganttItems = orderedConstructionItems.map(item => ({
+                    id: item.id,
+                    item: item.item,
+                    price: item.price,
+                    startDate: new Date().toISOString().split('T')[0],
+                    endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    days: 7
+                }));
+                
                 setTimeout(() => {
                     openModal('ganttChartBuilderModal');
+                    initializeGanttChart();
                 }, 300);
             } else {
                 setTimeout(() => {
