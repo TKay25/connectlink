@@ -782,33 +782,33 @@
         <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
             <!-- Client Details Section -->
             <div class="card mb-3">
-                <h5 class="mb-3"><i class="bi bi-person-fill"></i> Client Details</h5>
+                <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-person-fill"></i> Client Details</h5>
                 <div class="row" id="confirmClientDetails"></div>
             </div>
 
             <!-- Project Details Section -->
             <div class="card mb-3">
-                <h5 class="mb-3"><i class="bi bi-briefcase-fill"></i> Project Details</h5>
+                <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-briefcase-fill"></i> Project Details</h5>
                 <div class="row" id="confirmProjectDetails"></div>
             </div>
 
             <!-- Project Scope Section -->
             <div class="card mb-3">
-                <h5 class="mb-3"><i class="bi bi-file-text"></i> Project Scope</h5>
-                <div id="confirmProjectScope" style="font-size: 0.85rem; line-height: 1.6;"></div>
+                <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-file-text"></i> Project Scope</h5>
+                <div id="confirmProjectScope" style="font-size: 0.85rem; line-height: 1.6; color: var(--dark-blue-deep);"></div>
             </div>
 
             <!-- Payment Details Section -->
             <div class="card mb-3">
-                <h5 class="mb-3"><i class="bi bi-credit-card"></i> Payment Details</h5>
-                <div class="row" id="confirmPaymentDetails"></div>
+                <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-credit-card"></i> Payment Details</h5>
+                <div class="row" id="confirmPaymentDetails" style="color: var(--dark-blue-deep);"></div>
             </div>
 
             <!-- Installments Table Section -->
             <div class="card mb-3" id="installmentsTableSection" style="display: none;">
-                <h5 class="mb-3"><i class="bi bi-table"></i> Monthly Installments Schedule</h5>
+                <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-table"></i> Monthly Installments Schedule</h5>
                 <div class="table-responsive">
-                    <table class="table table-sm table-striped" id="confirmInstallmentsTable" style="font-size: 0.75rem;">
+                    <table class="table table-sm table-striped" id="confirmInstallmentsTable" style="font-size: 0.75rem; color: var(--dark-blue-deep);">
                         <thead style="background-color: var(--dark-blue-deep); color: white;">
                             <tr>
                                 <th>Installment</th>
@@ -1121,7 +1121,72 @@
                                     </div>
                                 </div>
 
-                                <div id="manualInstallments" class="form-group row align-items-center" style="display:none; margin-top: 1rem;"></div>
+                                <div id="manualInstallments" class="form-group" style="display:none; margin-top: 1rem;">
+                                    <label class="form-label fw-bold mb-2">Installment Schedule (Enter amounts and due dates for each installment)</label>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm" style="font-size: 0.7rem;">
+                                            <thead>
+                                                <tr>
+                                                    <th>Installment</th>
+                                                    <th>Amount (USD)</th>
+                                                    <th>Due Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>1</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment1amount" name="installment1amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment1duedate" name="installment1duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>2</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment2amount" name="installment2amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment2duedate" name="installment2duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>3</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment3amount" name="installment3amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment3duedate" name="installment3duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>4</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment4amount" name="installment4amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment4duedate" name="installment4duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>5</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment5amount" name="installment5amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment5duedate" name="installment5duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>6</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment6amount" name="installment6amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment6duedate" name="installment6duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>7</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment7amount" name="installment7amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment7duedate" name="installment7duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>8</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment8amount" name="installment8amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment8duedate" name="installment8duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>9</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment9amount" name="installment9amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment9duedate" name="installment9duedate"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>10</td>
+                                                    <td><input type="number" class="form-control form-control-sm" id="installment10amount" name="installment10amount" step="0.01"></td>
+                                                    <td><input type="date" class="form-control form-control-sm" id="installment10duedate" name="installment10duedate"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -8750,27 +8815,27 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
 function populateProjectConfirmationModal() {
     // Client Details
     const clientDetails = `
-        <div class="col-md-6 mb-2"><strong>Name:</strong> ${document.getElementById("client_name").value}</div>
-        <div class="col-md-6 mb-2"><strong>ID:</strong> ${document.getElementById("client_national_id").value}</div>
-        <div class="col-md-6 mb-2"><strong>Email:</strong> ${document.getElementById("client_email").value}</div>
-        <div class="col-md-6 mb-2"><strong>WhatsApp:</strong> ${document.getElementById("client_whatsapp_number").value}</div>
-        <div class="col-md-12 mb-2"><strong>Address:</strong> ${document.getElementById("client_address").value}</div>
-        <div class="col-md-6 mb-2"><strong>Next of Kin:</strong> ${document.getElementById("next_of_kin_name").value}</div>
-        <div class="col-md-6 mb-2"><strong>Relationship:</strong> ${document.getElementById("relationship").value}</div>
-        <div class="col-md-12 mb-2"><strong>Next of Kin Address:</strong> ${document.getElementById("next_of_kin_address").value}</div>
-        <div class="col-md-6 mb-2"><strong>Next of Kin Contact:</strong> ${document.getElementById("next_of_kin_contact_number").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Name:</strong> ${document.getElementById("client_name").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>ID:</strong> ${document.getElementById("client_national_id").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Email:</strong> ${document.getElementById("client_email").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>WhatsApp:</strong> ${document.getElementById("client_whatsapp_number").value}</div>
+        <div class="col-md-12 mb-2" style="color: var(--dark-blue-deep);"><strong>Address:</strong> ${document.getElementById("client_address").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Next of Kin:</strong> ${document.getElementById("next_of_kin_name").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Relationship:</strong> ${document.getElementById("relationship").value}</div>
+        <div class="col-md-12 mb-2" style="color: var(--dark-blue-deep);"><strong>Next of Kin Address:</strong> ${document.getElementById("next_of_kin_address").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Next of Kin Contact:</strong> ${document.getElementById("next_of_kin_contact_number").value}</div>
     `;
     document.getElementById("confirmClientDetails").innerHTML = clientDetails;
 
     // Project Details
     const projectDetails = `
-        <div class="col-md-6 mb-2"><strong>Project Name:</strong> ${document.getElementById("project_name").value}</div>
-        <div class="col-md-6 mb-2"><strong>Location:</strong> ${document.getElementById("project_location").value}</div>
-        <div class="col-md-6 mb-2"><strong>Start Date:</strong> ${document.getElementById("project_start_date").value}</div>
-        <div class="col-md-6 mb-2"><strong>Duration (months):</strong> ${document.getElementById("months_to_completion").value}</div>
-        <div class="col-md-6 mb-2"><strong>Administrator:</strong> ${document.getElementById("projectadministrator").value}</div>
-        <div class="col-md-6 mb-2"><strong>Agreement Date:</strong> ${document.getElementById("agreement_date").value}</div>
-        <div class="col-md-6 mb-2"><strong>Total Contract Price:</strong> ₵${parseFloat(document.getElementById("total_contract_price").value).toFixed(2)}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Project Name:</strong> ${document.getElementById("project_name").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Location:</strong> ${document.getElementById("project_location").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Start Date:</strong> ${document.getElementById("project_start_date").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Duration (months):</strong> ${document.getElementById("months_to_completion").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Administrator:</strong> ${document.getElementById("projectadministrator").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Agreement Date:</strong> ${document.getElementById("agreement_date").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Total Contract Price:</strong> ₵${parseFloat(document.getElementById("total_contract_price").value).toFixed(2)}</div>
     `;
     document.getElementById("confirmProjectDetails").innerHTML = projectDetails;
 
@@ -8779,15 +8844,15 @@ function populateProjectConfirmationModal() {
 
     // Payment Details
     const paymentMethod = document.getElementById("paymentMethod").value;
-    let paymentDetails = `<div class="col-md-6 mb-2"><strong>Payment Method:</strong> ${paymentMethod}</div>`;
+    let paymentDetails = `<div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Payment Method:</strong> ${paymentMethod}</div>`;
     
     if (paymentMethod === "Installments") {
         paymentDetails += `
-            <div class="col-md-6 mb-2"><strong>Months to Pay:</strong> ${document.getElementById("monthstopay").value}</div>
-            <div class="col-md-6 mb-2"><strong>Deposit Paid:</strong> ₵${parseFloat(document.getElementById("deposit_required").value).toFixed(2)}</div>
-            <div class="col-md-6 mb-2"><strong>Date Deposit Paid:</strong> ${document.getElementById("deposit_payment_date").value}</div>
-            <div class="col-md-6 mb-2"><strong>First Installment Due:</strong> ${document.getElementById("first_installment_due_date").value}</div>
-            <div class="col-md-6 mb-2"><strong>Late Payment Interest:</strong> ${document.getElementById("late_payment_interest").value}%</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Months to Pay:</strong> ${document.getElementById("monthstopay").value}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Deposit Paid:</strong> ₵${parseFloat(document.getElementById("deposit_required").value).toFixed(2)}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Date Deposit Paid:</strong> ${document.getElementById("deposit_payment_date").value}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>First Installment Due:</strong> ${document.getElementById("first_installment_due_date").value}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Late Payment Interest:</strong> ${document.getElementById("late_payment_interest").value}%</div>
         `;
         
         // Build installments table
@@ -8799,7 +8864,7 @@ function populateProjectConfirmationModal() {
             
             if (amountField && amountField.value) {
                 tableRows += `
-                    <tr>
+                    <tr style="color: var(--dark-blue-deep);">
                         <td>Installment ${i}</td>
                         <td>₵${parseFloat(amountField.value).toFixed(2)}</td>
                         <td>${dueDateField ? dueDateField.value : 'N/A'}</td>
