@@ -1731,14 +1731,12 @@
                             <th>Task/Item</th>
                             <th>Start Date</th>
                             <th>End Date</th>
-                            <th>Cost (Base)</th>
-                            <th>Markup %</th>
                             <th>Net Cost</th>
                         </tr>
                     </thead>
                     <tbody id="workPlanTableBody">
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-3">Select a date range to view work plans</td>
+                            <td colspan="6" class="text-center text-muted py-3">Select a date range to view work plans</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1746,15 +1744,11 @@
                 <!-- Total Summary -->
                 <div class="alert alert-info mt-3" id="workPlanTotalSummary" style="display: none;">
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-6" style="text-align: left;">
                             <small class="text-muted d-block">Total Projects:</small>
                             <span class="fw-bold fs-6" id="totalProjects">0</span>
                         </div>
-                        <div class="col-md-4">
-                            <small class="text-muted d-block">Total Base Cost:</small>
-                            <span class="fw-bold fs-6" id="totalBaseCost">USD 0.00</span>
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6" style="text-align: left;">
                             <small class="text-muted d-block">Total Net Cost:</small>
                             <span class="fw-bold fs-6 text-success" id="totalNetCost">USD 0.00</span>
                         </div>
@@ -1763,11 +1757,11 @@
             </div>
         </div>
         <div class="modal-footer-custom">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('workPlanModal')">Close</button>
-            <button type="button" class="btn btn-warning" id="exportWorkPlanExcelBtn" style="display:none;">
+            <button type="button" class="btn btn-danger" onclick="closeModal('workPlanModal')">Close</button>
+            <button type="button" class="btn btn-primary" id="exportWorkPlanExcelBtn" style="display:none;">
                 <i class="bi bi-file-earmark-excel"></i> Export Excel
             </button>
-            <button type="button" class="btn btn-danger" id="exportWorkPlanPdfBtn" style="display:none;">
+            <button type="button" class="btn btn-primary" id="exportWorkPlanPdfBtn" style="display:none;">
                 <i class="bi bi-file-earmark-pdf"></i> Export PDF
             </button>
         </div>
@@ -4287,8 +4281,6 @@ function displayWorkPlans(workPlans) {
             <td>${plan.itemName || 'N/A'}${prorateNote}</td>
             <td>${plan.startDate || 'N/A'}</td>
             <td>${plan.endDate || 'N/A'}</td>
-            <td>USD ${baseCost.toFixed(2)}</td>
-            <td>${markupPercent.toFixed(1)}%</td>
             <td class=\"fw-bold\">USD ${proratedNetCost.toFixed(2)}</td>
         `;
         tbody.appendChild(row);
@@ -4296,7 +4288,6 @@ function displayWorkPlans(workPlans) {
     
     // Update summary
     document.getElementById('totalProjects').textContent = projectsSet.size;
-    document.getElementById('totalBaseCost').textContent = 'USD ' + totalBaseCost.toFixed(2);
     document.getElementById('totalNetCost').textContent = 'USD ' + totalNetCost.toFixed(2);
     summaryDiv.style.display = 'block';
     
