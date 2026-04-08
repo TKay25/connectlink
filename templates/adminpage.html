@@ -3775,10 +3775,20 @@ function saveOtherDetails(event) {
         if (data.success) {
             alert('Other details saved successfully!');
             closeModal('otherDetailsModal');
-            // Refresh the projects table
+            
+            // Destroy and reinitialize the DataTable to ensure fresh column alignment
             if (window.dataTable) {
-                window.dataTable.draw();
+                try {
+                    window.dataTable.destroy();
+                } catch (e) {
+                    console.log('DataTable destroy warning:', e);
+                }
             }
+            
+            // Reload the page to get fresh table data with correct column alignment
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
         } else {
             alert('Error saving details: ' + (data.message || 'Unknown error'));
         }
