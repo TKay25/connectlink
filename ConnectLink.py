@@ -11741,24 +11741,9 @@ def run1(userid):
 
 
         ######### maindata
+        # quotation_id column is already added during initialize_database_tables()
+        # No need to check/add it again here
         
-        # First, ensure quotation_id column exists in database
-        try:
-            with get_db() as (cursor, connection):
-                cursor.execute("""
-                    SELECT column_name 
-                    FROM information_schema.columns
-                    WHERE table_name = 'connectlinkdatabase' AND column_name = 'quotation_id'
-                """)
-                if not cursor.fetchone():
-                    print("⚠ quotation_id column not found, adding it...")
-                    cursor.execute("ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS quotation_id INT;")
-                    connection.commit()
-                    print("✓ quotation_id column added")
-        except Exception as e:
-            print(f"Warning: Could not check/add quotation_id: {e}")
-        
-        # Now fetch the data
         maindataquery = f"SELECT * FROM connectlinkdatabase;"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
