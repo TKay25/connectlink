@@ -560,7 +560,7 @@
         <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
 
         <br><br>
-        <p style="font-weight: 700;color: white;font-size: 1.2rem;">The Project is being saved {{user_name}}, Please Wait...</p>
+        <p style="font-weight: 700;color: white;font-size: 1.2rem;">We are saving the new project, please wait...</p>
 
         <div class="loader-bar">
             <div class="loader-progress"></div>
@@ -4180,7 +4180,7 @@ function applyWorkPlanFilter() {
 }
 
 function filterWorkPlans(filterType) {
-    const today = new Date(2026, 3, 7); // April 7, 2026
+    const today = new Date(); // Use actual current date, not hardcoded
     let startDate, endDate;
     
     switch(filterType) {
