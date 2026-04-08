@@ -9129,7 +9129,7 @@ def Dashboard():
 
                 print(e)
 
-                return redirect(url_for('userlogin'))
+                return redirect(url_for('projectslogin'))
 
         else:
                 return redirect(url_for('userlogin'))
@@ -10193,13 +10193,7 @@ def download_contract(project_id):
                     <!-- Page 5 -->
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
-                    
-                    <div class="section-header">ELECTRICITY, WATER AND SEWERAGE CONNECTIONS</div>
-                    <div class="terms-box">
-                        <ol>
-                            <li>Connections for ZESA, City council water and sewerage will be done by the Client.</li>
-                        </ol>
-                    </div>
+
 
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
@@ -13656,23 +13650,6 @@ def download_installments():
             from io import BytesIO
             from datetime import datetime
             from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-            
-            # Deduplicate data to remove exact duplicates
-            def deduplicate_list(data_list):
-                """Remove duplicate installment records"""
-                seen = set()
-                deduplicated = []
-                for item in data_list:
-                    # Create unique key from id, installment_info, and amount
-                    key = (item['id'], item.get('installment_info', ''), str(item.get('amount_paid', item.get('amount_due', ''))))
-                    if key not in seen:
-                        seen.add(key)
-                        deduplicated.append(item)
-                return deduplicated
-            
-            paid_data = deduplicate_list(paid_data)
-            due_data = deduplicate_list(due_data)
-            overdue_data = deduplicate_list(overdue_data)
             
             # Create DataFrames
             paid_df = pd.DataFrame(paid_data)
