@@ -11779,7 +11779,26 @@ def run1(userid):
 
         datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
 
-        datamain = datamain[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date', 'projectcompletionstatus', 'latepaymentinterest', 'id', 'quotation_id', 'Action']]
+        # Reorder columns to ensure correct positions for DataTables
+        # Calculate total columns needed
+        all_columns = [
+            'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 
+            'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 
+            'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 
+            'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 
+            'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 
+            'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 
+            'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 
+            'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 
+            'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 
+            'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 
+            'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date', 
+            'projectcompletionstatus', 'latepaymentinterest', 'id', 'quotation_id', 'Action'
+        ]
+        
+        # Only select columns that exist in the dataframe
+        cols_to_keep = [col for col in all_columns if col in datamain.columns]
+        datamain = datamain[cols_to_keep]
                         
         datamain = datamain.sort_values('id', ascending=False)
         
@@ -11791,6 +11810,17 @@ def run1(userid):
             lambda x: f'<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == '' 
             else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
         )
+        
+        # Ensure final column order with QREF and Action in correct positions
+        final_cols = list(datamain.columns)
+        if 'QREF' in final_cols and 'Action' in final_cols:
+            # Remove QREF and Action temporarily
+            final_cols.remove('QREF')
+            final_cols.remove('Action')
+            # Rebuild: all columns except QREF and Action, then QREF, then Action
+            final_cols.append('QREF')
+            final_cols.append('Action')
+            datamain = datamain[final_cols]
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
 
