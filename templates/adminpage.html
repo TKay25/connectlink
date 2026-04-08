@@ -1770,14 +1770,24 @@
                 
                 <!-- Total Summary -->
                 <div class="alert alert-info mt-3" id="workPlanTotalSummary" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-6" style="text-align: left;">
+                    <div class="row mb-2">
+                        <div class="col-md-12" style="text-align: left;">
                             <small class="text-muted d-block">Total Projects:</small>
                             <span class="fw-bold fs-6" id="totalProjects">0</span>
                         </div>
-                        <div class="col-md-6" style="text-align: left;">
-                            <small class="text-muted d-block">Total Net Cost:</small>
-                            <span class="fw-bold fs-6 text-success" id="totalNetCost">USD 0.00</span>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4" style="text-align: left;">
+                            <small class="text-muted d-block">Total Full Period Cost:</small>
+                            <span class="fw-bold fs-6 text-primary" id="totalFullPeriodCost">USD 0.00</span>
+                        </div>
+                        <div class="col-md-4" style="text-align: left;">
+                            <small class="text-muted d-block">Total Past Cost (incl. today):</small>
+                            <span class="fw-bold fs-6 text-warning" id="totalPastCost">USD 0.00</span>
+                        </div>
+                        <div class="col-md-4" style="text-align: left;">
+                            <small class="text-muted d-block">Total Future Cost:</small>
+                            <span class="fw-bold fs-6 text-info" id="totalFutureCost">USD 0.00</span>
                         </div>
                     </div>
                 </div>
@@ -2627,8 +2637,8 @@
 
     <main class="main-content" id="main-content">
         <header>
-            <div class="employeetag">{{user_name}}, CONNECTLINK PROPERTIES <span>ID: {{userid}}</span></div>
-            <div><span class="current-date" id="currdate" style="color: var(--dark-blue-deep);">DATE: {{ today_date }}</span></div>
+            <div class="employeetag" style="text-transform: uppercase;">{{user_name}}, CONNECTLINK PROPERTIES <span>ID: {{userid}}</span></div>
+            <div><span class="current-date" id="currdate" style="color: var(--dark-blue-deep); font-size: 0.7rem; font-weight: bolder;">DATE: {{ today_date }}</span></div>
             <span id="name-down" value="{{firstname}}" style="display: none;"></span>
             <span id="name-down2" value="{{surname}}" style="display: none;"></span>
 
@@ -3157,7 +3167,7 @@
 <!-- AI Modal - Blur Overlay Version -->
 <div id="aiModal" class="modal-overlay">
     <div class="modal-container ai-modal">
-        <div class="modal-header-custom" style="background: linear-gradient(135deg, #0A2B3E, #1E4A6E);">
+        <div class="modal-header-custom">
             <h3><i class="fas fa-robot"></i> Google AI Data Analyst</h3>
             <button class="close-modal" onclick="closeModal('aiModal')">
                 <i class="bi bi-x-lg"></i>
@@ -4292,8 +4302,9 @@ function displayWorkPlans(workPlans) {
         return;
     }
     
-    let totalBaseCost = 0;
-    let totalNetCost = 0;
+    let totalFullPeriodCost = 0;
+    let totalPastCost = 0;
+    let totalFutureCost = 0;
     let projectsSet = new Set();
     
     tbody.innerHTML = '';
@@ -4311,11 +4322,13 @@ function displayWorkPlans(workPlans) {
         
         // Calculate full period cost (no proration)
         const fullPeriodNetCost = baseCost * (1 - markupPercent / 100);
+        totalFullPeriodCost += fullPeriodNetCost;
         
         // Calculate past days (from schedule start to today inclusive)
         const pastDays = Math.floor((today - scheduleStart) / (1000 * 60 * 60 * 24)) + 1;
         const pastDaysInSchedule = Math.max(0, Math.min(pastDays, totalDays));
         const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule * (1 - markupPercent / 100);
+        totalPastCost += pastNetCost;
         
         // Calculate future days (from tomorrow to schedule end inclusive, limited to schedule period)
         const tomorrow = new Date(today);
@@ -4334,9 +4347,7 @@ function displayWorkPlans(workPlans) {
             futureDaysInSchedule = Math.max(0, Math.min(futureDays, totalDays - pastDaysInSchedule));
         }
         const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
-        
-        totalBaseCost += (baseCost / totalDays) * (pastDaysInSchedule + futureDaysInSchedule);
-        totalNetCost += pastNetCost + futureNetCost;
+        totalFutureCost += futureNetCost;
         
         // Show proration indicator if not all days are included
         const hasProration = (pastDaysInSchedule + futureDaysInSchedule) < totalDays;
@@ -4389,7 +4400,9 @@ function displayWorkPlans(workPlans) {
     
     // Update summary
     document.getElementById('totalProjects').textContent = projectsSet.size;
-    document.getElementById('totalNetCost').textContent = 'USD ' + totalNetCost.toFixed(2);
+    document.getElementById('totalFullPeriodCost').textContent = 'USD ' + totalFullPeriodCost.toFixed(2);
+    document.getElementById('totalPastCost').textContent = 'USD ' + totalPastCost.toFixed(2);
+    document.getElementById('totalFutureCost').textContent = 'USD ' + totalFutureCost.toFixed(2);
     summaryDiv.style.display = 'block';
     
     // Show export buttons
@@ -4397,8 +4410,8 @@ function displayWorkPlans(workPlans) {
     document.getElementById('exportWorkPlanPdfBtn').style.display = 'inline-block';
     
     // Attach export handlers
-    document.getElementById('exportWorkPlanExcelBtn').onclick = () => exportWorkPlansToExcel(workPlans, totalBaseCost, totalNetCost);
-    document.getElementById('exportWorkPlanPdfBtn').onclick = () => exportWorkPlansToPDF(workPlans, totalBaseCost, totalNetCost);
+    document.getElementById('exportWorkPlanExcelBtn').onclick = () => exportWorkPlansToExcel(workPlans, totalFullPeriodCost, totalFullPeriodCost);
+    document.getElementById('exportWorkPlanPdfBtn').onclick = () => exportWorkPlansToPDF(workPlans, totalFullPeriodCost, totalFullPeriodCost);
 }
 
 function filterWorkPlansByTask() {
@@ -4417,7 +4430,9 @@ function filterWorkPlansByTask() {
     }
     
     // Recalculate and redisplay
-    let totalNetCost = 0;
+    let totalFullPeriodCost = 0;
+    let totalPastCost = 0;
+    let totalFutureCost = 0;
     let projectsSet = new Set();
     
     tbody.innerHTML = '';
@@ -4440,11 +4455,13 @@ function filterWorkPlansByTask() {
         
         // Calculate full period cost (no proration)
         const fullPeriodNetCost = baseCost * (1 - markupPercent / 100);
+        totalFullPeriodCost += fullPeriodNetCost;
         
         // Calculate past days (from schedule start to today inclusive)
         const pastDays = Math.floor((today - scheduleStart) / (1000 * 60 * 60 * 24)) + 1;
         const pastDaysInSchedule = Math.max(0, Math.min(pastDays, totalDays));
         const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule * (1 - markupPercent / 100);
+        totalPastCost += pastNetCost;
         
         // Calculate future days (from tomorrow to schedule end inclusive, limited to schedule period)
         const tomorrow = new Date(today);
@@ -4463,8 +4480,7 @@ function filterWorkPlansByTask() {
             futureDaysInSchedule = Math.max(0, Math.min(futureDays, totalDays - pastDaysInSchedule));
         }
         const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
-        
-        totalNetCost += pastNetCost + futureNetCost;
+        totalFutureCost += futureNetCost;
         
         const hasProration = (pastDaysInSchedule + futureDaysInSchedule) < totalDays;
         const prorateNote = hasProration ? ` (${pastDaysInSchedule + futureDaysInSchedule}/${totalDays} days)` : '';
@@ -4484,7 +4500,9 @@ function filterWorkPlansByTask() {
     });
     
     document.getElementById('totalProjects').textContent = projectsSet.size;
-    document.getElementById('totalNetCost').textContent = 'USD ' + totalNetCost.toFixed(2);
+    document.getElementById('totalFullPeriodCost').textContent = 'USD ' + totalFullPeriodCost.toFixed(2);
+    document.getElementById('totalPastCost').textContent = 'USD ' + totalPastCost.toFixed(2);
+    document.getElementById('totalFutureCost').textContent = 'USD ' + totalFutureCost.toFixed(2);
     summaryDiv.style.display = 'block';
 }
 
@@ -11130,7 +11148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update the display
         const currDateElement = document.getElementById('currdate');
         if (currDateElement) {
-            currDateElement.textContent = `DATE: ${formattedDate} | TIME: ${hours}:${minutes}:${seconds} (ZWD)`;
+            currDateElement.textContent = `DATE: ${formattedDate} | TIME: ${hours}:${minutes}:${seconds}`;
         }
     }
     
