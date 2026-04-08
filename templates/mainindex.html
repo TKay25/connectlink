@@ -610,7 +610,7 @@
         </div>
         <div class="modal-body">
             <div class="error-message" id="errorMessage"><i class="fas fa-exclamation-circle"></i> Invalid credentials</div>
-            <form id="loginFormModal" action="/login" method="POST">
+            <form id="loginFormModal">
                 <div class="form-group">
                     <label>Email Address</label>
                     <div class="input-group-modal">
@@ -697,11 +697,9 @@
             if (currentPortal === 'projects') {
                 modalTitle.textContent = 'Building Projects';
                 modalSubtitle.textContent = 'Sign in to access project management dashboard';
-                form.action = '/login';
             } else {
                 modalTitle.textContent = 'Hardware POS';
                 modalSubtitle.textContent = 'Sign in to access retail management system';
-                form.action = '/pos-system.html';
             }
             errorMsg.style.display = 'none';
             emailInput.value = '';
@@ -742,7 +740,7 @@
         setTimeout(() => errorMsg.style.display = 'none', 5000);
     }
     
-    // Form submission - SAME APPROACH AS YOUR ADMIN LOGIN PAGE
+    // Form submission - Use API-based login
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -760,21 +758,64 @@
             return;
         }
         
-        // Save email if remember me is checked
-        if (rememberCheckbox && rememberCheckbox.classList.contains('checked')) {
-            localStorage.setItem('savedEmail', email);
-        }
+        // Disable button and show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing in...';
         
         // Show loading overlay
         loadingOverlay.style.display = 'flex';
         
-        // Add subtle animation to button
-        submitBtn.style.transform = 'scale(0.98)';
+        // Determine API endpoint based on portal
+        const apiEndpoint = currentPortal === 'hardware' ? '/api/login' : '/login';
+        const loginData = currentPortal === 'hardware' 
+            ? { username: email, password: password }
+            : { emaillogin: email, passwordlogin: password };
         
-        // Submit the form normally - this will redirect to dashboard on success
-        setTimeout(() => {
-            form.submit();
-        }, 500);
+        // Send API request
+        fetch(apiEndpoint, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify(loginData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingOverlay.style.display = 'none';
+            
+            if (data.success) {
+                showMessage('Login successful! Redirecting...', false);
+                
+                // Store user data if provided
+                if (data.user) {
+                    localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                }
+                
+                // Redirect after short delay
+                setTimeout(() => {
+                    if (currentPortal === 'hardware') {
+                        window.location.href = '/pos-system.html';
+                    } else {
+                        window.location.href = '/admin';
+                    }
+                }, 500);
+            } else {
+                showMessage(data.message || 'Invalid credentials');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i> Sign In';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+        })
+        .catch(error => {
+            console.error('Login error:', error);
+            loadingOverlay.style.display = 'none';
+            showMessage('Connection error. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i> Sign In';
+        });
     });
     
     // Forgot password handler
