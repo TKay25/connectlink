@@ -7728,29 +7728,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize month filter variable
     window.currentMonthFilter = document.getElementById('monthFilter')?.value || 'all';
+    window.monthFilterActive = false;
     
     console.log('Initial month filter value:', window.currentMonthFilter);
+    console.log('Month filter dropdown options:', Array.from(document.getElementById('monthFilter')?.options || []).map(o => ({value: o.value, text: o.text})));
 
     // Add custom DataTable filter function for month filter
     $.fn.dataTable.ext.search.push(function(settings, data, index) {
-        // Skip filtering if 'all' is selected or filter is empty
-        if (!window.currentMonthFilter || window.currentMonthFilter === '' || window.currentMonthFilter === 'all') {
+        // Skip filtering if not active
+        if (!window.monthFilterActive || !window.currentMonthFilter || window.currentMonthFilter === '' || window.currentMonthFilter === 'all') {
             return true; // Show all rows
         }
         
         // Column 23 is datedepositorbullet (deposit date)
-        // Try multiple possible column indices in case of data structure variation
         let depositDate = data[23];
         
-        // If column 23 is empty, data might only contain visible columns
-        if (!depositDate && data.length < 24) {
-            // Table might only have visible columns; try to find date another way
-            // For now, show the row to prevent filtering all records
-            return true;
+        // Debug: log first few rows to understand data structure
+        if (index < 3) {
+            console.log('Row', index, '- Column 23 data:', depositDate, '- Full row data length:', data.length);
         }
         
-        if (!depositDate) {
-            return true; // Show rows with no deposit date
+        // If no deposit date, show the row (don't filter it out)
+        if (!depositDate || depositDate.trim() === '') {
+            return true;
         }
         
         // Extract year-month from date
@@ -7776,11 +7776,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Return true if matches, false otherwise
-        const matches = yearMonth === window.currentMonthFilter;
-        if (!matches && yearMonth) {
-            console.log('No match - data month:', yearMonth, 'filter:', window.currentMonthFilter);
-        }
-        return matches;
+        return yearMonth === window.currentMonthFilter;
     });
 
     if ($('#allprojectsTable').length) {
@@ -7806,6 +7802,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Set QREF column styling
             window.dataTable.column(59).nodes().to$().addClass('text-center');
+            
+            // After table is fully loaded, reset to show all records
+            window.dataTable.search('').draw();
+            window.monthFilterActive = false;
+            window.currentMonthFilter = 'all';
+            
+            console.log('DataTable initialized - all records should be visible');
         } catch (error) {
             console.warn('DataTable initialization failed for allprojectsTable:', error);
         }
@@ -7834,12 +7837,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     
-    // Auto-filter to latest month on page load
+    // Auto-filter to latest month on page load (if month options exist)
     const monthFilterElement = document.getElementById('monthFilter');
     if (monthFilterElement && window.dataTable) {
         const selectedMonth = monthFilterElement.value;
-        if (selectedMonth) {
-            console.log('Auto-filtering to month:', selectedMonth);
+        console.log('Page load - selected month:', selectedMonth);
+        
+        // Only auto-filter if a real month is selected (not 'all' or empty)
+        if (selectedMonth && selectedMonth !== 'all' && selectedMonth !== '') {
+            console.log('Auto-filtering to month on page load:', selectedMonth);
+            window.monthFilterActive = true;  // IMPORTANT: set flag before filtering
             window.currentMonthFilter = selectedMonth;
             window.dataTable.draw();
         }
@@ -7850,6 +7857,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedMonth = this.value;
         console.log('Month filter changed to:', selectedMonth);
         
+        // Set flag to activate filter only if 'all' is NOT selected
+        window.monthFilterActive = (selectedMonth !== 'all' && selectedMonth !== '');
+        
         if (window.dataTable) {
             // Clear search when changing month
             window.dataTable.search('').draw();
@@ -7858,6 +7868,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.currentMonthFilter = selectedMonth;
             window.dataTable.draw();
         }
+    });
     });
 
     // Add search functionality - search entire table including all columns
