@@ -17013,6 +17013,7 @@ def get_work_plans():
         with get_db() as (cursor, connection):
             # Query to get work plans with project, client, and cost information
             # Calculate overlapping days for proration
+            # Join quotation_items to quotation_schedules using their order fields
             cursor.execute("""
                 SELECT 
                     p.projectname,
@@ -17028,7 +17029,8 @@ def get_work_plans():
                 FROM connectlinkdatabase p
                 INNER JOIN quotations q ON p.quotation_id = q.id
                 INNER JOIN quotation_items qi ON q.id = qi.quotation_id
-                INNER JOIN quotation_schedules qs ON q.id = qs.quotation_id
+                INNER JOIN quotation_schedules qs ON q.id = qs.quotation_id 
+                    AND qi.item_order = qs.task_order
                 WHERE p.quotation_id IS NOT NULL
                 AND qs.start_date <= %s::date 
                 AND qs.end_date >= %s::date

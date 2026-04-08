@@ -7357,9 +7357,60 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Auto-filter to latest month on page load
     const monthFilterElement = document.getElementById('monthFilter');
-    if (monthFilterElement && monthFilterElement.options.length > 0) {
-        // Trigger change event to filter to the first (latest) month
-        monthFilterElement.dispatchEvent(new Event('change'));
+    if (monthFilterElement) {
+        const selectedMonth = monthFilterElement.value;
+        if (selectedMonth) {
+            console.log('Auto-filtering to month:', selectedMonth);
+            
+            // Show loading
+            const tableContainer = document.querySelector('.mainalldata');
+            tableContainer.innerHTML = `
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading filtered projects...</p>
+                </div>
+            `;
+            
+            // Fetch filtered data
+            fetch(`/get_filtered_projects/${selectedMonth}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        tableContainer.innerHTML = data.html;
+                        
+                        // Destroy old DataTable if exists
+                        if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
+                            window.dataTable.destroy();
+                        }
+                        
+                        // Reinitialize with same column settings
+                        if ($('#allprojectsTable').length) {
+                            try {
+                                window.dataTable = $('#allprojectsTable').DataTable({
+                                    order: [[0, 'desc']],
+                                    paging: false,
+                                    searching: true,
+                                    ordering: true,
+                                    info: true,
+                                    pageLength: 7,
+                                    lengthChange: false,
+                                    columnDefs: [
+                                        { targets: [2,3,4,5,6,7,8,9,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46, 47,48,49,50,51,52,53,54,55,56,57,58], visible: false },
+                                        { targets: [0,1,10,13,14,59], visible: true }
+                                    ]
+                                });
+                            } catch (error) {
+                                console.warn('DataTable reinitialization failed after initial filter:', error);
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during initial filter:', error);
+                });
+        }
     }
     
     // Auto-filter when month selection changes
