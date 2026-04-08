@@ -2164,7 +2164,7 @@
             </div>
         </div>
         <div class="modal-footer-custom">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('sentRemindersModal')">Close</button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('sentRemindersModal')">Close</button>
             <button type="button" class="btn btn-primary" onclick="loadSentReminders()">
                 <i class="bi bi-arrow-clockwise me-1"></i> Refresh
             </button>
@@ -2496,13 +2496,13 @@
                                 Bulk Actions
                             </h6>
                             <div class="d-grid gap-2">
-                                <button class="btn btn-sm btn-outline-success" onclick="copySelectedNumbers()">
+                                <button class="btn btn-sm btn-primary" onclick="copySelectedNumbers()">
                                     <i class="bi bi-copy me-1"></i> Copy Numbers
                                 </button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSelectedEnquiries()">
+                                <button class="btn btn-sm btn-danger" onclick="deleteSelectedEnquiries()">
                                     <i class="bi bi-trash me-1"></i> Delete Selected
                                 </button>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                                <button class="btn btn-sm btn-primary" onclick="clearSelection()">
                                     <i class="bi bi-x me-1"></i> Clear Selection
                                 </button>
                             </div>
@@ -2563,7 +2563,7 @@
                                 <div class="input-group input-group-sm" style="width: 250px;">
                                     <input type="text" class="form-control" id="globalSearch" 
                                            placeholder="Search all columns..." onkeyup="applyGlobalSearch()">
-                                    <button class="btn btn-outline-secondary" type="button">
+                                    <button class="btn btn-primary" type="button">
                                         <i class="bi bi-search"></i>
                                     </button>
                                 </div>
@@ -2623,7 +2623,7 @@
                     Showing: <span class="fw-bold" id="showingRecords">0</span> records
                 </div>
                 <div>
-                    <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="closeModal('viewEnquiriesModal')">
+                    <button type="button" class="btn btn-sm btn-danger me-2" onclick="closeModal('viewEnquiriesModal')">
                         <i class="bi bi-x-lg me-1"></i> Close
                     </button>
                     <button type="button" class="btn btn-sm btn-primary" onclick="loadEnquiriesData()">
@@ -3157,7 +3157,7 @@
                 <input type="hidden" name="user_id" id="modalUserId">
             </div>
             <div class="modal-footer-custom">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('removeUserModal')">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="closeModal('removeUserModal')">Cancel</button>
                 <button type="submit" class="btn btn-danger">Remove User</button>
             </div>
         </form>
@@ -3209,7 +3209,7 @@
             </div>
         </div>
         <div class="modal-footer-custom">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('aiModal')">Close</button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('aiModal')">Close</button>
         </div>
     </div>
 </div>
@@ -7182,7 +7182,7 @@ function viewEnquiryDetails(id) {
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-danger btn-sm" data-bs-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary btn-sm" onclick="copyEnquiryDetails(${enquiry.id})">
                             <i class="bi bi-copy me-1"></i> Copy Details
                         </button>
@@ -10480,7 +10480,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Simple modal for selection
             const dialog = document.createElement('div');
             dialog.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border: 2px solid #333; border-radius: 8px; padding: 20px; z-index: 2000; max-width: 400px; width: 90%;';
-            dialog.innerHTML = `<h5>Select Construction Item</h5>${html}<button class="btn btn-secondary btn-sm" style="margin-top: 15px; width: 100%;" onclick="this.parentElement.remove()">Close</button>`;
+            dialog.innerHTML = `<h5>Select Construction Item</h5>${html}<button class="btn btn-danger btn-sm" style="margin-top: 15px; width: 100%;" onclick="this.parentElement.remove()">Close</button>`;
             document.body.appendChild(dialog);
         }
 
