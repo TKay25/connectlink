@@ -3750,7 +3750,17 @@ function initializeProjectQuotationsDropdown() {
                             console.error('Error parsing selected quotation:', e);
                         }
                     } else {
+                        // Quotation deselected - reset duration field to editable state
                         document.getElementById('selected_quotation_preview').style.display = 'none';
+                        const durationField = document.getElementById('months_to_completion');
+                        durationField.value = '';
+                        durationField.readOnly = false;
+                        durationField.style.backgroundColor = '';
+                        durationField.title = '';
+                        
+                        // Clear stored quotation data
+                        document.getElementById('project_quotation_id').value = '';
+                        window.selectedQuotation = null;
                     }
                 });
             } else {
@@ -3778,6 +3788,32 @@ function selectProjectQuotation(quotation) {
     
     previewText.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M)`;
     previewDiv.style.display = 'block';
+    
+    // Fetch work schedule and auto-populate project duration
+    fetch(`/api/get-quotation-schedule/${quotation.id}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.totalDays) {
+                const durationField = document.getElementById('months_to_completion');
+                durationField.value = data.totalDays;
+                durationField.readOnly = true;
+                durationField.style.backgroundColor = '#f5f5f5';
+                durationField.title = `Auto-populated from quotation schedule: ${data.totalDays} days`;
+                
+                // Also store the schedules for later use
+                quotation.schedules = data.schedules;
+                
+                console.log('Project duration auto-populated:', data.totalDays, 'days');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching quotation schedule:', error);
+        });
     
     // Recalculate adjusted dates if project start date is set
     adjustScheduleDates(quotation);

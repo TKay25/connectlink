@@ -16905,6 +16905,47 @@ def get_project_schedule(project_id):
             'error': str(e)
         }), 500
 
+@app.route('/api/get-quotation-schedule/<int:quotation_id>', methods=['GET'])
+def get_quotation_schedule(quotation_id):
+    """Retrieve work schedule for a quotation (used for auto-populating project duration)"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get the schedules from the quotation
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order ASC
+            """, (quotation_id,))
+            
+            schedules = cursor.fetchall()
+            
+            schedule_list = [
+                {
+                    'workScope': schedule[0],
+                    'startDate': schedule[1].isoformat() if schedule[1] else None,
+                    'endDate': schedule[2].isoformat() if schedule[2] else None,
+                    'days': int(schedule[3]) if schedule[3] else 0
+                }
+                for schedule in schedules
+            ]
+            
+            # Calculate total days
+            total_days = sum(int(schedule[3]) if schedule[3] else 0 for schedule in schedules)
+            
+            return jsonify({
+                'success': True,
+                'schedules': schedule_list,
+                'totalDays': total_days,
+                'quotationId': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotation schedule: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/update-project-schedule/<int:project_id>', methods=['POST'])
 def update_project_schedule(project_id):
     """Update work schedule dates for a project"""
