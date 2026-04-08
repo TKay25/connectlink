@@ -7569,10 +7569,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // HARD-CODED VERSION - Use the exact column indices from your table
-    // Based on your columnMapping, you want to show:
-    // id(0), momid(46), clientname(1), projectname(10), projectadministratorname(13), projectstartdate(14), action(47)
-    // Hide everything else: indices 2-9, 11-12, 15-45
+    // Column Configuration: Display only essential project information
+    // Column Mapping (61 total columns):
+    // [0]=momid, [1]=clientname, [10]=projectname, [13]=projectadministratorname, [14]=projectstartdate, [58]=id, [59]=QREF (Quotation Ref), [60]=Action
+    // All other columns (2-9, 11-12, 15-57) are hidden for cleaner display
 
     if ($('#allprojectsTable').length) {
         try {
@@ -7585,11 +7585,16 @@ document.addEventListener('DOMContentLoaded', function() {
         pageLength: 7,
         lengthChange: false,
         columnDefs: [
-            // Hide columns 2-57 (everything except the ones we want to show)
+            // Hide all non-essential columns (2-57): client details, addresses, installment details, etc.
             { targets: [2,3,4,5,6,7,8,9,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
-            // Show columns 0,1,10,13,14,58,59,60 (momid, clientname, projectname, projectadministratorname, projectstartdate, id, QREF, Action)
-            { targets: [0,1,10,13,14,58,59,60], visible: true }
-        ]
+            // Show essential columns: momid(0), clientname(1), projectname(10), projectadministratorname(13), projectstartdate(14), id(58), QREF(59), Action(60)
+            { targets: [0,1,10,13,14,58,59,60], visible: true },
+            // Apply special styling to QREF column to make badges stand out
+            { targets: [59], className: 'text-center' }
+        ],
+        language: {
+            emptyTable: 'No projects found'
+        }
     });
     } catch (error) {
         console.warn('DataTable initialization failed for allprojectsTable:', error);

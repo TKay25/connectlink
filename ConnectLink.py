@@ -11781,8 +11781,14 @@ def run1(userid):
                         
         datamain = datamain.sort_values('id', ascending=False)
         
-        # Rename quotation_id to QREF
+        # Rename quotation_id to QREF and format for display
         datamain = datamain.rename(columns={'quotation_id': 'QREF'})
+        
+        # Format QREF column: replace NULL/None with badge, otherwise create link/badge
+        datamain['QREF'] = datamain['QREF'].apply(
+            lambda x: f'<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == '' 
+            else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
+        )
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
 
