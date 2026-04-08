@@ -11800,8 +11800,7 @@ def run1(userid):
         # Step 6: Sort by ID
         datamain = datamain.sort_values('id', ascending=False)
         
-        # Step 7: Select ONLY the columns we need IN THE EXACT FINAL ORDER
-        # This is the definitive list - 61 columns total for DataTables to work
+        # Step 7: Define the EXACT 61 columns needed
         final_columns_to_select = [
             'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',  
             'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',  
@@ -11817,26 +11816,38 @@ def run1(userid):
             'projectcompletionstatus', 'latepaymentinterest', 'id', 'QREF', 'Action'
         ]
         
-        # Select only columns that exist
-        datamain = datamain[[col for col in final_columns_to_select if col in datamain.columns]]
+        # CRITICAL: Ensure ALL 61 columns exist, padding missing ones with empty values
+        for col in final_columns_to_select:
+            if col not in datamain.columns:
+                print(f"⚠ Missing column: {col} - adding empty column")
+                datamain[col] = ''
         
-        # DEBUG: Final verification
+        # NOW select and reorder - this will always have 61 columns
+        datamain = datamain[final_columns_to_select]
+        
+        # Verify we have exactly 61 columns
         final_cols_list = list(datamain.columns)
         print(f"\n{'='*100}")
         print(f"FINAL TABLE COLUMN STRUCTURE FOR HTML OUTPUT")
         print(f"{'='*100}")
-        print(f"Total columns: {len(final_cols_list)}")
-        print(f"Column mapping:")
+        print(f"Total columns: {len(final_cols_list)} (MUST BE 61!)")
+        
+        if len(final_cols_list) != 61:
+            print(f"✗ ERROR: Expected 61 columns but got {len(final_cols_list)}!")
+        else:
+            print(f"✓ Correct column count: 61")
+        
+        print(f"\nColumn mapping:")
         for i, col in enumerate(final_cols_list):
             marker = ""
-            if i == 0: marker = " ← Column 0: momid"
-            elif i == 1: marker = " ← Column 1: clientname"
-            elif i == 10: marker = " ← Column 10: projectname"
-            elif i == 13: marker = " ← Column 13: projectadministratorname"
-            elif i == 24: marker = " ← Column 24: datedepositorbullet"
-            elif i == 58: marker = " ← Column 58: id"
-            elif i == 59: marker = " ← Column 59: QREF (SHOULD BE HERE!)"
-            elif i == 60: marker = " ← Column 60: Action (SHOULD BE HERE!)"
+            if i == 0: marker = " ← Column 0"
+            elif i == 1: marker = " ← Column 1"
+            elif i == 10: marker = " ← Column 10"
+            elif i == 13: marker = " ← Column 13"
+            elif i == 24: marker = " ← Column 24"
+            elif i == 58: marker = " ← Column 58"
+            elif i == 59: marker = " ← Column 59: QREF"
+            elif i == 60: marker = " ← Column 60: Action"
             print(f"  [{i:2d}] {col}{marker}")
         print(f"{'='*100}\n")
 
