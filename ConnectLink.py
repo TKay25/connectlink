@@ -14189,60 +14189,86 @@ def clean_date_update(value):
 
 @app.route('/update_other_details', methods=['POST'])
 def update_other_details():
+    try:
+        with get_db() as (cursor, connection):
 
-    with get_db() as (cursor, connection):
+            project_id = request.form.get('project_id')
+            clientnationalid = request.form.get('client_national_id')
+            clientemail = request.form.get('client_email')
+            clientwhatsapp = request.form.get('client_whatsapp')
+            clientaddress = request.form.get('client_address')
+            clientnextofkin = request.form.get('client_next_of_kin')
+            clientnextofkinrelationship = request.form.get('client_next_of_kin_relation')
+            clientnextofkinphone = request.form.get('client_next_of_kin_phone')
+            clientnextofkinaddress = request.form.get('client_next_of_kin_address')
+            projectcompletionstatus = request.form.get('completion_status')
+            quotation_id = request.form.get('quotation_id')
 
-        project_id = request.form.get('project_id')
-        clientnationalid = request.form.get('client_national_id')
-        clientemail = request.form.get('client_email')
-        clientwhatsapp = request.form.get('client_whatsapp')
-        clientaddress = request.form.get('client_address')
-        clientnextofkin = request.form.get('client_next_of_kin')
-        clientnextofkinrelationship = request.form.get('client_next_of_kin_relation')
-        clientnextofkinphone = request.form.get('client_next_of_kin_phone')
-        clientnextofkinaddress = request.form.get('client_next_of_kin_address')
-        projectcompletionstatus = request.form.get('completion_status')
-        quotation_id = request.form.get('quotation_id')  # New: quotation ID
+            # Build update query dynamically
+            updates = []
+            values = []
+            
+            if clientnationalid is not None:
+                updates.append("clientidnumber = %s")
+                values.append(clientnationalid)
+            if clientemail is not None:
+                updates.append("clientemail = %s")
+                values.append(clientemail)
+            if clientwhatsapp is not None:
+                updates.append("clientwanumber = %s")
+                values.append(clientwhatsapp)
+            if clientaddress is not None:
+                updates.append("clientaddress = %s")
+                values.append(clientaddress)
+            if clientnextofkin is not None:
+                updates.append("clientnextofkinname = %s")
+                values.append(clientnextofkin)
+            if clientnextofkinrelationship is not None:
+                updates.append("nextofkinrelationship = %s")
+                values.append(clientnextofkinrelationship)
+            if clientnextofkinphone is not None:
+                updates.append("clientnextofkinphone = %s")
+                values.append(clientnextofkinphone)
+            if clientnextofkinaddress is not None:
+                updates.append("clientnextofkinaddress = %s")
+                values.append(clientnextofkinaddress)
+            if projectcompletionstatus is not None:
+                updates.append("projectcompletionstatus = %s")
+                values.append(projectcompletionstatus)
+            if quotation_id is not None and quotation_id != '':
+                updates.append("quotationid = %s")
+                values.append(quotation_id)
+            
+            # Add project_id to values for WHERE clause
+            values.append(project_id)
+            
+            if not updates:
+                return jsonify({
+                    'success': False,
+                    'message': 'No data to update'
+                }), 400
+            
+            query = f"""
+                UPDATE connectlinkdatabase
+                SET {', '.join(updates)}
+                WHERE id = %s
+            """
+            
+            cursor.execute(query, values)
+            connection.commit()
 
-        # --- EXAMPLE SQL (modify for your DB) ---
-        query = """
-            UPDATE connectlinkdatabase
-            SET 
-                clientidnumber = %s,
-                clientemail = %s,
-                clientwanumber = %s,
-                clientaddress = %s,
-                clientnextofkinname = %s,
-                nextofkinrelationship = %s,
-                clientnextofkinphone = %s,
-                clientnextofkinaddress = %s,
-                projectcompletionstatus = %s,
-                quotationid = %s
-            WHERE id = %s
-        """
-        
-        values = (
-            clientnationalid,
-            clientemail,
-            clientwhatsapp,
-            clientaddress,
-            clientnextofkin,
-            clientnextofkinrelationship,
-            clientnextofkinphone,
-            clientnextofkinaddress,
-            projectcompletionstatus,
-            quotation_id,  # New: quotation_id value
-            project_id
-        )
-
-        cursor.execute(query, values)
-        connection.commit()
-
-        flash("Project details updated successfully!", "success")
+            flash("Project details updated successfully!", "success")
+            return jsonify({
+                'success': True,
+                'message': 'Project details updated successfully!'
+            })
+    
+    except Exception as e:
+        print(f"Error updating other details: {str(e)}")
         return jsonify({
-            'success': True,
-            'message': 'Project details updated successfully!'
-        })
+            'success': False,
+            'message': f'Error updating details: {str(e)}'
+        }), 500
 
 @app.route('/update_project', methods=['POST'])
 def update_project():

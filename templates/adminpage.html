@@ -3748,34 +3748,30 @@ function closeModal(modalId) {
 
 // Save other details form
 function saveOtherDetails(event) {
+    event?.preventDefault();
+    
     const form = document.getElementById('updateotherdetailsForm');
     if (!form) {
         console.error('Form not found');
         return false;
     }
     
-    // Prevent default form submission
-    event?.preventDefault();
-    
     // Get form data
     const formData = new FormData(form);
     
     // Show loader
-    document.getElementById('edsLoader2').style.display = 'flex';
+    const loader = document.getElementById('edsLoader2');
+    if (loader) loader.style.display = 'flex';
     
     // Submit form via fetch
     fetch(form.action, {
         method: 'POST',
         body: formData
     })
-    .then(response => {
-        if (response.status === 500) {
-            throw new Error('Server error: ' + response.status);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        document.getElementById('edsLoader2').style.display = 'none';
+        if (loader) loader.style.display = 'none';
+        
         if (data.success) {
             alert('Other details saved successfully!');
             closeModal('otherDetailsModal');
@@ -3788,7 +3784,7 @@ function saveOtherDetails(event) {
         }
     })
     .catch(error => {
-        document.getElementById('edsLoader2').style.display = 'none';
+        if (loader) loader.style.display = 'none';
         console.error('Error:', error);
         alert('Error saving details: ' + error.message);
     });
