@@ -1398,7 +1398,7 @@
             </div>
             <div class="modal-footer-custom">
                 <button type="button" class="btn btn-danger" onclick="closeModal('otherDetailsModal')">Close</button>
-                <button type="submit" class="btn btn-primary" onclick="saveOtherDetails()">
+                <button type="button" class="btn btn-primary" onclick="saveOtherDetails(event)">
                     <i class="bi bi-save"></i> Save Details
                 </button>
             </div>
@@ -6166,80 +6166,10 @@ document.getElementById('updateProjectForm')?.addEventListener('submit', async f
         submitBtn.innerHTML = 'Save Changes';
     }
 });
-        alert('❌ Network error occurred');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Save Changes';
-    }
-});
 
 
-document.getElementById('updateotherdetailsForm')?.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const form = this;
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const loaderxyz = document.getElementById("edsLoader3");
-    
-    // Show loader
-    if (loaderxyz) loaderxyz.style.display = "flex";
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
-    
-    try {
-        // 1. Update project in database
-        const response = await fetch('/update_other_details', {
-            method: 'POST',
-            body: new FormData(form)
-        });
-        
-        const data = await response.json();
-        
-        // Hide loader
-        if (loaderxyz) loaderxyz.style.display = "none";
-        
-        if (data && data.success) {
-            // Show success message
-            alert('✅ Project details updated successfully!');
-            
-            // 2. Refresh the ENTIRE DataTable in real-time (modal stays open)
-            await refreshEntireTable();
-            
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Save Changes';
-            
-            // Optional: close modal after successful save (remove this if you want it to stay open)
-            // You can uncomment this if you want auto-close after save:
-            // setTimeout(() => closeModal('otherDetailsModal'), 500);
-
-        } else {
-            const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
-            alert('❌ ' + errorMsg);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Save Changes';
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        if (loaderxyz) loaderxyz.style.display = "none";
-        alert('❌ Network error occurred');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Save Changes';
-    }
-});
-
-        } else {
-            const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
-            alert('❌ ' + errorMsg);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Save Changes';
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        if (loaderxyz) loaderxyz.style.display = "none";
-        alert('❌ Network error occurred');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Save Changes';
-    }
-});
+// Note: updateotherdetailsForm handling is done via saveOtherDetails() function on button click
+// to keep modal open after save and refresh table in real-time
 
 
 // Function to refresh ENTIRE DataTable - FIXED VERSION
