@@ -11757,6 +11757,7 @@ def run1(userid):
 
         count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
         count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
+        count_other = datamain[(datamain["projectcompletionstatus"] != "Ongoing") & (datamain["projectcompletionstatus"] != "Completed")].shape[0]
         average_duration = round(pd.to_numeric(datamain["projectduration"], errors="coerce").mean(),0)
         locations = datamain['projectlocation'].replace('', pd.NA)
 
@@ -12088,6 +12089,7 @@ def run1(userid):
             'num_projects': num_projects,
             'count_ongoing': count_ongoing,
             'count_completed': count_completed,
+            'count_other': count_other,
             'average_duration': average_duration,
             'most_frequent_location': most_frequent_location,
             'locations': locations_list,

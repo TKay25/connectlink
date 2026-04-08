@@ -2739,6 +2739,7 @@
 
                     <input type="hidden" id="completed-projects" value="{{ count_completed|default(0)|int }}">
                     <input type="hidden" id="ongoing-projects" value="{{ count_ongoing|default(0)|int }}">
+                    <input type="hidden" id="other-projects" value="{{ count_other|default(0)|int }}">
 
                     <div class="dashboard-summary">
                         <div class="summary-card">
@@ -2859,6 +2860,7 @@
 
                     <input type="hidden" id="completed-projects" value="{{ count_completed|default(0)|int }}">
                     <input type="hidden" id="ongoing-projects" value="{{ count_ongoing|default(0)|int }}">
+                    <input type="hidden" id="other-projects" value="{{ count_other|default(0)|int }}">
 
                     <div class="dashboard-summary">
                         <div class="summary-card">
@@ -2880,6 +2882,13 @@
                             <div class="details">
                                 <h5 style="font-weight: bolder;">Completed Projects</h5>
                                 <p>{{ count_completed }}</p>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="icon"><i class="bi bi-question-circle-fill fs-3" style="color: #1E2A56;"></i></div>
+                            <div class="details">
+                                <h5 style="font-weight: bolder;">Other Status</h5>
+                                <p>{{ count_other|default(0) }}</p>
                             </div>
                         </div>
                         <div class="summary-card">
