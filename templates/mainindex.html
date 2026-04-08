@@ -721,7 +721,7 @@
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('active')) closeModal(); });
     
     function isValidEmail(email) {
-        const re = /^[^\s]+\.[^\s]+$/;
+        const re = /^\S+$/;
         return re.test(email);
     }
     
