@@ -6,7 +6,7 @@
     <title>ConnectLink | Hardware & Building Projects</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -15,39 +15,33 @@
         }
 
         :root {
-            --primary: #0a2b3e;
-            --primary-light: #1e4a6e;
-            --primary-dark: #051e2c;
-            --accent: #ff6b35;
-            --white: #ffffff;
-            --gray-light: #f8fafc;
-            --gray: #94a3b8;
-            --gray-dark: #475569;
-            --shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-            --shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.1);
+            --primary: #0A2B3E;
+            --primary-light: #1E4A6E;
+            --accent: #b50d0d;
+            --accent-light: #c63f3f;
+            --white: #FFFFFF;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-500: #6B7280;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --radius-sm: 0.5rem;
+            --radius-md: 0.75rem;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --radius-2xl: 1.5rem;
+            --radius-full: 9999px;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
             background: var(--white);
-            position: relative;
-            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Diagonal Split Background */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary) 55%, var(--white) 20%, var(--white) 100%);
-            z-index: -2;
-        }
-
-        /* Soft gradient overlay for smoother transition */
+        /* Diagonal Background */
         body::after {
             content: '';
             position: fixed;
@@ -55,318 +49,815 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, rgba(10, 43, 62, 0.02) 0%, rgba(10, 43, 62, 0.02) 29%, transparent 29%, transparent 100%);
-            z-index: -1;
-            pointer-events: none;
+            background: linear-gradient(125deg, 
+                var(--primary) 0%, 
+                var(--primary) 45%, 
+                var(--white) 45%, 
+                var(--white) 100%);
+            z-index: -2;
         }
 
         /* Navbar */
         .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(8px);
-            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
-            padding: 0.75rem 2rem;
-            position: sticky;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: var(--shadow-sm);
+            padding: 0.5rem 2rem;
+            position: fixed;
             top: 0;
-            z-index: 1000;
+            width: 100%;
+            z-index: 100;
+            border-bottom: 1px solid var(--gray-200);
         }
 
         .navbar-brand {
             display: flex;
             align-items: center;
             gap: 10px;
+            text-decoration: none;
+            border-radius: var(--radius-md);
+            padding: 4px 8px;
+            transition: all 0.2s;
+        }
+
+        .navbar-brand:hover {
+            background: rgba(0, 0, 0, 0.02);
         }
 
         .navbar-brand img {
-            height: 35px;
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+            height: 28px;
         }
 
         .brand-text {
-            font-weight: 600;
-            font-size: 1rem;
+            font-weight: 700;
+            font-size: 0.85rem;
             color: var(--primary);
         }
 
-        /* Hero Section */
-        .hero-section {
-            text-align: center;
-            padding: 60px 20px 50px;
-            position: relative;
+        /* Main Content */
+        .main-content {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 10px 5% 0;
         }
 
-        .hero-section h1 {
-            font-size: clamp(1.8rem, 5vw, 2.5rem);
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--white) 0%, var(--white) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        /* Left Column */
+        .hero-left {
+            padding-right: 30px;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: var(--accent);
+            padding: 3px 12px;
+            border-radius: var(--radius-full);
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 16px;
+        }
+
+        .hero-logo {
+            height: 60px;
+            width: auto;
+            margin-bottom: 16px;
+        }
+
+        .hero-left h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: white;
             margin-bottom: 12px;
+            line-height: 1.2;
         }
 
-        .hero-section p {
-            font-size: 0.85rem;
-            color: var(--white);
-            max-width: 600px;
-            margin: 0 auto;
-            line-height: 1.5;
+        .hero-left .lead-text {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.85);
+            max-width: 420px;
+            line-height: 1.4;
         }
 
-        /* System Cards */
-        .systems-section {
-            padding: 40px 20px 80px;
-            position: relative;
+        /* Right Column */
+        .portal-right {
+            padding-left: 60px;
+        }
+
+        .portal-header {
+            margin-bottom: 20px;
+        }
+
+        .portal-header .badge {
+            background: var(--accent);
+            color: white;
+            padding: 3px 12px;
+            border-radius: var(--radius-full);
+            font-size: 0.55rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .portal-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--gray-500);
+            margin-bottom: 4px;
+        }
+
+        .portal-header p {
+            color: var(--gray-500);
+            font-size: 0.65rem;
+        }
+
+        /* Cards */
+        .cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
 
         .system-card {
             background: white;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
             cursor: pointer;
-            height: 100%;
-            text-align: center;
-            padding: 35px 25px;
-            border: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 16px 20px;
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--gray-200);
         }
 
         .system-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-hover);
-            border-color: transparent;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--accent-light);
         }
 
         .card-icon {
-            width: 70px;
-            height: 70px;
-            background: rgba(10, 43, 62, 0.08);
-            border-radius: 20px;
+            width: 44px;
+            height: 44px;
+            background: var(--gray-100);
+            border-radius: var(--radius-md);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 20px;
-            transition: all 0.3s ease;
+            flex-shrink: 0;
+            transition: all 0.2s;
         }
 
         .system-card:hover .card-icon {
-            background: rgba(10, 43, 62, 0.15);
-            transform: scale(1.03);
+            background: var(--accent);
         }
 
         .card-icon i {
-            font-size: 2rem;
+            font-size: 1.2rem;
             color: var(--primary);
+        }
+
+        .system-card:hover .card-icon i {
+            color: white;
+        }
+
+        .card-content {
+            flex: 1;
         }
 
         .system-card h2 {
-            font-size: 1.3rem;
+            font-size: 0.9rem;
             font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 10px;
+            color: var(--gray-700);
+            margin-bottom: 4px;
         }
 
         .system-card p {
-            color: var(--gray-dark);
-            font-size: 0.75rem;
-            line-height: 1.5;
-            margin-bottom: 20px;
+            color: var(--gray-500);
+            font-size: 0.6rem;
+            line-height: 1.35;
+            margin-bottom: 0;
         }
 
         .btn-explore {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 24px;
-            border-radius: 30px;
+            gap: 5px;
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            padding: 6px 16px;
+            border-radius: var(--radius-full);
             font-weight: 500;
-            font-size: 0.75rem;
-            transition: all 0.3s ease;
+            font-size: 0.6rem;
+            transition: all 0.2s;
             cursor: pointer;
-            text-decoration: none;
+            flex-shrink: 0;
+            margin-left: 10px;
         }
 
         .btn-explore:hover {
-            background: var(--primary-light);
-            transform: translateX(3px);
+            background: var(--accent);
             color: white;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(3px);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .login-modal {
+            background: white;
+            border-radius: var(--radius-2xl);
+            width: 90%;
+            max-width: 400px;
+            box-shadow: var(--shadow-md);
+            animation: modalFadeIn 0.2s ease;
+            overflow: hidden;
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal-header {
+            background: var(--primary);
+            padding: 24px 24px 20px;
+            text-align: center;
+            border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+            position: relative;
+        }
+
+        .modal-header .modal-logo {
+            width: 60px;
+            margin-bottom: 12px;
+        }
+
+        .modal-header h3 {
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .modal-header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.7rem;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 18px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 0.8rem;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .close-modal:hover {
+            background: var(--accent);
+            transform: rotate(90deg);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--gray-600);
+            margin-bottom: 6px;
+        }
+
+        .input-group-modal {
+            position: relative;
+        }
+
+        .input-icon-modal {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+            font-size: 0.8rem;
+        }
+
+        .form-input-modal {
+            width: 100%;
+            padding: 10px 12px 10px 38px;
+            font-size: 0.8rem;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .form-input-modal:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(181, 13, 13, 0.1);
+        }
+
+        .password-toggle-modal {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--gray-400);
+            cursor: pointer;
+            font-size: 0.8rem;
+            border-radius: var(--radius-sm);
+            padding: 5px;
+        }
+
+        .password-toggle-modal:hover {
+            color: var(--accent);
+            background: rgba(181, 13, 13, 0.05);
+        }
+
+        .modal-login-btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: var(--radius-full);
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 5px;
+        }
+
+        .modal-login-btn:hover {
+            background: var(--accent-light);
+            transform: translateY(-1px);
+        }
+
+        .modal-footer-links {
+            text-align: center;
+            margin-top: 18px;
+            padding-top: 15px;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .modal-footer-links a {
+            color: var(--gray-500);
+            text-decoration: none;
+            font-size: 0.65rem;
+        }
+
+        .modal-footer-links a:hover {
+            color: var(--accent);
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 8px 12px;
+            border-radius: var(--radius-md);
+            font-size: 0.7rem;
+            margin-bottom: 15px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 42, 86, 0.95);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
 
         /* Footer */
         .footer {
-            backdrop-filter: blur(5px);
-            padding: 25px 20px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            padding: 12px;
             text-align: center;
-            border-top: 1px solid rgba(0, 0, 0, 0.05);
-            position: relative;
-            z-index: 1;
+            border-top: 1px solid var(--gray-200);
+            background: transparent;
         }
 
         .footer p {
-            color: var(--gray-dark);
-            font-size: 0.7rem;
-            margin-bottom: 3px;
+            color: var(--gray-500);
+            font-size: 0.55rem;
+            margin: 0;
         }
 
-        /* Login Button Styling */
-        .btn-login {
-            border-color: var(--primary);
-            color: var(--primary);
-            font-size: 0.7rem;
-            padding: 5px 12px;
-            border-radius: 30px;
-            transition: all 0.3s ease;
-        }
-
-        .btn-login:hover {
-            background: var(--primary);
-            color: white;
-        }
-
-        /* Responsive */
         @media (max-width: 768px) {
-            body::before {
-                background: linear-gradient(135deg, var(--primary) 0%, var(--primary) 25%, var(--white) 25%, var(--white) 100%);
+            body {
+                overflow: auto;
+                height: auto;
             }
-            
-            .navbar {
-                padding: 0.6rem 1rem;
+            .main-content {
+                height: auto;
+                flex-direction: column;
+                padding: 80px 5% 60px;
             }
-            
-
-            .hero-section {
+            .hero-left {
                 text-align: center;
-                padding: 40px 20px 35px;
+                padding-right: 0;
+                margin-bottom: 30px;
             }
-            
-            .hero-section p {
-                max-width: 100%;
+            .hero-left .lead-text {
                 margin: 0 auto;
             }
-            
-            .hero-section .col-md-4 {
-                text-align: center !important;
+            .portal-right {
+                padding-left: 0;
             }
-
-            
-            .systems-section {
-                padding: 30px 20px 60px;
+            .portal-header {
+                text-align: center;
             }
-            
-            .system-card {
-                padding: 30px 20px;
+            .cards-container {
+                max-width: 450px;
+                margin: 0 auto;
             }
-            
-            .card-icon {
-                width: 60px;
-                height: 60px;
-                border-radius: 18px;
-            }
-            
-            .card-icon i {
-                font-size: 1.6rem;
-            }
-            
-            .system-card h2 {
-                font-size: 1.2rem;
-            }
-        }
-
-        @media (max-width: 576px) {
-            body::before {
-                background: linear-gradient(135deg, var(--primary) 0%, var(--primary) 20%, var(--white) 20%, var(--white) 100%);
+            .footer {
+                position: relative;
+                margin-top: 30px;
             }
         }
     </style>
 </head>
 <body>
 
-<!-- Navbar -->
-<nav class="navbar">
+<!-- Main Content -->
+<div class="main-content">
     <div class="container-fluid">
-        <a class="navbar-brand" href="/">
-            <span class="brand-text">ConnectLink</span>
-        </a>
-    </div>
-</nav>
-
-<!-- Hero Section -->
-<section class="hero-section">
-    <div class="container">
-        <div class="row">
-            <div class="col-12">
-                <div class="d-flex align-items-center justify-content-start gap-3 flex-wrap">
-                    <img src="/static/images/web-logo-white.png" alt="ConnectLink Logo" style="height: 65px; width: auto;">
-                    <div>
-                        <h1 class="mb-1" style="text-align: left;">Building Projects & Hardware</h1>
-                        <p class="mb-0" style="text-align: left; max-width: 600px;">Integrated solutions for hardware retail and construction project management</p>
+        <div class="row align-items-center">
+            <!-- Left Column -->
+            <div class="col-lg-6 hero-left">
+                <span class="hero-badge"><i class="fas fa-crown me-1"></i> Enterprise Solutions</span>
+                <div><img src="/static/images/web-logo-white.png" alt="Logo" class="hero-logo"></div>
+                <h1>Building Projects<br>& Hardware Solutions</h1>
+                <p class="lead-text">ConnectLink construction project management and hardware retail operations</p>
+            </div>
+            
+            <!-- Right Column -->
+            <div class="col-lg-6 portal-right">
+                <div class="portal-header">
+                    <span class="badge"><i class="fas fa-compass me-1"></i> Choose Your Portal</span>
+                    <h2>Select Your Workspace</h2>
+                    <p>Access the right tools for your role</p>
+                </div>
+                
+                <div class="cards-container">
+                    <!-- Building Projects Card -->
+                    <div class="system-card" data-portal="projects">
+                        <div class="card-icon"><i class="fas fa-hard-hat"></i></div>
+                        <div class="card-content">
+                            <h2>Building Projects</h2>
+                            <p>Construction project management, contracts, payment tracking</p>
+                        </div>
+                        <button class="btn-explore">Access Portal <i class="fas fa-arrow-right"></i></button>
+                    </div>
+                    
+                    <!-- Hardware POS Card -->
+                    <div class="system-card" data-portal="hardware">
+                        <div class="card-icon"><i class="fas fa-cash-register"></i></div>
+                        <div class="card-content">
+                            <h2>Hardware POS</h2>
+                            <p>Complete retail management for ConnectLink hardware operations</p>
+                        </div>
+                        <button class="btn-explore">Launch POS <i class="fas fa-arrow-right"></i></button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</section>
+</div>
 
-<!-- Systems Section -->
-<section class="systems-section">
-    <div class="container">
-        <div class="row g-3 justify-content-center">
-
-            <!-- Building Projects System Card -->
-            <div class="col-md-6 col-lg-5">
-                <div class="system-card" onclick="redirectTo('/projectslogin')">
-                    <div class="card-icon">
-                        <i class="fas fa-hard-hat"></i>
+<!-- Projects Modal -->
+<div class="modal-overlay" id="projectsLoginModal">
+    <div class="login-modal">
+        <div class="modal-header">
+            <button class="close-modal" onclick="closeProjectsModal()"><i class="fas fa-times"></i></button>
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <h3>Building Projects</h3>
+            <p>Sign in to access project management</p>
+        </div>
+        <div class="modal-body">
+            <div class="error-message" id="projectsErrorMsg"></div>
+            <form id="projectsLoginForm">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <div class="input-group-modal">
+                        <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                        <input type="text" class="form-input-modal" id="projectsEmail" placeholder="admin@connectlink.co.zw" required>
                     </div>
-                    <h2>Building Projects System</h2>
-                    <p>End-to-end construction project management</p>
-                    <button class="btn-explore">
-                        Access Projects <i class="fas fa-arrow-right"></i>
-                    </button>
                 </div>
-            </div>
-            
-            <!-- Hardware POS System Card -->
-            <div class="col-md-6 col-lg-5">
-                <div class="system-card" onclick="redirectTo('/loginhardware')">
-                    <div class="card-icon">
-                        <i class="fas fa-cash-register"></i>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-group-modal">
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                        <input type="password" class="form-input-modal" id="projectsPassword" placeholder="••••••••" required>
+                        <button type="button" class="password-toggle-modal" onclick="toggleProjectsPassword()"><i class="fas fa-eye"></i></button>
                     </div>
-                    <h2>Hardware POS System</h2>
-                    <p>Complete retail management for Connectlink hardware</p>
-                    <button class="btn-explore">
-                        Launch POS <i class="fas fa-arrow-right"></i>
-                    </button>
                 </div>
-            </div>
-            
+                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+            </form>
         </div>
     </div>
-</section>
+</div>
+
+<!-- Hardware POS Modal -->
+<div class="modal-overlay" id="hardwareLoginModal">
+    <div class="login-modal">
+        <div class="modal-header">
+            <button class="close-modal" onclick="closeHardwareModal()"><i class="fas fa-times"></i></button>
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <h3>Hardware POS</h3>
+            <p>Sign in to access retail management</p>
+        </div>
+        <div class="modal-body">
+            <div class="error-message" id="hardwareErrorMsg"></div>
+            <form id="hardwareLoginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <div class="input-group-modal">
+                        <div class="input-icon-modal"><i class="fas fa-user"></i></div>
+                        <input type="text" class="form-input-modal" id="hardwareUsername" placeholder="admin" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-group-modal">
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                        <input type="password" class="form-input-modal" id="hardwarePassword" placeholder="••••••••" required>
+                        <button type="button" class="password-toggle-modal" onclick="toggleHardwarePassword()"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Authenticating...</div>
+</div>
 
 <!-- Footer -->
 <footer class="footer">
-    <div class="container">
-        <p>© 2026 ConnectLink Properties & Hardware</p>
-        <p><small>From Concept to Creation — Let's Build Together</small></p>
-    </div>
+    <p>© 2026 ConnectLink Properties & Hardware | From Concept to Creation — Let's Build Together</p>
 </footer>
 
 <script>
-    function redirectTo(url) {
-        window.location.href = url;
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const projectsModal = document.getElementById('projectsLoginModal');
+    const hardwareModal = document.getElementById('hardwareLoginModal');
+    
+    // Open Projects Modal
+    function openProjectsModal() {
+        projectsModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        document.getElementById('projectsEmail').focus();
+        clearError('projectsErrorMsg');
     }
     
-    // Keyboard shortcuts
-    document.addEventListener('keydown', function(e) {
-        if (e.key === '1') {
-            redirectTo('/loginhardware');
-        } else if (e.key === '2') {
-            redirectTo('/projectslogin');
+    // Close Projects Modal
+    function closeProjectsModal() {
+        projectsModal.classList.remove('active');
+        document.body.style.overflow = '';
+        document.getElementById('projectsLoginForm').reset();
+    }
+    
+    // Open Hardware Modal
+    function openHardwareModal() {
+        hardwareModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        document.getElementById('hardwareUsername').focus();
+        clearError('hardwareErrorMsg');
+    }
+    
+    // Close Hardware Modal
+    function closeHardwareModal() {
+        hardwareModal.classList.remove('active');
+        document.body.style.overflow = '';
+        document.getElementById('hardwareLoginForm').reset();
+    }
+    
+    // Toggle password visibility - Projects
+    function toggleProjectsPassword() {
+        const input = document.getElementById('projectsPassword');
+        const icon = event.target.closest('button').querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
         }
+    }
+    
+    // Toggle password visibility - Hardware
+    function toggleHardwarePassword() {
+        const input = document.getElementById('hardwarePassword');
+        const icon = event.target.closest('button').querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+    
+    // Show error message
+    function showError(elementId, message) {
+        const errorDiv = document.getElementById(elementId);
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        errorDiv.style.display = 'flex';
+    }
+    
+    // Clear error message
+    function clearError(elementId) {
+        const errorDiv = document.getElementById(elementId);
+        errorDiv.style.display = 'none';
+    }
+    
+    // Open modals on card click
+    document.querySelectorAll('.system-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.btn-explore')) e.stopPropagation();
+            const portal = this.dataset.portal;
+            if (portal === 'projects') {
+                openProjectsModal();
+            } else if (portal === 'hardware') {
+                openHardwareModal();
+            }
+        });
+    });
+    
+    // Close modals on overlay click or Escape
+    projectsModal.addEventListener('click', e => { if (e.target === projectsModal) closeProjectsModal(); });
+    hardwareModal.addEventListener('click', e => { if (e.target === hardwareModal) closeHardwareModal(); });
+    document.addEventListener('keydown', e => { 
+        if (e.key === 'Escape') {
+            if (projectsModal.classList.contains('active')) closeProjectsModal();
+            if (hardwareModal.classList.contains('active')) closeHardwareModal();
+        }
+    });
+    
+    // Projects Login Form Submission
+    document.getElementById('projectsLoginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        clearError('projectsErrorMsg');
+        
+        const email = document.getElementById('projectsEmail').value.trim();
+        const password = document.getElementById('projectsPassword').value;
+        
+        if (!email || !password) {
+            showError('projectsErrorMsg', 'Please fill in all fields');
+            return;
+        }
+        
+        loadingOverlay.style.display = 'flex';
+        
+        // Send as form data (application/x-www-form-urlencoded)
+        const formData = new URLSearchParams();
+        formData.append('emaillogin', email);
+        formData.append('passwordlogin', password);
+        
+        fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            credentials: 'include',
+            body: formData.toString()
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingOverlay.style.display = 'none';
+            if (data.success) {
+                window.location.href = data.redirect || '/dashboard';
+            } else {
+                showError('projectsErrorMsg', data.message || 'Invalid credentials');
+                document.getElementById('projectsPassword').value = '';
+            }
+        })
+        .catch(error => {
+            loadingOverlay.style.display = 'none';
+            showError('projectsErrorMsg', 'Connection error. Please try again.');
+        });
+    });
+    
+    // Hardware Login Form Submission
+    document.getElementById('hardwareLoginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        clearError('hardwareErrorMsg');
+        
+        const username = document.getElementById('hardwareUsername').value.trim();
+        const password = document.getElementById('hardwarePassword').value;
+        
+        if (!username || !password) {
+            showError('hardwareErrorMsg', 'Please fill in all fields');
+            return;
+        }
+        
+        loadingOverlay.style.display = 'flex';
+        
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingOverlay.style.display = 'none';
+            if (data.success) {
+                localStorage.setItem('isLoggedIn', 'true');
+                if (data.user) {
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                }
+                window.location.href = '/pos-system.html';
+            } else {
+                showError('hardwareErrorMsg', data.message || 'Invalid credentials');
+                document.getElementById('hardwarePassword').value = '';
+            }
+        })
+        .catch(error => {
+            loadingOverlay.style.display = 'none';
+            showError('hardwareErrorMsg', 'Connection error. Please try again.');
+        });
     });
 </script>
 </body>
