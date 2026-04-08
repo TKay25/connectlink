@@ -14202,6 +14202,7 @@ def update_other_details():
         clientnextofkinphone = request.form.get('client_next_of_kin_phone')
         clientnextofkinaddress = request.form.get('client_next_of_kin_address')
         projectcompletionstatus = request.form.get('completion_status')
+        quotation_id = request.form.get('quotation_id')  # New: quotation ID
 
         # --- EXAMPLE SQL (modify for your DB) ---
         query = """
@@ -14215,7 +14216,8 @@ def update_other_details():
                 nextofkinrelationship = %s,
                 clientnextofkinphone = %s,
                 clientnextofkinaddress = %s,
-                projectcompletionstatus = %s
+                projectcompletionstatus = %s,
+                quotationid = %s
             WHERE id = %s
         """
         
@@ -14229,6 +14231,7 @@ def update_other_details():
             clientnextofkinphone,
             clientnextofkinaddress,
             projectcompletionstatus,
+            quotation_id,  # New: quotation_id value
             project_id
         )
 
