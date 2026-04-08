@@ -2978,7 +2978,7 @@
 
                         <div class="container2" style="max-height: 500px; overflow-y: auto;">
 
-                            <table class="table-theme">
+                            <table class="table-theme" id="enquiriesDetailTable">
                                 <thead>
                                     <tr>
                                         <th>ID</th>
@@ -2986,9 +2986,9 @@
                                         <th>Client</th>
                                         <th>Username</th>
                                         <th>Category</th>
-                                        <th>Message</th>
-                                        <th>Status</th>
-                                        <th>Document</th>
+                                        <th style="width: 120px; max-width: 120px;">Message</th>
+                                        <th style="width: 80px;">Status</th>
+                                        <th style="width: 60px;">Document</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -7542,9 +7542,23 @@ function viewEnquiry(id) {
 const style = document.createElement('style');
 style.textContent = `
     .message-container {
-        max-width: 300px;
+        max-width: 100px;
+        display: block;
+        text-align: left;
     }
-    .message-preview, .message-full {
+    .message-preview {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+    }
+    .message-full {
+        background: #f8f9fa;
+        padding: 4px;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+        margin-top: 5px;
         word-wrap: break-word;
         white-space: pre-wrap;
     }
@@ -7556,13 +7570,6 @@ style.textContent = `
     }
     .expand-message:hover, .collapse-message:hover {
         text-decoration: underline;
-    }
-    .message-full {
-        background: #f8f9fa;
-        padding: 4px;
-        border-radius: 4px;
-        border: 1px solid #dee2e6;
-        margin-top: 5px;
     }
 `;
 document.head.appendChild(style);
@@ -7621,6 +7628,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('DataTable initialized with column visibility settings');
+
+    // Initialize DataTable for Enquiries
+    if ($('#enquiriesDetailTable').length) {
+        try {
+            $('#enquiriesDetailTable').DataTable({
+                order: [[0, 'desc']],
+                paging: false,
+                searching: false,
+                ordering: true,
+                info: false,
+                pageLength: 10,
+                lengthChange: false,
+                columnDefs: [
+                    { orderable: true, targets: '_all' }
+                ]
+            });
+        } catch (error) {
+            console.warn('DataTable initialization failed for enquiriesDetailTable:', error);
+        }
+    }
     
     // Auto-filter to latest month on page load
     const monthFilterElement = document.getElementById('monthFilter');
