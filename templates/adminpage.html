@@ -1310,6 +1310,7 @@
         <form id="updateotherdetailsForm" method="POST" action="/update_other_details">
             <div class="modal-body-custom">
                 <input type="hidden" id="updateProjectIdother" name="project_id">
+                <input type="hidden" id="otherDetailsSelectedQuotationId" name="quotation_id" value="">
 
                 <div class="row g-3">
                     
@@ -1367,7 +1368,7 @@
 
                     <!-- Completion Status Section -->
                     <div class="col-12">
-                        <h6 class="fw-bold" style="color: var(--primary, #1E2A56);">Project Status</h6>
+                        <h6 class="fw-bold" style="color: var(--primary, #1E2A56);">Project Status & Quotation</h6>
                         <hr class="mt-0">
                     </div>
                     
@@ -1381,6 +1382,17 @@
                             <option value="Completed">Completed</option>
                             <option value="Cancelled">Cancelled</option>
                         </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="otherDetails_quotation_select" class="form-label fw-bold">Link Quotation (Work Plan):</label>
+                        <select class="form-control editable-field" id="otherDetails_quotation_select" name="quotation_select" style="color: var(--dark-blue-deep); font-size: 0.7rem;">
+                            <option value="" selected disabled style="color: var(--dark-blue-deep);font-size: 0.7rem;">-- Select a Quotation to Link Work Plan --</option>
+                        </select>
+                        <small style="font-size: 0.7rem;">Select a quotation to update the work plan attached to this project</small>
+                        <div id="otherDetails_selected_quotation_preview" style="margin-top: 6px; padding: 4px; background: #f0f5ff; border-left: 3px solid #1E2A56; display: none; color: var(--dark-blue-deep);">
+                            <strong style="color: #1E2A56;">Selected:</strong> <span id="otherDetails_selected_quotation_name" style="color: #2A3A78;"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1425,7 +1437,7 @@
 
                     <div class="col-lg-1 col-md-2 col-sm-6">
                         <label for="updateTotalContractAmount" class="form-label fw-bold">Total Bill (USD)</label>
-                        <input type="number" class="form-control editable-field" name="TotalContractAmount" id="updateTotalContractAmount">
+                        <input type="number" class="form-control editable-field" name="TotalContractAmount" id="updateTotalContractAmount" step="0.01">
                     </div>
 
                     <div class="col-lg-1 col-md-2 col-sm-4">
@@ -3716,6 +3728,13 @@ function openModal(modalId) {
         if (modalId === 'downloadPortfolioModal') {
             loadDownloadOptions();
         }
+
+        // Initialize quotation dropdown when other details modal opens
+        if (modalId === 'otherDetailsModal') {
+            const projectId = document.getElementById('updateProjectIdother')?.value;
+            const currentQuotationRef = window.currentProjectQuotationRef || null;
+            initializeOtherDetailsQuotationDropdown(currentQuotationRef);
+        }
     }
 }
 
@@ -4011,6 +4030,104 @@ function adjustScheduleDates(quotation) {
     window.selectedQuotation.adjustedSchedules = quotation.adjustedSchedules;
     
     console.log('Adjusted schedule dates by', offsetDays, 'days', window.selectedQuotation.adjustedSchedules);
+}
+
+// Initialize quotation dropdown for OTHER DETAILS modal
+function initializeOtherDetailsQuotationDropdown(currentQuotationRef) {
+    const selectElement = document.getElementById('otherDetails_quotation_select');
+    
+    if (!selectElement) {
+        console.warn('otherDetails_quotation_select element not found');
+        return;
+    }
+    
+    // Fetch all quotations
+    fetch('/api/get-quotations')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.data && data.data.length > 0) {
+                // Clear existing options except the placeholder
+                selectElement.innerHTML = '<option value="">-- Select a Quotation to Link Work Plan --</option>';
+                
+                // Add each quotation as an option
+                data.data.forEach(quotation => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(quotation);
+                    option.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
+                    selectElement.appendChild(option);
+                    
+                    // If this quotation matches the current one, select it
+                    if (currentQuotationRef && quotation.id === currentQuotationRef) {
+                        option.selected = true;
+                        // Show the preview
+                        document.getElementById('otherDetails_selected_quotation_preview').style.display = 'block';
+                        document.getElementById('otherDetails_selected_quotation_name').textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M)`;
+                    }
+                });
+                
+                console.log(`Loaded ${data.data.length} quotations for OTHER DETAILS modal`);
+                
+                // Destroy existing Choices instance if it exists
+                if (window.otherDetailsChoicesInstance) {
+                    window.otherDetailsChoicesInstance.destroy();
+                }
+                
+                // Initialize Choices.js for better search capability
+                window.otherDetailsChoicesInstance = new Choices(selectElement, {
+                    removeItemButton: false,
+                    allowHTML: true,
+                    placeholderValue: '-- Select a Quotation to Link Work Plan --',
+                    noResultsText: 'No quotations found',
+                    noChoicesText: 'No quotations available',
+                    itemSelectText: 'Click to select',
+                    shouldSort: true,
+                    shouldSortItems: true,
+                    searchResultLimit: 10
+                });
+                
+                // Add change event listener
+                selectElement.addEventListener('change', function() {
+                    if (this.value) {
+                        try {
+                            const selectedQuotation = JSON.parse(this.value);
+                            selectOtherDetailsQuotation(selectedQuotation);
+                        } catch (e) {
+                            console.error('Error parsing selected quotation:', e);
+                        }
+                    } else {
+                        // Quotation deselected
+                        document.getElementById('otherDetails_selected_quotation_preview').style.display = 'none';
+                    }
+                });
+            } else {
+                console.log('No quotations found');
+                selectElement.innerHTML = '<option value="" selected disabled>No quotations available</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching quotations:', error);
+            selectElement.innerHTML = '<option value="" selected disabled>Error loading quotations</option>';
+        });
+}
+
+// Handle quotation selection for OTHER DETAILS modal
+function selectOtherDetailsQuotation(quotation) {
+    // Show preview of selected quotation
+    const previewDiv = document.getElementById('otherDetails_selected_quotation_preview');
+    const previewText = document.getElementById('otherDetails_selected_quotation_name');
+    
+    previewText.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M)`;
+    previewDiv.style.display = 'block';
+    
+    // Store quotation ID in hidden field for form submission
+    document.getElementById('otherDetailsSelectedQuotationId').value = quotation.id || '';
+    
+    console.log('Quotation selected in OTHER DETAILS modal:', quotation.id, quotation);
 }
 
 // Add event listener for project start date changes
@@ -7618,18 +7735,33 @@ document.addEventListener('DOMContentLoaded', function() {
             return true; // Show all rows if no month filter selected
         }
         
-        // Column 14 is projectstartdate (format: YYYY-MM-DD or similar)
-        const projectDate = data[14];
-        if (!projectDate) return true;
+        // Column 23 is datedepositorbullet (deposit date - format: DD Month YYYY or similar)
+        const depositDate = data[23];
+        if (!depositDate) return true;
         
         // Extract year-month from date
-        const dateMatch = projectDate.match(/(\d{4})-(\d{2})-(\d{2})/);
+        // Handle both "DD Month YYYY" and "YYYY-MM-DD" formats
+        let yearMonth = '';
+        
+        // Try YYYY-MM-DD format first
+        const dateMatch = depositDate.match(/(\d{4})-(\d{2})-(\d{2})/);
         if (dateMatch) {
-            const yearMonth = dateMatch[1] + '-' + dateMatch[2]; // YYYY-MM format
-            return yearMonth === window.currentMonthFilter;
+            yearMonth = dateMatch[1] + '-' + dateMatch[2]; // YYYY-MM format
+        } else {
+            // Try "DD Month YYYY" format (e.g., "20 January 2026")
+            const monthNames = ['january', 'february', 'march', 'april', 'may', 'june',
+                              'july', 'august', 'september', 'october', 'november', 'december'];
+            const parts = depositDate.toLowerCase().split(' ');
+            if (parts.length >= 3) {
+                const year = parts[2];
+                const monthIndex = monthNames.indexOf(parts[1]);
+                if (monthIndex !== -1) {
+                    yearMonth = year + '-' + String(monthIndex + 1).padStart(2, '0');
+                }
+            }
         }
         
-        return true;
+        return yearMonth === window.currentMonthFilter;
     });
 
     if ($('#allprojectsTable').length) {
@@ -8761,6 +8893,7 @@ $(document).ready(function() {
 
 
         const id = rowData[58]; // First column (ID)
+        const quotationRef = rowData[59]; // QREF (Quotation Reference)
 
         // Strip HTML tags
         const plainText = projectScope.replace(/<[^>]*>/g, '');
@@ -8884,6 +9017,10 @@ $(document).ready(function() {
         }
 
         $('#updateProjectStartDate').val(formatForDateInput(projectStartDateref));
+        
+        // Store the quotation reference for use in other details mod al
+        window.currentProjectQuotationRef = quotationRef;
+        
         // Show the modal
     });
     
