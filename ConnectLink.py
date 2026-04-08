@@ -11745,7 +11745,7 @@ def run1(userid):
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
-        print(column_names)
+        print("Database columns from cursor.description:", column_names)
 
         print("maaaaiiiiin DATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
         print(maindata)
@@ -11753,7 +11753,8 @@ def run1(userid):
         print(f"Number of projects: {num_projects}")
 
 
-        datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus','latepaymentinterest','momid', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date', 'quotation_id'])
+        # Use the actual column names from the database
+        datamain = pd.DataFrame(maindata, columns=column_names)
 
         count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
         count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
