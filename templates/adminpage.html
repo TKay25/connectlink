@@ -7736,8 +7736,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return true;
         }
         
-        // Column 23 is datedepositorbullet (deposit date)
-        const depositDate = data[23];
+        // Column 24 is datedepositorbullet (deposit date)
+        const depositDate = data[24];
         if (!depositDate) return true;
         
         // Extract year-month from date
@@ -7776,9 +7776,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 lengthChange: false,
                 columnDefs: [
                     // Hide columns 2-9, 11-12, 14, 15-57 (client details, addresses, projectstartdate, installment details)
-                    { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
-                    // Explicitly show: momid(0), clientname(1), projectname(10), projectadministratorname(13), datedepositorbullet(23), id(58), QREF(59), Action(60)
-                    { targets: [0,1,10,13,23,58,59,60], visible: true, searchable: true }
+                    { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
+                    // Explicitly show: momid(0), clientname(1), projectname(10), projectadministratorname(13), datedepositorbullet(24), id(58), QREF(59), Action(60)
+                    { targets: [0,1,10,13,24,58,59,60], visible: true, searchable: true }
                 ],
                 language: {
                     emptyTable: 'No projects found'
@@ -7811,6 +7811,18 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         } catch (error) {
             console.warn('DataTable initialization failed for enquiriesDetailTable:', error);
+        }
+    }
+    
+    // Auto-filter to latest month on page load
+    const monthFilterElement = document.getElementById('monthFilter');
+    if (monthFilterElement && window.dataTable) {
+        const firstMonth = monthFilterElement.querySelector('option:not([value="all"])');
+        if (firstMonth) {
+            const selectedMonth = firstMonth.value;
+            console.log('Auto-filtering to latest month on page load:', selectedMonth);
+            window.currentMonthFilter = selectedMonth;
+            window.dataTable.draw();
         }
     }
     
