@@ -460,8 +460,14 @@
         }
         .table-theme td {
             color: var(--dark-blue-deep);
-            border-bottom: 1px solid rgba(221, 146, 146, 0.3);
-            font-size: 0.6rem;
+            border: 1px solid rgba(221, 146, 146, 0.3);
+            font-size: 0.75rem;
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+        }
+        
+        .table-theme thead th {
+            padding: 0.75rem 1rem;
         }
         
         .table-theme tr:nth-child(even) td {
@@ -469,7 +475,12 @@
         }
 
         .table-theme tr:hover td {
-            background: rgba(193, 43, 62, 0.05);
+            background: rgba(193, 43, 62, 0.08);
+            transition: background-color 0.15s ease;
+        }
+        
+        .table-theme tbody tr:first-child td {
+            border-top: 1px solid rgba(221, 146, 146, 0.3);
         }
 
         /* Dashboard summary cards */
@@ -2576,7 +2587,7 @@
 
                     <!-- Table Container -->
                     <div class="container2" style="overflow-x: auto !important; overflow-y: auto !important; width: 100%;">
-                        <table class="table-theme">
+                        <table class="table-theme table" id="enquiriesTable" style="width: 100%; margin-bottom: 0;">
                             <thead>
                                 <tr>
                                     <th style="width: 60px;">SELECT</th>
@@ -6847,6 +6858,10 @@ function renderTable() {
         tableBody.innerHTML = '';
         noDataMessage.classList.remove('d-none');
         updateShowingRecords();
+        // Destroy DataTable if it exists
+        if ($.fn.DataTable.isDataTable('#enquiriesTable')) {
+            $('#enquiriesTable').DataTable().destroy();
+        }
         return;
     }
     
@@ -6859,7 +6874,7 @@ function renderTable() {
         
         html += `
             <tr class="${isSelected ? 'table-primary' : ''}">
-                <td class="px-4 py-3">
+                <td>
                     <div class="d-flex align-items-center">
                         <div class="form-check me-2">
                             <input class="form-check-input enquiry-checkbox" 
@@ -6871,28 +6886,27 @@ function renderTable() {
                         <span class="text-muted small">${index + 1}</span>
                     </div>
                 </td>
-                <td class="px-4 py-3">
+                <td>
                     <span class="badge bg-dark rounded-pill px-3 py-1">
                         ${enquiry.id}
                     </span>
                 </td>
-                <td class="px-4 py-3">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-whatsapp text-success me-3"></i>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-whatsapp text-success"></i>
                         <div class="flex-grow-1">
-                            <div class="fw-bold">${formatWhatsAppNumber(enquiry.wanumber)}</div>
-                            <small class="text-muted d-block">Click to copy or message</small>
+                            <div class="fw-bold text-dark">${formatWhatsAppNumber(enquiry.wanumber)}</div>
                         </div>
                         ${enquiry.wanumber ? `
                             <div class="d-flex gap-1">
-                                <button class="btn btn-sm btn-outline-success" 
+                                <button class="btn btn-sm btn-outline-success py-0" 
                                         onclick="copyWhatsAppNumber('${enquiry.wanumber}')"
                                         title="Copy Number">
                                     <i class="bi bi-copy"></i>
                                 </button>
                                 <a href="https://wa.me/${enquiry.wanumber}" 
                                    target="_blank" 
-                                   class="btn btn-sm btn-success"
+                                   class="btn btn-sm btn-success py-0"
                                    title="Message on WhatsApp">
                                     <i class="bi bi-whatsapp"></i>
                                 </a>
@@ -6900,17 +6914,17 @@ function renderTable() {
                         ` : ''}
                     </div>
                 </td>
-                <td class="px-4 py-3">
-                    <div class="d-flex align-items-center">
-                        <i class="bi ${typeConfig.icon} me-3" style="color: ${typeConfig.color}"></i>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi ${typeConfig.icon}" style="color: ${typeConfig.color}; font-size: 1.1rem;"></i>
                         <span class="badge rounded-pill px-3 py-1" 
-                              style="background-color: ${typeConfig.color}; color: white;">
+                              style="background-color: ${typeConfig.color}; color: white; white-space: nowrap;">
                             ${typeConfig.label}
                         </span>
                     </div>
                 </td>
-                <td class="px-4 py-3 text-center">
-                    <div class="d-flex justify-content-center gap-1">
+                <td class="text-center">
+                    <div class="d-flex justify-content-center gap-2">
                         <button class="btn btn-sm btn-outline-primary" 
                                 onclick="viewEnquiryDetails(${enquiry.id})"
                                 title="View Details">
@@ -6929,6 +6943,27 @@ function renderTable() {
     
     tableBody.innerHTML = html;
     updateShowingRecords();
+    
+    // Initialize or reinitialize DataTable
+    setTimeout(() => {
+        if ($.fn.DataTable.isDataTable('#enquiriesTable')) {
+            $('#enquiriesTable').DataTable().destroy();
+        }
+        
+        $('#enquiriesTable').DataTable({
+            paging: false,
+            searching: false,
+            info: false,
+            ordering: true,
+            order: [[1, 'asc']],
+            columnDefs: [
+                { orderable: false, targets: [0, 4] }  // Disable sorting for SELECT and ACTIONS columns
+            ],
+            language: {
+                emptyTable: 'No data available'
+            }
+        });
+    }, 100);
 }
 
 // Format WhatsApp number
@@ -7693,11 +7728,31 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 
-    // Add search functionality
+    // Add search functionality - search only in visible columns
     document.getElementById('tableSearch')?.addEventListener('keyup', function() {
-        const searchTerm = this.value;
+        const searchTerm = this.value.toLowerCase();
+        
         if (window.dataTable) {
-            window.dataTable.search(searchTerm).draw();
+            // Search in columns: clientname(1), projectname(10), projectadministratorname(13)
+            window.dataTable.rows().every(function() {
+                const row = this.node();
+                const cells = row.querySelectorAll('td');
+                
+                // Get text from visible columns
+                const clientName = cells[1]?.textContent?.toLowerCase() || '';
+                const projectName = cells[10]?.textContent?.toLowerCase() || '';
+                const adminName = cells[13]?.textContent?.toLowerCase() || '';
+                const momId = cells[0]?.textContent?.toLowerCase() || '';
+                
+                // Check if any visible column contains the search term
+                const matches = clientName.includes(searchTerm) ||
+                              projectName.includes(searchTerm) ||
+                              adminName.includes(searchTerm) ||
+                              momId.includes(searchTerm);
+                
+                // Show or hide row
+                $(row).toggle(matches);
+            });
         }
     });
 });
