@@ -4286,12 +4286,65 @@ function openGanttChartModal() {
         })
         .then(data => {
             populateGanttTable(data.schedules || []);
+            
+            // Apply project start date offset if user has changed it
+            const currentStartDate = document.getElementById('updateProjectStartDate').value;
+            if (currentStartDate && window.originalProjectStartDate && currentStartDate !== window.originalProjectStartDate) {
+                console.log('Applying project start date offset to Gantt chart');
+                updateGanttDatesWithProjectStartDate(currentStartDate);
+            }
+            
             openModal('ganttChartModal');
         })
         .catch(error => {
             console.error('Error:', error);
             alert('Error loading work schedule: ' + error.message);
         });
+}
+
+// Update Gantt chart dates when project start date is changed
+function updateGanttDatesWithProjectStartDate(newStartDate) {
+    // Only update if Gantt chart data has been loaded
+    if (!window.ganttSchedules || window.ganttSchedules.length === 0) {
+        console.log('Gantt schedule not loaded yet, skipping date update');
+        return;
+    }
+    
+    // Get the original project start date from first Gantt schedule
+    const originalFirstSchedule = window.ganttSchedules[0];
+    if (!originalFirstSchedule || !originalFirstSchedule.startDate) {
+        console.log('No original schedule data, cannot calculate offset');
+        return;
+    }
+    
+    const originalStartDate = new Date(originalFirstSchedule.startDate);
+    const newProjStartDate = new Date(newStartDate);
+    
+    // Calculate offset in milliseconds
+    const offsetMs = newProjStartDate - originalStartDate;
+    const offsetDays = Math.round(offsetMs / (1000 * 60 * 60 * 24));
+    
+    console.log('Gantt Update:', {
+        originalStart: originalFirstSchedule.startDate,
+        newStart: newStartDate,
+        offsetDays: offsetDays
+    });
+    
+    // Update all Gantt chart input fields with offset
+    const startDateInputs = document.querySelectorAll('.gantt-start-date');
+    const endDateInputs = document.querySelectorAll('.gantt-end-date');
+    
+    startDateInputs.forEach((input, index) => {
+        const originalDate = new Date(window.ganttSchedules[index].startDate);
+        const newDate = new Date(originalDate.getTime() + offsetMs);
+        input.value = newDate.toISOString().split('T')[0];
+    });
+    
+    endDateInputs.forEach((input, index) => {
+        const originalDate = new Date(window.ganttSchedules[index].endDate);
+        const newDate = new Date(originalDate.getTime() + offsetMs);
+        input.value = newDate.toISOString().split('T')[0];
+    });
 }
 
 function populateGanttTable(schedules) {
@@ -9123,6 +9176,22 @@ $(document).ready(function() {
         }
 
         $('#updateProjectStartDate').val(formatForDateInput(projectStartDateref));
+        
+        // Store original project start date globally for Gantt chart updates
+        window.originalProjectStartDate = formatForDateInput(projectStartDateref);
+        
+        // Add change listener to project start date field
+        document.getElementById('updateProjectStartDate').addEventListener('change', function() {
+            const newStartDate = this.value;
+            console.log('Project start date changed to:', newStartDate);
+            
+            // Update Gantt chart dates if it exists
+            if (window.ganttSchedules && window.ganttSchedules.length > 0) {
+                updateGanttDatesWithProjectStartDate(newStartDate);
+            } else {
+                console.log('Gantt chart not yet loaded, will use new date on next open');
+            }
+        });
         
         // Store the quotation reference for use in other details mod al
         window.currentProjectQuotationRef = quotationRef;
