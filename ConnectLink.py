@@ -10,7 +10,6 @@ from flask import Flask, request, jsonify, session, render_template, redirect, u
 from datetime import datetime, timedelta, date
 import calendar
 import pandas as pd
-from xhtml2pdf import pisa
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import seaborn as sns
@@ -207,6 +206,118 @@ def initialize_database_tables():
                 );
             """)
 
+            # Create quotation rates table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_rates (
+                    id SERIAL PRIMARY KEY,
+                    quotation_item VARCHAR(255) NOT NULL,
+                    days_per_sq_meter DECIMAL(10, 8) NOT NULL DEFAULT 0,
+                    inhouse_unit_rate DECIMAL(12, 2) NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Check if quotation_rates table is empty and populate with initial data
+            cursor.execute("SELECT COUNT(*) FROM quotation_rates")
+            count = cursor.fetchone()[0]
+            
+            if count == 0:
+                # Insert initial quotation rates data
+                quotation_data = [
+                    ('Setting out', 0, 1),
+                    ('Excavation', 0.05, 2.9),
+                    ('Footing', 0.0375, 12),
+                    ('Box', 0.075, 20),
+                    ('Slab', 0.025, 15),
+                    ('Window sill level', 0.058333333, 20),
+                    ('Backfilling and compaction', 0.025, 7),
+                    ('Window head', 0.025974026, 20),
+                    ('Ring Beam', 0.032467532, 23),
+                    ('Wall plate', 0.038961039, 10),
+                    ('Roofing', 0.083333333, 35),
+                    ('Aluminium', 0.041666667, 16),
+                    ('Shattering', 0.038961039, 10),
+                    ('Steel Fixing', 0.097402597, 35),
+                    ('Deck Pouring', 0.032467532, 20),
+                    ('1st Fix Electricals', 0.02597403, 23),
+                    ('1st Fix Plumbing', 0.025974026, 9.25),
+                    ('External Plastering', 0.045454545, 5.5),
+                    ('Internal Plastering', 0.051948052, 5.5),
+                    ('Ceiling', 0.064935065, 13),
+                    ('Skimming', 0.045454545, 3.5),
+                    ('Flooring', 0.032467532, 3.5),
+                    ('Tiling', 0.051948052, 12),
+                    ('Wall Tiling', 0.023529412, 0),
+                    ('Painting', 0.051948052, 15),
+                    ('Final fix Plumbing', 0.025974026, 9.25),
+                    ('Final fix Electricals', 0.025974026, 5),
+                    ('Cleaning', 0, 0)
+                ]
+                
+                cursor.executemany("""
+                    INSERT INTO quotation_rates (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                    VALUES (%s, %s, %s)
+                """, quotation_data)
+                
+                connection.commit()
+                print(f"✓ Initialized quotation_rates table with {len(quotation_data)} items")
+
+            # Create project_schedules table for Gantt charts
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS project_schedules (
+                    id SERIAL PRIMARY KEY,
+                    project_name VARCHAR(255) NOT NULL,
+                    schedule_data JSONB NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Create quotations table to store quotation headers
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotations (
+                    id SERIAL PRIMARY KEY,
+                    client_name VARCHAR(255) NOT NULL,
+                    quotation_date DATE NOT NULL,
+                    category VARCHAR(100) NOT NULL,
+                    project_size DECIMAL(10, 2),
+                    total_cost DECIMAL(15, 2) NOT NULL,
+                    markup_percentage DECIMAL(5, 2),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Create quotation_items table to store construction items
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_items (
+                    id SERIAL PRIMARY KEY,
+                    quotation_id INT NOT NULL,
+                    item_name VARCHAR(255) NOT NULL,
+                    quantity DECIMAL(10, 2),
+                    unit_rate DECIMAL(12, 2),
+                    total_price DECIMAL(15, 2),
+                    item_order INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+                );
+            """)
+
+            # Create quotation_schedules table to store project schedule items
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_schedules (
+                    id SERIAL PRIMARY KEY,
+                    quotation_id INT NOT NULL,
+                    work_scope VARCHAR(255) NOT NULL,
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    days INT,
+                    task_order INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+                );
+            """)
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'
@@ -355,6 +466,7 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment10duedate date;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment10date date;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);",
+                "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS quotation_id INT;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS depositorbullet NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS datedepositorbullet date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS monthlyinstallment NUMERIC(12,2);",
@@ -390,6 +502,7 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS installment10date date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS latepaymentinterest INT;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS quotation_id INT;",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;",
@@ -8206,7 +8319,7 @@ def api_login():
     
     return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
 
-@app.route('/api/logoutpos', methods=['POST'])
+@app.route('/api/logoutpos', methods=['POST','GET'])
 def api_logout():
     session.clear()
     return render_template('mainindex.html')  # Or send_from_directory for static HTML
@@ -8612,19 +8725,6 @@ def get_dashboard_stats():
         }
     })
 
-# ==================== TEMPLATE ROUTES ====================
-
-
-
-@app.route('/projectslogin')
-def projects_login_page():
-    return send_from_directory('templates', 'login.html')
-
-@app.route('/loginhardware')
-def pos_static_login():
-    """Serve the POS HTML"""
-    return send_from_directory('templates', 'login hardware.html')
-
 # ==================== INITIALIZE DATABASE ====================
 
 with app.app_context():
@@ -8873,6 +8973,94 @@ def export_projects_portfolio():
                 df_projects.to_excel(writer, index=False, sheet_name="Projects Database")
                 df_notes.to_excel(writer, index=False, sheet_name="Notes")
                 df_portfolio_deleted.to_excel(writer, index=False, sheet_name="Deleted Projects")
+                
+                # ========= SHEET 4 — PROJECT 125 WORK SCOPE (if exists) =========
+                project_125_exists = len(df_projects[df_projects['id'] == 125]) > 0
+                if project_125_exists:
+                    work_scope_data = {
+                        'Work Scope': [
+                            'Bathroom Plumbing',
+                            'Main Kitchen',
+                            'Bedroom Cabinets',
+                            'TV unit',
+                            'Boundary wall',
+                            'Kitchenette',
+                            'Electricals',
+                            'Manhole construction',
+                            'Painting',
+                            'Gate',
+                            'Tank Stand',
+                            'Landscaping',
+                            'Final fix Plumbing',
+                            'Final fix Electricals',
+                            'Verandah roof',
+                            'Garage roof',
+                            'Verandah Tiles',
+                            'Floor Tiles'
+                        ],
+                        'Start date': [
+                            '31/04/2026',
+                            '27/3/2026',
+                            '28/3/2026',
+                            '5/4/2026',
+                            '10/4/2026',
+                            '5/4/2026',
+                            '4/4/2026',
+                            '4/4/2026',
+                            '6/4/2026',
+                            '12/4/2026',
+                            '26/4/2026',
+                            '1/5/2026',
+                            '6/5/2026',
+                            '6/5/2026',
+                            '11/05/2026',
+                            '16/5/2026',
+                            '17/5/2026',
+                            '17/5/2026'
+                        ],
+                        'End date': [
+                            '3/4/2026',
+                            '4/4/2026',
+                            '4/4/2026',
+                            '6/4/2026',
+                            '',
+                            '7/4/2026',
+                            '8/4/2026',
+                            '9/4/2026',
+                            '11/4/2026',
+                            '13/4/2026',
+                            '30/4/2026',
+                            '10/5/2026',
+                            '10/5/2026',
+                            '10/5/2026',
+                            '16/5/2026',
+                            '21/5/2026',
+                            '23/5/2025',
+                            '23/5/2025'
+                        ],
+                        'Days': [
+                            4,
+                            7,
+                            6,
+                            1,
+                            '',
+                            2,
+                            4,
+                            5,
+                            5,
+                            1,
+                            4,
+                            9,
+                            4,
+                            4,
+                            5,
+                            5,
+                            6,
+                            6
+                        ]
+                    }
+                    df_work_scope = pd.DataFrame(work_scope_data)
+                    df_work_scope.to_excel(writer, index=False, sheet_name="Project 125 Work Scope")
 
 
             output.seek(0)
@@ -8987,8 +9175,8 @@ def login():
                         session['userid'] = int(np.int64(userid))  # Ensure Python int
                         session['user_name'] = user_name
 
-                        # Redirect to dashboard
-                        return redirect(url_for('Dashboard'))
+                        # Return JSON response instead of redirect
+                        return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/dashboard'}), 200
 
                     else:
                         print('Incorrect password')
@@ -9258,6 +9446,123 @@ def download_contract(project_id):
             }
 
             project['generated_on'] = datetime.now().strftime('%d %B %Y')
+            
+            # Get quotation_id from the project row
+            # Need to find the column index for quotation_id
+            try:
+                quotation_id_index = column_names.index('quotation_id')
+                quotation_id = row[quotation_id_index]
+            except (ValueError, IndexError):
+                quotation_id = None
+
+            # Build work scope table HTML from linked quotation if available
+            work_scope_html = ""
+            if quotation_id:
+                try:
+                    # Fetch work schedules from quotation
+                    cursor.execute("""
+                        SELECT work_scope, start_date, end_date, days
+                        FROM quotation_schedules
+                        WHERE quotation_id = %s
+                        ORDER BY task_order ASC
+                    """, (quotation_id,))
+                    
+                    schedules = cursor.fetchall()
+                    
+                    if schedules:
+                        # Get project start date
+                        project_start_date = row[14]  # project_start_date from project row
+                        
+                        # Get the first schedule's start date to calculate offset
+                        first_schedule_start = schedules[0][1] if schedules[0][1] else None
+                        
+                        # Calculate date offset in days
+                        date_offset = 0
+                        if first_schedule_start and project_start_date:
+                            date_offset = (project_start_date - first_schedule_start).days
+                        
+                        work_scope_rows = ""
+                        for idx, schedule in enumerate(schedules, 1):
+                            work_scope, start_date, end_date, days = schedule
+                            
+                            # Apply date offset to schedule dates
+                            if start_date and date_offset != 0:
+                                start_date = start_date + timedelta(days=date_offset)
+                            if end_date and date_offset != 0:
+                                end_date = end_date + timedelta(days=date_offset)
+                            
+                            # Format dates
+                            start_str = start_date.strftime("%d/%m/%Y") if start_date else ""
+                            end_str = end_date.strftime("%d/%m/%Y") if end_date else ""
+                            days_str = str(days) if days else ""
+                            
+                            work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{idx}. {work_scope}</td><td style='text-align: center; padding: 8px;'>{start_str}</td><td style='text-align: center; padding: 8px;'>{end_str}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days_str}</td></tr>"
+                        
+                        work_scope_html = f"""
+                            <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
+                            <table class="payment-table" style="margin-top: 12px; margin-bottom: 20px; font-size: 12px;">
+                                <thead>
+                                    <tr style="background: #1E2A56; color: white;">
+                                        <th style="width: 45%; text-align: left; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Work Scope</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Start Date</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">End Date</th>
+                                        <th style="width: 12%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Days</th>
+                                    </tr>
+                                </thead>
+                                <tbody style="font-size: 11px;">
+                                    {work_scope_rows}
+                                </tbody>
+                            </table>
+                            <div class="page-break"></div>
+                        """
+                except Exception as e:
+                    logging.error(f"Error fetching quotation schedules: {e}")
+                    work_scope_html = ""
+            
+            # Fallback: use hardcoded work scope for project_id 125 if no quotation is linked
+            if not work_scope_html and int(project_id) == 125:
+                work_scope_data = [
+                    ('Bathroom Plumbing', '31/03/2026', '3/4/2026', 4),
+                    ('Main Kitchen', '27/3/2026', '4/4/2026', 7),
+                    ('Bedroom Cabinets', '28/3/2026', '4/4/2026', 6),
+                    ('TV unit', '5/4/2026', '6/4/2026', 1),
+                    ('Boundary wall', '10/4/2026', '', ''),
+                    ('Kitchenette', '5/4/2026', '7/4/2026', 2),
+                    ('Electricals', '4/4/2026', '8/4/2026', 4),
+                    ('Manhole construction', '4/4/2026', '9/4/2026', 5),
+                    ('Painting', '6/4/2026', '11/4/2026', 5),
+                    ('Gate', '12/4/2026', '13/4/2026', 1),
+                    ('Tank Stand', '26/4/2026', '30/4/2026', 4),
+                    ('Landscaping', '1/5/2026', '10/5/2026', 9),
+                    ('Final fix Plumbing', '6/5/2026', '10/5/2026', 4),
+                    ('Final fix Electricals', '6/5/2026', '10/5/2026', 4),
+                    ('Verandah roof', '11/05/2026', '16/5/2026', 5),
+                    ('Garage roof', '16/5/2026', '21/5/2026', 5),
+                    ('Verandah Tiles', '17/5/2026', '23/5/2025', 6),
+                    ('Floor Tiles', '17/5/2026', '23/5/2025', 6),
+                ]
+                
+                work_scope_rows = ""
+                for scope, start, end, days in work_scope_data:
+                    work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{scope}</td><td style='text-align: center; padding: 8px;'>{start}</td><td style='text-align: center; padding: 8px;'>{end}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days}</td></tr>"
+                
+                work_scope_html = f"""
+                    <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
+                    <table class="payment-table" style="margin-top: 12px; margin-bottom: 20px; font-size: 12px;">
+                        <thead>
+                            <tr style="background: #1E2A56; color: white;">
+                                <th style="width: 45%; text-align: left; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Work Scope</th>
+                                <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Start Date</th>
+                                <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">End Date</th>
+                                <th style="width: 12%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Days</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 11px;">
+                            {work_scope_rows}
+                        </tbody>
+                    </table>
+                    <div class="page-break"></div>
+                """
 
             logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
             with open(logo_path, 'rb') as img_file:
@@ -9406,9 +9711,9 @@ def download_contract(project_id):
                     .scope-box {{
                         border: 1.5px solid #1E2A56;
                         border-radius: 10px;
-                        padding: 10px;
+                        padding: 8px;
                         font-size: 11px;
-                        min-height: 100px;
+                        min-height: 70px;
                         background: #fafbff;
                         margin-bottom: 15px;
                         line-height: 1.3;
@@ -9632,7 +9937,8 @@ def download_contract(project_id):
                     
                     <div class="section-header">PROJECT SCOPE</div>
                     <div class="scope-box">{project['project_description']}</div>
-                
+                    
+                    {work_scope_html}
 
                     <h4 class="section-title">PAYMENT TERMS</h4>
                     <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>
@@ -9888,12 +10194,7 @@ def download_contract(project_id):
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
-                    <div class="section-header">ELECTRICITY, WATER AND SEWERAGE CONNECTIONS</div>
-                    <div class="terms-box">
-                        <ul>
-                            <li>Connections for ZESA, City council water and sewerage will be done by the Client.</li>
-                        </ul>
-                    </div>
+
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
@@ -10029,7 +10330,7 @@ def delete_project():
                 
                 print(f"DEBUG: Found {len(columns)} columns excluding id")
                 
-                # Build the column list for SELECT (exclude id from source)
+                # Build the column list for SELECT (exclude id and quotation_id from source)
                 select_columns = ', '.join([f'd.{col}' for col in columns])
                 
                 # Build the column list for INSERT - MUST include id first!
@@ -10525,7 +10826,7 @@ def get_filtered_projects(month_filter):
                 datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
             
             # Add Action column (same as in your run1 function)
-            datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{row['id']}" class="btn btn-primary3 download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a><button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button><button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary3 update-project-btn">Update</button></div>''', axis=1)
+            datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a><button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View Project</button><button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button></div>''', axis=1)
             
             # Reorder columns to match your original table
             # Put Action column at the end
@@ -10634,13 +10935,14 @@ def get_payment_reminders_data(df):
     today = date.today()
     due_soon = []
     overdue = []
+    underpaid = []
     
     # Make sure we're working with a copy
     df = df.copy()
     
     # Convert date columns to datetime
     date_columns = []
-    for i in range(1, 7):
+    for i in range(1, 11):
         due_col = f'installment{i}duedate'
         paid_col = f'installment{i}date'
         
@@ -10658,21 +10960,34 @@ def get_payment_reminders_data(df):
             whatsapp_number = str(row.get('clientwanumber', ''))
             project_name = str(row.get('projectname', 'Unknown'))
             project_id = int(row.get('id', index))
+            total_contract_amount = 0
             
-            # Check each installment (1-6)
-            for i in range(1, 7):
-                due_date_col = f'installment{i}duedate'
-                paid_date_col = f'installment{i}date'
+            try:
+                total_contract_amount = float(row.get('totalcontractamount', 0))
+            except:
+                total_contract_amount = 0
+            
+            # Calculate total paid so far
+            total_paid = 0
+            
+            # Add deposit amount
+            try:
+                deposit = float(row.get('depositorbullet', 0))
+                total_paid += deposit
+            except:
+                pass
+            
+            # Add all paid installments
+            last_payment_date = None
+            all_installments_paid = True
+            
+            for i in range(1, 11):
                 amount_col = f'installment{i}amount'
+                paid_col = f'installment{i}date'
                 
-                # Get due date
-                due_date = row.get(due_date_col)
-                if pd.isna(due_date):
-                    continue
-                
-                # Get amount (handle various formats)
                 amount = 0
                 amount_val = row.get(amount_col)
+                
                 if pd.notna(amount_val):
                     try:
                         amount = float(amount_val)
@@ -10683,43 +10998,75 @@ def get_payment_reminders_data(df):
                     continue
                 
                 # Check if paid
-                paid_date = row.get(paid_date_col)
+                paid_date = row.get(paid_col)
                 is_paid = pd.notna(paid_date)
                 
+                if is_paid:
+                    total_paid += amount
+                    if last_payment_date is None or paid_date > last_payment_date:
+                        last_payment_date = paid_date
+                else:
+                    all_installments_paid = False
+                
+                # Check for unpaid installments
                 if not is_paid:
-                    due_date_date = due_date.date()
-                    days_diff = (due_date_date - today).days
+                    due_date = row.get(f'installment{i}duedate')
+                    if pd.notna(due_date):
+                        due_date_date = due_date.date()
+                        days_diff = (due_date_date - today).days
+                        
+                        payment_info = {
+                            'project_id': project_id,
+                            'client_name': client_name,
+                            'whatsapp_number': whatsapp_number,
+                            'project_name': project_name,
+                            'installment_number': i,
+                            'amount_due': amount,
+                            'due_date': due_date_date.strftime('%Y-%m-%d'),
+                            'days_diff': days_diff
+                        }
+                        
+                        if days_diff < 0:
+                            payment_info['days_overdue'] = abs(days_diff)
+                            overdue.append(payment_info)
+                        elif days_diff <= 3:
+                            due_soon.append(payment_info)
+            
+            # Check for underpayment
+            if all_installments_paid and last_payment_date is not None:
+                balance_due = total_contract_amount - total_paid
+                
+                if balance_due > 0:
+                    last_payment_date_date = last_payment_date.date()
+                    days_since_last_payment = (today - last_payment_date_date).days
                     
-                    payment_info = {
+                    underpaid_info = {
                         'project_id': project_id,
                         'client_name': client_name,
                         'whatsapp_number': whatsapp_number,
                         'project_name': project_name,
-                        'installment_number': i,
-                        'amount_due': amount,
-                        'due_date': due_date_date.strftime('%Y-%m-%d'),
-                        'days_diff': days_diff
+                        'total_contract_amount': total_contract_amount,
+                        'total_paid': total_paid,
+                        'balance_due': balance_due,
+                        'last_payment_date': last_payment_date_date.strftime('%Y-%m-%d'),
+                        'days_overdue': days_since_last_payment
                     }
-                    
-                    print(payment_info)
-
-                    if days_diff < 0:
-                        payment_info['days_overdue'] = abs(days_diff)
-                        overdue.append(payment_info)
-                    elif days_diff <= 3:
-                        due_soon.append(payment_info)
+                    underpaid.append(underpaid_info)
                         
         except Exception as e:
+            print(f"Error processing row: {e}")
             continue
     
     # Sort results
     due_soon.sort(key=lambda x: x['days_diff'])
     overdue.sort(key=lambda x: x['days_overdue'], reverse=True)
+    underpaid.sort(key=lambda x: x['days_overdue'], reverse=True)
     
     return {
         'due_soon': due_soon,
         'overdue': overdue,
-        'all_payments': due_soon + overdue
+        'underpaid': underpaid,
+        'all_payments': due_soon + overdue + underpaid
     }
 
 @app.route('/api/payment-reminders', methods=['GET'])
@@ -10877,18 +11224,110 @@ def api_payment_reminders():
                             overdue.append(payment_info)
                         elif days_diff <= 3:
                             due_soon.append(payment_info)
+
+                except Exception as e:
+                    print(e)
+            
+            # Query for underpaid clients (all installments paid but balance due)
+            underpaid = []
+            cursor.execute("""
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    d.totalcontractamount,
+                    d.depositorbullet,
+                    d.datedepositorbullet,
+                    d.installment1amount, d.installment1date,
+                    d.installment2amount, d.installment2date,
+                    d.installment3amount, d.installment3date,
+                    d.installment4amount, d.installment4date,
+                    d.installment5amount, d.installment5date,
+                    d.installment6amount, d.installment6date,
+                    d.installment7amount, d.installment7date,
+                    d.installment8amount, d.installment8date,
+                    d.installment9amount, d.installment9date,
+                    d.installment10amount, d.installment10date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.totalcontractamount > 0
+            """)
+            
+            underpaid_results = cursor.fetchall()
+            
+            for row in underpaid_results:
+                try:
+                    project_id = row[0]
+                    client_name = row[1]
+                    whatsapp_number = row[2]
+                    project_name = row[3]
+                    total_contract = float(row[4]) if row[4] else 0
+                    
+                    # Calculate total paid
+                    total_paid = 0
+                    last_payment_date = None
+                    
+                    # Add deposit
+                    deposit = float(row[5]) if row[5] else 0
+                    total_paid += deposit
+                    
+                    if row[6]:  # deposit date
+                        last_payment_date = row[6]
+                    
+                    # Check all 10 installments
+                    all_paid = True
+                    for i in range(10):
+                        amount_idx = 7 + (i * 2)
+                        date_idx = amount_idx + 1
+                        
+                        if amount_idx < len(row) and row[amount_idx]:
+                            amount = float(row[amount_idx]) if row[amount_idx] else 0
+                            paid_date = row[date_idx] if date_idx < len(row) else None
                             
+                            if amount > 0:
+                                if paid_date:
+                                    total_paid += amount
+                                    if last_payment_date is None or paid_date > last_payment_date:
+                                        last_payment_date = paid_date
+                                else:
+                                    all_paid = False
+                    
+                    # Check for underpayment
+                    if all_paid and last_payment_date:
+                        balance_due = total_contract - total_paid
+                        
+                        if balance_due > 0:
+                            last_payment_dt = last_payment_date if isinstance(last_payment_date, datetime.date) else datetime.strptime(str(last_payment_date), '%Y-%m-%d').date()
+                            days_overdue = (today - last_payment_dt).days
+                            
+                            underpaid.append({
+                                'project_id': project_id,
+                                'client_name': client_name,
+                                'whatsapp_number': whatsapp_number,
+                                'project_name': project_name,
+                                'total_contract_amount': total_contract,
+                                'total_paid': total_paid,
+                                'balance_due': balance_due,
+                                'last_payment_date': last_payment_dt.strftime('%Y-%m-%d'),
+                                'days_overdue': days_overdue
+                            })
                 except Exception as e:
                     continue
+            
+            # Sort underpaid by days overdue
+            underpaid.sort(key=lambda x: x['days_overdue'], reverse=True)
             
             return jsonify({
                 'due_soon': due_soon,
                 'overdue': overdue,
-                'all_payments': due_soon + overdue,
+                'underpaid': underpaid,
+                'all_payments': due_soon + overdue + underpaid,
                 'counts': {
                     'due_soon': len(due_soon),
                     'overdue': len(overdue),
-                    'total': len(due_soon) + len(overdue)
+                    'underpaid': len(underpaid),
+                    'total': len(due_soon) + len(overdue) + len(underpaid)
                 },
                 'today': today.strftime('%Y-%m-%d')
             })
@@ -10899,6 +11338,7 @@ def api_payment_reminders():
             'error': 'Server error',
             'due_soon': [],
             'overdue': [],
+            'underpaid': [],
             'all_payments': []
         }), 500
 
@@ -11261,7 +11701,7 @@ def run1(userid):
         usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email','whatsapp'])
 
 
-        usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button class="btn btn-danger-2" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="{row['id']}" data-user-name="{html.escape(str(row.get('name', '')))}"data-user-email="{html.escape(str(row.get('email', '')))}">Remove</button></div>''', axis=1)
+        usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="{row['id']}" data-user-name="{html.escape(str(row.get('name', '')))}"data-user-email="{html.escape(str(row.get('email', '')))}">Remove</button></div>''', axis=1)
         usersdatamain = usersdatamain[['id', 'datecreated','name','email','whatsapp','Action']]
         usersdatamain_html = usersdatamain.to_html(classes="table table-bordered table-theme", table_id="allusersTable", index=False,  escape=False,)
 
@@ -11274,7 +11714,7 @@ def run1(userid):
         print(adminsdata)
 
         adminsdatamain = pd.DataFrame(adminsdata, columns= ['id', 'name', 'contact'])
-        adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary edit-admin-details-btn" style="width:max-content;" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button>    <button class="btn btn-danger-2 remove-admin-btn" data-ID="{x}">Remove</button></div>''')
+        adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary edit-admin-details-btn" style="width:max-content;" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button>    <button class="btn btn-danger remove-admin-btn" data-ID="{x}">Remove</button></div>''')
         adminsdatamain = adminsdatamain[['id', 'name', 'contact', 'Action']]
         table_datamain_admins_html = adminsdatamain.to_html(classes="table table-bordered table-theme", table_id="alladminsTable", index=False,  escape=False,)
 
@@ -11282,11 +11722,15 @@ def run1(userid):
 
 
         ######### maindata
+        # quotation_id column is already added during initialize_database_tables()
+        # No need to check/add it again here
+        
         maindataquery = f"SELECT * FROM connectlinkdatabase;"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
-        print(column_names)
+        print("Database columns from cursor.description:", column_names)
+        print(f"Total columns from database: {len(column_names)}")
 
         print("maaaaiiiiin DATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
         print(maindata)
@@ -11294,10 +11738,13 @@ def run1(userid):
         print(f"Number of projects: {num_projects}")
 
 
-        datamain = pd.DataFrame(maindata, columns= ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date','projectcompletionstatus','latepaymentinterest','momid', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date'])
+        # Use the actual column names from the database
+        datamain = pd.DataFrame(maindata, columns=column_names)
 
+        # Get just the column statistics
         count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
         count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
+        count_other = datamain[(datamain["projectcompletionstatus"] != "Ongoing") & (datamain["projectcompletionstatus"] != "Completed")].shape[0]
         average_duration = round(pd.to_numeric(datamain["projectduration"], errors="coerce").mean(),0)
         locations = datamain['projectlocation'].replace('', pd.NA)
 
@@ -11311,16 +11758,52 @@ def run1(userid):
         # Get the most frequent location
         most_frequent_location = locations.value_counts(dropna=True).idxmax()
 
-        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary3 download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary3 view-project-btn" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-id="{row['id']}">View Project</button> <button class="btn btn-primary3 notes-btn" data-bs-toggle="modal" data-bs-target="#notesModal" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary3 update-project-btn">Update</button> </div>''', axis=1)        
-        
+        # ===== CRITICAL: Process columns in correct order =====
+        # Step 1: Process dates first
         datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
+        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+        
+        # Step 2: Calculate momid BEFORE reordering
         datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
 
-        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
-
-        datamain = datamain[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date', 'projectcompletionstatus', 'latepaymentinterest', 'id', 'Action']]
-                        
+        # Step 3: Rename quotation_id to QREF BEFORE Action creation
+        datamain = datamain.rename(columns={'quotation_id': 'QREF'})
+        
+        # Step 4: Format QREF column
+        datamain['QREF'] = datamain['QREF'].apply(
+            lambda x: f'<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == '' 
+            else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
+        )
+        
+        # Step 5: Create Action column AFTER everything else
+        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View Project</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
+        
+        # Step 6: Sort by ID
         datamain = datamain.sort_values('id', ascending=False)
+        
+        # Step 7: Define the EXACT 61 columns needed
+        final_columns_to_select = [
+            'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',  
+            'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',  
+            'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate',  
+            'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay',  
+            'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment',  
+            'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate',  
+            'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',  
+            'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date',  
+            'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate',  
+            'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount',  
+            'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date',  
+            'projectcompletionstatus', 'latepaymentinterest', 'id', 'QREF', 'Action'
+        ]
+        
+        # Select ONLY columns that exist - no padding, just reorder what we have
+        cols_that_exist = [col for col in final_columns_to_select if col in datamain.columns]
+        datamain = datamain[cols_that_exist]
+        
+        # DEBUG: Print columns for verification
+        final_cols_list = list(datamain.columns)
+        print(f"\nFinal table has {len(final_cols_list)} columns: {final_cols_list}")
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
 
@@ -11620,6 +12103,7 @@ def run1(userid):
             'num_projects': num_projects,
             'count_ongoing': count_ongoing,
             'count_completed': count_completed,
+            'count_other': count_other,
             'average_duration': average_duration,
             'most_frequent_location': most_frequent_location,
             'locations': locations_list,
@@ -11676,9 +12160,9 @@ def get_installment_audit_data():
 # Add this function to auto-correct a single project
 def auto_correct_project(project_id):
     with get_db() as (cursor, connection):
-        # Get project data
-        query = f"SELECT * FROM connectlinkdatabase WHERE id = {project_id};"
-        cursor.execute(query)
+        # Get project data (using parameterized query for safety)
+        query = "SELECT * FROM connectlinkdatabase WHERE id = %s;"
+        cursor.execute(query, (project_id,))
         project = cursor.fetchone()
         column_names = [desc[0] for desc in cursor.description]
         
@@ -11752,27 +12236,42 @@ def auto_correct_project(project_id):
 
 # Add this function to auto-correct all projects
 def auto_correct_all_projects():
-    with get_db() as (cursor, connection):
-        # Get all projects
-        query = "SELECT id FROM connectlinkdatabase;"
-        cursor.execute(query)
-        projects = cursor.fetchall()
-        
-        results = []
-        for project in projects:
-            project_id = project[0]
-            result = auto_correct_project(project_id)
-            results.append(result)
-        
-        successful = [r for r in results if r.get('success')]
-        failed = [r for r in results if not r.get('success')]
-        
+    try:
+        with get_db() as (cursor, connection):
+            # Get all projects
+            query = "SELECT id FROM connectlinkdatabase;"
+            cursor.execute(query)
+            projects = cursor.fetchall()
+            
+            results = []
+            for project in projects:
+                try:
+                    project_id = project[0]
+                    result = auto_correct_project(project_id)
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'success': False,
+                        'message': f'Error processing project {project_id}: {str(e)}',
+                        'project_id': project_id
+                    })
+            
+            successful = [r for r in results if r.get('success')]
+            failed = [r for r in results if not r.get('success')]
+            
+            return {
+                'success': True,
+                'total_processed': len(results),
+                'successful_count': len(successful),
+                'failed_count': len(failed),
+                'results': results
+            }
+    except Exception as e:
+        import logging
+        logging.error(f'Error in auto_correct_all_projects: {str(e)}')
         return {
-            'success': True,
-            'total_processed': len(results),
-            'successful_count': len(successful),
-            'failed_count': len(failed),
-            'results': results
+            'success': False,
+            'message': f'Error processing batch correction: {str(e)}'
         }
 
 # Add Flask routes
@@ -12768,23 +13267,30 @@ def get_installments_count():
             project_start_month = request.args.get('datedepositorbullet')
             due_month = request.args.get('due_month')
             
-            # Build base query
-            query = """
-                SELECT COUNT(*) as total FROM connectlinkdatabase WHERE 1=1
-            """
+            # Parse due month if provided
+            due_year = None
+            due_month_num = None
+            if due_month and due_month != 'all':
+                due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
+            
+            # Build WHERE clause for project filters
+            where_clauses = []
             params = []
             
-            # Add project start month filter
+            # Project start month filter
             if project_start_month and project_start_month != 'all':
                 year, month_num = project_start_month.split('-')
-                query += " AND EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                where_clauses.append(
+                    "EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                )
                 params.extend([year, month_num])
             
-            # Add due month filter
+            # Due month filter (at project level - projects that have installments due in selected month)
             if due_month and due_month != 'all':
-                year, month_num = due_month.split('-')
-                query += """
-                    AND (
+                due_condition = """
+                    (
                         (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
                         (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
                         (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
@@ -12797,30 +13303,91 @@ def get_installments_count():
                         (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
                     )
                 """
-                params.extend([year, month_num] * 6)
+                where_clauses.append(due_condition)
+                params.extend([due_year, due_month_num] * 10)
             
-            # Get total count
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+            
+            # Query to get all projects matching project filters
+            query = f"""
+                SELECT 
+                    id, clientname, clientwanumber, clientemail, projectname,
+                    projectdescription, momid, projectstartdate,
+                    installment1amount, installment1duedate, installment1date,
+                    installment2amount, installment2duedate, installment2date,
+                    installment3amount, installment3duedate, installment3date,
+                    installment4amount, installment4duedate, installment4date,
+                    installment5amount, installment5duedate, installment5date,
+                    installment6amount, installment6duedate, installment6date,
+                    installment7amount, installment7duedate, installment7date,
+                    installment8amount, installment8duedate, installment8date,
+                    installment9amount, installment9duedate, installment9date,
+                    installment10amount, installment10duedate, installment10date
+                FROM connectlinkdatabase 
+                {where_clause}
+            """
+            
             cursor.execute(query, params)
-            total = cursor.fetchone()[0]
+            all_projects = cursor.fetchall()
             
-            # Get paid count (any installment date not null)
-            paid_query = query.replace("WHERE 1=1", 
-                "WHERE 1=1 AND (installment1date IS NOT NULL OR installment2date IS NOT NULL OR installment3date IS NOT NULL OR installment4date IS NOT NULL OR installment5date IS NOT NULL OR installment6date IS NOT NULL OR installment7date IS NOT NULL OR installment8date IS NOT NULL OR installment9date IS NOT NULL OR installment10date IS NOT NULL)")
+            # Count installments
+            total_count = 0
+            paid_count = 0
+            due_count = 0
             
-            cursor.execute(paid_query, params)
-            paid = cursor.fetchone()[0]
+            from datetime import datetime
+            today = datetime.now().date()
             
-            # Get due count (all installment dates null)
-            due_query = query.replace("WHERE 1=1", 
-                "WHERE 1=1 AND (installment1date IS NULL AND installment2date IS NULL AND installment3date IS NULL AND installment4date IS NULL AND installment5date IS NULL AND installment6date IS NULL AND installment7date IS NULL AND installment8date IS NULL AND installment9date IS NULL AND installment10date IS NULL)")
+            for row in all_projects:
+                row_dict = dict(zip([
+                    'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                    'projectdescription', 'momid', 'projectstartdate',
+                    'installment1amount', 'installment1duedate', 'installment1date',
+                    'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date',
+                    'installment4amount', 'installment4duedate', 'installment4date',
+                    'installment5amount', 'installment5duedate', 'installment5date',
+                    'installment6amount', 'installment6duedate', 'installment6date',
+                    'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date'
+                ], row))
+                
+                # Process each installment
+                for i in range(1, 11):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    
+                    # Skip if no amount
+                    if not amount or float(amount) <= 0:
+                        continue
+                    
+                    due_date = row_dict.get(f'installment{i}duedate')
+                    payment_date = row_dict.get(f'installment{i}date')
+                    
+                    # Apply due month filter at installment level
+                    if due_month and due_month != 'all':
+                        if not due_date:
+                            continue
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        if due_date_date.year != int(due_year) or due_date_date.month != int(due_month_num):
+                            continue
+                    
+                    total_count += 1
+                    
+                    if payment_date:
+                        paid_count += 1
+                    elif due_date:
+                        due_count += 1
             
-            cursor.execute(due_query, params)
-            due = cursor.fetchone()[0]
-            
-            return jsonify({'total': total, 'paid': paid, 'due': due})
+            return jsonify({'total': total_count, 'paid': paid_count, 'due': due_count})
         
     except Exception as e:
         print(f"Error counting installments: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'total': 0, 'paid': 0, 'due': 0, 'error': str(e)}), 500
 
 
@@ -12854,6 +13421,8 @@ def download_installments():
             due_month_num = None
             if due_month and due_month != 'all':
                 due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
             
             # Build WHERE clause for both filters
             where_clauses = []
@@ -12939,6 +13508,19 @@ def download_installments():
             
             cursor.execute(query, params)
             all_installments = cursor.fetchall()
+            
+            # Deduplicate rows from database - remove exact duplicate project records
+            seen = set()
+            deduped_installments = []
+            for row in all_installments:
+                # Use first 8 fields (id through projectstartdate) as the unique key
+                # This identifies the project, not the individual installment
+                row_key = row[:8]  # id, clientname, clientwanumber, clientemail, projectname, projectdescription, momid, projectstartdate
+                if row_key not in seen:
+                    seen.add(row_key)
+                    deduped_installments.append(row)
+            
+            all_installments = deduped_installments
             
             # Get column names
             columns = [
@@ -13068,23 +13650,7 @@ def download_installments():
             from io import BytesIO
             from datetime import datetime
             from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-
-            def deduplicate_list(data_list):
-                """Remove duplicate installment records"""
-                seen = set()
-                deduplicated = []
-                for item in data_list:
-                    # Create unique key from id, installment_info, and amount
-                    key = (item['id'], item.get('installment_info', ''), str(item.get('amount_paid', item.get('amount_due', ''))))
-                    if key not in seen:
-                        seen.add(key)
-                        deduplicated.append(item)
-                return deduplicated
             
-            paid_data = deduplicate_list(paid_data)
-            due_data = deduplicate_list(due_data)
-            overdue_data = deduplicate_list(overdue_data)
-
             # Create DataFrames
             paid_df = pd.DataFrame(paid_data)
             due_df = pd.DataFrame(due_data)
@@ -13620,57 +14186,109 @@ def clean_date_update(value):
 
 @app.route('/update_other_details', methods=['POST'])
 def update_other_details():
+    try:
+        with get_db() as (cursor, connection):
 
-    with get_db() as (cursor, connection):
+            project_id = request.form.get('project_id')
+            clientnationalid = request.form.get('client_national_id')
+            clientemail = request.form.get('client_email')
+            clientwhatsapp = request.form.get('client_whatsapp')
+            clientaddress = request.form.get('client_address')
+            clientnextofkin = request.form.get('client_next_of_kin')
+            clientnextofkinrelationship = request.form.get('client_next_of_kin_relation')
+            clientnextofkinphone = request.form.get('client_next_of_kin_phone')
+            clientnextofkinaddress = request.form.get('client_next_of_kin_address')
+            projectcompletionstatus = request.form.get('completion_status')
+            quotation_id = request.form.get('quotation_id')
 
-        project_id = request.form.get('project_id')
-        clientnationalid = request.form.get('client_national_id')
-        clientemail = request.form.get('client_email')
-        clientwhatsapp = request.form.get('client_whatsapp')
-        clientaddress = request.form.get('client_address')
-        clientnextofkin = request.form.get('client_next_of_kin')
-        clientnextofkinrelationship = request.form.get('client_next_of_kin_relation')
-        clientnextofkinphone = request.form.get('client_next_of_kin_phone')
-        clientnextofkinaddress = request.form.get('client_next_of_kin_address')
-        projectcompletionstatus = request.form.get('completion_status')
+            # Build update list with proper type casting
+            updates = []
+            values = []
+            
+            # String fields
+            if clientnationalid:
+                updates.append("clientidnumber = %s")
+                values.append(clientnationalid)
+            if clientemail:
+                updates.append("clientemail = %s")
+                values.append(clientemail)
+            if clientaddress:
+                updates.append("clientaddress = %s")
+                values.append(clientaddress)
+            if clientnextofkin:
+                updates.append("clientnextofkinname = %s")
+                values.append(clientnextofkin)
+            if clientnextofkinrelationship:
+                updates.append("nextofkinrelationship = %s")
+                values.append(clientnextofkinrelationship)
+            if clientnextofkinaddress:
+                updates.append("clientnextofkinaddress = %s")
+                values.append(clientnextofkinaddress)
+            if projectcompletionstatus:
+                updates.append("projectcompletionstatus = %s")
+                values.append(projectcompletionstatus)
+            
+            # Numeric fields (INT) - convert to int or ignore if empty
+            if clientwhatsapp:
+                try:
+                    # Remove any decimals and convert to int
+                    whatsapp_int = int(float(clientwhatsapp))
+                    updates.append("clientwanumber = %s")
+                    values.append(whatsapp_int)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid phone number format: {clientwhatsapp}")
+            
+            if clientnextofkinphone:
+                try:
+                    phone_int = int(float(clientnextofkinphone))
+                    updates.append("clientnextofkinphone = %s")
+                    values.append(phone_int)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid phone number format: {clientnextofkinphone}")
+            
+            # Quotation ID
+            if quotation_id and quotation_id != '':
+                try:
+                    quot_id = int(quotation_id)
+                    updates.append("quotation_id = %s")
+                    values.append(quot_id)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid quotation ID: {quotation_id}")
+            
+            # Add project_id to values for WHERE clause
+            values.append(int(project_id))
+            
+            if not updates:
+                return jsonify({
+                    'success': False,
+                    'message': 'No data to update'
+                }), 400
+            
+            query = f"""
+                UPDATE connectlinkdatabase
+                SET {', '.join(updates)}
+                WHERE id = %s
+            """
+            
+            print(f"Executing query: {query}")
+            print(f"With values: {values}")
+            
+            cursor.execute(query, values)
+            connection.commit()
 
-        # --- EXAMPLE SQL (modify for your DB) ---
-        query = """
-            UPDATE connectlinkdatabase
-            SET 
-                clientidnumber = %s,
-                clientemail = %s,
-                clientwanumber = %s,
-                clientaddress = %s,
-                clientnextofkinname = %s,
-                nextofkinrelationship = %s,
-                clientnextofkinphone = %s,
-                clientnextofkinaddress = %s,
-                projectcompletionstatus = %s
-            WHERE id = %s
-        """
-        
-        values = (
-            clientnationalid,
-            clientemail,
-            clientwhatsapp,
-            clientaddress,
-            clientnextofkin,
-            clientnextofkinrelationship,
-            clientnextofkinphone,
-            clientnextofkinaddress,
-            projectcompletionstatus,
-            project_id
-        )
-
-        cursor.execute(query, values)
-        connection.commit()
-
-        flash("Project details updated successfully!", "success")
+            return jsonify({
+                'success': True,
+                'message': 'Project details updated successfully!'
+            })
+    
+    except Exception as e:
+        print(f"Error updating other details: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
-            'success': True,
-            'message': 'Project details updated successfully!'
-        })
+            'success': False,
+            'message': f'Error updating details: {str(e)}'
+        }), 500
 
 @app.route('/update_project', methods=['POST'])
 def update_project():
@@ -13688,6 +14306,15 @@ def update_project():
         monthstopay = request.form.get('MonthsToPay')
         depositpaid = request.form.get('depositpaid')
         depositdatepaid = request.form.get('deposit_date_paid')
+        
+        # Capture quotation_id from form
+        def safe_int(v):
+            try:
+                return int(v) if v not in (None, "") else None
+            except Exception:
+                return None
+        quotation_id_str = request.form.get('project_quotation_id')
+        quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
         installment1amountupdate = request.form.get('Installment1Amount')
         installment2amountupdate = request.form.get('Installment2Amount')
         installment3amountupdate = request.form.get('Installment3Amount')
@@ -13995,8 +14622,58 @@ def update_project():
                 installment9amount = float(installment9amountupdate)
                 installment10amount = float(installment10amountupdate)
 
-        # --- EXAMPLE SQL (modify for your DB) ---
-        query = """
+        # --- Build UPDATE query with conditional quotation_id (only update if provided) ---
+        # Build values list for query
+        values = [
+            clientname,
+            completion_status,
+            project_start_date,
+            contractamount,
+            depositpaid,
+            depositdatepaid,
+            monthstopay,
+            monthlyinstallment,
+            installment1_date,
+            installment2_date,
+            installment3_date,
+            installment4_date,
+            installment5_date,
+            installment6_date,
+            installment7_date,
+            installment8_date,
+            installment9_date,
+            installment10_date,
+            projscope,
+            project_name,
+            installment1amount,
+            installment2amount,
+            installment3amount,
+            installment4amount,
+            installment5amount,
+            installment6amount,
+            installment7amount,
+            installment8amount,
+            installment9amount,
+            installment10amount,
+            installment1_duedate,
+            installment2_duedate,
+            installment3_duedate,
+            installment4_duedate,
+            installment5_duedate,
+            installment6_duedate,
+            installment7_duedate,
+            installment8_duedate,
+            installment9_duedate,
+            installment10_duedate
+        ]
+        
+        # Only include quotation_id if it's actually provided and not None/empty
+        quotation_clause = ""
+        if quotation_id is not None:
+            quotation_clause = ", quotation_id = %s"
+            values.append(quotation_id)
+        
+        query = f"""
             UPDATE connectlinkdatabase
             SET 
                 clientname = %s,
@@ -14039,52 +14716,12 @@ def update_project():
                 installment8duedate = %s,
                 installment9duedate = %s,
                 installment10duedate = %s
+                {quotation_clause}
             WHERE id = %s
         """
         
-        values = (
-            clientname,
-            completion_status,
-            project_start_date,
-            contractamount,
-            depositpaid,
-            depositdatepaid,
-            monthstopay,
-            monthlyinstallment,
-            installment1_date,
-            installment2_date,
-            installment3_date,
-            installment4_date,
-            installment5_date,
-            installment6_date,
-            installment7_date,
-            installment8_date,
-            installment9_date,
-            installment10_date,
-            projscope,
-            project_name,
-            installment1amount,
-            installment2amount,
-            installment3amount,
-            installment4amount,
-            installment5amount,
-            installment6amount,
-            installment7amount,
-            installment8amount,
-            installment9amount,
-            installment10amount,
-            installment1_duedate,
-            installment2_duedate,
-            installment3_duedate,
-            installment4_duedate,
-            installment5_duedate,
-            installment6_duedate,
-            installment7_duedate,
-            installment8_duedate,
-            installment9_duedate,
-            installment10_duedate,
-            project_id
-        )
+        values.append(project_id)
+        values = tuple(values)
 
         cursor.execute(query, values)
         connection.commit()
@@ -14429,6 +15066,10 @@ def contract_log():
 
                 capturer = session.get('user_name', '')
                 capturerid = session.get('userid')
+                
+                # Get quotation_id if a quotation was selected
+                quotation_id_str = request.form.get('project_quotation_id')
+                quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
 
                 try:
 
@@ -14439,13 +15080,13 @@ def contract_log():
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
                             paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
-                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate
+                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate, quotation_id
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         );
                     """
 
@@ -14497,13 +15138,71 @@ def contract_log():
                         installment7duedate,
                         installment8duedate,
                         installment9duedate,
-                        installment10duedate
+                        installment10duedate,
+                        quotation_id
                     )
 
         
                     cursor.execute(insert_query, params)
                     connection.commit()
                     print("✅ Project inserted into connectlinkdatabase")
+                    
+                    # UPDATE QUOTATION SCHEDULES WITH ADJUSTED DATES
+                    # If adjusted schedules were provided, update them in the quotation_schedules table
+                    if quotation_id:
+                        try:
+                            adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
+                            print(f"🔍 DEBUG - Quotation ID: {quotation_id}")
+                            print(f"🔍 DEBUG - Adjusted schedules JSON provided: {bool(adjusted_schedules_json_str)}")
+                            
+                            if adjusted_schedules_json_str:
+                                import json
+                                adjusted_schedules = json.loads(adjusted_schedules_json_str)
+                                
+                                print(f"✅ 📅 UPDATING QUOTATION SCHEDULES FOR QUOTATION ID={quotation_id}:")
+                                print(f"   Total schedules to update: {len(adjusted_schedules)}")
+                                
+                                
+                                # Delete existing schedules for this quotation
+                                cursor.execute(
+                                    "DELETE FROM quotation_schedules WHERE quotation_id = %s",
+                                    (quotation_id,)
+                                )
+                                
+                                # Insert adjusted schedules
+                                for schedule in adjusted_schedules:
+                                    insert_schedule_query = """
+                                        INSERT INTO quotation_schedules 
+                                        (quotation_id, work_scope, start_date, end_date, days_duration, schedule_data)
+                                        VALUES (%s, %s, %s, %s, %s, %s)
+                                    """
+                                    
+                                    schedule_json = json.dumps({
+                                        'workScope': schedule.get('workScope', ''),
+                                        'startDate': schedule.get('startDate', ''),
+                                        'endDate': schedule.get('endDate', ''),
+                                        'days': schedule.get('days', 0)
+                                    })
+                                    
+                                    cursor.execute(insert_schedule_query, (
+                                        quotation_id,
+                                        schedule.get('workScope', ''),
+                                        safe_date(schedule.get('startDate', '')),
+                                        safe_date(schedule.get('endDate', '')),
+                                        int(schedule.get('days', 0)),
+                                        schedule_json
+                                    ))
+                                    
+                                    print(f"   ✅ Schedule saved: {schedule.get('workScope')} ({schedule.get('startDate')} to {schedule.get('endDate')})")
+                                
+                                connection.commit()
+                                print("✅ Quotation schedules updated with adjusted dates")
+                        
+                        except json.JSONDecodeError as e:
+                            print(f"⚠️ Could not parse adjusted schedules JSON: {e}")
+                        except Exception as e:
+                            print(f"⚠️ Error updating quotation schedules: {e}")
+                            # Don't rollback the project insert, just log the warning
 
 
                 except Exception as e:
@@ -14710,29 +15409,26 @@ def get_updated_table_data():
                 action_buttons = f'''
                 <div style="display: flex; gap: 10px;">
                     <a href="/download_contract/{project_id}" 
-                       class="btn btn-primary3 download-contract-btn" 
+                       class="btn btn-primary download-contract-btn" 
                        data-id="{project_id}" 
                        onclick="handleDownloadClick(this)">
                        Download Contract
                     </a>
-                    <button class="btn btn-primary3 view-project-btn" 
-                            data-bs-toggle="modal" 
-                            data-bs-target="#viewprojectModal" 
+                    <button class="btn btn-primary view-project-btn" 
+                            onclick="openModal('viewprojectModal')" 
                             data-id="{project_id}">
                         View Project
                     </button>
-                    <button class="btn btn-primary3 notes-btn" 
-                            data-bs-toggle="modal" 
-                            data-bs-target="#notesModal" 
+                    <button class="btn btn-primary notes-btn" 
+                            onclick="openModal('notesModal')" 
                             data-id="{project_id}" 
                             data-project-name="{project_name}" 
                             data-client-name="{client_name}">
                         Notes
                     </button>
-                    <button class="btn btn-primary3 update-project-btn"
+                    <button class="btn btn-primary update-project-btn"
                             data-id="{project_id}"
-                            data-bs-toggle="modal" 
-                            data-bs-target="#updateModal">
+                            onclick="openModal('updateModal')">
                         Update
                     </button>
                 </div>
@@ -15879,14 +16575,642 @@ def generate_deposit_receipt_html(row, effective_date, logo_base64):
 def logout():
     # Clear the session data to log the user out
     session.clear()
-
     # Redirect to the landing page or login page after logout
-    return redirect(url_for('userlogin'))
+    return render_template('mainindex.html')  # Or send_from_directory for static HTML
 
 @app.teardown_appcontext
 def close_db(error):
     """Close any remaining connections on app shutdown"""
-    pass  # No-op now since you're using context managers everywhere   
+    pass  # No-op now since you're using context managers everywhere
+
+# Quotation Rates API Endpoints
+@app.route('/api/get-quotation-rates', methods=['GET'])
+def get_quotation_rates():
+    """Retrieve all quotation rates from the database"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, quotation_item, days_per_sq_meter, inhouse_unit_rate
+                FROM quotation_rates
+                ORDER BY id ASC
+            """)
+            rates = cursor.fetchall()
+            
+            result = []
+            for rate in rates:
+                result.append({
+                    'id': rate[0],
+                    'item': rate[1],
+                    'daysPerSqMeter': float(rate[2]),
+                    'inhouseRate': float(rate[3])
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotation rates: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/save-quotation-rates', methods=['POST'])
+def save_quotation_rates():
+    """Save or update quotation rates to the database"""
+    try:
+        data = request.json
+        rates = data.get('rates', [])
+        
+        if not rates:
+            return jsonify({
+                'success': False,
+                'message': 'No rates provided'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Clear existing rates
+            cursor.execute("DELETE FROM quotation_rates")
+            
+            # Insert new rates
+            for rate in rates:
+                cursor.execute("""
+                    INSERT INTO quotation_rates 
+                    (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                    VALUES (%s, %s, %s)
+                """, (
+                    rate.get('item'),
+                    float(rate.get('daysPerSqMeter', 0)),
+                    float(rate.get('inhouseRate', 0))
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully saved {len(rates)} quotation rates',
+                'count': len(rates)
+            })
+    except Exception as e:
+        logging.error(f'Error saving quotation rates: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/save-quotation', methods=['POST'])
+def save_quotation():
+    """Save complete quotation with items and schedules to the database"""
+    try:
+        data = request.json
+        
+        # Check if data is None
+        if data is None:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided or invalid Content-Type'
+            }), 400
+        
+        client_name = data.get('clientName', 'Unknown')
+        quotation_date = data.get('quotationDate', date.today().isoformat())
+        category = data.get('category', 'General')
+        project_size = float(data.get('size', 0)) if data.get('size') else 0
+        total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
+        markup = float(data.get('markup', 0)) if data.get('markup') else 0
+        items = data.get('items', [])
+        schedules = data.get('schedules', [])
+        
+        with get_db() as (cursor, connection):
+            # Insert quotation header
+            cursor.execute("""
+                INSERT INTO quotations 
+                (client_name, quotation_date, category, project_size, total_cost, markup_percentage)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (client_name, quotation_date, category, project_size, total_cost, markup))
+            
+            quotation_id = cursor.fetchone()[0]
+            
+            # Insert quotation items
+            for idx, item in enumerate(items):
+                item_name = item.get('name') or item.get('item', 'Item')
+                quantity = float(item.get('sqm', 0)) if item.get('sqm') else 0
+                unit_rate = float(item.get('inhouseRate', 0)) if item.get('inhouseRate') else 0
+                total_price = float(item.get('total', 0)) if item.get('total') else 0
+                
+                cursor.execute("""
+                    INSERT INTO quotation_items
+                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    quotation_id,
+                    item_name,
+                    quantity,
+                    unit_rate,
+                    total_price,
+                    idx + 1
+                ))
+            
+            # Insert quotation schedules
+            for idx, schedule in enumerate(schedules):
+                work_scope = schedule.get('item', 'Task')
+                start_date = schedule.get('startDate')
+                end_date = schedule.get('endDate')
+                days = int(schedule.get('days', 0)) if schedule.get('days') else 0
+                
+                cursor.execute("""
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    quotation_id,
+                    work_scope,
+                    start_date,
+                    end_date,
+                    days,
+                    idx + 1
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Quotation saved successfully',
+                'quotation_id': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error saving quotation: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/get-quotations', methods=['GET'])
+def get_quotations():
+    """Retrieve all quotations with merged items and schedules"""
+    try:
+        with get_db() as (cursor, connection):
+            # Check if table exists first
+            cursor.execute("""
+                SELECT EXISTS(
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'quotations'
+                );
+            """)
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                logging.warning('Quotations table does not exist')
+                return jsonify({
+                    'success': True,
+                    'data': [],
+                    'count': 0,
+                    'message': 'No quotations yet'
+                })
+            
+            # Get all quotations
+            cursor.execute("""
+                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage, created_at
+                FROM quotations
+                ORDER BY created_at DESC
+            """)
+            quotations = cursor.fetchall()
+            
+            result = []
+            for quotation in quotations:
+                quotation_id = quotation[0]
+                
+                # Get items for this quotation
+                cursor.execute("""
+                    SELECT item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items
+                    WHERE quotation_id = %s
+                    ORDER BY item_order ASC
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                
+                # Get schedules for this quotation
+                cursor.execute("""
+                    SELECT work_scope, start_date, end_date, days, task_order
+                    FROM quotation_schedules
+                    WHERE quotation_id = %s
+                    ORDER BY task_order ASC
+                """, (quotation_id,))
+                schedules = cursor.fetchall()
+                
+                result.append({
+                    'id': quotation_id,
+                    'clientName': quotation[1],
+                    'quotationDate': quotation[2].isoformat() if quotation[2] else None,
+                    'category': quotation[3],
+                    'projectSize': float(quotation[4]) if quotation[4] else 0,
+                    'totalCost': float(quotation[5]),
+                    'markup': float(quotation[6]) if quotation[6] else 0,
+                    'items': [
+                        {
+                            'name': item[0],
+                            'quantity': float(item[1]) if item[1] else 0,
+                            'unitRate': float(item[2]) if item[2] else 0,
+                            'totalPrice': float(item[3]) if item[3] else 0
+                        }
+                        for item in items
+                    ],
+                    'schedules': [
+                        {
+                            'workScope': schedule[0],
+                            'startDate': schedule[1].isoformat() if schedule[1] else None,
+                            'endDate': schedule[2].isoformat() if schedule[2] else None,
+                            'days': int(schedule[3]) if schedule[3] else 0
+                        }
+                        for schedule in schedules
+                    ],
+                    'createdAt': quotation[7].isoformat() if quotation[7] else None
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotations: {str(e)}')
+        logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/project-schedule', methods=['POST'])
+def save_project_schedule_new():
+    """Alternative endpoint for saving project schedules"""
+    try:
+        data = request.json
+        quotation_id = data.get('quotationId')
+        schedules = data.get('schedules', [])
+        
+        if not quotation_id:
+            return jsonify({
+                'success': False,
+                'message': 'Quotation ID is required'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Delete existing schedules for this quotation
+            cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
+            
+            # Insert new schedules
+            for idx, schedule in enumerate(schedules):
+                cursor.execute("""
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    quotation_id,
+                    schedule.get('item', 'Task'),
+                    schedule.get('startDate'),
+                    schedule.get('endDate'),
+                    int(schedule.get('days', 0)),
+                    idx + 1
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully saved {len(schedules)} schedule items'
+            })
+    except Exception as e:
+        logging.error(f'Error saving project schedule: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/save-project-schedule', methods=['POST'])
+def save_project_schedule():
+    """Save project Gantt chart schedule to the database"""
+    try:
+        data = request.json
+        schedule = data.get('schedule', [])
+        project_name = data.get('projectName', 'Untitled Project')
+        
+        if not schedule:
+            return jsonify({
+                'success': False,
+                'message': 'No schedule provided'
+            }), 400
+        
+        import json
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO project_schedules 
+                (project_name, schedule_data, created_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+            """, (
+                project_name,
+                json.dumps(schedule)
+            ))
+            
+            connection.commit()
+            schedule_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True,
+                'message': f'Project schedule saved successfully',
+                'scheduleId': schedule_id,
+                'itemCount': len(schedule)
+            })
+    except Exception as e:
+        logging.error(f'Error saving project schedule: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/existing-clients', methods=['GET'])
+def get_existing_clients():
+    """Retrieve all unique existing clients from projects"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get all unique clients with their details from connectlinkdatabase
+            cursor.execute("""
+                SELECT DISTINCT 
+                    clientname,
+                    clientidnumber,
+                    clientaddress,
+                    clientwanumber,
+                    clientemail,
+                    clientnextofkinname,
+                    clientnextofkinaddress,
+                    clientnextofkinphone,
+                    nextofkinrelationship
+                FROM connectlinkdatabase
+                WHERE clientname IS NOT NULL AND clientname != ''
+                ORDER BY clientname ASC
+            """)
+            
+            clients = cursor.fetchall()
+            
+            result = []
+            for client in clients:
+                result.append({
+                    'clientName': client[0],
+                    'clientId': client[1],
+                    'clientAddress': client[2],
+                    'clientWhatsapp': client[3],
+                    'clientEmail': client[4],
+                    'nextOfKinName': client[5],
+                    'nextOfKinAddress': client[6],
+                    'nextOfKinPhone': client[7],
+                    'nextOfKinRelationship': client[8]
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching existing clients: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }), 500
+
+@app.route('/api/get-project-schedule/<int:project_id>', methods=['GET'])
+def get_project_schedule(project_id):
+    """Retrieve work schedule for a project based on linked quotation"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get the quotation_id from the project
+            cursor.execute("""
+                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            result = cursor.fetchone()
+            
+            if not result or not result[0]:
+                return jsonify({
+                    'success': True,
+                    'schedules': [],
+                    'message': 'No quotation linked to this project'
+                })
+            
+            quotation_id = result[0]
+            
+            # Get the schedules from the linked quotation
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order ASC
+            """, (quotation_id,))
+            
+            schedules = cursor.fetchall()
+            
+            schedule_list = [
+                {
+                    'workScope': schedule[0],
+                    'startDate': schedule[1].isoformat() if schedule[1] else None,
+                    'endDate': schedule[2].isoformat() if schedule[2] else None,
+                    'days': int(schedule[3]) if schedule[3] else 0
+                }
+                for schedule in schedules
+            ]
+            
+            return jsonify({
+                'success': True,
+                'schedules': schedule_list,
+                'quotationId': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching project schedule: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/get-quotation-schedule/<int:quotation_id>', methods=['GET'])
+def get_quotation_schedule(quotation_id):
+    """Retrieve work schedule for a quotation (used for auto-populating project duration)"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get the schedules from the quotation
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order ASC
+            """, (quotation_id,))
+            
+            schedules = cursor.fetchall()
+            
+            schedule_list = [
+                {
+                    'workScope': schedule[0],
+                    'startDate': schedule[1].isoformat() if schedule[1] else None,
+                    'endDate': schedule[2].isoformat() if schedule[2] else None,
+                    'days': int(schedule[3]) if schedule[3] else 0
+                }
+                for schedule in schedules
+            ]
+            
+            # Calculate total days
+            total_days = sum(int(schedule[3]) if schedule[3] else 0 for schedule in schedules)
+            
+            return jsonify({
+                'success': True,
+                'schedules': schedule_list,
+                'totalDays': total_days,
+                'quotationId': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotation schedule: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/update-project-schedule/<int:project_id>', methods=['POST'])
+def update_project_schedule(project_id):
+    """Update work schedule dates for a project"""
+    try:
+        data = request.json
+        schedules = data.get('schedules', [])
+        
+        with get_db() as (cursor, connection):
+            # Get the quotation_id from the project
+            cursor.execute("""
+                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            result = cursor.fetchone()
+            
+            if not result or not result[0]:
+                return jsonify({
+                    'success': False,
+                    'message': 'No quotation linked to this project'
+                }), 400
+            
+            quotation_id = result[0]
+            
+            # Update each schedule's start and end dates and days
+            for idx, schedule in enumerate(schedules):
+                cursor.execute("""
+                    UPDATE quotation_schedules
+                    SET start_date = %s, end_date = %s, days = %s
+                    WHERE quotation_id = %s AND task_order = %s
+                """, (
+                    schedule.get('startDate'),
+                    schedule.get('endDate'),
+                    schedule.get('days', 0),
+                    quotation_id,
+                    idx + 1
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully updated {len(schedules)} schedule items'
+            })
+    except Exception as e:
+        logging.error(f'Error updating project schedule: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/work-plans', methods=['GET'])
+def get_work_plans():
+    """Get work plans filtered by date range with cost proration based on overlapping days"""
+    try:
+        start_date = request.args.get('startDate')
+        end_date = request.args.get('endDate')
+        
+        if not start_date or not end_date:
+            return jsonify({
+                'success': False,
+                'message': 'Start and end dates are required'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Query to get work plans with project, client, and cost information
+            # Calculate overlapping days for proration
+            # Join quotation_items to quotation_schedules using their order fields
+            cursor.execute("""
+                SELECT 
+                    p.projectname,
+                    p.clientname,
+                    qi.item_name,
+                    qs.start_date,
+                    qs.end_date,
+                    qi.total_price,
+                    q.markup_percentage,
+                    qs.days as schedule_days,
+                    GREATEST(qs.start_date, %s::date) as overlap_start,
+                    LEAST(qs.end_date, %s::date) as overlap_end
+                FROM connectlinkdatabase p
+                INNER JOIN quotations q ON p.quotation_id = q.id
+                INNER JOIN quotation_items qi ON q.id = qi.quotation_id
+                INNER JOIN quotation_schedules qs ON q.id = qs.quotation_id 
+                    AND qi.item_order = qs.task_order
+                WHERE p.quotation_id IS NOT NULL
+                AND qs.start_date <= %s::date 
+                AND qs.end_date >= %s::date
+                ORDER BY p.projectname, qs.start_date
+            """, (start_date, end_date, end_date, start_date))
+            
+            rows = cursor.fetchall()
+            
+            work_plans = []
+            for row in rows:
+                # Calculate number of overlapping days
+                schedule_days = int(row[7]) if row[7] else 1
+                overlap_start = row[8]
+                overlap_end = row[9]
+                
+                # Calculate days in filter range
+                if overlap_start and overlap_end:
+                    days_in_filter = (overlap_end - overlap_start).days + 1
+                else:
+                    days_in_filter = schedule_days
+                
+                work_plans.append({
+                    'projectName': row[0] if row[0] else 'N/A',
+                    'clientName': row[1] if row[1] else 'N/A',
+                    'itemName': row[2] if row[2] else 'N/A',
+                    'startDate': row[3].strftime('%Y-%m-%d') if row[3] else None,
+                    'endDate': row[4].strftime('%Y-%m-%d') if row[4] else None,
+                    'itemCost': float(row[5]) if row[5] else 0,
+                    'markupPercentage': float(row[6]) if row[6] else 0,
+                    'totalDays': schedule_days,
+                    'daysInFilter': days_in_filter
+                })
+            
+            return jsonify({
+                'success': True,
+                'workPlans': work_plans,
+                'count': len(work_plans)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching work plans: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port = 55, debug = True)
