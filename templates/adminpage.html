@@ -876,6 +876,8 @@
             <form id="addProjectForm">
                 <!-- Hidden field to store selected quotation ID -->
                 <input type="hidden" id="project_quotation_id" name="project_quotation_id" value="">
+                <!-- Hidden field to store adjusted schedule dates as JSON -->
+                <input type="hidden" id="adjusted_schedules_json" name="adjusted_schedules_json" value="">
                 
                 <!-- Row for side-by-side cards -->
                 <div class="row g-3">
@@ -4102,14 +4104,14 @@ function selectProjectQuotation(quotation) {
                 quotation.schedules = data.schedules;
                 
                 console.log('Project duration auto-populated:', data.totalDays, 'days');
+                
+                // IMPORTANT: Recalculate adjusted dates AFTER schedules are fetched
+                adjustScheduleDates(quotation);
             }
         })
         .catch(error => {
             console.error('Error fetching quotation schedule:', error);
         });
-    
-    // Recalculate adjusted dates if project start date is set
-    adjustScheduleDates(quotation);
     
     console.log('Quotation selected:', quotation.id, quotation);
 }
@@ -9467,6 +9469,14 @@ document.getElementById("confirmSaveProjectBtn").addEventListener("click", funct
     document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
     let form = document.getElementById("addProjectForm");
     let formData = new FormData(form);
+    
+    // Include adjusted schedules if they exist
+    if (window.selectedQuotation && window.selectedQuotation.adjustedSchedules) {
+        console.log('Including adjusted schedules:', window.selectedQuotation.adjustedSchedules);
+        document.getElementById("adjusted_schedules_json").value = JSON.stringify(window.selectedQuotation.adjustedSchedules);
+        formData.set('adjusted_schedules_json', document.getElementById("adjusted_schedules_json").value);
+    }
+    
     document.getElementById("edsLoader").style.display = "flex";
 
     fetch("/contract_log", {

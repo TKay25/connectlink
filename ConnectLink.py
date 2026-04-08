@@ -15182,6 +15182,59 @@ def contract_log():
                     cursor.execute(insert_query, params)
                     connection.commit()
                     print("✅ Project inserted into connectlinkdatabase")
+                    
+                    # UPDATE QUOTATION SCHEDULES WITH ADJUSTED DATES
+                    # If adjusted schedules were provided, update them in the quotation_schedules table
+                    if quotation_id:
+                        try:
+                            adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
+                            if adjusted_schedules_json_str:
+                                import json
+                                adjusted_schedules = json.loads(adjusted_schedules_json_str)
+                                
+                                print(f"📅 Updating quotation schedules for quotation_id={quotation_id}:")
+                                print(f"   - Adjusted schedules count: {len(adjusted_schedules)}")
+                                
+                                # Delete existing schedules for this quotation
+                                cursor.execute(
+                                    "DELETE FROM quotation_schedules WHERE quotation_id = %s",
+                                    (quotation_id,)
+                                )
+                                
+                                # Insert adjusted schedules
+                                for schedule in adjusted_schedules:
+                                    insert_schedule_query = """
+                                        INSERT INTO quotation_schedules 
+                                        (quotation_id, work_scope, start_date, end_date, days_duration, schedule_data)
+                                        VALUES (%s, %s, %s, %s, %s, %s)
+                                    """
+                                    
+                                    schedule_json = json.dumps({
+                                        'workScope': schedule.get('workScope', ''),
+                                        'startDate': schedule.get('startDate', ''),
+                                        'endDate': schedule.get('endDate', ''),
+                                        'days': schedule.get('days', 0)
+                                    })
+                                    
+                                    cursor.execute(insert_schedule_query, (
+                                        quotation_id,
+                                        schedule.get('workScope', ''),
+                                        safe_date(schedule.get('startDate', '')),
+                                        safe_date(schedule.get('endDate', '')),
+                                        int(schedule.get('days', 0)),
+                                        schedule_json
+                                    ))
+                                    
+                                    print(f"   ✅ Schedule saved: {schedule.get('workScope')} ({schedule.get('startDate')} to {schedule.get('endDate')})")
+                                
+                                connection.commit()
+                                print("✅ Quotation schedules updated with adjusted dates")
+                        
+                        except json.JSONDecodeError as e:
+                            print(f"⚠️ Could not parse adjusted schedules JSON: {e}")
+                        except Exception as e:
+                            print(f"⚠️ Error updating quotation schedules: {e}")
+                            # Don't rollback the project insert, just log the warning
 
 
                 except Exception as e:
