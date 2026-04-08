@@ -15188,12 +15188,16 @@ def contract_log():
                     if quotation_id:
                         try:
                             adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
+                            print(f"🔍 DEBUG - Quotation ID: {quotation_id}")
+                            print(f"🔍 DEBUG - Adjusted schedules JSON provided: {bool(adjusted_schedules_json_str)}")
+                            
                             if adjusted_schedules_json_str:
                                 import json
                                 adjusted_schedules = json.loads(adjusted_schedules_json_str)
                                 
-                                print(f"📅 Updating quotation schedules for quotation_id={quotation_id}:")
-                                print(f"   - Adjusted schedules count: {len(adjusted_schedules)}")
+                                print(f"✅ 📅 UPDATING QUOTATION SCHEDULES FOR QUOTATION ID={quotation_id}:")
+                                print(f"   Total schedules to update: {len(adjusted_schedules)}")
+                                
                                 
                                 # Delete existing schedules for this quotation
                                 cursor.execute(

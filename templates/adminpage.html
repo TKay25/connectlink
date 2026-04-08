@@ -9470,12 +9470,24 @@ document.getElementById("confirmSaveProjectBtn").addEventListener("click", funct
     let form = document.getElementById("addProjectForm");
     let formData = new FormData(form);
     
+    // DEBUG: Log what we're about to send
+    console.log('=== NEW PROJECT SAVE DEBUG ===');
+    console.log('Selected quotation:', window.selectedQuotation);
+    console.log('Has adjustedSchedules:', !!(window.selectedQuotation && window.selectedQuotation.adjustedSchedules));
+    
     // Include adjusted schedules if they exist
-    if (window.selectedQuotation && window.selectedQuotation.adjustedSchedules) {
-        console.log('Including adjusted schedules:', window.selectedQuotation.adjustedSchedules);
-        document.getElementById("adjusted_schedules_json").value = JSON.stringify(window.selectedQuotation.adjustedSchedules);
-        formData.set('adjusted_schedules_json', document.getElementById("adjusted_schedules_json").value);
+    if (window.selectedQuotation && window.selectedQuotation.adjustedSchedules && window.selectedQuotation.adjustedSchedules.length > 0) {
+        const schedulesJson = JSON.stringify(window.selectedQuotation.adjustedSchedules);
+        console.log('✅ Including adjusted schedules - count:', window.selectedQuotation.adjustedSchedules.length);
+        console.log('   Sample schedule:', window.selectedQuotation.adjustedSchedules[0]);
+        document.getElementById("adjusted_schedules_json").value = schedulesJson;
+        formData.set('adjusted_schedules_json', schedulesJson);
+    } else {
+        console.warn('⚠️ NO adjusted schedules found - quotation schedule dates will NOT be updated!');
     }
+    console.log('Quotation ID:', formData.get('project_quotation_id'));
+    console.log('Project start date:', formData.get('project_start_date'));
+    console.log('==============================');
     
     document.getElementById("edsLoader").style.display = "flex";
 
