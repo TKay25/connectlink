@@ -11816,40 +11816,13 @@ def run1(userid):
             'projectcompletionstatus', 'latepaymentinterest', 'id', 'QREF', 'Action'
         ]
         
-        # CRITICAL: Ensure ALL 61 columns exist, padding missing ones with empty values
-        for col in final_columns_to_select:
-            if col not in datamain.columns:
-                print(f"⚠ Missing column: {col} - adding empty column")
-                datamain[col] = ''
+        # Select ONLY columns that exist - no padding, just reorder what we have
+        cols_that_exist = [col for col in final_columns_to_select if col in datamain.columns]
+        datamain = datamain[cols_that_exist]
         
-        # NOW select and reorder - this will always have 61 columns
-        datamain = datamain[final_columns_to_select]
-        
-        # Verify we have exactly 61 columns
+        # DEBUG: Print columns for verification
         final_cols_list = list(datamain.columns)
-        print(f"\n{'='*100}")
-        print(f"FINAL TABLE COLUMN STRUCTURE FOR HTML OUTPUT")
-        print(f"{'='*100}")
-        print(f"Total columns: {len(final_cols_list)} (MUST BE 61!)")
-        
-        if len(final_cols_list) != 61:
-            print(f"✗ ERROR: Expected 61 columns but got {len(final_cols_list)}!")
-        else:
-            print(f"✓ Correct column count: 61")
-        
-        print(f"\nColumn mapping:")
-        for i, col in enumerate(final_cols_list):
-            marker = ""
-            if i == 0: marker = " ← Column 0"
-            elif i == 1: marker = " ← Column 1"
-            elif i == 10: marker = " ← Column 10"
-            elif i == 13: marker = " ← Column 13"
-            elif i == 24: marker = " ← Column 24"
-            elif i == 58: marker = " ← Column 58"
-            elif i == 59: marker = " ← Column 59: QREF"
-            elif i == 60: marker = " ← Column 60: Action"
-            print(f"  [{i:2d}] {col}{marker}")
-        print(f"{'='*100}\n")
+        print(f"\nFinal table has {len(final_cols_list)} columns: {final_cols_list}")
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
 
