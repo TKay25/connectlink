@@ -807,7 +807,7 @@
         .then(data => {
             loadingOverlay.style.display = 'none';
             if (data.success) {
-                window.location.href = '/admin';
+                window.location.href = data.redirect || '/dashboard';
             } else {
                 showError('projectsErrorMsg', data.message || 'Invalid credentials');
                 document.getElementById('projectsPassword').value = '';

@@ -9175,8 +9175,8 @@ def login():
                         session['userid'] = int(np.int64(userid))  # Ensure Python int
                         session['user_name'] = user_name
 
-                        # Redirect to dashboard
-                        return redirect(url_for('Dashboard'))
+                        # Return JSON response instead of redirect
+                        return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/dashboard'}), 200
 
                     else:
                         print('Incorrect password')
