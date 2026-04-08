@@ -7600,6 +7600,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // [0]=momid, [1]=clientname, [10]=projectname, [13]=projectadministratorname, [14]=projectstartdate, [58]=id, [59]=QREF (Quotation Ref), [60]=Action
     // All other columns (2-9, 11-12, 15-57) are hidden for cleaner display
 
+    // Initialize month filter variable
+    window.currentMonthFilter = document.getElementById('monthFilter')?.value || '';
+
+    // Add custom DataTable filter function for month filter
+    $.fn.dataTable.ext.search.push(function(settings, data, index) {
+        if (window.currentMonthFilter === '' || window.currentMonthFilter === 'all') {
+            return true; // Show all rows if no month filter selected
+        }
+        
+        // Column 14 is projectstartdate (format: YYYY-MM-DD or similar)
+        const projectDate = data[14];
+        if (!projectDate) return true;
+        
+        // Extract year-month from date
+        const dateMatch = projectDate.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (dateMatch) {
+            const yearMonth = dateMatch[1] + '-' + dateMatch[2]; // YYYY-MM format
+            return yearMonth === window.currentMonthFilter;
+        }
+        
+        return true;
+    });
+
     if ($('#allprojectsTable').length) {
         try {
             window.dataTable = $('#allprojectsTable').DataTable({
@@ -7649,134 +7672,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    
     // Auto-filter to latest month on page load
     const monthFilterElement = document.getElementById('monthFilter');
-    if (monthFilterElement) {
+    if (monthFilterElement && window.dataTable) {
         const selectedMonth = monthFilterElement.value;
         if (selectedMonth) {
             console.log('Auto-filtering to month:', selectedMonth);
-            
-            // Show loading
-            const tableContainer = document.querySelector('.mainalldata');
-            tableContainer.innerHTML = `
-                <div class="text-center py-4">
-                    <div class="spinner-border" role="status" style="color: var(--dark-blue-deep);">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2" style="color: var(--dark-blue-deep);">Loading filtered projects...</p>
-                </div>
-            `;
-            
-            // Fetch filtered data
-            fetch(`/get_filtered_projects/${selectedMonth}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        tableContainer.innerHTML = data.html;
-                        
-                        // Destroy old DataTable if exists
-                        if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
-                            window.dataTable.destroy();
-                        }
-                        
-                        // Reinitialize with same column settings
-                        if ($('#allprojectsTable').length) {
-                            try {
-                                window.dataTable = $('#allprojectsTable').DataTable({
-                                    order: [[0, 'desc']],
-                                    paging: false,
-                                    searching: true,
-                                    ordering: true,
-                                    info: true,
-                                    pageLength: 7,
-                                    lengthChange: false,
-                                    columnDefs: [
-                                        { targets: [2,3,4,5,6,7,8,9,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46, 47,48,49,50,51,52,53,54,55,56,57,58], visible: false },
-                                        { targets: [0,1,10,13,14,59], visible: true }
-                                    ]
-                                });
-                            } catch (error) {
-                                console.warn('DataTable reinitialization failed after initial filter:', error);
-                            }
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during initial filter:', error);
-                });
+            window.currentMonthFilter = selectedMonth;
+            window.dataTable.draw();
         }
     }
     
     // Auto-filter when month selection changes
     document.getElementById('monthFilter')?.addEventListener('change', function() {
-        const selectedMonth = document.getElementById('monthFilter').value;
+        const selectedMonth = this.value;
+        console.log('Month filter changed to:', selectedMonth);
         
-        console.log('Applying filter for month:', selectedMonth);
-        
-        // Show loading
-        const tableContainer = document.querySelector('.mainalldata');
-        tableContainer.innerHTML = `
-            <div class="text-center py-4">
-                <div class="spinner-border" role="status" style="color: var(--dark-blue-deep);">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2" style="color: var(--dark-blue-deep);">Loading filtered projects...</p>
-            </div>
-        `;
-        
-        // Fetch filtered data
-        fetch(`/get_filtered_projects/${selectedMonth}`)
-            .then(response => response.json())
-            .then(data => {
-                console.log('Filter response received');
-                
-                if (data.status === 'success') {
-                    tableContainer.innerHTML = data.html;
-                    
-                    // Check the new table structure
-                    const newTable = document.getElementById('allprojectsTable');
-                    if (newTable) {
-                        const newHeaderRow = newTable.querySelector('thead tr');
-                        const newColumns = newHeaderRow ? newHeaderRow.querySelectorAll('th').length : 0;
-                        console.log('New table columns after filter:', newColumns);
-                    }
-                    
-                    // Destroy old DataTable
-                    if ($.fn.DataTable.isDataTable('#allprojectsTable')) {
-                        window.dataTable.destroy();
-                    }
-                    
-                    // Reinitialize with SAME column settings
-                    if ($('#allprojectsTable').length) {
-                        try {
-                            window.dataTable = $('#allprojectsTable').DataTable({
-                        order: [[0, 'desc']],
-                        paging: false,
-                        searching: true,
-                        ordering: true,
-                        info: true,
-                        pageLength: 7,
-                        lengthChange: false,
-                        columnDefs: [
-                            // SAME COLUMN SETTINGS
-                            { targets: [2,3,4,5,6,7,8,9,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46, 47,48,49,50,51,52,53,54,55,56,57,58], visible: false },
-                            { targets: [0,1,10,13,14,59], visible: true }
-                        ]
-                    });
-                    } catch (error) {
-                        console.warn('DataTable reinitialization failed after filter:', error);
-                    }
-                    }
-                    
-                    console.log('DataTable reinitialized after filter');
-                } else {
-                    alert('Error loading data: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to load filtered projects');
-            });
+        if (window.dataTable) {
+            // Clear search when changing month
+            window.dataTable.search('').draw();
+            
+            // Apply custom filter for month
+            window.currentMonthFilter = selectedMonth;
+            window.dataTable.draw();
+        }
     });
 
     // Add search functionality - search entire table including all columns
