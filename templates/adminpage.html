@@ -1043,7 +1043,7 @@
                                 <select class="form-control editable-field" id="project_quotation_select" name="project_quotation_select" style="color: var(--dark-blue-deep); font-size: 0.7rem;">
                                     <option value="" selected disabled style="color: var(--dark-blue-deep);font-size: 0.7rem;">-- Select a Quotation to Link Work Plan --</option>
                                 </select>
-                                <small class="text-muted" style="font-size: 0.7rem;">Optional: Select a quotation to display its work schedule in the project PDF</small>
+                                <small style="font-size: 0.7rem;">Optional: Select a quotation to display its work schedule in the project PDF</small>
                                 <div id="selected_quotation_preview" style="margin-top: 6px; padding: 4px; background: #f0f5ff; border-left: 3px solid #1E2A56; display: none; color: var(--dark-blue-deep);">
                                     <strong style="color: #1E2A56;">Selected:</strong> <span id="selected_quotation_name" style="color: #2A3A78;"></span>
                                 </div>
@@ -1788,7 +1788,7 @@
                     </thead>
                     <tbody id="workPlanTableBody">
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-3">Select a date range to view work plans</td>
+                            <td colspan="8" class="text-center py-3">Select a date range to view work plans</td>
                         </tr>
                     </tbody>
                 </table>
@@ -3112,28 +3112,28 @@
 
                                 <div class="row mb-2">
                                     <div class="col-md-4">
-                                        <p class="text-muted mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">COMPANY</p>
+                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">COMPANY</p>
                                         <p class="fw-semibold mb-1">{{ companyname }}</p>
                                     </div>
                                     <div class="col-md-4">
-                                        <p class="text-muted mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">PHONES</p>
-                                        <p class="fw-semibold mb-0">{{ contact1 }}</p>
-                                        <p class="fw-semibold mb-1">{{ contact2 }}</p>
+                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">PHONES</p>
+                                        <p class="fw-semibold mb-0" style="color: var(--dark-blue-deep);">{{ contact1 }}</p>
+                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ contact2 }}</p>
                                     </div>
                                     <div class="col-md-4">
-                                        <p class="text-muted mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">EMAIL</p>
-                                        <p class="fw-semibold mb-1">{{ compemail }}</p>
+                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">EMAIL</p>
+                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ compemail }}</p>
                                     </div>
                                 </div>
 
                                 <div class="row mb-2">
                                     <div class="col-md-4">
-                                        <p class="text-muted mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">ADDRESS</p>
-                                        <p class="fw-semibold mb-1">{{ address }}</p>
+                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">ADDRESS</p>
+                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ address }}</p>
                                     </div>
                                     <div class="col-md-4">
-                                        <p class="text-muted mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">TIN NUMBER</p>
-                                        <p class="fw-semibold mb-1">{{ tinnumber }}</p>
+                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">TIN NUMBER</p>
+                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ tinnumber }}</p>
                                     </div>
                                 </div>
 
