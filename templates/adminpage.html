@@ -3715,7 +3715,7 @@ function initializeProjectQuotationsDropdown() {
         .then(data => {
             if (data.success && data.data && data.data.length > 0) {
                 // Clear existing options except the placeholder
-                selectElement.innerHTML = '<option value="" style="font-size: 0.7rem;" selected disabled>-- Select a Quotation to Link Work Plan --</option>';
+                selectElement.innerHTML = '<option value="">-- Select a Quotation to Link Work Plan --</option>';
                 
                 // Add each quotation as an option
                 data.data.forEach(quotation => {
@@ -3731,6 +3731,7 @@ function initializeProjectQuotationsDropdown() {
                 const choicesInstance = new Choices(selectElement, {
                     removeItemButton: false,
                     allowHTML: true,
+                    allowEmptyValue: true,
                     placeholderValue: '-- Select a Quotation to Link Work Plan --',
                     noResultsText: 'No quotations found',
                     noChoicesText: 'No quotations available',
@@ -3750,13 +3751,17 @@ function initializeProjectQuotationsDropdown() {
                             console.error('Error parsing selected quotation:', e);
                         }
                     } else {
-                        // Quotation deselected - reset duration field to editable state
+                        // Quotation deselected - reset duration field and start date to editable state
                         document.getElementById('selected_quotation_preview').style.display = 'none';
                         const durationField = document.getElementById('months_to_completion');
                         durationField.value = '';
                         durationField.readOnly = false;
                         durationField.style.backgroundColor = '';
                         durationField.title = '';
+                        
+                        // Reset project start date
+                        const startDateField = document.getElementById('project_start_date');
+                        startDateField.value = '';
                         
                         // Clear stored quotation data
                         document.getElementById('project_quotation_id').value = '';
@@ -3799,13 +3804,21 @@ function selectProjectQuotation(quotation) {
         })
         .then(data => {
             if (data.success && data.totalDays) {
+                // Auto-populate project duration
                 const durationField = document.getElementById('months_to_completion');
                 durationField.value = data.totalDays;
                 durationField.readOnly = true;
                 durationField.style.backgroundColor = '#f5f5f5';
                 durationField.title = `Auto-populated from quotation schedule: ${data.totalDays} days`;
                 
-                // Also store the schedules for later use
+                // Auto-populate project start date from first schedule item
+                if (data.schedules && data.schedules.length > 0 && data.schedules[0].startDate) {
+                    const startDateField = document.getElementById('project_start_date');
+                    startDateField.value = data.schedules[0].startDate.split('T')[0]; // Extract date part only
+                    console.log('Project start date auto-populated:', startDateField.value);
+                }
+                
+                // Store the schedules for later use
                 quotation.schedules = data.schedules;
                 
                 console.log('Project duration auto-populated:', data.totalDays, 'days');
