@@ -697,9 +697,11 @@
             if (currentPortal === 'projects') {
                 modalTitle.textContent = 'Building Projects';
                 modalSubtitle.textContent = 'Sign in to access project management dashboard';
+                form.action = '/login';
             } else {
                 modalTitle.textContent = 'Hardware POS';
                 modalSubtitle.textContent = 'Sign in to access retail management system';
+                form.action = '/pos-system.html';
             }
             errorMsg.style.display = 'none';
             emailInput.value = '';
