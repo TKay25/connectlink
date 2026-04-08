@@ -599,38 +599,67 @@
     </div>
 </div>
 
-<!-- Modal -->
-<div class="modal-overlay" id="loginModal">
+<!-- Projects Modal -->
+<div class="modal-overlay" id="projectsLoginModal">
     <div class="login-modal">
         <div class="modal-header">
-            <button class="close-modal" id="closeModalBtn"><i class="fas fa-times"></i></button>
+            <button class="close-modal" onclick="closeProjectsModal()"><i class="fas fa-times"></i></button>
             <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
-            <h3 id="modalTitle">Building Projects</h3>
-            <p id="modalSubtitle">Sign in to access your dashboard</p>
+            <h3>Building Projects</h3>
+            <p>Sign in to access project management</p>
         </div>
         <div class="modal-body">
-            <div class="error-message" id="errorMessage"><i class="fas fa-exclamation-circle"></i> Invalid credentials</div>
-            <form id="loginFormModal">
+            <div class="error-message" id="projectsErrorMsg"></div>
+            <form id="projectsLoginForm">
                 <div class="form-group">
                     <label>Email Address</label>
                     <div class="input-group-modal">
                         <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
-                        <input type="text" name="emaillogin" class="form-input-modal" id="modalEmail" placeholder="admin@connectlink.co.zw" autocomplete="email" required>
+                        <input type="text" class="form-input-modal" id="projectsEmail" placeholder="admin@connectlink.co.zw" required>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
                     <div class="input-group-modal">
                         <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                        <input type="password" name="passwordlogin" class="form-input-modal" id="modalPassword" placeholder="••••••••" autocomplete="current-password" required>
-                        <button type="button" class="password-toggle-modal" id="toggleModalPassword"><i class="fas fa-eye"></i></button>
+                        <input type="password" class="form-input-modal" id="projectsPassword" placeholder="••••••••" required>
+                        <button type="button" class="password-toggle-modal" onclick="toggleProjectsPassword()"><i class="fas fa-eye"></i></button>
                     </div>
                 </div>
-                <button type="submit" class="modal-login-btn" id="loginSubmitBtn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
-                <div class="modal-footer-links">
-                    <a href="#" id="forgotPasswordLink">Forgot Password?</a>
-                    <a href="#" id="needHelpLink">Need Help?</a>
+                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Hardware POS Modal -->
+<div class="modal-overlay" id="hardwareLoginModal">
+    <div class="login-modal">
+        <div class="modal-header">
+            <button class="close-modal" onclick="closeHardwareModal()"><i class="fas fa-times"></i></button>
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <h3>Hardware POS</h3>
+            <p>Sign in to access retail management</p>
+        </div>
+        <div class="modal-body">
+            <div class="error-message" id="hardwareErrorMsg"></div>
+            <form id="hardwareLoginForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <div class="input-group-modal">
+                        <div class="input-icon-modal"><i class="fas fa-user"></i></div>
+                        <input type="text" class="form-input-modal" id="hardwareUsername" placeholder="admin" required>
+                    </div>
                 </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-group-modal">
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                        <input type="password" class="form-input-modal" id="hardwarePassword" placeholder="••••••••" required>
+                        <button type="button" class="password-toggle-modal" onclick="toggleHardwarePassword()"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
             </form>
         </div>
     </div>
@@ -648,208 +677,182 @@
 </footer>
 
 <script>
-    const portalUrls = { projects: '/projectslogin', hardware: '/loginhardware' };
-    let currentPortal = 'projects';
-    
-    const modal = document.getElementById('loginModal');
-    const closeBtn = document.getElementById('closeModalBtn');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalSubtitle = document.getElementById('modalSubtitle');
-    const form = document.getElementById('loginFormModal');
-    const errorMsg = document.getElementById('errorMessage');
-    const emailInput = document.getElementById('modalEmail');
-    const passwordInput = document.getElementById('modalPassword');
-    const submitBtn = document.getElementById('loginSubmitBtn');
-    const togglePassword = document.getElementById('toggleModalPassword');
     const loadingOverlay = document.getElementById('loadingOverlay');
+    const projectsModal = document.getElementById('projectsLoginModal');
+    const hardwareModal = document.getElementById('hardwareLoginModal');
     
-    // Password visibility toggle
-    togglePassword.addEventListener('click', () => {
-        const type = passwordInput.type === 'password' ? 'text' : 'password';
-        passwordInput.type = type;
-        togglePassword.querySelector('i').classList.toggle('fa-eye');
-        togglePassword.querySelector('i').classList.toggle('fa-eye-slash');
-    });
+    // Open Projects Modal
+    function openProjectsModal() {
+        projectsModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        document.getElementById('projectsEmail').focus();
+        clearError('projectsErrorMsg');
+    }
     
-    // Remember me functionality
-    const rememberCheckbox = document.getElementById('rememberCheckboxModal');
-    if (rememberCheckbox) {
-        rememberCheckbox.addEventListener('click', function() {
-            this.classList.toggle('checked');
-            localStorage.setItem('rememberMe', this.classList.contains('checked'));
-        });
-        
-        // Load saved email if remember me was checked
-        if (localStorage.getItem('rememberMe') === 'true') {
-            rememberCheckbox.classList.add('checked');
-            const savedEmail = localStorage.getItem('savedEmail');
-            if (savedEmail) {
-                emailInput.value = savedEmail;
-            }
+    // Close Projects Modal
+    function closeProjectsModal() {
+        projectsModal.classList.remove('active');
+        document.body.style.overflow = '';
+        document.getElementById('projectsLoginForm').reset();
+    }
+    
+    // Open Hardware Modal
+    function openHardwareModal() {
+        hardwareModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        document.getElementById('hardwareUsername').focus();
+        clearError('hardwareErrorMsg');
+    }
+    
+    // Close Hardware Modal
+    function closeHardwareModal() {
+        hardwareModal.classList.remove('active');
+        document.body.style.overflow = '';
+        document.getElementById('hardwareLoginForm').reset();
+    }
+    
+    // Toggle password visibility - Projects
+    function toggleProjectsPassword() {
+        const input = document.getElementById('projectsPassword');
+        const icon = event.target.closest('button').querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
         }
     }
     
-    // Open modal on card click
+    // Toggle password visibility - Hardware
+    function toggleHardwarePassword() {
+        const input = document.getElementById('hardwarePassword');
+        const icon = event.target.closest('button').querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+    
+    // Show error message
+    function showError(elementId, message) {
+        const errorDiv = document.getElementById(elementId);
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        errorDiv.style.display = 'flex';
+    }
+    
+    // Clear error message
+    function clearError(elementId) {
+        const errorDiv = document.getElementById(elementId);
+        errorDiv.style.display = 'none';
+    }
+    
+    // Open modals on card click
     document.querySelectorAll('.system-card').forEach(card => {
         card.addEventListener('click', function(e) {
             if (e.target.closest('.btn-explore')) e.stopPropagation();
-            currentPortal = this.dataset.portal;
-            if (currentPortal === 'projects') {
-                modalTitle.textContent = 'Building Projects';
-                modalSubtitle.textContent = 'Sign in to access project management dashboard';
-            } else {
-                modalTitle.textContent = 'Hardware POS';
-                modalSubtitle.textContent = 'Sign in to access retail management system';
+            const portal = this.dataset.portal;
+            if (portal === 'projects') {
+                openProjectsModal();
+            } else if (portal === 'hardware') {
+                openHardwareModal();
             }
-            errorMsg.style.display = 'none';
-            emailInput.value = '';
-            passwordInput.value = '';
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-            setTimeout(() => emailInput.focus(), 100);
         });
     });
     
-    function closeModal() {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
-        errorMsg.style.display = 'none';
-    }
-    
-    closeBtn.addEventListener('click', closeModal);
-    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('active')) closeModal(); });
-    
-    function isValidEmail(email) {
-        const re = /^\S+$/;
-        return re.test(email);
-    }
-    
-    function showMessage(message, isError = true) {
-        errorMsg.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i> ${message}`;
-        if (!isError) {
-            errorMsg.style.background = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
-            errorMsg.style.color = '#059669';
-            errorMsg.style.borderLeftColor = '#059669';
-        } else {
-            errorMsg.style.background = '#fee2e2';
-            errorMsg.style.color = '#dc2626';
-            errorMsg.style.borderLeftColor = '#dc2626';
+    // Close modals on overlay click or Escape
+    projectsModal.addEventListener('click', e => { if (e.target === projectsModal) closeProjectsModal(); });
+    hardwareModal.addEventListener('click', e => { if (e.target === hardwareModal) closeHardwareModal(); });
+    document.addEventListener('keydown', e => { 
+        if (e.key === 'Escape') {
+            if (projectsModal.classList.contains('active')) closeProjectsModal();
+            if (hardwareModal.classList.contains('active')) closeHardwareModal();
         }
-        errorMsg.style.display = 'flex';
-        setTimeout(() => errorMsg.style.display = 'none', 5000);
-    }
+    });
     
-    // Form submission - Use API-based login
-    form.addEventListener('submit', function(e) {
+    // Projects Login Form Submission
+    document.getElementById('projectsLoginForm').addEventListener('submit', function(e) {
         e.preventDefault();
+        clearError('projectsErrorMsg');
         
-        const email = emailInput.value.trim();
-        const password = passwordInput.value.trim();
+        const email = document.getElementById('projectsEmail').value.trim();
+        const password = document.getElementById('projectsPassword').value;
         
-        // Validate form
         if (!email || !password) {
-            showMessage('Please fill in all fields');
+            showError('projectsErrorMsg', 'Please fill in all fields');
             return;
         }
         
-        if (!isValidEmail(email)) {
-            showMessage('Please enter a valid email address');
-            return;
-        }
-        
-        // Disable button and show loading state
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing in...';
-        
-        // Show loading overlay
         loadingOverlay.style.display = 'flex';
         
-        // Determine API endpoint based on portal
-        const apiEndpoint = currentPortal === 'hardware' ? '/api/login' : '/login';
-        const loginData = currentPortal === 'hardware' 
-            ? { username: email, password: password }
-            : { emaillogin: email, passwordlogin: password };
-        
-        // Send API request
-        fetch(apiEndpoint, {
+        fetch('/login', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify(loginData)
+            body: JSON.stringify({ emaillogin: email, passwordlogin: password })
         })
         .then(response => response.json())
         .then(data => {
             loadingOverlay.style.display = 'none';
-            
             if (data.success) {
-                showMessage('Login successful! Redirecting...', false);
-                
-                // Store user data if provided
-                if (data.user) {
-                    localStorage.setItem('isLoggedIn', 'true');
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                }
-                
-                // Redirect after short delay
-                setTimeout(() => {
-                    if (currentPortal === 'hardware') {
-                        window.location.href = '/pos-system.html';
-                    } else {
-                        window.location.href = '/admin';
-                    }
-                }, 500);
+                window.location.href = '/admin';
             } else {
-                showMessage(data.message || 'Invalid credentials');
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i> Sign In';
-                passwordInput.value = '';
-                passwordInput.focus();
+                showError('projectsErrorMsg', data.message || 'Invalid credentials');
+                document.getElementById('projectsPassword').value = '';
             }
         })
         .catch(error => {
-            console.error('Login error:', error);
             loadingOverlay.style.display = 'none';
-            showMessage('Connection error. Please try again.');
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i> Sign In';
+            showError('projectsErrorMsg', 'Connection error. Please try again.');
         });
     });
     
-    // Forgot password handler
-    const forgotLink = document.getElementById('forgotPasswordLink');
-    if (forgotLink) {
-        forgotLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showMessage('Password reset feature coming soon. Contact your administrator.', false);
-        });
-    }
-    
-    // Need help handler
-    const needHelpLink = document.getElementById('needHelpLink');
-    if (needHelpLink) {
-        needHelpLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showMessage('Contact support: support@connectlink.co.zw', false);
-        });
-    }
-    
-    // Keyboard shortcuts for cards
-    document.addEventListener('keydown', function(e) {
-        if (modal.classList.contains('active')) return;
-        if (e.key === '1') window.location.href = '/loginhardware';
-        else if (e.key === '2') window.location.href = '/projectslogin';
-    });
-    
-    // Input focus effect on modal open
-    modal.addEventListener('DOMNodeInserted', function() {
-        setTimeout(() => {
-            if (modal.classList.contains('active')) {
-                emailInput.focus();
+    // Hardware Login Form Submission
+    document.getElementById('hardwareLoginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        clearError('hardwareErrorMsg');
+        
+        const username = document.getElementById('hardwareUsername').value.trim();
+        const password = document.getElementById('hardwarePassword').value;
+        
+        if (!username || !password) {
+            showError('hardwareErrorMsg', 'Please fill in all fields');
+            return;
+        }
+        
+        loadingOverlay.style.display = 'flex';
+        
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingOverlay.style.display = 'none';
+            if (data.success) {
+                localStorage.setItem('isLoggedIn', 'true');
+                if (data.user) {
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                }
+                window.location.href = '/pos-system.html';
+            } else {
+                showError('hardwareErrorMsg', data.message || 'Invalid credentials');
+                document.getElementById('hardwarePassword').value = '';
             }
-        }, 100);
+        })
+        .catch(error => {
+            loadingOverlay.style.display = 'none';
+            showError('hardwareErrorMsg', 'Connection error. Please try again.');
+        });
     });
 </script>
 </body>
