@@ -505,10 +505,24 @@
         .summary-card .details h5 { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--dark-blue-deep); }
         .summary-card .details p { font-size: 0.8rem; font-weight: 800; color: var(--dark-blue-deep); margin: 0; }
         /* graphs container */
+        .dashboard-graphs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: space-between;
+        }
         .graph-card {
             background: var(--white);
             border-radius: 20px;
-            padding: 0.75rem 0.5rem;
+            padding: 0.4rem;
+            flex: 0 1 calc(32% - 0.4rem);
+            min-width: 140px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .graph-card h6 {
+            font-size: 0.6rem;
+            margin-bottom: 0.2rem;
+            font-weight: 600;
         }
         .form-group label{
             color: var(--dark-blue-deep);
@@ -2885,17 +2899,17 @@
 
                         <div class="graph-card">
                             <h6>Completed vs Ongoing</h6>
-                            <canvas id="leaveByTypeChart" width="180" height="70"></canvas>
+                            <canvas id="leaveByTypeChart" width="140" height="60"></canvas>
                         </div>
 
                         <div class="graph-card">
                             <h6>Projects By Location</h6>
-                            <canvas id="projectsByLocationChart" width="180" height="70"></canvas>
+                            <canvas id="projectsByLocationChart" width="140" height="60"></canvas>
                         </div>
 
                         <div class="graph-card">
                             <h6>Overdue Payments</h6>
-                            <canvas id="employeesRemainingChart" width="180" height="70"></canvas>
+                            <canvas id="employeesRemainingChart" width="140" height="60"></canvas>
                         </div>
 
                     </div>
