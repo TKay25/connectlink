@@ -1706,7 +1706,12 @@
                                 <option value="custom">Custom Range</option>
                             </select>
                         </div>
-                        <div class="col-md-4" id="customDateRangeContainer" style="display: none;">
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="workPlanTaskFilter" onchange="filterWorkPlansByTask()">
+                                <option value="">-- Filter by Task/Item --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3" id="customDateRangeContainer" style="display: none;">
                             <div class="input-group input-group-sm">
                                 <input type="date" id="customStartDate" class="form-control" placeholder="Start Date">
                                 <input type="date" id="customEndDate" class="form-control" placeholder="End Date">
@@ -1731,12 +1736,14 @@
                             <th>Task/Item</th>
                             <th>Start Date</th>
                             <th>End Date</th>
-                            <th>Net Cost</th>
+                            <th>Full Period Cost</th>
+                            <th>Past Cost (incl. today)</th>
+                            <th>Future Cost</th>
                         </tr>
                     </thead>
                     <tbody id="workPlanTableBody">
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-3">Select a date range to view work plans</td>
+                            <td colspan="8" class="text-center text-muted py-3">Select a date range to view work plans</td>
                         </tr>
                     </tbody>
                 </table>
@@ -2599,7 +2606,7 @@
     <main class="main-content" id="main-content">
         <header>
             <div class="employeetag">{{user_name}}, CONNECTLINK PROPERTIES <span>ID: {{userid}}</span></div>
-            <div><span class="current-date" id="currdate">DATE: {{ today_date }}</span></div>
+            <div><span class="current-date" id="currdate" style="color: var(--dark-blue-deep);">DATE: {{ today_date }}</span></div>
             <span id="name-down" value="{{firstname}}" style="display: none;"></span>
             <span id="name-down2" value="{{surname}}" style="display: none;"></span>
 
@@ -4241,7 +4248,7 @@ function displayWorkPlans(workPlans) {
     const summaryDiv = document.getElementById('workPlanTotalSummary');
     
     if (!workPlans || workPlans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan=\"8\" class=\"text-center text-muted py-3\">No work plans found for selected date range</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No work plans found for selected date range</td></tr>';
         summaryDiv.style.display = 'none';
         document.getElementById('exportWorkPlanExcelBtn').style.display = 'none';
         document.getElementById('exportWorkPlanPdfBtn').style.display = 'none';
@@ -4256,23 +4263,36 @@ function displayWorkPlans(workPlans) {
     
     workPlans.forEach((plan, idx) => {
         projectsSet.add(plan.projectName);
+        const today = new Date();
         
         // Get original cost and markup
         const baseCost = parseFloat(plan.itemCost) || 0;
         const markupPercent = parseFloat(plan.markupPercentage) || 0;
-        const totalDays = parseInt(plan.totalDays) || 1; // Days in the work schedule
-        const daysInFilter = parseInt(plan.daysInFilter) || totalDays; // Days overlapping the filter
+        const totalDays = parseInt(plan.totalDays) || 1;
+        const scheduleStart = new Date(plan.startDate);
+        const scheduleEnd = new Date(plan.endDate);
         
-        // Calculate prorated cost based on days in filter vs total days
-        const proratedBaseCost = (baseCost / totalDays) * daysInFilter;
-        const proratedNetCost = proratedBaseCost * (1 - markupPercent / 100);
+        // Calculate full period cost (no proration)
+        const fullPeriodNetCost = baseCost * (1 - markupPercent / 100);
         
-        totalBaseCost += proratedBaseCost;
-        totalNetCost += proratedNetCost;
+        // Calculate past days (from schedule start to today inclusive)
+        const pastDays = Math.floor((today - scheduleStart) / (1000 * 60 * 60 * 24)) + 1;
+        const pastDaysInSchedule = Math.max(0, Math.min(pastDays, totalDays));
+        const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule * (1 - markupPercent / 100);
+        
+        // Calculate future days (from tomorrow to schedule end inclusive)
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const futureDays = Math.floor((scheduleEnd - tomorrow) / (1000 * 60 * 60 * 24)) + 1;
+        const futureDaysInSchedule = Math.max(0, futureDays);
+        const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
+        
+        totalBaseCost += (baseCost / totalDays) * (pastDaysInSchedule + futureDaysInSchedule);
+        totalNetCost += pastNetCost + futureNetCost;
         
         // Show proration indicator if not all days are included
-        const hasProration = daysInFilter < totalDays;
-        const prorateNote = hasProration ? ` (${daysInFilter}/${totalDays} days)` : '';
+        const hasProration = (pastDaysInSchedule + futureDaysInSchedule) < totalDays;
+        const prorateNote = hasProration ? ` (${pastDaysInSchedule + futureDaysInSchedule}/${totalDays} days)` : '';
         
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -4281,10 +4301,43 @@ function displayWorkPlans(workPlans) {
             <td>${plan.itemName || 'N/A'}${prorateNote}</td>
             <td>${plan.startDate || 'N/A'}</td>
             <td>${plan.endDate || 'N/A'}</td>
-            <td class=\"fw-bold\">USD ${proratedNetCost.toFixed(2)}</td>
+            <td class=\"fw-bold\">USD ${fullPeriodNetCost.toFixed(2)}</td>
+            <td class=\"fw-bold text-warning\">USD ${pastNetCost.toFixed(2)}</td>
+            <td class=\"fw-bold text-info\">USD ${futureNetCost.toFixed(2)}</td>
         `;
         tbody.appendChild(row);
     });
+    
+    // Populate task filter dropdown with unique task/item names
+    const uniqueTasks = new Set();
+    workPlans.forEach(plan => {
+        uniqueTasks.add(plan.itemName);
+    });
+    
+    const taskFilterSelect = document.getElementById('workPlanTaskFilter');
+    taskFilterSelect.innerHTML = '<option value="">-- Filter by Task/Item --</option>';
+    
+    uniqueTasks.forEach(task => {
+        const option = document.createElement('option');
+        option.value = task;
+        option.textContent = task;
+        taskFilterSelect.appendChild(option);
+    });
+    
+    // Initialize or reinitialize Choices.js for task filter
+    if (window.workPlanTaskChoices) {
+        window.workPlanTaskChoices.destroy();
+    }
+    window.workPlanTaskChoices = new Choices(taskFilterSelect, {
+        searchEnabled: true,
+        removeItemButton: false,
+        placeholderValue: '-- Filter by Task/Item --',
+        itemSelectText: 'Click to select',
+        shouldSort: false
+    });
+    
+    // Store work plans globally for filtering
+    window.currentWorkPlansData = workPlans;
     
     // Update summary
     document.getElementById('totalProjects').textContent = projectsSet.size;
@@ -4298,6 +4351,82 @@ function displayWorkPlans(workPlans) {
     // Attach export handlers
     document.getElementById('exportWorkPlanExcelBtn').onclick = () => exportWorkPlansToExcel(workPlans, totalBaseCost, totalNetCost);
     document.getElementById('exportWorkPlanPdfBtn').onclick = () => exportWorkPlansToPDF(workPlans, totalBaseCost, totalNetCost);
+}
+
+function filterWorkPlansByTask() {
+    const selectedTask = document.getElementById('workPlanTaskFilter').value;
+    const tbody = document.getElementById('workPlanTableBody');
+    const summaryDiv = document.getElementById('workPlanTotalSummary');
+    
+    if (!window.currentWorkPlansData) {
+        return;
+    }
+    
+    // Filter work plans based on selected task
+    let filteredPlans = window.currentWorkPlansData;
+    if (selectedTask) {
+        filteredPlans = window.currentWorkPlansData.filter(plan => plan.itemName === selectedTask);
+    }
+    
+    // Recalculate and redisplay
+    let totalNetCost = 0;
+    let projectsSet = new Set();
+    
+    tbody.innerHTML = '';
+    
+    if (filteredPlans.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No work plans found</td></tr>';
+        summaryDiv.style.display = 'none';
+        return;
+    }
+    
+    filteredPlans.forEach(plan => {
+        projectsSet.add(plan.projectName);
+        const today = new Date();
+        
+        const baseCost = parseFloat(plan.itemCost) || 0;
+        const markupPercent = parseFloat(plan.markupPercentage) || 0;
+        const totalDays = parseInt(plan.totalDays) || 1;
+        const scheduleStart = new Date(plan.startDate);
+        const scheduleEnd = new Date(plan.endDate);
+        
+        // Calculate full period cost (no proration)
+        const fullPeriodNetCost = baseCost * (1 - markupPercent / 100);
+        
+        // Calculate past days (from schedule start to today inclusive)
+        const pastDays = Math.floor((today - scheduleStart) / (1000 * 60 * 60 * 24)) + 1;
+        const pastDaysInSchedule = Math.max(0, Math.min(pastDays, totalDays));
+        const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule * (1 - markupPercent / 100);
+        
+        // Calculate future days (from tomorrow to schedule end inclusive)
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const futureDays = Math.floor((scheduleEnd - tomorrow) / (1000 * 60 * 60 * 24)) + 1;
+        const futureDaysInSchedule = Math.max(0, futureDays);
+        const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
+        
+        totalNetCost += pastNetCost + futureNetCost;
+        
+        const hasProration = (pastDaysInSchedule + futureDaysInSchedule) < totalDays;
+        const prorateNote = hasProration ? ` (${pastDaysInSchedule + futureDaysInSchedule}/${totalDays} days)` : '';
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${plan.projectName || 'N/A'}</td>
+            <td>${plan.clientName || 'N/A'}</td>
+            <td>${plan.itemName || 'N/A'}${prorateNote}</td>
+            <td>${plan.startDate || 'N/A'}</td>
+            <td>${plan.endDate || 'N/A'}</td>
+            <td class=\"fw-bold\">USD ${fullPeriodNetCost.toFixed(2)}</td>
+            <td class=\"fw-bold text-warning\">USD ${pastNetCost.toFixed(2)}</td>
+            <td class=\"fw-bold text-info\">USD ${futureNetCost.toFixed(2)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    document.getElementById('totalProjects').textContent = projectsSet.size;
+    document.getElementById('totalNetCost').textContent = 'USD ' + totalNetCost.toFixed(2);
+    summaryDiv.style.display = 'block';
 }
 
 function exportWorkPlansToExcel(workPlans, totalBaseCost, totalNetCost) {
@@ -7366,10 +7495,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const tableContainer = document.querySelector('.mainalldata');
             tableContainer.innerHTML = `
                 <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
+                    <div class="spinner-border" role="status" style="color: var(--dark-blue-deep);">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <p class="mt-2">Loading filtered projects...</p>
+                    <p class="mt-2" style="color: var(--dark-blue-deep);">Loading filtered projects...</p>
                 </div>
             `;
             
@@ -7423,10 +7552,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const tableContainer = document.querySelector('.mainalldata');
         tableContainer.innerHTML = `
             <div class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
+                <div class="spinner-border" role="status" style="color: var(--dark-blue-deep);">
                     <span class="visually-hidden">Loading...</span>
                 </div>
-                <p class="mt-2">Loading filtered projects...</p>
+                <p class="mt-2" style="color: var(--dark-blue-deep);">Loading filtered projects...</p>
             </div>
         `;
         
@@ -10918,6 +11047,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
 </script>
 
+<script>
+    // Update date and time display with Zimbabwe timezone
+    function updateDateAndTime() {
+        const now = new Date();
+        
+        // Format date as "DD MMMM YYYY"
+        const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = months[now.getMonth()];
+        const year = now.getFullYear();
+        const formattedDate = `${day} ${month} ${year}`;
+        
+        // Get time in Zimbabwe timezone (Africa/Harare is UTC+2)
+        const zimbabweTime = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Harare' }));
+        const hours = String(zimbabweTime.getHours()).padStart(2, '0');
+        const minutes = String(zimbabweTime.getMinutes()).padStart(2, '0');
+        const seconds = String(zimbabweTime.getSeconds()).padStart(2, '0');
+        
+        // Update the display
+        const currDateElement = document.getElementById('currdate');
+        if (currDateElement) {
+            currDateElement.textContent = `DATE: ${formattedDate} | TIME: ${hours}:${minutes}:${seconds} (ZWD)`;
+        }
+    }
+    
+    // Update on page load
+    updateDateAndTime();
+    
+    // Update every second
+    setInterval(updateDateAndTime, 1000);
+</script>
 
 
 </body>
