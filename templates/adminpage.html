@@ -803,28 +803,9 @@
                 <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-credit-card"></i> Payment Details</h5>
                 <div class="row" id="confirmPaymentDetails" style="color: var(--dark-blue-deep);"></div>
             </div>
-
-            <!-- Installments Table Section -->
-            <div class="card mb-3" id="installmentsTableSection" style="display: none;">
-                <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-table"></i> Monthly Installments Schedule</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped" id="confirmInstallmentsTable" style="font-size: 0.75rem; color: var(--dark-blue-deep);">
-                        <thead style="background-color: var(--dark-blue-deep); color: white;">
-                            <tr>
-                                <th>Installment</th>
-                                <th>Amount</th>
-                                <th>Due Date</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="confirmInstallmentsBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
         <div class="modal-footer-custom">
-            <button type="button" class="btn btn-warning" onclick="backToProjectForm()">
+            <button type="button" class="btn btn-primary" onclick="backToProjectForm()">
                 <i class="bi bi-arrow-left"></i> Back
             </button>
             <button type="button" class="btn btn-danger" onclick="closeModal('projectConfirmationModal')">Cancel</button>
@@ -3796,7 +3777,6 @@ function initializeProjectQuotationsDropdown() {
                 const choicesInstance = new Choices(selectElement, {
                     removeItemButton: false,
                     allowHTML: true,
-                    allowEmptyValue: true,
                     placeholderValue: '-- Select a Quotation to Link Work Plan --',
                     noResultsText: 'No quotations found',
                     noChoicesText: 'No quotations available',
@@ -8811,6 +8791,18 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
 
 });
 
+// Helper function to format dates from YYYY-MM-DD to DD MMMM YYYY
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+                    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+    const date = new Date(dateString + 'T00:00:00');
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+}
+
 // Function to populate confirmation modal
 function populateProjectConfirmationModal() {
     // Client Details
@@ -8831,11 +8823,11 @@ function populateProjectConfirmationModal() {
     const projectDetails = `
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Project Name:</strong> ${document.getElementById("project_name").value}</div>
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Location:</strong> ${document.getElementById("project_location").value}</div>
-        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Start Date:</strong> ${document.getElementById("project_start_date").value}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Start Date:</strong> ${formatDate(document.getElementById("project_start_date").value)}</div>
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Duration (months):</strong> ${document.getElementById("months_to_completion").value}</div>
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Administrator:</strong> ${document.getElementById("projectadministrator").value}</div>
-        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Agreement Date:</strong> ${document.getElementById("agreement_date").value}</div>
-        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Total Contract Price:</strong> ₵${parseFloat(document.getElementById("total_contract_price").value).toFixed(2)}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Agreement Date:</strong> ${formatDate(document.getElementById("agreement_date").value)}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Total Contract Price:</strong> USD ${parseFloat(document.getElementById("total_contract_price").value).toFixed(2)}</div>
     `;
     document.getElementById("confirmProjectDetails").innerHTML = projectDetails;
 
@@ -8847,35 +8839,20 @@ function populateProjectConfirmationModal() {
     let paymentDetails = `<div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Payment Method:</strong> ${paymentMethod}</div>`;
     
     if (paymentMethod === "Installments") {
+        const monthsToPay = parseFloat(document.getElementById("monthstopay").value) || 1;
+        const totalContractPrice = parseFloat(document.getElementById("total_contract_price").value) || 0;
+        const depositPaid = parseFloat(document.getElementById("deposit_required").value) || 0;
+        const remainingAmount = totalContractPrice - depositPaid;
+        const monthlyInstallment = remainingAmount / monthsToPay;
+        
         paymentDetails += `
             <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Months to Pay:</strong> ${document.getElementById("monthstopay").value}</div>
-            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Deposit Paid:</strong> ₵${parseFloat(document.getElementById("deposit_required").value).toFixed(2)}</div>
-            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Date Deposit Paid:</strong> ${document.getElementById("deposit_payment_date").value}</div>
-            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>First Installment Due:</strong> ${document.getElementById("first_installment_due_date").value}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Deposit Paid:</strong> USD ${depositPaid.toFixed(2)}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Monthly Installment:</strong> USD ${monthlyInstallment.toFixed(2)}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Date Deposit Paid:</strong> ${formatDate(document.getElementById("deposit_payment_date").value)}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>First Installment Due:</strong> ${formatDate(document.getElementById("first_installment_due_date").value)}</div>
             <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Late Payment Interest:</strong> ${document.getElementById("late_payment_interest").value}%</div>
         `;
-        
-        // Build installments table
-        document.getElementById("installmentsTableSection").style.display = "block";
-        let tableRows = "";
-        for (let i = 1; i <= 10; i++) {
-            const amountField = document.getElementById(`installment${i}amount`);
-            const dueDateField = document.getElementById(`installment${i}duedate`);
-            
-            if (amountField && amountField.value) {
-                tableRows += `
-                    <tr style="color: var(--dark-blue-deep);">
-                        <td>Installment ${i}</td>
-                        <td>₵${parseFloat(amountField.value).toFixed(2)}</td>
-                        <td>${dueDateField ? dueDateField.value : 'N/A'}</td>
-                        <td><span class="badge bg-warning">Pending</span></td>
-                    </tr>
-                `;
-            }
-        }
-        document.getElementById("confirmInstallmentsBody").innerHTML = tableRows;
-    } else {
-        document.getElementById("installmentsTableSection").style.display = "none";
     }
 
     document.getElementById("confirmPaymentDetails").innerHTML = paymentDetails;
