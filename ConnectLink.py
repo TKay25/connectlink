@@ -14255,6 +14255,15 @@ def update_project():
         monthstopay = request.form.get('MonthsToPay')
         depositpaid = request.form.get('depositpaid')
         depositdatepaid = request.form.get('deposit_date_paid')
+        
+        # Capture quotation_id from form
+        def safe_int(v):
+            try:
+                return int(v) if v not in (None, "") else None
+            except Exception:
+                return None
+        quotation_id_str = request.form.get('project_quotation_id')
+        quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
         installment1amountupdate = request.form.get('Installment1Amount')
         installment2amountupdate = request.form.get('Installment2Amount')
         installment3amountupdate = request.form.get('Installment3Amount')
@@ -14605,7 +14614,8 @@ def update_project():
                 installment7duedate = %s,
                 installment8duedate = %s,
                 installment9duedate = %s,
-                installment10duedate = %s
+                installment10duedate = %s,
+                quotation_id = %s
             WHERE id = %s
         """
         
@@ -14650,6 +14660,7 @@ def update_project():
             installment8_duedate,
             installment9_duedate,
             installment10_duedate,
+            quotation_id,
             project_id
         )
 

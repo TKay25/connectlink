@@ -503,12 +503,12 @@
         }
         .summary-card .icon i { font-size: 1rem; color: var(--crimson-bright); }
         .summary-card .details h5 { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--dark-blue-deep); }
-        .summary-card .details p { font-size: 0.8rem; font-weight: 800; color: white; margin: 0; }
+        .summary-card .details p { font-size: 0.8rem; font-weight: 800; color: var(--dark-blue-deep); margin: 0; }
         /* graphs container */
         .graph-card {
             background: var(--white);
             border-radius: 20px;
-            padding: 1rem;
+            padding: 0.75rem 0.5rem;
         }
         .form-group label{
             color: var(--dark-blue-deep);
@@ -954,31 +954,31 @@
                             <h6 style="background-color:#1E2A56; font-weight:800; color: white; text-align: center; padding: 1%; border-radius: 10px; font-size: 0.8rem;">CONTRACTOR DETAILS</h6>
 
                             <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="contractor_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Name:</label>
+                                <label for="contractor_name" class="col-auto col-form-label" style="padding-right: 0.5rem; color: var(--dark-blue-deep);">Name:</label>
                                 <div class="col">
                                     <input type="text" class="form-control editable-field" id="contractor_name" value="ConnectLink Properties" readonly>
                                 </div>
                             </div>
 
                             <div class="form-group mb-2">
-                                <label for="contractorAddress">Address:</label>
+                                <label for="contractorAddress" style="color: var(--dark-blue-deep);">Address:</label>
                                 <input type="text" class="form-control editable-field" id="contractorAddress" value="38A Coronation Avenue Greendale Harare" readonly>
                             </div>
 
                             <div class="form-group mb-2">
-                                <label for="contractorPhone">Contact Number</label>
+                                <label for="contractorPhone" style="color: var(--dark-blue-deep);">Contact Number</label>
                                 <input type="text" class="form-control editable-field" id="contractorPhone" value="+263 773 368 558 ; +263 716 788 838" readonly>
                             </div>
 
                             <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="contractor_email" class="col-auto col-form-label" style="padding-right: 0.5rem;">Email:</label>
+                                <label for="contractor_email" class="col-auto col-form-label" style="padding-right: 0.5rem; color: var(--dark-blue-deep);">Email:</label>
                                 <div class="col">
                                     <input type="email" class="form-control editable-field" id="contractor_email" value="info@connectlinkproperties.co.zw" readonly>
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label for="projectadministrator">Administrator:</label>
+                                <label for="projectadministrator" style="color: var(--dark-blue-deep);">Administrator:</label>
                                 <select class="form-control editable-field" id="projectadministrator" name="projectadministrator" required>
                                     <option value="" disabled selected>Select Administrator</option>
                                     {% for option in admin_options %}
@@ -2885,17 +2885,17 @@
 
                         <div class="graph-card">
                             <h6>Completed vs Ongoing</h6>
-                            <canvas id="leaveByTypeChart" width="800" height="300"></canvas>
+                            <canvas id="leaveByTypeChart" width="350" height="150"></canvas>
                         </div>
 
                         <div class="graph-card">
                             <h6>Projects By Location</h6>
-                            <canvas id="projectsByLocationChart" width="800" height="300"></canvas>
+                            <canvas id="projectsByLocationChart" width="350" height="150"></canvas>
                         </div>
 
                         <div class="graph-card">
                             <h6>Overdue Payments</h6>
-                            <canvas id="employeesRemainingChart" width="800" height="300"></canvas>
+                            <canvas id="employeesRemainingChart" width="350" height="150"></canvas>
                         </div>
 
                     </div>
