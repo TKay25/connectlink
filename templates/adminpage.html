@@ -3774,21 +3774,12 @@ function saveOtherDetails(event) {
         
         if (data.success) {
             alert('Other details saved successfully!');
+            
+            // Close only the OTHER details modal, keep others open
             closeModal('otherDetailsModal');
             
-            // Destroy and reinitialize the DataTable to ensure fresh column alignment
-            if (window.dataTable) {
-                try {
-                    window.dataTable.destroy();
-                } catch (e) {
-                    console.log('DataTable destroy warning:', e);
-                }
-            }
-            
-            // Reload the page to get fresh table data with correct column alignment
-            setTimeout(() => {
-                window.location.reload();
-            }, 500);
+            // Refresh table in real-time without page reload
+            refreshProjectsTableInRealTime();
         } else {
             alert('Error saving details: ' + (data.message || 'Unknown error'));
         }
@@ -3800,6 +3791,85 @@ function saveOtherDetails(event) {
     });
     
     return false;
+}
+
+// Refresh projects table in real-time without page reload
+function refreshProjectsTableInRealTime() {
+    console.log('Refreshing projects table in real-time...');
+    
+    // Fetch fresh admin page content
+    fetch(window.location.pathname + window.location.search)
+        .then(response => response.text())
+        .then(html => {
+            // Parse the HTML response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Extract the new table
+            const newTable = doc.getElementById('allprojectsTable');
+            if (!newTable) {
+                console.error('Could not find projects table in response');
+                return;
+            }
+            
+            // Destroy existing DataTable
+            if (window.dataTable) {
+                try {
+                    window.dataTable.destroy();
+                } catch (e) {
+                    console.log('DataTable destroy info:', e.message);
+                }
+            }
+            
+            // Replace old table with new table in the DOM
+            const oldTable = document.getElementById('allprojectsTable');
+            if (oldTable && oldTable.parentNode) {
+                oldTable.parentNode.replaceChild(newTable, oldTable);
+            }
+            
+            // Reinitialize DataTables on the new table
+            initializeDataTableForProjects();
+            
+            console.log('Table refreshed successfully');
+        })
+        .catch(error => {
+            console.error('Error refreshing table:', error);
+            // Fallback: simple draw if available
+            if (window.dataTable) {
+                try {
+                    window.dataTable.draw(false);
+                } catch (e) {
+                    console.log('Fallback draw failed');
+                }
+            }
+        });
+}
+
+// Initialize DataTable for projects
+function initializeDataTableForProjects() {
+    const table = document.getElementById('allprojectsTable');
+    if (!table) return;
+    
+    // Initialize DataTables with columnDefs (matching backend output)
+    window.dataTable = $('#allprojectsTable').DataTable({
+        paging: true,
+        searching: true,
+        ordering: false,
+        info: true,
+        pageLength: 7,
+        lengthChange: false,
+        columnDefs: [
+            // Hide all detail columns, show only: momid(0), clientname(1), projectname(10), projectadmin(13), date(24), id(58), QREF(59), Action(60)
+            { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
+            { targets: [0,1,10,13,24,58,59,60], visible: true, searchable: true }
+        ],
+        language: {
+            emptyTable: 'No projects found',
+            paginate: { first: 'First', last: 'Last', next: 'Next', previous: 'Previous' }
+        }
+    });
+    
+    console.log('DataTable reinitialized with', table.rows.length, 'rows');
 }
 
 // Initialize existing clients dropdown with search capability
@@ -6072,17 +6142,15 @@ document.getElementById('updateProjectForm')?.addEventListener('submit', async f
             // Show success message
             alert('✅ Project updated successfully!');
             
-            // 2. Refresh the ENTIRE DataTable
+            // 2. Refresh the ENTIRE DataTable in real-time (modal stays open)
             await refreshEntireTable();
             
-            // 3. Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('updateModal'));
-            if (modal) {
-                modal.hide();
-            }
-
             submitBtn.disabled = false;
             submitBtn.innerHTML = 'Save Changes';
+            
+            // Optional: close modal after successful save (remove this if you want it to stay open)
+            // You can uncomment this if you want auto-close after save:
+            // setTimeout(() => closeModal('updateModal'), 500);
 
         } else {
             const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
@@ -6093,6 +6161,11 @@ document.getElementById('updateProjectForm')?.addEventListener('submit', async f
     } catch (error) {
         console.error('Error:', error);
         if (loaderxyz) loaderxyz.style.display = "none";
+        alert('❌ Network error occurred');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Save Changes';
+    }
+});
         alert('❌ Network error occurred');
         submitBtn.disabled = false;
         submitBtn.innerHTML = 'Save Changes';
@@ -6128,17 +6201,30 @@ document.getElementById('updateotherdetailsForm')?.addEventListener('submit', as
             // Show success message
             alert('✅ Project details updated successfully!');
             
-            // 2. Refresh the ENTIRE DataTable
+            // 2. Refresh the ENTIRE DataTable in real-time (modal stays open)
             await refreshEntireTable();
             
-            // 3. Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('otherDetailsModal'));
-            if (modal) {
-                modal.hide();
-            }
-
             submitBtn.disabled = false;
             submitBtn.innerHTML = 'Save Changes';
+            
+            // Optional: close modal after successful save (remove this if you want it to stay open)
+            // You can uncomment this if you want auto-close after save:
+            // setTimeout(() => closeModal('otherDetailsModal'), 500);
+
+        } else {
+            const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
+            alert('❌ ' + errorMsg);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Save Changes';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        if (loaderxyz) loaderxyz.style.display = "none";
+        alert('❌ Network error occurred');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Save Changes';
+    }
+});
 
         } else {
             const errorMsg = data ? (data.error_message || data.message || 'Error updating project') : 'Unknown error';
@@ -6158,62 +6244,77 @@ document.getElementById('updateotherdetailsForm')?.addEventListener('submit', as
 
 // Function to refresh ENTIRE DataTable - FIXED VERSION
 async function refreshEntireTable() {
-    const table = $('#allprojectsTable');
+    const oldTable = document.getElementById('allprojectsTable');
     
-    if (!$.fn.DataTable.isDataTable('#allprojectsTable')) {
-        console.log('Table not ready, reloading page');
+    if (!oldTable) {
+        console.log('Table not found, reloading page');
         location.reload();
         return;
     }
     
-    // Get the DataTable instance
-    const dataTable = window.dataTable || table.DataTable();
-    
-    // Show loading on table
-    const tableWrapper = table.closest('.dataTables_wrapper');
-    tableWrapper.css('position', 'relative');
-    
-    const loadingDiv = $(`
-        <div class="table-loading" style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255,255,255,0.9);
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        ">
-            <div class="spinner-border text-primary"></div>
+    // Show loading overlay
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'table-refresh-loading';
+    loadingDiv.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.3);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    loadingDiv.innerHTML = `
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
         </div>
-    `);
-    
-    tableWrapper.append(loadingDiv);
+    `;
+    document.body.appendChild(loadingDiv);
     
     try {
-        // Get ALL fresh data from server
-        const response = await fetch('/get_updated_table_data');
-        const result = await response.json();
+        // Fetch fresh admin page content
+        const response = await fetch(window.location.pathname + window.location.search);
+        const html = await response.text();
         
-        if (result && result.data) {
-            // Clear old data and add new data
-            dataTable.clear();
-            dataTable.rows.add(result.data);
-            dataTable.draw();
-            
-            console.log('Table refreshed with', result.data.length, 'rows');
-        } else {
-            throw new Error('No data received');
+        // Parse the HTML response
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Extract the new table
+        const newTable = doc.getElementById('allprojectsTable');
+        if (!newTable) {
+            throw new Error('Could not find projects table in response');
         }
+        
+        // Destroy existing DataTable
+        if (window.dataTable) {
+            try {
+                window.dataTable.destroy();
+            } catch (e) {
+                console.log('DataTable destroy info:', e.message);
+            }
+        }
+        
+        // Replace old table with new table in the DOM
+        oldTable.parentNode.replaceChild(newTable, oldTable);
+        
+        // Reinitialize DataTables on the new table
+        initializeDataTableForProjects();
+        
+        console.log('Table refreshed successfully in real-time');
+        
     } catch (error) {
         console.error('Refresh error:', error);
-        // Fallback: reload page
-        location.reload();
+        // Show error but don't reload - user can manually refresh if needed
+        alert('Error refreshing table. Please refresh the page manually if updates don\'t appear.');
     } finally {
-        // Remove loading
-        loadingDiv.remove();
+        // Remove loading overlay
+        if (loadingDiv && loadingDiv.parentNode) {
+            document.body.removeChild(loadingDiv);
+        }
     }
 }
 </script>
