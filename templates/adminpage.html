@@ -10507,8 +10507,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 item: itemName,
                 price: clientPrice,
                 daysPerSqMeter: daysPerSqm,
-                startDate: formatDate(startDate),
-                endDate: formatDate(endDate),
+                startDate: formatDateGantt(startDate),
+                endDate: formatDateGantt(endDate),
                 days: duration
             });
 
@@ -10672,7 +10672,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (type === 'end' && index < ganttItems.length - 1) {
             const nextStartDate = new Date(ganttItems[index].endDate);
             nextStartDate.setDate(nextStartDate.getDate() + 1);
-            ganttItems[index + 1].startDate = formatDate(nextStartDate);
+            ganttItems[index + 1].startDate = formatDateGantt(nextStartDate);
             
             // Recalculate next item's days
             ganttItems[index + 1].days = calculateDays(
@@ -10689,7 +10689,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderGanttItemsList();
     }
 
-    function formatDate(date) {
+    function formatDateGantt(date) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
