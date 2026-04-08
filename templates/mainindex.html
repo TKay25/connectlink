@@ -792,11 +792,16 @@
         
         loadingOverlay.style.display = 'flex';
         
+        // Send as form data (application/x-www-form-urlencoded)
+        const formData = new URLSearchParams();
+        formData.append('emaillogin', email);
+        formData.append('passwordlogin', password);
+        
         fetch('/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             credentials: 'include',
-            body: JSON.stringify({ emaillogin: email, passwordlogin: password })
+            body: formData.toString()
         })
         .then(response => response.json())
         .then(data => {
