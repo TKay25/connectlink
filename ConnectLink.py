@@ -16999,7 +16999,7 @@ def update_project_schedule(project_id):
 
 @app.route('/api/work-plans', methods=['GET'])
 def get_work_plans():
-    """Get work plans filtered by date range"""
+    """Get work plans filtered by date range with cost proration based on overlapping days"""
     try:
         start_date = request.args.get('startDate')
         end_date = request.args.get('endDate')
@@ -17012,7 +17012,7 @@ def get_work_plans():
         
         with get_db() as (cursor, connection):
             # Query to get work plans with project, client, and cost information
-            # Using correct column names for connectlinkdatabase table
+            # Calculate overlapping days for proration
             cursor.execute("""
                 SELECT 
                     p.projectname,
@@ -17021,21 +17021,35 @@ def get_work_plans():
                     qs.start_date,
                     qs.end_date,
                     qi.total_price,
-                    q.markup_percentage
+                    q.markup_percentage,
+                    qs.days as schedule_days,
+                    GREATEST(qs.start_date, %s::date) as overlap_start,
+                    LEAST(qs.end_date, %s::date) as overlap_end
                 FROM connectlinkdatabase p
                 INNER JOIN quotations q ON p.quotation_id = q.id
                 INNER JOIN quotation_items qi ON q.id = qi.quotation_id
                 INNER JOIN quotation_schedules qs ON q.id = qs.quotation_id
                 WHERE p.quotation_id IS NOT NULL
-                AND qs.start_date >= %s::date 
-                AND qs.end_date <= %s::date
+                AND qs.start_date <= %s::date 
+                AND qs.end_date >= %s::date
                 ORDER BY p.projectname, qs.start_date
-            """, (start_date, end_date))
+            """, (start_date, end_date, end_date, start_date))
             
             rows = cursor.fetchall()
             
             work_plans = []
             for row in rows:
+                # Calculate number of overlapping days
+                schedule_days = int(row[7]) if row[7] else 1
+                overlap_start = row[8]
+                overlap_end = row[9]
+                
+                # Calculate days in filter range
+                if overlap_start and overlap_end:
+                    days_in_filter = (overlap_end - overlap_start).days + 1
+                else:
+                    days_in_filter = schedule_days
+                
                 work_plans.append({
                     'projectName': row[0] if row[0] else 'N/A',
                     'clientName': row[1] if row[1] else 'N/A',
@@ -17043,7 +17057,9 @@ def get_work_plans():
                     'startDate': row[3].strftime('%Y-%m-%d') if row[3] else None,
                     'endDate': row[4].strftime('%Y-%m-%d') if row[4] else None,
                     'itemCost': float(row[5]) if row[5] else 0,
-                    'markupPercentage': float(row[6]) if row[6] else 0
+                    'markupPercentage': float(row[6]) if row[6] else 0,
+                    'totalDays': schedule_days,
+                    'daysInFilter': days_in_filter
                 })
             
             return jsonify({

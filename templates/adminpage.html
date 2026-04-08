@@ -2791,6 +2791,43 @@
 
                     </div>
 
+                    <!-- Cost Coverage Summary Section -->
+                    <div style="margin-top: 2rem;">
+                        <h5 style="font-weight: bold; color: var(--dark-blue-deep); margin-bottom: 1.5rem;">
+                            <i class="bi bi-cash-coin me-2"></i> Cost Coverage Summary
+                        </h5>
+                        <div class="dashboard-summary">
+                            <div class="summary-card" id="costToday">
+                                <div class="icon"><i class="bi bi-calendar-day fs-3" style="color: #1E2A56;"></i></div>
+                                <div class="details">
+                                    <h5 style="font-weight: bolder;">Today</h5>
+                                    <p id="costTodayValue">Loading...</p>
+                                </div>
+                            </div>
+                            <div class="summary-card" id="costThisWeek">
+                                <div class="icon"><i class="bi bi-calendar-week fs-3" style="color: #1E2A56;"></i></div>
+                                <div class="details">
+                                    <h5 style="font-weight: bolder;">This Week</h5>
+                                    <p id="costThisWeekValue">Loading...</p>
+                                </div>
+                            </div>
+                            <div class="summary-card" id="costThisMonth">
+                                <div class="icon"><i class="bi bi-calendar-month fs-3" style="color: #1E2A56;"></i></div>
+                                <div class="details">
+                                    <h5 style="font-weight: bolder;">This Month</h5>
+                                    <p id="costThisMonthValue">Loading...</p>
+                                </div>
+                            </div>
+                            <div class="summary-card" id="costThisYear">
+                                <div class="icon"><i class="bi bi-calendar-event fs-3" style="color: #1E2A56;"></i></div>
+                                <div class="details">
+                                    <h5 style="font-weight: bolder;">This Year</h5>
+                                    <p id="costThisYearValue">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="dashboard-graphs">
 
                         <div class="graph-card">
@@ -4127,11 +4164,12 @@ function filterWorkPlans(filterType) {
             endDate = new Date(today);
             break;
         case 'week':
+            // Week starts on Sunday and ends on Saturday
             const dayOfWeek = today.getDay();
             startDate = new Date(today);
-            startDate.setDate(today.getDate() - dayOfWeek);
+            startDate.setDate(today.getDate() - dayOfWeek); // Go back to Sunday
             endDate = new Date(startDate);
-            endDate.setDate(startDate.getDate() + 6);
+            endDate.setDate(startDate.getDate() + 6); // Go to Saturday
             break;
         case 'month':
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -4157,6 +4195,10 @@ function filterWorkPlans(filterType) {
     
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
+    
+    // Store filter dates for proration calculations
+    window.currentFilterStartDate = startStr;
+    window.currentFilterEndDate = endStr;
     
     // Fetch work plans from backend
     fetch(`/api/work-plans?startDate=${startStr}&endDate=${endStr}`)
@@ -4195,23 +4237,34 @@ function displayWorkPlans(workPlans) {
     
     workPlans.forEach((plan, idx) => {
         projectsSet.add(plan.projectName);
+        
+        // Get original cost and markup
         const baseCost = parseFloat(plan.itemCost) || 0;
         const markupPercent = parseFloat(plan.markupPercentage) || 0;
-        const netCost = baseCost * (1 - markupPercent / 100);
+        const totalDays = parseInt(plan.totalDays) || 1; // Days in the work schedule
+        const daysInFilter = parseInt(plan.daysInFilter) || totalDays; // Days overlapping the filter
         
-        totalBaseCost += baseCost;
-        totalNetCost += netCost;
+        // Calculate prorated cost based on days in filter vs total days
+        const proratedBaseCost = (baseCost / totalDays) * daysInFilter;
+        const proratedNetCost = proratedBaseCost * (1 - markupPercent / 100);
+        
+        totalBaseCost += proratedBaseCost;
+        totalNetCost += proratedNetCost;
+        
+        // Show proration indicator if not all days are included
+        const hasProration = daysInFilter < totalDays;
+        const prorateNote = hasProration ? ` (${daysInFilter}/${totalDays} days)` : '';
         
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${plan.projectName || 'N/A'}</td>
             <td>${plan.clientName || 'N/A'}</td>
-            <td>${plan.itemName || 'N/A'}</td>
+            <td>${plan.itemName || 'N/A'}${prorateNote}</td>
             <td>${plan.startDate || 'N/A'}</td>
             <td>${plan.endDate || 'N/A'}</td>
             <td>USD ${baseCost.toFixed(2)}</td>
             <td>${markupPercent.toFixed(1)}%</td>
-            <td class=\"fw-bold\">USD ${netCost.toFixed(2)}</td>
+            <td class=\"fw-bold\">USD ${proratedNetCost.toFixed(2)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -4233,14 +4286,20 @@ function displayWorkPlans(workPlans) {
 
 function exportWorkPlansToExcel(workPlans, totalBaseCost, totalNetCost) {
     // Create a simple CSV export
-    let csvContent = 'Project Name,Client,Task/Item,Start Date,End Date,Base Cost,Markup %,Net Cost\n';
+    let csvContent = 'Project Name,Client,Task/Item,Start Date,End Date,Base Cost,Markup %,Prorated Net Cost\n';
     
     workPlans.forEach(plan => {
         const baseCost = parseFloat(plan.itemCost) || 0;
         const markupPercent = parseFloat(plan.markupPercentage) || 0;
-        const netCost = baseCost * (1 - markupPercent / 100);
+        const totalDays = parseInt(plan.totalDays) || 1;
+        const daysInFilter = parseInt(plan.daysInFilter) || totalDays;
         
-        csvContent += `\"${plan.projectName || ''}\",\"${plan.clientName || ''}\",\"${plan.itemName || ''}\",${plan.startDate || ''},${plan.endDate || ''},${baseCost.toFixed(2)},${markupPercent.toFixed(1)},${netCost.toFixed(2)}\n`;
+        // Calculate prorated cost
+        const proratedBaseCost = (baseCost / totalDays) * daysInFilter;
+        const proratedNetCost = proratedBaseCost * (1 - markupPercent / 100);
+        
+        const itemName = plan.itemName ? `${plan.itemName} (${daysInFilter}/${totalDays} days)` : '';
+        csvContent += `\"${plan.projectName || ''}\",\"${plan.clientName || ''}\",\"${itemName}\",${plan.startDate || ''},${plan.endDate || ''},${baseCost.toFixed(2)},${markupPercent.toFixed(1)},${proratedNetCost.toFixed(2)}\n`;
     });
     
     csvContent += `\nSummary\n`;
@@ -4274,17 +4333,24 @@ function exportWorkPlansToPDF(workPlans, totalBaseCost, totalNetCost) {
     workPlans.forEach(plan => {
         const baseCost = parseFloat(plan.itemCost) || 0;
         const markupPercent = parseFloat(plan.markupPercentage) || 0;
-        const netCost = baseCost * (1 - markupPercent / 100);
+        const totalDays = parseInt(plan.totalDays) || 1;
+        const daysInFilter = parseInt(plan.daysInFilter) || totalDays;
+        
+        // Calculate prorated cost
+        const proratedBaseCost = (baseCost / totalDays) * daysInFilter;
+        const proratedNetCost = proratedBaseCost * (1 - markupPercent / 100);
+        
+        const itemName = plan.itemName ? `${plan.itemName} (${daysInFilter}/${totalDays}d)` : 'N/A';
         
         tableData.push([
             plan.projectName || 'N/A',
             plan.clientName || 'N/A',
-            plan.itemName || 'N/A',
+            itemName,
             plan.startDate || 'N/A',
             plan.endDate || 'N/A',
             baseCost.toFixed(2),
             markupPercent.toFixed(1) + '%',
-            netCost.toFixed(2)
+            proratedNetCost.toFixed(2)
         ]);
     });
     
@@ -4303,7 +4369,7 @@ function exportWorkPlansToPDF(workPlans, totalBaseCost, totalNetCost) {
     // Create table
     if (doc.autoTable) {
         doc.autoTable({
-            head: [['Project', 'Client', 'Task', 'Start Date', 'End Date', 'Base Cost', 'Markup', 'Net Cost']],
+            head: [['Project', 'Client', 'Task', 'Start Date', 'End Date', 'Base Cost', 'Markup', 'Prorated Net Cost']],
             body: tableData,
             startY: 25,
             theme: 'grid',
@@ -4314,6 +4380,101 @@ function exportWorkPlansToPDF(workPlans, totalBaseCost, totalNetCost) {
     
     // Download
     doc.save(`work_plan_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+// Load cost coverage summary for dashboard
+function loadCostCoverageSummary() {
+    const today = new Date(2026, 3, 7); // April 7, 2026
+    const periods = [
+        {
+            name: 'today',
+            label: 'Today',
+            startDate: new Date(today),
+            endDate: new Date(today),
+            elementId: 'costTodayValue'
+        },
+        {
+            name: 'week',
+            label: 'This Week',
+            startDate: (() => {
+                const dayOfWeek = today.getDay();
+                const start = new Date(today);
+                start.setDate(today.getDate() - dayOfWeek);
+                return start;
+            })(),
+            endDate: (() => {
+                const dayOfWeek = today.getDay();
+                const start = new Date(today);
+                start.setDate(today.getDate() - dayOfWeek);
+                const end = new Date(start);
+                end.setDate(start.getDate() + 6);
+                return end;
+            })(),
+            elementId: 'costThisWeekValue'
+        },
+        {
+            name: 'month',
+            label: 'This Month',
+            startDate: new Date(today.getFullYear(), today.getMonth(), 1),
+            endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0),
+            elementId: 'costThisMonthValue'
+        },
+        {
+            name: 'year',
+            label: 'This Year',
+            startDate: new Date(today.getFullYear(), 0, 1),
+            endDate: new Date(today.getFullYear(), 11, 31),
+            elementId: 'costThisYearValue'
+        }
+    ];
+
+    periods.forEach(period => {
+        const startStr = period.startDate.toISOString().split('T')[0];
+        const endStr = period.endDate.toISOString().split('T')[0];
+
+        fetch(`/api/work-plans?startDate=${startStr}&endDate=${endStr}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.workPlans) {
+                    let totalNetCost = 0;
+                    
+                    data.workPlans.forEach(plan => {
+                        const baseCost = parseFloat(plan.itemCost) || 0;
+                        const markupPercent = parseFloat(plan.markupPercentage) || 0;
+                        const totalDays = parseInt(plan.totalDays) || 1;
+                        const daysInFilter = parseInt(plan.daysInFilter) || totalDays;
+                        
+                        // Calculate prorated cost
+                        const proratedBaseCost = (baseCost / totalDays) * daysInFilter;
+                        const proratedNetCost = proratedBaseCost * (1 - markupPercent / 100);
+                        
+                        totalNetCost += proratedNetCost;
+                    });
+                    
+                    // Display with color coding based on amount
+                    let displayText = `USD ${totalNetCost.toFixed(2)}`;
+                    let element = document.getElementById(period.elementId);
+                    if (element) {
+                        element.textContent = displayText;
+                        
+                        // Color code: Red if > 500, Orange if > 300, Green if < 100, otherwise default
+                        if (totalNetCost > 500) {
+                            element.style.color = '#C12B3E';
+                            element.style.fontWeight = 'bold';
+                        } else if (totalNetCost > 300) {
+                            element.style.color = '#E67E22';
+                            element.style.fontWeight = 'bold';
+                        } else if (totalNetCost > 0 && totalNetCost < 100) {
+                            element.style.color = '#27AE60';
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error(`Error loading cost coverage for ${period.label}:`, error);
+                document.getElementById(period.elementId).textContent = 'Error loading';
+            });
+    });
 }
 
 // Close modal when clicking outside
@@ -4333,6 +4494,11 @@ document.addEventListener('keydown', function(e) {
         });
         document.body.style.overflow = '';
     }
+});
+
+// Load cost coverage summary when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadCostCoverageSummary();
 });
 
 // Active state management for sidebar buttons
