@@ -8793,14 +8793,24 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
 
 // Helper function to format dates from YYYY-MM-DD to DD MMMM YYYY
 function formatDate(dateString) {
-    if (!dateString) return '';
-    const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
-                    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
-    const date = new Date(dateString + 'T00:00:00');
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
+    if (!dateString || dateString.trim() === '') return '';
+    try {
+        const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+                        'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+        const date = new Date(dateString + 'T00:00:00');
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            return dateString;
+        }
+        
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = months[date.getMonth()];
+        const year = date.getFullYear();
+        return `${day} ${month} ${year}`;
+    } catch (e) {
+        return dateString;
+    }
 }
 
 // Function to populate confirmation modal
