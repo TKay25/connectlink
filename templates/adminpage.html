@@ -10869,8 +10869,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let html = `
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="quotationsSearch" class="form-control" placeholder="Search quotations (Client, Category, Date, Cost...)" style="max-width: 400px; font-size: 0.85rem;">
+            </div>
             <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
+                <table id="quotationsTable" style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
                     <thead>
                         <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
                             <th style="padding: 4px; text-align: left; font-weight: bold;">#</th>
@@ -10920,6 +10923,37 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         
         container.innerHTML = html;
+
+        // Initialize DataTables for Quotations
+        setTimeout(() => {
+            if ($('#quotationsTable').length && !$.fn.DataTable.isDataTable('#quotationsTable')) {
+                try {
+                    const table = $('#quotationsTable').DataTable({
+                        order: [[6, 'desc']], // Default sort by Date (column 6)
+                        paging: false,
+                        searching: true,
+                        ordering: true,
+                        info: true,
+                        lengthChange: false,
+                        dom: 'f',  // Show search box only
+                        columnDefs: [
+                            { orderable: true, targets: [0, 1, 2, 3, 4, 5, 6] },  // Date, Total Cost, Project Size are sortable
+                            { orderable: false, targets: [7, 8] }  // Items, Tasks not sortable
+                        ]
+                    });
+
+                    // Custom search functionality
+                    const searchInput = document.getElementById('quotationsSearch');
+                    if (searchInput && table) {
+                        searchInput.addEventListener('keyup', function() {
+                            table.search(this.value).draw();
+                        });
+                    }
+                } catch (error) {
+                    console.warn('DataTable initialization failed for quotationsTable:', error);
+                }
+            }
+        }, 100);
     }
 
     function toggleQuotationDetails(quotationId) {
