@@ -466,6 +466,7 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment10duedate date;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment10date date;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);",
+                "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS quotation_id INT;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS depositorbullet NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS datedepositorbullet date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS monthlyinstallment NUMERIC(12,2);",
@@ -10342,12 +10343,11 @@ def delete_project():
                     FROM information_schema.columns 
                     WHERE table_name = 'connectlinkdatabase' 
                     AND column_name != 'id'
-                    AND column_name != 'quotation_id'
                     ORDER BY ordinal_position
                 """)
                 columns = [row[0] for row in cursor.fetchall()]
                 
-                print(f"DEBUG: Found {len(columns)} columns excluding id and quotation_id")
+                print(f"DEBUG: Found {len(columns)} columns excluding id")
                 
                 # Build the column list for SELECT (exclude id and quotation_id from source)
                 select_columns = ', '.join([f'd.{col}' for col in columns])
