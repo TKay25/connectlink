@@ -1702,11 +1702,13 @@
                                 <option value="today">Today</option>
                                 <option value="week">This Week</option>
                                 <option value="month">This Month</option>
+                                <option value="next-week">Next Week</option>
+                                <option value="next-month">Next Month</option>
                                 <option value="year">This Year</option>
                                 <option value="custom">Custom Range</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <select class="form-select form-select-sm" id="workPlanTaskFilter" onchange="filterWorkPlansByTask()">
                                 <option value="">-- Filter by Task/Item --</option>
                             </select>
@@ -2040,6 +2042,8 @@
                         <option value="today">Today</option>
                         <option value="week">This Week</option>
                         <option value="month">This Month</option>
+                        <option value="next-week">Next Week</option>
+                        <option value="next-month">Next Month</option>
                     </select>
                 </div>
             </div>
@@ -4197,9 +4201,24 @@ function filterWorkPlans(filterType) {
             endDate = new Date(startDate);
             endDate.setDate(startDate.getDate() + 6); // Go to Saturday
             break;
+        case 'next-week':
+            // Next week starts on Sunday and ends on Saturday
+            const nextWeekStart = new Date(today);
+            const daysUntilNextSunday = (7 - today.getDay()) % 7 || 0;
+            nextWeekStart.setDate(today.getDate() + (daysUntilNextSunday === 0 ? 7 : daysUntilNextSunday));
+            startDate = new Date(nextWeekStart);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6); // Go to Saturday
+            break;
         case 'month':
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
             endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            break;
+        case 'next-month':
+            const nextMonthDate = new Date(today);
+            nextMonthDate.setMonth(today.getMonth() + 1);
+            startDate = new Date(nextMonthDate.getFullYear(), nextMonthDate.getMonth(), 1);
+            endDate = new Date(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1, 0);
             break;
         case 'year':
             startDate = new Date(today.getFullYear(), 0, 1);
@@ -4283,7 +4302,10 @@ function displayWorkPlans(workPlans) {
         // Calculate future days (from tomorrow to schedule end inclusive)
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const futureDays = Math.floor((scheduleEnd - tomorrow) / (1000 * 60 * 60 * 24)) + 1;
+        tomorrow.setHours(0, 0, 0, 0); // Reset to start of day for accurate calculation
+        const scheduleEndWithTime = new Date(scheduleEnd);
+        scheduleEndWithTime.setHours(23, 59, 59, 999); // To end of schedule day
+        const futureDays = Math.floor((scheduleEndWithTime - tomorrow) / (1000 * 60 * 60 * 24)) + 1;
         const futureDaysInSchedule = Math.max(0, futureDays);
         const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
         
@@ -4401,7 +4423,10 @@ function filterWorkPlansByTask() {
         // Calculate future days (from tomorrow to schedule end inclusive)
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const futureDays = Math.floor((scheduleEnd - tomorrow) / (1000 * 60 * 60 * 24)) + 1;
+        tomorrow.setHours(0, 0, 0, 0); // Reset to start of day for accurate calculation
+        const scheduleEndWithTime = new Date(scheduleEnd);
+        scheduleEndWithTime.setHours(23, 59, 59, 999); // To end of schedule day
+        const futureDays = Math.floor((scheduleEndWithTime - tomorrow) / (1000 * 60 * 60 * 24)) + 1;
         const futureDaysInSchedule = Math.max(0, futureDays);
         const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
         
