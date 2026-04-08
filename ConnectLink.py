@@ -14253,7 +14253,7 @@ def update_other_details():
             if quotation_id and quotation_id != '':
                 try:
                     quot_id = int(quotation_id)
-                    updates.append("quotationid = %s")
+                    updates.append("quotation_id = %s")
                     values.append(quot_id)
                 except (ValueError, TypeError):
                     print(f"Warning: Invalid quotation ID: {quotation_id}")
