@@ -7727,12 +7727,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // All other columns (2-9, 11-12, 15-57) are hidden for cleaner display
 
     // Initialize month filter variable
-    window.currentMonthFilter = document.getElementById('monthFilter')?.value || '';
+    window.currentMonthFilter = '';
 
     // Add custom DataTable filter function for month filter
     $.fn.dataTable.ext.search.push(function(settings, data, index) {
-        if (window.currentMonthFilter === '' || window.currentMonthFilter === 'all') {
-            return true; // Show all rows
+        // If no month filter is set, show all rows
+        if (!window.currentMonthFilter || window.currentMonthFilter === '' || window.currentMonthFilter === 'all') {
+            return true;
         }
         
         // Column 23 is datedepositorbullet (deposit date)
@@ -7740,15 +7741,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!depositDate) return true;
         
         // Extract year-month from date
-        // Handle both "DD Month YYYY" and "YYYY-MM-DD" formats
         let yearMonth = '';
         
         // Try YYYY-MM-DD format first
         const dateMatch = depositDate.match(/(\d{4})-(\d{2})-(\d{2})/);
         if (dateMatch) {
-            yearMonth = dateMatch[1] + '-' + dateMatch[2]; // YYYY-MM format
+            yearMonth = dateMatch[1] + '-' + dateMatch[2];
         } else {
-            // Try "DD Month YYYY" format (e.g., "20 January 2026")
+            // Try "DD Month YYYY" format
             const monthNames = ['january', 'february', 'march', 'april', 'may', 'june',
                               'july', 'august', 'september', 'october', 'november', 'december'];
             const parts = depositDate.toLowerCase().split(' ');
@@ -7775,10 +7775,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 pageLength: 7,
                 lengthChange: false,
                 columnDefs: [
-                    // Hide columns 2-9, 11-12, 15-57 (client details, addresses, installment details)
-                    { targets: [2,3,4,5,6,7,8,9,11,12,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
-                    // Explicitly show: momid(0), clientname(1), projectname(10), projectadministratorname(13), projectstartdate(14), id(58), QREF(59), Action(60)
-                    { targets: [0,1,10,13,14,58,59,60], visible: true, searchable: true }
+                    // Hide columns 2-9, 11-12, 14, 15-57 (client details, addresses, projectstartdate, installment details)
+                    { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
+                    // Explicitly show: momid(0), clientname(1), projectname(10), projectadministratorname(13), datedepositorbullet(23), id(58), QREF(59), Action(60)
+                    { targets: [0,1,10,13,23,58,59,60], visible: true, searchable: true }
                 ],
                 language: {
                     emptyTable: 'No projects found'
