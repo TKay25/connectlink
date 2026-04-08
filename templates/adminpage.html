@@ -287,6 +287,22 @@
     display: flex;
 }
 
+#deleteprojectModal {
+    z-index: 1100 !important;
+}
+
+#deleteprojectModal.active {
+    z-index: 1100 !important;
+}
+
+#projectConfirmationModal {
+    z-index: 1101 !important;
+}
+
+#projectConfirmationModal.active {
+    z-index: 1101 !important;
+}
+
 .modal-container {
     background: var(--white);
     border-radius: 1.5rem;
@@ -754,6 +770,70 @@
     </div>
 </div>
 
+<!-- Project Confirmation Modal -->
+<div id="projectConfirmationModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-check-square-fill"></i> CONFIRM PROJECT DETAILS</h3>
+            <button class="close-modal" onclick="closeModal('projectConfirmationModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
+            <!-- Client Details Section -->
+            <div class="card mb-3">
+                <h5 class="mb-3"><i class="bi bi-person-fill"></i> Client Details</h5>
+                <div class="row" id="confirmClientDetails"></div>
+            </div>
+
+            <!-- Project Details Section -->
+            <div class="card mb-3">
+                <h5 class="mb-3"><i class="bi bi-briefcase-fill"></i> Project Details</h5>
+                <div class="row" id="confirmProjectDetails"></div>
+            </div>
+
+            <!-- Project Scope Section -->
+            <div class="card mb-3">
+                <h5 class="mb-3"><i class="bi bi-file-text"></i> Project Scope</h5>
+                <div id="confirmProjectScope" style="font-size: 0.85rem; line-height: 1.6;"></div>
+            </div>
+
+            <!-- Payment Details Section -->
+            <div class="card mb-3">
+                <h5 class="mb-3"><i class="bi bi-credit-card"></i> Payment Details</h5>
+                <div class="row" id="confirmPaymentDetails"></div>
+            </div>
+
+            <!-- Installments Table Section -->
+            <div class="card mb-3" id="installmentsTableSection" style="display: none;">
+                <h5 class="mb-3"><i class="bi bi-table"></i> Monthly Installments Schedule</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped" id="confirmInstallmentsTable" style="font-size: 0.75rem;">
+                        <thead style="background-color: var(--dark-blue-deep); color: white;">
+                            <tr>
+                                <th>Installment</th>
+                                <th>Amount</th>
+                                <th>Due Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="confirmInstallmentsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-warning" onclick="backToProjectForm()">
+                <i class="bi bi-arrow-left"></i> Back
+            </button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('projectConfirmationModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" id="confirmSaveProjectBtn">
+                <i class="bi bi-check-circle"></i> Confirm & Save Project
+            </button>
+        </div>
+    </div>
+</div>
 
 <div id="addnewProjectModal" class="modal-overlay">
     <div class="modal-container xlarge">
@@ -8478,10 +8558,7 @@ document.getElementById("saveAdminBtn").addEventListener("click", function () {
 <script>
 document.getElementById("saveProjectBtn").addEventListener("click", function () {
 
-    // ----------------------------------------------------
-    // 1. Perform your custom checks before submitting
-    // ----------------------------------------------------
-
+    // Validation code...
     const clientName = document.getElementById("client_name").value.trim();
     const clientID = document.getElementById("client_national_id").value.trim();
     const clientWHATSAPP = document.getElementById("client_whatsapp_number").value.trim();
@@ -8490,7 +8567,6 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const projectadmin = document.getElementById("projectadministrator").value.trim();
     const lateinterest = document.getElementById("late_payment_interest").value.trim();
     
-    // Additional required fields validation
     const clientAddress = document.getElementById("client_address").value.trim();
     const clientEmail = document.getElementById("client_email").value.trim();
     const nextOfKinName = document.getElementById("next_of_kin_name").value.trim();
@@ -8506,48 +8582,36 @@ document.getElementById("saveProjectBtn").addEventListener("click", function () 
     const quillContent = quillProjectScope.root.innerHTML.trim();
     const isEmptyQuillContent = quillContent === '<p><br></p>' || quillContent === '<p></p>' || quillContent === '';
 
-    // When submitting form, store Quill HTML into hidden input
-// Insert Quill content into hidden input BEFORE building formData
-
 if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddress === "") {
         alert("All client details (Name, ID, WhatsApp, Address, Email) are required.");
-        return; // STOP submission
+        return;
     }
 
-    // Project details validation
     if (projectName === "" || projectLocation === "" || projectStartDate === "" || projectDuration === "" || projectadmin === "") {
         alert("All project details (Name, Location, Start Date, Duration, Administrator) are required.");
-        return; // STOP submission
+        return;
     }
 
-    // Project scope validation
     if (isEmptyQuillContent) {
         alert("Project Scope/Description is required.");
-        return; // STOP submission
+        return;
     }
 
-    // Agreement date validation
     if (agreementDate === "") {
         alert("Contract Agreement Date is required.");
-        return; // STOP submission
+        return;
     }
 
     if (totalContractPrice === "" || parseFloat(totalContractPrice) <= 0) {
         alert("Valid Total Contract Price is required.");
-        return; // STOP submission
+        return;
     }
-    // Payment method validation
+
     if (paymentMethod === "") {
         alert("Select a payment method.");
         return; 
     }
 
-
-
-    // Total contract price validation
-
-
-    // Payment method specific validations
     if (paymentMethod === "Installments") {
         let months = document.getElementById("monthstopay").value;
         if (months === "" || months <= 0) {
@@ -8555,13 +8619,11 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
             return;
         }
         
-        // Check for late interest for installments
         if (lateinterest === "" || parseFloat(lateinterest) < 0) {
             alert("Late Payment Interest is required for Installments.");
             return;
         }
         
-        // Check deposit fields
         const depositRequired = document.getElementById("deposit_required").value.trim();
         const depositPaymentDate = document.getElementById("deposit_payment_date").value;
         const firstInstallmentDueDate = document.getElementById("first_installment_due_date").value;
@@ -8580,15 +8642,94 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
             alert("Due Date For First Installment is required.");
             return;
         }
-
     }
 
-    
-    document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
+    // All validations passed - populate and show confirmation modal
+    populateProjectConfirmationModal();
+    closeModal('addnewProjectModal');
+    openModal('projectConfirmationModal');
 
-    // ----------------------------------------------------
-    // 2. Build FormData object and send to Flask route
-    // ----------------------------------------------------
+});
+
+// Function to populate confirmation modal
+function populateProjectConfirmationModal() {
+    // Client Details
+    const clientDetails = `
+        <div class="col-md-6 mb-2"><strong>Name:</strong> ${document.getElementById("client_name").value}</div>
+        <div class="col-md-6 mb-2"><strong>ID:</strong> ${document.getElementById("client_national_id").value}</div>
+        <div class="col-md-6 mb-2"><strong>Email:</strong> ${document.getElementById("client_email").value}</div>
+        <div class="col-md-6 mb-2"><strong>WhatsApp:</strong> ${document.getElementById("client_whatsapp_number").value}</div>
+        <div class="col-md-12 mb-2"><strong>Address:</strong> ${document.getElementById("client_address").value}</div>
+        <div class="col-md-6 mb-2"><strong>Next of Kin:</strong> ${document.getElementById("next_of_kin_name").value}</div>
+        <div class="col-md-6 mb-2"><strong>Relationship:</strong> ${document.getElementById("relationship").value}</div>
+        <div class="col-md-12 mb-2"><strong>Next of Kin Address:</strong> ${document.getElementById("next_of_kin_address").value}</div>
+        <div class="col-md-6 mb-2"><strong>Next of Kin Contact:</strong> ${document.getElementById("next_of_kin_contact_number").value}</div>
+    `;
+    document.getElementById("confirmClientDetails").innerHTML = clientDetails;
+
+    // Project Details
+    const projectDetails = `
+        <div class="col-md-6 mb-2"><strong>Project Name:</strong> ${document.getElementById("project_name").value}</div>
+        <div class="col-md-6 mb-2"><strong>Location:</strong> ${document.getElementById("project_location").value}</div>
+        <div class="col-md-6 mb-2"><strong>Start Date:</strong> ${document.getElementById("project_start_date").value}</div>
+        <div class="col-md-6 mb-2"><strong>Duration (months):</strong> ${document.getElementById("months_to_completion").value}</div>
+        <div class="col-md-6 mb-2"><strong>Administrator:</strong> ${document.getElementById("projectadministrator").value}</div>
+        <div class="col-md-6 mb-2"><strong>Agreement Date:</strong> ${document.getElementById("agreement_date").value}</div>
+        <div class="col-md-6 mb-2"><strong>Total Contract Price:</strong> ₵${parseFloat(document.getElementById("total_contract_price").value).toFixed(2)}</div>
+    `;
+    document.getElementById("confirmProjectDetails").innerHTML = projectDetails;
+
+    // Project Scope
+    document.getElementById("confirmProjectScope").innerHTML = quillProjectScope.root.innerHTML;
+
+    // Payment Details
+    const paymentMethod = document.getElementById("paymentMethod").value;
+    let paymentDetails = `<div class="col-md-6 mb-2"><strong>Payment Method:</strong> ${paymentMethod}</div>`;
+    
+    if (paymentMethod === "Installments") {
+        paymentDetails += `
+            <div class="col-md-6 mb-2"><strong>Months to Pay:</strong> ${document.getElementById("monthstopay").value}</div>
+            <div class="col-md-6 mb-2"><strong>Deposit Paid:</strong> ₵${parseFloat(document.getElementById("deposit_required").value).toFixed(2)}</div>
+            <div class="col-md-6 mb-2"><strong>Date Deposit Paid:</strong> ${document.getElementById("deposit_payment_date").value}</div>
+            <div class="col-md-6 mb-2"><strong>First Installment Due:</strong> ${document.getElementById("first_installment_due_date").value}</div>
+            <div class="col-md-6 mb-2"><strong>Late Payment Interest:</strong> ${document.getElementById("late_payment_interest").value}%</div>
+        `;
+        
+        // Build installments table
+        document.getElementById("installmentsTableSection").style.display = "block";
+        let tableRows = "";
+        for (let i = 1; i <= 10; i++) {
+            const amountField = document.getElementById(`installment${i}amount`);
+            const dueDateField = document.getElementById(`installment${i}duedate`);
+            
+            if (amountField && amountField.value) {
+                tableRows += `
+                    <tr>
+                        <td>Installment ${i}</td>
+                        <td>₵${parseFloat(amountField.value).toFixed(2)}</td>
+                        <td>${dueDateField ? dueDateField.value : 'N/A'}</td>
+                        <td><span class="badge bg-warning">Pending</span></td>
+                    </tr>
+                `;
+            }
+        }
+        document.getElementById("confirmInstallmentsBody").innerHTML = tableRows;
+    } else {
+        document.getElementById("installmentsTableSection").style.display = "none";
+    }
+
+    document.getElementById("confirmPaymentDetails").innerHTML = paymentDetails;
+}
+
+// Function to return to form
+function backToProjectForm() {
+    closeModal('projectConfirmationModal');
+    openModal('addnewProjectModal');
+}
+
+// Confirm save handler
+document.getElementById("confirmSaveProjectBtn").addEventListener("click", function () {
+    document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
     let form = document.getElementById("addProjectForm");
     let formData = new FormData(form);
     document.getElementById("edsLoader").style.display = "flex";
@@ -8598,8 +8739,6 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
         body: formData
     })
     .then(async response => {
-
-        // If server returned JSON error 
         if (!response.ok) {
             let errorText = await response.text();
             console.error("Server error:", errorText);
@@ -8608,7 +8747,6 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
             throw new Error("Server returned an error");
         }
 
-        // If Flask redirected normally = success
         if (response.redirected) {
             window.location.href = response.url;
             return;
@@ -8626,9 +8764,8 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
         alert("❌ There was an error saving the project.");
         document.getElementById("edsLoader").style.display = "none";
     });
-
-
 });
+
 </script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
