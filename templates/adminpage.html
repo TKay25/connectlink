@@ -339,6 +339,24 @@
     height: 90vh;
 }
 
+.modal-container.ai-modal {
+    color: var(--dark-blue-deep);
+}
+
+.modal-container.ai-modal * {
+    color: var(--dark-blue-deep);
+}
+
+.modal-container.ai-modal input,
+.modal-container.ai-modal textarea {
+    color: var(--dark-blue-deep);
+}
+
+.modal-container.ai-modal input::placeholder,
+.modal-container.ai-modal textarea::placeholder {
+    color: var(--gray-500);
+}
+
 @keyframes modalFadeIn {
     from {
         opacity: 0;
@@ -4299,14 +4317,22 @@ function displayWorkPlans(workPlans) {
         const pastDaysInSchedule = Math.max(0, Math.min(pastDays, totalDays));
         const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule * (1 - markupPercent / 100);
         
-        // Calculate future days (from tomorrow to schedule end inclusive)
+        // Calculate future days (from tomorrow to schedule end inclusive, limited to schedule period)
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         tomorrow.setHours(0, 0, 0, 0); // Reset to start of day for accurate calculation
+        
+        // Future starts from the LATER of tomorrow or schedule start
+        const futureStart = tomorrow > scheduleStart ? tomorrow : new Date(scheduleStart);
         const scheduleEndWithTime = new Date(scheduleEnd);
         scheduleEndWithTime.setHours(23, 59, 59, 999); // To end of schedule day
-        const futureDays = Math.floor((scheduleEndWithTime - tomorrow) / (1000 * 60 * 60 * 24)) + 1;
-        const futureDaysInSchedule = Math.max(0, futureDays);
+        
+        // Only calculate if future start is before or on schedule end
+        let futureDaysInSchedule = 0;
+        if (futureStart <= scheduleEndWithTime) {
+            const futureDays = Math.floor((scheduleEndWithTime - futureStart) / (1000 * 60 * 60 * 24)) + 1;
+            futureDaysInSchedule = Math.max(0, Math.min(futureDays, totalDays - pastDaysInSchedule));
+        }
         const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
         
         totalBaseCost += (baseCost / totalDays) * (pastDaysInSchedule + futureDaysInSchedule);
@@ -4420,14 +4446,22 @@ function filterWorkPlansByTask() {
         const pastDaysInSchedule = Math.max(0, Math.min(pastDays, totalDays));
         const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule * (1 - markupPercent / 100);
         
-        // Calculate future days (from tomorrow to schedule end inclusive)
+        // Calculate future days (from tomorrow to schedule end inclusive, limited to schedule period)
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         tomorrow.setHours(0, 0, 0, 0); // Reset to start of day for accurate calculation
+        
+        // Future starts from the LATER of tomorrow or schedule start
+        const futureStart = tomorrow > scheduleStart ? tomorrow : new Date(scheduleStart);
         const scheduleEndWithTime = new Date(scheduleEnd);
         scheduleEndWithTime.setHours(23, 59, 59, 999); // To end of schedule day
-        const futureDays = Math.floor((scheduleEndWithTime - tomorrow) / (1000 * 60 * 60 * 24)) + 1;
-        const futureDaysInSchedule = Math.max(0, futureDays);
+        
+        // Only calculate if future start is before or on schedule end
+        let futureDaysInSchedule = 0;
+        if (futureStart <= scheduleEndWithTime) {
+            const futureDays = Math.floor((scheduleEndWithTime - futureStart) / (1000 * 60 * 60 * 24)) + 1;
+            futureDaysInSchedule = Math.max(0, Math.min(futureDays, totalDays - pastDaysInSchedule));
+        }
         const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
         
         totalNetCost += pastNetCost + futureNetCost;
@@ -4801,14 +4835,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Open modal
     aiBtn.addEventListener('click', function() {
-        modal.style.display = 'block';
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
         aiQuestion.focus();
     });
     
     // Close when clicking outside
     window.addEventListener('click', function(event) {
         if (event.target === modal) {
-            modal.style.display = 'none';
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
         }
     });
     
