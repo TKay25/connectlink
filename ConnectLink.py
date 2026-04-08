@@ -11741,11 +11741,30 @@ def run1(userid):
 
 
         ######### maindata
+        
+        # First, ensure quotation_id column exists in database
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns
+                    WHERE table_name = 'connectlinkdatabase' AND column_name = 'quotation_id'
+                """)
+                if not cursor.fetchone():
+                    print("⚠ quotation_id column not found, adding it...")
+                    cursor.execute("ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS quotation_id INT;")
+                    connection.commit()
+                    print("✓ quotation_id column added")
+        except Exception as e:
+            print(f"Warning: Could not check/add quotation_id: {e}")
+        
+        # Now fetch the data
         maindataquery = f"SELECT * FROM connectlinkdatabase;"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
         print("Database columns from cursor.description:", column_names)
+        print(f"Total columns from database: {len(column_names)}")
 
         print("maaaaiiiiin DATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
         print(maindata)
@@ -11756,6 +11775,7 @@ def run1(userid):
         # Use the actual column names from the database
         datamain = pd.DataFrame(maindata, columns=column_names)
 
+        # Get just the column statistics
         count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
         count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
         count_other = datamain[(datamain["projectcompletionstatus"] != "Ongoing") & (datamain["projectcompletionstatus"] != "Completed")].shape[0]
@@ -11772,55 +11792,68 @@ def run1(userid):
         # Get the most frequent location
         most_frequent_location = locations.value_counts(dropna=True).idxmax()
 
-        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View Project</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)        
-        
+        # ===== CRITICAL: Process columns in correct order =====
+        # Step 1: Process dates first
         datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
+        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+        
+        # Step 2: Calculate momid BEFORE reordering
         datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
 
-        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
-
-        # Reorder columns to ensure correct positions for DataTables
-        # Calculate total columns needed
-        all_columns = [
-            'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 
-            'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 
-            'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 
-            'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 
-            'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 
-            'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 
-            'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 
-            'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 
-            'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 
-            'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 
-            'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date', 
-            'projectcompletionstatus', 'latepaymentinterest', 'id', 'quotation_id', 'Action'
-        ]
-        
-        # Only select columns that exist in the dataframe
-        cols_to_keep = [col for col in all_columns if col in datamain.columns]
-        datamain = datamain[cols_to_keep]
-                        
-        datamain = datamain.sort_values('id', ascending=False)
-        
-        # Rename quotation_id to QREF and format for display
+        # Step 3: Rename quotation_id to QREF BEFORE Action creation
         datamain = datamain.rename(columns={'quotation_id': 'QREF'})
         
-        # Format QREF column: replace NULL/None with badge, otherwise create link/badge
+        # Step 4: Format QREF column
         datamain['QREF'] = datamain['QREF'].apply(
             lambda x: f'<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == '' 
             else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
         )
         
-        # Ensure final column order with QREF and Action in correct positions
-        final_cols = list(datamain.columns)
-        if 'QREF' in final_cols and 'Action' in final_cols:
-            # Remove QREF and Action temporarily
-            final_cols.remove('QREF')
-            final_cols.remove('Action')
-            # Rebuild: all columns except QREF and Action, then QREF, then Action
-            final_cols.append('QREF')
-            final_cols.append('Action')
-            datamain = datamain[final_cols]
+        # Step 5: Create Action column AFTER everything else
+        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View Project</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
+        
+        # Step 6: Sort by ID
+        datamain = datamain.sort_values('id', ascending=False)
+        
+        # Step 7: Select ONLY the columns we need IN THE EXACT FINAL ORDER
+        # This is the definitive list - 61 columns total for DataTables to work
+        final_columns_to_select = [
+            'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',  
+            'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',  
+            'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate',  
+            'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay',  
+            'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment',  
+            'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate',  
+            'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',  
+            'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date',  
+            'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate',  
+            'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount',  
+            'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date',  
+            'projectcompletionstatus', 'latepaymentinterest', 'id', 'QREF', 'Action'
+        ]
+        
+        # Select only columns that exist
+        datamain = datamain[[col for col in final_columns_to_select if col in datamain.columns]]
+        
+        # DEBUG: Final verification
+        final_cols_list = list(datamain.columns)
+        print(f"\n{'='*100}")
+        print(f"FINAL TABLE COLUMN STRUCTURE FOR HTML OUTPUT")
+        print(f"{'='*100}")
+        print(f"Total columns: {len(final_cols_list)}")
+        print(f"Column mapping:")
+        for i, col in enumerate(final_cols_list):
+            marker = ""
+            if i == 0: marker = " ← Column 0: momid"
+            elif i == 1: marker = " ← Column 1: clientname"
+            elif i == 10: marker = " ← Column 10: projectname"
+            elif i == 13: marker = " ← Column 13: projectadministratorname"
+            elif i == 24: marker = " ← Column 24: datedepositorbullet"
+            elif i == 58: marker = " ← Column 58: id"
+            elif i == 59: marker = " ← Column 59: QREF (SHOULD BE HERE!)"
+            elif i == 60: marker = " ← Column 60: Action (SHOULD BE HERE!)"
+            print(f"  [{i:2d}] {col}{marker}")
+        print(f"{'='*100}\n")
 
         table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
 
