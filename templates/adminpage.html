@@ -1418,6 +1418,7 @@
         <form id="updateProjectForm" method="POST" action="/update_project">
             <div class="modal-body-custom" style="max-height: 450px; overflow-y: auto;">
                 <input type="hidden" id="updateProjectId" name="project_id">
+                <input type="hidden" id="updateProjectQuotationId" name="project_quotation_id">
                 
                 <div class="row mb-3 g-3">
                     <div class="col-lg-2 col-md-3 col-sm-6">
@@ -8977,7 +8978,14 @@ $(document).ready(function() {
 
 
         const id = rowData[58]; // First column (ID)
-        const quotationRef = rowData[59]; // QREF (Quotation Reference)
+        const quotationRef = rowData[59]; // QREF (Quotation Reference) - HTML badge
+
+        // Extract numeric quotation_id from HTML badge (e.g., <span...>123</span> → 123)
+        let quotationId = null;
+        if (quotationRef && quotationRef !== '<span class="badge bg-secondary">N/A</span>') {
+            const match = quotationRef.match(/>([^<]+)<\/span>/);
+            quotationId = match ? match[1] : null;
+        }
 
         // Strip HTML tags
         const plainText = projectScope.replace(/<[^>]*>/g, '');
@@ -8988,12 +8996,13 @@ $(document).ready(function() {
         console.log('Row data:', {
             id, clientName, projectName, adminName, projectStartDateref,
             completionStatus, installment1Amount, 
-            installment1DueDate
+            installment1DueDate, quotationId
         });
         
         // Set values in the modal
         $('#updateProjectId').val(id);
         $('#updateProjectIdother').val(id);
+        $('#updateProjectQuotationId').val(quotationId || ''); // Store quotation_id for form submission
         $('#updateClientName').val(clientName);
         $('#updateClientNameother').val(clientName);
         $('#updateClientNationalIdNumber').val(clientnationalidnumber);
