@@ -8319,7 +8319,7 @@ def api_login():
     
     return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
 
-@app.route('/api/logoutpos', methods=['POST'])
+@app.route('/api/logoutpos', methods=['POST','GET'])
 def api_logout():
     session.clear()
     return render_template('mainindex.html')  # Or send_from_directory for static HTML
