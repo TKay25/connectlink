@@ -7728,31 +7728,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
 
-    // Add search functionality - search only in visible columns
+    // Add search functionality - search entire table including all columns
     document.getElementById('tableSearch')?.addEventListener('keyup', function() {
-        const searchTerm = this.value.toLowerCase();
+        const searchTerm = this.value;
         
         if (window.dataTable) {
-            // Search in columns: clientname(1), projectname(10), projectadministratorname(13)
-            window.dataTable.rows().every(function() {
-                const row = this.node();
-                const cells = row.querySelectorAll('td');
-                
-                // Get text from visible columns
-                const clientName = cells[1]?.textContent?.toLowerCase() || '';
-                const projectName = cells[10]?.textContent?.toLowerCase() || '';
-                const adminName = cells[13]?.textContent?.toLowerCase() || '';
-                const momId = cells[0]?.textContent?.toLowerCase() || '';
-                
-                // Check if any visible column contains the search term
-                const matches = clientName.includes(searchTerm) ||
-                              projectName.includes(searchTerm) ||
-                              adminName.includes(searchTerm) ||
-                              momId.includes(searchTerm);
-                
-                // Show or hide row
-                $(row).toggle(matches);
-            });
+            // Use DataTables built-in search which searches ALL data rows and columns
+            // This searches the entire dataset, not just filtered/visible rows
+            window.dataTable.search(searchTerm).draw();
         }
     });
 });
