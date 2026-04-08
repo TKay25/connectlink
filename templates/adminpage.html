@@ -8791,8 +8791,8 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
 
 });
 
-// Helper function to format dates from YYYY-MM-DD to DD MMMM YYYY
-function formatDate(dateString) {
+// Helper function to format dates from YYYY-MM-DD to DD MMMM YYYY for confirmation modal
+function formatDateForConfirmation(dateString) {
     if (!dateString || dateString.trim() === '') return '';
     try {
         const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
@@ -8833,10 +8833,10 @@ function populateProjectConfirmationModal() {
     const projectDetails = `
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Project Name:</strong> ${document.getElementById("project_name").value}</div>
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Location:</strong> ${document.getElementById("project_location").value}</div>
-        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Start Date:</strong> ${formatDate(document.getElementById("project_start_date").value)}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Start Date:</strong> ${formatDateForConfirmation(document.getElementById("project_start_date").value)}</div>
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Duration (months):</strong> ${document.getElementById("months_to_completion").value}</div>
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Administrator:</strong> ${document.getElementById("projectadministrator").value}</div>
-        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Agreement Date:</strong> ${formatDate(document.getElementById("agreement_date").value)}</div>
+        <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Agreement Date:</strong> ${formatDateForConfirmation(document.getElementById("agreement_date").value)}</div>
         <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Total Contract Price:</strong> USD ${parseFloat(document.getElementById("total_contract_price").value).toFixed(2)}</div>
     `;
     document.getElementById("confirmProjectDetails").innerHTML = projectDetails;
@@ -8859,8 +8859,8 @@ function populateProjectConfirmationModal() {
             <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Months to Pay:</strong> ${document.getElementById("monthstopay").value}</div>
             <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Deposit Paid:</strong> USD ${depositPaid.toFixed(2)}</div>
             <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Monthly Installment:</strong> USD ${monthlyInstallment.toFixed(2)}</div>
-            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Date Deposit Paid:</strong> ${formatDate(document.getElementById("deposit_payment_date").value)}</div>
-            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>First Installment Due:</strong> ${formatDate(document.getElementById("first_installment_due_date").value)}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Date Deposit Paid:</strong> ${formatDateForConfirmation(document.getElementById("deposit_payment_date").value)}</div>
+            <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>First Installment Due:</strong> ${formatDateForConfirmation(document.getElementById("first_installment_due_date").value)}</div>
             <div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Late Payment Interest:</strong> ${document.getElementById("late_payment_interest").value}%</div>
         `;
     }
