@@ -8986,6 +8986,15 @@ $(document).ready(function() {
             const match = quotationRef.match(/>([^<]+)<\/span>/);
             quotationId = match ? match[1] : null;
         }
+        
+        // Log extraction result for debugging
+        if (quotationRef) {
+            console.log('QREF Extraction Debug:', {
+                rawHTML: quotationRef,
+                extractedId: quotationId,
+                isNA: quotationRef === '<span class="badge bg-secondary">N/A</span>'
+            });
+        }
 
         // Strip HTML tags
         const plainText = projectScope.replace(/<[^>]*>/g, '');
@@ -9002,7 +9011,11 @@ $(document).ready(function() {
         // Set values in the modal
         $('#updateProjectId').val(id);
         $('#updateProjectIdother').val(id);
-        $('#updateProjectQuotationId').val(quotationId || ''); // Store quotation_id for form submission
+        // IMPORTANT: Only set quotation_id if it was extracted (not null)
+        // Backend will NOT update quotation_id if value is empty/null, preserving existing value
+        if (quotationId) {
+            $('#updateProjectQuotationId').val(quotationId);
+        }
         $('#updateClientName').val(clientName);
         $('#updateClientNameother').val(clientName);
         $('#updateClientNationalIdNumber').val(clientnationalidnumber);

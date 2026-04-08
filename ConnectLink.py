@@ -14658,8 +14658,58 @@ def update_project():
                 installment9amount = float(installment9amountupdate)
                 installment10amount = float(installment10amountupdate)
 
-        # --- EXAMPLE SQL (modify for your DB) ---
-        query = """
+        # --- Build UPDATE query with conditional quotation_id (only update if provided) ---
+        # Build values list for query
+        values = [
+            clientname,
+            completion_status,
+            project_start_date,
+            contractamount,
+            depositpaid,
+            depositdatepaid,
+            monthstopay,
+            monthlyinstallment,
+            installment1_date,
+            installment2_date,
+            installment3_date,
+            installment4_date,
+            installment5_date,
+            installment6_date,
+            installment7_date,
+            installment8_date,
+            installment9_date,
+            installment10_date,
+            projscope,
+            project_name,
+            installment1amount,
+            installment2amount,
+            installment3amount,
+            installment4amount,
+            installment5amount,
+            installment6amount,
+            installment7amount,
+            installment8amount,
+            installment9amount,
+            installment10amount,
+            installment1_duedate,
+            installment2_duedate,
+            installment3_duedate,
+            installment4_duedate,
+            installment5_duedate,
+            installment6_duedate,
+            installment7_duedate,
+            installment8_duedate,
+            installment9_duedate,
+            installment10_duedate
+        ]
+        
+        # Only include quotation_id if it's actually provided and not None/empty
+        quotation_clause = ""
+        if quotation_id is not None:
+            quotation_clause = ", quotation_id = %s"
+            values.append(quotation_id)
+        
+        query = f"""
             UPDATE connectlinkdatabase
             SET 
                 clientname = %s,
@@ -14701,55 +14751,13 @@ def update_project():
                 installment7duedate = %s,
                 installment8duedate = %s,
                 installment9duedate = %s,
-                installment10duedate = %s,
-                quotation_id = %s
+                installment10duedate = %s
+                {quotation_clause}
             WHERE id = %s
         """
         
-        values = (
-            clientname,
-            completion_status,
-            project_start_date,
-            contractamount,
-            depositpaid,
-            depositdatepaid,
-            monthstopay,
-            monthlyinstallment,
-            installment1_date,
-            installment2_date,
-            installment3_date,
-            installment4_date,
-            installment5_date,
-            installment6_date,
-            installment7_date,
-            installment8_date,
-            installment9_date,
-            installment10_date,
-            projscope,
-            project_name,
-            installment1amount,
-            installment2amount,
-            installment3amount,
-            installment4amount,
-            installment5amount,
-            installment6amount,
-            installment7amount,
-            installment8amount,
-            installment9amount,
-            installment10amount,
-            installment1_duedate,
-            installment2_duedate,
-            installment3_duedate,
-            installment4_duedate,
-            installment5_duedate,
-            installment6_duedate,
-            installment7_duedate,
-            installment8_duedate,
-            installment9_duedate,
-            installment10_duedate,
-            quotation_id,
-            project_id
-        )
+        values.append(project_id)
+        values = tuple(values)
 
         cursor.execute(query, values)
         connection.commit()
