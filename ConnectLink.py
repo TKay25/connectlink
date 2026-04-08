@@ -14204,43 +14204,62 @@ def update_other_details():
             projectcompletionstatus = request.form.get('completion_status')
             quotation_id = request.form.get('quotation_id')
 
-            # Build update query dynamically
+            # Build update list with proper type casting
             updates = []
             values = []
             
-            if clientnationalid is not None:
+            # String fields
+            if clientnationalid:
                 updates.append("clientidnumber = %s")
                 values.append(clientnationalid)
-            if clientemail is not None:
+            if clientemail:
                 updates.append("clientemail = %s")
                 values.append(clientemail)
-            if clientwhatsapp is not None:
-                updates.append("clientwanumber = %s")
-                values.append(clientwhatsapp)
-            if clientaddress is not None:
+            if clientaddress:
                 updates.append("clientaddress = %s")
                 values.append(clientaddress)
-            if clientnextofkin is not None:
+            if clientnextofkin:
                 updates.append("clientnextofkinname = %s")
                 values.append(clientnextofkin)
-            if clientnextofkinrelationship is not None:
+            if clientnextofkinrelationship:
                 updates.append("nextofkinrelationship = %s")
                 values.append(clientnextofkinrelationship)
-            if clientnextofkinphone is not None:
-                updates.append("clientnextofkinphone = %s")
-                values.append(clientnextofkinphone)
-            if clientnextofkinaddress is not None:
+            if clientnextofkinaddress:
                 updates.append("clientnextofkinaddress = %s")
                 values.append(clientnextofkinaddress)
-            if projectcompletionstatus is not None:
+            if projectcompletionstatus:
                 updates.append("projectcompletionstatus = %s")
                 values.append(projectcompletionstatus)
-            if quotation_id is not None and quotation_id != '':
-                updates.append("quotationid = %s")
-                values.append(quotation_id)
+            
+            # Numeric fields (INT) - convert to int or ignore if empty
+            if clientwhatsapp:
+                try:
+                    # Remove any decimals and convert to int
+                    whatsapp_int = int(float(clientwhatsapp))
+                    updates.append("clientwanumber = %s")
+                    values.append(whatsapp_int)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid phone number format: {clientwhatsapp}")
+            
+            if clientnextofkinphone:
+                try:
+                    phone_int = int(float(clientnextofkinphone))
+                    updates.append("clientnextofkinphone = %s")
+                    values.append(phone_int)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid phone number format: {clientnextofkinphone}")
+            
+            # Quotation ID
+            if quotation_id and quotation_id != '':
+                try:
+                    quot_id = int(quotation_id)
+                    updates.append("quotationid = %s")
+                    values.append(quot_id)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid quotation ID: {quotation_id}")
             
             # Add project_id to values for WHERE clause
-            values.append(project_id)
+            values.append(int(project_id))
             
             if not updates:
                 return jsonify({
@@ -14254,10 +14273,12 @@ def update_other_details():
                 WHERE id = %s
             """
             
+            print(f"Executing query: {query}")
+            print(f"With values: {values}")
+            
             cursor.execute(query, values)
             connection.commit()
 
-            flash("Project details updated successfully!", "success")
             return jsonify({
                 'success': True,
                 'message': 'Project details updated successfully!'
@@ -14265,6 +14286,8 @@ def update_other_details():
     
     except Exception as e:
         print(f"Error updating other details: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': f'Error updating details: {str(e)}'
