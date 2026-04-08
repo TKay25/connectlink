@@ -10908,11 +10908,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 4px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 4px; border-radius: 4px; font-size: 0.7rem;">${itemCount}</span></td>
                     <td style="padding: 4px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 4px; border-radius: 4px; font-size: 0.7rem;">${taskCount}</span></td>
                 </tr>
-                <tr id="details-${quotation.id}" style="display: none; font-size: 0.7rem;">
-                    <td colspan="9" style="padding: 0;">
-                        <div id="detail-content-${quotation.id}" style="padding: 4px; background: #f5f5f5;"></div>
-                    </td>
-                </tr>
             `;
         });
 
@@ -10920,6 +10915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </tbody>
                 </table>
             </div>
+            <div id="quotationDetailsContainer" style="margin-top: 15px;"></div>
         `;
         
         container.innerHTML = html;
@@ -10957,18 +10953,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleQuotationDetails(quotationId) {
-        const detailsRow = document.getElementById('details-' + quotationId);
-        if (detailsRow.style.display === 'none') {
-            detailsRow.style.display = 'table-row';
-            loadQuotationDetails(quotationId);
-        } else {
-            detailsRow.style.display = 'none';
+        const detailsContainer = document.getElementById('quotationDetailsContainer');
+        
+        // If the same quotation is already displayed, toggle it off
+        if (detailsContainer.dataset.currentId === String(quotationId)) {
+            detailsContainer.innerHTML = '';
+            detailsContainer.dataset.currentId = '';
+            return;
         }
+        
+        // Load new quotation details
+        detailsContainer.dataset.currentId = quotationId;
+        loadQuotationDetails(quotationId);
     }
 
     function loadQuotationDetails(quotationId) {
-        const contentDiv = document.getElementById('detail-content-' + quotationId);
-        contentDiv.innerHTML = 'Loading details...';
+        const detailsContainer = document.getElementById('quotationDetailsContainer');
+        detailsContainer.innerHTML = '<p style="padding: 10px;">Loading details...</p>';
         
         // Get the quotation data from the display data
         fetch('/api/get-quotations')
@@ -10977,13 +10978,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (result.success && result.data) {
                     const quotation = result.data.find(q => q.id === quotationId);
                     if (quotation) {
-                        displayQuotationDetails(quotation, contentDiv);
+                        displayQuotationDetails(quotation, detailsContainer);
                     }
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                contentDiv.innerHTML = 'Error loading details';
+                detailsContainer.innerHTML = '<p style="padding: 10px; color: red;">Error loading details</p>';
             });
     }
 
