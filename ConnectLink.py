@@ -4407,6 +4407,7 @@ def webhook():
                                                 query = f"""
                                                     SELECT * FROM connectlinkdatabase
                                                     WHERE clientwanumber::TEXT LIKE %s
+                                                    AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
                                                 """
                                                 cursor.execute(query, (f"%{sender_number}",))
                                                 result2 = cursor.fetchone()
@@ -4982,6 +4983,7 @@ def webhook():
                                                                             cursor.execute("""
                                                                                 SELECT * FROM connectlinkdatabase 
                                                                                 WHERE clientwanumber = %s
+                                                                                AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
                                                                                 ORDER BY projectstartdate DESC
                                                                             """, (client_whatsapp,))
                                                                             
@@ -6259,6 +6261,7 @@ def webhook():
                                                                         cursor.execute("""
                                                                             SELECT * FROM connectlinkdatabase 
                                                                             WHERE clientwanumber = %s
+                                                                            AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
                                                                             ORDER BY projectstartdate DESC
                                                                         """, (client_whatsapp,))
                                                                         
@@ -8947,7 +8950,7 @@ def export_projects_portfolio():
             today_date = datetime.now().strftime('%d %B %Y %H:%M:%S')
 
             # ========= SHEET 1 — PROJECTS =========
-            cursor.execute("SELECT * FROM connectlinkdatabase ORDER BY id DESC")
+            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects) ORDER BY id DESC")
             rows_1 = cursor.fetchall()
 
             cols_1 = [desc[0] for desc in cursor.description]
@@ -10803,13 +10806,14 @@ def get_filtered_projects(month_filter):
             print(f"DEBUG: Found {len(columns)} columns: {columns}")
             
             if month_filter == 'all' or not month_filter:
-                query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC"
+                query = "SELECT * FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects) ORDER BY id DESC"
                 cursor.execute(query)
             else:
                 # Filter by month/year
                 query = """
                     SELECT * FROM connectlinkdatabase 
                     WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s
+                    AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
                     ORDER BY id ASC
                 """
                 cursor.execute(query, (month_filter,))
@@ -12129,8 +12133,8 @@ def run1(userid):
 
 def get_installment_audit_data():
     with get_db() as (cursor, connection):
-        # Get all projects
-        query = "SELECT * FROM connectlinkdatabase;"
+        # Get all projects (excluding deleted ones)
+        query = "SELECT * FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects);"
         cursor.execute(query)
         projects = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
@@ -12795,6 +12799,7 @@ def get_project_months():
                     EXTRACT(MONTH FROM datedepositorbullet)::INTEGER as month
                 FROM connectlinkdatabase 
                 WHERE datedepositorbullet IS NOT NULL
+                AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
                 ORDER BY year DESC, month DESC
             """)
             months = cursor.fetchall()
@@ -12825,11 +12830,12 @@ def get_project_count():
                     FROM connectlinkdatabase 
                     WHERE EXTRACT(YEAR FROM datedepositorbullet) = %s 
                     AND EXTRACT(MONTH FROM datedepositorbullet) = %s
+                    AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
                 """, (year, month_num))
                 result = cursor.fetchone()
                 return jsonify({'count': result[0] if result else 0})
             else:
-                cursor.execute("SELECT COUNT(*) as total FROM connectlinkdatabase")
+                cursor.execute("SELECT COUNT(*) as total FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)")
                 result = cursor.fetchone()
                 return jsonify({'total': result[0] if result else 0})
         
@@ -12848,7 +12854,8 @@ def update_project_completion_status():
             update_query = """
                 UPDATE connectlinkdatabase 
                 SET projectcompletionstatus = 'Completed'
-                WHERE projectstartdate IS NOT NULL 
+                WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
+                AND projectstartdate IS NOT NULL 
                 AND projectduration IS NOT NULL 
                 AND projectduration > 0
                 AND projectcompletionstatus != 'Completed'
@@ -12861,7 +12868,8 @@ def update_project_completion_status():
             ongoing_query = """
                 UPDATE connectlinkdatabase 
                 SET projectcompletionstatus = 'Ongoing'
-                WHERE projectstartdate IS NOT NULL 
+                WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
+                AND projectstartdate IS NOT NULL 
                 AND projectduration IS NOT NULL 
                 AND projectduration > 0
                 AND (projectcompletionstatus IS NULL OR projectcompletionstatus NOT IN ('Completed', 'Cancelled'))
@@ -12874,7 +12882,8 @@ def update_project_completion_status():
             missing_duration_query = """
                 UPDATE connectlinkdatabase 
                 SET projectcompletionstatus = COALESCE(projectcompletionstatus, 'Pending')
-                WHERE (projectduration IS NULL OR projectduration <= 0)
+                WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
+                AND (projectduration IS NULL OR projectduration <= 0)
                 AND projectcompletionstatus IS NULL
             """
             cursor.execute(missing_duration_query)
@@ -12913,8 +12922,10 @@ def download_portfolio():
             date_params = []
             if month:
                 year, month_num = month.split('-')
-                date_where_clause = "WHERE EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                date_where_clause = "WHERE EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)"
                 date_params = [year, month_num]
+            else:
+                date_where_clause = "WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)"
             
             # 1. Get active projects from connectlinkdatabase within date range
             query = f"SELECT * FROM connectlinkdatabase {date_where_clause} ORDER BY momid ASC"
@@ -13168,6 +13179,7 @@ def get_project_start_months():
                     EXTRACT(MONTH FROM datedepositorbullet)::INTEGER as month
                 FROM connectlinkdatabase 
                 WHERE datedepositorbullet IS NOT NULL
+                AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
                 ORDER BY year DESC, month DESC
             """)
             months = cursor.fetchall()
