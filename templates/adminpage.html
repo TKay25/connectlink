@@ -11146,6 +11146,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <th style="padding: 4px; text-align: center; font-weight: bold;">Date</th>
                             <th style="padding: 4px; text-align: center; font-weight: bold;">Items</th>
                             <th style="padding: 4px; text-align: center; font-weight: bold;">Tasks</th>
+                            <th style="padding: 4px; text-align: center; font-weight: bold;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -11158,7 +11159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalCost = quotation.totalCost || 0;
             
             html += `
-                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; cursor: pointer; font-size: 0.65rem;" onclick="toggleQuotationDetails(${quotation.id})">
+                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; font-size: 0.65rem;">
                     <td style="padding: 4px; text-align: left; font-weight: bold;">${index + 1}</td>
                     <td style="padding: 4px; text-align: left;">${quotation.clientName || 'N/A'}</td>
                     <td style="padding: 4px; text-align: left;">${quotation.category || 'N/A'}</td>
@@ -11168,6 +11169,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 4px; text-align: center;">${formattedDate}</td>
                     <td style="padding: 4px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${itemCount}</span></td>
                     <td style="padding: 4px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${taskCount}</span></td>
+                    <td style="padding: 4px; text-align: center;">
+                        <button class="btn btn-sm btn-primary" style="padding: 2px 6px; font-size: 0.6rem; margin-right: 2px;" onclick="toggleQuotationDetails(${quotation.id}); event.stopPropagation();">View</button>
+                        <button class="btn btn-sm btn-danger" style="padding: 2px 6px; font-size: 0.6rem;" onclick="deleteQuotation(${quotation.id}, '${quotation.clientName}'); event.stopPropagation();">Delete</button>
+                    </td>
                 </tr>
             `;
         });
@@ -11226,6 +11231,48 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load new quotation details
         detailsContainer.dataset.currentId = quotationId;
         loadQuotationDetails(quotationId);
+    }
+
+    function deleteQuotation(quotationId, clientName) {
+        // Confirm deletion
+        if (!confirm(`Are you sure you want to delete the quotation for ${clientName}? This action cannot be undone.`)) {
+            return;
+        }
+
+        // Show loading state
+        const deleteBtn = event.target;
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'Deleting...';
+
+        // Call the delete API endpoint
+        fetch(`/api/quotations/${quotationId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Show success message
+                alert(`Quotation for ${clientName} deleted successfully!`);
+                // Reload quotations list
+                loadQuotations();
+            } else {
+                // Show error message
+                alert(`Error: ${result.error || 'Failed to delete quotation'}`);
+                // Restore button state
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = 'Delete';
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            alert(`Error deleting quotation: ${error.message}`);
+            // Restore button state
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = 'Delete';
+        });
     }
 
     function loadQuotationDetails(quotationId) {

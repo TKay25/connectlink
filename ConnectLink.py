@@ -16829,6 +16829,64 @@ def get_quotations():
             'error': str(e)
         }), 500
 
+@app.route('/api/quotations/<int:quotation_id>', methods=['DELETE'])
+def delete_quotation(quotation_id):
+    """Delete a quotation only if it's not linked to any project"""
+    try:
+        with get_db() as (cursor, connection):
+            # Step 1: Check if quotation exists
+            cursor.execute("SELECT id, client_name FROM quotations WHERE id = %s", (quotation_id,))
+            quotation = cursor.fetchone()
+            
+            if not quotation:
+                return jsonify({
+                    'success': False,
+                    'error': 'Quotation not found'
+                }), 404
+            
+            # Step 2: Check if quotation is linked to any projects
+            cursor.execute(
+                "SELECT COUNT(*) FROM connectlinkdatabase WHERE quotation_id = %s",
+                (quotation_id,)
+            )
+            linked_projects_count = cursor.fetchone()[0]
+            
+            if linked_projects_count > 0:
+                return jsonify({
+                    'success': False,
+                    'error': f'Cannot delete quotation: It is linked to {linked_projects_count} project(s). Please unlink it from all projects before deletion.',
+                    'linkedProjectsCount': linked_projects_count
+                }), 409  # 409 Conflict status code
+            
+            # Step 3: Delete quotation items
+            cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
+            
+            # Step 4: Delete quotation schedules
+            try:
+                cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
+            except:
+                # Table might not exist, that's fine
+                pass
+            
+            # Step 5: Delete the quotation
+            cursor.execute("DELETE FROM quotations WHERE id = %s", (quotation_id,))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Quotation for {quotation[1]} deleted successfully',
+                'quotationId': quotation_id
+            }), 200
+            
+    except Exception as e:
+        logging.error(f'Error deleting quotation {quotation_id}: {str(e)}')
+        logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/load_quotations', methods=['GET'])
 def load_quotations():
     """Alias endpoint for loading quotations - returns HTML table"""
