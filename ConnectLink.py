@@ -8080,6 +8080,14 @@ def webhook():
 #### hardware stuff
 
 
+def get_zimbabwe_time():
+    """Get current time in Zimbabwe timezone"""
+    from datetime import datetime
+    from pytz import timezone
+    zw_tz = timezone('Africa/Harare')
+    return datetime.now(zw_tz)
+
+
 def hash_password(password):
     """Hash password using SHA256"""
     return hashlib.sha256(password.encode()).hexdigest()
