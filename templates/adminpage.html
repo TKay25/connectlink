@@ -15034,6 +15034,9 @@ $(document).ready(function() {
             // Add admin passcode validation
             if (data.admin_passcode !== "conlink01admin01") {
                 alert("Invalid admin passcode!");
+                btn.prop('disabled', false);
+                spinner.addClass('d-none');
+                btnText.text('Delete Project Permanently');
                 return;
             }
             
@@ -15050,9 +15053,9 @@ $(document).ready(function() {
             if (result.status === 'success') {
                 alert('✅ Project deleted successfully!');
                 
-                // Close both modals
-                $('#deleteprojectModal').modal('hide');
-                $('#updateModal').modal('hide');
+                // Close modals using custom closeModal function (not Bootstrap)
+                closeModal('deleteprojectModal');
+                closeModal('updateModal');
                 
                 // Refresh the page to update the table
                 setTimeout(() => {
@@ -15061,13 +15064,14 @@ $(document).ready(function() {
                 
             } else {
                 alert('❌ Error: ' + result.message);
+                btn.prop('disabled', false);
+                spinner.addClass('d-none');
+                btnText.text('Delete Project Permanently');
             }
             
         } catch (error) {
             console.error('Delete error:', error);
-            alert('❌ Failed to delete project');
-        } finally {
-            // Reset button state
+            alert('❌ Failed to delete project: ' + error.message);
             btn.prop('disabled', false);
             spinner.addClass('d-none');
             btnText.text('Delete Project Permanently');
@@ -15075,7 +15079,7 @@ $(document).ready(function() {
     });
     
     // Clear form when delete modal is closed
-    $('#deleteprojectModal').on('hidden.bs.modal', function() {
+    document.getElementById('deleteprojectModal')?.addEventListener('hide.bs.modal', function() {
         $('#deleteProjectForm')[0].reset();
         $('#deleteClientNameDisplay').text('');
         $('#deleteProjectNameDisplay').text('');
