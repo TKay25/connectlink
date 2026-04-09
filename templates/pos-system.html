@@ -1360,17 +1360,13 @@
                         </div>
                         <div class="col-md-3" id="dateRangeStartDiv" style="display: none;">
                             <label class="small fw-bold" for="reportStartDate">Start Date</label>
-                            <input type="date" class="form-control form-control-sm" id="reportStartDate">
+                            <input type="date" class="form-control form-control-sm" id="reportStartDate" onchange="reportDateChanged()">
                         </div>
                         <div class="col-md-3" id="dateRangeEndDiv" style="display: none;">
                             <label class="small fw-bold" for="reportEndDate">End Date</label>
-                            <input type="date" class="form-control form-control-sm" id="reportEndDate">
+                            <input type="date" class="form-control form-control-sm" id="reportEndDate" onchange="reportDateChanged()">
                         </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <button class="btn btn-primary-dark btn-sm w-100" onclick="loadSalesReport()">
-                                <i class="fas fa-chart-bar me-1"></i>Generate Report
-                            </button>
-                        </div>
+                        <div class="col-md-3 d-flex align-items-end"></div>
                     </div>
                 </div>
                 
@@ -3170,9 +3166,22 @@ async function deleteStockAddition() {
         if (period === 'custom') {
             startDiv.style.display = 'block';
             endDiv.style.display = 'block';
+            // Don't load report yet - wait for user to select date range
         } else {
             startDiv.style.display = 'none';
             endDiv.style.display = 'none';
+            // Auto-load report for predefined periods
+            loadSalesReport(`Loading ${period} report...`);
+        }
+    }
+    
+    // Auto-load report when custom date range is set
+    function reportDateChanged() {
+        const startDate = document.getElementById('reportStartDate').value;
+        const endDate = document.getElementById('reportEndDate').value;
+        
+        if (startDate && endDate) {
+            loadSalesReport('Loading report for custom date range...');
         }
     }
 
