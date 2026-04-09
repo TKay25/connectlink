@@ -3589,6 +3589,56 @@ document.addEventListener('DOMContentLoaded', function() {
     // Any other initialization code
     console.log('DOM ready');
 });
+
+// Modal Management Functions - Work with custom modal-overlay system
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
+        console.log(`Modal opened: ${modalId}`);
+    } else {
+        console.warn(`Modal not found: ${modalId}`);
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = 'auto'; // Re-enable scrolling
+        console.log(`Modal closed: ${modalId}`);
+    } else {
+        console.warn(`Modal not found: ${modalId}`);
+    }
+}
+
+// Set active button in sidebar
+function setActiveButton(buttonId) {
+    // Remove active class from all sidebar buttons
+    document.querySelectorAll('.sidebar .btn-side').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Add active class to clicked button
+    const button = document.getElementById(buttonId);
+    if (button) {
+        button.classList.add('active');
+        console.log(`Active button set: ${buttonId}`);
+    }
+}
+
+// Close modal when clicking outside of it
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal-overlay') && event.target.classList.contains('active')) {
+        // Get all active modals and close them
+        document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+            modal.classList.remove('active');
+        });
+        document.body.style.overflow = 'auto';
+    }
+});
+
 </script>
 
 <script>
