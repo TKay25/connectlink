@@ -747,24 +747,34 @@ def initialize_database_tables():
             """, commit=True)
 
             # Create default hardware users if not exists
-            hw_admin_check = execute_query("SELECT id FROM hardware_users WHERE username = %s", ('mrsgadmin',), fetch_one=True)
-            if not hw_admin_check:
-                # Admin user - full access to all features
-                execute_query("""
-                    INSERT INTO hardware_users (username, password, full_name, role)
-                    VALUES (%s, %s, %s, %s)
-                """, ('mrsgadmin', 'mrsgogweo1admin01', 'Mrs G Admin', 'admin'), commit=True)
-                print("✓ Hardware admin user created - username: mrsgadmin")
+            try:
+                hw_admin_check = execute_query("SELECT id FROM hardware_users WHERE username = %s", ('mrsgadmin',), fetch_one=True)
+                if not hw_admin_check:
+                    # Admin user - full access to all features
+                    result = execute_query("""
+                        INSERT INTO hardware_users (username, password, full_name, role)
+                        VALUES (%s, %s, %s, %s)
+                    """, ('mrsgadmin', 'mrsgogweo1admin01', 'Mrs G Admin', 'admin'), commit=True)
+                    print("✓ Hardware admin user created - username: mrsgadmin")
+                else:
+                    print("✓ Hardware admin user already exists")
+            except Exception as e:
+                print(f"❌ Error creating hardware admin user: {e}")
 
             # Create operator user if not exists
-            hw_operator_check = execute_query("SELECT id FROM hardware_users WHERE username = %s", ('shopoperatoruser',), fetch_one=True)
-            if not hw_operator_check:
-                # Operator user - only POS and transactions access
-                execute_query("""
-                    INSERT INTO hardware_users (username, password, full_name, role)
-                    VALUES (%s, %s, %s, %s)
-                """, ('shopoperatoruser', 'conlinkhardwareshopoperator2026', 'Shop Operator', 'operator'), commit=True)
-                print("✓ Hardware operator user created - username: shopoperatoruser")
+            try:
+                hw_operator_check = execute_query("SELECT id FROM hardware_users WHERE username = %s", ('shopoperatoruser',), fetch_one=True)
+                if not hw_operator_check:
+                    # Operator user - only POS and transactions access
+                    result = execute_query("""
+                        INSERT INTO hardware_users (username, password, full_name, role)
+                        VALUES (%s, %s, %s, %s)
+                    """, ('shopoperatoruser', 'conlinkhardwareshopoperator2026', 'Shop Operator', 'operator'), commit=True)
+                    print("✓ Hardware operator user created - username: shopoperatoruser")
+                else:
+                    print("✓ Hardware operator user already exists")
+            except Exception as e:
+                print(f"❌ Error creating hardware operator user: {e}")
             
             # Create default admin user if not exists
             admin_check = execute_query("SELECT id FROM users WHERE username = 'admin'", fetch_one=True)
@@ -8379,6 +8389,37 @@ def check_auth():
         })
     return jsonify({'authenticated': False}), 401
 
+
+@app.route('/api/debug/hardware-users', methods=['GET'])
+def debug_hardware_users():
+    """Debug endpoint to check hardware_users table - REMOVE IN PRODUCTION"""
+    try:
+        with get_db() as (cursor, connection):
+            # Check if table exists
+            cursor.execute("""
+                SELECT table_name FROM information_schema.tables 
+                WHERE table_schema = 'public' AND table_name = 'hardware_users'
+            """)
+            table_exists = cursor.fetchone()
+            
+            if not table_exists:
+                return jsonify({'error': 'hardware_users table does not exist'}), 404
+            
+            # Get all hardware users
+            cursor.execute("SELECT id, username, full_name, role FROM hardware_users")
+            users = cursor.fetchall()
+            
+            return jsonify({
+                'table_exists': True,
+                'users_count': len(users) if users else 0,
+                'users': [
+                    {'id': u[0], 'username': u[1], 'full_name': u[2], 'role': u[3]}
+                    for u in users
+                ] if users else []
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # ==================== PRODUCT MANAGEMENT ====================
 
 @app.route('/api/products', methods=['GET'])
@@ -9251,30 +9292,39 @@ def login():
                 if not email_or_username or not password:
                     return jsonify({'success': False, 'message': 'Username/Email and password are required.'}), 400
 
-                # First, try to find hardware user
-                cursor.execute("SELECT id, username, password, full_name, role FROM hardware_users WHERE username = %s", (email_or_username,))
-                hw_rows = cursor.fetchall()
-                
-                if hw_rows:
-                    hw_user = hw_rows[0]
-                    if hw_user[2] == password:  # password matches
-                        user_uuid = uuid.uuid4()
-                        session['user_uuid'] = str(user_uuid)
-                        session.permanent = True
-                        user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                # Debug: Check if hardware_users table exists
+                try:
+                    cursor.execute("SELECT id, username, password, full_name, role FROM hardware_users WHERE username = %s", (email_or_username,))
+                    hw_rows = cursor.fetchall()
+                    print(f"🔍 DEBUG: Hardware users query returned {len(hw_rows) if hw_rows else 0} rows for username: {email_or_username}")
+                    
+                    if hw_rows:
+                        hw_user = hw_rows[0]
+                        print(f"🔍 DEBUG: Found hardware user: {hw_user[1]}, checking password...")
+                        print(f"🔍 DEBUG: Database password: '{hw_user[2]}' | Submitted password: '{password}' | Match: {hw_user[2] == password}")
                         
-                        # Set session for hardware user with role
-                        session['user_id'] = int(hw_user[0])
-                        session['username'] = hw_user[1]
-                        session['full_name'] = hw_user[3]
-                        session['role'] = hw_user[4]
-                        session['userid'] = int(hw_user[0])  # For backward compatibility
-                        session['user_name'] = hw_user[3]
-                        
-                        return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/pos-system.html'}), 200
-                    else:
-                        print('Incorrect password for hardware user')
-                        return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
+                        if hw_user[2] == password:  # password matches
+                            user_uuid = uuid.uuid4()
+                            session['user_uuid'] = str(user_uuid)
+                            session.permanent = True
+                            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                            
+                            # Set session for hardware user with role
+                            session['user_id'] = int(hw_user[0])
+                            session['username'] = hw_user[1]
+                            session['full_name'] = hw_user[3]
+                            session['role'] = hw_user[4]
+                            session['userid'] = int(hw_user[0])  # For backward compatibility
+                            session['user_name'] = hw_user[3]
+                            
+                            print(f"✅ Hardware user {email_or_username} logged in successfully with role: {hw_user[4]}")
+                            return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/pos-system.html'}), 200
+                        else:
+                            print(f"❌ Incorrect password for hardware user {email_or_username}")
+                            return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
+                except Exception as hw_error:
+                    print(f"⚠️  Error querying hardware_users: {hw_error}")
+                    # Continue to connectlinkusers check
                 
                 # If not hardware user, try connectlinkusers (for building projects)
                 # Try to find user by email OR username
@@ -9309,7 +9359,7 @@ def login():
                         return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
 
                 else:
-                    print(f"No user found with email or username '{email_or_username}' in any table.")
+                    print(f"❌ No user found with email or username '{email_or_username}' in any table.")
                     return jsonify({'success': False, 'message': 'User not found.'}), 404
 
         except Exception as e:
