@@ -3512,6 +3512,108 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
         });
     }
     
+    // Inventory Turnover Analysis Chart
+    const inventoryTurnoverCtx = document.getElementById('inventoryTurnoverChart');
+    if (inventoryTurnoverCtx && products && products.length > 0) {
+        // Calculate turnover metrics for each product sold
+        const productTurnoverData = {};
+        
+        transactions.forEach(t => {
+            if (t.items) {
+                t.items.forEach(item => {
+                    const productName = item.product_name || item.name;
+                    if (!productTurnoverData[productName]) {
+                        productTurnoverData[productName] = { 
+                            quantitySold: 0, 
+                            cogs: 0,
+                            currentStock: 0
+                        };
+                    }
+                    productTurnoverData[productName].quantitySold += item.quantity;
+                    productTurnoverData[productName].cogs += (item.buy_price || 0) * item.quantity;
+                });
+            }
+        });
+        
+        // Get current stock for each product
+        products.forEach(p => {
+            if (productTurnoverData[p.name]) {
+                productTurnoverData[p.name].currentStock = p.stock;
+            }
+        });
+        
+        // Calculate turnover ratios and sort by quantity sold
+        const turnoverMetrics = Object.entries(productTurnoverData)
+            .filter(([name, data]) => data.quantitySold > 0)
+            .map(([name, data]) => {
+                const avgStock = Math.max(1, data.currentStock); // Avoid division by zero
+                const turnoverRatio = data.quantitySold / avgStock;
+                const daysInStock = avgStock > 0 ? (30 / turnoverRatio) : 30; // Assuming 30-day period
+                return { name, ...data, turnoverRatio, daysInStock };
+            })
+            .sort((a, b) => b.quantitySold - a.quantitySold)
+            .slice(0, 10); // Top 10 products
+        
+        if (turnoverMetrics.length > 0) {
+            const ctx = inventoryTurnoverCtx.getContext('2d');
+            if (window.inventoryTurnoverChart && typeof window.inventoryTurnoverChart.destroy === 'function') {
+                window.inventoryTurnoverChart.destroy();
+            }
+            
+            window.inventoryTurnoverChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: turnoverMetrics.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name),
+                    datasets: [
+                        { 
+                            label: 'Quantity Sold', 
+                            data: turnoverMetrics.map(p => p.quantitySold), 
+                            backgroundColor: '#0a2b3e',
+                            yAxisID: 'y'
+                        },
+                        { 
+                            label: 'Turnover Ratio', 
+                            data: turnoverMetrics.map(p => p.turnoverRatio), 
+                            backgroundColor: '#10b981',
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { beginAtZero: true },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            grid: { drawOnChartArea: false }
+                        }
+                    },
+                    plugins: { 
+                        legend: { display: true, position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    const idx = context.dataIndex;
+                                    if (context.dataset.label === 'Quantity Sold') {
+                                        return `Stock: ${turnoverMetrics[idx].currentStock} units`;
+                                    } else if (context.dataset.label === 'Turnover Ratio') {
+                                        return `Days in Stock: ${turnoverMetrics[idx].daysInStock.toFixed(1)} days`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    
     // Category breakdown table
     const categoryBreakdownList = document.getElementById('categoryBreakdownList');
     if (categoryBreakdownList) {
