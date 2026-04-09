@@ -3218,6 +3218,15 @@ async function loadSalesReport(message = 'Loading sales report...') {
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
             endDate = new Date(today);
             endDate.setHours(23, 59, 59, 999);
+        } else if (period === 'quarter') {
+            const currentQuarter = Math.floor(today.getMonth() / 3);
+            startDate = new Date(today.getFullYear(), currentQuarter * 3, 1);
+            endDate = new Date(today);
+            endDate.setHours(23, 59, 59, 999);
+        } else if (period === 'year') {
+            startDate = new Date(today.getFullYear(), 0, 1);
+            endDate = new Date(today);
+            endDate.setHours(23, 59, 59, 999);
         }
         
         console.log('Date range:', startDate, 'to', endDate); // Debug
