@@ -8831,6 +8831,40 @@ def get_daily_summary():
         'items_sold': result[4] if result else 0
     })
 
+@app.route('/api/transactions/clear-all', methods=['DELETE'])
+@login_required
+def clear_all_transactions():
+    """Clear all transaction history - ADMIN ONLY"""
+    try:
+        # Verify user is admin
+        user_role = session.get('role', 'user')
+        if user_role != 'admin':
+            return jsonify({'success': False, 'error': 'Unauthorized: Admin access required'}), 403
+        
+        with get_db() as (cursor, connection):
+            # Delete transaction items first (has foreign key to transactions)
+            cursor.execute("DELETE FROM transaction_items")
+            deleted_items = cursor.rowcount
+            
+            # Delete transactions
+            cursor.execute("DELETE FROM transactions")
+            deleted_transactions = cursor.rowcount
+            
+            connection.commit()
+            
+            print(f"✓ Cleared {deleted_transactions} transactions and {deleted_items} transaction items")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully cleared {deleted_transactions} transactions',
+                'transactions_deleted': deleted_transactions,
+                'items_deleted': deleted_items
+            }), 200
+    
+    except Exception as e:
+        print(f"Error clearing transactions: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # ==================== CATEGORY MANAGEMENT ====================
 
 @app.route('/api/categories', methods=['GET'])

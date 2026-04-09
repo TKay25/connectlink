@@ -1341,6 +1341,9 @@
                             <button class="btn btn-sm btn-primary-dark" onclick="loadSalesReport()">
                                 <i class="fas fa-sync-alt me-1"></i>Refresh
                             </button>
+                            <button class="btn btn-sm btn-warning" onclick="showClearTransactionsConfirm()" title="Clear all transaction history">
+                                <i class="fas fa-trash me-1"></i>Clear All
+                            </button>
                         </div>
                     </div>
                     
@@ -3182,6 +3185,59 @@ async function deleteStockAddition() {
         
         if (startDate && endDate) {
             loadSalesReport('Loading report for custom date range...');
+        }
+    }
+
+    // Show confirmation dialog before clearing transactions
+    function showClearTransactionsConfirm() {
+        const confirmed = confirm(
+            '⚠️ WARNING: This will permanently delete ALL transaction history!\n\n' +
+            'This action cannot be undone. All sales records, including:\n' +
+            '- Transaction data\n' +
+            '- Sales records\n' +
+            '- Transaction items\n\n' +
+            'Will be permanently deleted.\n\n' +
+            'Do you want to proceed?'
+        );
+        
+        if (confirmed) {
+            const doubleCheck = confirm(
+                '🔒 Final Confirmation Required\n\n' +
+                'Are you absolutely sure? Type "YES" in the next prompt to confirm.'
+            );
+            
+            if (doubleCheck) {
+                clearAllTransactions();
+            }
+        }
+    }
+
+    // Clear all transactions
+    async function clearAllTransactions() {
+        showLoader('Clearing transaction history...');
+        try {
+            const response = await fetch(`${API_BASE}/api/transactions/clear-all`, {
+                method: 'DELETE',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(`✓ Cleared ${data.transactions_deleted} transactions successfully! Ready to start fresh.`, 'success');
+                // Reload the report to show empty state
+                setTimeout(() => {
+                    loadSalesReport('Reloading report...');
+                }, 500);
+            } else {
+                showToast(`Error: ${data.error || 'Failed to clear transactions'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error clearing transactions:', error);
+            showToast('Connection error while clearing transactions', 'error');
+        } finally {
+            hideLoader();
         }
     }
 
