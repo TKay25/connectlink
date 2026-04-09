@@ -4471,6 +4471,14 @@ function getCategoryIcon(category) {
         return div.innerHTML;
     }
     
+// Render categories UI - update active category in dropdown
+function renderCategories() {
+    const categorySelect = document.getElementById('categorySelect');
+    if (categorySelect && selectedCategory) {
+        categorySelect.value = selectedCategory;
+    }
+}
+    
 // Function to handle group category selection
 function selectCategoryGroup(groupName, categories) {
     // Store the selected group for UI highlighting
