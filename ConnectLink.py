@@ -4981,10 +4981,11 @@ def webhook():
                                                                         with get_db() as (cursor, connection):
                                                                             # Get ALL user's projects
                                                                             cursor.execute("""
-                                                                                SELECT * FROM connectlinkdatabase 
-                                                                                WHERE clientwanumber = %s
-                                                                                AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
-                                                                                ORDER BY projectstartdate DESC
+                                                                                SELECT d.* FROM connectlinkdatabase d
+                                                                                LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+                                                                                WHERE d.clientwanumber = %s
+                                                                                AND del.id IS NULL
+                                                                                ORDER BY d.projectstartdate DESC
                                                                             """, (client_whatsapp,))
                                                                             
                                                                             rows = cursor.fetchall()
@@ -6259,10 +6260,11 @@ def webhook():
                                                                     with get_db() as (cursor, connection):
                                                                         # Get ALL user's contracts
                                                                         cursor.execute("""
-                                                                            SELECT * FROM connectlinkdatabase 
-                                                                            WHERE clientwanumber = %s
-                                                                            AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
-                                                                            ORDER BY projectstartdate DESC
+                                                                            SELECT d.* FROM connectlinkdatabase d
+                                                                            LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+                                                                            WHERE d.clientwanumber = %s
+                                                                            AND del.id IS NULL
+                                                                            ORDER BY d.projectstartdate DESC
                                                                         """, (client_whatsapp,))
                                                                         
                                                                         rows = cursor.fetchall()
@@ -8950,7 +8952,10 @@ def export_projects_portfolio():
             today_date = datetime.now().strftime('%d %B %Y %H:%M:%S')
 
             # ========= SHEET 1 — PROJECTS =========
-            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects) ORDER BY id DESC")
+            cursor.execute("""SELECT d.* FROM connectlinkdatabase d
+                LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+                WHERE del.id IS NULL
+                ORDER BY d.id DESC""")
             rows_1 = cursor.fetchall()
 
             cols_1 = [desc[0] for desc in cursor.description]
@@ -10806,15 +10811,21 @@ def get_filtered_projects(month_filter):
             print(f"DEBUG: Found {len(columns)} columns: {columns}")
             
             if month_filter == 'all' or not month_filter:
-                query = "SELECT * FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects) ORDER BY id DESC"
+                query = """
+                    SELECT d.* FROM connectlinkdatabase d
+                    LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+                    WHERE del.id IS NULL
+                    ORDER BY d.id DESC
+                """
                 cursor.execute(query)
             else:
                 # Filter by month/year
                 query = """
-                    SELECT * FROM connectlinkdatabase 
-                    WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s
-                    AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)
-                    ORDER BY id ASC
+                    SELECT d.* FROM connectlinkdatabase d
+                    LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+                    WHERE TO_CHAR(d.datedepositorbullet, 'YYYY-MM') = %s
+                    AND del.id IS NULL
+                    ORDER BY d.id ASC
                 """
                 cursor.execute(query, (month_filter,))
             
@@ -11743,7 +11754,11 @@ def run1(userid):
         # quotation_id column is already added during initialize_database_tables()
         # No need to check/add it again here
         
-        maindataquery = f"SELECT * FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects);"
+        maindataquery = """
+        SELECT d.* FROM connectlinkdatabase d
+        LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+        WHERE del.id IS NULL;
+        """
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
@@ -11840,13 +11855,15 @@ def run1(userid):
         
         cursor.execute("""
             SELECT DISTINCT 
-                TO_CHAR(datedepositorbullet, 'Mon-YYYY') as month_display,
-                TO_CHAR(datedepositorbullet, 'YYYY-MM') as month_value,
-                MAX(datedepositorbullet) as max_date
-            FROM connectlinkdatabase 
-            WHERE datedepositorbullet IS NOT NULL
-            GROUP BY TO_CHAR(datedepositorbullet, 'Mon-YYYY'), TO_CHAR(datedepositorbullet, 'YYYY-MM')
-            ORDER BY MAX(datedepositorbullet) DESC
+                TO_CHAR(d.datedepositorbullet, 'Mon-YYYY') as month_display,
+                TO_CHAR(d.datedepositorbullet, 'YYYY-MM') as month_value,
+                MAX(d.datedepositorbullet) as max_date
+            FROM connectlinkdatabase d
+            LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+            WHERE d.datedepositorbullet IS NOT NULL
+            AND del.id IS NULL
+            GROUP BY TO_CHAR(d.datedepositorbullet, 'Mon-YYYY'), TO_CHAR(d.datedepositorbullet, 'YYYY-MM')
+            ORDER BY MAX(d.datedepositorbullet) DESC
         """)
         
         month_options = cursor.fetchall()
@@ -12134,7 +12151,11 @@ def run1(userid):
 def get_installment_audit_data():
     with get_db() as (cursor, connection):
         # Get all projects (excluding deleted ones)
-        query = "SELECT * FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects);"
+        query = """
+            SELECT d.* FROM connectlinkdatabase d
+            LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+            WHERE del.id IS NULL;
+        """
         cursor.execute(query)
         projects = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
@@ -12922,13 +12943,15 @@ def download_portfolio():
             date_params = []
             if month:
                 year, month_num = month.split('-')
-                date_where_clause = "WHERE EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s AND id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)"
+                date_where_clause = "WHERE EXTRACT(YEAR FROM d.datedepositorbullet) = %s AND EXTRACT(MONTH FROM d.datedepositorbullet) = %s AND del.id IS NULL"
                 date_params = [year, month_num]
             else:
-                date_where_clause = "WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects)"
+                date_where_clause = "WHERE del.id IS NULL"
             
             # 1. Get active projects from connectlinkdatabase within date range
-            query = f"SELECT * FROM connectlinkdatabase {date_where_clause} ORDER BY momid ASC"
+            query = f"""SELECT d.* FROM connectlinkdatabase d
+            LEFT JOIN connectlinkdatabasedeletedprojects del ON d.id = del.id
+            {date_where_clause} ORDER BY d.momid ASC"""
             cursor.execute(query, date_params if date_params else ())
             active_projects = cursor.fetchall()
             
