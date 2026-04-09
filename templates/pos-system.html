@@ -6357,9 +6357,6 @@ function setupEventListeners() {
         const isAuthenticated = await checkAuthentication();
         if (!isAuthenticated) return;
         
-        // Fetch and setup user role-based access
-        await initializeUserRole();
-        
         setUserName();
         
         const searchInput = document.getElementById('searchProduct');
@@ -6384,94 +6381,7 @@ function setupEventListeners() {
         navigateTo('pos');
     }
     
-    // User role management
-    let userRole = 'operator';
-    let userPermissions = {};
-    
-    async function initializeUserRole() {
-        try {
-            const response = await fetch(`${API_BASE}/api/user/role`, {
-                credentials: 'include'
-            });
-            const data = await response.json();
-            
-            if (data.success) {
-                userRole = data.role;
-                userPermissions = data.permissions;
-                setupRoleBasedUI();
-                restrictPageAccess();
-            }
-        } catch (error) {
-            console.error('Error fetching user role:', error);
-            // Default to operator role on error
-            userRole = 'operator';
-            setupRoleBasedUI();
-            restrictPageAccess();
-        }
-    }
-    
-    function setupRoleBasedUI() {
-        const menuItems = document.querySelectorAll('.menu-item[data-page]');
-        
-        const pagePermissions = {
-            'pos': userPermissions.can_access_pos,
-            'inventory': userPermissions.can_access_inventory,
-            'sales': userPermissions.can_access_sales,
-            'transactions': userPermissions.can_access_transactions,
-            'analytics': userPermissions.can_access_analytics
-        };
-        
-        menuItems.forEach(item => {
-            const page = item.getAttribute('data-page');
-            const hasAccess = pagePermissions[page];
-            
-            if (hasAccess === false) {
-                item.style.display = 'none';
-            } else {
-                item.style.display = 'flex';
-            }
-        });
-        
-        console.log(`User role: ${userRole}`, userPermissions);
-    }
-    
-    function restrictPageAccess() {
-        const pagePermissions = {
-            'pos': userPermissions.can_access_pos,
-            'inventory': userPermissions.can_access_inventory,
-            'sales': userPermissions.can_access_sales,
-            'transactions': userPermissions.can_access_transactions,
-            'analytics': userPermissions.can_access_analytics
-        };
-        
-        // Hide restricted pages
-        const pages = ['inventory', 'sales', 'transactions', 'analytics'];
-        pages.forEach(page => {
-            const pageEl = document.getElementById(page + 'Page');
-            if (pageEl && pagePermissions[page] === false) {
-                pageEl.style.display = 'none';
-            }
-        });
-    }
-    
-    // Override navigateTo to check permissions
-    const originalNavigateTo = navigateTo;
-    navigateTo = function(page) {
-        const pagePermissions = {
-            'pos': userPermissions.can_access_pos,
-            'inventory': userPermissions.can_access_inventory,
-            'sales': userPermissions.can_access_sales,
-            'transactions': userPermissions.can_access_transactions,
-            'analytics': userPermissions.can_access_analytics
-        };
-        
-        if (pagePermissions[page] === false) {
-            showToast(`Access denied. You don't have permission to access ${page}`, 'error');
-            return;
-        }
-        
-        originalNavigateTo(page);
-    }
+
 
     init();
 </script>

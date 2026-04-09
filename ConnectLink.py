@@ -187,37 +187,11 @@ def initialize_database_tables():
                     name VARCHAR (200),
                     password varchar (100),
                     email VARCHAR (100),
-                    whatsapp INT,
-                    role VARCHAR(50) DEFAULT 'operator'
+                    whatsapp INT
                 );
             """)
             
-            # Add role column if it doesn't exist
-            cursor.execute("""
-                ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'operator';
-            """)
-            
             current_date = datetime.now().strftime('%Y-%m-%d')
-            
-            # Create default users if they don't exist
-            try:
-                # Admin user
-                cursor.execute("""
-                    INSERT INTO connectlinkusers (datecreated, name, password, email, role)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT(email) DO UPDATE SET role = 'admin'
-                """, (current_date, "mrsgadmin", "mrsgogweo1admin01", "mrsgadmin@connectlink.local", "admin"))
-                
-                # Shop operator user
-                cursor.execute("""
-                    INSERT INTO connectlinkusers (datecreated, name, password, email, role)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT(email) DO UPDATE SET role = 'operator'
-                """, (current_date, "shopoperatoruser", "conlinkhardwareshopoperator2026", "shopoperator@connectlink.local", "operator"))
-                
-                connection.commit()
-            except Exception as e:
-                print(f"Note: Users may already exist. {str(e)}")
                 connection.rollback()
             # Create connectlinkadmin table
             cursor.execute("""
@@ -8759,44 +8733,6 @@ def get_categories():
 
 # ==================== DASHBOARD STATISTICS ====================
 
-@app.route('/api/user/role', methods=['GET'])
-@login_required
-def get_user_role():
-    """Get current user's role and permissions"""
-    user_role = session.get('user_role', 'operator')
-    user_name = session.get('user_name', 'User')
-    
-    # Define permissions based on role
-    permissions = {
-        'admin': {
-            'can_access_inventory': True,
-            'can_access_sales': True,
-            'can_access_analytics': True,
-            'can_access_transactions': True,
-            'can_access_pos': True,
-            'can_access_quotations': True,
-            'can_manage_users': True
-        },
-        'operator': {
-            'can_access_inventory': False,
-            'can_access_sales': False,
-            'can_access_analytics': False,
-            'can_access_transactions': False,
-            'can_access_pos': True,
-            'can_access_quotations': False,
-            'can_manage_users': False
-        }
-    }
-    
-    user_permissions = permissions.get(user_role, permissions['operator'])
-    
-    return jsonify({
-        'success': True,
-        'role': user_role,
-        'user_name': user_name,
-        'permissions': user_permissions
-    })
-
 @app.route('/api/dashboard/stats', methods=['GET'])
 @login_required
 def get_dashboard_stats():
@@ -9282,7 +9218,7 @@ def login():
                     user_row = rows[0]
 
                     table_df = pd.DataFrame([user_row], columns=[
-                        'id', 'datecreated', 'name', 'password', 'email', 'whatsapp', 'role'
+                        'id', 'datecreated', 'name', 'password', 'email', 'whatsapp'
                     ])
 
                     if table_df.iat[0, 3] == password:
@@ -9293,14 +9229,12 @@ def login():
 
                         userid = table_df.iat[0, 0]
                         user_name = table_df.iat[0,2]
-                        user_role = table_df.iat[0, 6] if len(table_df.columns) > 6 else 'operator'
                         
                         session['userid'] = int(np.int64(userid))
                         session['user_name'] = user_name
-                        session['user_role'] = user_role
 
                         # Return JSON response instead of redirect
-                        return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/dashboard', 'role': user_role}), 200
+                        return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/dashboard'}), 200
 
                     else:
                         print('Incorrect password')
