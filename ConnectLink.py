@@ -8484,6 +8484,64 @@ def delete_product(product_id):
     
     return jsonify({'success': True, 'message': 'Product deactivated successfully'})
 
+@app.route('/api/products/<int:product_id>/subtract-stock', methods=['PUT'])
+@login_required
+def subtract_stock(product_id):
+    """Subtract stock from a product with reason tracking"""
+    try:
+        data = request.json
+        quantity = data.get('quantity', 0)
+        reason = data.get('reason', 'other')
+        notes = data.get('notes', '')
+        
+        if quantity <= 0:
+            return jsonify({'error': 'Quantity must be greater than 0'}), 400
+        
+        # Get current stock
+        product = execute_query("""
+            SELECT id, stock, name FROM products WHERE id = %s
+        """, (product_id,), fetch_one=True)
+        
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+        
+        current_stock = product[1]
+        product_name = product[2]
+        
+        # Check if there's enough stock
+        if quantity > current_stock:
+            return jsonify({
+                'error': f'Insufficient stock. You have {current_stock} units but trying to remove {quantity}'
+            }), 400
+        
+        # Subtract stock
+        new_stock = current_stock - quantity
+        execute_query("""
+            UPDATE products 
+            SET stock = %s, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = %s
+        """, (new_stock, product_id), commit=True)
+        
+        # Try to log the stock reduction (table may not exist yet)
+        try:
+            execute_query("""
+                INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at)
+                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            """, (product_id, quantity, reason, notes, session['user_id']), commit=True)
+        except Exception as log_error:
+            # If the table doesn't exist, just log to console and continue
+            print(f"Warning: Could not log stock reduction: {str(log_error)}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Removed {quantity} units from {product_name}. Reason: {reason}',
+            'new_stock': new_stock
+        })
+    
+    except Exception as e:
+        print(f"Error subtracting stock: {str(e)}")
+        return jsonify({'error': 'Failed to subtract stock', 'details': str(e)}), 500
+
 # ==================== TRANSACTION MANAGEMENT ====================
 
 @app.route('/api/transactions', methods=['POST'])

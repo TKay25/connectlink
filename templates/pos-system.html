@@ -1078,7 +1078,53 @@
                 </div>
             </div>
 
-            <!-- POS Page -->
+            <!-- Subtract Stock Modal -->
+            <div class="modal fade" id="subtractStockModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-sm">
+                    <div class="modal-content">
+                        <div class="modal-header" style="background:#dc3545;color:white;">
+                            <h5 class="modal-title"><i class="fas fa-minus-circle me-1"></i>Subtract Stock</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info mb-3" style="font-size: 0.75rem;">
+                                <i class="fas fa-info-circle me-1"></i> 
+                                <strong>Product:</strong> <span id="subtractStockProductName">Loading...</span><br>
+                                <strong>Current Stock:</strong> <span id="subtractCurrentStockValue">0</span>
+                            </div>
+                            
+                            <label for="subtractStockPasscode" class="form-label">Admin Passcode</label>
+                            <input type="password" class="form-control mb-2" id="subtractStockPasscode" placeholder="Enter passcode">
+                            <div id="subtractPasscodeError" class="text-danger small mb-2"></div>
+                            
+                            <label class="form-label" for="subtractQuantity">Quantity to REMOVE *</label>
+                            <input type="number" class="form-control mb-2" id="subtractQuantity" placeholder="Enter quantity to remove" min="1" value="">
+                            
+                            <label class="form-label" for="subtractReason">Reason for Removal</label>
+                            <select class="form-select mb-2" id="subtractReason">
+                                <option value="damaged">Damaged/Defective</option>
+                                <option value="loss">Loss/Theft</option>
+                                <option value="return">Customer Return</option>
+                                <option value="adjustment">Inventory Adjustment</option>
+                                <option value="other">Other</option>
+                            </select>
+                            
+                            <label class="form-label" for="subtractNotes">Notes (Optional)</label>
+                            <textarea class="form-control mb-2" id="subtractNotes" placeholder="Add any notes..." rows="2"></textarea>
+                            
+                            <div class="alert alert-warning small">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                <strong>Warning:</strong> This will permanently reduce stock. This action may be audited.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                            <button class="btn btn-danger btn-sm" onclick="confirmSubtractStock()">Remove Stock</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 <!-- POS Page -->
 
 <!-- POS Page -->
@@ -1218,7 +1264,7 @@
                             <div class="stat-card">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <small class="text-muted">Expected Total Purchase Value</small>
+                                        <small class="text-muted">Total Stock Purchase Value</small>
                                         <h5 class="mb-1 fw-bold text-danger" id="totalPurchaseValue">$0.00</h5>
                                         <small class="text-muted">All items in stock</small>
                                     </div>
@@ -4849,6 +4895,94 @@ function setupFundingSelection() {
         }
     }
     
+    // ==================== SUBTRACT STOCK FUNCTIONS ====================
+    
+    function showSubtractStockModal(productId, currentStock) {
+        productToEdit = products.find(p => p.id === productId);
+        if (!productToEdit) return;
+        
+        document.getElementById('subtractStockProductName').innerText = productToEdit.name;
+        document.getElementById('subtractCurrentStockValue').innerText = currentStock;
+        document.getElementById('subtractStockPasscode').value = '';
+        document.getElementById('subtractQuantity').value = 1;
+        document.getElementById('subtractReason').value = 'damaged';
+        document.getElementById('subtractNotes').value = '';
+        document.getElementById('subtractPasscodeError').innerHTML = '';
+        
+        // Add input listener for quantity validation
+        const quantityInput = document.getElementById('subtractQuantity');
+        const validateQuantity = () => {
+            const quantity = parseInt(quantityInput.value) || 0;
+            if (quantity > currentStock) {
+                document.getElementById('subtractPasscodeError').innerHTML = `Cannot remove ${quantity} units. Only ${currentStock} in stock!`;
+            } else {
+                document.getElementById('subtractPasscodeError').innerHTML = '';
+            }
+        };
+        
+        quantityInput.removeEventListener('input', validateQuantity);
+        quantityInput.addEventListener('input', validateQuantity);
+        
+        new bootstrap.Modal(document.getElementById('subtractStockModal')).show();
+    }
+    
+    async function confirmSubtractStock() {
+        const passcode = document.getElementById('subtractStockPasscode').value;
+        const quantityToRemove = parseInt(document.getElementById('subtractQuantity').value);
+        const reason = document.getElementById('subtractReason').value;
+        const notes = document.getElementById('subtractNotes').value;
+        
+        if (passcode !== EDIT_PASSCODE) {
+            document.getElementById('subtractPasscodeError').innerHTML = 'Invalid passcode!';
+            return;
+        }
+        
+        if (isNaN(quantityToRemove) || quantityToRemove <= 0) {
+            document.getElementById('subtractPasscodeError').innerHTML = 'Please enter a valid quantity!';
+            return;
+        }
+        
+        if (!productToEdit) return;
+        
+        // Check if quantity exceeds current stock
+        if (quantityToRemove > productToEdit.stock) {
+            document.getElementById('subtractPasscodeError').innerHTML = `Cannot remove ${quantityToRemove} units. Only ${productToEdit.stock} in stock!`;
+            return;
+        }
+        
+        showLoader(`Removing ${quantityToRemove} units from stock...`);
+        
+        try {
+            const response = await fetch(`${API_BASE}/api/products/${productToEdit.id}/subtract-stock`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    quantity: quantityToRemove,
+                    reason: reason,
+                    notes: notes
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(`Removed ${quantityToRemove} units. Reason: ${reason}`, 'success');
+                await fetchProductsFromAPI();
+                await fetchDashboardStats();
+                bootstrap.Modal.getInstance(document.getElementById('subtractStockModal')).hide();
+            } else {
+                showToast(data.error || 'Failed to remove stock', 'error');
+            }
+        } catch (error) {
+            console.error('Subtract stock error:', error);
+            showToast('Connection error', 'error');
+        } finally {
+            hideLoader();
+            productToEdit = null;
+        }
+    }
+    
     // ==================== DELETE FUNCTIONS ====================
     
     function showDeleteConfirmation(productId) {
@@ -6010,6 +6144,9 @@ function renderInventory() {
             <td>
                 <button class="btn btn-sm btn-outline-success me-1" onclick="showEditStockModal(${p.id})" title="Add Stock">
                     <i class="fas fa-plus-circle" style="margin-right: 5px;"></i> Add Stock
+                </button>
+                <button class="btn btn-sm btn-outline-warning me-1" onclick="showSubtractStockModal(${p.id}, ${p.stock})" title="Subtract Stock">
+                    <i class="fas fa-minus-circle" style="margin-right: 5px;"></i> Subtract
                 </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="showDeleteConfirmation(${p.id})" title="Delete Product">
                     <i class="fas fa-trash" style="margin-right: 5px;"></i> Remove
