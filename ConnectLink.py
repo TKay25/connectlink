@@ -12023,8 +12023,11 @@ def run1(userid):
         datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
         datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
         
-        # Step 2: Calculate momid BEFORE reordering
+        # Step 2: Calculate momid BEFORE reordering (uses datetime format)
         datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
+        
+        # Step 2b: NOW format datedepositorbullet for display (DD Month YYYY format)
+        datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
 
         # Step 3: Rename quotation_id to QREF BEFORE Action creation
         datamain = datamain.rename(columns={'quotation_id': 'QREF'})
