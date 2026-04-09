@@ -3639,6 +3639,144 @@ document.addEventListener('click', function(event) {
     }
 });
 
+// Filter Work Plans From Dropdown
+function filterWorkPlansFromDropdown() {
+    const filterValue = document.getElementById('workPlanDateFilter')?.value;
+    if (!filterValue) {
+        console.log('No filter selected');
+        return;
+    }
+    
+    console.log('Filtering work plans by:', filterValue);
+    
+    const today = new Date();
+    let startDate, endDate;
+    
+    switch(filterValue) {
+        case 'today':
+            startDate = new Date(today);
+            startDate.setHours(0, 0, 0, 0);
+            endDate = new Date(today);
+            endDate.setHours(23, 59, 59, 999);
+            break;
+        case 'week':
+            // This week (Mon-Sun)
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
+            startDate.setHours(0, 0, 0, 0);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            endDate.setHours(23, 59, 59, 999);
+            break;
+        case 'month':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            endDate.setHours(23, 59, 59, 999);
+            break;
+        case 'next-week':
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() - today.getDay() + 8);
+            startDate.setHours(0, 0, 0, 0);
+            endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            endDate.setHours(23, 59, 59, 999);
+            break;
+        case 'next-month':
+            startDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+            endDate.setHours(23, 59, 59, 999);
+            break;
+        case 'year':
+            startDate = new Date(today.getFullYear(), 0, 1);
+            endDate = new Date(today.getFullYear(), 11, 31);
+            endDate.setHours(23, 59, 59, 999);
+            break;
+        case 'custom':
+            // Show custom date range input
+            const customContainer = document.getElementById('customDateRangeContainer');
+            if (customContainer) {
+                customContainer.style.display = 'block';
+            }
+            return;
+        default:
+            return;
+    }
+    
+    // Hide custom date range container if it was shown
+    const customContainer = document.getElementById('customDateRangeContainer');
+    if (customContainer) {
+        customContainer.style.display = 'none';
+    }
+    
+    // Filter rows in the work plan table/list
+    filterWorkPlanTableByDateRange(startDate, endDate);
+}
+
+// Filter Work Plans By Task
+function filterWorkPlansByTask() {
+    const taskFilter = document.getElementById('workPlanTaskFilter')?.value;
+    if (!taskFilter) {
+        console.log('No task filter selected - showing all');
+        showAllWorkPlanRows();
+        return;
+    }
+    
+    console.log('Filtering work plans by task:', taskFilter);
+    
+    // Get all rows with task data
+    const rows = document.querySelectorAll('#workPlanSummaryTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const taskCell = row.getAttribute('data-task');
+        if (taskCell && taskCell.toLowerCase().includes(taskFilter.toLowerCase())) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    console.log(`Showing ${visibleCount} rows matching filter`);
+}
+
+// Filter Work Plan Table By Date Range
+function filterWorkPlanTableByDateRange(startDate, endDate) {
+    const rows = document.querySelectorAll('#workPlanSummaryTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const dateCell = row.getAttribute('data-date');
+        if (dateCell) {
+            try {
+                const rowDate = new Date(dateCell);
+                if (rowDate >= startDate && rowDate <= endDate) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            } catch (e) {
+                console.warn('Invalid date in row:', dateCell);
+            }
+        } else {
+            row.style.display = '';
+            visibleCount++;
+        }
+    });
+    
+    console.log(`Showing ${visibleCount} rows in date range`);
+}
+
+// Show All Work Plan Rows
+function showAllWorkPlanRows() {
+    const rows = document.querySelectorAll('#workPlanSummaryTable tbody tr');
+    rows.forEach(row => {
+        row.style.display = '';
+    });
+    console.log(`Showing all ${rows.length} rows`);
+}
+
 </script>
 
 <script>
