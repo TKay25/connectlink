@@ -11739,7 +11739,7 @@ def run1(userid):
         # quotation_id column is already added during initialize_database_tables()
         # No need to check/add it again here
         
-        maindataquery = f"SELECT * FROM connectlinkdatabase;"
+        maindataquery = f"SELECT * FROM connectlinkdatabase WHERE id NOT IN (SELECT id FROM connectlinkdatabasedeletedprojects);"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
