@@ -3602,6 +3602,13 @@ function openModal(modalId) {
         if (modalId === 'downloadPortfolioModal') {
             loadDownloadOptions();
         }
+        if (modalId === 'addnewProjectModal') {
+            populateExistingClientsDropdown();
+            populateProjectQuotationsDropdown();
+        }
+        if (modalId === 'otherDetailsModal') {
+            populateOtherDetailsQuotationsDropdown();
+        }
     } else {
         console.warn(`Modal not found: ${modalId}`);
     }
@@ -3643,6 +3650,79 @@ document.addEventListener('click', function(event) {
         document.body.style.overflow = 'auto';
     }
 });
+
+// Populate Existing Clients Dropdown
+function populateExistingClientsDropdown() {
+    const dropdown = document.getElementById('existing_client_select');
+    if (!dropdown) {
+        console.warn('existing_client_select not found');
+        return;
+    }
+    
+    // Show loading state
+    dropdown.innerHTML = '<option value="" disabled selected>⏳ Loading clients...</option>';
+    
+    fetch('/api/existing-clients')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data && data.data.length > 0) {
+                let options = '<option value="" disabled selected>-- Search or Select Client --</option>';
+                
+                data.data.forEach(client => {
+                    const displayText = `${client.clientName}`;
+                    options += `<option value="${client.clientName}">${displayText}</option>`;
+                });
+                
+                dropdown.innerHTML = options;
+                console.log(`Loaded ${data.count} clients into dropdown`);
+            } else {
+                dropdown.innerHTML = '<option value="" disabled selected>-- No clients available --</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading clients:', error);
+            dropdown.innerHTML = '<option value="" disabled selected>⚠️ Failed to load clients</option>';
+        });
+}
+
+// Populate Project Quotations Dropdown
+function populateProjectQuotationsDropdown() {
+    const dropdown = document.getElementById('project_quotation_select');
+    if (!dropdown) {
+        console.warn('project_quotation_select not found');
+        return;
+    }
+    
+    // Show loading state
+    dropdown.innerHTML = '<option value="" disabled selected>⏳ Loading quotations...</option>';
+    
+    fetch('/api/get-quotations')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data && data.data.length > 0) {
+                let options = '<option value="" disabled selected>-- Select a Quotation to Link Work Plan --</option>';
+                
+                data.data.forEach(quotation => {
+                    const quotationId = quotation.id;
+                    const clientName = quotation.client_name || 'Unknown';
+                    const category = quotation.category || '';
+                    const totalCost = quotation.total_cost ? `$${quotation.total_cost}` : '';
+                    const displayText = `${clientName} - ${category} ${totalCost}`.trim();
+                    
+                    options += `<option value="${quotationId}">${displayText}</option>`;
+                });
+                
+                dropdown.innerHTML = options;
+                console.log(`Loaded ${data.count} quotations into dropdown`);
+            } else {
+                dropdown.innerHTML = '<option value="" disabled selected>-- No quotations available --</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading quotations:', error);
+            dropdown.innerHTML = '<option value="" disabled selected>⚠️ Failed to load quotations</option>';
+        });
+}
 
 // Filter Work Plans From Dropdown
 function filterWorkPlansFromDropdown() {
