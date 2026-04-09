@@ -6353,11 +6353,45 @@ function setupEventListeners() {
     
     // ==================== INITIALIZATION ====================
     
+    function applyRoleBasedAccess(userRole) {
+        // Get all menu items
+        const menuItems = document.querySelectorAll('.menu-item');
+        
+        if (userRole === 'operator') {
+            menuItems.forEach(item => {
+                const page = item.getAttribute('data-page');
+                if (page === 'pos' || page === 'transactions') {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            // Navigate to POS terminal for operator
+            navigateTo('pos');
+        } else {
+            // Admin user - show all menu items
+            menuItems.forEach(item => {
+                item.style.display = 'flex';
+            });
+        }
+    }
+
     async function init() {
         const isAuthenticated = await checkAuthentication();
         if (!isAuthenticated) return;
         
         setUserName();
+        
+        // Apply role-based access restrictions
+        const userData = localStorage.getItem('user');
+        if (userData) {
+            try {
+                const userObj = JSON.parse(userData);
+                applyRoleBasedAccess(userObj.role);
+            } catch (e) {
+                console.log('Could not parse user data for role check');
+            }
+        }
         
         const searchInput = document.getElementById('searchProduct');
         if (searchInput) searchInput.value = '';
