@@ -192,7 +192,6 @@ def initialize_database_tables():
             """)
             
             current_date = datetime.now().strftime('%Y-%m-%d')
-                connection.rollback()
             # Create connectlinkadmin table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkadmin (
