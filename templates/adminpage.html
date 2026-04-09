@@ -4947,6 +4947,75 @@ function downloadCashflowFile() {
     }, 2000);
 }
 
+// Reload quotations from database
+function reloadQuotations() {
+    console.log('Reloading quotations...');
+    const container = document.getElementById('quotationsContainer');
+    
+    if (!container) return;
+    
+    container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;"><span class="spinner-border spinner-border-sm me-2"></span>Loading quotations...</p>';
+    
+    fetch('/api/load_quotations')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.html) {
+                container.innerHTML = data.html;
+            } else {
+                container.innerHTML = '<p class="text-danger text-center">No quotations found.</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading quotations:', error);
+            container.innerHTML = '<p class="text-danger text-center">Error loading quotations.</p>';
+        });
+}
+
+// Initialize existing clients dropdown
+function initializeExistingClientsDropdown() {
+    const selectElement = document.getElementById('existing_client_select');
+    if (!selectElement) {
+        console.warn('existing_client_select element not found');
+        return;
+    }
+    
+    selectElement.addEventListener('change', function() {
+        const selectedClientId = this.value;
+        if (selectedClientId && selectedClientId !== '') {
+            // Fetch client details from server
+            fetch(`/api/get_client_details/${selectedClientId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const client = data.client;
+                        // Auto-fill the client details form fields
+                        document.getElementById('client_name').value = client.client_name || '';
+                        document.getElementById('client_national_id').value = client.national_id || '';
+                        document.getElementById('client_address').value = client.address || '';
+                        document.getElementById('client_whatsapp_number').value = client.whatsapp_number || '';
+                        document.getElementById('client_email').value = client.email || '';
+                        
+                        // Auto-fill next of kin details if available
+                        if (client.next_of_kin) {
+                            const kin = client.next_of_kin;
+                            document.getElementById('next_of_kin_name').value = kin.name || '';
+                            document.getElementById('next_of_kin_address').value = kin.address || '';
+                            document.getElementById('next_of_kin_contact_number').value = kin.contact || '';
+                            document.getElementById('relationship').value = kin.relationship || '';
+                        }
+                    }
+                })
+                .catch(error => console.error('Error fetching client details:', error));
+        }
+    });
+}
+
+// Initialize project quotations dropdown
+function initializeProjectQuotationsDropdown() {
+    console.log('Initializing project quotations dropdown');
+    // This function can be customized based on specific requirements
+}
+
 // Add event listener
 $(document).ready(function() {
     document.getElementById("exportcashflowBtn")?.addEventListener("click", downloadCashflowFile);
