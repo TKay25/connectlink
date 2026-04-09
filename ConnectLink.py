@@ -593,20 +593,6 @@ def initialize_database_tables():
 
             ## hardware initialisation
 
-            # Users table
-            execute_query("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    username VARCHAR(80) UNIQUE NOT NULL,
-                    email VARCHAR(120) UNIQUE NOT NULL,
-                    password_hash VARCHAR(200) NOT NULL,
-                    full_name VARCHAR(100),
-                    role VARCHAR(20) DEFAULT 'cashier',
-                    is_active BOOLEAN DEFAULT TRUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_login TIMESTAMP
-                )
-            """, commit=True)
             
             # Products table
             execute_query("""
@@ -625,7 +611,7 @@ def initialize_database_tables():
                 )
             """, commit=True)
 
-            # Add to init_database()
+            # Stock additions table
             execute_query("""
                 CREATE TABLE IF NOT EXISTS stock_additions (
                     id SERIAL PRIMARY KEY,
@@ -634,7 +620,7 @@ def initialize_database_tables():
                     buy_price DECIMAL(10,2) NOT NULL,
                     total_cost DECIMAL(10,2) NOT NULL,
                     funding_source VARCHAR(20) NOT NULL,
-                    user_id INTEGER REFERENCES users(id),
+                    user_id INTEGER,
                     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """, commit=True)
@@ -680,13 +666,23 @@ def initialize_database_tables():
                 CREATE TABLE IF NOT EXISTS transactions (
                     id SERIAL PRIMARY KEY,
                     transaction_number VARCHAR(50) UNIQUE NOT NULL,
-                    user_id INTEGER REFERENCES users(id),
+                    user_id INTEGER,
                     payment_method VARCHAR(20) NOT NULL,
                     status VARCHAR(20) DEFAULT 'completed',
                     notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """, commit=True)
+            
+            # Drop foreign key constraint if it exists (to support hardware_users)
+            try:
+                execute_query("""
+                    ALTER TABLE transactions 
+                    DROP CONSTRAINT IF EXISTS transactions_user_id_fkey
+                """, commit=True)
+                print("✓ Removed foreign key constraint from transactions.user_id")
+            except Exception as e:
+                print(f"Note: {e}")
             
             execute_query("""
                 ALTER TABLE transactions 
@@ -776,15 +772,6 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"❌ Error creating hardware operator user: {e}")
             
-            # Create default admin user if not exists
-            admin_check = execute_query("SELECT id FROM users WHERE username = 'admin'", fetch_one=True)
-            if not admin_check:
-                admin_password = hash_password('admin123')
-                execute_query("""
-                    INSERT INTO users (username, email, password_hash, full_name, role)
-                    VALUES (%s, %s, %s, %s, %s)
-                """, ('admin', 'admin@connectlink.com', admin_password, 'System Administrator', 'admin'), commit=True)
-                print("Default admin user created - username: admin, password: admin123")
             
             # Create default categories
             default_categories = [
