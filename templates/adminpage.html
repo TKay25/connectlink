@@ -1800,13 +1800,14 @@
                             <th>Start Date</th>
                             <th>End Date</th>
                             <th>Full Period Cost</th>
+                            <th>Budget Needed For Period</th>
                             <th>Past Cost (incl. today)</th>
                             <th>Future Cost</th>
                         </tr>
                     </thead>
                     <tbody id="workPlanTableBody">
                         <tr>
-                            <td colspan="8" class="text-center py-3">Select a date range to view work plans</td>
+                            <td colspan="9" class="text-center py-3">Select a date range to view work plans</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1820,15 +1821,19 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-4" style="text-align: left;">
+                        <div class="col-md-3" style="text-align: left;">
                             <small class="text-muted d-block">Total Full Period Cost:</small>
                             <span class="fw-bold fs-6 text-primary" id="totalFullPeriodCost">USD 0.00</span>
                         </div>
-                        <div class="col-md-4" style="text-align: left;">
+                        <div class="col-md-3" style="text-align: left;">
+                            <small class="text-muted d-block">Total Budget Needed For Period:</small>
+                            <span class="fw-bold fs-6 text-success" id="totalBudgetForPeriod">USD 0.00</span>
+                        </div>
+                        <div class="col-md-3" style="text-align: left;">
                             <small class="text-muted d-block">Total Past Cost (incl. today):</small>
                             <span class="fw-bold fs-6 text-warning" id="totalPastCost">USD 0.00</span>
                         </div>
-                        <div class="col-md-4" style="text-align: left;">
+                        <div class="col-md-3" style="text-align: left;">
                             <small class="text-muted d-block">Total Future Cost:</small>
                             <span class="fw-bold fs-6 text-info" id="totalFutureCost">USD 0.00</span>
                         </div>
@@ -4630,7 +4635,7 @@ function displayWorkPlans(workPlans) {
     const summaryDiv = document.getElementById('workPlanTotalSummary');
     
     if (!workPlans || workPlans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No work plans found for selected date range</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No work plans found for selected date range</td></tr>';
         summaryDiv.style.display = 'none';
         document.getElementById('exportWorkPlanExcelBtn').style.display = 'none';
         document.getElementById('exportWorkPlanPdfBtn').style.display = 'none';
@@ -4638,9 +4643,17 @@ function displayWorkPlans(workPlans) {
     }
     
     let totalFullPeriodCost = 0;
+    let totalBudgetForPeriod = 0;
     let totalPastCost = 0;
     let totalFutureCost = 0;
     let projectsSet = new Set();
+    
+    // Get filter date range from stored values
+    const filterStartDateStr = window.currentFilterStartDate;
+    const filterEndDateStr = window.currentFilterEndDate;
+    const filterStart = new Date(filterStartDateStr);
+    const filterEnd = new Date(filterEndDateStr);
+    filterEnd.setHours(23, 59, 59, 999); // Set to end of day
     
     tbody.innerHTML = '';
     
@@ -4654,10 +4667,29 @@ function displayWorkPlans(workPlans) {
         const totalDays = parseInt(plan.totalDays) || 1;
         const scheduleStart = new Date(plan.startDate);
         const scheduleEnd = new Date(plan.endDate);
+        scheduleEnd.setHours(23, 59, 59, 999); // Set to end of day
         
         // Calculate full period cost (no proration)
         const fullPeriodNetCost = baseCost * (1 - markupPercent / 100);
         totalFullPeriodCost += fullPeriodNetCost;
+        
+        // ===== CALCULATE BUDGET NEEDED FOR SELECTED PERIOD =====
+        // Find the overlap between filter range and schedule range
+        const overlapStart = new Date(Math.max(filterStart.getTime(), scheduleStart.getTime()));
+        const overlapEnd = new Date(Math.min(filterEnd.getTime(), scheduleEnd.getTime()));
+        
+        let daysInFilterRange = 0;
+        let budgetForPeriodNetCost = 0;
+        
+        if (overlapStart <= overlapEnd) {
+            // Calculate days of overlap
+            daysInFilterRange = Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+            daysInFilterRange = Math.max(0, Math.min(daysInFilterRange, totalDays));
+            
+            // Prorate cost for the period
+            budgetForPeriodNetCost = (baseCost / totalDays) * daysInFilterRange * (1 - markupPercent / 100);
+        }
+        totalBudgetForPeriod += budgetForPeriodNetCost;
         
         // Calculate past days (from schedule start to today inclusive)
         const pastDays = Math.floor((today - scheduleStart) / (1000 * 60 * 60 * 24)) + 1;
@@ -4696,6 +4728,7 @@ function displayWorkPlans(workPlans) {
             <td>${plan.startDate || 'N/A'}</td>
             <td>${plan.endDate || 'N/A'}</td>
             <td class=\"fw-bold\">USD ${fullPeriodNetCost.toFixed(2)}</td>
+            <td class=\"fw-bold text-success\">USD ${budgetForPeriodNetCost.toFixed(2)}</td>
             <td class=\"fw-bold text-warning\">USD ${pastNetCost.toFixed(2)}</td>
             <td class=\"fw-bold text-info\">USD ${futureNetCost.toFixed(2)}</td>
         `;
@@ -4736,6 +4769,7 @@ function displayWorkPlans(workPlans) {
     // Update summary
     document.getElementById('totalProjects').textContent = projectsSet.size;
     document.getElementById('totalFullPeriodCost').textContent = 'USD ' + totalFullPeriodCost.toFixed(2);
+    document.getElementById('totalBudgetForPeriod').textContent = 'USD ' + totalBudgetForPeriod.toFixed(2);
     document.getElementById('totalPastCost').textContent = 'USD ' + totalPastCost.toFixed(2);
     document.getElementById('totalFutureCost').textContent = 'USD ' + totalFutureCost.toFixed(2);
     summaryDiv.style.display = 'block';
@@ -4745,8 +4779,8 @@ function displayWorkPlans(workPlans) {
     document.getElementById('exportWorkPlanPdfBtn').style.display = 'inline-block';
     
     // Attach export handlers
-    document.getElementById('exportWorkPlanExcelBtn').onclick = () => exportWorkPlansToExcel(workPlans, totalFullPeriodCost, totalFullPeriodCost);
-    document.getElementById('exportWorkPlanPdfBtn').onclick = () => exportWorkPlansToPDF(workPlans, totalFullPeriodCost, totalFullPeriodCost);
+    document.getElementById('exportWorkPlanExcelBtn').onclick = () => exportWorkPlansToExcel(workPlans, totalFullPeriodCost, totalBudgetForPeriod);
+    document.getElementById('exportWorkPlanPdfBtn').onclick = () => exportWorkPlansToPDF(workPlans, totalFullPeriodCost, totalBudgetForPeriod);
 }
 
 function filterWorkPlansByTask() {
@@ -4766,6 +4800,7 @@ function filterWorkPlansByTask() {
     
     // Recalculate and redisplay
     let totalFullPeriodCost = 0;
+    let totalBudgetForPeriod = 0;
     let totalPastCost = 0;
     let totalFutureCost = 0;
     let projectsSet = new Set();
@@ -4773,10 +4808,17 @@ function filterWorkPlansByTask() {
     tbody.innerHTML = '';
     
     if (filteredPlans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No work plans found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No work plans found</td></tr>';
         summaryDiv.style.display = 'none';
         return;
     }
+    
+    // Get filter date range from stored values
+    const filterStartDateStr = window.currentFilterStartDate;
+    const filterEndDateStr = window.currentFilterEndDate;
+    const filterStart = new Date(filterStartDateStr);
+    const filterEnd = new Date(filterEndDateStr);
+    filterEnd.setHours(23, 59, 59, 999);
     
     filteredPlans.forEach(plan => {
         projectsSet.add(plan.projectName);
@@ -4787,10 +4829,26 @@ function filterWorkPlansByTask() {
         const totalDays = parseInt(plan.totalDays) || 1;
         const scheduleStart = new Date(plan.startDate);
         const scheduleEnd = new Date(plan.endDate);
+        scheduleEnd.setHours(23, 59, 59, 999);
         
         // Calculate full period cost (no proration)
         const fullPeriodNetCost = baseCost * (1 - markupPercent / 100);
         totalFullPeriodCost += fullPeriodNetCost;
+        
+        // ===== CALCULATE BUDGET NEEDED FOR SELECTED PERIOD =====
+        const overlapStart = new Date(Math.max(filterStart.getTime(), scheduleStart.getTime()));
+        const overlapEnd = new Date(Math.min(filterEnd.getTime(), scheduleEnd.getTime()));
+        
+        let daysInFilterRange = 0;
+        let budgetForPeriodNetCost = 0;
+        
+        if (overlapStart <= overlapEnd) {
+            daysInFilterRange = Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+            daysInFilterRange = Math.max(0, Math.min(daysInFilterRange, totalDays));
+            
+            budgetForPeriodNetCost = (baseCost / totalDays) * daysInFilterRange * (1 - markupPercent / 100);
+        }
+        totalBudgetForPeriod += budgetForPeriodNetCost;
         
         // Calculate past days (from schedule start to today inclusive)
         const pastDays = Math.floor((today - scheduleStart) / (1000 * 60 * 60 * 24)) + 1;
@@ -4801,14 +4859,12 @@ function filterWorkPlansByTask() {
         // Calculate future days (from tomorrow to schedule end inclusive, limited to schedule period)
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0); // Reset to start of day for accurate calculation
+        tomorrow.setHours(0, 0, 0, 0);
         
-        // Future starts from the LATER of tomorrow or schedule start
         const futureStart = tomorrow > scheduleStart ? tomorrow : new Date(scheduleStart);
         const scheduleEndWithTime = new Date(scheduleEnd);
-        scheduleEndWithTime.setHours(23, 59, 59, 999); // To end of schedule day
+        scheduleEndWithTime.setHours(23, 59, 59, 999);
         
-        // Only calculate if future start is before or on schedule end
         let futureDaysInSchedule = 0;
         if (futureStart <= scheduleEndWithTime) {
             const futureDays = Math.floor((scheduleEndWithTime - futureStart) / (1000 * 60 * 60 * 24)) + 1;
@@ -4828,6 +4884,7 @@ function filterWorkPlansByTask() {
             <td>${plan.startDate || 'N/A'}</td>
             <td>${plan.endDate || 'N/A'}</td>
             <td class=\"fw-bold\">USD ${fullPeriodNetCost.toFixed(2)}</td>
+            <td class=\"fw-bold text-success\">USD ${budgetForPeriodNetCost.toFixed(2)}</td>
             <td class=\"fw-bold text-warning\">USD ${pastNetCost.toFixed(2)}</td>
             <td class=\"fw-bold text-info\">USD ${futureNetCost.toFixed(2)}</td>
         `;
@@ -4836,6 +4893,7 @@ function filterWorkPlansByTask() {
     
     document.getElementById('totalProjects').textContent = projectsSet.size;
     document.getElementById('totalFullPeriodCost').textContent = 'USD ' + totalFullPeriodCost.toFixed(2);
+    document.getElementById('totalBudgetForPeriod').textContent = 'USD ' + totalBudgetForPeriod.toFixed(2);
     document.getElementById('totalPastCost').textContent = 'USD ' + totalPastCost.toFixed(2);
     document.getElementById('totalFutureCost').textContent = 'USD ' + totalFutureCost.toFixed(2);
     summaryDiv.style.display = 'block';
