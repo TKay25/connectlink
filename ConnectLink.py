@@ -16846,6 +16846,142 @@ def get_quotations():
             'error': str(e)
         }), 500
 
+@app.route('/api/load_quotations', methods=['GET'])
+def load_quotations():
+    """Alias endpoint for loading quotations - returns HTML table"""
+    try:
+        with get_db() as (cursor, connection):
+            # Check if table exists
+            cursor.execute("""
+                SELECT EXISTS(
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'quotations'
+                );
+            """)
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                return jsonify({
+                    'success': True,
+                    'html': '<p class="text-muted text-center">No quotations found.</p>'
+                })
+            
+            # Get all quotations
+            cursor.execute("""
+                SELECT id, client_name, quotation_date, category, total_cost, created_at
+                FROM quotations
+                ORDER BY created_at DESC
+                LIMIT 50
+            """)
+            quotations = cursor.fetchall()
+            
+            if not quotations:
+                return jsonify({
+                    'success': True,
+                    'html': '<p class="text-muted text-center">No quotations found.</p>'
+                })
+            
+            # Build HTML table
+            html = '''<table class="table table-striped table-sm" style="color: var(--dark-blue-deep); font-size: 0.65rem;">
+                <thead style="background-color: var(--crimson-dark-side); color: white;">
+                    <tr>
+                        <th>ID</th>
+                        <th>Client Name</th>
+                        <th>Category</th>
+                        <th>Total Cost</th>
+                        <th>Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>'''
+            
+            for q in quotations:
+                q_id, client_name, q_date, category, total_cost, created_at = q
+                q_date_str = q_date.strftime('%Y-%m-%d') if q_date else 'N/A'
+                cost_display = f"${total_cost:,.2f}" if total_cost else "N/A"
+                html += f'''<tr>
+                    <td>{q_id}</td>
+                    <td>{client_name or 'N/A'}</td>
+                    <td>{category or 'N/A'}</td>
+                    <td>{cost_display}</td>
+                    <td>{q_date_str}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="selectQuotation({q_id})" style="font-size: 0.6rem;">
+                            Select
+                        </button>
+                    </td>
+                </tr>'''
+            
+            html += '</tbody></table>'
+            
+            return jsonify({
+                'success': True,
+                'html': html,
+                'count': len(quotations)
+            })
+    except Exception as e:
+        logging.error(f'Error loading quotations: {str(e)}')
+        logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'html': '<p class="text-danger text-center">Error loading quotations.</p>'
+        }), 500
+
+@app.route('/api/get_client_details/<int:client_id>', methods=['GET'])
+def get_client_details(client_id):
+    """Fetch client details by ID from connectlinkdatabase table"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get client details from projects table
+            cursor.execute("""
+                SELECT 
+                    clientname,
+                    national_id,
+                    address,
+                    whatsapp_number,
+                    email,
+                    next_of_kin,
+                    next_of_kin_relationship,
+                    next_of_kin_contact
+                FROM connectlinkdatabase
+                WHERE id = %s
+                LIMIT 1
+            """, (client_id,))
+            
+            result = cursor.fetchone()
+            
+            if not result:
+                return jsonify({
+                    'success': False,
+                    'message': 'Client not found'
+                }), 404
+            
+            client_data = {
+                'success': True,
+                'client': {
+                    'client_name': result[0] or '',
+                    'national_id': result[1] or '',
+                    'address': result[2] or '',
+                    'whatsapp_number': result[3] or '',
+                    'email': result[4] or '',
+                    'next_of_kin': {
+                        'name': result[5] or '',
+                        'relationship': result[6] or '',
+                        'contact': result[7] or ''
+                    }
+                }
+            }
+            
+            return jsonify(client_data)
+    except Exception as e:
+        logging.error(f'Error fetching client details: {str(e)}')
+        logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/project-schedule', methods=['POST'])
 def save_project_schedule_new():
     """Alternative endpoint for saving project schedules"""

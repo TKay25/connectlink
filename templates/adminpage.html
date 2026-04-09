@@ -4952,23 +4952,39 @@ function reloadQuotations() {
     console.log('Reloading quotations...');
     const container = document.getElementById('quotationsContainer');
     
-    if (!container) return;
+    if (!container) {
+        console.warn('quotationsContainer element not found');
+        return;
+    }
     
     container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;"><span class="spinner-border spinner-border-sm me-2"></span>Loading quotations...</p>';
     
     fetch('/api/load_quotations')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success && data.html) {
                 container.innerHTML = data.html;
+                console.log(`Successfully loaded ${data.count || 0} quotations`);
             } else {
-                container.innerHTML = '<p class="text-danger text-center">No quotations found.</p>';
+                container.innerHTML = '<p class="text-muted text-center">No quotations found.</p>';
             }
         })
         .catch(error => {
             console.error('Error loading quotations:', error);
-            container.innerHTML = '<p class="text-danger text-center">Error loading quotations.</p>';
+            container.innerHTML = `<p class="text-danger text-center">Error loading quotations: ${error.message}</p>`;
         });
+}
+
+// Select quotation and populate form
+function selectQuotation(quotationId) {
+    console.log('Selected quotation ID:', quotationId);
+    document.getElementById('project_quotation_id').value = quotationId;
+    alert('Quotation selected! You can now proceed with creating a new project.');
 }
 
 // Initialize existing clients dropdown
@@ -4980,32 +4996,58 @@ function initializeExistingClientsDropdown() {
     }
     
     selectElement.addEventListener('change', function() {
-        const selectedClientId = this.value;
-        if (selectedClientId && selectedClientId !== '') {
-            // Fetch client details from server
-            fetch(`/api/get_client_details/${selectedClientId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const client = data.client;
-                        // Auto-fill the client details form fields
-                        document.getElementById('client_name').value = client.client_name || '';
-                        document.getElementById('client_national_id').value = client.national_id || '';
-                        document.getElementById('client_address').value = client.address || '';
-                        document.getElementById('client_whatsapp_number').value = client.whatsapp_number || '';
-                        document.getElementById('client_email').value = client.email || '';
-                        
-                        // Auto-fill next of kin details if available
-                        if (client.next_of_kin) {
-                            const kin = client.next_of_kin;
-                            document.getElementById('next_of_kin_name').value = kin.name || '';
-                            document.getElementById('next_of_kin_address').value = kin.address || '';
-                            document.getElementById('next_of_kin_contact_number').value = kin.contact || '';
-                            document.getElementById('relationship').value = kin.relationship || '';
+        const selectedValue = this.value;
+        if (selectedValue && selectedValue !== '') {
+            // Check if it's a numeric ID or client name
+            const isNumeric = /^\d+$/.test(selectedValue);
+            
+            if (isNumeric) {
+                // Fetch client details from server
+                fetch(`/api/get_client_details/${selectedValue}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
                         }
-                    }
-                })
-                .catch(error => console.error('Error fetching client details:', error));
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            const client = data.client;
+                            // Auto-fill the client details form fields
+                            const clientNameField = document.getElementById('client_name');
+                            const clientIdField = document.getElementById('client_national_id');
+                            const clientAddressField = document.getElementById('client_address');
+                            const clientWhatsappField = document.getElementById('client_whatsapp_number');
+                            const clientEmailField = document.getElementById('client_email');
+                            
+                            if (clientNameField) clientNameField.value = client.client_name || '';
+                            if (clientIdField) clientIdField.value = client.national_id || '';
+                            if (clientAddressField) clientAddressField.value = client.address || '';
+                            if (clientWhatsappField) clientWhatsappField.value = client.whatsapp_number || '';
+                            if (clientEmailField) clientEmailField.value = client.email || '';
+                            
+                            // Auto-fill next of kin details if available
+                            if (client.next_of_kin) {
+                                const kinNameField = document.getElementById('next_of_kin_name');
+                                const kinAddressField = document.getElementById('next_of_kin_address');
+                                const kinContactField = document.getElementById('next_of_kin_contact_number');
+                                const relationshipField = document.getElementById('relationship');
+                                
+                                if (kinNameField) kinNameField.value = client.next_of_kin.name || '';
+                                if (kinAddressField) kinAddressField.value = client.next_of_kin.contact || '';
+                                if (kinContactField) kinContactField.value = client.next_of_kin.contact || '';
+                                if (relationshipField) relationshipField.value = client.next_of_kin.relationship || '';
+                            }
+                            
+                            console.log('Client details loaded successfully');
+                        } else {
+                            console.warn('Failed to load client details:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching client details:', error);
+                    });
+            }
         }
     });
 }
