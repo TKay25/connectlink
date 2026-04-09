@@ -703,62 +703,7 @@
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td>1</td>
-      <td>2025-11-30</td>
-      <td>ConnectLinkAdmin01</td>
-      <td>Admin01@connectlinkproperties.co.zw</td>
-      <td>NaN</td>
-      <td><div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="1" data-user-name="ConnectLinkAdmin01"data-user-email="Admin01@connectlinkproperties.co.zw">Remove</button></div></td>
-    </tr>
-    <tr>
-      <td>6</td>
-      <td>2025-12-04</td>
-      <td>Lilian Zumbunuku</td>
-      <td>lilianzumbunuku@connectlinkproperties.co.zw</td>
-      <td>NaN</td>
-      <td><div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="6" data-user-name="Lilian Zumbunuku"data-user-email="lilianzumbunuku@connectlinkproperties.co.zw">Remove</button></div></td>
-    </tr>
-    <tr>
-      <td>8</td>
-      <td>2025-12-04</td>
-      <td>Natasha Chikerema</td>
-      <td>natashachikerema@connectlinkproperties.co.zw</td>
-      <td>NaN</td>
-      <td><div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="8" data-user-name="Natasha Chikerema"data-user-email="natashachikerema@connectlinkproperties.co.zw">Remove</button></div></td>
-    </tr>
-    <tr>
-      <td>3</td>
-      <td>2025-12-03</td>
-      <td>Takudzwa Zvakasikwa</td>
-      <td>takudzwazvaks@gmail.com</td>
-      <td>774822568.0</td>
-      <td><div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="3" data-user-name="Takudzwa Zvakasikwa"data-user-email="takudzwazvaks@gmail.com">Remove</button></div></td>
-    </tr>
-    <tr>
-      <td>9</td>
-      <td>2025-12-30</td>
-      <td>Mrs G</td>
-      <td>odertgogwe@connectlinkproperties.co.zw</td>
-      <td>777665277.0</td>
-      <td><div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="9" data-user-name="Mrs G"data-user-email="odertgogwe@connectlinkproperties.co.zw">Remove</button></div></td>
-    </tr>
-    <tr>
-      <td>10</td>
-      <td>2026-01-30</td>
-      <td>Thabo Mangena</td>
-      <td>thabomangena@connectlinkproperties.co.zw</td>
-      <td>783165360.0</td>
-      <td><div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="10" data-user-name="Thabo Mangena"data-user-email="thabomangena@connectlinkproperties.co.zw">Remove</button></div></td>
-    </tr>
-    <tr>
-      <td>11</td>
-      <td>2026-01-30</td>
-      <td>Mr G</td>
-      <td>gogwe@connectlinkproperties.co.zw</td>
-      <td>773368558.0</td>
-      <td><div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="11" data-user-name="Mr G"data-user-email="gogwe@connectlinkproperties.co.zw">Remove</button></div></td>
-    </tr>
+    {{ usersdatamain_html|safe }}
   </tbody>
 </table>
         </div>
@@ -835,12 +780,7 @@
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td>7</td>
-      <td>McDonald M</td>
-      <td>775443213</td>
-      <td><div style="display: flex; gap: 10px;"><button class="btn btn-primary edit-admin-details-btn" style="width:max-content;" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="7">Edit Details</button>&nbsp;&nbsp;&nbsp;&nbsp;<button class="btn btn-danger remove-admin-btn" data-ID="7">Remove</button></div></td>
-    </tr>
+    {{ table_datamain_admins_html|safe }}
   </tbody>
 </table>
             </div>
@@ -2946,16 +2886,7 @@
     </tr>
   </thead>
   <tbody>
-    <tr>
-      <td>90</td>
-      <td>William Wilson Mdhari</td>
-      <td>263 772 881 837</td>
-      <td>Byo Sunningdale</td>
-      <td><div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">$1,511.06</span></div></td>
-      <td><span class="badge bg-info">2, 3</span></td>
-    </tr>
-    <tr>
-      <td>92</td>
+    
       <td>Silvia Gomba</td>
       <td>263 771 176 278</td>
       <td>Impali Shurugwi</td>
@@ -3740,27 +3671,56 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    
-                                    <tr class="enquiry-row"  id="enquiry-row-43"
-                                        data-id="43"
-                                        data-category="Building"
-                                        data-status="pending"
-                                        data-client="263716121421"
-                                        data-username="Nayeli🥰"
-                                        data-message="Enquiry ">
-                                        <td>#43</td>
-                                        <td>09/04 08:35</td>
+                                    {% for enquiry in enquiries_data %}
+                                    <tr class="enquiry-row" id="enquiry-row-{{ enquiry.id }}"
+                                        data-id="{{ enquiry.id }}"
+                                        data-category="{{ enquiry.category }}"
+                                        data-status="{{ enquiry.status }}"
+                                        data-client="{{ enquiry.clientwhatsapp }}"
+                                        data-username="{{ enquiry.clientusername }}"
+                                        data-message="{{ enquiry.message }}">
+                                        <td>#{{ enquiry.id }}</td>
+                                        <td>{{ enquiry.timestamp }}</td>
                                         <td>
-                                            <a href="https://wa.me/263716121421" target="_blank">
-                                                +263716121421
+                                            <a href="https://wa.me/{{ enquiry.clientwhatsapp }}" target="_blank">
+                                                +{{ enquiry.clientwhatsapp }}
                                             </a>
                                         </td>
-                                        <td>Nayeli🥰</td>
-                                        <td><span class="badge bg-secondary" style="font-size: 11px;">Building</span></td>
+                                        <td>{{ enquiry.clientusername }}</td>
+                                        <td><span class="badge bg-secondary" style="font-size: 11px;">{{ enquiry.category }}</span></td>
                                         <td>
                                             <div class="message-container">
                                                 <span class="message-preview">
-                                                    Enquiry 
+                                                    {{ enquiry.message[:20] }}...
+                                                    {% if enquiry.message|length > 20 %}
+                                                    <a href="javascript:void(0)" class="expand-message" data-id="{{ enquiry.id }}">[Show More]</a>
+                                                    {% endif %}
+                                                </span>
+                                                {% if enquiry.message|length > 20 %}
+                                                <div class="message-full" id="message-full-{{ enquiry.id }}" style="display: none;">
+                                                    {{ enquiry.message }}
+                                                    <br>
+                                                    <a href="javascript:void(0)" class="collapse-message" data-id="{{ enquiry.id }}">[Show Less]</a>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <select class="form-select status-select" style="font-size: 11px;" data-id="{{ enquiry.id }}">
+                                                <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
+                                                <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                                <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            {% if enquiry.planfile %}
+                                            <a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success" style="font-size: 11px;">
+                                                PDF
+                                            </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
                                                     
                                                 </span>
                                                 <div class="message-full" id="message-full-43" style="display: none;">
