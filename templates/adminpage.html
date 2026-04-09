@@ -3597,6 +3597,11 @@ function openModal(modalId) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden'; // Prevent scrolling
         console.log(`Modal opened: ${modalId}`);
+        
+        // Load data for specific modals
+        if (modalId === 'downloadPortfolioModal') {
+            loadDownloadOptions();
+        }
     } else {
         console.warn(`Modal not found: ${modalId}`);
     }
