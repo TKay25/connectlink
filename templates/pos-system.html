@@ -668,7 +668,6 @@
         /* Ensure modals are above everything */
         #addInventoryModal, 
         #confirmationModal, 
-        #deletePasscodeModal, 
         #editStockModal, 
         #receiptModal {
             z-index: 1060 !important;
@@ -1032,10 +1031,6 @@
                                 <strong>Current Profit Available:</strong> <span id="currentAvailableProfit" class="text-success">$0.00</span>
                             </div>
                             
-                            <label for="editStockPasscode" class="form-label">Admin Passcode</label>
-                            <input type="password" class="form-control mb-2" id="editStockPasscode" placeholder="Enter passcode">
-                            <div id="editPasscodeError" class="text-danger small mb-2"></div>
-                            
                             <label class="form-label" for="newStockQuantity">Quantity to ADD *</label>
                             <input type="number" class="form-control mb-2" id="newStockQuantity" placeholder="Enter quantity to add" min="1" value="">
                             
@@ -1092,10 +1087,6 @@
                                 <strong>Product:</strong> <span id="subtractStockProductName">Loading...</span><br>
                                 <strong>Current Stock:</strong> <span id="subtractCurrentStockValue">0</span>
                             </div>
-                            
-                            <label for="subtractStockPasscode" class="form-label">Admin Passcode</label>
-                            <input type="password" class="form-control mb-2" id="subtractStockPasscode" placeholder="Enter passcode">
-                            <div id="subtractPasscodeError" class="text-danger small mb-2"></div>
                             
                             <label class="form-label" for="subtractQuantity">Quantity to REMOVE *</label>
                             <input type="number" class="form-control mb-2" id="subtractQuantity" placeholder="Enter quantity to remove" min="1" value="">
@@ -2279,7 +2270,7 @@
     </div>
 </div>
 
-    <div class="modal fade" id="deletePasscodeModal" tabindex="-1">
+    <div class="modal fade" id="deleteConfirmationModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content">
                 <div class="modal-header" style="background:#dc2626;color:white;">
@@ -2293,9 +2284,6 @@
                     </div>
                     <p class="mb-2"><strong>Product:</strong> <span id="deleteProductName" class="text-dark">Loading...</span></p>
                     <p class="mb-3"><strong>Category:</strong> <span id="deleteProductCategory" class="text-dark">Loading...</span></p>
-                    <label for="deletePasscode" class="form-label">Admin Passcode</label>
-                    <input type="password" class="form-control" id="deletePasscode" placeholder="Enter passcode">
-                    <div id="passcodeError" class="text-danger small mt-1"></div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
@@ -2809,16 +2797,8 @@ async function updateProduct() {
 let currentEditingAddition = null;
 let editFundingSource = "profit";
 
-// Open edit modal for stock addition with passcode check
+// Open edit modal for stock addition
 async function openEditStockAddition(additionId) {
-    // First, verify admin passcode
-    const passcode = prompt('Enter admin passcode to edit stock addition:');
-    
-    if (passcode !== EDIT_PASSCODE) {
-        showToast('Invalid passcode! Access denied.', 'error');
-        return;
-    }
-    
     try {
         showLoader('Loading addition details...');
         
@@ -2937,16 +2917,8 @@ function setupEditFundingSelection() {
 }
 
 
-// Update stock addition with passcode check
+// Update stock addition
 async function updateStockAddition() {
-    // Verify passcode again before saving
-    const passcode = prompt('Enter admin passcode to confirm changes:');
-    
-    if (passcode !== EDIT_PASSCODE) {
-        showToast('Invalid passcode! Changes not saved.', 'error');
-        return;
-    }
-    
     const additionId = parseInt(document.getElementById('editAdditionId').value);
     const productId = parseInt(document.getElementById('editProductId').value);
     const newQuantity = parseInt(document.getElementById('editAdditionQuantity').value);
@@ -3026,16 +2998,8 @@ async function updateStockAddition() {
     }
 }
 
-// Delete stock addition with passcode check
+// Delete stock addition
 async function deleteStockAddition() {
-    // Verify passcode
-    const passcode = prompt('Enter admin passcode to delete this stock addition:');
-    
-    if (passcode !== EDIT_PASSCODE) {
-        showToast('Invalid passcode! Deletion cancelled.', 'error');
-        return;
-    }
-    
     if (!confirm('Are you sure you want to delete this stock addition? This will remove the stock from inventory and cannot be undone.')) {
         return;
     }
@@ -4245,7 +4209,6 @@ async function fetchTransactionsData() {
 
     // Variables for stock editing
     let productToEdit = null;
-    const EDIT_PASSCODE = "conlinkhardwareadmin01";
     
     // Global variables
     let products = [];
@@ -4259,7 +4222,6 @@ async function fetchTransactionsData() {
     let categoryChart = null;
     let categoriesList = [];
     let productToDelete = null;
-    const DELETE_PASSCODE = "conlinkhardwareadmin01";
     
     // Payment loader modal instance
     let paymentLoaderModal = null;
@@ -4725,10 +4687,8 @@ function selectCategory(category) {
         document.getElementById('editStockProductName').innerText = productToEdit.name;
         document.getElementById('currentStockValue').innerText = productToEdit.stock;
         document.getElementById('currentAvailableProfit').innerText = `$${currentTotalProfit.toFixed(2)}`;
-        document.getElementById('editStockPasscode').value = '';
         document.getElementById('newStockQuantity').value = 1;
         document.getElementById('stockBuyPrice').value = productToEdit.buy_price || 0;
-        document.getElementById('editPasscodeError').innerHTML = '';
         
         // Reset funding selection
         selectedFundingSource = "profit";
@@ -4824,22 +4784,16 @@ function setupFundingSelection() {
     
     // Update confirmAddStock to track funding source
     async function confirmAddStock() {
-        const passcode = document.getElementById('editStockPasscode').value;
         const quantityToAdd = parseInt(document.getElementById('newStockQuantity').value);
         const buyPrice = parseFloat(document.getElementById('stockBuyPrice').value);
         
-        if (passcode !== EDIT_PASSCODE) {
-            document.getElementById('editPasscodeError').innerHTML = 'Invalid passcode!';
-            return;
-        }
-        
         if (isNaN(quantityToAdd) || quantityToAdd <= 0) {
-            document.getElementById('editPasscodeError').innerHTML = 'Please enter a valid quantity to add!';
+            showToast('Please enter a valid quantity to add!', 'error');
             return;
         }
         
         if (isNaN(buyPrice) || buyPrice <= 0) {
-            document.getElementById('editPasscodeError').innerHTML = 'Please enter a valid buying price!';
+            showToast('Please enter a valid buying price!', 'error');
             return;
         }
         
@@ -4849,7 +4803,7 @@ function setupFundingSelection() {
         
         // Check if using profit and have sufficient profit
         if (selectedFundingSource === "profit" && totalCost > currentTotalProfit) {
-            document.getElementById('editPasscodeError').innerHTML = `Insufficient profit! Available: $${currentTotalProfit.toFixed(2)}, Required: $${totalCost.toFixed(2)}`;
+            showToast(`Insufficient profit! Available: $${currentTotalProfit.toFixed(2)}, Required: $${totalCost.toFixed(2)}`, 'error');
             return;
         }
         
@@ -4903,20 +4857,16 @@ function setupFundingSelection() {
         
         document.getElementById('subtractStockProductName').innerText = productToEdit.name;
         document.getElementById('subtractCurrentStockValue').innerText = currentStock;
-        document.getElementById('subtractStockPasscode').value = '';
         document.getElementById('subtractQuantity').value = 1;
         document.getElementById('subtractReason').value = 'damaged';
         document.getElementById('subtractNotes').value = '';
-        document.getElementById('subtractPasscodeError').innerHTML = '';
         
         // Add input listener for quantity validation
         const quantityInput = document.getElementById('subtractQuantity');
         const validateQuantity = () => {
             const quantity = parseInt(quantityInput.value) || 0;
             if (quantity > currentStock) {
-                document.getElementById('subtractPasscodeError').innerHTML = `Cannot remove ${quantity} units. Only ${currentStock} in stock!`;
-            } else {
-                document.getElementById('subtractPasscodeError').innerHTML = '';
+                showToast(`Cannot remove ${quantity} units. Only ${currentStock} in stock!`, 'error');
             }
         };
         
@@ -4927,18 +4877,12 @@ function setupFundingSelection() {
     }
     
     async function confirmSubtractStock() {
-        const passcode = document.getElementById('subtractStockPasscode').value;
         const quantityToRemove = parseInt(document.getElementById('subtractQuantity').value);
         const reason = document.getElementById('subtractReason').value;
         const notes = document.getElementById('subtractNotes').value;
         
-        if (passcode !== EDIT_PASSCODE) {
-            document.getElementById('subtractPasscodeError').innerHTML = 'Invalid passcode!';
-            return;
-        }
-        
         if (isNaN(quantityToRemove) || quantityToRemove <= 0) {
-            document.getElementById('subtractPasscodeError').innerHTML = 'Please enter a valid quantity!';
+            showToast('Please enter a valid quantity!', 'error');
             return;
         }
         
@@ -4946,7 +4890,7 @@ function setupFundingSelection() {
         
         // Check if quantity exceeds current stock
         if (quantityToRemove > productToEdit.stock) {
-            document.getElementById('subtractPasscodeError').innerHTML = `Cannot remove ${quantityToRemove} units. Only ${productToEdit.stock} in stock!`;
+            showToast(`Cannot remove ${quantityToRemove} units. Only ${productToEdit.stock} in stock!`, 'error');
             return;
         }
         
@@ -4992,17 +4936,10 @@ function setupFundingSelection() {
             document.getElementById('deleteProductName').innerText = product.name;
             document.getElementById('deleteProductCategory').innerText = product.category;
         }
-        document.getElementById('deletePasscode').value = '';
-        document.getElementById('passcodeError').innerHTML = '';
-        new bootstrap.Modal(document.getElementById('deletePasscodeModal')).show();
+        new bootstrap.Modal(document.getElementById('deleteConfirmationModal')).show();
     }
     
     async function confirmDelete() {
-        const passcode = document.getElementById('deletePasscode').value;
-        if (passcode !== DELETE_PASSCODE) {
-            document.getElementById('passcodeError').innerHTML = 'Invalid passcode!';
-            return;
-        }
         if (!productToDelete) return;
         
         const product = products.find(p => p.id === productToDelete);
@@ -5020,7 +4957,7 @@ function setupFundingSelection() {
             if (deleteData.success) {
                 await fetchProductsFromAPI();
                 showToast(`${productName} deleted successfully`, 'success');
-                const modal = bootstrap.Modal.getInstance(document.getElementById('deletePasscodeModal'));
+                const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmationModal'));
                 if (modal) modal.hide();
             } else { 
                 showToast(deleteData.error || 'Cannot delete product', 'error'); 
