@@ -467,6 +467,7 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment10date date;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS quotation_id INT;",
+                "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS adjusted_schedules_json TEXT;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS depositorbullet NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS datedepositorbullet date;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS monthlyinstallment NUMERIC(12,2);",
@@ -10319,23 +10320,35 @@ def delete_project():
         
         with get_db() as (cursor, connection):
             try:
-                # Get ALL column names from connectlinkdatabase EXCEPT id
-                cursor.execute("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name = 'connectlinkdatabase' 
-                    AND column_name != 'id'
-                    ORDER BY ordinal_position
-                """)
-                columns = [row[0] for row in cursor.fetchall()]
+                # Define the columns we want to copy from connectlinkdatabase to connectlinkdatabasedeletedprojects
+                # These columns MUST exist in BOTH tables
+                columns_to_copy = [
+                    'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                    'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 
+                    'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 
+                    'projectadministratorname', 'projectstartdate', 'projectduration', 
+                    'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 
+                    'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 
+                    'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date',
+                    'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date',
+                    'installment4amount', 'installment4duedate', 'installment4date',
+                    'installment5amount', 'installment5duedate', 'installment5date',
+                    'installment6amount', 'installment6duedate', 'installment6date',
+                    'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date',
+                    'projectcompletionstatus', 'latepaymentinterest', 'momid', 'quotation_id', 'adjusted_schedules_json'
+                ]
                 
-                print(f"DEBUG: Found {len(columns)} columns excluding id")
+                print(f"DEBUG: Copying {len(columns_to_copy)} columns to deleted projects table")
                 
-                # Build the column list for SELECT (exclude id and quotation_id from source)
-                select_columns = ', '.join([f'd.{col}' for col in columns])
+                # Build the column list for SELECT
+                select_columns = ', '.join([f'd.{col}' for col in columns_to_copy])
                 
                 # Build the column list for INSERT - MUST include id first!
-                insert_columns = ', '.join(['id'] + columns + ['deletedby', 'deleterid'])
+                insert_columns = ', '.join(['id'] + columns_to_copy + ['deletedby', 'deleterid'])
                 
                 # Execute the copy - use project_id as the id value
                 cursor.execute(f"""
