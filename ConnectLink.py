@@ -10838,6 +10838,8 @@ def get_filtered_projects(month_filter):
             # Format date column for display
             if 'projectstartdate' in datamain.columns:
                 datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+            if 'datedepositorbullet' in datamain.columns:
+                datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
             
             # Add Action column (same as in your run1 function)
             datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a><button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View Project</button><button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button></div>''', axis=1)
