@@ -7972,8 +7972,7 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
     // Project Scope
     document.getElementById("confirmProjectScope").innerHTML = quillProjectScope.root.innerHTML;
 
-    // Payment Details
-    const paymentMethod = document.getElementById("paymentMethod").value;
+    // Payment Details - using already declared paymentMethod from above
     let paymentDetails = `<div class="col-md-6 mb-2" style="color: var(--dark-blue-deep);"><strong>Payment Method:</strong> ${paymentMethod}</div>`;
     
     if (paymentMethod === "Installments") {
@@ -7994,7 +7993,7 @@ if (clientName === "" || clientID === "" || clientWHATSAPP === "" || clientAddre
     }
 
     document.getElementById("confirmPaymentDetails").innerHTML = paymentDetails;
-}
+});
 
 // Function to return to form
 function backToProjectForm() {
