@@ -3170,27 +3170,38 @@ async function loadSalesReport(message = 'Loading sales report...') {
     showLoader(message);
     try {
         const period = document.getElementById('reportPeriod').value;
-        let startDate = '', endDate = '';
+        let startDate = new Date();
+        let endDate = new Date();
+        
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
         if (period === 'custom') {
-            startDate = document.getElementById('reportStartDate').value;
-            endDate = document.getElementById('reportEndDate').value;
+            startDate = new Date(document.getElementById('reportStartDate').value);
+            endDate = new Date(document.getElementById('reportEndDate').value);
+            endDate.setHours(23, 59, 59, 999);
         } else if (period === 'today') {
-            startDate = endDate = today.toISOString().split('T')[0];
+            startDate = new Date(today);
+            endDate = new Date(today);
+            endDate.setHours(23, 59, 59, 999);
         } else if (period === 'yesterday') {
-            const yesterday = new Date(today);
-            yesterday.setDate(today.getDate() - 1);
-            startDate = endDate = yesterday.toISOString().split('T')[0];
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() - 1);
+            endDate = new Date(startDate);
+            endDate.setHours(23, 59, 59, 999);
         } else if (period === 'week') {
             const weekStart = new Date(today);
             weekStart.setDate(today.getDate() - today.getDay());
-            startDate = weekStart.toISOString().split('T')[0];
-            endDate = today.toISOString().split('T')[0];
+            startDate = weekStart;
+            endDate = new Date(today);
+            endDate.setHours(23, 59, 59, 999);
         } else if (period === 'month') {
-            startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-            endDate = today.toISOString().split('T')[0];
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today);
+            endDate.setHours(23, 59, 59, 999);
         }
+        
+        console.log('Date range:', startDate, 'to', endDate); // Debug
         
         const [transactionsRes, reinvestmentRes] = await Promise.all([
             fetch(`${API_BASE}/api/transactions?limit=2000`, { credentials: 'include' }),
@@ -3200,11 +3211,16 @@ async function loadSalesReport(message = 'Loading sales report...') {
         const transactionsData = await transactionsRes.json();
         const reinvestmentData = await reinvestmentRes.json();
         
+        console.log('Total transactions fetched:', transactionsData.transactions?.length || 0); // Debug
+        
         if (transactionsData.success) {
             const filtered = transactionsData.transactions.filter(t => {
-                const transDate = new Date(t.created_at).toISOString().split('T')[0];
+                const transDate = new Date(t.created_at);
                 return transDate >= startDate && transDate <= endDate;
             });
+            
+            console.log('Filtered transactions:', filtered.length); // Debug
+            
             // Pass reinvestment data to renderSalesReport
             const reinvestmentHistory = reinvestmentData.success ? reinvestmentData.additions : [];
             console.log('Reinvestment history loaded:', reinvestmentHistory.length); // Debug
@@ -3221,6 +3237,12 @@ async function loadSalesReport(message = 'Loading sales report...') {
 function renderSalesReport(transactions, reinvestmentHistory = []) {
     // Store for export
     currentReportData = transactions;
+    
+    // Check if there are no transactions
+    if (!transactions || transactions.length === 0) {
+        console.warn('No transactions found for the selected period');
+        showToast('No transactions found for the selected period. Charts and data will be empty.', 'info');
+    }
     
     // Calculate totals
     let totalRevenue = 0;
