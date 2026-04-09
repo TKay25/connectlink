@@ -854,6 +854,7 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
+                    <label for="allProductsSearch" class="form-label">Search Products</label>
                     <input type="text" class="form-control" id="allProductsSearch" placeholder="🔍 Search products..." style="font-size: 0.8rem;">
                 </div>
                 <div id="allProductsList" style="max-height: 55vh; overflow-y: auto;"></div>
@@ -883,6 +884,7 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
+                    <label for="lowStockSearch" class="form-label">Search Low Stock Products</label>
                     <input type="text" class="form-control" id="lowStockSearch" placeholder="🔍 Search low stock products..." style="font-size: 0.8rem;">
                 </div>
                 <div id="lowStockProductsList" style="max-height: 55vh; overflow-y: auto;"></div>
@@ -912,6 +914,7 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
+                    <label for="outOfStockSearch" class="form-label">Search Out of Stock Products</label>
                     <input type="text" class="form-control" id="outOfStockSearch" placeholder="🔍 Search out of stock products..." style="font-size: 0.8rem;">
                 </div>
                 <div id="outOfStockProductsList" style="max-height: 55vh; overflow-y: auto;"></div>
@@ -1029,7 +1032,7 @@
                                 <strong>Current Profit Available:</strong> <span id="currentAvailableProfit" class="text-success">$0.00</span>
                             </div>
                             
-                            <p class="mb-2">Enter admin passcode to add stock:</p>
+                            <label for="editStockPasscode" class="form-label">Admin Passcode</label>
                             <input type="password" class="form-control mb-2" id="editStockPasscode" placeholder="Enter passcode">
                             <div id="editPasscodeError" class="text-danger small mb-2"></div>
                             
@@ -1132,6 +1135,7 @@
                         </div>
                         <!-- Search Input -->
                         <div class="position-relative" style="width: 200px;">
+                            <label for="searchProduct" class="visually-hidden">Search Products</label>
                             <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
                             <input type="text" class="form-control ps-5" id="searchProduct" placeholder="Search name or details..." style="border-radius: 30px; font-size: 0.7rem; padding: 4px 10px;" autocomplete="off">
                         </div>
@@ -1198,6 +1202,7 @@
                         <h5 class="fw-bold mb-0"><i class="fas fa-boxes me-1"></i>Inventory Management</h5>
                         <div class="d-flex gap-2">
                             <div class="position-relative" style="width: 250px;">
+                                <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
                                 <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
                                 <input type="text" class="form-control ps-5" id="inventorySearch" placeholder="Search by name, category, or details..." style="border-radius: 30px; font-size: 0.7rem; padding: 5px 10px;" autocomplete="off">
                             </div>
@@ -1206,6 +1211,59 @@
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- Inventory Summary Cards -->
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Total Purchase Value</small>
+                                        <h4 class="mb-1 fw-bold text-danger" id="totalPurchaseValue">$0.00</h4>
+                                        <small class="text-muted">All items in stock</small>
+                                    </div>
+                                    <i class="fas fa-shopping-cart fa-2x text-muted opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Total Sales Value</small>
+                                        <h4 class="mb-1 fw-bold text-success" id="totalSalesValue">$0.00</h4>
+                                        <small class="text-muted">Potential revenue</small>
+                                    </div>
+                                    <i class="fas fa-dollar-sign fa-2x text-muted opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Margin/Profit</small>
+                                        <h4 class="mb-1 fw-bold text-info" id="marginProfit">$0.00</h4>
+                                        <small class="text-muted" id="marginPercent">0%</small>
+                                    </div>
+                                    <i class="fas fa-chart-line fa-2x text-muted opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Total Stock Items</small>
+                                        <h4 class="mb-1 fw-bold text-primary" id="totalStockItems">0</h4>
+                                        <small class="text-muted">Units in inventory</small>
+                                    </div>
+                                    <i class="fas fa-boxes fa-2x text-muted opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
                         <table class="table table-hover" style="min-width: 1000px;">
                             <thead class="table-light sticky-top" style="position: sticky; top: 0; background: white; z-index: 1;">
@@ -2189,7 +2247,7 @@
                     </div>
                     <p class="mb-2"><strong>Product:</strong> <span id="deleteProductName" class="text-dark">Loading...</span></p>
                     <p class="mb-3"><strong>Category:</strong> <span id="deleteProductCategory" class="text-dark">Loading...</span></p>
-                    <p class="mb-2">Enter admin passcode to delete this product:</p>
+                    <label for="deletePasscode" class="form-label">Admin Passcode</label>
                     <input type="password" class="form-control" id="deletePasscode" placeholder="Enter passcode">
                     <div id="passcodeError" class="text-danger small mt-1"></div>
                 </div>
@@ -2520,6 +2578,40 @@ function updateInventoryMetrics() {
     if (totalProductsEl) totalProductsEl.innerText = totalProducts;
     if (lowStockMetricEl) lowStockMetricEl.innerText = lowStockCount;
     if (outOfStockEl) outOfStockEl.innerText = outOfStockCount;
+    
+    // Calculate inventory values for the summary cards
+    let totalPurchaseValue = 0;
+    let totalSalesValue = 0;
+    let totalStockItems = 0;
+    
+    products.forEach(p => {
+        const buyPrice = p.buy_price || 0;
+        const sellPrice = p.sell_price || p.price || 0;
+        const stock = p.stock || 0;
+        
+        totalPurchaseValue += buyPrice * stock;
+        totalSalesValue += sellPrice * stock;
+        totalStockItems += stock;
+    });
+    
+    const margin = totalSalesValue - totalPurchaseValue;
+    const marginPercent = totalPurchaseValue > 0 ? ((margin / totalPurchaseValue) * 100).toFixed(1) : 0;
+    
+    // Update the inventory summary cards
+    const purchaseEl = document.getElementById('totalPurchaseValue');
+    const salesEl = document.getElementById('totalSalesValue');
+    const marginEl = document.getElementById('marginProfit');
+    const marginPercentEl = document.getElementById('marginPercent');
+    const stockItemsEl = document.getElementById('totalStockItems');
+    
+    if (purchaseEl) purchaseEl.textContent = '$' + totalPurchaseValue.toFixed(2);
+    if (salesEl) salesEl.textContent = '$' + totalSalesValue.toFixed(2);
+    if (marginEl) {
+        marginEl.textContent = '$' + margin.toFixed(2);
+        marginEl.className = margin >= 0 ? 'mb-1 fw-bold text-success' : 'mb-1 fw-bold text-danger';
+    }
+    if (marginPercentEl) marginPercentEl.textContent = marginPercent + '%';
+    if (stockItemsEl) stockItemsEl.textContent = totalStockItems;
 }
 
 function populateCategoryDropdown() {
@@ -5864,6 +5956,9 @@ function renderInventory() {
     
     const filteredProducts = filterInventory();
     
+    // Update inventory metrics
+    updateInventoryMetrics();
+    
     if (!filteredProducts.length) {
         tbody.innerHTML = '<td colspan="10" class="text-center">No products found matching your search<\/td>';
         return;
@@ -5900,6 +5995,34 @@ function renderInventory() {
              </td>
          </tr>
     `).join('');
+}
+
+// Function to calculate inventory metrics
+function calculateInventoryMetrics() {
+    let totalPurchaseValue = 0;
+    let totalSalesValue = 0;
+    let totalStockItems = 0;
+    
+    products.forEach(p => {
+        const buyPrice = p.buy_price || 0;
+        const sellPrice = p.sell_price || p.price || 0;
+        const stock = p.stock || 0;
+        
+        totalPurchaseValue += buyPrice * stock;
+        totalSalesValue += sellPrice * stock;
+        totalStockItems += stock;
+    });
+    
+    const margin = totalSalesValue - totalPurchaseValue;
+    const marginPercent = totalPurchaseValue > 0 ? ((margin / totalPurchaseValue) * 100).toFixed(1) : 0;
+    
+    // Update the UI
+    document.getElementById('totalPurchaseValue').textContent = '$' + totalPurchaseValue.toFixed(2);
+    document.getElementById('totalSalesValue').textContent = '$' + totalSalesValue.toFixed(2);
+    document.getElementById('marginProfit').textContent = '$' + margin.toFixed(2);
+    document.getElementById('marginProfit').className = margin >= 0 ? 'mb-1 fw-bold text-success' : 'mb-1 fw-bold text-danger';
+    document.getElementById('marginPercent').textContent = marginPercent + '%';
+    document.getElementById('totalStockItems').textContent = totalStockItems;
 }
     
     // ==================== PAGE NAVIGATION ====================
