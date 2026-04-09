@@ -3610,6 +3610,11 @@ function openModal(modalId) {
         if (modalId === 'otherDetailsModal') {
             populateOtherDetailsQuotationsDropdown();
         }
+        if (modalId === 'downloadInstallmentsModal') {
+            loadProjectStartMonths();
+            loadDueMonths();
+            updateCounts();
+        }
     } else {
         console.warn(`Modal not found: ${modalId}`);
     }
