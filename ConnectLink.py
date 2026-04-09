@@ -503,6 +503,7 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS projectcompletionstatus varchar(100);",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS latepaymentinterest INT;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS quotation_id INT;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS adjusted_schedules_json TEXT;",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;",
@@ -15071,6 +15072,9 @@ def contract_log():
                 quotation_id_str = request.form.get('project_quotation_id')
                 quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
 
+                # Get adjusted_schedules_json BEFORE inserting project
+                adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
+                
                 try:
 
                     insert_query = """
@@ -15080,13 +15084,13 @@ def contract_log():
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
                             paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
-                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate, quotation_id
+                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate, quotation_id, adjusted_schedules_json
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         );
                     """
 
@@ -15139,70 +15143,36 @@ def contract_log():
                         installment8duedate,
                         installment9duedate,
                         installment10duedate,
-                        quotation_id
+                        quotation_id,
+                        adjusted_schedules_json_str if adjusted_schedules_json_str else None
                     )
 
         
                     cursor.execute(insert_query, params)
+                    # Get the last inserted ID
+                    cursor.execute("SELECT LASTVAL()")
+                    result = cursor.fetchone()
+                    project_id = result[0] if result else None
                     connection.commit()
-                    print("✅ Project inserted into connectlinkdatabase")
+                    print(f"✅ Project inserted into connectlinkdatabase (ID: {project_id})")
                     
-                    # UPDATE QUOTATION SCHEDULES WITH ADJUSTED DATES
-                    # If adjusted schedules were provided, update them in the quotation_schedules table
-                    if quotation_id:
+                    # STORE ADJUSTED SCHEDULES IN THE PROJECT RECORD
+                    # NOTE: We store adjusted schedules in the project, NOT in the shared quotation_schedules table
+                    # This prevents one project's date adjustments from affecting other projects using the same quotation
+                    if adjusted_schedules_json_str:
                         try:
-                            adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
-                            print(f"🔍 DEBUG - Quotation ID: {quotation_id}")
-                            print(f"🔍 DEBUG - Adjusted schedules JSON provided: {bool(adjusted_schedules_json_str)}")
+                            import json
+                            adjusted_schedules = json.loads(adjusted_schedules_json_str)
                             
-                            if adjusted_schedules_json_str:
-                                import json
-                                adjusted_schedules = json.loads(adjusted_schedules_json_str)
-                                
-                                print(f"✅ 📅 UPDATING QUOTATION SCHEDULES FOR QUOTATION ID={quotation_id}:")
-                                print(f"   Total schedules to update: {len(adjusted_schedules)}")
-                                
-                                
-                                # Delete existing schedules for this quotation
-                                cursor.execute(
-                                    "DELETE FROM quotation_schedules WHERE quotation_id = %s",
-                                    (quotation_id,)
-                                )
-                                
-                                # Insert adjusted schedules
-                                for schedule in adjusted_schedules:
-                                    insert_schedule_query = """
-                                        INSERT INTO quotation_schedules 
-                                        (quotation_id, work_scope, start_date, end_date, days_duration, schedule_data)
-                                        VALUES (%s, %s, %s, %s, %s, %s)
-                                    """
-                                    
-                                    schedule_json = json.dumps({
-                                        'workScope': schedule.get('workScope', ''),
-                                        'startDate': schedule.get('startDate', ''),
-                                        'endDate': schedule.get('endDate', ''),
-                                        'days': schedule.get('days', 0)
-                                    })
-                                    
-                                    cursor.execute(insert_schedule_query, (
-                                        quotation_id,
-                                        schedule.get('workScope', ''),
-                                        safe_date(schedule.get('startDate', '')),
-                                        safe_date(schedule.get('endDate', '')),
-                                        int(schedule.get('days', 0)),
-                                        schedule_json
-                                    ))
-                                    
-                                    print(f"   ✅ Schedule saved: {schedule.get('workScope')} ({schedule.get('startDate')} to {schedule.get('endDate')})")
-                                
-                                connection.commit()
-                                print("✅ Quotation schedules updated with adjusted dates")
+                            print(f"✅ 📅 PROJECT-SPECIFIC SCHEDULES SAVED FOR PROJECT ID={project_id}:")
+                            print(f"   Total schedules: {len(adjusted_schedules)}")
+                            for i, schedule in enumerate(adjusted_schedules, 1):
+                                print(f"   {i}. {schedule.get('workScope')} ({schedule.get('startDate')} to {schedule.get('endDate')}, {schedule.get('days')} days)")
                         
                         except json.JSONDecodeError as e:
                             print(f"⚠️ Could not parse adjusted schedules JSON: {e}")
                         except Exception as e:
-                            print(f"⚠️ Error updating quotation schedules: {e}")
-                            # Don't rollback the project insert, just log the warning
+                            print(f"⚠️ Error logging project schedules: {e}")
 
 
                 except Exception as e:
@@ -17127,25 +17097,50 @@ def get_existing_clients():
 
 @app.route('/api/get-project-schedule/<int:project_id>', methods=['GET'])
 def get_project_schedule(project_id):
-    """Retrieve work schedule for a project based on linked quotation"""
+    """Retrieve work schedule for a project - uses project-specific adjusted schedules if available"""
     try:
         with get_db() as (cursor, connection):
-            # Get the quotation_id from the project
+            # Get the project's data including quotation_id and adjusted_schedules_json
             cursor.execute("""
-                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+                SELECT quotation_id, adjusted_schedules_json FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             result = cursor.fetchone()
             
-            if not result or not result[0]:
+            if not result:
+                return jsonify({
+                    'success': True,
+                    'schedules': [],
+                    'message': 'Project not found'
+                })
+            
+            quotation_id = result[0]
+            adjusted_schedules_json_str = result[1]
+            
+            # PRIORITY 1: If this project has adjusted schedules stored, use those
+            if adjusted_schedules_json_str:
+                try:
+                    import json
+                    schedule_list = json.loads(adjusted_schedules_json_str)
+                    print(f"✅ Returning {len(schedule_list)} project-specific adjusted schedules for project {project_id}")
+                    return jsonify({
+                        'success': True,
+                        'schedules': schedule_list,
+                        'source': 'project_adjusted',
+                        'quotationId': quotation_id
+                    })
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ Could not parse project adjusted schedules: {e}")
+                    # Fall through to use quotation schedules as fallback
+            
+            # PRIORITY 2: If no project-specific schedules, get schedules from the linked quotation
+            if not quotation_id:
                 return jsonify({
                     'success': True,
                     'schedules': [],
                     'message': 'No quotation linked to this project'
                 })
             
-            quotation_id = result[0]
-            
-            # Get the schedules from the linked quotation
+            # Get schedules from the linked quotation
             cursor.execute("""
                 SELECT work_scope, start_date, end_date, days
                 FROM quotation_schedules
@@ -17165,9 +17160,12 @@ def get_project_schedule(project_id):
                 for schedule in schedules
             ]
             
+            print(f"✅ Returning {len(schedule_list)} quotation schedules for project {project_id} (from quotation {quotation_id})")
+            
             return jsonify({
                 'success': True,
                 'schedules': schedule_list,
+                'source': 'quotation',
                 'quotationId': quotation_id
             })
     except Exception as e:
