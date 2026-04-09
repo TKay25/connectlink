@@ -3721,7 +3721,10 @@ function populateProjectQuotationsDropdown() {
         .catch(error => {
             console.error('Error loading quotations:', error);
             dropdown.innerHTML = '<option value="" disabled selected>⚠️ Failed to load quotations</option>';
-   Populate Other Details Quotations Dropdown
+        });
+}
+
+// Populate Other Details Quotations Dropdown
 function populateOtherDetailsQuotationsDropdown() {
     const dropdown = document.getElementById('otherDetails_quotation_select');
     if (!dropdown) {
@@ -3758,9 +3761,6 @@ function populateOtherDetailsQuotationsDropdown() {
             console.error('Error loading quotations:', error);
             dropdown.innerHTML = '<option value="" disabled selected>⚠️ Failed to load quotations</option>';
         });
-}
-
-//      });
 }
 
 // Filter Work Plans From Dropdown
