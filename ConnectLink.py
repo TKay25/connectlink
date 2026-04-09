@@ -186,17 +186,39 @@ def initialize_database_tables():
                     datecreated date,
                     name VARCHAR (200),
                     password varchar (100),
-                    email VARCHAR (100)
+                    email VARCHAR (100),
+                    whatsapp INT,
+                    role VARCHAR(50) DEFAULT 'operator'
                 );
             """)
+            
+            # Add role column if it doesn't exist
+            cursor.execute("""
+                ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'operator';
+            """)
+            
             current_date = datetime.now().strftime('%Y-%m-%d')
-
-            '''cursor.execute("""
-                INSERT INTO connectlinkusers (datecreated, name, password, email)
-                VALUES (%s, %s, %s, %s);
-            """, (current_date, "ConnectLinkAdmin01", "ConnectLinkAdmin01", "Admin01@connectlinkproperties.co.zw"))
-
-            '''
+            
+            # Create default users if they don't exist
+            try:
+                # Admin user
+                cursor.execute("""
+                    INSERT INTO connectlinkusers (datecreated, name, password, email, role)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT(email) DO UPDATE SET role = 'admin'
+                """, (current_date, "mrsgadmin", "mrsgogweo1admin01", "mrsgadmin@connectlink.local", "admin"))
+                
+                # Shop operator user
+                cursor.execute("""
+                    INSERT INTO connectlinkusers (datecreated, name, password, email, role)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT(email) DO UPDATE SET role = 'operator'
+                """, (current_date, "shopoperatoruser", "conlinkhardwareshopoperator2026", "shopoperator@connectlink.local", "operator"))
+                
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Users may already exist. {str(e)}")
+                connection.rollback()
             # Create connectlinkadmin table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkadmin (
@@ -8737,6 +8759,44 @@ def get_categories():
 
 # ==================== DASHBOARD STATISTICS ====================
 
+@app.route('/api/user/role', methods=['GET'])
+@login_required
+def get_user_role():
+    """Get current user's role and permissions"""
+    user_role = session.get('user_role', 'operator')
+    user_name = session.get('user_name', 'User')
+    
+    # Define permissions based on role
+    permissions = {
+        'admin': {
+            'can_access_inventory': True,
+            'can_access_sales': True,
+            'can_access_analytics': True,
+            'can_access_transactions': True,
+            'can_access_pos': True,
+            'can_access_quotations': True,
+            'can_manage_users': True
+        },
+        'operator': {
+            'can_access_inventory': False,
+            'can_access_sales': False,
+            'can_access_analytics': False,
+            'can_access_transactions': False,
+            'can_access_pos': True,
+            'can_access_quotations': False,
+            'can_manage_users': False
+        }
+    }
+    
+    user_permissions = permissions.get(user_role, permissions['operator'])
+    
+    return jsonify({
+        'success': True,
+        'role': user_role,
+        'user_name': user_name,
+        'permissions': user_permissions
+    })
+
 @app.route('/api/dashboard/stats', methods=['GET'])
 @login_required
 def get_dashboard_stats():
@@ -9206,45 +9266,49 @@ def login():
                 applied_date = datetime.now().strftime('%Y-%m-%d')
 
                 # Retrieve form data
-                email = request.form.get('emaillogin').strip()
+                email_or_username = request.form.get('emaillogin').strip()
                 password = request.form.get('passwordlogin').strip()
 
                 # Check for missing input
-                if not email or not password:
-                    return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
+                if not email_or_username or not password:
+                    return jsonify({'success': False, 'message': 'Username/Email and password are required.'}), 400
 
-                search_query = "SELECT * FROM connectlinkusers WHERE email = %s;"
-                cursor.execute(search_query, (email,))
+                # Try to find user by email OR username
+                search_query = "SELECT * FROM connectlinkusers WHERE email = %s OR name = %s;"
+                cursor.execute(search_query, (email_or_username, email_or_username))
                 rows = cursor.fetchall()
 
                 if rows: 
                     user_row = rows[0]
 
                     table_df = pd.DataFrame([user_row], columns=[
-                        'id', 'datecreated', 'name', 'password', 'email', 'whatsapp'
+                        'id', 'datecreated', 'name', 'password', 'email', 'whatsapp', 'role'
                     ])
 
                     if table_df.iat[0, 3] == password:
                         user_uuid = uuid.uuid4()
                         session['user_uuid'] = str(user_uuid)
                         session.permanent = True
-                        user_sessions[email] = {'uuid': str(user_uuid), 'email': email}
+                        user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
 
                         userid = table_df.iat[0, 0]
                         user_name = table_df.iat[0,2]
-                        session['userid'] = int(np.int64(userid))  # Ensure Python int
+                        user_role = table_df.iat[0, 6] if len(table_df.columns) > 6 else 'operator'
+                        
+                        session['userid'] = int(np.int64(userid))
                         session['user_name'] = user_name
+                        session['user_role'] = user_role
 
                         # Return JSON response instead of redirect
-                        return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/dashboard'}), 200
+                        return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/dashboard', 'role': user_role}), 200
 
                     else:
                         print('Incorrect password')
                         return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
 
                 else:
-                    print(f"No rows found with email '{email}' in any table.")
-                    return jsonify({'success': False, 'message': 'Email not found.'}), 404
+                    print(f"No user found with email or username '{email_or_username}' in any table.")
+                    return jsonify({'success': False, 'message': 'User not found.'}), 404
 
         except Exception as e:
             print("Error while connecting to the database:", e)
