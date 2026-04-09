@@ -3721,7 +3721,46 @@ function populateProjectQuotationsDropdown() {
         .catch(error => {
             console.error('Error loading quotations:', error);
             dropdown.innerHTML = '<option value="" disabled selected>⚠️ Failed to load quotations</option>';
+   Populate Other Details Quotations Dropdown
+function populateOtherDetailsQuotationsDropdown() {
+    const dropdown = document.getElementById('otherDetails_quotation_select');
+    if (!dropdown) {
+        console.warn('otherDetails_quotation_select not found');
+        return;
+    }
+    
+    // Show loading state
+    dropdown.innerHTML = '<option value="" disabled selected>⏳ Loading quotations...</option>';
+    
+    fetch('/api/get-quotations')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data && data.data.length > 0) {
+                let options = '<option value="" disabled selected>-- Select a Quotation to Link Work Plan --</option>';
+                
+                data.data.forEach(quotation => {
+                    const quotationId = quotation.id;
+                    const clientName = quotation.client_name || 'Unknown';
+                    const category = quotation.category || '';
+                    const totalCost = quotation.total_cost ? `$${quotation.total_cost}` : '';
+                    const displayText = `${clientName} - ${category} ${totalCost}`.trim();
+                    
+                    options += `<option value="${quotationId}">${displayText}</option>`;
+                });
+                
+                dropdown.innerHTML = options;
+                console.log(`Loaded ${data.count} quotations into Other Details dropdown`);
+            } else {
+                dropdown.innerHTML = '<option value="" disabled selected>-- No quotations available --</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading quotations:', error);
+            dropdown.innerHTML = '<option value="" disabled selected>⚠️ Failed to load quotations</option>';
         });
+}
+
+//      });
 }
 
 // Filter Work Plans From Dropdown
