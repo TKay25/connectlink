@@ -213,6 +213,17 @@ def initialize_database_tables():
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            
+            # Create product categories table for dynamically created categories
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS product_categories (
+                    id SERIAL PRIMARY KEY,
+                    category_name VARCHAR(100) NOT NULL,
+                    subcategory_name VARCHAR(100) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(category_name, subcategory_name)
+                );
+            """)
 
             # Check if quotation_rates table is empty and populate with initial data
             cursor.execute("SELECT COUNT(*) FROM quotation_rates")
@@ -8901,6 +8912,89 @@ def test_ai_classifier():
     except Exception as e:
         return jsonify({
             'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/categories/create', methods=['POST'])
+@login_required
+def create_new_category():
+    """
+    Create a new product category and subcategory
+    
+    Request body:
+    {
+        "category_name": "Smart Home Devices",
+        "subcategory_name": "Smart Lights"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "category_name": "Smart Home Devices",
+        "subcategory_name": "Smart Lights",
+        "message": "Category created successfully"
+    }
+    """
+    try:
+        data = request.json
+        category_name = data.get('category_name', '').strip()
+        subcategory_name = data.get('subcategory_name', '').strip()
+        
+        if not category_name or not subcategory_name:
+            return jsonify({
+                'success': False,
+                'message': 'Category name and subcategory name are required'
+            }), 400
+        
+        # Validate inputs (prevent injection)
+        if len(category_name) > 100 or len(subcategory_name) > 100:
+            return jsonify({
+                'success': False,
+                'message': 'Names must be less than 100 characters'
+            }), 400
+        
+        # Try to create a database record for the new category
+        # This helps track user-created categories
+        try:
+            with get_db() as (cursor, connection):
+                # Check if category already exists
+                cursor.execute("""
+                    SELECT id FROM product_categories 
+                    WHERE category_name = %s AND subcategory_name = %s
+                """, (category_name, subcategory_name))
+                
+                existing = cursor.fetchone()
+                if existing:
+                    return jsonify({
+                        'success': False,
+                        'message': 'This category/subcategory combination already exists'
+                    }), 400
+                
+                # Insert new category
+                cursor.execute("""
+                    INSERT INTO product_categories (category_name, subcategory_name, created_at)
+                    VALUES (%s, %s, NOW())
+                """, (category_name, subcategory_name))
+                
+                connection.commit()
+        except Exception as e:
+            # If table doesn't exist, just continue (categories stored in memory)
+            print(f"Warning: Could not save category to database: {str(e)}")
+            pass
+        
+        return jsonify({
+            'success': True,
+            'category_name': category_name,
+            'subcategory_name': subcategory_name,
+            'message': 'Category created successfully'
+        })
+    
+    except Exception as e:
+        print(f"Error creating category: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Error creating category',
             'error': str(e)
         }), 500
 

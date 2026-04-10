@@ -1888,26 +1888,31 @@
                             <label class="form-label" for="productMainCategory">Main Category *</label>
                             <select class="form-select" id="productMainCategory">
                                 <option value="">-- Select Category --</option>
-                                <option value="Gas Products"><i class="bi bi-fire"></i> Gas Products</option>
-                                <option value="Building Materials"><i class="bi bi-bricks"></i> Building Materials</option>
-                                <option value="Electrical"><i class="bi bi-lightning-charge"></i> Electrical</option>
-                                <option value="Measuring Tools"><i class="bi bi-rulers"></i> Measuring Tools</option>
-                                <option value="Plumbing"><i class="bi bi-water"></i> Plumbing</option>
-                                <option value="General Tools"><i class="bi bi-hammer"></i> General Tools</option>
-                                <option value="Finishing & Painting Tools"><i class="bi bi-brush"></i> Finishing & Painting Tools</option>
-                                <option value="Paint & Coatings"><i class="bi bi-palette"></i> Paint & Coatings</option>
-                                <option value="Hardware"><i class="bi bi-wrench"></i> Hardware</option>
-                                <option value="Fasteners"><i class="bi bi-pin"></i> Fasteners</option>
-                                <option value="Safety Equipment"><i class="bi bi-shield-check"></i> Safety Equipment</option>
-                                <option value="Cleaning Supplies"><i class="bi bi-broom"></i> Cleaning Supplies</option>
-                                <option value="Kitchen & Bathroom"><i class="bi bi-water"></i> Kitchen & Bathroom</option>
-                                <option value="Appliances"><i class="bi bi-lightning"></i> Appliances</option>
-                                <option value="Cookware & Pots"><i class="bi bi-cup-hot"></i> Cookware & Pots</option>
-                                <option value="Blankets & Comforters"><i class="bi bi-layers"></i> Blankets & Comforters</option>
-                                <option value="Pest Control"><i class="bi bi-bug"></i> Pest Control</option>
-                                <option value="Belts & Straps"><i class="bi bi-diagram-3"></i> Belts & Straps</option>
-                                <option value="Aluminium"><i class="bi bi-box"></i> Aluminium</option>
-                                <option value="Other"><i class="bi bi-question-circle"></i> Other</option>
+                                <option value="Gas Products">Gas Products</option>
+                                <option value="Building Materials">Building Materials</option>
+                                <option value="Electrical">Electrical</option>
+                                <option value="Measuring Tools">Measuring Tools</option>
+                                <option value="Plumbing">Plumbing</option>
+                                <option value="General Tools">General Tools</option>
+                                <option value="Finishing & Painting Tools">Finishing & Painting Tools</option>
+                                <option value="Paint & Coatings">Paint & Coatings</option>
+                                <option value="Hardware">Hardware</option>
+                                <option value="Fasteners">Fasteners</option>
+                                <option value="Safety Equipment">Safety Equipment</option>
+                                <option value="Cleaning Supplies">Cleaning Supplies</option>
+                                <option value="Kitchen & Bathroom">Kitchen & Bathroom</option>
+                                <option value="Appliances">Appliances</option>
+                                <option value="Cookware & Pots">Cookware & Pots</option>
+                                <option value="Blankets & Comforters">Blankets & Comforters</option>
+                                <option value="Pest Control">Pest Control</option>
+                                <option value="Belts & Straps">Belts & Straps</option>
+                                <option value="Aluminium">Aluminium</option>
+                                <option value="Electrical Switches & Controls">Electrical Switches & Controls</option>
+                                <option value="Electrical Components">Electrical Components</option>
+                                <option value="Building Board & Sheeting">Building Board & Sheeting</option>
+                                <option value="Plumbing Accessories">Plumbing Accessories</option>
+                                <option value="Equipment & Machinery">Equipment & Machinery</option>
+                                <option value="Other">Other</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -2033,6 +2038,49 @@
         </div>
     </div>
 
+    <!-- New Category Creation Modal -->
+    <div class="modal fade" id="createCategoryModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header" style="background:#0a2b3e;color:white;">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Create New Category</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="closeCategoryModalBtn"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">The AI suggested a category not yet in your system. Create it now:</p>
+                    <div class="mb-3">
+                        <label class="form-label" for="newCategoryName">Category Name *</label>
+                        <input type="text" class="form-control" id="newCategoryName" placeholder="e.g., Smart Home Devices" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="newSubCategoryName">Sub-Category Name *</label>
+                        <input type="text" class="form-control" id="newSubCategoryName" placeholder="e.g., Smart Lights" readonly>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="useAISuggestion" checked>
+                        <label class="form-check-label" for="useAISuggestion">
+                            Use AI suggested values
+                        </label>
+                    </div>
+                    <div id="customCategoryInputs" style="display:none;">
+                        <div class="mb-3">
+                            <label class="form-label" for="customCategoryName">Custom Category Name *</label>
+                            <input type="text" class="form-control" id="customCategoryName" placeholder="Enter category name">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="customSubCategoryName">Custom Sub-Category Name *</label>
+                            <input type="text" class="form-control" id="customSubCategoryName" placeholder="Enter sub-category name">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="saveNewCategory()"><i class="bi bi-check-circle"></i> Create & Use Category</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2048,8 +2096,8 @@
         "Measuring Tools": ["Tape Measures", "Spirit Level", "Straight Edge"],
         "Plumbing": ["Pipes", "Pipe Fittings", "Bends", "Tees", "Traps", "Flexi Pipes", "Silicone", "Hose Pipe", "Angle Valves", "Saddles", "Glass Pipes"],
         "General Tools": ["Hammers", "Claw Hammer", "Chasing Hammer", "Hammer Heads", "Shovel", "Spade", "Screwdrivers", "Allen Keys", "Spanners", "Shifting Spanner", "Pliers", "Side Cutters", "Cutters", "Saws", "Hack Saws", "Drill Bits", "Concrete Drill Bits", "Flicker Machine", "Torque Wrench", "Wheel Barrows"],
-        "Finishing & Painting Tools": ["Paint Brushes", "Rolling Brush", "Flicker Brush", "Trowels", "Floats", "Wooden Float", "Jointers"],
-        "Paint & Coatings": ["Paint", "Spray Paint"],
+        "Finishing & Painting Tools": ["Paint Brushes", "Rolling Brush", "Flicker Brush", "Trowels", "Floats", "Wooden Float", "Jointers", "Wood Chisel", "Nylon Brush"],
+        "Paint & Coatings": ["Paint", "Spray Paint", "Primer", "Wood Stain", "Masonry Paint", "Cement Paint"],
         "Hardware": ["Door Locks", "Lock Sets", "Flash Doors", "White Button Doors", "Boxes", "Flush Boxes", "Hinges", "Handles", "Metal Clamps", "Fischer Plugs", "Security Sticks"],
         "Fasteners": ["Screws", "Nails", "Wire Nails", "Bolts", "Basin Bolts", "Washers", "Nuts", "Anchors", "Epoxy Steel"],
         "Safety Equipment": ["Gloves", "Glass Gloves", "PVC Gloves", "Goggles", "Masks", "Hard Hats"],
@@ -2061,6 +2109,11 @@
         "Pest Control": ["Termite Poison"],
         "Belts & Straps": ["Truck Belts"],
         "Aluminium": ["Aluminium", "Aluminium Saws"],
+        "Electrical Switches & Controls": ["MCB Switch", "Dimmer Switch", "Motion Sensor", "Tripper Armature", "Gang Switch", "Electrical Switch"],
+        "Electrical Components": ["Cable Gland", "Armature Coil", "Metal Gland", "Tripper", "2-head Metal Gland", "Lead Seal"],
+        "Building Board & Sheeting": ["Plaster Board", "Bakelite Sheet", "Door Frame", "Profile Board", "Cover Board", "Cement Board"],
+        "Plumbing Accessories": ["Pipe Bending Spring", "Lead Seal", "Compression Joint", "Copper Pipe", "Paper Joint", "Hacksaw Frame", "Hacksaw Blade"],
+        "Equipment & Machinery": ["JCB Jockey", "JCB JF-5", "Pendant Box"],
         "Other": ["Other"]
     };
 
@@ -2154,18 +2207,135 @@
         const subCatSelect = document.getElementById('productSubCategory');
         
         if (mainCatSelect && subCatSelect) {
-            // Set main category
-            mainCatSelect.value = classification.category;
-            mainCatSelect.dispatchEvent(new Event('change'));
+            // Check if category exists in the system
+            const categoryExists = classification.category in categoryMapping;
             
-            // Wait for subcategories to load, then set subcategory
-            setTimeout(() => {
-                subCatSelect.value = classification.subcategory;
+            if (!categoryExists && classification.category !== 'Other') {
+                // Show modal to create new category
+                showCreateCategoryModal(classification);
+            } else {
+                // Set main category
+                mainCatSelect.value = classification.category;
+                mainCatSelect.dispatchEvent(new Event('change'));
                 
-                // Show confidence indicator
-                const confidenceText = `AI Confidence: ${classification.confidence}% (${classification.method})`;
-                displayAIConfidence(confidenceText, classification.confidence);
-            }, 100);
+                // Wait for subcategories to load, then set subcategory
+                setTimeout(() => {
+                    subCatSelect.value = classification.subcategory;
+                    
+                    // Show confidence indicator
+                    const confidenceText = `AI Confidence: ${classification.confidence}% (${classification.method})`;
+                    displayAIConfidence(confidenceText, classification.confidence);
+                }, 100);
+            }
+        }
+    }
+    
+    function showCreateCategoryModal(classification) {
+        // Store classification for use in saveNewCategory
+        window.pendingClassification = classification;
+        
+        // Populate modal fields
+        document.getElementById('newCategoryName').value = classification.category;
+        document.getElementById('newSubCategoryName').value = classification.subcategory;
+        document.getElementById('useAISuggestion').checked = true;
+        document.getElementById('customCategoryInputs').style.display = 'none';
+        document.getElementById('customCategoryName').value = '';
+        document.getElementById('customSubCategoryName').value = '';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('createCategoryModal'));
+        modal.show();
+    }
+    
+    // Toggle between AI suggestion and custom input
+    document.addEventListener('DOMContentLoaded', function() {
+        const useAISuggestion = document.getElementById('useAISuggestion');
+        if (useAISuggestion) {
+            useAISuggestion.addEventListener('change', function() {
+                const customInputs = document.getElementById('customCategoryInputs');
+                if (this.checked) {
+                    customInputs.style.display = 'none';
+                    document.getElementById('newCategoryName').style.display = 'block';
+                    document.getElementById('newSubCategoryName').style.display = 'block';
+                } else {
+                    customInputs.style.display = 'block';
+                    document.getElementById('newCategoryName').style.display = 'none';
+                    document.getElementById('newSubCategoryName').style.display = 'none';
+                }
+            });
+        }
+    });
+    
+    async function saveNewCategory() {
+        const useAISuggestion = document.getElementById('useAISuggestion').checked;
+        let categoryName, subCategoryName;
+        
+        if (useAISuggestion) {
+            categoryName = document.getElementById('newCategoryName').value.trim();
+            subCategoryName = document.getElementById('newSubCategoryName').value.trim();
+        } else {
+            categoryName = document.getElementById('customCategoryName').value.trim();
+            subCategoryName = document.getElementById('customSubCategoryName').value.trim();
+        }
+        
+        if (!categoryName || !subCategoryName) {
+            alert('Please enter both category name and sub-category name');
+            return;
+        }
+        
+        try {
+            // Save to backend
+            const response = await fetch(`${API_BASE}/api/categories/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    category_name: categoryName,
+                    subcategory_name: subCategoryName
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Add to local categoryMapping
+                categoryMapping[categoryName] = [subCategoryName];
+                
+                // Add option to main category select
+                const mainCatSelect = document.getElementById('productMainCategory');
+                if (mainCatSelect) {
+                    const option = document.createElement('option');
+                    option.value = categoryName;
+                    option.textContent = categoryName;
+                    mainCatSelect.appendChild(option);
+                }
+                
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('createCategoryModal')).hide();
+                
+                // Apply the classification
+                const classification = window.pendingClassification;
+                const subCatSelect = document.getElementById('productSubCategory');
+                
+                if (mainCatSelect && subCatSelect) {
+                    mainCatSelect.value = categoryName;
+                    mainCatSelect.dispatchEvent(new Event('change'));
+                    
+                    setTimeout(() => {
+                        subCatSelect.value = subCategoryName;
+                        const confidenceText = `AI Confidence: ${classification.confidence}% (${classification.method})`;
+                        displayAIConfidence(confidenceText, classification.confidence);
+                    }, 100);
+                }
+                
+                // Show success message
+                alert(`✅ Category "${categoryName}" with sub-category "${subCategoryName}" created successfully!`);
+            } else {
+                alert('Error creating category: ' + (result.message || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error saving category:', error);
+            alert('Error creating category. Please try again.');
         }
     }
     

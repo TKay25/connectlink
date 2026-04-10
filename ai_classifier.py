@@ -32,8 +32,8 @@ class ProductCategoryClassifier:
                              "Hack Saws", "Drill Bits", "Concrete Drill Bits", "Flicker Machine", 
                              "Torque Wrench", "Wheel Barrows"],
             "Finishing & Painting Tools": ["Paint Brushes", "Rolling Brush", "Flicker Brush", 
-                                          "Trowels", "Floats", "Wooden Float", "Jointers"],
-            "Paint & Coatings": ["Paint", "Spray Paint"],
+                                          "Trowels", "Floats", "Wooden Float", "Jointers", "Wood Chisel", "Nylon Brush"],
+            "Paint & Coatings": ["Paint", "Spray Paint", "Primer", "Wood Stain", "Masonry Paint", "Cement Paint"],
             "Hardware": ["Door Locks", "Lock Sets", "Flash Doors", "White Button Doors", "Boxes", 
                         "Flush Boxes", "Hinges", "Handles", "Metal Clamps", "Fischer Plugs", 
                         "Security Sticks"],
@@ -50,6 +50,15 @@ class ProductCategoryClassifier:
             "Pest Control": ["Termite Poison"],
             "Belts & Straps": ["Truck Belts"],
             "Aluminium": ["Aluminium", "Aluminium Saws"],
+            "Electrical Switches & Controls": ["MCB Switch", "Dimmer Switch", "Motion Sensor", 
+                                               "Tripper Armature", "Gang Switch", "Electrical Switch"],
+            "Electrical Components": ["Cable Gland", "Armature Coil", "Metal Gland", "Tripper", 
+                                      "2-head Metal Gland", "Lead Seal"],
+            "Building Board & Sheeting": ["Plaster Board", "Bakelite Sheet", "Door Frame", "Profile Board", 
+                                          "Cover Board", "Cement Board"],
+            "Plumbing Accessories": ["Pipe Bending Spring", "Lead Seal", "Compression Joint", 
+                                     "Copper Pipe", "Paper Joint", "Hacksaw Frame", "Hacksaw Blade"],
+            "Equipment & Machinery": ["JCB Jockey", "JCB JF-5", "Pendant Box"],
             "Other": ["Other"]
         }
         
@@ -231,6 +240,29 @@ class ProductCategoryClassifier:
 
 # Initialize classifier instance
 classifier = ProductCategoryClassifier()
+
+
+def add_dynamic_category(category_name: str, subcategory_items: List[str]) -> bool:
+    """
+    Dynamically add a new category to the classifier
+    
+    Usage:
+        add_dynamic_category("Smart Home", ["Smart Lights", "Smart Switches"])
+    
+    Returns:
+        bool: True if successfully added, False otherwise
+    """
+    try:
+        classifier.category_mapping[category_name] = subcategory_items
+        # Add keywords for the new category (using first subcategory as keywords)
+        classifier.category_keywords[category_name] = [
+            word.lower() for subcategory in subcategory_items[:2]
+            for word in subcategory.split()
+        ]
+        return True
+    except Exception as e:
+        print(f"Error adding dynamic category: {str(e)}")
+        return False
 
 
 def classify_product(product_name: str, description: str = "") -> Dict:
