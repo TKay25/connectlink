@@ -40,6 +40,7 @@ import hashlib
 from functools import wraps
 from psycopg2.extras import RealDictCursor
 import pytz
+from ai_classifier import classify_product, get_category_suggestions
 
 
 
@@ -8777,6 +8778,131 @@ def subtract_stock(product_id):
     except Exception as e:
         print(f"Error subtracting stock: {str(e)}")
         return jsonify({'error': 'Failed to subtract stock', 'details': str(e)}), 500
+
+# ==================== AI PRODUCT CLASSIFICATION ====================
+
+@app.route('/api/ai/classify-product', methods=['POST'])
+@login_required
+def ai_classify_product():
+    """
+    AI endpoint to automatically classify a product into category & subcategory
+    
+    Request body:
+    {
+        "product_name": "LED Bulb 60W",
+        "description": "Warm white, energy efficient"
+    }
+    
+    Response:
+    {
+        "category": "Electrical",
+        "subcategory": "LED Lights",
+        "confidence": 92,
+        "method": "exact_match"
+    }
+    """
+    try:
+        data = request.json
+        product_name = data.get('product_name', '').strip()
+        description = data.get('description', '').strip()
+        
+        if not product_name:
+            return jsonify({'error': 'Product name is required'}), 400
+        
+        # Get AI classification
+        result = classify_product(product_name, description)
+        
+        return jsonify({
+            'success': True,
+            'classification': result
+        })
+    
+    except Exception as e:
+        print(f"AI Classification Error: {str(e)}")
+        return jsonify({
+            'error': 'Classification failed',
+            'details': str(e),
+            'category': 'Other',
+            'subcategory': 'Other'
+        }), 500
+
+
+@app.route('/api/ai/category-suggestions', methods=['GET'])
+@login_required
+def ai_category_suggestions():
+    """
+    Get category suggestions as user types product name (autocomplete)
+    
+    Query params:
+    - partial_name: Partial product name to match
+    - limit: Max suggestions (default: 3)
+    
+    Response:
+    {
+        "suggestions": [
+            {
+                "name": "Screwdrivers",
+                "category": "General Tools",
+                "match_score": 95
+            }
+        ]
+    }
+    """
+    try:
+        partial_name = request.args.get('partial_name', '').strip()
+        limit = request.args.get('limit', 3, type=int)
+        
+        if len(partial_name) < 2:
+            return jsonify({'suggestions': []})
+        
+        suggestions = get_category_suggestions(partial_name)
+        
+        return jsonify({
+            'success': True,
+            'suggestions': suggestions[:limit]
+        })
+    
+    except Exception as e:
+        print(f"Category Suggestions Error: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get suggestions',
+            'details': str(e),
+            'suggestions': []
+        }), 500
+
+
+@app.route('/api/ai/test-classifier', methods=['GET'])
+def test_ai_classifier():
+    """
+    Test endpoint to verify AI classifier is working (no auth required)
+    Returns test results
+    """
+    try:
+        test_products = [
+            ("Titanium Screwdriver", "Phillips head, magnetic tip"),
+            ("LED Bulb 60W", "Warm white, energy efficient"),
+            ("Chrome Door Lock", "Heavy duty, security lock"),
+        ]
+        
+        results = []
+        for product_name, description in test_products:
+            classification = classify_product(product_name, description)
+            results.append({
+                'product_name': product_name,
+                'classification': classification
+            })
+        
+        return jsonify({
+            'success': True,
+            'test_results': results,
+            'message': 'AI Classifier is working correctly!'
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 # ==================== TRANSACTION MANAGEMENT ====================
 

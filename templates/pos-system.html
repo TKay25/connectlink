@@ -2107,6 +2107,124 @@
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', initializeCategoryDropdowns);
 
+    // ==================== AI PRODUCT CLASSIFIER ====================
+    
+    /**
+     * AI-powered product name to category classifier
+     * Automatically suggests category/subcategory as user enters product name
+     */
+    
+    let aiClassificationTimeout;
+    const aiSuggestionsCache = {};
+    
+    async function getAIProductClassification(productName, description = "") {
+        """Get AI classification for a product"""
+        if (!productName || productName.length < 2) return null;
+        
+        const cacheKey = `${productName}:${description}`;
+        if (aiSuggestionsCache[cacheKey]) {
+            return aiSuggestionsCache[cacheKey];
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}/api/ai/classify-product`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    product_name: productName,
+                    description: description
+                })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                aiSuggestionsCache[cacheKey] = result.classification;
+                return result.classification;
+            }
+        } catch (error) {
+            console.log('AI Classification error (non-critical):', error);
+        }
+        return null;
+    }
+    
+    function applyAIClassification(classification) {
+        """Apply AI classification to the Add Product form"""
+        if (!classification) return;
+        
+        const mainCatSelect = document.getElementById('productMainCategory');
+        const subCatSelect = document.getElementById('productSubCategory');
+        
+        if (mainCatSelect && subCatSelect) {
+            // Set main category
+            mainCatSelect.value = classification.category;
+            mainCatSelect.dispatchEvent(new Event('change'));
+            
+            // Wait for subcategories to load, then set subcategory
+            setTimeout(() => {
+                subCatSelect.value = classification.subcategory;
+                
+                // Show confidence indicator
+                const confidenceText = `AI Confidence: ${classification.confidence}% (${classification.method})`;
+                displayAIConfidence(confidenceText, classification.confidence);
+            }, 100);
+        }
+    }
+    
+    function displayAIConfidence(text, confidence) {
+        """Display AI confidence score near category dropdowns"""
+        let badge = document.getElementById('aiConfidenceBadge');
+        
+        if (!badge) {
+            const mainCatDiv = document.getElementById('productMainCategory')?.parentElement;
+            if (mainCatDiv) {
+                badge = document.createElement('small');
+                badge.id = 'aiConfidenceBadge';
+                badge.style.cssText = 'display: block; margin-top: 5px; padding: 5px; border-radius: 3px;';
+                mainCatDiv.appendChild(badge);
+            }
+        }
+        
+        if (badge) {
+            const color = confidence >= 80 ? '#198754' : confidence >= 50 ? '#ffc107' : '#dc2626';
+            badge.style.color = color;
+            badge.style.backgroundColor = color + '20';
+            badge.innerHTML = `<i class="bi bi-robot"></i> ${text}`;
+        }
+    }
+    
+    // Setup AI classification when product name input changes
+    document.addEventListener('DOMContentLoaded', function() {
+        const productNameInput = document.getElementById('productName');
+        if (productNameInput) {
+            productNameInput.addEventListener('blur', async function() {
+                clearTimeout(aiClassificationTimeout);
+                const productName = this.value.trim();
+                
+                if (productName.length >= 2) {
+                    // Get description if available
+                    const descInput = document.getElementById('productDescription');
+                    const description = descInput ? descInput.value.trim() : "";
+                    
+                    // Call AI classifier
+                    const classification = await getAIProductClassification(productName, description);
+                    if (classification) {
+                        applyAIClassification(classification);
+                    }
+                }
+            });
+            
+            // Also offer suggestions as user types (optional - for future autocomplete)
+            productNameInput.addEventListener('input', function() {
+                clearTimeout(aiClassificationTimeout);
+                /**
+                 * Optionally debounce and show suggestions as user types
+                 * This could be enhanced to show a dropdown of similar products
+                 */
+            });
+        }
+    });
+
 // Store filtered data for exports
 let currentAllProductsData = [];
 let currentLowStockData = [];
