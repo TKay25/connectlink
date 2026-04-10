@@ -3385,7 +3385,7 @@ def webhook():
                                                                             status,
                                                                             username
                                                                         FROM connectlinkenquiries 
-                                                                        ORDER BY timestamp DESC
+                                                                        ORDER BY id DESC
                                                                     """)
                                                                     rows = cursor.fetchall()
                                                                     
@@ -11934,7 +11934,7 @@ def run1(userid):
         today_date = datetime.now().strftime('%d %B %Y')
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
-        enquiriesdataquery = f"SELECT * FROM connectlinkenquiries;"
+        enquiriesdataquery = f"SELECT * FROM connectlinkenquiries ORDER BY id DESC;"
         cursor.execute(enquiriesdataquery)
         enquiriesdata = cursor.fetchall()
         print(enquiriesdata)
@@ -12640,7 +12640,7 @@ def get_enquiries_data():
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
                        plan IS NOT NULL as has_plan, status, username
                 FROM connectlinkenquiries 
-                ORDER BY timestamp DESC
+                ORDER BY id DESC
             """)
             enquiries = cursor.fetchall()
             
