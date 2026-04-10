@@ -28,6 +28,13 @@ class ImprovedProductClassifier:
             'switch': ['electric', 'socket', 'outlet', 'breaker', 'panel']
         }
         
+        # BRAND RECOGNITION - Major electrical brands
+        self.electrical_brands = [
+            'chint', 'schneider', 'siemens', 'legrand', 'abb', 'eaton', 
+            'ge', 'cutler-hammer', 'delixi', 'delixi-electric',
+            'phoenix', 'phoenix-contact', 'carlo-gavazzi'
+        ]
+        
         # Categories and their keywords
         self.category_keywords = {
             'Electrical': [
