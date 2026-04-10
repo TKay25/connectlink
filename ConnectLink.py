@@ -12640,8 +12640,7 @@ def get_enquiries_data():
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
                        plan IS NOT NULL as has_plan, status, username
                 FROM connectlinkenquiries 
-                ORDER BY timestamp DESC 
-                LIMIT 15
+                ORDER BY timestamp DESC
             """)
             enquiries = cursor.fetchall()
             
