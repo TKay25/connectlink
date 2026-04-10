@@ -800,7 +800,128 @@ def initialize_database_tables():
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
 
+def migrate_product_categories():
+    """Migrate existing products to new category structure"""
+    try:
+        print("🔄 Migrating product categories...")
+        
+        with get_db() as (cursor, connection):
+            # Check if migration has already been done
+            cursor.execute("""
+                SELECT COUNT(*) FROM products 
+                WHERE category IN ('General Tools', 'Finishing & Painting Tools', 'Paint & Coatings', 
+                                   'Safety Equipment', 'Cleaning Supplies', 'Kitchen & Bathroom',
+                                   'Appliances', 'Cookware & Pots')
+            """)
+            migrated_count = cursor.fetchone()[0]
+            
+            if migrated_count > 0:
+                print("✅ Categories already migrated, skipping...")
+                return
+            
+            # Define category mappings
+            category_map = {
+                # Paint-related items
+                'Paint Brushes': 'Finishing & Painting Tools',
+                'Rolling Brush': 'Finishing & Painting Tools',
+                'Flicker Brush': 'Finishing & Painting Tools',
+                'Trowels': 'Finishing & Painting Tools',
+                'Floats': 'Finishing & Painting Tools',
+                'Wooden Float': 'Finishing & Painting Tools',
+                'Jointers': 'Finishing & Painting Tools',
+                
+                # Paint/Coatings
+                'Paint': 'Paint & Coatings',
+                'Spray Paint': 'Paint & Coatings',
+                'Lime Green': 'Paint & Coatings',
+                
+                # Tools stay as General Tools (unless above)
+                'Hammers': 'General Tools',
+                'Claw Hammer': 'General Tools',
+                'Chasing Hammer': 'General Tools',
+                'Hammer Heads': 'General Tools',
+                'Shovel': 'General Tools',
+                'Spade': 'General Tools',
+                'Screwdrivers': 'General Tools',
+                'Allen Keys': 'General Tools',
+                'Spanners': 'General Tools',
+                'Shifting Spanner': 'General Tools',
+                'Pliers': 'General Tools',
+                'Side Cutters': 'General Tools',
+                'Cutters': 'General Tools',
+                'Saws': 'General Tools',
+                'Hack Saws': 'General Tools',
+                'Drill Bits': 'General Tools',
+                'Concrete Drill Bits': 'General Tools',
+                'Flicker Machine': 'General Tools',
+                'Torque Wrench': 'General Tools',
+                'Wheel Barrows': 'General Tools',
+                
+                # Safety category
+                'Gloves': 'Safety Equipment',
+                'Glass Gloves': 'Safety Equipment',
+                'PVC Gloves': 'Safety Equipment',
+                'Goggles': 'Safety Equipment',
+                'Masks': 'Safety Equipment',
+                'Hard Hats': 'Safety Equipment',
+                
+                # Cleaning category
+                'Brooms': 'Cleaning Supplies',
+                'Square Brooms': 'Cleaning Supplies',
+                'Flat Brooms': 'Cleaning Supplies',
+                'Mops': 'Cleaning Supplies',
+                'Rakes': 'Cleaning Supplies',
+                
+                # Kitchen & Bathroom
+                'Shower Mixers': 'Kitchen & Bathroom',
+                'Basin': 'Kitchen & Bathroom',
+                'Pan Connectors': 'Kitchen & Bathroom',
+                'S-Trap': 'Kitchen & Bathroom',
+                'P-Trap': 'Kitchen & Bathroom',
+                
+                # Appliances
+                'Stove': 'Appliances',
+                'Oven': 'Appliances',
+                
+                # Pots & Cookware
+                'Garden Pots': 'Cookware & Pots',
+                'Gainstar Pots': 'Cookware & Pots',
+                'Maifam Pots': 'Cookware & Pots',
+                'Cast Iron Pots': 'Cookware & Pots',
+            }
+            
+            # Update products with mapped categories
+            for old_category, new_category in category_map.items():
+                cursor.execute("""
+                    UPDATE products 
+                    SET category = %s
+                    WHERE category = %s
+                """, (new_category, old_category))
+                connection.commit()
+            
+            # Rename remaining old categories
+            old_to_new = {
+                'Bathroom & Kitchen': 'Kitchen & Bathroom',
+                'Cleaning': 'Cleaning Supplies',
+                'Safety': 'Safety Equipment',
+                'Garden & Pots': 'Cookware & Pots',
+            }
+            
+            for old, new in old_to_new.items():
+                cursor.execute("""
+                    UPDATE products 
+                    SET category = %s
+                    WHERE category = %s
+                """, (new, old))
+                connection.commit()
+            
+            print("✅ Product categories migrated successfully!")
+            
+    except Exception as e:
+        print(f"⚠️ Category migration error: {e}")
+
 initialize_database_tables()
+migrate_product_categories()
 
 
 

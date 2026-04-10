@@ -6,6 +6,7 @@
     <title>Connect Link Hardware | POS System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
@@ -1822,166 +1823,39 @@
                     <input type="text" class="form-control" id="editProductName" required>
                 </div>
                 
-                <div class="mb-3">
-                    <label class="form-label">Category *</label>
-                    <select class="form-select" id="editProductCategory">
-                        <optgroup label="Gas Products">
-                            <option value="Gas Tanks">Gas Tanks</option>
-                            <option value="Gas Regulators">Gas Regulators</option>
-                        </optgroup>
-                        <optgroup label="Building Materials">
-                            <option value="Brickforce">Brickforce</option>
-                            <option value="DPC">DPC</option>
-                            <option value="Plastic">Plastic</option>
-                            <option value="Wire Mesh">Wire Mesh</option>
-                            <option value="Edge Strips">Edge Strips</option>
-                            <option value="Barbed Wire">Barbed Wire</option>
-                            <option value="Rope">Rope</option>
-                            <option value="Sand Paper">Sand Paper</option>
-                        </optgroup>
-                        <optgroup label="Electrical">
-                            <option value="Cables">Cables</option>
-                            <option value="Conduit">Conduit</option>
-                            <option value="Switches">Switches</option>
-                            <option value="Sockets">Sockets</option>
-                            <option value="Breakers">Breakers</option>
-                            <option value="Magnetic Breakers">Magnetic Breakers</option>
-                            <option value="Meter Boxes">Meter Boxes</option>
-                            <option value="Insulation Tape">Insulation Tape</option>
-                            <option value="Lampholders">Lampholders</option>
-                            <option value="LED Lights">LED Lights</option>
-                            <option value="Earth Rods">Earth Rods</option>
-                            <option value="Cable Terminals">Cable Terminals</option>
-                            <option value="Gang Switches">Gang Switches</option>
-                            <option value="Cooker Units">Cooker Units</option>
-                        </optgroup>
-                        <optgroup label="Measuring Tools">
-                            <option value="Measuring Tools">Measuring Tools</option>
-                            <option value="Tape Measures">Tape Measures</option>
-                            <option value="Spirit Level">Spirit Level</option>
-                            <option value="Straight Edge">Straight Edge</option>
-                        </optgroup>
-                        <optgroup label="Plumbing">
-                            <option value="Pipes">Pipes</option>
-                            <option value="Pipe Fittings">Pipe Fittings</option>
-                            <option value="Bends">Bends</option>
-                            <option value="Tees">Tees</option>
-                            <option value="Traps">Traps</option>
-                            <option value="Flexi Pipes">Flexi Pipes</option>
-                            <option value="Silicone">Silicone</option>
-                            <option value="Hose Pipe">Hose Pipe</option>
-                            <option value="Angle Valves">Angle Valves</option>
-                            <option value="Saddles">Saddles</option>
-                            <option value="Glass Pipes">Glass Pipes</option>
-                        </optgroup>
-                        <optgroup label="Tools">
-                            <option value="Hammers">Hammers</option>
-                            <option value="Claw Hammer">Claw Hammer</option>
-                            <option value="Chasing Hammer">Chasing Hammer</option>
-                            <option value="Hammer Heads">Hammer Heads</option>
-                            <option value="Shovel">Shovel</option>
-                            <option value="Spade">Spade</option>
-                            <option value="Screwdrivers">Screwdrivers</option>
-                            <option value="Allen Keys">Allen Keys</option>
-                            <option value="Spanners">Spanners</option>
-                            <option value="Shifting Spanner">Shifting Spanner</option>
-                            <option value="Pliers">Pliers</option>
-                            <option value="Side Cutters">Side Cutters</option>
-                            <option value="Cutters">Cutters</option>
-                            <option value="Saws">Saws</option>
-                            <option value="Hack Saws">Hack Saws</option>
-                            <option value="Drill Bits">Drill Bits</option>
-                            <option value="Concrete Drill Bits">Concrete Drill Bits</option>
-                            <option value="Trowels">Trowels</option>
-                            <option value="Floats">Floats</option>
-                            <option value="Jointers">Jointers</option>
-                            <option value="Paint Brushes">Paint Brushes</option>
-                            <option value="Rolling Brush">Rolling Brush</option>
-                            <option value="Flicker Brush">Flicker Brush</option>
-                            <option value="Flicker Machine">Flicker Machine</option>
-                            <option value="Torque Wrench">Torque Wrench</option>
-                            <option value="Wheel Barrows">Wheel Barrows</option>
-                            <option value="Wooden Float">Wooden Float</option>
-                        </optgroup>
-                        <optgroup label="Hardware">
-                            <option value="Door Locks">Door Locks</option>
-                            <option value="Lock Sets">Lock Sets</option>
-                            <option value="Flash Doors">Flash Doors</option>
-                            <option value="White Button Doors">White Button Doors</option>
-                            <option value="Boxes">Boxes</option>
-                            <option value="Flush Boxes">Flush Boxes</option>
-                            <option value="Hinges">Hinges</option>
-                            <option value="Handles">Handles</option>
-                            <option value="Metal Clamps">Metal Clamps</option>
-                            <option value="Fischer Plugs">Fischer Plugs</option>
-                            <option value="Security Sticks">Security Sticks</option>
-                        </optgroup>
-                        <optgroup label="Blankets & Comforters">
-                            <option value="Light Blanket">Light Blanket</option>
-                            <option value="Medium Blanket">Medium Blanket</option>
-                            <option value="Heavy Blanket">Heavy Blanket</option>
-                            <option value="Li View Comforters">Li View Comforters</option>
-                        </optgroup>
-                        <optgroup label="Fasteners">
-                            <option value="Screws">Screws</option>
-                            <option value="Nails">Nails</option>
-                            <option value="Wire Nails">Wire Nails</option>
-                            <option value="Bolts">Bolts</option>
-                            <option value="Basin Bolts">Basin Bolts</option>
-                            <option value="Washers">Washers</option>
-                            <option value="Nuts">Nuts</option>
-                            <option value="Anchors">Anchors</option>
-                            <option value="Epoxy Steel">Epoxy Steel</option>
-                        </optgroup>
-                        <optgroup label="Bathroom & Kitchen">
-                            <option value="Shower Mixers">Shower Mixers</option>
-                            <option value="Basin">Basin</option>
-                            <option value="Pan Connectors">Pan Connectors</option>
-                            <option value="S-Trap">S-Trap</option>
-                            <option value="P-Trap">P-Trap</option>
-                            <option value="Stove">Stove</option>
-                            <option value="Oven">Oven</option>
-                        </optgroup>
-                        <optgroup label="Garden & Pots">
-                            <option value="Garden Pots">Garden Pots</option>
-                            <option value="Gainstar Pots">Gainstar Pots</option>
-                            <option value="Maifam Pots">Maifam Pots</option>
-                            <option value="Cast Iron Pots">Cast Iron Pots</option>
-                        </optgroup>
-                        <optgroup label="Paint">
-                            <option value="Paint">Paint</option>
-                            <option value="Spray Paint">Spray Paint</option>
-                            <option value="Lime Green">Lime Green</option>
-                        </optgroup>
-                        <optgroup label="Safety">
-                            <option value="Gloves">Gloves</option>
-                            <option value="Glass Gloves">Glass Gloves</option>
-                            <option value="PVC Gloves">PVC Gloves</option>
-                            <option value="Goggles">Goggles</option>
-                            <option value="Masks">Masks</option>
-                            <option value="Hard Hats">Hard Hats</option>
-                        </optgroup>
-                        <optgroup label="Cleaning">
-                            <option value="Brooms">Brooms</option>
-                            <option value="Square Brooms">Square Brooms</option>
-                            <option value="Flat Brooms">Flat Brooms</option>
-                            <option value="Mops">Mops</option>
-                            <option value="Rakes">Rakes</option>
-                        </optgroup>
-                        <optgroup label="Pest Control">
-                            <option value="Termite Poison">Termite Poison</option>
-                        </optgroup>
-                        <optgroup label="Belts & Straps">
-                            <option value="Truck Belts">Truck Belts</option>
-                        </optgroup>
-                        <optgroup label="Aluminium">
-                            <option value="Aluminium">Aluminium</option>
-                            <option value="Aluminium Saws">Aluminium Saws</option>
-                        </optgroup>
-                        <optgroup label="Other">
-                            <option value="Other">Other</option>
-                        </optgroup>
-                    </select>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Main Category *</label>
+                        <select class="form-select" id="editProductMainCategory">
+                            <option value="">-- Select Category --</option>
+                            <option value="Gas Products"><i class="bi bi-fire"></i> Gas Products</option>
+                            <option value="Building Materials"><i class="bi bi-bricks"></i> Building Materials</option>
+                            <option value="Electrical"><i class="bi bi-lightning-charge"></i> Electrical</option>
+                            <option value="Measuring Tools"><i class="bi bi-rulers"></i> Measuring Tools</option>
+                            <option value="Plumbing"><i class="bi bi-water"></i> Plumbing</option>
+                            <option value="General Tools"><i class="bi bi-hammer"></i> General Tools</option>
+                            <option value="Finishing & Painting Tools"><i class="bi bi-brush"></i> Finishing & Painting Tools</option>
+                            <option value="Paint & Coatings"><i class="bi bi-palette"></i> Paint & Coatings</option>
+                            <option value="Hardware"><i class="bi bi-wrench"></i> Hardware</option>
+                            <option value="Fasteners"><i class="bi bi-pin"></i> Fasteners</option>
+                            <option value="Safety Equipment"><i class="bi bi-shield-check"></i> Safety Equipment</option>
+                            <option value="Cleaning Supplies"><i class="bi bi-broom"></i> Cleaning Supplies</option>
+                            <option value="Kitchen & Bathroom"><i class="bi bi-water"></i> Kitchen & Bathroom</option>
+                            <option value="Appliances"><i class="bi bi-lightning"></i> Appliances</option>
+                            <option value="Cookware & Pots"><i class="bi bi-cup-hot"></i> Cookware & Pots</option>
+                            <option value="Blankets & Comforters"><i class="bi bi-layers"></i> Blankets & Comforters</option>
+                            <option value="Pest Control"><i class="bi bi-bug"></i> Pest Control</option>
+                            <option value="Belts & Straps"><i class="bi bi-diagram-3"></i> Belts & Straps</option>
+                            <option value="Aluminium"><i class="bi bi-box"></i> Aluminium</option>
+                            <option value="Other"><i class="bi bi-question-circle"></i> Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Sub-Category *</label>
+                        <select class="form-select" id="editProductSubCategory">
+                            <option value="">-- Select Sub-Category --</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2011,186 +1885,35 @@
                             <div id="productNameSuggestions" class="autocomplete-items"></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="productCategory">Category *</label>
-                            <select class="form-select" id="productCategory">
-                                <optgroup label="Gas Products">
-                                    <option value="Gas Tanks">Gas Tanks</option>
-                                    <option value="Gas Regulators">Gas Regulators</option>
-                                </optgroup>
-                                
-                                <optgroup label="Building Materials">
-                                    <option value="Brickforce">Brickforce</option>
-                                    <option value="DPC">DPC</option>
-                                    <option value="Plastic">Plastic</option>
-                                    <option value="Wire Mesh">Wire Mesh</option>
-                                    <option value="Edge Strips">Edge Strips</option>
-                                    <option value="Barbed Wire">Barbed Wire</option>
-                                    <option value="Rope">Rope</option>
-                                    <option value="Sand Paper">Sand Paper</option>
-                                </optgroup>
-                                
-                                <optgroup label="Electrical">
-                                    <option value="Cables">Cables</option>
-                                    <option value="Conduit">Conduit</option>
-                                    <option value="Couplings">Couplings</option>
-                                    <option value="Cover Boxes">Cover Boxes</option>
-                                    <option value="Round Boxes">Round Boxes</option>
-                                    <option value="Switches">Switches</option>
-                                    <option value="Sockets">Sockets</option>
-                                    <option value="Breakers">Breakers</option>
-                                    <option value="Magnetic Breakers">Magnetic Breakers</option>
-                                    <option value="Meter Boxes">Meter Boxes</option>
-                                    <option value="Insulation Tape">Insulation Tape</option>
-                                    <option value="Lampholders">Lampholders</option>
-                                    <option value="LED Lights">LED Lights</option>
-                                    <option value="Earth Rods">Earth Rods</option>
-                                    <option value="Cable Terminals">Cable Terminals</option>
-                                    <option value="Gang Switches">Gang Switches</option>
-                                    <option value="Cooker Units">Cooker Units</option>
-                                </optgroup>
-
-                                <optgroup label="Measuring Tools">
-                                    <option value="Tape Measures">Tape Measures</option>
-                                    <option value="Spirit Level">Spirit Level</option>
-                                    <option value="Straight Edge">Straight Edge</option>
-                                </optgroup>
-                                
-                                <optgroup label="Plumbing">
-                                    <option value="Pipes">Pipes</option>
-                                    <option value="Pipe Fittings">Pipe Fittings</option>
-                                    <option value="Bends">Bends</option>
-                                    <option value="Tees">Tees</option>
-                                    <option value="Traps">Traps</option>
-                                    <option value="Flexi Pipes">Flexi Pipes</option>
-                                    <option value="Silicone">Silicone</option>
-                                    <option value="Hose Pipe">Hose Pipe</option>
-                                    <option value="Angle Valves">Angle Valves</option>
-                                    <option value="Saddles">Saddles</option>
-                                    <option value="Glass Pipes">Glass Pipes</option>
-                                </optgroup>
-                                
-                                <optgroup label="Tools">
-                                    <option value="Hammers">Hammers</option>
-                                    <option value="Claw Hammer">Claw Hammer</option>
-                                    <option value="Chasing Hammer">Chasing Hammer</option>
-                                    <option value="Hammer Heads">Hammer Heads</option>
-                                    <option value="Measuring Tools">Measuring Tools</option>
-                                    <option value="Tape Measures">Tape Measures</option>
-                                    <option value="Spirit Level">Spirit Level</option>
-                                    <option value="Shovel">Shovel</option>
-                                    <option value="Spade">Spade</option>
-                                    <option value="Screwdrivers">Screwdrivers</option>
-                                    <option value="Allen Keys">Allen Keys</option>
-                                    <option value="Spanners">Spanners</option>
-                                    <option value="Shifting Spanner">Shifting Spanner</option>
-                                    <option value="Pliers">Pliers</option>
-                                    <option value="Side Cutters">Side Cutters</option>
-                                    <option value="Cutters">Cutters</option>
-                                    <option value="Saws">Saws</option>
-                                    <option value="Hack Saws">Hack Saws</option>
-                                    <option value="Drill Bits">Drill Bits</option>
-                                    <option value="Concrete Drill Bits">Concrete Drill Bits</option>
-                                    <option value="Trowels">Trowels</option>
-                                    <option value="Floats">Floats</option>
-                                    <option value="Jointers">Jointers</option>
-                                    <option value="Paint Brushes">Paint Brushes</option>
-                                    <option value="Rolling Brush">Rolling Brush</option>
-                                    <option value="Flicker Brush">Flicker Brush</option>
-                                    <option value="Flicker Machine">Flicker Machine</option>
-                                    <option value="Torque Wrench">Torque Wrench</option>
-                                    <option value="Wheel Barrows">Wheel Barrows</option>
-                                    <option value="Wooden Float">Wooden Float</option>
-                                </optgroup>
-                                
-                                <optgroup label="Hardware">
-                                    <option value="Door Locks">Door Locks</option>
-                                    <option value="Lock Sets">Lock Sets</option>
-                                    <option value="Flash Doors">Flash Doors</option>
-                                    <option value="White Button Doors">White Button Doors</option>
-                                    <option value="Boxes">Boxes</option>
-                                    <option value="Flush Boxes">Flush Boxes</option>
-                                    <option value="Hinges">Hinges</option>
-                                    <option value="Handles">Handles</option>
-                                    <option value="Metal Clamps">Metal Clamps</option>
-                                    <option value="Fischer Plugs">Fischer Plugs</option>
-                                    <option value="Security Sticks">Security Sticks</option>
-                                </optgroup>
-
-                                <optgroup label="Blankets & Comforters">
-                                    <option value="Light Blanket">Light Blanket</option>
-                                    <option value="Medium Blanket">Medium Blanket</option>
-                                    <option value="Heavy Blanket">Heavy Blanket</option>
-                                    <option value="Li View Comforters">Li View Comforters</option>
-                                </optgroup>
-
-                                <optgroup label="Fasteners">
-                                    <option value="Screws">Screws</option>
-                                    <option value="Nails">Nails</option>
-                                    <option value="Wire Nails">Wire Nails</option>
-                                    <option value="Bolts">Bolts</option>
-                                    <option value="Basin Bolts">Basin Bolts</option>
-                                    <option value="Washers">Washers</option>
-                                    <option value="Nuts">Nuts</option>
-                                    <option value="Anchors">Anchors</option>
-                                    <option value="Epoxy Steel">Epoxy Steel</option>
-                                </optgroup>
-                                
-                                <optgroup label="Bathroom & Kitchen">
-                                    <option value="Shower Mixers">Shower Mixers</option>
-                                    <option value="Basin">Basin</option>
-                                    <option value="Pan Connectors">Pan Connectors</option>
-                                    <option value="S-Trap">S-Trap</option>
-                                    <option value="P-Trap">P-Trap</option>
-                                    <option value="Stove">Stove</option>
-                                    <option value="Oven">Oven</option>
-                                </optgroup>
-                                
-                                <optgroup label="Garden & Pots">
-                                    <option value="Garden Pots">Garden Pots</option>
-                                    <option value="Gainstar Pots">Gainstar Pots</option>
-                                    <option value="Maifam Pots">Maifam Pots</option>
-                                    <option value="Cast Iron Pots">Cast Iron Pots</option>
-                                </optgroup>
-                                
-                                <optgroup label="Paint">
-                                    <option value="Paint">Paint</option>
-                                    <option value="Spray Paint">Spray Paint</option>
-                                    <option value="Lime Green">Lime Green</option>
-                                </optgroup>
-                                
-                                <optgroup label="Safety">
-                                    <option value="Gloves">Gloves</option>
-                                    <option value="Glass Gloves">Glass Gloves</option>
-                                    <option value="PVC Gloves">PVC Gloves</option>
-                                    <option value="Goggles">Goggles</option>
-                                    <option value="Masks">Masks</option>
-                                    <option value="Hard Hats">Hard Hats</option>
-                                </optgroup>
-                                
-                                <optgroup label="Cleaning">
-                                    <option value="Brooms">Brooms</option>
-                                    <option value="Square Brooms">Square Brooms</option>
-                                    <option value="Flat Brooms">Flat Brooms</option>
-                                    <option value="Mops">Mops</option>
-                                    <option value="Rakes">Rakes</option>
-                                </optgroup>
-                                
-                                <optgroup label="Pest Control">
-                                    <option value="Termite Poison">Termite Poison</option>
-                                </optgroup>
-                                
-                                <optgroup label="Belts & Straps">
-                                    <option value="Truck Belts">Truck Belts</option>
-                                </optgroup>
-                                
-                                <optgroup label="Aluminium">
-                                    <option value="Aluminium">Aluminium</option>
-                                    <option value="Aluminium Saws">Aluminium Saws</option>
-                                </optgroup>
-                                
-                                <optgroup label="Other">
-                                    <option value="Other">Other</option>
-                                </optgroup>
+                            <label class="form-label" for="productMainCategory">Main Category *</label>
+                            <select class="form-select" id="productMainCategory">
+                                <option value="">-- Select Category --</option>
+                                <option value="Gas Products"><i class="bi bi-fire"></i> Gas Products</option>
+                                <option value="Building Materials"><i class="bi bi-bricks"></i> Building Materials</option>
+                                <option value="Electrical"><i class="bi bi-lightning-charge"></i> Electrical</option>
+                                <option value="Measuring Tools"><i class="bi bi-rulers"></i> Measuring Tools</option>
+                                <option value="Plumbing"><i class="bi bi-water"></i> Plumbing</option>
+                                <option value="General Tools"><i class="bi bi-hammer"></i> General Tools</option>
+                                <option value="Finishing & Painting Tools"><i class="bi bi-brush"></i> Finishing & Painting Tools</option>
+                                <option value="Paint & Coatings"><i class="bi bi-palette"></i> Paint & Coatings</option>
+                                <option value="Hardware"><i class="bi bi-wrench"></i> Hardware</option>
+                                <option value="Fasteners"><i class="bi bi-pin"></i> Fasteners</option>
+                                <option value="Safety Equipment"><i class="bi bi-shield-check"></i> Safety Equipment</option>
+                                <option value="Cleaning Supplies"><i class="bi bi-broom"></i> Cleaning Supplies</option>
+                                <option value="Kitchen & Bathroom"><i class="bi bi-water"></i> Kitchen & Bathroom</option>
+                                <option value="Appliances"><i class="bi bi-lightning"></i> Appliances</option>
+                                <option value="Cookware & Pots"><i class="bi bi-cup-hot"></i> Cookware & Pots</option>
+                                <option value="Blankets & Comforters"><i class="bi bi-layers"></i> Blankets & Comforters</option>
+                                <option value="Pest Control"><i class="bi bi-bug"></i> Pest Control</option>
+                                <option value="Belts & Straps"><i class="bi bi-diagram-3"></i> Belts & Straps</option>
+                                <option value="Aluminium"><i class="bi bi-box"></i> Aluminium</option>
+                                <option value="Other"><i class="bi bi-question-circle"></i> Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="productSubCategory">Sub-Category *</label>
+                            <select class="form-select" id="productSubCategory">
+                                <option value="">-- Select Sub-Category --</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -2316,6 +2039,73 @@
 <script>
     // API Base URL
     const API_BASE = window.location.origin;
+
+    // Category & Sub-Category Mapping
+    const categoryMapping = {
+        "Gas Products": ["Gas Tanks", "Gas Regulators"],
+        "Building Materials": ["Brickforce", "DPC", "Plastic", "Wire Mesh", "Edge Strips", "Barbed Wire", "Rope", "Sand Paper"],
+        "Electrical": ["Cables", "Conduit", "Couplings", "Cover Boxes", "Round Boxes", "Switches", "Sockets", "Breakers", "Magnetic Breakers", "Meter Boxes", "Insulation Tape", "Lampholders", "LED Lights", "Earth Rods", "Cable Terminals", "Gang Switches", "Cooker Units"],
+        "Measuring Tools": ["Tape Measures", "Spirit Level", "Straight Edge"],
+        "Plumbing": ["Pipes", "Pipe Fittings", "Bends", "Tees", "Traps", "Flexi Pipes", "Silicone", "Hose Pipe", "Angle Valves", "Saddles", "Glass Pipes"],
+        "General Tools": ["Hammers", "Claw Hammer", "Chasing Hammer", "Hammer Heads", "Shovel", "Spade", "Screwdrivers", "Allen Keys", "Spanners", "Shifting Spanner", "Pliers", "Side Cutters", "Cutters", "Saws", "Hack Saws", "Drill Bits", "Concrete Drill Bits", "Flicker Machine", "Torque Wrench", "Wheel Barrows"],
+        "Finishing & Painting Tools": ["Paint Brushes", "Rolling Brush", "Flicker Brush", "Trowels", "Floats", "Wooden Float", "Jointers"],
+        "Paint & Coatings": ["Paint", "Spray Paint"],
+        "Hardware": ["Door Locks", "Lock Sets", "Flash Doors", "White Button Doors", "Boxes", "Flush Boxes", "Hinges", "Handles", "Metal Clamps", "Fischer Plugs", "Security Sticks"],
+        "Fasteners": ["Screws", "Nails", "Wire Nails", "Bolts", "Basin Bolts", "Washers", "Nuts", "Anchors", "Epoxy Steel"],
+        "Safety Equipment": ["Gloves", "Glass Gloves", "PVC Gloves", "Goggles", "Masks", "Hard Hats"],
+        "Cleaning Supplies": ["Brooms", "Square Brooms", "Flat Brooms", "Mops", "Rakes"],
+        "Kitchen & Bathroom": ["Shower Mixers", "Basin", "Pan Connectors", "S-Trap", "P-Trap"],
+        "Appliances": ["Stove", "Oven"],
+        "Cookware & Pots": ["Garden Pots", "Gainstar Pots", "Maifam Pots", "Cast Iron Pots"],
+        "Blankets & Comforters": ["Light Blanket", "Medium Blanket", "Heavy Blanket", "Li View Comforters"],
+        "Pest Control": ["Termite Poison"],
+        "Belts & Straps": ["Truck Belts"],
+        "Aluminium": ["Aluminium", "Aluminium Saws"],
+        "Other": ["Other"]
+    };
+
+    // Initialize category dropdowns
+    function initializeCategoryDropdowns() {
+        const editMainCat = document.getElementById('editProductMainCategory');
+        const editSubCat = document.getElementById('editProductSubCategory');
+        const addMainCat = document.getElementById('productMainCategory');
+        const addSubCat = document.getElementById('productSubCategory');
+
+        // Edit Product Modal
+        if (editMainCat && editSubCat) {
+            editMainCat.addEventListener('change', function() {
+                const selectedCategory = this.value;
+                editSubCat.innerHTML = '<option value="">-- Select Sub-Category --</option>';
+                if (selectedCategory && categoryMapping[selectedCategory]) {
+                    categoryMapping[selectedCategory].forEach(subCat => {
+                        const option = document.createElement('option');
+                        option.value = subCat;
+                        option.textContent = subCat;
+                        editSubCat.appendChild(option);
+                    });
+                }
+            });
+        }
+
+        // Add Product Modal
+        if (addMainCat && addSubCat) {
+            addMainCat.addEventListener('change', function() {
+                const selectedCategory = this.value;
+                addSubCat.innerHTML = '<option value="">-- Select Sub-Category --</option>';
+                if (selectedCategory && categoryMapping[selectedCategory]) {
+                    categoryMapping[selectedCategory].forEach(subCat => {
+                        const option = document.createElement('option');
+                        option.value = subCat;
+                        option.textContent = subCat;
+                        addSubCat.appendChild(option);
+                    });
+                }
+            });
+        }
+    }
+
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', initializeCategoryDropdowns);
 
 // Store filtered data for exports
 let currentAllProductsData = [];
@@ -2745,7 +2535,25 @@ function openEditProductModal(productId) {
     // Populate form
     document.getElementById('editProductId').value = product.id;
     document.getElementById('editProductName').value = product.name;
-    document.getElementById('editProductCategory').value = product.category;
+    
+    // Find and set the main category and sub-category
+    let mainCategory = null;
+    for (const [mainCat, subCats] of Object.entries(categoryMapping)) {
+        if (subCats.includes(product.category)) {
+            mainCategory = mainCat;
+            break;
+        }
+    }
+    
+    if (mainCategory) {
+        document.getElementById('editProductMainCategory').value = mainCategory;
+        // Trigger change event to populate sub-categories
+        document.getElementById('editProductMainCategory').dispatchEvent(new Event('change'));
+        // Set the sub-category after sub-categories have been populated
+        setTimeout(() => {
+            document.getElementById('editProductSubCategory').value = product.category;
+        }, 0);
+    }
     
     new bootstrap.Modal(document.getElementById('editProductModal')).show();
 }
@@ -2754,7 +2562,7 @@ function openEditProductModal(productId) {
 async function updateProduct() {
     const productId = parseInt(document.getElementById('editProductId').value);
     const name = document.getElementById('editProductName').value;
-    const category = document.getElementById('editProductCategory').value;
+    const category = document.getElementById('editProductSubCategory').value;
     
     if (!name || !category) {
         showToast('Please fill all fields', 'error');
@@ -5168,7 +4976,9 @@ function setupFundingSelection() {
     
     function showAddInventoryModal() {
         document.getElementById('productName').value = '';
-        document.getElementById('productCategory').value = 'Hand Tools';
+        document.getElementById('productMainCategory').value = '';
+        document.getElementById('productSubCategory').value = '';
+        document.getElementById('productSubCategory').innerHTML = '<option value="">-- Select Sub-Category --</option>';
         document.getElementById('unitType').value = 'piece';
         document.getElementById('unitDetails').value = '';
         document.getElementById('productStock').value = '';
@@ -5250,7 +5060,7 @@ function setupAddProductFundingSelection() {
     
     async function addNewProduct() {
         const name = document.getElementById('productName').value;
-        const category = document.getElementById('productCategory').value;
+        const category = document.getElementById('productSubCategory').value;
         const unitType = document.getElementById('unitType').value;
         const unitDetails = document.getElementById('unitDetails').value;
         const buyPrice = parseFloat(document.getElementById('buyPrice').value);
@@ -5337,7 +5147,25 @@ function setupAddProductFundingSelection() {
                     suggestionsDiv.innerHTML = '';
                     const existingProduct = products.find(p => p.name === match);
                     if (existingProduct) {
-                        document.getElementById('productCategory').value = existingProduct.category;
+                        // Find and set the main category and sub-category
+                        let mainCategory = null;
+                        for (const [mainCat, subCats] of Object.entries(categoryMapping)) {
+                            if (subCats.includes(existingProduct.category)) {
+                                mainCategory = mainCat;
+                                break;
+                            }
+                        }
+                        
+                        if (mainCategory) {
+                            document.getElementById('productMainCategory').value = mainCategory;
+                            // Trigger change event to populate sub-categories
+                            document.getElementById('productMainCategory').dispatchEvent(new Event('change'));
+                            // Set the sub-category after sub-categories have been populated
+                            setTimeout(() => {
+                                document.getElementById('productSubCategory').value = existingProduct.category;
+                            }, 0);
+                        }
+                        
                         document.getElementById('unitType').value = existingProduct.unit_type;
                         document.getElementById('unitDetails').value = existingProduct.unit_details || '';
                         document.getElementById('productPrice').value = existingProduct.sell_price;
