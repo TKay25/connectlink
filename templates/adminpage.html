@@ -4670,7 +4670,7 @@ function displayWorkPlans(workPlans) {
         scheduleEnd.setHours(23, 59, 59, 999); // Set to end of day
         
         // Calculate full period cost (no proration)
-        const fullPeriodNetCost = baseCost * (1 - markupPercent / 100);
+        const fullPeriodNetCost = baseCost / (1 + markupPercent / 100);
         totalFullPeriodCost += fullPeriodNetCost;
         
         // ===== CALCULATE BUDGET NEEDED FOR SELECTED PERIOD =====
@@ -4687,14 +4687,14 @@ function displayWorkPlans(workPlans) {
             daysInFilterRange = Math.max(0, Math.min(daysInFilterRange, totalDays));
             
             // Prorate cost for the period
-            budgetForPeriodNetCost = (baseCost / totalDays) * daysInFilterRange * (1 - markupPercent / 100);
+            budgetForPeriodNetCost = (baseCost / totalDays) * daysInFilterRange / (1 + markupPercent / 100);
         }
         totalBudgetForPeriod += budgetForPeriodNetCost;
         
         // Calculate past days (from schedule start to today inclusive)
         const pastDays = Math.floor((today - scheduleStart) / (1000 * 60 * 60 * 24)) + 1;
         const pastDaysInSchedule = Math.max(0, Math.min(pastDays, totalDays));
-        const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule * (1 - markupPercent / 100);
+        const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule / (1 + markupPercent / 100);
         totalPastCost += pastNetCost;
         
         // Calculate future days (from tomorrow to schedule end inclusive, limited to schedule period)
@@ -4713,7 +4713,7 @@ function displayWorkPlans(workPlans) {
             const futureDays = Math.floor((scheduleEndWithTime - futureStart) / (1000 * 60 * 60 * 24)) + 1;
             futureDaysInSchedule = Math.max(0, Math.min(futureDays, totalDays - pastDaysInSchedule));
         }
-        const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
+        const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule / (1 + markupPercent / 100);
         totalFutureCost += futureNetCost;
         
         // Show proration indicator if not all days are included
@@ -4832,7 +4832,7 @@ function filterWorkPlansByTask() {
         scheduleEnd.setHours(23, 59, 59, 999);
         
         // Calculate full period cost (no proration)
-        const fullPeriodNetCost = baseCost * (1 - markupPercent / 100);
+        const fullPeriodNetCost = baseCost / (1 + markupPercent / 100);
         totalFullPeriodCost += fullPeriodNetCost;
         
         // ===== CALCULATE BUDGET NEEDED FOR SELECTED PERIOD =====
@@ -4846,14 +4846,14 @@ function filterWorkPlansByTask() {
             daysInFilterRange = Math.floor((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
             daysInFilterRange = Math.max(0, Math.min(daysInFilterRange, totalDays));
             
-            budgetForPeriodNetCost = (baseCost / totalDays) * daysInFilterRange * (1 - markupPercent / 100);
+            budgetForPeriodNetCost = (baseCost / totalDays) * daysInFilterRange / (1 + markupPercent / 100);
         }
         totalBudgetForPeriod += budgetForPeriodNetCost;
         
         // Calculate past days (from schedule start to today inclusive)
         const pastDays = Math.floor((today - scheduleStart) / (1000 * 60 * 60 * 24)) + 1;
         const pastDaysInSchedule = Math.max(0, Math.min(pastDays, totalDays));
-        const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule * (1 - markupPercent / 100);
+        const pastNetCost = (baseCost / totalDays) * pastDaysInSchedule / (1 + markupPercent / 100);
         totalPastCost += pastNetCost;
         
         // Calculate future days (from tomorrow to schedule end inclusive, limited to schedule period)
@@ -4870,7 +4870,7 @@ function filterWorkPlansByTask() {
             const futureDays = Math.floor((scheduleEndWithTime - futureStart) / (1000 * 60 * 60 * 24)) + 1;
             futureDaysInSchedule = Math.max(0, Math.min(futureDays, totalDays - pastDaysInSchedule));
         }
-        const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule * (1 - markupPercent / 100);
+        const futureNetCost = (baseCost / totalDays) * futureDaysInSchedule / (1 + markupPercent / 100);
         totalFutureCost += futureNetCost;
         
         const hasProration = (pastDaysInSchedule + futureDaysInSchedule) < totalDays;
@@ -4911,7 +4911,7 @@ function exportWorkPlansToExcel(workPlans, totalBaseCost, totalNetCost) {
         
         // Calculate prorated cost
         const proratedBaseCost = (baseCost / totalDays) * daysInFilter;
-        const proratedNetCost = proratedBaseCost * (1 - markupPercent / 100);
+        const proratedNetCost = proratedBaseCost / (1 + markupPercent / 100);
         
         const itemName = plan.itemName ? `${plan.itemName} (${daysInFilter}/${totalDays} days)` : '';
         csvContent += `\"${plan.projectName || ''}\",\"${plan.clientName || ''}\",\"${itemName}\",${plan.startDate || ''},${plan.endDate || ''},${baseCost.toFixed(2)},${markupPercent.toFixed(1)},${proratedNetCost.toFixed(2)}\n`;
@@ -4953,7 +4953,7 @@ function exportWorkPlansToPDF(workPlans, totalBaseCost, totalNetCost) {
         
         // Calculate prorated cost
         const proratedBaseCost = (baseCost / totalDays) * daysInFilter;
-        const proratedNetCost = proratedBaseCost * (1 - markupPercent / 100);
+        const proratedNetCost = proratedBaseCost / (1 + markupPercent / 100);
         
         const itemName = plan.itemName ? `${plan.itemName} (${daysInFilter}/${totalDays}d)` : 'N/A';
         
