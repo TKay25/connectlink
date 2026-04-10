@@ -2210,7 +2210,8 @@
             // Check if category exists in the system
             const categoryExists = classification.category in categoryMapping;
             
-            if (!categoryExists && classification.category !== 'Other') {
+            // Show modal only if: category doesn't exist AND confidence < 90%
+            if (!categoryExists && classification.category !== 'Other' && classification.confidence < 90) {
                 // Show modal to create new category
                 showCreateCategoryModal(classification);
             } else {
