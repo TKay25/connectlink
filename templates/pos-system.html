@@ -2118,7 +2118,6 @@
     const aiSuggestionsCache = {};
     
     async function getAIProductClassification(productName, description = "") {
-        """Get AI classification for a product"""
         if (!productName || productName.length < 2) return null;
         
         const cacheKey = `${productName}:${description}`;
@@ -2149,7 +2148,6 @@
     }
     
     function applyAIClassification(classification) {
-        """Apply AI classification to the Add Product form"""
         if (!classification) return;
         
         const mainCatSelect = document.getElementById('productMainCategory');
@@ -2172,7 +2170,6 @@
     }
     
     function displayAIConfidence(text, confidence) {
-        """Display AI confidence score near category dropdowns"""
         let badge = document.getElementById('aiConfidenceBadge');
         
         if (!badge) {
