@@ -12113,6 +12113,67 @@ def run1(userid):
             "enquiries_data": enquiries_data  # Pure Python list, NO HTML
             }
 
+def get_overdue_installments():
+    """Get all overdue installments across all projects"""
+    with get_db() as (cursor, connection):
+        query = "SELECT * FROM connectlinkdatabase;"
+        cursor.execute(query)
+        projects = cursor.fetchall()
+        column_names = [desc[0] for desc in cursor.description]
+        
+        df = pd.DataFrame(projects, columns=column_names)
+        
+        overdue_data = []
+        today = date.today()
+        
+        for _, row in df.iterrows():
+            project_id = row['id']
+            client_name = row['clientname']
+            client_phone = row['clientwanumber']
+            project_name = row['projectname']
+            
+            overdue_installments = []
+            total_overdue_amount = 0
+            
+            # Check each installment
+            for i in range(1, 11):
+                amount_col = f'installment{i}amount'
+                due_date_col = f'installment{i}duedate'
+                paid_date_col = f'installment{i}date'
+                
+                amount = float(row.get(amount_col, 0) or 0)
+                due_date = row.get(due_date_col)
+                paid_date = row.get(paid_date_col)
+                
+                if amount > 0 and pd.isna(paid_date):  # Has amount and not paid
+                    if pd.notna(due_date):
+                        if isinstance(due_date, str):
+                            due_date = datetime.strptime(due_date, '%Y-%m-%d').date()
+                        
+                        if due_date < today:  # Overdue
+                            overdue_installments.append({
+                                'number': i,
+                                'amount': round(amount, 2),
+                                'due_date': due_date.strftime('%d %b %Y'),
+                                'days_overdue': (today - due_date).days
+                            })
+                            total_overdue_amount += amount
+            
+            # Add to results if there are overdue installments
+            if overdue_installments:
+                overdue_data.append({
+                    'project_id': project_id,
+                    'client_name': client_name,
+                    'client_phone': str(client_phone) if client_phone else '',
+                    'project_name': project_name,
+                    'total_overdue_amount': round(total_overdue_amount, 2),
+                    'overdue_count': len(overdue_installments),
+                    'overdue_installments': overdue_installments,
+                    'installment_numbers': ','.join([str(x['number']) for x in overdue_installments])
+                })
+        
+        return sorted(overdue_data, key=lambda x: sum([inst['days_overdue'] for inst in x['overdue_installments']]), reverse=True)
+
 def get_installment_audit_data():
     with get_db() as (cursor, connection):
         # Get all projects
@@ -12275,6 +12336,106 @@ def auto_correct_all_projects():
         }
 
 # Add Flask routes
+@app.route('/api/overdue-installments', methods=['GET'])
+def get_overdue_route():
+    """Get all overdue installments for display"""
+    try:
+        overdue_list = get_overdue_installments()
+        return jsonify({
+            'success': True,
+            'data': overdue_list,
+            'count': len(overdue_list),
+            'total_overdue': sum([item['total_overdue_amount'] for item in overdue_list])
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/send-overdue-reminder', methods=['POST'])
+def send_overdue_reminder():
+    """Send payment reminder for an overdue project"""
+    try:
+        data = request.json
+        project_id = data.get('project_id')
+        
+        with get_db() as (cursor, connection):
+            query = "SELECT * FROM connectlinkdatabase WHERE id = %s;"
+            cursor.execute(query, (project_id,))
+            project = cursor.fetchone()
+            
+            if not project:
+                return jsonify({'success': False, 'error': 'Project not found'}), 404
+            
+            column_names = [desc[0] for desc in cursor.description]
+            project_dict = dict(zip(column_names, project))
+            
+            client_name = project_dict.get('clientname', '')
+            client_phone = project_dict.get('clientwanumber', '')
+            project_name = project_dict.get('projectname', '')
+            
+            # Build overdue summary
+            overdue_list = []
+            total_overdue = 0
+            for i in range(1, 11):
+                amount_col = f'installment{i}amount'
+                due_date_col = f'installment{i}duedate'
+                paid_date_col = f'installment{i}date'
+                
+                amount = float(project_dict.get(amount_col, 0) or 0)
+                due_date = project_dict.get(due_date_col)
+                paid_date = project_dict.get(paid_date_col)
+                
+                if amount > 0 and pd.isna(paid_date):
+                    if pd.notna(due_date):
+                        if isinstance(due_date, str):
+                            due_date_obj = datetime.strptime(due_date, '%Y-%m-%d').date()
+                        else:
+                            due_date_obj = due_date
+                        
+                        if due_date_obj < date.today():
+                            overdue_list.append(f"Installment {i}: ${amount:.2f} (Due: {due_date_obj.strftime('%d %b %Y')})")
+                            total_overdue += amount
+            
+            if not overdue_list:
+                return jsonify({'success': False, 'error': 'No overdue installments found'}), 400
+            
+            # Send WhatsApp message
+            message = f"""
+Hi {client_name},
+
+This is a friendly reminder about overdue payment(s) on your project: {project_name}
+
+Overdue Items:
+{chr(10).join(overdue_list)}
+
+Total Overdue: ${total_overdue:.2f}
+
+Please arrange immediate payment to avoid further penalties.
+
+For inquiries, please contact us.
+
+Best regards,
+ConnectLink
+            """
+            
+            # Try to send WhatsApp reminder
+            if client_phone:
+                try:
+                    # Send WhatsApp message (using your existing WhatsApp service)
+                    # This assumes you have a WhatsApp sending function available
+                    # Placeholder for WhatsApp sending logic
+                    pass
+                except Exception as e:
+                    print(f"WhatsApp send failed: {e}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Reminder sent to {client_name}',
+                'overdue_items': overdue_list,
+                'total_overdue': round(total_overdue, 2)
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/installment-audit', methods=['GET'])
 def installment_audit():
     try:

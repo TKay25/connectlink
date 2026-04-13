@@ -680,6 +680,10 @@
         <button id="btn-administrators" class="btn-side" onclick="setActiveButton('btn-administrators'); openModal('addcompAdminModal')" data-tooltip="Manage Administrators">
             <i class="bi bi-shield-fill"></i><span>Administrators</span>
         </button>
+
+        <button id="btn-overdue-payments" class="btn-side" onclick="setActiveButton('btn-overdue-payments'); loadOverdueInstallments(); openModal('overdueInstallmentsModal')" data-tooltip="Overdue Payments">
+            <i class="bi bi-exclamation-circle-fill" style="color: #dc3545;"></i><span>Overdue Payments</span>
+        </button>
     </div>
 
 <div id="systemUserModal" class="modal-overlay">
@@ -2079,6 +2083,94 @@
             <button type="button" class="btn btn-danger" onclick="closeModal('downloadInstallmentsModal')">Cancel</button>
             <button type="button" class="btn btn-primary" id="downloadInstallmentsBtn">
                 <i class="bi bi-download"></i> Generate & Download
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- OVERDUE INSTALLMENTS MODAL - Blur Overlay Version -->
+<div id="overdueInstallmentsModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-exclamation-circle-fill" style="color: #dc3545;"></i> OVERDUE PAYMENTS</h3>
+            <button class="close-modal" onclick="closeModal('overdueInstallmentsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <!-- Summary Stats -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-danger bg-opacity-25">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">Total Overdue Projects</h6>
+                            <h3 id="overdueProjectCount" style="color: #dc3545;">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning bg-opacity-25">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">Total Overdue Amount</h6>
+                            <h3 id="totalOverdueAmount" style="color: #dc3545;">$0.00</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info bg-opacity-25">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">Avg Days Overdue</h6>
+                            <h3 id="avgDaysOverdue">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-primary bg-opacity-25">
+                        <div class="card-body">
+                            <h6 class="card-title text-muted">Installments Due</h6>
+                            <h3 id="overduInstallmentCount">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Filter Section -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <input type="text" id="overdueSearchBox" class="form-control" placeholder="🔍 Search by client name or phone...">
+                </div>
+                <div class="col-md-6">
+                    <button class="btn btn-primary" id="sendAllRemindersBtn">
+                        <i class="bi bi-bell-fill"></i> Send Reminders to All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Overdue Installments Table -->
+            <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                <table class="table table-bordered table-hover" id="overdueInstallmentsTable">
+                    <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                        <tr style="background-color: #f8f9fa;">
+                            <th style="background-color: #dc3545; color: white;">Project ID</th>
+                            <th style="background-color: #dc3545; color: white;">Client Name</th>
+                            <th style="background-color: #dc3545; color: white;">Client Phone</th>
+                            <th style="background-color: #dc3545; color: white;">Project Name</th>
+                            <th style="background-color: #dc3545; color: white;">Status</th>
+                            <th style="background-color: #dc3545; color: white;">Overdue Amount</th>
+                            <th style="background-color: #dc3545; color: white;">Installments Due</th>
+                            <th style="background-color: #dc3545; color: white;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overdueInstallmentsBody">
+                        <tr><td colspan="8" class="text-center py-3">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('overdueInstallmentsModal')">Close</button>
+            <button type="button" class="btn btn-danger" id="exportOverdueReportBtn">
+                <i class="bi bi-file-earmark-pdf"></i> Export Report
             </button>
         </div>
     </div>
@@ -10093,6 +10185,159 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Update every second
     setInterval(updateDateAndTime, 1000);
+
+// ===== OVERDUE INSTALLMENTS FUNCTIONS =====
+function loadOverdueInstallments() {
+    fetch('/api/overdue-installments')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayOverdueInstallments(data.data, data.count, data.total_overdue);
+            } else {
+                console.error('Error loading overdue data:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
+
+function displayOverdueInstallments(overdueData, count, totalOverdue) {
+    // Update summary stats
+    document.getElementById('overdueProjectCount').textContent = count;
+    document.getElementById('totalOverdueAmount').textContent = '$' + totalOverdue.toFixed(2);
+    
+    // Calculate average days overdue
+    let totalDays = 0;
+    let totalInstallments = 0;
+    overdueData.forEach(project => {
+        totalInstallments += project.overdue_count;
+        project.overdue_installments.forEach(inst => {
+            totalDays += inst.days_overdue;
+        });
+    });
+    
+    let avgDays = totalInstallments > 0 ? Math.floor(totalDays / totalInstallments) : 0;
+    document.getElementById('avgDaysOverdue').textContent = avgDays;
+    document.getElementById('overduInstallmentCount').textContent = totalInstallments;
+    
+    // Display table
+    const tbody = document.getElementById('overdueInstallmentsBody');
+    tbody.innerHTML = '';
+    
+    overdueData.forEach(item => {
+        const row = document.createElement('tr');
+        row.style.backgroundColor = '#fff3cd'; // Light yellow background
+        
+        row.innerHTML = `
+            <td><strong>${item.project_id}</strong></td>
+            <td>${item.client_name}</td>
+            <td>${item.client_phone}</td>
+            <td>${item.project_name}</td>
+            <td>
+                <span class="badge bg-danger" style="font-size: 0.8rem;">
+                    <i class="bi bi-exclamation-circle"></i> OVERDUE
+                </span>
+            </td>
+            <td><strong style="color: #dc3545;">$${item.total_overdue_amount.toFixed(2)}</strong></td>
+            <td>
+                <span class="badge bg-info">${item.installment_numbers}</span>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-warning send-reminder-btn" data-project-id="${item.project_id}" data-client-name="${item.client_name}">
+                    <i class="bi bi-bell-fill"></i> Remind
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Add event listeners to send reminder buttons
+    document.querySelectorAll('.send-reminder-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const projectId = this.dataset.projectId;
+            const clientName = this.dataset.clientName;
+            sendOverdueReminder(projectId, clientName, btn);
+        });
+    });
+}
+
+function sendOverdueReminder(projectId, clientName, btn) {
+    // Show loading state
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
+    btn.disabled = true;
+    
+    fetch('/api/send-overdue-reminder', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ project_id: projectId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            btn.innerHTML = '<i class="bi bi-check-circle"></i> Sent!';
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-success');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-warning');
+                btn.disabled = false;
+            }, 3000);
+            
+            // Show success message
+            alert(`Reminder sent to ${clientName}!`);
+        } else {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+            alert('Error sending reminder: ' + data.error);
+        }
+    })
+    .catch(error => {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+        console.error('Error:', error);
+        alert('Error sending reminder');
+    });
+}
+
+// Add event listener for "Send Reminders to All" button
+document.addEventListener('DOMContentLoaded', function() {
+    const sendAllBtn = document.getElementById('sendAllRemindersBtn');
+    if (sendAllBtn) {
+        sendAllBtn.addEventListener('click', function() {
+            const buttons = document.querySelectorAll('.send-reminder-btn:not([disabled])');
+            if (buttons.length === 0) {
+                alert('No reminders to send');
+                return;
+            }
+            
+            let sent = 0;
+            buttons.forEach((btn, index) => {
+                setTimeout(() => {
+                    btn.click();
+                    sent++;
+                }, index * 500); // Stagger the requests
+            });
+        });
+    }
+    
+    // Add search functionality
+    const searchBox = document.getElementById('overdueSearchBox');
+    if (searchBox) {
+        searchBox.addEventListener('keyup', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#overdueInstallmentsBody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
+});
 </script>
 
 
