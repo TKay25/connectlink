@@ -675,20 +675,10 @@
         </div>
         <div class="modal-body-custom">
             <table border="1" class="dataframe table table-bordered table-theme" id="allusersTable">
-  <thead>
-    <tr style="text-align: right;">
-      <th>id</th>
-      <th>datecreated</th>
-      <th>name</th>
-      <th>email</th>
-      <th>whatsapp</th>
-      <th>Action</th>
-    </tr>
-  </thead>
-  <tbody>
-    {{ usersdatamain_html|safe }}
-  </tbody>
-</table>
+                <tbody>
+                    {{ usersdatamain_html|safe }}
+                </tbody>
+            </table>
         </div>
         <div class="modal-footer-custom">
             <button class="btn btn-primary" onclick="openModal('createUserModal')">Create User</button>
