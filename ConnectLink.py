@@ -11644,7 +11644,8 @@ def get_payment_reminders_data(df):
             if all_installments_paid and last_payment_date is not None:
                 balance_due = total_contract_amount - total_paid
                 
-                if balance_due > 0:
+                # Only include if balance is more than 0.01 (avoid floating point precision issues)
+                if balance_due > 0.01:
                     last_payment_date_date = last_payment_date.date()
                     days_since_last_payment = (today - last_payment_date_date).days
                     
@@ -12522,9 +12523,11 @@ def run1(userid):
                                 all_installments_paid = False
                     
                     # Check if all installments are paid but balance remains
+                    # Only mark as outstanding if balance is more than 0.01 (avoid floating point precision issues)
                     if all_installments_paid and contract_amount > total_paid:
-                        is_outstanding = True
                         outstanding_balance = contract_amount - total_paid
+                        if outstanding_balance > 0.01:
+                            is_outstanding = True
                 except:
                     pass
             
