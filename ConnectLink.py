@@ -11581,11 +11581,13 @@ def get_payment_reminders_data(df):
             
             # Add all paid installments
             last_payment_date = None
+            last_installment_due_date = None
             all_installments_paid = True
             
             for i in range(1, 11):
                 amount_col = f'installment{i}amount'
                 paid_col = f'installment{i}date'
+                due_col = f'installment{i}duedate'
                 
                 amount = 0
                 amount_val = row.get(amount_col)
@@ -11607,6 +11609,10 @@ def get_payment_reminders_data(df):
                     total_paid += amount
                     if last_payment_date is None or paid_date > last_payment_date:
                         last_payment_date = paid_date
+                    # Track the last installment due date (among paid installments)
+                    due_date = row.get(due_col)
+                    if pd.notna(due_date) and (last_installment_due_date is None or due_date > last_installment_due_date):
+                        last_installment_due_date = due_date
                 else:
                     all_installments_paid = False
                 
@@ -11642,6 +11648,10 @@ def get_payment_reminders_data(df):
                     last_payment_date_date = last_payment_date.date()
                     days_since_last_payment = (today - last_payment_date_date).days
                     
+                    last_due_date_str = 'N/A'
+                    if last_installment_due_date is not None and pd.notna(last_installment_due_date):
+                        last_due_date_str = last_installment_due_date.date().strftime('%Y-%m-%d')
+                    
                     underpaid_info = {
                         'project_id': project_id,
                         'client_name': client_name,
@@ -11651,6 +11661,7 @@ def get_payment_reminders_data(df):
                         'total_paid': total_paid,
                         'balance_due': balance_due,
                         'last_payment_date': last_payment_date_date.strftime('%Y-%m-%d'),
+                        'last_installment_duedate': last_due_date_str,
                         'days_overdue': days_since_last_payment
                     }
                     underpaid.append(underpaid_info)

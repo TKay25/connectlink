@@ -6007,7 +6007,7 @@ function createTableRow(payment, index, type) {
     // Handle regular payments (soon, overdue, all)
     const installment = payment.installment_number || 'Outstanding';
     const amount = payment.amount_due || payment.balance_due || 0;
-    const dueDate = payment.due_date || 'N/A';
+    const dueDate = payment.due_date || payment.last_installment_duedate || 'N/A';
     
     const formattedDate = formatDate(dueDate);
     const formattedAmount = amount.toLocaleString('en-US', {
