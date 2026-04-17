@@ -5085,6 +5085,9 @@ function displayAuditResults(auditData, stats) {
     document.getElementById('auditBalancedCount').textContent = stats.balanced_count;
     document.getElementById('totalVarianceAmount').textContent = '$' + stats.total_variance.toFixed(2);
     
+    // Check if there are any projects with variance AND outstanding payments
+    const hasOutstandingWithVariance = auditData.some(item => item.has_variance && item.is_outstanding);
+    
     // Update table
     const tbody = document.getElementById('auditResultsBody');
     tbody.innerHTML = '';
@@ -5094,6 +5097,9 @@ function displayAuditResults(auditData, stats) {
         if (item.has_variance) {
             row.style.backgroundColor = '#fff3cd'; // Light yellow for variance
         }
+        
+        // Check if project has variance AND is in outstanding payments status
+        const isOutstandingWithVariance = item.has_variance && item.is_outstanding;
         
         row.innerHTML = `
             <td>${item.project_id}</td>
@@ -5107,13 +5113,15 @@ function displayAuditResults(auditData, stats) {
                 $${item.variance.toFixed(2)}
             </td>
             <td>
-                <span class="badge ${item.has_variance ? 'bg-warning' : 'bg-success'}">
+                <span class="badge ${item.is_outstanding ? 'bg-info' : item.has_variance ? 'bg-warning' : 'bg-success'}">
                     ${item.status}
                 </span>
             </td>
             <td>
                 ${item.has_variance ? 
-                    `<button class="btn btn-sm btn-warning auto-correct-btn" data-project-id="${item.project_id}">
+                    `<button class="btn btn-sm ${isOutstandingWithVariance ? 'btn-secondary disabled' : 'btn-warning'} auto-correct-btn" 
+                            data-project-id="${item.project_id}" 
+                            ${isOutstandingWithVariance ? 'disabled title="Cannot auto-correct: Project has variance with outstanding payments"' : ''}>
                         <i class="bi bi-lightning-charge"></i> Auto-Correct
                     </button>` : 
                     '<span class="text-muted">Balanced</span>'
@@ -5123,8 +5131,20 @@ function displayAuditResults(auditData, stats) {
         tbody.appendChild(row);
     });
     
+    // Update Auto-Correct All button state
+    const autoCorrectAllBtn = document.getElementById('autoCorrectAllBtn');
+    if (hasOutstandingWithVariance) {
+        autoCorrectAllBtn.disabled = true;
+        autoCorrectAllBtn.title = 'Cannot auto-correct all: Some projects have variance with outstanding payments. Please resolve these individually.';
+        autoCorrectAllBtn.classList.add('opacity-50');
+    } else {
+        autoCorrectAllBtn.disabled = false;
+        autoCorrectAllBtn.title = '';
+        autoCorrectAllBtn.classList.remove('opacity-50');
+    }
+    
     // Add event listeners to auto-correct buttons
-    document.querySelectorAll('.auto-correct-btn').forEach(btn => {
+    document.querySelectorAll('.auto-correct-btn:not(:disabled)').forEach(btn => {
         btn.addEventListener('click', function() {
             const projectId = this.dataset.projectId;
             autoCorrectProject(projectId);
