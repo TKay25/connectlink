@@ -12467,6 +12467,8 @@ def run1(userid):
         def get_payment_status(row):
             total_overdue = 0
             is_overdue = False
+            is_outstanding = False
+            outstanding_balance = 0
             
             # Check each installment (1-10)
             for i in range(1, 11):
@@ -12486,10 +12488,39 @@ def run1(userid):
                         total_overdue += amount
                         is_overdue = True
             
-            return total_overdue, is_overdue
+            # Check for outstanding payments (all installments paid but balance still due)
+            if not is_overdue:
+                try:
+                    contract_amount = float(row.get('totalcontractamount', 0) or 0)
+                    deposit = float(row.get('depositorbullet', 0) or 0)
+                    
+                    # Calculate total paid (deposit + all paid installments)
+                    total_paid = deposit
+                    all_installments_paid = True
+                    
+                    for i in range(1, 11):
+                        paid_date_col = f'installment{i}date'
+                        amount_col = f'installment{i}amount'
+                        
+                        amount = row.get(amount_col, 0) or 0
+                        if amount > 0:
+                            is_paid = pd.notna(row.get(paid_date_col))
+                            if is_paid:
+                                total_paid += amount
+                            else:
+                                all_installments_paid = False
+                    
+                    # Check if all installments are paid but balance remains
+                    if all_installments_paid and contract_amount > total_paid:
+                        is_outstanding = True
+                        outstanding_balance = contract_amount - total_paid
+                except:
+                    pass
+            
+            return total_overdue, is_overdue, is_outstanding, outstanding_balance
 
         # Calculate status for each row
-        datamain2['overdue_amount'], datamain2['is_overdue'] = zip(*datamain2.apply(get_payment_status, axis=1))
+        datamain2['overdue_amount'], datamain2['is_overdue'], datamain2['is_outstanding'], datamain2['outstanding_balance'] = zip(*datamain2.apply(get_payment_status, axis=1))
 
         # Simple version - just show installment numbers
         def get_simple_installments_due(row):
@@ -12565,6 +12596,8 @@ def run1(userid):
             
             if row['is_overdue']:
                 status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span></div>"""
+            elif row['is_outstanding']:
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-info me-2">OUTSTANDING</span><span class="text-info fw-bold">${row['outstanding_balance']:,.2f}</span></div>"""
             else:
                 status_html = '<span class="badge bg-success">PAID UP</span>'
             
@@ -12585,8 +12618,11 @@ def run1(userid):
         # Create DataFrame for table
         status_df = pd.DataFrame(table_data)
 
-        # Sort by overdue amount (descending)
-        status_df = status_df.sort_values('overdue_amount', ascending=False)
+        # Sort by overdue amount and outstanding balance (descending)
+        status_df['sort_amount'] = status_df.apply(lambda row: 
+                                                   row['overdue_amount'] if row['overdue_amount'] > 0 
+                                                   else row.get('outstanding_balance', 0), axis=1)
+        status_df = status_df.sort_values('sort_amount', ascending=False)
         status_df = status_df[['project id','client name', 'client phone', 'project_name', 'status', 'installments due']]
 
         status_df_html = status_df.to_html(classes="table table-bordered table-theme", table_id="allpaymentscdTable", index=False,  escape=False,)

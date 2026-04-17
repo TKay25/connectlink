@@ -2288,6 +2288,12 @@
                         <i class="bi bi-list-ul me-1"></i> All Reminders
                     </button>
                 </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="outstanding-tab" data-bs-toggle="tab" data-bs-target="#outstanding" type="button" role="tab">
+                        <i class="bi bi-exclamation-circle me-1"></i> Outstanding Payments
+                        <span class="badge bg-info ms-2" id="outstandingBadge">0</span>
+                    </button>
+                </li>
             </ul>
 
             <!-- Tab Content -->
@@ -2358,6 +2364,30 @@
                                 </tr>
                             </thead>
                             <tbody id="allRemindersTableBody">
+                                <!-- Filled by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Outstanding Payments Tab -->
+                <div class="tab-pane fade" id="outstanding" role="tabpanel">
+                    <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                        <table class="table table-hover table-theme">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Client</th>
+                                    <th>WhatsApp</th>
+                                    <th>Project</th>
+                                    <th>Contract Amount</th>
+                                    <th>Total Paid</th>
+                                    <th>Outstanding Balance</th>
+                                    <th>Days Since Last Payment</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="outstandingTableBody">
                                 <!-- Filled by JavaScript -->
                             </tbody>
                         </table>
@@ -5823,6 +5853,7 @@ function displayPaymentReminders(data) {
     
     const dueSoon = data.due_soon || [];
     const overdue = data.overdue || [];
+    const outstanding = data.underpaid || [];
     const allPayments = data.all_payments || [...dueSoon, ...overdue];
     const summary = data.summary || {};
     
@@ -5836,14 +5867,21 @@ function displayPaymentReminders(data) {
     updateElement('overdueCount', summary.overdue_count || overdue.length);
     updateElement('dueSoonBadge', summary.due_soon_count || dueSoon.length);
     updateElement('overdueBadge', summary.overdue_count || overdue.length);
-    updateElement('totalClients', summary.total_clients || new Set(allPayments.map(p => p.client_name)).size);
-    updateElement('readyToSend', summary.ready_to_send || dueSoon.length + overdue.length);
+    updateElement('outstandingBadge', summary.outstanding_count || outstanding.length);
+    
+    const totalClients = new Set([
+        ...allPayments.map(p => p.client_name),
+        ...outstanding.map(p => p.client_name)
+    ]).size;
+    updateElement('totalClients', summary.total_clients || totalClients);
+    updateElement('readyToSend', summary.ready_to_send || dueSoon.length + overdue.length + outstanding.length);
     
     // Update total amount
     const totalAmountEl = document.getElementById('totalAmount');
     if (totalAmountEl) {
         const totalAmount = summary.total_amount || 
-                           allPayments.reduce((sum, p) => sum + (p.amount_due || 0), 0);
+                           allPayments.reduce((sum, p) => sum + (p.amount_due || 0), 0) +
+                           outstanding.reduce((sum, p) => sum + (p.balance_due || 0), 0);
         totalAmountEl.textContent = '$' + totalAmount.toFixed(2);
     }
     
@@ -5851,10 +5889,11 @@ function displayPaymentReminders(data) {
     fillTable('dueSoonTableBody', dueSoon, 'soon');
     fillTable('overdueTableBody', overdue, 'overdue');
     fillTable('allRemindersTableBody', allPayments, 'all');
+    fillTable('outstandingTableBody', outstanding, 'outstanding');
     
     // Update send button
     const sendBtn = document.getElementById('sendAllRemindersBtn');
-    const totalReminders = dueSoon.length + overdue.length;
+    const totalReminders = dueSoon.length + overdue.length + outstanding.length;
     if (sendBtn) {
         sendBtn.disabled = totalReminders === 0;
         sendBtn.classList.toggle('disabled', totalReminders === 0);
@@ -5871,13 +5910,21 @@ function fillTable(tableId, payments, type) {
     tableBody.innerHTML = '';
     
     if (!payments || payments.length === 0) {
-        const message = type === 'soon' ? 'No payments due in the next 3 days' :
-                        type === 'overdue' ? 'No overdue payments' :
-                        'No payment reminders';
+        let colSpan = 9;
+        let message = 'No payment reminders';
+        
+        if (type === 'soon') {
+            message = 'No payments due in the next 3 days';
+        } else if (type === 'overdue') {
+            message = 'No overdue payments';
+        } else if (type === 'outstanding') {
+            colSpan = 9;
+            message = 'No outstanding payments';
+        }
         
         tableBody.innerHTML = `
             <tr>
-                <td colspan="9" class="text-center py-4">
+                <td colspan="${colSpan}" class="text-center py-4">
                     <i class="bi bi-check-circle text-success fs-4"></i>
                     <p class="mt-2 text-muted">${message}</p>
                 </td>
@@ -5896,12 +5943,73 @@ function createTableRow(payment, index, type) {
     const client = payment.client_name || 'Unknown';
     const phone = payment.whatsapp_number || '';
     const project = payment.project_name || 'Unknown';
+    
+    const formattedPhone = formatPhone(phone);
+    
+    // Handle outstanding payments separately
+    if (type === 'outstanding') {
+        const contractAmount = payment.total_contract_amount || 0;
+        const totalPaid = payment.total_paid || 0;
+        const balanceDue = payment.balance_due || 0;
+        const daysOverdue = payment.days_overdue || 0;
+        
+        const formattedContract = contractAmount.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2
+        });
+        
+        const formattedPaid = totalPaid.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2
+        });
+        
+        const formattedBalance = balanceDue.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2
+        });
+        
+        return `
+            <tr>
+                <td>${index}</td>
+                <td><strong>${client}</strong></td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-whatsapp text-success me-2"></i>
+                        <span>${formattedPhone}</span>
+                    </div>
+                </td>
+                <td>${project}</td>
+                <td><strong>${formattedContract}</strong></td>
+                <td><span class="badge bg-success">${formattedPaid}</span></td>
+                <td><strong class="text-danger">${formattedBalance}</strong></td>
+                <td><span class="badge bg-info">${daysOverdue} days</span></td>
+                <td>
+                    <button class="btn btn-primary3 btn-sm send-btn"
+                            data-client="${client}"
+                            data-phone="${phone}"
+                            data-amount="${formattedBalance}"
+                            data-raw-amount="${balanceDue}"
+                            data-installment="Outstanding"
+                            data-project="${project}"
+                            data-status="outstanding"
+                            data-days="${daysOverdue}"
+                            data-due-date="">
+                        <i class="bi bi-whatsapp me-1"></i> Send
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // Handle regular payments (soon, overdue, all)
     const installment = payment.installment_number || '';
     const amount = payment.amount_due || 0;
     const dueDate = payment.due_date || '';
     
     const formattedDate = formatDate(dueDate);
-    const formattedPhone = formatPhone(phone);
     const formattedAmount = amount.toLocaleString('en-US', {
         style: 'currency',
         currency: 'USD',
@@ -6127,7 +6235,8 @@ function addEventListeners() {
         newSendAllBtn.addEventListener('click', async function() {
             const dueBtns = document.querySelectorAll('#dueSoonTableBody .send-btn:not(:disabled)');
             const overdueBtns = document.querySelectorAll('#overdueTableBody .send-btn:not(:disabled)');
-            const total = dueBtns.length + overdueBtns.length;
+            const outstandingBtns = document.querySelectorAll('#outstandingTableBody .send-btn:not(:disabled)');
+            const total = dueBtns.length + overdueBtns.length + outstandingBtns.length;
             
             if (total === 0) {
                 alert('No reminders to send');
@@ -6155,6 +6264,24 @@ function addEventListeners() {
                 
                 // Then send due soon
                 for (const btn of dueBtns) {
+                    if (!btn.disabled) {
+                        const paymentData = {
+                            client: btn.getAttribute('data-client'),
+                            phone: btn.getAttribute('data-phone'),
+                            project: btn.getAttribute('data-project'),
+                            installment: btn.getAttribute('data-installment'),
+                            rawAmount: btn.getAttribute('data-raw-amount'),
+                            status: btn.getAttribute('data-status'),
+                            daysInfo: btn.getAttribute('data-days'),
+                            buttonElement: btn
+                        };
+                        await sendMetaTemplate(paymentData);
+                        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+                    }
+                }
+                
+                // Finally send outstanding
+                for (const btn of outstandingBtns) {
                     if (!btn.disabled) {
                         const paymentData = {
                             client: btn.getAttribute('data-client'),
