@@ -12795,42 +12795,30 @@ def get_installment_audit_data():
                 if amount_col in row and pd.notna(row[amount_col]):
                     sum_installments += float(row[amount_col])
             
-            # Check for outstanding payments - count unpaid installments
-            unpaid_count = 0
-            has_unpaid = False
+            # Check if ALL scheduled payments have been made (no unpaid installments)
+            all_payments_made = True
             for i in range(1, 11):
                 amount_col = f'installment{i}amount'
                 paid_date_col = f'installment{i}date'
                 if amount_col in row and pd.notna(row[amount_col]) and float(row[amount_col]) > 0:
                     paid_date = row.get(paid_date_col)
+                    # If this installment is scheduled but NOT paid, mark as incomplete
                     if not paid_date or pd.isna(paid_date):
-                        unpaid_count += 1
-                        has_unpaid = True
-            
-            # Check if there's outstanding balance (paid amount is less than balance due)
-            deposit_date = row.get('datedepositorbullet')
-            total_paid = float(row.get('depositorbullet') or 0)
-            
-            # Add any paid installments
-            for i in range(1, 11):
-                amount_col = f'installment{i}amount'
-                paid_date_col = f'installment{i}date'
-                if amount_col in row and pd.notna(row[amount_col]):
-                    paid_date = row.get(paid_date_col)
-                    if paid_date and not pd.isna(paid_date):
-                        total_paid += float(row[amount_col])
-            
-            outstanding_balance = total_contract - total_paid
-            is_outstanding = outstanding_balance > 0.01 if outstanding_balance else False
+                        all_payments_made = False
+                        break
             
             variance = balance_due - sum_installments
             has_variance = abs(variance) > 0.01  # Tolerance for floating point
             
+            # Outstanding Payments = all payments made BUT variance exists
+            # This means the discrepancy can't be resolved by making remaining payments
+            is_outstanding = all_payments_made and has_variance
+            
             # Determine status
             if has_variance and is_outstanding:
-                status = 'Outstanding Payments'  # Special status when both variance and unpaid amounts exist
+                status = 'Outstanding Payments'  # All payments made, but amount doesn't match
             elif has_variance:
-                status = 'Variance'
+                status = 'Variance'  # Variance exists, but some payments still pending
             else:
                 status = 'Balanced'
             
@@ -12845,7 +12833,6 @@ def get_installment_audit_data():
                 'variance': round(variance, 2),
                 'has_variance': has_variance,
                 'is_outstanding': is_outstanding,
-                'outstanding_balance': round(outstanding_balance, 2),
                 'status': status
             })
         
