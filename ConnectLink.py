@@ -9125,14 +9125,15 @@ def Dashboard():
 
                 return render_template('adminpage.html', **results, userid = userid, user_name=user_name)
                     
-            except Error as e:
+            except Exception as e:
 
-                print(e)
+                print(f"Dashboard error: {e}")
+                print(traceback.format_exc())
 
-                return redirect(url_for('projectslogin'))
+                return render_template('mainindex.html', userid = userid, user_name=user_name)
 
         else:
-                return redirect(url_for('userlogin'))
+                return render_template('mainindex.html')
 
 @app.route('/login', methods=['POST'])
 def login():
