@@ -9680,10 +9680,10 @@ def Dashboard():
                 print(f"Dashboard error: {e}")
                 print(traceback.format_exc())
 
-                return render_template('mainindex.html', userid = userid, user_name=user_name)
+                return render_template('mainindex.html')
 
         else:
-                return redirect(url_for('userlogin'))
+                return render_template('mainindex.html')
 
 @app.route('/login', methods=['POST'])
 def login():
