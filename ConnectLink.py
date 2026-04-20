@@ -115,6 +115,9 @@ def initialize_database_tables():
 
             comp_details_alters = [
                 "ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS whatsapp INT;",
+                "ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS account_type VARCHAR(100);",
+                "ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS country VARCHAR(100);",
+                "ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS photo_path VARCHAR(255);",
                 "ALTER TABLE connectlinkdetails ADD COLUMN IF NOT EXISTS tinnumber VARCHAR(100);"
             ]
 
@@ -9782,6 +9785,171 @@ def login():
             print("Done")
 
     return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
+
+@app.route('/profile')
+def profile():
+    """Display user profile page"""
+    user_id = session.get('userid')
+    user_name = session.get('user_name')
+    user_uuid = session.get('user_uuid')
+    
+    if not user_uuid:
+        return redirect(url_for('mainindex'))
+    
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, datecreated, name, email, whatsapp, account_type, country, photo_path 
+                FROM connectlinkusers WHERE id = %s
+            """, (user_id,))
+            user_data = cursor.fetchone()
+            
+            if user_data:
+                user_info = {
+                    'id': user_data[0],
+                    'datecreated': user_data[1],
+                    'name': user_data[2],
+                    'email': user_data[3],
+                    'whatsapp': user_data[4],
+                    'account_type': user_data[5] or 'Student',
+                    'country': user_data[6] or 'N/A',
+                    'photo_path': user_data[7] or 'https://via.placeholder.com/150'
+                }
+                return render_template('profile.html', user_info=user_info, user_name=user_name)
+            else:
+                return redirect(url_for('Dashboard'))
+    except Exception as e:
+        print(f"Profile error: {e}")
+        return redirect(url_for('Dashboard'))
+
+@app.route('/api/user-profile', methods=['GET'])
+def get_user_profile():
+    """Get current user profile information"""
+    user_id = session.get('userid')
+    user_uuid = session.get('user_uuid')
+    
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, datecreated, name, email, whatsapp, account_type, country, photo_path 
+                FROM connectlinkusers WHERE id = %s
+            """, (user_id,))
+            user_data = cursor.fetchone()
+            
+            if user_data:
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'id': user_data[0],
+                        'datecreated': str(user_data[1]),
+                        'name': user_data[2],
+                        'email': user_data[3],
+                        'whatsapp': user_data[4],
+                        'account_type': user_data[5] or 'Student',
+                        'country': user_data[6] or 'N/A',
+                        'photo_path': user_data[7] or 'https://via.placeholder.com/150'
+                    }
+                })
+            else:
+                return jsonify({'success': False, 'message': 'User not found'}), 404
+    except Exception as e:
+        print(f"Get profile error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/update-profile', methods=['POST'])
+def update_profile():
+    """Update user profile information"""
+    user_id = session.get('userid')
+    user_uuid = session.get('user_uuid')
+    
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        
+        full_name = data.get('full_name', '').strip()
+        email = data.get('email', '').strip()
+        account_type = data.get('account_type', '').strip()
+        country = data.get('country', '').strip()
+        whatsapp = data.get('whatsapp', '')
+        
+        if not full_name or not email:
+            return jsonify({'success': False, 'message': 'Full Name and Email are required'}), 400
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE connectlinkusers 
+                SET name = %s, email = %s, account_type = %s, country = %s, whatsapp = %s
+                WHERE id = %s
+            """, (full_name, email, account_type, country, whatsapp, user_id))
+            
+            connection.commit()
+            
+            # Update session
+            session['user_name'] = full_name
+            
+            return jsonify({'success': True, 'message': 'Profile updated successfully'})
+    except Exception as e:
+        print(f"Update profile error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/upload-photo', methods=['POST'])
+def upload_photo():
+    """Upload and update user profile photo"""
+    user_id = session.get('userid')
+    user_uuid = session.get('user_uuid')
+    
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    try:
+        if 'photo' not in request.files:
+            return jsonify({'success': False, 'message': 'No photo provided'}), 400
+        
+        file = request.files['photo']
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'No file selected'}), 400
+        
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+            return jsonify({'success': False, 'message': 'Invalid file type. Allowed: PNG, JPG, JPEG, GIF, WEBP'}), 400
+        
+        # Create uploads directory if it doesn't exist
+        upload_folder = 'static/uploads/profile_photos'
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        # Generate unique filename
+        filename = f"profile_{user_id}_{uuid.uuid4().hex}.{file.filename.rsplit('.', 1)[1].lower()}"
+        filepath = os.path.join(upload_folder, filename)
+        
+        # Save file
+        file.save(filepath)
+        
+        # Update database
+        photo_path = f"/static/uploads/profile_photos/{filename}"
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE connectlinkusers 
+                SET photo_path = %s
+                WHERE id = %s
+            """, (photo_path, user_id))
+            
+            connection.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Photo uploaded successfully',
+            'photo_path': photo_path
+        })
+    except Exception as e:
+        print(f"Upload photo error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/export-enquiries')
 def export_enquiries():

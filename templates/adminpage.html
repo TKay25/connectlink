@@ -663,6 +663,16 @@
         <button id="btn-administrators" class="btn-side" onclick="setActiveButton('btn-administrators'); openModal('addcompAdminModal')" data-tooltip="Manage Administrators">
             <i class="bi bi-shield-fill"></i><span>Administrators</span>
         </button>
+
+        <hr style="margin: 15px 8px; border: 1px solid #34495e;">
+
+        <button id="btn-profile" class="btn-side" onclick="window.location.href='/profile'" data-tooltip="My Profile">
+            <i class="bi bi-person-circle"></i><span>My Profile</span>
+        </button>
+
+        <button id="btn-logout" class="btn-side" onclick="logout()" data-tooltip="Logout">
+            <i class="bi bi-box-arrow-right"></i><span>Logout</span>
+        </button>
     </div>
 
 <div id="systemUserModal" class="modal-overlay">
@@ -6743,6 +6753,13 @@ $(document).ready(function() {
         if (!dateString.match(regex)) return false;
         const date = new Date(dateString);
         return date instanceof Date && !isNaN(date);
+    }
+
+    // Logout function
+    function logout() {
+        if (confirm('Are you sure you want to logout?')) {
+            window.location.href = '/api/logoutpos';
+        }
     }
 });
 
