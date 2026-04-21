@@ -1217,7 +1217,7 @@ def webhook():
                                         try:
                                             
                                             query = """
-                                                SELECT *
+                                                SELECT id, datecreated, name, password, email, whatsapp
                                                 FROM connectlinkusers
                                                 WHERE whatsapp::TEXT LIKE %s
                                             """
@@ -9753,7 +9753,7 @@ def login():
                 
                 # If not hardware user, try connectlinkusers (for building projects)
                 # Try to find user by email OR username
-                search_query = "SELECT * FROM connectlinkusers WHERE email = %s OR name = %s;"
+                search_query = "SELECT id, datecreated, name, password, email, whatsapp FROM connectlinkusers WHERE email = %s OR name = %s;"
                 cursor.execute(search_query, (email_or_username, email_or_username))
                 rows = cursor.fetchall()
 
