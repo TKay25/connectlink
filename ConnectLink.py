@@ -289,6 +289,7 @@ def initialize_database_tables():
                 CREATE TABLE IF NOT EXISTS quotations (
                     id SERIAL PRIMARY KEY,
                     client_name VARCHAR(255) NOT NULL,
+                    client_whatsapp VARCHAR(20),
                     quotation_date DATE NOT NULL,
                     category VARCHAR(100) NOT NULL,
                     project_size DECIMAL(10, 2),
@@ -17493,6 +17494,7 @@ def save_quotation():
             }), 400
         
         client_name = data.get('clientName', 'Unknown')
+        client_whatsapp = data.get('clientWhatsapp', '')
         quotation_date = data.get('quotationDate', date.today().isoformat())
         category = data.get('category', 'General')
         project_size = float(data.get('size', 0)) if data.get('size') else 0
@@ -17505,10 +17507,10 @@ def save_quotation():
             # Insert quotation header
             cursor.execute("""
                 INSERT INTO quotations 
-                (client_name, quotation_date, category, project_size, total_cost, markup_percentage)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (client_name, quotation_date, category, project_size, total_cost, markup))
+            """, (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup))
             
             quotation_id = cursor.fetchone()[0]
             
@@ -17593,7 +17595,7 @@ def get_quotations():
             
             # Get all quotations
             cursor.execute("""
-                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage, created_at
+                SELECT id, client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage, created_at
                 FROM quotations
                 ORDER BY created_at DESC
             """)
@@ -17624,11 +17626,12 @@ def get_quotations():
                 result.append({
                     'id': quotation_id,
                     'clientName': quotation[1],
-                    'quotationDate': quotation[2].isoformat() if quotation[2] else None,
-                    'category': quotation[3],
-                    'projectSize': float(quotation[4]) if quotation[4] else 0,
-                    'totalCost': float(quotation[5]),
-                    'markup': float(quotation[6]) if quotation[6] else 0,
+                    'clientWhatsapp': quotation[2] or '',
+                    'quotationDate': quotation[3].isoformat() if quotation[3] else None,
+                    'category': quotation[4],
+                    'projectSize': float(quotation[5]) if quotation[5] else 0,
+                    'totalCost': float(quotation[6]),
+                    'markup': float(quotation[7]) if quotation[7] else 0,
                     'items': [
                         {
                             'name': item[0],
@@ -17647,7 +17650,7 @@ def get_quotations():
                         }
                         for schedule in schedules
                     ],
-                    'createdAt': quotation[7].isoformat() if quotation[7] else None
+                    'createdAt': quotation[8].isoformat() if quotation[8] else None
                 })
             
             return jsonify({

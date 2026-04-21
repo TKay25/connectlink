@@ -3428,10 +3428,18 @@
                     </select>
                 </div>
 
-                <!-- Client Name -->
+                <!-- Client Name and WhatsApp Number -->
                 <div class="mb-3">
-                    <label for="quotationClientName" class="form-label fw-bold">Client Name <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="quotationClientName" name="clientName" placeholder="Enter client name" required>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="quotationClientName" class="form-label fw-bold">Client Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="quotationClientName" name="clientName" placeholder="Enter client name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="quotationClientWhatsapp" class="form-label fw-bold">WhatsApp Number</label>
+                            <input type="tel" class="form-control" id="quotationClientWhatsapp" name="clientWhatsapp" placeholder="e.g., +263771234567">
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Size Field (Conditional - Construction) -->
@@ -10445,6 +10453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Get form data
             const category = $('#quotationCategory').val();
             const clientName = $('#quotationClientName').val();
+            const clientWhatsapp = $('#quotationClientWhatsapp').val();
             const quotationDate = $('#quotationDate').val();
             
             if (!category || !clientName || !quotationDate) {
@@ -10539,6 +10548,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.quotationData = {
                 category: category,
                 clientName: clientName,
+                clientWhatsapp: clientWhatsapp,
                 quotationDate: quotationDate,
                 date: quotationDate,
                 size: category === 'construction' ? $('#quotationSize').val() : null,
