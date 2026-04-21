@@ -299,6 +299,18 @@ def initialize_database_tables():
                 );
             """)
 
+            # Add client_whatsapp column if it doesn't exist (for existing tables)
+            try:
+                cursor.execute("""
+                    ALTER TABLE quotations 
+                    ADD COLUMN client_whatsapp VARCHAR(20)
+                """)
+                connection.commit()
+            except Exception as e:
+                # Column already exists or other error, continue
+                if 'already exists' not in str(e).lower():
+                    print(f"Note: Could not add client_whatsapp column: {e}")
+
             # Create quotation_items table to store construction items
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS quotation_items (
