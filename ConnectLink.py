@@ -9798,36 +9798,8 @@ def login():
 
 @app.route('/profile')
 def profile():
-    """Display user profile page"""
-    user_id = session.get('userid')
-    user_name = session.get('user_name')
-    user_uuid = session.get('user_uuid')
-    
-    if not user_uuid:
-        return redirect(url_for('mainindex'))
-    
-    try:
-        with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT id, datecreated, name, email, whatsapp
-                FROM connectlinkusers WHERE id = %s
-            """, (user_id,))
-            user_data = cursor.fetchone()
-            
-            if user_data:
-                user_info = {
-                    'id': user_data[0],
-                    'datecreated': user_data[1],
-                    'name': user_data[2],
-                    'email': user_data[3],
-                    'whatsapp': user_data[4]
-                }
-                return render_template('profile.html', user_info=user_info, user_name=user_name)
-            else:
-                return redirect(url_for('Dashboard'))
-    except Exception as e:
-        print(f"Profile error: {e}")
-        return redirect(url_for('Dashboard'))
+    """Redirect to dashboard - profile is now a modal popup"""
+    return redirect(url_for('Dashboard'))
 
 @app.route('/api/user-profile', methods=['GET'])
 def get_user_profile():

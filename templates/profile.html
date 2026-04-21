@@ -1,9 +1,399 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Profile - ConnectLink</title>
+<!-- Profile Modal -->
+<div id="profileModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+        <div class="modal-header">
+            <h3><i class="fas fa-user-circle"></i> My Profile</h3>
+            <button class="modal-close" onclick="closeProfileModal()">×</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Profile Info Display -->
+            <div id="profileInfoDisplay" style="margin-bottom: 2rem;">
+                <div class="info-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+                    <div class="info-item">
+                        <div style="font-weight: 600; color: #0A2B3E; margin-bottom: 0.5rem;">Full Name</div>
+                        <div id="displayName" style="color: #6B7280;"></div>
+                    </div>
+                    <div class="info-item">
+                        <div style="font-weight: 600; color: #0A2B3E; margin-bottom: 0.5rem;">Email</div>
+                        <div id="displayEmail" style="color: #6B7280;"></div>
+                    </div>
+                    <div class="info-item">
+                        <div style="font-weight: 600; color: #0A2B3E; margin-bottom: 0.5rem;">WhatsApp</div>
+                        <div id="displayWhatsApp" style="color: #6B7280;"></div>
+                    </div>
+                    <div class="info-item">
+                        <div style="font-weight: 600; color: #0A2B3E; margin-bottom: 0.5rem;">Member Since</div>
+                        <div id="displayDateCreated" style="color: #6B7280;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Profile Form -->
+            <div id="editProfileForm" style="display: none;">
+                <div id="editProfileError" class="error-message" style="display: none; background: #fee; color: #c33; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;"></div>
+                <div id="editProfileMessage" class="success-message" style="display: none; background: #efe; color: #3c3; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;"></div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 600; color: #0A2B3E; margin-bottom: 0.5rem;">Full Name *</label>
+                    <input type="text" id="editFullName" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; font-family: inherit;" required>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 600; color: #0A2B3E; margin-bottom: 0.5rem;">Email Address *</label>
+                    <input type="email" id="editEmail" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; font-family: inherit;" required>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-weight: 600; color: #0A2B3E; margin-bottom: 0.5rem;">WhatsApp Number</label>
+                    <input type="tel" id="editWhatsApp" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; font-family: inherit;" placeholder="Enter WhatsApp number">
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer" style="padding: 1.5rem; border-top: 1px solid #e5e7eb; display: flex; gap: 1rem; justify-content: flex-end;">
+            <button id="profileEditBtn" class="btn-custom btn-primary-custom" onclick="enableEditProfile()" style="padding: 0.75rem 1.5rem; background: #0A2B3E; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600;">
+                <i class="fas fa-edit"></i> Edit Profile
+            </button>
+            <button id="profileSaveBtn" class="btn-custom btn-success-custom" onclick="submitEditProfile()" style="padding: 0.75rem 1.5rem; background: #10b981; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; display: none;">
+                <i class="fas fa-save"></i> Save Changes
+            </button>
+            <button id="profileCancelBtn" class="btn-custom btn-secondary-custom" onclick="cancelEditProfile()" style="padding: 0.75rem 1.5rem; background: #6B7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; display: none;">
+                Cancel
+            </button>
+            <button class="btn-custom btn-secondary-custom" onclick="closeProfileModal()" id="profileCloseBtn" style="padding: 0.75rem 1.5rem; background: #6B7280; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600;">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+
+    .modal-overlay.active,
+    .modal-overlay[style*="display: none"] {
+        display: none !important;
+    }
+
+    .modal-overlay.show {
+        display: flex !important;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        min-width: 400px;
+        animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .modal-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        color: #0A2B3E;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.75rem;
+        color: #6B7280;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .modal-close:hover {
+        background: #f3f4f6;
+        color: #0A2B3E;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1.5rem;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    .btn-custom {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary-custom {
+        background: #0A2B3E;
+        color: white;
+    }
+
+    .btn-primary-custom:hover {
+        background: #1E4A6E;
+    }
+
+    .btn-success-custom {
+        background: #10b981;
+        color: white;
+    }
+
+    .btn-success-custom:hover {
+        background: #059669;
+    }
+
+    .btn-secondary-custom {
+        background: #6B7280;
+        color: white;
+    }
+
+    .btn-secondary-custom:hover {
+        background: #4B5563;
+    }
+
+    .success-message {
+        background: #efe;
+        color: #3c3;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        display: none;
+    }
+
+    .success-message.show {
+        display: block;
+    }
+
+    .error-message {
+        background: #fee;
+        color: #c33;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        display: none;
+    }
+
+    .error-message.show {
+        display: block;
+    }
+
+    @media (max-width: 600px) {
+        .modal-content {
+            min-width: 90%;
+            max-height: 90vh;
+        }
+
+        .modal-footer {
+            flex-direction: column;
+        }
+
+        .btn-custom {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<script>
+    // Open Profile Modal
+    function openProfileModal() {
+        fetch('/api/user-profile')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const user = data.data;
+                    // Display profile info
+                    document.getElementById('displayName').textContent = user.name || '';
+                    document.getElementById('displayEmail').textContent = user.email || '';
+                    document.getElementById('displayWhatsApp').textContent = user.whatsapp || 'Not provided';
+                    document.getElementById('displayDateCreated').textContent = user.datecreated || '';
+
+                    // Populate edit form
+                    document.getElementById('editFullName').value = user.name || '';
+                    document.getElementById('editEmail').value = user.email || '';
+                    document.getElementById('editWhatsApp').value = user.whatsapp || '';
+
+                    // Show modal
+                    const modal = document.getElementById('profileModal');
+                    modal.classList.add('show');
+                    modal.style.display = 'flex';
+                } else {
+                    alert('Failed to load profile');
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('An error occurred while loading profile');
+            });
+    }
+
+    // Close Profile Modal
+    function closeProfileModal() {
+        const modal = document.getElementById('profileModal');
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        cancelEditProfile();
+    }
+
+    // Enable Edit Mode
+    function enableEditProfile() {
+        document.getElementById('profileInfoDisplay').style.display = 'none';
+        document.getElementById('editProfileForm').style.display = 'block';
+        document.getElementById('profileEditBtn').style.display = 'none';
+        document.getElementById('profileSaveBtn').style.display = 'inline-flex';
+        document.getElementById('profileCancelBtn').style.display = 'inline-flex';
+        document.getElementById('profileCloseBtn').style.display = 'none';
+        clearMessages();
+    }
+
+    // Cancel Edit Mode
+    function cancelEditProfile() {
+        document.getElementById('profileInfoDisplay').style.display = 'block';
+        document.getElementById('editProfileForm').style.display = 'none';
+        document.getElementById('profileEditBtn').style.display = 'inline-flex';
+        document.getElementById('profileSaveBtn').style.display = 'none';
+        document.getElementById('profileCancelBtn').style.display = 'none';
+        document.getElementById('profileCloseBtn').style.display = 'inline-flex';
+        clearMessages();
+    }
+
+    // Submit Edit Profile
+    function submitEditProfile() {
+        const submitBtn = document.getElementById('profileSaveBtn');
+        const messageDiv = document.getElementById('editProfileMessage');
+        const errorDiv = document.getElementById('editProfileError');
+
+        const formData = {
+            full_name: document.getElementById('editFullName').value.trim(),
+            email: document.getElementById('editEmail').value.trim(),
+            whatsapp: document.getElementById('editWhatsApp').value.trim()
+        };
+
+        if (!formData.full_name || !formData.email) {
+            showError(errorDiv, 'Full Name and Email are required');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="spinner"></span> Saving...';
+
+        fetch('/api/update-profile', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccess(messageDiv, 'Profile updated successfully!');
+                    setTimeout(() => {
+                        closeProfileModal();
+                        openProfileModal();
+                    }, 1500);
+                } else {
+                    showError(errorDiv, data.message || 'Failed to update profile');
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                showError(errorDiv, 'An error occurred. Please try again.');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+    }
+
+    // Helper Functions
+    function showSuccess(element, message) {
+        element.textContent = message;
+        element.classList.add('show');
+    }
+
+    function showError(element, message) {
+        element.textContent = message;
+        element.classList.add('show');
+    }
+
+    function clearMessages() {
+        const messageDiv = document.getElementById('editProfileMessage');
+        const errorDiv = document.getElementById('editProfileError');
+        if (messageDiv) {
+            messageDiv.classList.remove('show');
+            messageDiv.textContent = '';
+        }
+        if (errorDiv) {
+            errorDiv.classList.remove('show');
+            errorDiv.textContent = '';
+        }
+    }
+
+    // Close modal on escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeProfileModal();
+        }
+    });
+
+    // Close modal on background click
+    document.addEventListener('click', function(event) {
+        const modal = document.getElementById('profileModal');
+        if (event.target === modal) {
+            closeProfileModal();
+        }
+    });
+</script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
