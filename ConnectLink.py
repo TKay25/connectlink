@@ -11419,7 +11419,7 @@ def create_system_user():
     password = data.get("password")
     whatsapp = data.get("whatsapp")
 
-    created_date = datetime.now()
+    created_date = datetime.now().strftime('%Y-%m-%d')
 
 
     with get_db() as (cursor, connection):
@@ -11428,7 +11428,7 @@ def create_system_user():
             cursor.execute("""
                 INSERT INTO connectlinkusers (datecreated, name, email, password, whatsapp)
                 VALUES (%s, %s, %s, %s, %s)
-            """, ( created_date ,fullname, email, password, whatsapp))
+            """, (created_date, fullname, email, password, whatsapp))
 
             connection.commit()
 
