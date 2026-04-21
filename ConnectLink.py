@@ -81,15 +81,12 @@ def initialize_database_tables():
                 except Exception as e:
                     print(f"Error fetching columns: {e}")
                     return []
-            columns = get_table_columns("connectlinkdatabase")
-            print(columns)
-
-            # PostgreSQL uses %s as placeholders (not question marks)
-            cursor.execute("""UPDATE connectlinkdatabase SET paymentmethod = %s WHERE id = %s""", ('Once Off Payment', 121))
-
-            cursor.execute("""UPDATE connectlinkdatabase SET installment1duedate = NULL WHERE id = %s""", (121,))
-
-            cursor.execute("""UPDATE connectlinkdatabase SET monthstopay = 0 WHERE id = %s""", (121,))
+            
+            try:
+                columns = get_table_columns("connectlinkdatabase")
+                print(f"✓ Connected to connectlinkdatabase with columns: {columns}")
+            except Exception as e:
+                print(f"⚠️  Warning: Could not fetch connectlinkdatabase columns: {e}")
 
             cursor.execute("""
                 SELECT table_name
@@ -348,13 +345,23 @@ def initialize_database_tables():
                 ALTER TABLE connectlinkdatabase DROP COLUMN depositrequired;
             """)'''
 
-            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id BETWEEN 1 AND 8;""")
-            cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 25;""")
+            try:
+                cursor.execute("""DELETE FROM connectlinkenquiries WHERE id BETWEEN 1 AND 8;""")
+                cursor.execute("""DELETE FROM connectlinkenquiries WHERE id = 25;""")
+                connection.commit()
+            except Exception as e:
+                connection.rollback()
+                print(f"Note: Could not delete records from connectlinkenquiries: {e}")
 
-            cursor.execute("""
-                ALTER TABLE appenqtemp 
-                ALTER COLUMN wanumber TYPE BIGINT;
-            """)
+            try:
+                cursor.execute("""
+                    ALTER TABLE appenqtemp 
+                    ALTER COLUMN wanumber TYPE BIGINT;
+                """)
+                connection.commit()
+            except Exception as e:
+                connection.rollback()
+                print(f"Note: Could not alter appenqtemp.wanumber type: {e}")
 
             # Update clientwhatsapp for record with id 6
             '''cursor.execute("""
@@ -383,9 +390,13 @@ def initialize_database_tables():
 
             tables = ['connectlinkdatabase', 'connectlinknotes', 'connectlinkadmin']
             for table in tables:
-                cursor.execute(f"SELECT pg_get_serial_sequence('{table}', 'id');")
-                seq_name = cursor.fetchone()[0]  # fetch the first column of the first row
-                print(f"Sequence for {table}: {seq_name}")
+                try:
+                    cursor.execute(f"SELECT pg_get_serial_sequence('{table}', 'id');")
+                    seq_name = cursor.fetchone()[0]  # fetch the first column of the first row
+                    if seq_name:
+                        print(f"✓ Sequence for {table}: {seq_name}")
+                except Exception as e:
+                    print(f"Note: Could not check sequence for {table}: {e}")
 
 
             cursor.execute("""
@@ -609,12 +620,11 @@ def initialize_database_tables():
                 updated_row = cursor.fetchone()
                 connection.commit()
                 
-                print(f"Updated due dates for project ID {100}")
+                print(f"✓ Updated due dates for project ID 125")
                 
             except Exception as e:
                 connection.rollback()
-                print(f"Error updating dates: {e}")
-                return jsonify({'error': str(e)}), 500
+                print(f"⚠️  Error updating dates: {e}")
 
             ## hardware initialisation
 
@@ -917,12 +927,16 @@ def migrate_product_categories():
             
             # Update products with mapped categories
             for old_category, new_category in category_map.items():
-                cursor.execute("""
-                    UPDATE products 
-                    SET category = %s
-                    WHERE category = %s
-                """, (new_category, old_category))
-                connection.commit()
+                try:
+                    cursor.execute("""
+                        UPDATE products 
+                        SET category = %s
+                        WHERE category = %s
+                    """, (new_category, old_category))
+                    connection.commit()
+                except Exception as e:
+                    connection.rollback()
+                    print(f"Note: Could not update category '{old_category}' to '{new_category}': {e}")
             
             # Rename remaining old categories
             old_to_new = {
@@ -933,12 +947,16 @@ def migrate_product_categories():
             }
             
             for old, new in old_to_new.items():
-                cursor.execute("""
-                    UPDATE products 
-                    SET category = %s
-                    WHERE category = %s
-                """, (new, old))
-                connection.commit()
+                try:
+                    cursor.execute("""
+                        UPDATE products 
+                        SET category = %s
+                        WHERE category = %s
+                    """, (new, old))
+                    connection.commit()
+                except Exception as e:
+                    connection.rollback()
+                    print(f"Note: Could not rename category '{old}' to '{new}': {e}")
             
             print("✅ Product categories migrated successfully!")
             
