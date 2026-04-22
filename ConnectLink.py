@@ -17456,11 +17456,13 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
     }
 
     upload_response = requests.post(upload_url, headers=upload_headers, files=files, timeout=45)
-    upload_response.raise_for_status()
-    media_id = upload_response.json().get('id')
+    upload_data = upload_response.json()
+    print(f"📤 WhatsApp media upload response [{upload_response.status_code}]: {upload_data}")
 
-    if not media_id:
-        raise ValueError('Media upload succeeded but no media id was returned')
+    if upload_response.status_code != 200 or 'id' not in upload_data:
+        raise ValueError(f"Media upload failed: {upload_data.get('error', upload_data)}")
+
+    media_id = upload_data['id']
 
     send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     send_headers = {
@@ -17478,9 +17480,18 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
         }
     }
 
+    print(f"📨 Sending WhatsApp document to {recipient_number} (media_id={media_id})")
     send_response = requests.post(send_url, headers=send_headers, json=payload, timeout=45)
-    send_response.raise_for_status()
-    return send_response.json()
+    send_data = send_response.json()
+    print(f"📨 WhatsApp send response [{send_response.status_code}]: {send_data}")
+
+    if send_response.status_code != 200 or 'error' in send_data:
+        raise ValueError(f"WhatsApp send failed: {send_data.get('error', send_data)}")
+
+    if not send_data.get('messages'):
+        raise ValueError(f"WhatsApp send returned no message confirmation: {send_data}")
+
+    return send_data
 
 
 @app.route('/api/send-quotation-whatsapp', methods=['POST'])
@@ -17531,11 +17542,12 @@ def send_quotation_whatsapp():
             caption
         )
 
+        print(f"✅ Quotation PDF sent to {whatsapp_number}: {whatsapp_response}")
         return jsonify({
             'success': True,
             'message': f'Quotation sent to {whatsapp_number}',
             'whatsapp_number': whatsapp_number,
-            'whatsapp_response': whatsapp_response
+            'message_id': whatsapp_response.get('messages', [{}])[0].get('id', '')
         })
     except Exception as e:
         logging.error(f'Error sending quotation to WhatsApp: {str(e)}')
