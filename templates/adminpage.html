@@ -10779,7 +10779,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(Number(totalCost || 0) * 0.70)}</div>
                                 </div>
                                 <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; box-sizing: border-box;">
-                                    <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly Installments (5 months)</div>
+                                    <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly Installments (over 5 months)</div>
                                     <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency((Number(totalCost || 0) * 0.70) / 5)}</div>
                                 </div>
                             </div>
@@ -11019,6 +11019,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     alert(`✓ Successfully saved ${data.count} quotation rates!`);
                     closeModal('quotationRatesModal');
+                    // Refresh the available items list so newly added items appear immediately
+                    loadConstructionItems();
                 } else {
                     alert('Error: ' + (data.message || 'Unknown error'));
                 }
