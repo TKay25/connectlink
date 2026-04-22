@@ -11570,7 +11570,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <th style="padding: 6px; text-align: right;">Total Cost</th>
                             <th style="padding: 6px; text-align: center;">Type</th>
                             <th style="padding: 6px; text-align: center;">Status</th>
-                            <th style="padding: 6px; text-align: left;">Message ID</th>
                             <th style="padding: 6px; text-align: center;">Quotation</th>
                         </tr>
                     </thead>
@@ -11580,7 +11579,6 @@ document.addEventListener('DOMContentLoaded', () => {
         rows.forEach((row, index) => {
             const sentAt = row.sentAt ? new Date(row.sentAt).toLocaleString('en-GB') : 'N/A';
             const totalCost = Number(row.totalCost || 0);
-            const messageIdShort = row.messageId ? row.messageId.slice(0, 40) + (row.messageId.length > 40 ? '...' : '') : 'N/A';
 
             html += `
                 <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
@@ -11591,7 +11589,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 6px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td style="padding: 6px; text-align: center;">${formatSendTypeBadge(row.sendType)}</td>
                     <td style="padding: 6px; text-align: center;">${formatSendStatusBadge(row.sendStatus)}</td>
-                    <td style="padding: 6px; font-family: monospace;">${messageIdShort}</td>
                     <td style="padding: 6px; text-align: center;">#${row.quotationId || ''}</td>
                 </tr>
             `;
