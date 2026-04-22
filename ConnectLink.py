@@ -381,6 +381,11 @@ def initialize_database_tables():
                     quotation_id INT NOT NULL,
                     whatsapp_number VARCHAR(20),
                     client_name VARCHAR(255),
+                    snapshot_category VARCHAR(255),
+                    snapshot_project_size DECIMAL(15,2),
+                    snapshot_total_cost DECIMAL(15,2),
+                    snapshot_markup DECIMAL(5,2),
+                    snapshot_quotation_date DATE,
                     send_type VARCHAR(40) NOT NULL,
                     send_status VARCHAR(20) NOT NULL DEFAULT 'success',
                     error_details TEXT,
@@ -399,6 +404,26 @@ def initialize_database_tables():
             cursor.execute("""
                 ALTER TABLE quotation_whatsapp_send_logs
                 ADD COLUMN IF NOT EXISTS error_details TEXT
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_whatsapp_send_logs
+                ADD COLUMN IF NOT EXISTS snapshot_category VARCHAR(255)
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_whatsapp_send_logs
+                ADD COLUMN IF NOT EXISTS snapshot_project_size DECIMAL(15,2)
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_whatsapp_send_logs
+                ADD COLUMN IF NOT EXISTS snapshot_total_cost DECIMAL(15,2)
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_whatsapp_send_logs
+                ADD COLUMN IF NOT EXISTS snapshot_markup DECIMAL(5,2)
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_whatsapp_send_logs
+                ADD COLUMN IF NOT EXISTS snapshot_quotation_date DATE
             """)
 
             # Ensure older databases can track quotation download clicks/success
@@ -1331,6 +1356,27 @@ def webhook():
                                         target_client_name = (outbox_row[2] or 'Client').strip() or 'Client'
                                         fallback_already_sent = bool(outbox_row[3])
 
+                                        q_category = ''
+                                        q_size = 0
+                                        q_total = 0
+                                        q_markup = 0
+                                        q_date = None
+                                        try:
+                                            cursor.execute("""
+                                                SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                                                FROM quotations
+                                                WHERE id = %s
+                                            """, (safe_qid,))
+                                            qrow = cursor.fetchone()
+                                            if qrow:
+                                                q_category = qrow[0] or ''
+                                                q_size = float(qrow[1]) if qrow[1] else 0
+                                                q_total = float(qrow[2]) if qrow[2] else 0
+                                                q_markup = float(qrow[3]) if qrow[3] else 0
+                                                q_date = qrow[4] if qrow[4] else None
+                                        except Exception as qerr:
+                                            print(f"⚠️ Could not fetch quotation metadata for fallback: {qerr}")
+
                                         # Record the failure once so portal can show Failed status entries
                                         cursor.execute("""
                                             SELECT COUNT(*)
@@ -1349,7 +1395,12 @@ def webhook():
                                                 outbound_message_id,
                                                 'webhook_status',
                                                 send_status='failed',
-                                                error_details=error_text
+                                                error_details=error_text,
+                                                snapshot_category=q_category,
+                                                snapshot_project_size=q_size,
+                                                snapshot_total_cost=q_total,
+                                                snapshot_markup=q_markup,
+                                                snapshot_quotation_date=q_date
                                             )
 
                                         if fallback_already_sent:
@@ -1359,17 +1410,6 @@ def webhook():
                                         if not target_number:
                                             print(f"⚠️ Could not derive WhatsApp number for failed message_id={outbound_message_id}")
                                             continue
-
-                                        q_category = ''
-                                        q_size = 0
-                                        try:
-                                            cursor.execute("SELECT category, project_size FROM quotations WHERE id = %s", (safe_qid,))
-                                            qrow = cursor.fetchone()
-                                            if qrow:
-                                                q_category = qrow[0] or ''
-                                                q_size = float(qrow[1]) if qrow[1] else 0
-                                        except Exception as qerr:
-                                            print(f"⚠️ Could not fetch quotation metadata for fallback: {qerr}")
 
                                         share_token = create_quotation_share_token(safe_qid)
                                         template_response = send_quotation_download_template(
@@ -1387,7 +1427,12 @@ def webhook():
                                             target_client_name,
                                             'template_fallback',
                                             fallback_message_id,
-                                            'webhook_async_fallback'
+                                            'webhook_async_fallback',
+                                            snapshot_category=q_category,
+                                            snapshot_project_size=q_size,
+                                            snapshot_total_cost=q_total,
+                                            snapshot_markup=q_markup,
+                                            snapshot_quotation_date=q_date
                                         )
 
                                         cursor.execute("""
@@ -18060,19 +18105,43 @@ def log_quotation_whatsapp_send(
     whatsapp_message_id='',
     source_channel='portal',
     send_status='success',
-    error_details=''
+    error_details='',
+    snapshot_category='',
+    snapshot_project_size=0,
+    snapshot_total_cost=0,
+    snapshot_markup=0,
+    snapshot_quotation_date=None
 ):
     """Persist quotation WhatsApp send outcomes for Sent Quotations portal view."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
                 INSERT INTO quotation_whatsapp_send_logs
-                (quotation_id, whatsapp_number, client_name, send_type, send_status, error_details, whatsapp_message_id, source_channel)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                (
+                    quotation_id,
+                    whatsapp_number,
+                    client_name,
+                    snapshot_category,
+                    snapshot_project_size,
+                    snapshot_total_cost,
+                    snapshot_markup,
+                    snapshot_quotation_date,
+                    send_type,
+                    send_status,
+                    error_details,
+                    whatsapp_message_id,
+                    source_channel
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 int(quotation_id),
                 normalize_whatsapp_number(whatsapp_number),
                 (client_name or 'Client').strip() or 'Client',
+                str(snapshot_category or '')[:255],
+                float(snapshot_project_size or 0),
+                float(snapshot_total_cost or 0),
+                float(snapshot_markup or 0),
+                snapshot_quotation_date,
                 send_type,
                 (send_status or 'success').strip().lower(),
                 str(error_details or '')[:2000],
@@ -18265,6 +18334,29 @@ def send_quotation_whatsapp():
         if quotation_id and outbound_message_id:
             try:
                 safe_qid = int(quotation_id)
+                snapshot_category = payload.get('category') or ''
+                snapshot_project_size = payload.get('projectSize') or payload.get('size') or 0
+                snapshot_total_cost = payload.get('totalCost') or 0
+                snapshot_markup = payload.get('markup') or 0
+                snapshot_quotation_date = payload.get('quotationDate') or None
+
+                try:
+                    with get_db() as (sc, _):
+                        sc.execute("""
+                            SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                            FROM quotations
+                            WHERE id = %s
+                        """, (safe_qid,))
+                        srow = sc.fetchone()
+                        if srow:
+                            snapshot_category = srow[0] if srow[0] is not None else snapshot_category
+                            snapshot_project_size = srow[1] if srow[1] is not None else snapshot_project_size
+                            snapshot_total_cost = srow[2] if srow[2] is not None else snapshot_total_cost
+                            snapshot_markup = srow[3] if srow[3] is not None else snapshot_markup
+                            snapshot_quotation_date = srow[4] if srow[4] is not None else snapshot_quotation_date
+                except Exception as snapshot_err:
+                    logging.warning(f"Could not fetch quotation snapshot from DB: {snapshot_err}")
+
                 with get_db() as (oc, oconn):
                     oc.execute("""
                         INSERT INTO quotation_whatsapp_outbox
@@ -18287,7 +18379,12 @@ def send_quotation_whatsapp():
                 client_name,
                 'document',
                 outbound_message_id,
-                'portal_send'
+                'portal_send',
+                snapshot_category=snapshot_category,
+                snapshot_project_size=snapshot_project_size,
+                snapshot_total_cost=snapshot_total_cost,
+                snapshot_markup=snapshot_markup,
+                snapshot_quotation_date=snapshot_quotation_date
             )
 
         print(f"✅ Quotation PDF accepted by WhatsApp API for {whatsapp_number}: {whatsapp_response}")
@@ -18309,13 +18406,23 @@ def send_quotation_whatsapp():
                 # Fetch category and project_size from saved quotation for template variables
                 q_category = ''
                 q_size = 0
+                q_total = 0
+                q_markup = 0
+                q_date = None
                 try:
                     with get_db() as (qc, _):
-                        qc.execute("SELECT category, project_size FROM quotations WHERE id = %s", (safe_qid,))
+                        qc.execute("""
+                            SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                            FROM quotations
+                            WHERE id = %s
+                        """, (safe_qid,))
                         qrow = qc.fetchone()
                         if qrow:
                             q_category = qrow[0] or ''
                             q_size = float(qrow[1]) if qrow[1] else 0
+                            q_total = float(qrow[2]) if qrow[2] else 0
+                            q_markup = float(qrow[3]) if qrow[3] else 0
+                            q_date = qrow[4] if qrow[4] else None
                 except Exception:
                     pass
 
@@ -18332,7 +18439,12 @@ def send_quotation_whatsapp():
                     client_name,
                     'template_fallback',
                     template_message_id,
-                    'sync_fallback'
+                    'sync_fallback',
+                    snapshot_category=q_category,
+                    snapshot_project_size=q_size,
+                    snapshot_total_cost=q_total,
+                    snapshot_markup=q_markup,
+                    snapshot_quotation_date=q_date
                 )
 
                 public_base = PUBLIC_BASE_URL or request.url_root.rstrip('/')
@@ -18667,13 +18779,13 @@ def get_sent_quotations():
                 SELECT
                     ql.id,
                     ql.quotation_id,
-                    q.client_name,
-                    q.client_whatsapp,
-                    q.category,
-                    q.project_size,
-                    q.total_cost,
-                    q.markup_percentage,
-                    q.quotation_date,
+                    COALESCE(NULLIF(ql.client_name, ''), 'Client') AS client_name,
+                    COALESCE(NULLIF(ql.whatsapp_number, ''), '') AS whatsapp_number,
+                    COALESCE(NULLIF(ql.snapshot_category, ''), '') AS category,
+                    COALESCE(ql.snapshot_project_size, 0) AS project_size,
+                    COALESCE(ql.snapshot_total_cost, 0) AS total_cost,
+                    COALESCE(ql.snapshot_markup, 0) AS markup_percentage,
+                    ql.snapshot_quotation_date AS quotation_date,
                     ql.send_type,
                     ql.send_status,
                     ql.error_details,
@@ -18681,7 +18793,6 @@ def get_sent_quotations():
                     ql.whatsapp_message_id,
                     ql.created_at
                 FROM quotation_whatsapp_send_logs ql
-                INNER JOIN quotations q ON q.id = ql.quotation_id
                 ORDER BY ql.created_at DESC
             """)
             rows = cursor.fetchall()
