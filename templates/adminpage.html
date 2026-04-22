@@ -10441,10 +10441,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 clientTotalsRounded[lastIdx] = Number((clientTotalsRounded[lastIdx] + roundingDiff).toFixed(2));
             }
 
-            const fullHouseTotalDays = Math.max(1, Math.round((Number(fullHouseItem.daysPerSqMeter) || 0) * sqmValue));
-            const componentDayWeights = componentItems.map(item => Math.max(0, (Number(item.daysPerSqMeter) || 0) * sqmValue));
-            const distributedDays = distributeIntegerDays(componentDayWeights, fullHouseTotalDays);
-
             const durationByItemId = {};
             const selectedItems = [];
             const orderedConstructionItems = [];
@@ -10467,7 +10463,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     price: clientPrice
                 });
 
-                durationByItemId[item.id] = distributedDays[index] || 0;
+                const rawDays = Math.round((Number(item.daysPerSqMeter) || 0) * sqmValue);
+                durationByItemId[item.id] = Math.max(1, rawDays);
             });
 
             return {
@@ -10798,14 +10795,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Initialize Gantt with selected items in order
                 const sqm = parseFloat($('#quotationSize').val());
                 ganttItems = [];
-                let currentStartDate = new Date();
+                let currentStartDate = parseDateGantt(quotationDate);
 
                 orderedConstructionItems.forEach(item => {
                     const rateData = quotationRatesCache.find(r => r.id == item.id);
                     const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
-                    const fallbackDuration = Math.round(daysPerSqm * sqm);
+                    const fallbackDuration = Math.max(1, Math.round(daysPerSqm * sqm));
                     const proportionalDuration = window.fullHouseDurationByItemId && window.fullHouseDurationByItemId[item.id];
-                    const duration = Number.isFinite(proportionalDuration) ? proportionalDuration : fallbackDuration;
+                    const duration = Math.max(1, Number.isFinite(proportionalDuration) ? proportionalDuration : fallbackDuration);
                     
                     const endDate = new Date(currentStartDate);
                     endDate.setDate(endDate.getDate() + duration - 1);
@@ -10815,8 +10812,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         item: item.item,
                         price: item.price,
                         daysPerSqMeter: daysPerSqm,
-                        startDate: currentStartDate.toISOString().split('T')[0],
-                        endDate: endDate.toISOString().split('T')[0],
+                        startDate: formatDateGantt(currentStartDate),
+                        endDate: formatDateGantt(endDate),
                         days: duration
                     });
                     
@@ -11446,11 +11443,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const basePrice = (rateData ? rateData.inhouseRate : 0) * sqm;
             const clientPrice = basePrice * (1 + (markup / 100));
             const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
-            const duration = Math.round(daysPerSqm * sqm);
+            const duration = Math.max(1, Math.round(daysPerSqm * sqm));
 
             const startDate = new Date();
             const endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + duration);
+            endDate.setDate(endDate.getDate() + duration - 1);
 
             ganttItems.push({
                 id: rateData ? rateData.id : null,
@@ -11519,8 +11516,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             items.forEach((item, index) => {
-                const startDate = new Date(item.startDate);
-                const endDate = new Date(item.endDate);
+                const startDate = parseDateGantt(item.startDate);
+                const endDate = parseDateGantt(item.endDate);
                 const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
                 const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -11613,21 +11610,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateGanttItemDate(index, type, value) {
         ganttItems[index][type === 'start' ? 'startDate' : 'endDate'] = value;
-        ganttItems[index].days = calculateDays(
-            new Date(ganttItems[index].startDate),
-            new Date(ganttItems[index].endDate)
-        );
+
+        const currentStart = parseDateGantt(ganttItems[index].startDate);
+        let currentEnd = parseDateGantt(ganttItems[index].endDate);
+
+        if (currentEnd < currentStart) {
+            currentEnd = new Date(currentStart);
+            ganttItems[index].endDate = formatDateGantt(currentEnd);
+        }
+
+        ganttItems[index].days = calculateDays(currentStart, currentEnd);
         
         // Auto-set next task start date to current task end date + 1 day
         if (type === 'end' && index < ganttItems.length - 1) {
-            const nextStartDate = new Date(ganttItems[index].endDate);
+            const nextStartDate = parseDateGantt(ganttItems[index].endDate);
             nextStartDate.setDate(nextStartDate.getDate() + 1);
             ganttItems[index + 1].startDate = formatDateGantt(nextStartDate);
             
             // Recalculate next item's days
             ganttItems[index + 1].days = calculateDays(
-                new Date(ganttItems[index + 1].startDate),
-                new Date(ganttItems[index + 1].endDate)
+                parseDateGantt(ganttItems[index + 1].startDate),
+                parseDateGantt(ganttItems[index + 1].endDate)
             );
         }
         
@@ -11646,11 +11649,38 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${year}-${month}-${day}`;
     }
 
+    function parseDateGantt(value) {
+        if (value instanceof Date) {
+            return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+        }
+
+        const stringValue = (value || '').toString();
+        const dateOnly = stringValue.split('T')[0];
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+        if (match) {
+            const year = Number(match[1]);
+            const month = Number(match[2]) - 1;
+            const day = Number(match[3]);
+            return new Date(year, month, day);
+        }
+
+        const fallback = new Date(value);
+        if (Number.isNaN(fallback.getTime())) {
+            return new Date();
+        }
+        return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
+    }
+
     function calculateDays(startDate, endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const diffTime = Math.abs(end - start);
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        const start = parseDateGantt(startDate);
+        const end = parseDateGantt(endDate);
+
+        if (end < start) {
+            return 1;
+        }
+
+        const diffTime = end - start;
+        return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
     }
 
     // Load quotations when tab is shown
