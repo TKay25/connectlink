@@ -18792,12 +18792,20 @@ def get_sent_quotations():
                     ql.source_channel,
                     ql.whatsapp_message_id,
                     ql.created_at,
-                    COALESCE(MAX(qsl.download_pdf_sent_success::int) OVER (PARTITION BY ql.quotation_id), 0) AS downloaded,
-                    MAX(qsl.download_pdf_sent_at) OVER (PARTITION BY ql.quotation_id) AS download_sent_at,
-                    MAX(qsl.download_clicked_at) OVER (PARTITION BY ql.quotation_id) AS download_clicked_at
+                    COALESCE(qsa.downloaded, 0) AS downloaded,
+                    qsa.download_sent_at,
+                    qsa.download_clicked_at
                 FROM quotation_whatsapp_send_logs ql
                 LEFT JOIN quotations q ON q.id = ql.quotation_id
-                LEFT JOIN quotation_share_links qsl ON qsl.quotation_id = ql.quotation_id
+                LEFT JOIN (
+                    SELECT
+                        quotation_id,
+                        MAX(CASE WHEN download_pdf_sent_success THEN 1 ELSE 0 END) AS downloaded,
+                        MAX(download_pdf_sent_at) AS download_sent_at,
+                        MAX(download_clicked_at) AS download_clicked_at
+                    FROM quotation_share_links
+                    GROUP BY quotation_id
+                ) qsa ON qsa.quotation_id = ql.quotation_id
                 ORDER BY ql.created_at DESC
             """)
             rows = cursor.fetchall()
