@@ -10942,7 +10942,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.innerHTML = `
                     <td><input type="text" class="form-control form-control-sm quotation-item-input" value="${rate.item}" placeholder="Quotation Item"></td>
                     <td><input type="number" class="form-control form-control-sm quotation-days-input" value="${rate.daysPerSqMeter}" step="0.01" placeholder="Days"></td>
-                    <td><input type="number" class="form-control form-control-sm quotation-rate-input" value="${rate.inhouseRate}" step="0.01" placeholder="Rate"></td>
+                    <td><input type="number" class="form-control form-control-sm quotation-rate-input" value="${rate.inhouseRate}" step="any" placeholder="Rate"></td>
                     <td style="text-align: center;"><button class="btn btn-sm btn-danger delete-rate-btn" type="button" title="Delete"><i class="bi bi-trash"></i></button></td>
                 `;
                 fragment.appendChild(row);
@@ -10960,7 +10960,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.innerHTML = `
                 <td><input type="text" class="form-control form-control-sm quotation-item-input" placeholder="Quotation Item"></td>
                 <td><input type="number" class="form-control form-control-sm quotation-days-input" step="0.01" placeholder="Days"></td>
-                <td><input type="number" class="form-control form-control-sm quotation-rate-input" step="0.01" placeholder="Rate"></td>
+                <td><input type="number" class="form-control form-control-sm quotation-rate-input" step="any" placeholder="Rate"></td>
                 <td style="text-align: center;"><button class="btn btn-sm btn-danger delete-rate-btn" type="button" title="Delete"><i class="bi bi-trash"></i></button></td>
             `;
             tbody.appendChild(row);

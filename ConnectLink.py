@@ -33,6 +33,7 @@ from collections import Counter
 import time
 import random
 import logging
+from decimal import Decimal
 import google.generativeai as genai
 from flask_cors import CORS
 import secrets
@@ -205,10 +206,17 @@ def initialize_database_tables():
                     id SERIAL PRIMARY KEY,
                     quotation_item VARCHAR(255) NOT NULL,
                     days_per_sq_meter DECIMAL(10, 8) NOT NULL DEFAULT 0,
-                    inhouse_unit_rate DECIMAL(12, 2) NOT NULL DEFAULT 0,
+                    inhouse_unit_rate NUMERIC(20, 13) NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+            """)
+
+            # Ensure existing databases can store high-precision inhouse rates
+            cursor.execute("""
+                ALTER TABLE quotation_rates
+                ALTER COLUMN inhouse_unit_rate TYPE NUMERIC(20, 13)
+                USING inhouse_unit_rate::NUMERIC(20, 13)
             """)
             
             # Create product categories table for dynamically created categories
@@ -17397,8 +17405,8 @@ def save_quotation_rates():
                     VALUES (%s, %s, %s)
                 """, (
                     rate.get('item'),
-                    float(rate.get('daysPerSqMeter', 0)),
-                    float(rate.get('inhouseRate', 0))
+                    Decimal(str(rate.get('daysPerSqMeter', 0))),
+                    Decimal(str(rate.get('inhouseRate', 0)))
                 ))
             
             connection.commit()
