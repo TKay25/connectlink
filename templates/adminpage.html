@@ -664,15 +664,6 @@
             <i class="bi bi-shield-fill"></i><span>Administrators</span>
         </button>
 
-        <hr style="margin: 15px 8px; border: 1px solid #34495e;">
-
-        <button id="btn-profile" class="btn-side" onclick="window.location.href='/profile'" data-tooltip="My Profile">
-            <i class="bi bi-person-circle"></i><span>My Profile</span>
-        </button>
-
-        <button id="btn-logout" class="btn-side" onclick="logout()" data-tooltip="Logout">
-            <i class="bi bi-box-arrow-right"></i><span>Logout</span>
-        </button>
     </div>
 
 <div id="systemUserModal" class="modal-overlay">
@@ -10755,51 +10746,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         <p style="font-size: 13px; margin: 0 0 18px 0; line-height: 1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>${clientName}</strong>.</p>
 
-                        <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 24px;">
+                        <!-- PROJECT DETAILS (full width) -->
+                        <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT DETAILS</h4>
+                        <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 12px 16px; box-sizing: border-box;">
                             <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 10px; box-sizing: border-box;">
-                                <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 6px 8px; border-radius: 6px; font-size: 14px; margin: 0 0 16px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT DETAILS</h4>
-                                <div style="margin-bottom: 10px; font-size: 13px;"><strong style="display: inline-block; width: 120px;">Client Name:</strong> <span>${clientName}</span></div>
-                                <div style="margin-bottom: 10px; font-size: 13px;"><strong style="display: inline-block; width: 120px;">Project Size:</strong> <span>${size} Sq. Meters</span></div>
-                                <div style="margin-bottom: 10px; font-size: 13px;"><strong style="display: inline-block; width: 120px;">Category:</strong> <span>${category}</span></div>
-                                <div style="margin-bottom: 10px; font-size: 13px;"><strong style="display: inline-block; width: 120px;">Date:</strong> <span>${formatPdfDate(quotationDate)}</span></div>
+                                <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Client Name:</strong> <span>${clientName}</span></div>
+                                <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Project Size:</strong> <span>${size} Sq. Meters</span></div>
                             </div>
                             <div style="display: table-cell; width: 50%; vertical-align: top; padding-left: 10px; box-sizing: border-box;">
-                                <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 6px 8px; border-radius: 6px; font-size: 14px; margin: 0 0 16px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
-                                <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px;">
-                                    <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;"><span>Base Cost</span><strong>${formatCurrency(baseCost)}</strong></div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;"><span>Markup (${Number(markup || 0).toFixed(2)}%)</span><strong>${formatCurrency(markupAmount)}</strong></div>
-                                    <div style="height: 1px; background: #d8deef; margin: 10px 0;"></div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 900; color: #1E2A56; margin-bottom: 10px;"><span>Total Amount</span><span>${formatCurrency(totalCost)}</span></div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 7px;"><span>Deposit (30% of Total Amount)</span><strong>${formatCurrency(Number(totalCost || 0) * 0.30)}</strong></div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 7px;"><span>Balance</span><strong>${formatCurrency(Number(totalCost || 0) * 0.70)}</strong></div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 13px;"><span>Monthly Installment (over 5 months)</span><strong>${formatCurrency((Number(totalCost || 0) * 0.70) / 5)}</strong></div>
+                                <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Category:</strong> <span>${category}</span></div>
+                                <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Date:</strong> <span>${formatPdfDate(quotationDate)}</span></div>
+                            </div>
+                        </div>
+
+                        <!-- QUOTATION SUMMARY (full width) -->
+                        <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
+                        <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
+                            <div style="display: table; width: 100%; table-layout: fixed;">
+                                <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                    <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
+                                    <div style="font-size: 14px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
+                                </div>
+                                <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                    <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
+                                    <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(Number(totalCost || 0) * 0.30)}</div>
+                                </div>
+                                <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                    <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
+                                    <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(Number(totalCost || 0) * 0.70)}</div>
+                                </div>
+                                <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; box-sizing: border-box;">
+                                    <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (5 months)</div>
+                                    <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency((Number(totalCost || 0) * 0.70) / 5)}</div>
                                 </div>
                             </div>
                         </div>
 
-                        <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 6px 8px; border-radius: 6px; font-size: 14px; margin: 0 0 16px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px;">
+                        <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
                             <thead>
                                 <tr style="background: #1E2A56; color: white;">
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: center; width: 7%;">#</th>
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: left; width: 43%;">Item Description</th>
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: center; width: 15%;">Qty (Sq.M)</th>
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: right; width: 17%;">Unit Rate</th>
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: right; width: 18%;">Total</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 7%;">#</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 43%;">Item Description</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 15%;">Qty (Sq.M)</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 17%;">Unit Rate</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 18%;">Total</th>
                                 </tr>
                             </thead>
                             <tbody>${itemRows}</tbody>
                         </table>
 
-                        <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 6px 8px; border-radius: 6px; font-size: 14px; margin: 0 0 16px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT SCHEDULE</h4>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px;">
+                        <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT SCHEDULE</h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
                             <thead>
                                 <tr style="background: #1E2A56; color: white;">
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: center; width: 7%;">#</th>
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: left; width: 41%;">Work Scope</th>
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: center; width: 18%;">Start Date</th>
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: center; width: 18%;">End Date</th>
-                                    <th style="padding: 9px 10px; border: 1px solid #2a3a78; text-align: center; width: 16%;">Days</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 7%;">#</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 41%;">Work Scope</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 18%;">Start Date</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 18%;">End Date</th>
+                                    <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 16%;">Days</th>
                                 </tr>
                             </thead>
                             <tbody>${scheduleRows}</tbody>
