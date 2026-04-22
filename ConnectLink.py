@@ -4546,7 +4546,142 @@ def webhook():
                                                                 project_id = payload.replace(config['payload_prefix'], '')
                                                                 break
                                                         
-                                                        if matched_type and project_id:
+                                                        if payload and payload.startswith('quotation_'):
+                                                            # Template quick-reply: "Download Quotation" button
+                                                            # Payload format: quotation_{id}_{random} or just quotation_{id}
+                                                            try:
+                                                                parts = payload.split('_')
+                                                                qid = int(parts[1])
+                                                            except (IndexError, ValueError):
+                                                                qid = None
+
+                                                            if qid:
+                                                                send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
+                                                                try:
+                                                                    with get_db() as (qcur, _):
+                                                                        qcur.execute("""
+                                                                            SELECT q.id, q.client_name, q.quotation_date, q.category,
+                                                                                   q.project_size, q.total_cost, q.markup_percentage
+                                                                            FROM quotations q WHERE q.id = %s
+                                                                        """, (qid,))
+                                                                        qrow = qcur.fetchone()
+
+                                                                        qcur.execute("""
+                                                                            SELECT item_name, quantity, unit_rate, total_price
+                                                                            FROM quotation_items WHERE quotation_id = %s ORDER BY item_order
+                                                                        """, (qid,))
+                                                                        qitems = qcur.fetchall()
+
+                                                                        qcur.execute("""
+                                                                            SELECT work_scope, start_date, end_date, days
+                                                                            FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order
+                                                                        """, (qid,))
+                                                                        qschedules = qcur.fetchall()
+
+                                                                    if not qrow:
+                                                                        send_text_message(sender_id, "❌ Quotation not found.")
+                                                                    else:
+                                                                        q_client = qrow[1] or 'Client'
+                                                                        q_date = qrow[2].strftime('%d %B %Y') if qrow[2] else ''
+                                                                        q_category = qrow[3] or ''
+                                                                        q_size = float(qrow[4]) if qrow[4] else 0
+                                                                        q_total = float(qrow[5]) if qrow[5] else 0
+                                                                        q_markup = float(qrow[6]) if qrow[6] else 0
+                                                                        deposit = q_total * 0.30
+                                                                        balance = q_total - deposit
+                                                                        monthly = balance / 5
+
+                                                                        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+                                                                        with open(logo_path, 'rb') as img_f:
+                                                                            logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
+
+                                                                        items_rows = ''.join(
+                                                                            f"<tr><td>{html.escape(str(i[0]))}</td><td>{float(i[1]):,.2f}</td><td>{float(i[2]):,.6f}</td><td>{float(i[3]):,.2f}</td></tr>"
+                                                                            for i in qitems
+                                                                        )
+                                                                        sched_rows = ''.join(
+                                                                            f"<tr><td>{html.escape(str(s[0]))}</td><td>{s[1]}</td><td>{s[2]}</td><td>{int(s[3]) if s[3] else 0}</td></tr>"
+                                                                            for s in qschedules
+                                                                        )
+
+                                                                        quot_html = f"""
+                                                                        <!doctype html><html><head><meta charset='utf-8'>
+                                                                        <style>
+                                                                          @page {{size:A4;margin:10mm}}
+                                                                          body{{font-family:Arial,sans-serif;font-size:11px;color:#1E2A56}}
+                                                                          img{{width:120px}}
+                                                                          h1{{font-size:15px;font-weight:900;margin:6px 0}}
+                                                                          table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}}
+                                                                          th{{background:#1E2A56;color:#fff;padding:5px;text-align:left}}
+                                                                          td{{padding:4px 5px;border-bottom:1px solid #e0e3ef}}
+                                                                          .sum{{display:flex;gap:8px;margin:8px 0}}
+                                                                          .sum-box{{flex:1;background:#f4f6fb;border:1px solid #d0d5e8;border-radius:6px;padding:6px;text-align:center}}
+                                                                          .sum-val{{font-size:12px;font-weight:bold}}
+                                                                          .sec{{margin-top:10px;font-weight:bold;font-size:11px;color:#1E2A56;border-bottom:1px solid #1E2A56;padding-bottom:2px}}
+                                                                        </style></head><body>
+                                                                        <img src='data:image/png;base64,{logo_b64}'>
+                                                                        <h1>Project Quotation</h1>
+                                                                        <div class='sec'>PROJECT DETAILS</div>
+                                                                        <table><tr><td><b>Client:</b> {html.escape(q_client)}</td><td><b>Date:</b> {q_date}</td></tr>
+                                                                        <tr><td><b>Category:</b> {html.escape(q_category)}</td><td><b>Size:</b> {q_size:,.2f} sqm</td></tr></table>
+                                                                        <div class='sec'>QUOTATION SUMMARY</div>
+                                                                        <div class='sum'>
+                                                                          <div class='sum-box'><div>Total</div><div class='sum-val'>USD {q_total:,.2f}</div></div>
+                                                                          <div class='sum-box'><div>Deposit (30%)</div><div class='sum-val'>USD {deposit:,.2f}</div></div>
+                                                                          <div class='sum-box'><div>Balance</div><div class='sum-val'>USD {balance:,.2f}</div></div>
+                                                                          <div class='sum-box'><div>Monthly (5 months)</div><div class='sum-val'>USD {monthly:,.2f}</div></div>
+                                                                        </div>
+                                                                        <div class='sec'>CONSTRUCTION ITEMS</div>
+                                                                        <table><thead><tr><th>Item</th><th>Qty (sqm)</th><th>Unit Rate</th><th>Total (USD)</th></tr></thead>
+                                                                        <tbody>{items_rows}</tbody></table>
+                                                                        <div class='sec'>PROJECT SCHEDULE</div>
+                                                                        <table><thead><tr><th>Task</th><th>Start</th><th>End</th><th>Days</th></tr></thead>
+                                                                        <tbody>{sched_rows}</tbody></table>
+                                                                        <div style='margin-top:12px;font-size:9px;color:#888'>ConnectLink Properties • info@connectlinkproperties.co.zw • +263 773368558</div>
+                                                                        </body></html>
+                                                                        """
+
+                                                                        from weasyprint import HTML as WeasyprintHTML
+                                                                        pdf_bytes = WeasyprintHTML(string=quot_html).write_pdf()
+
+                                                                        safe_name = ''.join(c for c in q_client if c.isalnum() or c == ' ').replace(' ', '_')
+                                                                        q_filename = f"Quotation_{safe_name}_{qid}.pdf"
+                                                                        q_caption = f"📄 *PROJECT QUOTATION*\n\nClient: {q_client}\nCategory: {q_category}\nTotal: USD {q_total:,.2f}\n\nSend 'Hello' for more options."
+
+                                                                        upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+                                                                        upload_r = requests.post(
+                                                                            upload_url,
+                                                                            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+                                                                            files={
+                                                                                "file": (q_filename, io.BytesIO(pdf_bytes), "application/pdf"),
+                                                                                "type": (None, "application/pdf"),
+                                                                                "messaging_product": (None, "whatsapp")
+                                                                            },
+                                                                            timeout=45
+                                                                        )
+                                                                        upload_r.raise_for_status()
+                                                                        q_media_id = upload_r.json()["id"]
+
+                                                                        send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                                        requests.post(
+                                                                            send_url,
+                                                                            headers={"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"},
+                                                                            json={
+                                                                                "messaging_product": "whatsapp",
+                                                                                "to": sender_id,
+                                                                                "type": "document",
+                                                                                "document": {"id": q_media_id, "filename": q_filename, "caption": q_caption}
+                                                                            },
+                                                                            timeout=45
+                                                                        )
+                                                                        print(f"✅ Quotation PDF {qid} sent to {sender_id}")
+                                                                except Exception as qe:
+                                                                    print(f"❌ Error sending quotation PDF: {qe}")
+                                                                    send_text_message(sender_id, "❌ Failed to generate your quotation. Please contact us directly.")
+                                                            else:
+                                                                send_text_message(sender_id, "❌ Invalid quotation reference.")
+
+                                                        elif matched_type and project_id:
                                                             config = RECEIPT_CONFIG[matched_type]
                                                             print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
                                                             
@@ -7066,7 +7201,115 @@ def webhook():
                                                                     project_id = payload.replace(config['payload_prefix'], '')
                                                                     break
                                                             
-                                                            if matched_type and project_id:
+                                                            if payload and payload.startswith('quotation_'):
+                                                                try:
+                                                                    parts = payload.split('_')
+                                                                    qid = int(parts[1])
+                                                                except (IndexError, ValueError):
+                                                                    qid = None
+
+                                                                if qid:
+                                                                    send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
+                                                                    try:
+                                                                        with get_db() as (qcur, _):
+                                                                            qcur.execute("""
+                                                                                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
+                                                                                FROM quotations WHERE id = %s
+                                                                            """, (qid,))
+                                                                            qrow = qcur.fetchone()
+                                                                            qcur.execute("SELECT item_name, quantity, unit_rate, total_price FROM quotation_items WHERE quotation_id = %s ORDER BY item_order", (qid,))
+                                                                            qitems = qcur.fetchall()
+                                                                            qcur.execute("SELECT work_scope, start_date, end_date, days FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order", (qid,))
+                                                                            qschedules = qcur.fetchall()
+
+                                                                        if not qrow:
+                                                                            send_text_message(sender_id, "❌ Quotation not found.")
+                                                                        else:
+                                                                            q_client = qrow[1] or 'Client'
+                                                                            q_date = qrow[2].strftime('%d %B %Y') if qrow[2] else ''
+                                                                            q_category = qrow[3] or ''
+                                                                            q_size = float(qrow[4]) if qrow[4] else 0
+                                                                            q_total = float(qrow[5]) if qrow[5] else 0
+                                                                            deposit = q_total * 0.30
+                                                                            balance = q_total - deposit
+                                                                            monthly = balance / 5
+
+                                                                            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+                                                                            with open(logo_path, 'rb') as img_f:
+                                                                                logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
+
+                                                                            items_rows = ''.join(
+                                                                                f"<tr><td>{html.escape(str(i[0]))}</td><td>{float(i[1]):,.2f}</td><td>{float(i[2]):,.6f}</td><td>{float(i[3]):,.2f}</td></tr>"
+                                                                                for i in qitems
+                                                                            )
+                                                                            sched_rows = ''.join(
+                                                                                f"<tr><td>{html.escape(str(s[0]))}</td><td>{s[1]}</td><td>{s[2]}</td><td>{int(s[3]) if s[3] else 0}</td></tr>"
+                                                                                for s in qschedules
+                                                                            )
+                                                                            quot_html = f"""
+                                                                            <!doctype html><html><head><meta charset='utf-8'>
+                                                                            <style>
+                                                                              @page {{size:A4;margin:10mm}}
+                                                                              body{{font-family:Arial,sans-serif;font-size:11px;color:#1E2A56}}
+                                                                              img{{width:120px}}h1{{font-size:15px;font-weight:900;margin:6px 0}}
+                                                                              table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}}
+                                                                              th{{background:#1E2A56;color:#fff;padding:5px;text-align:left}}
+                                                                              td{{padding:4px 5px;border-bottom:1px solid #e0e3ef}}
+                                                                              .sum{{display:flex;gap:8px;margin:8px 0}}
+                                                                              .sum-box{{flex:1;background:#f4f6fb;border:1px solid #d0d5e8;border-radius:6px;padding:6px;text-align:center}}
+                                                                              .sum-val{{font-size:12px;font-weight:bold}}
+                                                                              .sec{{margin-top:10px;font-weight:bold;font-size:11px;color:#1E2A56;border-bottom:1px solid #1E2A56;padding-bottom:2px}}
+                                                                            </style></head><body>
+                                                                            <img src='data:image/png;base64,{logo_b64}'>
+                                                                            <h1>Project Quotation</h1>
+                                                                            <div class='sec'>PROJECT DETAILS</div>
+                                                                            <table><tr><td><b>Client:</b> {html.escape(q_client)}</td><td><b>Date:</b> {q_date}</td></tr>
+                                                                            <tr><td><b>Category:</b> {html.escape(q_category)}</td><td><b>Size:</b> {q_size:,.2f} sqm</td></tr></table>
+                                                                            <div class='sec'>QUOTATION SUMMARY</div>
+                                                                            <div class='sum'>
+                                                                              <div class='sum-box'><div>Total</div><div class='sum-val'>USD {q_total:,.2f}</div></div>
+                                                                              <div class='sum-box'><div>Deposit (30%)</div><div class='sum-val'>USD {deposit:,.2f}</div></div>
+                                                                              <div class='sum-box'><div>Balance</div><div class='sum-val'>USD {balance:,.2f}</div></div>
+                                                                              <div class='sum-box'><div>Monthly (5 months)</div><div class='sum-val'>USD {monthly:,.2f}</div></div>
+                                                                            </div>
+                                                                            <div class='sec'>CONSTRUCTION ITEMS</div>
+                                                                            <table><thead><tr><th>Item</th><th>Qty (sqm)</th><th>Unit Rate</th><th>Total (USD)</th></tr></thead>
+                                                                            <tbody>{items_rows}</tbody></table>
+                                                                            <div class='sec'>PROJECT SCHEDULE</div>
+                                                                            <table><thead><tr><th>Task</th><th>Start</th><th>End</th><th>Days</th></tr></thead>
+                                                                            <tbody>{sched_rows}</tbody></table>
+                                                                            <div style='margin-top:12px;font-size:9px;color:#888'>ConnectLink Properties • info@connectlinkproperties.co.zw • +263 773368558</div>
+                                                                            </body></html>"""
+
+                                                                            from weasyprint import HTML as WeasyprintHTML
+                                                                            pdf_bytes = WeasyprintHTML(string=quot_html).write_pdf()
+
+                                                                            safe_name = ''.join(c for c in q_client if c.isalnum() or c == ' ').replace(' ', '_')
+                                                                            q_filename = f"Quotation_{safe_name}_{qid}.pdf"
+                                                                            q_caption = f"📄 *PROJECT QUOTATION*\n\nClient: {q_client}\nCategory: {q_category}\nTotal: USD {q_total:,.2f}\n\nSend 'Hello' for more options."
+
+                                                                            upload_r = requests.post(
+                                                                                f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media",
+                                                                                headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+                                                                                files={"file": (q_filename, io.BytesIO(pdf_bytes), "application/pdf"), "type": (None, "application/pdf"), "messaging_product": (None, "whatsapp")},
+                                                                                timeout=45
+                                                                            )
+                                                                            upload_r.raise_for_status()
+                                                                            q_media_id = upload_r.json()["id"]
+                                                                            requests.post(
+                                                                                f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages",
+                                                                                headers={"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"},
+                                                                                json={"messaging_product": "whatsapp", "to": sender_id, "type": "document", "document": {"id": q_media_id, "filename": q_filename, "caption": q_caption}},
+                                                                                timeout=45
+                                                                            )
+                                                                            print(f"✅ Quotation PDF {qid} sent to {sender_id}")
+                                                                    except Exception as qe:
+                                                                        print(f"❌ Error sending quotation PDF: {qe}")
+                                                                        send_text_message(sender_id, "❌ Failed to generate your quotation. Please contact us directly.")
+                                                                else:
+                                                                    send_text_message(sender_id, "❌ Invalid quotation reference.")
+
+                                                            elif matched_type and project_id:
                                                                 config = RECEIPT_CONFIG[matched_type]
                                                                 print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
                                                                 
@@ -9536,7 +9779,7 @@ VERIFY_TOKEN = "2012753506232550"
 WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
 power = "Echelon Equipment Pvt Ltd"
 bot = "ConnectLink Properties"
-QUOTATION_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE', 'quotation_download_cta')
+QUOTATION_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE', 'quotationdownload')
 PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
 QUOTATION_SHARE_TOKEN_HOURS = int(os.getenv('QUOTATION_SHARE_TOKEN_HOURS', '168'))
 
@@ -17533,8 +17776,9 @@ def is_template_window_error(error_text):
 
 
 def create_quotation_share_token(quotation_id):
-    """Create a short-lived token for quotation sharing via WhatsApp URL template button."""
-    token = uuid.uuid4().hex
+    """Create a short-lived token for quotation sharing via WhatsApp quick-reply template button.
+    Token format: quotation_{id}_{random_hex} so webhook can extract quotation_id directly."""
+    token = f"quotation_{quotation_id}_{uuid.uuid4().hex[:12]}"
     expiry = datetime.now() + timedelta(hours=QUOTATION_SHARE_TOKEN_HOURS)
 
     with get_db() as (cursor, connection):
@@ -17547,18 +17791,21 @@ def create_quotation_share_token(quotation_id):
     return token
 
 
-def send_quotation_download_template(recipient_number, share_token):
+def send_quotation_download_template(recipient_number, share_token, client_name='', category='', project_size=0):
     """Send approved CTA template with URL button to quotation share page.
 
     Template must be configured in Meta as:
-    - Body: Your requested quotation is ready for download, kindly click "Download Quotation" below to view it.
-    - Button (URL): https://<your-public-domain>/quotation/share/{{1}}
+    - Body: Hello {{1}}, your requested quotation for a *{{2}}* project ({{3}} sqm) is ready for download.
+            Kindly click *Download Quotation* below to view your detailed cost breakdown.
+    - Button (URL, CTA): Download Quotation → https://<your-public-domain>/quotation/share/{{1}}
     """
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
         "Content-Type": "application/json"
     }
+
+    size_str = str(int(float(project_size))) if project_size else '0'
 
     payload = {
         "messaging_product": "whatsapp",
@@ -17569,13 +17816,21 @@ def send_quotation_download_template(recipient_number, share_token):
             "language": {"code": "en"},
             "components": [
                 {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": client_name or "Valued Client"},
+                        {"type": "text", "text": category or "Construction"},
+                        {"type": "text", "text": size_str}
+                    ]
+                },
+                {
                     "type": "button",
-                    "sub_type": "url",
+                    "sub_type": "quick_reply",
                     "index": "0",
                     "parameters": [
                         {
-                            "type": "text",
-                            "text": share_token
+                            "type": "payload",
+                            "payload": share_token  # share_token carries quotation_{id}
                         }
                     ]
                 }
@@ -17751,8 +18006,25 @@ def send_quotation_whatsapp():
         if requires_template and quotation_id:
             try:
                 safe_qid = int(quotation_id)
+
+                # Fetch category and project_size from saved quotation for template variables
+                q_category = ''
+                q_size = 0
+                try:
+                    with get_db() as (qc, _):
+                        qc.execute("SELECT category, project_size FROM quotations WHERE id = %s", (safe_qid,))
+                        qrow = qc.fetchone()
+                        if qrow:
+                            q_category = qrow[0] or ''
+                            q_size = float(qrow[1]) if qrow[1] else 0
+                except Exception:
+                    pass
+
                 share_token = create_quotation_share_token(safe_qid)
-                template_response = send_quotation_download_template(whatsapp_number, share_token)
+                template_response = send_quotation_download_template(
+                    whatsapp_number, share_token,
+                    client_name=client_name, category=q_category, project_size=q_size
+                )
 
                 public_base = PUBLIC_BASE_URL or request.url_root.rstrip('/')
                 share_url = f"{public_base}/quotation/share/{share_token}"
