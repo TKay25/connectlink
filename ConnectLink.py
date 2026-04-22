@@ -213,10 +213,16 @@ def initialize_database_tables():
             """)
 
             # Ensure existing databases can store high-precision inhouse rates
+            # Wrapped in DO block so it's a no-op if the column is already NUMERIC(20,13)
             cursor.execute("""
-                ALTER TABLE quotation_rates
-                ALTER COLUMN inhouse_unit_rate TYPE NUMERIC(20, 13)
-                USING inhouse_unit_rate::NUMERIC(20, 13)
+                DO $$
+                BEGIN
+                    ALTER TABLE quotation_rates
+                        ALTER COLUMN inhouse_unit_rate TYPE NUMERIC(20, 13)
+                        USING inhouse_unit_rate::NUMERIC(20, 13);
+                EXCEPTION WHEN others THEN
+                    NULL;
+                END $$;
             """)
             
             # Create product categories table for dynamically created categories
@@ -302,16 +308,10 @@ def initialize_database_tables():
             """)
 
             # Add client_whatsapp column if it doesn't exist (for existing tables)
-            try:
-                cursor.execute("""
-                    ALTER TABLE quotations 
-                    ADD COLUMN client_whatsapp VARCHAR(20)
-                """)
-                connection.commit()
-            except Exception as e:
-                # Column already exists or other error, continue
-                if 'already exists' not in str(e).lower():
-                    print(f"Note: Could not add client_whatsapp column: {e}")
+            cursor.execute("""
+                ALTER TABLE quotations 
+                ADD COLUMN IF NOT EXISTS client_whatsapp VARCHAR(20)
+            """)
 
             # Create quotation_items table to store construction items
             cursor.execute("""
@@ -404,6 +404,7 @@ def initialize_database_tables():
                     if seq_name:
                         print(f"✓ Sequence for {table}: {seq_name}")
                 except Exception as e:
+                    connection.rollback()
                     print(f"Note: Could not check sequence for {table}: {e}")
 
 
