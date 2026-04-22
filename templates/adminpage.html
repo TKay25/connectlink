@@ -3692,6 +3692,15 @@
         </div>
         <div class="modal-body-custom" style="padding: 20px;">
             <div style="display: flex; flex-direction: column;">
+                <div id="ganttFullHouseDisplayModeContainer" class="mb-3 p-3 border rounded" style="display: none; background-color: #fff8e1; border-left: 4px solid #ff9800;">
+                    <label for="ganttFullHouseDisplayMode" class="form-label fw-bold mb-2">Full House Display Mode</label>
+                    <select id="ganttFullHouseDisplayMode" class="form-control">
+                        <option value="all_items">Show All Construction Items</option>
+                        <option value="full_house_only">Show Full House Item Only</option>
+                    </select>
+                    <small class="text-muted">This also affects Construction Items Schedule in this builder.</small>
+                </div>
+
                 <!-- Items Table -->
                 <div>
                     <h5 style="margin-top: 0; margin-bottom: 15px; font-weight: bold;">
@@ -10666,7 +10675,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Handle Generate Quotation button click
         function getSelectedFullHouseDisplayMode() {
-            return $('#fullHouseDisplayMode').val() || 'all_items';
+            return $('#fullHouseDisplayMode').val() || $('#ganttFullHouseDisplayMode').val() || 'all_items';
         }
 
         function buildFullHouseSummaryItem(data) {
@@ -10773,9 +10782,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const isFullHouseMode = !!(data && data.isFullHouseMode);
             if (isFullHouseMode) {
                 $('#fullHouseDisplayModeContainer').show();
+                $('#ganttFullHouseDisplayModeContainer').show();
             } else {
                 $('#fullHouseDisplayModeContainer').hide();
+                $('#ganttFullHouseDisplayModeContainer').hide();
                 $('#fullHouseDisplayMode').val('all_items');
+                $('#ganttFullHouseDisplayMode').val('all_items');
                 $('#fullHouseDisplayModeBadge').hide();
             }
         }
@@ -10784,6 +10796,16 @@ document.addEventListener('DOMContentLoaded', () => {
         window.getSchedulesForQuotationOutput = getSchedulesForQuotationOutput;
 
         $('#fullHouseDisplayMode').on('change', function() {
+            $('#ganttFullHouseDisplayMode').val($(this).val());
+            if (window.quotationData) {
+                renderPreviewItemsTable(window.quotationData);
+                renderGanttItemsList();
+                displayGanttChartInPreview();
+            }
+        });
+
+        $('#ganttFullHouseDisplayMode').on('change', function() {
+            $('#fullHouseDisplayMode').val($(this).val());
             if (window.quotationData) {
                 renderPreviewItemsTable(window.quotationData);
                 renderGanttItemsList();
@@ -11528,6 +11550,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (ganttItems.length === 0) {
                 ganttItems = [];
             }
+
+            updateFullHouseDisplayModeUI(window.quotationData);
+            const currentMode = getSelectedFullHouseDisplayMode();
+            $('#fullHouseDisplayMode').val(currentMode);
+            $('#ganttFullHouseDisplayMode').val(currentMode);
             renderGanttItemsList();
         }
 
