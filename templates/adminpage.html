@@ -10927,6 +10927,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({
                         clientName: data.clientName || 'Client',
                         whatsappNumber: clientWhatsapp,
+                        quotationId: saveResult.quotation_id,
                         pdfBase64: pdfBase64
                     })
                 });
@@ -10938,7 +10939,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(errorMessage + extraHint);
                 }
 
-                alert('Quotation saved (ID: ' + saveResult.quotation_id + ') and accepted by WhatsApp API for: ' + sendResult.whatsapp_number + '\nDelivery status depends on recipient availability and WhatsApp conversation rules.');
+                if (sendResult.used_template) {
+                    alert('Quotation saved (ID: ' + saveResult.quotation_id + '). Customer is outside 24-hour window, so a WhatsApp template with "Download Quotation" button was sent to: ' + sendResult.whatsapp_number);
+                } else {
+                    alert('Quotation saved (ID: ' + saveResult.quotation_id + ') and accepted by WhatsApp API for: ' + sendResult.whatsapp_number + '\nDelivery status depends on recipient availability and WhatsApp conversation rules.');
+                }
             } catch (error) {
                 console.error('Error sending quotation:', error);
                 alert('Failed: ' + error.message);

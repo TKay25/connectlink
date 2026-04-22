@@ -343,6 +343,18 @@ def initialize_database_tables():
                 );
             """)
 
+            # Create secure quotation share links for WhatsApp template URL buttons
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_share_links (
+                    id SERIAL PRIMARY KEY,
+                    quotation_id INT NOT NULL,
+                    share_token VARCHAR(120) NOT NULL UNIQUE,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+                );
+            """)
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'
@@ -9524,6 +9536,9 @@ VERIFY_TOKEN = "2012753506232550"
 WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
 power = "Echelon Equipment Pvt Ltd"
 bot = "ConnectLink Properties"
+QUOTATION_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE', 'quotation_download_cta')
+PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
+QUOTATION_SHARE_TOKEN_HOURS = int(os.getenv('QUOTATION_SHARE_TOKEN_HOURS', '168'))
 
 
 @app.route('/export-projects-portfolio')
@@ -17505,6 +17520,173 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
     return send_data
 
 
+def is_template_window_error(error_text):
+    """Detect WhatsApp errors that indicate template is required outside 24-hour window."""
+    text = str(error_text or '')
+    text_lower = text.lower()
+    return (
+        '131047' in text
+        or 'outside the allowed window' in text_lower
+        or '24 hour' in text_lower
+        or 're-engagement message' in text_lower
+    )
+
+
+def create_quotation_share_token(quotation_id):
+    """Create a short-lived token for quotation sharing via WhatsApp URL template button."""
+    token = uuid.uuid4().hex
+    expiry = datetime.now() + timedelta(hours=QUOTATION_SHARE_TOKEN_HOURS)
+
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            INSERT INTO quotation_share_links (quotation_id, share_token, expires_at)
+            VALUES (%s, %s, %s)
+        """, (quotation_id, token, expiry))
+        connection.commit()
+
+    return token
+
+
+def send_quotation_download_template(recipient_number, share_token):
+    """Send approved CTA template with URL button to quotation share page.
+
+    Template must be configured in Meta as:
+    - Body: Your requested quotation is ready for download, kindly click "Download Quotation" below to view it.
+    - Button (URL): https://<your-public-domain>/quotation/share/{{1}}
+    """
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": recipient_number,
+        "type": "template",
+        "template": {
+            "name": QUOTATION_DOWNLOAD_TEMPLATE_NAME,
+            "language": {"code": "en"},
+            "components": [
+                {
+                    "type": "button",
+                    "sub_type": "url",
+                    "index": "0",
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": share_token
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    response = requests.post(url, headers=headers, json=payload, timeout=45)
+    response_data = response.json()
+    print(f"📨 Quotation template response [{response.status_code}]: {response_data}")
+
+    if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
+        error_payload = response_data.get('error', response_data)
+        raise ValueError(f"Template send failed: {error_payload}")
+
+    return response_data
+
+
+@app.route('/quotation/share/<share_token>', methods=['GET'])
+def view_shared_quotation(share_token):
+    """Public share page opened from WhatsApp template URL button."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT q.id, q.client_name, q.quotation_date, q.category, q.project_size, q.total_cost, q.markup_percentage,
+                       qsl.expires_at
+                FROM quotation_share_links qsl
+                INNER JOIN quotations q ON q.id = qsl.quotation_id
+                WHERE qsl.share_token = %s
+                LIMIT 1
+            """, (share_token,))
+            quotation = cursor.fetchone()
+
+            if not quotation:
+                return Response("<h3>Invalid quotation link.</h3>", mimetype='text/html', status=404)
+
+            quotation_id = quotation[0]
+            expires_at = quotation[7]
+            if expires_at and datetime.now() > expires_at:
+                return Response("<h3>This quotation link has expired.</h3>", mimetype='text/html', status=410)
+
+            cursor.execute("""
+                SELECT item_name, quantity, unit_rate, total_price
+                FROM quotation_items
+                WHERE quotation_id = %s
+                ORDER BY item_order ASC
+            """, (quotation_id,))
+            items = cursor.fetchall()
+
+            safe_client = html.escape(str(quotation[1] or 'Client'))
+            safe_category = html.escape(str(quotation[3] or 'General'))
+            quotation_date = quotation[2].isoformat() if quotation[2] else ''
+            project_size = float(quotation[4]) if quotation[4] else 0
+            total_cost = float(quotation[5]) if quotation[5] else 0
+            markup = float(quotation[6]) if quotation[6] else 0
+
+            rows_html = ""
+            for item in items:
+                item_name = html.escape(str(item[0] or ''))
+                qty = float(item[1]) if item[1] else 0
+                rate = float(item[2]) if item[2] else 0
+                total = float(item[3]) if item[3] else 0
+                rows_html += (
+                    f"<tr><td>{item_name}</td><td>{qty:,.2f}</td><td>{rate:,.6f}</td><td>{total:,.2f}</td></tr>"
+                )
+
+            page = f"""
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset='utf-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1'>
+                <title>Quotation #{quotation_id}</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; color: #1E2A56; }}
+                    .card {{ border: 1px solid #d9dbe7; border-radius: 10px; padding: 16px; max-width: 900px; margin: 0 auto; }}
+                    h2 {{ margin-top: 0; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 12px; }}
+                    th, td {{ border: 1px solid #e5e7ef; padding: 8px; text-align: left; font-size: 14px; }}
+                    th {{ background: #f4f6fb; }}
+                    .meta {{ margin: 8px 0; font-size: 14px; }}
+                    .btn {{ display: inline-block; margin-top: 14px; background: #1E2A56; color: #fff; text-decoration: none; padding: 10px 14px; border-radius: 8px; }}
+                </style>
+            </head>
+            <body>
+                <div class='card'>
+                    <h2>Project Quotation</h2>
+                    <div class='meta'><strong>Quotation ID:</strong> {quotation_id}</div>
+                    <div class='meta'><strong>Client:</strong> {safe_client}</div>
+                    <div class='meta'><strong>Date:</strong> {quotation_date}</div>
+                    <div class='meta'><strong>Category:</strong> {safe_category}</div>
+                    <div class='meta'><strong>Project Size:</strong> {project_size:,.2f} sqm</div>
+                    <div class='meta'><strong>Markup:</strong> {markup:,.2f}%</div>
+                    <div class='meta'><strong>Total:</strong> USD {total_cost:,.2f}</div>
+                    <table>
+                        <thead>
+                            <tr><th>Item</th><th>Quantity (sqm)</th><th>Unit Rate (USD)</th><th>Total (USD)</th></tr>
+                        </thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                    <a class='btn' href='#' onclick='window.print(); return false;'>Download / Print</a>
+                </div>
+            </body>
+            </html>
+            """
+            return Response(page, mimetype='text/html')
+    except Exception as e:
+        logging.error(f"Error rendering shared quotation: {e}")
+        return Response("<h3>Could not load this quotation link.</h3>", mimetype='text/html', status=500)
+
+
 @app.route('/api/send-quotation-whatsapp', methods=['POST'])
 def send_quotation_whatsapp():
     """Send quotation PDF to client WhatsApp number provided in quotation flow."""
@@ -17519,6 +17701,7 @@ def send_quotation_whatsapp():
         client_name = (payload.get('clientName') or 'Client').strip()
         raw_number = payload.get('whatsappNumber') or payload.get('clientWhatsapp')
         pdf_base64 = payload.get('pdfBase64') or ''
+        quotation_id = payload.get('quotationId')
 
         whatsapp_number = normalize_whatsapp_number(raw_number)
         if not whatsapp_number:
@@ -17558,17 +17741,43 @@ def send_quotation_whatsapp():
             'success': True,
             'message': f'Quotation accepted by WhatsApp API for {whatsapp_number} (delivery pending recipient status)',
             'whatsapp_number': whatsapp_number,
+            'used_template': False,
             'message_id': whatsapp_response.get('messages', [{}])[0].get('id', '')
         })
     except Exception as e:
         error_text = str(e)
-        error_lower = error_text.lower()
-        requires_template = (
-            '131047' in error_text
-            or 'outside the allowed window' in error_lower
-            or '24 hour' in error_lower
-            or 're-engagement message' in error_lower
-        )
+        requires_template = is_template_window_error(error_text)
+
+        if requires_template and quotation_id:
+            try:
+                safe_qid = int(quotation_id)
+                share_token = create_quotation_share_token(safe_qid)
+                template_response = send_quotation_download_template(whatsapp_number, share_token)
+
+                public_base = PUBLIC_BASE_URL or request.url_root.rstrip('/')
+                share_url = f"{public_base}/quotation/share/{share_token}"
+
+                return jsonify({
+                    'success': True,
+                    'used_template': True,
+                    'message': 'Outside 24-hour window. Sent template with download button instead.',
+                    'whatsapp_number': whatsapp_number,
+                    'share_url': share_url,
+                    'template_name': QUOTATION_DOWNLOAD_TEMPLATE_NAME,
+                    'message_id': template_response.get('messages', [{}])[0].get('id', '')
+                })
+            except Exception as template_error:
+                logging.error(f"Template fallback failed: {template_error}")
+                return jsonify({
+                    'success': False,
+                    'error': error_text,
+                    'requires_template': True,
+                    'hint': (
+                        '24-hour window restriction detected, but template fallback failed. '
+                        'Ensure your template is approved and WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE matches the approved name.'
+                    ),
+                    'template_fallback_error': str(template_error)
+                }), 400
 
         hint = None
         status_code = 500
