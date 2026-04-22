@@ -2652,12 +2652,13 @@
                                     <th>ID</th>
                                     <th>WHATSAPP</th>
                                     <th>TYPE</th>
+                                    <th>DATE/TIME</th>
                                     <th style="width: 150px; overflow: visible;">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody id="enquiriesTableBody">
                                 <tr id="loadingRow">
-                                    <td colspan="5" style="text-align: center; padding: 2rem;">
+                                    <td colspan="6" style="text-align: center; padding: 2rem;">
                                         <div style="display: flex; flex-direction: column; align-items: center;">
                                             <div class="spinner-border text-primary" role="status">
                                                 <span class="visually-hidden">Loading...</span>
@@ -7243,7 +7244,8 @@ function loadEnquiriesData() {
             allEnquiriesData = data.map(enquiry => ({
                 id: enquiry.id,
                 wanumber: enquiry.wanumber ? enquiry.wanumber.toString() : '',
-                enqtype: enquiry.enqtype || 'otherenq'
+                enqtype: enquiry.enqtype || 'otherenq',
+                createdAt: enquiry.created_at || null
             }));
             
             console.log('Processed data:', allEnquiriesData);
@@ -7285,7 +7287,7 @@ function showError(message) {
     const tableBody = document.getElementById('enquiriesTableBody');
     tableBody.innerHTML = `
         <tr>
-            <td colspan="5" class="text-center py-5">
+            <td colspan="6" class="text-center py-5">
                 <div class="d-flex flex-column align-items-center">
                     <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3"></i>
                     <h5 class="text-danger mb-2">Error</h5>
@@ -7494,6 +7496,9 @@ function renderTable() {
                         </span>
                     </div>
                 </td>
+                <td>
+                    <span class="text-nowrap">${enquiry.createdAt ? formatZimbabweDateTime(enquiry.createdAt) : 'N/A'}</span>
+                </td>
                 <td class="text-center">
                     <div class="d-flex justify-content-center gap-2">
                         <button class="btn btn-sm btn-outline-primary" 
@@ -7526,9 +7531,9 @@ function renderTable() {
             searching: false,
             info: false,
             ordering: true,
-            order: [[1, 'asc']],
+            order: [[4, 'desc']],
             columnDefs: [
-                { orderable: false, targets: [0, 4] }  // Disable sorting for SELECT and ACTIONS columns
+                { orderable: false, targets: [0, 5] }  // Disable sorting for SELECT and ACTIONS columns
             ],
             language: {
                 emptyTable: 'No data available'

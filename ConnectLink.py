@@ -149,7 +149,8 @@ def initialize_database_tables():
                 CREATE TABLE IF NOT EXISTS appenqtemp (
                     id SERIAL PRIMARY KEY,
                     wanumber INT,
-                    enqtype VARCHAR (100)
+                    enqtype VARCHAR (100),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
 
@@ -471,6 +472,16 @@ def initialize_database_tables():
             except Exception as e:
                 connection.rollback()
                 print(f"Note: Could not alter appenqtemp.wanumber type: {e}")
+
+            try:
+                cursor.execute("""
+                    ALTER TABLE appenqtemp
+                    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                """)
+                connection.commit()
+            except Exception as e:
+                connection.rollback()
+                print(f"Note: Could not add appenqtemp.created_at: {e}")
 
             # Update clientwhatsapp for record with id 6
             '''cursor.execute("""
@@ -12086,7 +12097,11 @@ def get_temp_enquiries():
 
         try:
             # Use the same cursor you already have in your code
-            usersdataquerytempenq = "SELECT * FROM appenqtemp;"
+            usersdataquerytempenq = """
+                SELECT id, wanumber, enqtype, created_at
+                FROM appenqtemp
+                ORDER BY created_at DESC NULLS LAST, id DESC;
+            """
             cursor.execute(usersdataquerytempenq)
             usersdataquerytempenqfetch = cursor.fetchall()
 
@@ -12098,7 +12113,8 @@ def get_temp_enquiries():
                 result.append({
                     'id': enquiry[0],  # Access by index since it's a tuple
                     'wanumber': enquiry[1],
-                    'enqtype': enquiry[2]
+                    'enqtype': enquiry[2],
+                    'created_at': enquiry[3].isoformat() if enquiry[3] else None
                 })
             
             print(f"API: Fetched {len(result)} enquiries")
