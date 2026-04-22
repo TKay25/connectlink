@@ -4200,7 +4200,13 @@ def webhook():
                                                                 send_whatsapp_message(f"+263710910052", f"Oops, {admin_name} from ConnectLink Properties! \n\n Your Leave Application` has NOT been submitted successfully! Error; {e}")                      
 
 
-                                                    elif message_type == "button":
+                                                    elif (
+                                                        message_type == "button"
+                                                        or (
+                                                            message_type == "interactive"
+                                                            and message.get("interactive", {}).get("type") == "button_reply"
+                                                        )
+                                                    ):
 
                                                         # Unified function to send any receipt via WhatsApp
                                                         def send_receipt_via_whatsapp(recipient_number, project_id, receipt_type, config):
@@ -4647,8 +4653,9 @@ def webhook():
                                                                 return None
                                                         
                                                         button = message.get("button", {})
-                                                        button_text = button.get("text", "")
-                                                        payload = button.get("payload", "")
+                                                        interactive_button_reply = message.get("interactive", {}).get("button_reply", {})
+                                                        button_text = button.get("text", "") or interactive_button_reply.get("title", "")
+                                                        payload = button.get("payload", "") or interactive_button_reply.get("id", "")
                                                         
                                                         print(f"🔘 Template button clicked: {button_text}")
                                                         print(f"📦 Button payload: {payload}")
@@ -6854,7 +6861,13 @@ def webhook():
 
                                                                 continue
 
-                                                        elif message_type == "button":
+                                                        elif (
+                                                            message_type == "button"
+                                                            or (
+                                                                message_type == "interactive"
+                                                                and message.get("interactive", {}).get("type") == "button_reply"
+                                                            )
+                                                        ):
 
                                                             # Unified function to send any receipt via WhatsApp
                                                             def send_receipt_via_whatsapp(recipient_number, project_id, receipt_type, config):
@@ -7302,8 +7315,9 @@ def webhook():
 
 
                                                             button = message.get("button", {})
-                                                            button_text = button.get("text", "")
-                                                            payload = button.get("payload", "")
+                                                            interactive_button_reply = message.get("interactive", {}).get("button_reply", {})
+                                                            button_text = button.get("text", "") or interactive_button_reply.get("title", "")
+                                                            payload = button.get("payload", "") or interactive_button_reply.get("id", "")
                                                             
                                                             print(f"🔘 Template button clicked: {button_text}")
                                                             print(f"📦 Button payload: {payload}")
