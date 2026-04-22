@@ -10699,7 +10699,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sqm = item.sqm || 1;
                 const rate = item.inhouseRate || 0;
                 itemRows += `
-                    <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#fafbff'};">
+                    <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#fafbff'}; page-break-inside: avoid; break-inside: avoid;">
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; font-weight: 700; text-align: center;">${index + 1}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef;">${item.item || item.name || ''}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center;">${sqm}</td>
@@ -10721,7 +10721,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const endDate = item.endDate ? formatPdfDate(item.endDate) : '';
                 const days = item.days || 0;
                 scheduleRows += `
-                    <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#fafbff'};">
+                    <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#fafbff'}; page-break-inside: avoid; break-inside: avoid;">
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; font-weight: 700; text-align: center;">${index + 1}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef;">${item.item || 'Item'}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center;">${startDate}</td>
@@ -10746,6 +10746,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         <p style="font-size: 13px; margin: 0 0 18px 0; line-height: 1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>${clientName}</strong>.</p>
 
+                        <div style="page-break-inside: avoid; break-inside: avoid;">
                         <!-- PROJECT DETAILS (full width) -->
                         <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT DETAILS</h4>
                         <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 12px 16px; box-sizing: border-box;">
@@ -10758,7 +10759,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Date:</strong> <span>${formatPdfDate(quotationDate)}</span></div>
                             </div>
                         </div>
+                        </div>
 
+                        <div style="page-break-inside: avoid; break-inside: avoid;">
                         <!-- QUOTATION SUMMARY (full width) -->
                         <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
                         <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
@@ -10781,7 +10784,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </div>
                         </div>
+                        </div>
 
+                        <div style="page-break-inside: avoid; break-inside: avoid;">
                         <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
                         <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
                             <thead>
@@ -10795,7 +10800,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             </thead>
                             <tbody>${itemRows}</tbody>
                         </table>
+                        </div>
 
+                        <div style="page-break-inside: avoid; break-inside: avoid;">
                         <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT SCHEDULE</h4>
                         <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
                             <thead>
@@ -10809,7 +10816,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             </thead>
                             <tbody>${scheduleRows}</tbody>
                         </table>
+                        </div>
 
+                        <div style="page-break-inside: avoid; break-inside: avoid;">
                         <div style="display: table; width: 100%; table-layout: fixed; margin-top: 6px;">
                             <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 8px; box-sizing: border-box;">
                                 <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6; min-height: 132px;">
@@ -10828,6 +10837,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </div>
                         </div>
+                        </div>
                     </div>
                 </div>`;
 
@@ -10837,6 +10847,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 filename: `Quotation_${clientName.replace(/\\s+/g, '_')}_${new Date().getTime()}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
                 jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
             };
 
