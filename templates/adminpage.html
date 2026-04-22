@@ -10357,6 +10357,128 @@ document.addEventListener('DOMContentLoaded', () => {
             $('#constructionTotal').text(total.toFixed(2));
         }
 
+        function normalizeConstructionItemName(name) {
+            return (name || '')
+                .toString()
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '');
+        }
+
+        function isFullHouseItemName(name) {
+            const normalized = normalizeConstructionItemName(name);
+            return normalized.includes('fullhouse');
+        }
+
+        function distributeIntegerDays(weights, totalDays) {
+            const safeTotalDays = Math.max(0, Math.round(Number(totalDays) || 0));
+            const entries = Array.isArray(weights) ? weights : [];
+            if (!entries.length) {
+                return [];
+            }
+
+            if (safeTotalDays <= 0) {
+                return entries.map(() => 0);
+            }
+
+            const safeWeights = entries.map(w => Math.max(0, Number(w) || 0));
+            const sumWeights = safeWeights.reduce((sum, w) => sum + w, 0);
+            const fallbackWeight = sumWeights > 0 ? 0 : 1;
+            const effectiveWeights = sumWeights > 0 ? safeWeights : entries.map(() => fallbackWeight);
+            const effectiveSum = effectiveWeights.reduce((sum, w) => sum + w, 0);
+
+            const raw = effectiveWeights.map(w => (w / effectiveSum) * safeTotalDays);
+            const base = raw.map(v => Math.floor(v));
+            let remainder = safeTotalDays - base.reduce((sum, v) => sum + v, 0);
+
+            const fractional = raw
+                .map((value, idx) => ({ idx, frac: value - Math.floor(value) }))
+                .sort((a, b) => b.frac - a.frac);
+
+            let i = 0;
+            while (remainder > 0 && fractional.length > 0) {
+                base[fractional[i % fractional.length].idx] += 1;
+                remainder -= 1;
+                i += 1;
+            }
+
+            return base;
+        }
+
+        function buildFullHouseProportionalSelection(selectedRateItems, sqm, markup) {
+            const sqmValue = Math.max(0, Number(sqm) || 0);
+            const markupValue = Number(markup) || 0;
+            const markupMultiplier = 1 + (markupValue / 100);
+
+            const selected = Array.isArray(selectedRateItems) ? selectedRateItems : [];
+            const fullHouseItem = selected.find(item => isFullHouseItemName(item.item));
+            if (!fullHouseItem || sqmValue <= 0) {
+                return null;
+            }
+
+            const componentItems = quotationRatesCache.filter(item => !isFullHouseItemName(item.item));
+            if (!componentItems.length) {
+                return null;
+            }
+
+            const fullHouseRate = Number(fullHouseItem.inhouseRate) || 0;
+            const fullHouseBaseTotal = fullHouseRate * sqmValue;
+            const fullHouseClientTotal = fullHouseBaseTotal * markupMultiplier;
+
+            const weights = componentItems.map(item => Math.max(0, Number(item.inhouseRate) || 0));
+            const sumWeights = weights.reduce((sum, w) => sum + w, 0);
+            const effectiveWeights = sumWeights > 0 ? weights : componentItems.map(() => 1);
+            const effectiveWeightSum = effectiveWeights.reduce((sum, w) => sum + w, 0);
+
+            const rawClientTotals = componentItems.map((item, index) => {
+                return (effectiveWeights[index] / effectiveWeightSum) * fullHouseClientTotal;
+            });
+
+            const clientTotalsRounded = rawClientTotals.map(v => Number(v.toFixed(2)));
+            const roundedSum = clientTotalsRounded.reduce((sum, v) => sum + v, 0);
+            const roundingDiff = Number((fullHouseClientTotal - roundedSum).toFixed(2));
+            if (clientTotalsRounded.length > 0) {
+                const lastIdx = clientTotalsRounded.length - 1;
+                clientTotalsRounded[lastIdx] = Number((clientTotalsRounded[lastIdx] + roundingDiff).toFixed(2));
+            }
+
+            const fullHouseTotalDays = Math.max(1, Math.round((Number(fullHouseItem.daysPerSqMeter) || 0) * sqmValue));
+            const componentDayWeights = componentItems.map(item => Math.max(0, (Number(item.daysPerSqMeter) || 0) * sqmValue));
+            const distributedDays = distributeIntegerDays(componentDayWeights, fullHouseTotalDays);
+
+            const durationByItemId = {};
+            const selectedItems = [];
+            const orderedConstructionItems = [];
+
+            componentItems.forEach((item, index) => {
+                const clientPrice = clientTotalsRounded[index] || 0;
+                const baseTotal = clientPrice / markupMultiplier;
+                const effectiveInhouseRate = sqmValue > 0 ? (baseTotal / sqmValue) : 0;
+
+                selectedItems.push({
+                    name: item.item,
+                    total: clientPrice,
+                    sqm: sqmValue,
+                    inhouseRate: effectiveInhouseRate
+                });
+
+                orderedConstructionItems.push({
+                    id: item.id,
+                    item: item.item,
+                    price: clientPrice
+                });
+
+                durationByItemId[item.id] = distributedDays[index] || 0;
+            });
+
+            return {
+                selectedItems,
+                orderedConstructionItems,
+                baseCost: Number(fullHouseBaseTotal.toFixed(2)),
+                totalCost: Number(fullHouseClientTotal.toFixed(2)),
+                durationByItemId
+            };
+        }
+
         // Update selected items in drag-drop area
         function updateSelectedItemsList() {
             // Get all checked items in order they appear in left panel
@@ -10570,12 +10692,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let markup = 0;
 
             if (category === 'construction') {
+                window.fullHouseDurationByItemId = null;
+
                 // Get items in the ORDER they appear in the drag-drop area
+                const selectedRateItems = [];
                 document.querySelectorAll('.selected-item-drag').forEach((dragItem) => {
                     const itemId = dragItem.getAttribute('data-item-id');
                     // Find the original item data from quotationRatesCache
                     const itemData = quotationRatesCache.find(item => item.id == itemId);
                     if (itemData) {
+                        selectedRateItems.push(itemData);
                         const sqm = parseFloat($('#quotationSize').val());
                         markup = parseFloat($('#quotationMarkup').val());
                         const basePrice = itemData.inhouseRate * sqm;
@@ -10598,7 +10724,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         totalCost += clientPrice;
                     }
                 });
+
+                const fullHouseSelected = selectedRateItems.some(item => isFullHouseItemName(item.item));
+                if (fullHouseSelected) {
+                    const sqm = parseFloat($('#quotationSize').val());
+                    markup = parseFloat($('#quotationMarkup').val());
+                    const proportionalResult = buildFullHouseProportionalSelection(selectedRateItems, sqm, markup);
+
+                    if (!proportionalResult) {
+                        alert('Full House proportional allocation could not be calculated. Please ensure square meters is entered and quotation rates contain other construction items.');
+                        return;
+                    }
+
+                    selectedItems = proportionalResult.selectedItems;
+                    orderedConstructionItems = proportionalResult.orderedConstructionItems;
+                    baseCost = proportionalResult.baseCost;
+                    totalCost = proportionalResult.totalCost;
+                    window.fullHouseDurationByItemId = proportionalResult.durationByItemId;
+                }
             } else {
+                window.fullHouseDurationByItemId = null;
                 // For non-construction categories, add a single item
                 const categoryName = category.replace('_', ' ').charAt(0).toUpperCase() + category.slice(1);
                 selectedItems.push({
@@ -10658,7 +10803,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 orderedConstructionItems.forEach(item => {
                     const rateData = quotationRatesCache.find(r => r.id == item.id);
                     const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
-                    const duration = Math.round(daysPerSqm * sqm);
+                    const fallbackDuration = Math.round(daysPerSqm * sqm);
+                    const proportionalDuration = window.fullHouseDurationByItemId && window.fullHouseDurationByItemId[item.id];
+                    const duration = Number.isFinite(proportionalDuration) ? proportionalDuration : fallbackDuration;
                     
                     const endDate = new Date(currentStartDate);
                     endDate.setDate(endDate.getDate() + duration - 1);
