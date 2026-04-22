@@ -3804,6 +3804,13 @@ function openModal(modalId) {
             loadDownloadOptions();
         }
 
+        // Load interim enquiries on first open for this custom modal system
+        if (modalId === 'viewEnquiriesModal') {
+            setTimeout(() => {
+                loadEnquiriesData();
+            }, 50);
+        }
+
         // Initialize quotation dropdown when other details modal opens
         if (modalId === 'otherDetailsModal') {
             const projectId = document.getElementById('updateProjectIdother')?.value;
