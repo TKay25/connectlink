@@ -11020,7 +11020,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert(`✓ Successfully saved ${data.count} quotation rates!`);
                     closeModal('quotationRatesModal');
                     // Refresh the available items list so newly added items appear immediately
-                    loadConstructionItems();
+                    loadConstructionItemsFromDatabase();
                 } else {
                     alert('Error: ' + (data.message || 'Unknown error'));
                 }
