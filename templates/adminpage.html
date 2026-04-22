@@ -10854,6 +10854,9 @@ document.addEventListener('DOMContentLoaded', () => {
             html2pdf().set(options).from(htmlContent).save();
         }
 
+        // Expose for portal download flow (outside this ready scope)
+        window.generateQuotationPDF = generateQuotationPDF;
+
         // Send Quotation & Gantt button
         $('#sendQuotationBtn').click(function() {
             const data = window.quotationData;
@@ -11668,7 +11671,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // so portal downloads always match the latest template and styling.
         window.quotationData = data;
         window.ganttChartData = ganttData || [];
-        generateQuotationPDF();
+        if (typeof window.generateQuotationPDF === 'function') {
+            window.generateQuotationPDF();
+            return;
+        }
+        alert('Quotation PDF generator is not available. Please refresh and try again.');
     }
 
 </script>
