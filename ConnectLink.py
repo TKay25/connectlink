@@ -12096,39 +12096,27 @@ def get_temp_enquiries():
     with get_db() as (cursor, connection):
 
         try:
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM information_schema.columns
-                    WHERE table_name = 'appenqtemp'
-                    AND column_name = 'created_at'
-                )
-            """)
-            has_created_at = cursor.fetchone()[0]
-
-            if has_created_at:
-                usersdataquerytempenq = """
+            try:
+                cursor.execute("""
                     SELECT id, wanumber, enqtype, created_at
                     FROM appenqtemp
                     ORDER BY created_at DESC NULLS LAST, id DESC;
-                """
-            else:
-                usersdataquerytempenq = """
+                """)
+            except Exception:
+                connection.rollback()
+                cursor.execute("""
                     SELECT id, wanumber, enqtype, NULL::timestamp AS created_at
                     FROM appenqtemp
                     ORDER BY id DESC;
-                """
+                """)
 
-            cursor.execute(usersdataquerytempenq)
             usersdataquerytempenqfetch = cursor.fetchall()
 
-            print(usersdataquerytempenqfetch)
-            
             # Convert to list of dictionaries
             result = []
             for enquiry in usersdataquerytempenqfetch:
                 result.append({
-                    'id': enquiry[0],  # Access by index since it's a tuple
+                    'id': enquiry[0],
                     'wanumber': enquiry[1],
                     'enqtype': enquiry[2],
                     'created_at': enquiry[3].isoformat() if enquiry[3] else None

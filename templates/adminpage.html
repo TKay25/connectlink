@@ -2670,7 +2670,7 @@
                             </tbody>
                         </table>
 
-                        <div style="text-align: center; padding: 2rem; display: none;" id="noDataMessage">
+                        <div style="text-align: center; padding: 2rem;" class="d-none" id="noDataMessage">
                             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;">
                                 <i class="bi bi-inbox" style="font-size: 2rem; color: #9ca3af; margin-bottom: 1rem;"></i>
                                 <h5 style="color: #9ca3af; margin-bottom: 0.5rem;">No Enquiries Found</h5>
@@ -7225,39 +7225,41 @@ function loadEnquiriesData() {
     selectedEnquiries.clear();
     updateSelectionInfo();
     
-    fetch('/get_temp_enquiries')
+    const enquiriesAbortController = new AbortController();
+    const enquiriesTimeout = setTimeout(() => enquiriesAbortController.abort(), 15000);
+
+    fetch('/get_temp_enquiries', { signal: enquiriesAbortController.signal })
         .then(response => {
-            console.log('Response status:', response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error: ${response.status}`);
-            }
+            clearTimeout(enquiriesTimeout);
+            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
             return response.json();
         })
         .then(data => {
-            console.log('Data received:', data);
-            
-            if (!Array.isArray(data)) {
-                throw new Error('Data is not an array');
-            }
-            
-            // Process data - ensure WhatsApp numbers are strings
+            if (!Array.isArray(data)) throw new Error('Data is not an array');
+
             allEnquiriesData = data.map(enquiry => ({
                 id: enquiry.id,
                 wanumber: enquiry.wanumber ? enquiry.wanumber.toString() : '',
                 enqtype: enquiry.enqtype || 'otherenq',
                 createdAt: enquiry.created_at || null
             }));
-            
-            console.log('Processed data:', allEnquiriesData);
-            
+
             updateStatistics(allEnquiriesData);
-            applyFilters();
+            try { applyFilters(); } catch(e) { console.error('applyFilters error:', e); renderTable(); }
             updateLastUpdated();
-            showLoading(false);
         })
         .catch(error => {
+            clearTimeout(enquiriesTimeout);
             console.error('Fetch error:', error);
-            showError('Failed to load data. Check console for details.');
+            const tableBody = document.getElementById('enquiriesTableBody');
+            if (tableBody) tableBody.innerHTML = `
+                <tr><td colspan="6" class="text-center py-4 text-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Failed to load enquiries: ${error.message}
+                    <br><button class="btn btn-sm btn-primary mt-2" onclick="loadEnquiriesData()">Retry</button>
+                </td></tr>`;
+        })
+        .finally(() => {
             showLoading(false);
         });
 }
