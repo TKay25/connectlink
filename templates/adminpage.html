@@ -10783,6 +10783,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#fullHouseDisplayMode').on('change', function() {
             if (window.quotationData) {
                 renderPreviewItemsTable(window.quotationData);
+                renderGanttItemsList();
                 displayGanttChartInPreview();
             }
         });
@@ -11682,8 +11683,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (ganttItems.length === 0) {
             listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 30px 20px;">No items added yet.<br>Click "Add Item" to begin.</div>';
+            updateGanttSummary();
             return;
         }
+
+        const displayItems = getSchedulesForQuotationOutput(ganttItems, window.quotationData);
+        const isSummaryMode = !!(
+            window.quotationData
+            && window.quotationData.isFullHouseMode
+            && getSelectedFullHouseDisplayMode() === 'full_house_only'
+        );
 
         let html = `
             <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
@@ -11701,7 +11710,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tbody>
         `;
 
-        ganttItems.forEach((item, index) => {
+        displayItems.forEach((item, index) => {
+            const startDate = parseDateGantt(item.startDate);
+            const endDate = parseDateGantt(item.endDate);
+            const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            if (isSummaryMode) {
+                html += `
+                    <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                        <td style="padding: 10px; text-align: left; font-weight: bold;">${index + 1}</td>
+                        <td style="padding: 10px; text-align: left; font-weight: 700;">${item.item}</td>
+                        <td style="padding: 10px; text-align: center;">${formattedStart}</td>
+                        <td style="padding: 10px; text-align: center;">${formattedEnd}</td>
+                        <td style="padding: 10px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
+                        <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${Number(item.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 10px; text-align: center; color: #777; font-style: italic;">Summary</td>
+                    </tr>
+                `;
+                return;
+            }
+
             html += `
                 <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
                     <td style="padding: 10px; text-align: left; font-weight: bold;">${index + 1}</td>
