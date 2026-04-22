@@ -355,6 +355,36 @@ def initialize_database_tables():
                 );
             """)
 
+            # Track outbound quotation WhatsApp messages so async status failures can trigger template fallback
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_whatsapp_outbox (
+                    id SERIAL PRIMARY KEY,
+                    outbound_message_id VARCHAR(255) NOT NULL UNIQUE,
+                    quotation_id INT NOT NULL,
+                    whatsapp_number VARCHAR(20),
+                    client_name VARCHAR(255),
+                    template_fallback_sent BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+                );
+            """)
+
+            # Log successful WhatsApp quotation sends for portal reporting
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_whatsapp_send_logs (
+                    id SERIAL PRIMARY KEY,
+                    quotation_id INT NOT NULL,
+                    whatsapp_number VARCHAR(20),
+                    client_name VARCHAR(255),
+                    send_type VARCHAR(40) NOT NULL,
+                    whatsapp_message_id VARCHAR(255),
+                    source_channel VARCHAR(40) DEFAULT 'portal',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
+                );
+            """)
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'
@@ -1234,6 +1264,93 @@ def webhook():
 
                     for entry in data["entry"]:
                         for change in entry["changes"]:
+                            if "statuses" in change["value"]:
+                                for status_event in change["value"].get("statuses", []):
+                                    try:
+                                        outbound_message_id = status_event.get("id")
+                                        recipient_id = status_event.get("recipient_id")
+                                        status_value = (status_event.get("status") or "").lower()
+                                        error_text = json.dumps(status_event.get("errors", []))
+
+                                        if status_value != "failed":
+                                            continue
+
+                                        if not outbound_message_id:
+                                            continue
+
+                                        if not is_template_window_error(error_text):
+                                            continue
+
+                                        cursor.execute("""
+                                            SELECT quotation_id, whatsapp_number, client_name, template_fallback_sent
+                                            FROM quotation_whatsapp_outbox
+                                            WHERE outbound_message_id = %s
+                                        """, (outbound_message_id,))
+                                        outbox_row = cursor.fetchone()
+
+                                        if not outbox_row:
+                                            print(f"ℹ️ No quotation outbox match for failed message_id={outbound_message_id}")
+                                            continue
+
+                                        safe_qid = int(outbox_row[0])
+                                        target_number = normalize_whatsapp_number(outbox_row[1] or recipient_id)
+                                        target_client_name = (outbox_row[2] or 'Client').strip() or 'Client'
+                                        fallback_already_sent = bool(outbox_row[3])
+
+                                        if fallback_already_sent:
+                                            print(f"ℹ️ Template fallback already sent for message_id={outbound_message_id}")
+                                            continue
+
+                                        if not target_number:
+                                            print(f"⚠️ Could not derive WhatsApp number for failed message_id={outbound_message_id}")
+                                            continue
+
+                                        q_category = ''
+                                        q_size = 0
+                                        try:
+                                            cursor.execute("SELECT category, project_size FROM quotations WHERE id = %s", (safe_qid,))
+                                            qrow = cursor.fetchone()
+                                            if qrow:
+                                                q_category = qrow[0] or ''
+                                                q_size = float(qrow[1]) if qrow[1] else 0
+                                        except Exception as qerr:
+                                            print(f"⚠️ Could not fetch quotation metadata for fallback: {qerr}")
+
+                                        share_token = create_quotation_share_token(safe_qid)
+                                        template_response = send_quotation_download_template(
+                                            target_number,
+                                            share_token,
+                                            client_name=target_client_name,
+                                            category=q_category,
+                                            project_size=q_size
+                                        )
+
+                                        fallback_message_id = template_response.get('messages', [{}])[0].get('id', '')
+                                        log_quotation_whatsapp_send(
+                                            safe_qid,
+                                            target_number,
+                                            target_client_name,
+                                            'template_fallback',
+                                            fallback_message_id,
+                                            'webhook_async_fallback'
+                                        )
+
+                                        cursor.execute("""
+                                            UPDATE quotation_whatsapp_outbox
+                                            SET template_fallback_sent = TRUE,
+                                                updated_at = CURRENT_TIMESTAMP
+                                            WHERE outbound_message_id = %s
+                                        """, (outbound_message_id,))
+                                        connection.commit()
+
+                                        print(
+                                            f"✅ Async fallback template sent for quotation {safe_qid} "
+                                            f"to {target_number} after status failure 131047. response={template_response}"
+                                        )
+                                    except Exception as status_err:
+                                        connection.rollback()
+                                        print(f"❌ Error handling failed WhatsApp status fallback: {status_err}")
+
                             if "messages" in change["value"]:
                                 for message in change["value"]["messages"]:
 
@@ -17849,6 +17966,27 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
     return response_data
 
 
+def log_quotation_whatsapp_send(quotation_id, whatsapp_number, client_name, send_type, whatsapp_message_id='', source_channel='portal'):
+    """Persist successful quotation WhatsApp sends for Sent Quotations portal view."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO quotation_whatsapp_send_logs
+                (quotation_id, whatsapp_number, client_name, send_type, whatsapp_message_id, source_channel)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                int(quotation_id),
+                normalize_whatsapp_number(whatsapp_number),
+                (client_name or 'Client').strip() or 'Client',
+                send_type,
+                whatsapp_message_id or '',
+                source_channel or 'portal'
+            ))
+            connection.commit()
+    except Exception as e:
+        logging.warning(f"Could not log quotation WhatsApp send for quotation {quotation_id}: {e}")
+
+
 @app.route('/quotation/share/<share_token>', methods=['GET'])
 def view_shared_quotation(share_token):
     """Public share page opened from WhatsApp template URL button."""
@@ -17991,13 +18129,42 @@ def send_quotation_whatsapp():
             caption
         )
 
+        outbound_message_id = whatsapp_response.get('messages', [{}])[0].get('id', '')
+        if quotation_id and outbound_message_id:
+            try:
+                safe_qid = int(quotation_id)
+                with get_db() as (oc, oconn):
+                    oc.execute("""
+                        INSERT INTO quotation_whatsapp_outbox
+                        (outbound_message_id, quotation_id, whatsapp_number, client_name)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (outbound_message_id)
+                        DO UPDATE SET
+                            quotation_id = EXCLUDED.quotation_id,
+                            whatsapp_number = EXCLUDED.whatsapp_number,
+                            client_name = EXCLUDED.client_name,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (outbound_message_id, safe_qid, whatsapp_number, client_name))
+                    oconn.commit()
+            except Exception as outbox_err:
+                logging.warning(f"Could not persist quotation outbox record: {outbox_err}")
+
+            log_quotation_whatsapp_send(
+                safe_qid,
+                whatsapp_number,
+                client_name,
+                'document',
+                outbound_message_id,
+                'portal_send'
+            )
+
         print(f"✅ Quotation PDF accepted by WhatsApp API for {whatsapp_number}: {whatsapp_response}")
         return jsonify({
             'success': True,
             'message': f'Quotation accepted by WhatsApp API for {whatsapp_number} (delivery pending recipient status)',
             'whatsapp_number': whatsapp_number,
             'used_template': False,
-            'message_id': whatsapp_response.get('messages', [{}])[0].get('id', '')
+            'message_id': outbound_message_id
         })
     except Exception as e:
         error_text = str(e)
@@ -18026,6 +18193,16 @@ def send_quotation_whatsapp():
                     client_name=client_name, category=q_category, project_size=q_size
                 )
 
+                template_message_id = template_response.get('messages', [{}])[0].get('id', '')
+                log_quotation_whatsapp_send(
+                    safe_qid,
+                    whatsapp_number,
+                    client_name,
+                    'template_fallback',
+                    template_message_id,
+                    'sync_fallback'
+                )
+
                 public_base = PUBLIC_BASE_URL or request.url_root.rstrip('/')
                 share_url = f"{public_base}/quotation/share/{share_token}"
 
@@ -18036,7 +18213,7 @@ def send_quotation_whatsapp():
                     'whatsapp_number': whatsapp_number,
                     'share_url': share_url,
                     'template_name': QUOTATION_DOWNLOAD_TEMPLATE_NAME,
-                    'message_id': template_response.get('messages', [{}])[0].get('id', '')
+                    'message_id': template_message_id
                 })
             except Exception as template_error:
                 logging.error(f"Template fallback failed: {template_error}")
@@ -18326,6 +18503,64 @@ def get_quotations():
     except Exception as e:
         logging.error(f'Error fetching quotations: {str(e)}')
         logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/get-sent-quotations', methods=['GET'])
+def get_sent_quotations():
+    """Retrieve successful quotation sends to WhatsApp for Quotations Portal modal."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT
+                    ql.id,
+                    ql.quotation_id,
+                    q.client_name,
+                    q.client_whatsapp,
+                    q.category,
+                    q.project_size,
+                    q.total_cost,
+                    q.markup_percentage,
+                    q.quotation_date,
+                    ql.send_type,
+                    ql.source_channel,
+                    ql.whatsapp_message_id,
+                    ql.created_at
+                FROM quotation_whatsapp_send_logs ql
+                INNER JOIN quotations q ON q.id = ql.quotation_id
+                ORDER BY ql.created_at DESC
+            """)
+            rows = cursor.fetchall()
+
+            data = [
+                {
+                    'logId': row[0],
+                    'quotationId': row[1],
+                    'clientName': row[2] or 'Client',
+                    'whatsappNumber': row[3] or '',
+                    'category': row[4] or '',
+                    'projectSize': float(row[5]) if row[5] else 0,
+                    'totalCost': float(row[6]) if row[6] else 0,
+                    'markup': float(row[7]) if row[7] else 0,
+                    'quotationDate': row[8].isoformat() if row[8] else None,
+                    'sendType': row[9] or 'document',
+                    'sourceChannel': row[10] or 'portal',
+                    'messageId': row[11] or '',
+                    'sentAt': row[12].isoformat() if row[12] else None
+                }
+                for row in rows
+            ]
+
+            return jsonify({
+                'success': True,
+                'count': len(data),
+                'data': data
+            })
+    except Exception as e:
+        logging.error(f'Error fetching sent quotations: {str(e)}')
         return jsonify({
             'success': False,
             'error': str(e)

@@ -2886,11 +2886,37 @@
                                     <button class="btn btn-primary btn-sm" onclick="reloadQuotations()" style="width: auto;">
                                         <i class="bi bi-arrow-clockwise"></i> Reload Quotations
                                     </button>
+                                    <button class="btn btn-primary btn-sm" onclick="openSentQuotationsModal()" style="width: auto; margin-left: 8px;">
+                                        <i class="bi bi-whatsapp"></i> View Sent Quotations
+                                    </button>
                                 </div>
                                 <div id="quotationsContainer" style="color: var(--dark-blue-deep); background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                                     <p class="text-muted text-center" style="padding: 40px;">Click "Reload Quotations" to load saved quotations...</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sentQuotationsModal" class="modal-overlay">
+                    <div class="modal-container xlarge" style="color: var(--dark-blue-deep);">
+                        <div class="modal-header-custom">
+                            <h3><i class="bi bi-whatsapp"></i> Sent Quotations via WhatsApp</h3>
+                            <button class="close-modal" onclick="closeModal('sentQuotationsModal')">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
+                            <div id="sentQuotationsSummary" style="margin-bottom: 10px; font-size: 0.8rem; color: #555;"></div>
+                            <div id="sentQuotationsContainer">
+                                <p class="text-muted text-center" style="padding: 20px;">Loading sent quotations...</p>
+                            </div>
+                        </div>
+                        <div class="modal-footer-custom">
+                            <button type="button" class="btn btn-primary" onclick="loadSentQuotations()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="closeModal('sentQuotationsModal')">Close</button>
                         </div>
                     </div>
                 </div>
@@ -11452,6 +11478,95 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('quotationsContainer not found for manual reload');
         }
     };
+
+    function openSentQuotationsModal() {
+        openModal('sentQuotationsModal');
+        loadSentQuotations();
+    }
+
+    function formatSendTypeBadge(sendType) {
+        const type = (sendType || '').toLowerCase();
+        if (type === 'template_fallback') {
+            return '<span style="background:#fff3cd; color:#7a5a00; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">Template Fallback</span>';
+        }
+        return '<span style="background:#d1ecf1; color:#0c5460; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">PDF Document</span>';
+    }
+
+    function loadSentQuotations() {
+        const container = document.getElementById('sentQuotationsContainer');
+        const summary = document.getElementById('sentQuotationsSummary');
+        if (!container || !summary) {
+            return;
+        }
+
+        summary.textContent = 'Loading send history...';
+        container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">Loading sent quotations...</p>';
+
+        fetch('/api/get-sent-quotations')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('HTTP error, status = ' + response.status);
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to load sent quotations');
+                }
+
+                const rows = result.data || [];
+                summary.textContent = `Total sent quotations: ${result.count || rows.length}`;
+
+                if (rows.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No quotation has been successfully sent via WhatsApp yet.</p>';
+                    return;
+                }
+
+                let html = `
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
+                            <thead>
+                                <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
+                                    <th style="padding: 6px; text-align: left;">Sent At</th>
+                                    <th style="padding: 6px; text-align: left;">Client</th>
+                                    <th style="padding: 6px; text-align: left;">WhatsApp</th>
+                                    <th style="padding: 6px; text-align: left;">Category</th>
+                                    <th style="padding: 6px; text-align: right;">Total Cost</th>
+                                    <th style="padding: 6px; text-align: center;">Type</th>
+                                    <th style="padding: 6px; text-align: left;">Message ID</th>
+                                    <th style="padding: 6px; text-align: center;">Quotation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                rows.forEach((row, index) => {
+                    const sentAt = row.sentAt ? new Date(row.sentAt).toLocaleString('en-GB') : 'N/A';
+                    const totalCost = Number(row.totalCost || 0);
+                    const messageIdShort = row.messageId ? row.messageId.slice(0, 40) + (row.messageId.length > 40 ? '...' : '') : 'N/A';
+
+                    html += `
+                        <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                            <td style="padding: 6px;">${sentAt}</td>
+                            <td style="padding: 6px;">${row.clientName || 'Client'}</td>
+                            <td style="padding: 6px;">${row.whatsappNumber || 'N/A'}</td>
+                            <td style="padding: 6px;">${row.category || 'N/A'}</td>
+                            <td style="padding: 6px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="padding: 6px; text-align: center;">${formatSendTypeBadge(row.sendType)}</td>
+                            <td style="padding: 6px; font-family: monospace;">${messageIdShort}</td>
+                            <td style="padding: 6px; text-align: center;">#${row.quotationId || ''}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            })
+            .catch(error => {
+                summary.textContent = 'Unable to load send history';
+                container.innerHTML = `<p class="text-danger text-center" style="padding: 20px;">Error loading sent quotations: ${error.message}</p>`;
+            });
+    }
     
     function loadQuotations() {
         console.log('loadQuotations function called');
