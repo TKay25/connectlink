@@ -8698,6 +8698,32 @@ def webhook():
                                                             print(f"🔘 Template button clicked: {button_text}")
                                                             print(f"📦 Button payload: {payload}")
 
+                                                            def send_text_message(to_number, text):
+                                                                """Send simple text message via WhatsApp"""
+                                                                url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+
+                                                                headers = {
+                                                                    'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                    'Content-Type': 'application/json'
+                                                                }
+
+                                                                data = {
+                                                                    "messaging_product": "whatsapp",
+                                                                    "recipient_type": "individual",
+                                                                    "to": to_number,
+                                                                    "type": "text",
+                                                                    "text": {
+                                                                        "body": text
+                                                                    }
+                                                                }
+
+                                                                try:
+                                                                    response = requests.post(url, headers=headers, json=data, timeout=30)
+                                                                    return response.json()
+                                                                except Exception as e:
+                                                                    print(f"❌ Text message error: {str(e)}")
+                                                                    return None
+
                                                             if payload and payload.lower().startswith('quotation_'):
                                                                 try:
                                                                     parts = payload.split('_')
