@@ -10253,6 +10253,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             updateSelectedItemsList();
             calculateConstructionTotal();
+
+            // Apply pre-selections for edit mode
+            if (window._editingPreSelectItems && window._editingPreSelectItems.length > 0) {
+                const preSelectNames = window._editingPreSelectItems;
+                window._editingPreSelectItems = null; // clear before triggering events
+                $('.construction-item-row').each(function() {
+                    const rowName = $(this).data('item-name');
+                    if (preSelectNames.includes(rowName)) {
+                        $(this).find('.construction-item-checkbox').prop('checked', true);
+                    }
+                });
+                updateSelectedItemsList();
+                calculateConstructionTotal();
+            }
         }
 
         // Calculate and display total construction cost
@@ -10625,9 +10639,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log('Sending quotation data:', quotationData);
 
-            // Save to database
-            fetch('/api/save-quotation', {
-                method: 'POST',
+            // Save or update in database
+            const isEditing = !!window.editingQuotationId;
+            const saveUrl = isEditing ? `/api/update-quotation/${window.editingQuotationId}` : '/api/save-quotation';
+            const saveMethod = isEditing ? 'PUT' : 'POST';
+
+            fetch(saveUrl, {
+                method: saveMethod,
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -10646,6 +10664,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(result => {
                 if (result.success) {
                     console.log('Quotation saved successfully. ID:', result.quotation_id);
+                    window.editingQuotationId = null;
                     alert('Quotation saved successfully! (ID: ' + result.quotation_id + ')');
                     // Now generate the PDF
                     generateQuotationPDF();
@@ -10899,8 +10918,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     schedules: ganttData
                 };
 
-                const saveResponse = await fetch('/api/save-quotation', {
-                    method: 'POST',
+                const isEditing = !!window.editingQuotationId;
+                const saveUrl = isEditing ? `/api/update-quotation/${window.editingQuotationId}` : '/api/save-quotation';
+                const saveMethod = isEditing ? 'PUT' : 'POST';
+
+                const saveResponse = await fetch(saveUrl, {
+                    method: saveMethod,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(savePayload)
                 });
@@ -10909,6 +10932,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!saveResponse.ok || !saveResult.success) {
                     throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
                 }
+                if (isEditing) { window.editingQuotationId = null; }
 
                 // Step 2: Generate PDF as data URI
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
@@ -11649,10 +11673,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayQuotationDetails(quotation, container) {
         let html = '<div style="margin-bottom: 10px;">';
         
-        // Download button at the top
-        html += `<div style="margin-bottom: 6px;">
-            <button class="btn btn-primary" onclick="downloadQuotationPDFFromPortal(${quotation.id})" style="width: auto;">
-                <i class="bi bi-download"></i> Download Quotation
+        // Action buttons at the top
+        const wa = quotation.clientWhatsapp ? quotation.clientWhatsapp.toString().trim() : '';
+        html += `<div style="margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 6px;">
+            <button class="btn btn-primary btn-sm" onclick="downloadQuotationPDFFromPortal(${quotation.id})">
+                <i class="bi bi-download"></i> Download PDF
+            </button>
+            <button class="btn btn-success btn-sm" onclick="sendQuotationFromPortal(${quotation.id})" ${!wa ? 'disabled title="No WhatsApp number saved"' : ''}>
+                <i class="bi bi-whatsapp"></i> Send via WhatsApp
+            </button>
+            <button class="btn btn-warning btn-sm text-dark" onclick="editQuotationFromPortal(${quotation.id})">
+                <i class="bi bi-pencil"></i> Edit
             </button>
         </div>`;
         
@@ -11769,6 +11800,132 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         alert('Quotation PDF generator is not available. Please refresh and try again.');
+    }
+
+    function editQuotationFromPortal(quotationId) {
+        fetch('/api/get-quotations')
+            .then(r => r.json())
+            .then(result => {
+                if (!result.success || !result.data) { alert('Error fetching quotation data.'); return; }
+                const quotation = result.data.find(q => q.id === quotationId);
+                if (!quotation) { alert('Quotation not found.'); return; }
+
+                // Set editing context
+                window.editingQuotationId = quotationId;
+
+                // Preserve existing schedules so they survive even if user skips gantt rebuild
+                window.ganttChartData = (quotation.schedules || []).map(s => ({
+                    item: s.workScope,
+                    startDate: s.startDate,
+                    endDate: s.endDate,
+                    days: s.days,
+                    price: 0
+                }));
+                ganttItems = window.ganttChartData.slice();
+
+                // Store item names to pre-select once the construction list renders
+                window._editingPreSelectItems = (quotation.items || []).map(i => i.name);
+
+                // Pre-fill text fields
+                $('#quotationClientName').val(quotation.clientName || '');
+                $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
+                $('#quotationMarkup').val(quotation.markup != null ? quotation.markup : 30);
+                $('#quotationSize').val(quotation.projectSize || '');
+
+                // Allow editing the date when coming from edit flow
+                const dateStr = quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0];
+                $('#quotationDate').prop('readonly', false).val(dateStr);
+
+                // Trigger category change: shows construction panel + loads items (renderConstructionItemsList applies pre-selections)
+                $('#quotationCategory').val(quotation.category || '').change();
+
+                // Open the generator modal
+                openModal('quotationgeneratorModal');
+            })
+            .catch(error => alert('Error: ' + error.message));
+    }
+
+    async function sendQuotationFromPortal(quotationId) {
+        let btn = null;
+        let origText = '';
+        try {
+            // Find the button that triggered this (via event delegation is not available here, so find by quotationId)
+            btn = document.querySelector(`button[onclick="sendQuotationFromPortal(${quotationId})"]`);
+            if (btn) { origText = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Fetching...'; }
+
+            const result = await fetch('/api/get-quotations').then(r => r.json());
+            if (!result.success || !result.data) throw new Error('Failed to fetch quotation data.');
+            const quotation = result.data.find(q => q.id === quotationId);
+            if (!quotation) throw new Error('Quotation not found.');
+            if (!quotation.clientWhatsapp || !quotation.clientWhatsapp.toString().trim()) {
+                throw new Error('No WhatsApp number saved for this quotation. Edit the quotation first to add one.');
+            }
+
+            // Build data objects for PDF generation
+            const data = {
+                clientName: quotation.clientName,
+                clientWhatsapp: quotation.clientWhatsapp || '',
+                quotationDate: quotation.quotationDate,
+                category: quotation.category,
+                size: quotation.projectSize,
+                totalCost: quotation.totalCost,
+                markup: quotation.markup,
+                baseCost: quotation.totalCost / (1 + (quotation.markup / 100)),
+                markupAmount: quotation.totalCost - (quotation.totalCost / (1 + (quotation.markup / 100))),
+                items: (quotation.items || []).map(item => ({
+                    item: item.name,
+                    name: item.name,
+                    sqm: item.quantity,
+                    inhouseRate: item.unitRate,
+                    clientPrice: item.totalPrice,
+                    total: item.totalPrice
+                }))
+            };
+            const ganttData = (quotation.schedules || []).map(s => ({
+                item: s.workScope,
+                startDate: s.startDate,
+                endDate: s.endDate,
+                days: s.days,
+                price: 0
+            }));
+
+            window.quotationData = data;
+            window.ganttChartData = ganttData;
+
+            // Generate PDF
+            if (btn) btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+            if (typeof window.generateQuotationPDF !== 'function') throw new Error('PDF generator not available. Please refresh and try again.');
+            const dataUri = await window.generateQuotationPDF('datauri');
+            const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
+            if (!pdfBase64) throw new Error('Failed to generate quotation PDF for sending.');
+
+            // Send via WhatsApp
+            if (btn) btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
+            const sendResponse = await fetch('/api/send-quotation-whatsapp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientName: quotation.clientName || 'Client',
+                    whatsappNumber: quotation.clientWhatsapp,
+                    quotationId: quotationId,
+                    pdfBase64: pdfBase64
+                })
+            });
+            const sendResult = await sendResponse.json();
+            if (!sendResponse.ok || !sendResult.success) {
+                throw new Error((sendResult.error || 'Failed to send') + (sendResult.hint ? '\n\n' + sendResult.hint : ''));
+            }
+
+            if (sendResult.used_template) {
+                alert('Customer is outside the 24-hour window.\nA WhatsApp template with "Download Quotation" button was sent to: ' + sendResult.whatsapp_number);
+            } else {
+                alert('Quotation PDF sent successfully to: ' + sendResult.whatsapp_number);
+            }
+        } catch (error) {
+            alert('Failed: ' + error.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+        }
     }
 
 </script>

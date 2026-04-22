@@ -18154,9 +18154,86 @@ def save_quotation():
         if 'connection' in locals():
             connection.rollback()
         return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+                'success': False,
+                'error': str(e)
+            }), 500
+
+@app.route('/api/update-quotation/<int:quotation_id>', methods=['PUT'])
+def update_quotation(quotation_id):
+    """Update an existing quotation's header, items and schedules"""
+    try:
+        data = request.json
+        if data is None:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+
+        client_name = data.get('clientName', 'Unknown')
+        client_whatsapp = data.get('clientWhatsapp', '')
+        quotation_date = data.get('quotationDate', date.today().isoformat())
+        category = data.get('category', 'General')
+        project_size = float(data.get('size', 0)) if data.get('size') else 0
+        total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
+        markup = float(data.get('markup', 0)) if data.get('markup') else 0
+        items = data.get('items', [])
+        schedules = data.get('schedules', [])
+
+        with get_db() as (cursor, connection):
+            # Verify quotation exists
+            cursor.execute("SELECT id FROM quotations WHERE id = %s", (quotation_id,))
+            if cursor.fetchone() is None:
+                return jsonify({'success': False, 'error': 'Quotation not found'}), 404
+
+            # Update header
+            cursor.execute("""
+                UPDATE quotations
+                SET client_name = %s,
+                    client_whatsapp = %s,
+                    quotation_date = %s,
+                    category = %s,
+                    project_size = %s,
+                    total_cost = %s,
+                    markup_percentage = %s
+                WHERE id = %s
+            """, (client_name, client_whatsapp, quotation_date, category,
+                  project_size, total_cost, markup, quotation_id))
+
+            # Replace items
+            cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
+            for idx, item in enumerate(items):
+                item_name = item.get('name') or item.get('item', 'Item')
+                quantity = float(item.get('sqm', 0)) if item.get('sqm') else 0
+                unit_rate = float(item.get('inhouseRate', 0)) if item.get('inhouseRate') else 0
+                total_price = float(item.get('total', 0)) if item.get('total') else 0
+                cursor.execute("""
+                    INSERT INTO quotation_items
+                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
+
+            # Replace schedules
+            cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
+            for idx, schedule in enumerate(schedules):
+                work_scope = schedule.get('item', 'Task')
+                start_date = schedule.get('startDate')
+                end_date = schedule.get('endDate')
+                days = int(schedule.get('days', 0)) if schedule.get('days') else 0
+                cursor.execute("""
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (quotation_id, work_scope, start_date, end_date, days, idx + 1))
+
+            connection.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Quotation updated successfully',
+            'quotation_id': quotation_id
+        })
+    except Exception as e:
+        logging.error(f'Error updating quotation {quotation_id}: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/get-quotations', methods=['GET'])
 def get_quotations():
