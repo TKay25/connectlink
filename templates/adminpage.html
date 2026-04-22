@@ -11705,6 +11705,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <th style="padding: 4px; text-align: center; font-weight: bold;">Markup %</th>
                             <th style="padding: 4px; text-align: right; font-weight: bold;">Total Cost</th>
                             <th style="padding: 4px; text-align: center; font-weight: bold;">Date</th>
+                            <th style="padding: 4px; text-align: center; font-weight: bold;">Download Status</th>
                             <th style="padding: 4px; text-align: center; font-weight: bold;">Items</th>
                             <th style="padding: 4px; text-align: center; font-weight: bold;">Tasks</th>
                             <th style="padding: 4px; text-align: center; font-weight: bold;">Actions</th>
@@ -11718,6 +11719,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemCount = quotation.items ? quotation.items.length : 0;
             const taskCount = quotation.schedules ? quotation.schedules.length : 0;
             const totalCost = quotation.totalCost || 0;
+            const isDownloaded = Boolean(quotation.downloaded);
+            const downloadStatusBadge = isDownloaded
+                ? `<span style="background: #d1e7dd; color: #0f5132; padding: 3px 6px; border-radius: 10px; font-size: 0.6rem; font-weight: 600;" title="${quotation.downloadSentAt || quotation.downloadClickedAt || ''}">Downloaded</span>`
+                : `<span style="background: #f8d7da; color: #842029; padding: 3px 6px; border-radius: 10px; font-size: 0.6rem; font-weight: 600;" title="${quotation.downloadClickedAt || ''}">Not Downloaded</span>`;
             
             html += `
                 <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; font-size: 0.65rem;">
@@ -11728,6 +11733,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="padding: 4px; text-align: center;">${quotation.markup || '0'}%</td>
                     <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td style="padding: 4px; text-align: center;">${formattedDate}</td>
+                    <td style="padding: 4px; text-align: center;">${downloadStatusBadge}</td>
                     <td style="padding: 4px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${itemCount}</span></td>
                     <td style="padding: 4px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${taskCount}</span></td>
                     <td style="padding: 4px; text-align: center;">
@@ -11760,8 +11766,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         lengthChange: false,
                         dom: 'f',  // Show search box only
                         columnDefs: [
-                            { orderable: true, targets: [0, 1, 2, 3, 4, 5, 6] },  // Date, Total Cost, Project Size are sortable
-                            { orderable: false, targets: [7, 8] }  // Items, Tasks not sortable
+                            { orderable: true, targets: [0, 1, 2, 3, 4, 5, 6, 7] },
+                            { orderable: false, targets: [8, 9, 10] }
                         ]
                     });
 

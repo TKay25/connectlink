@@ -350,6 +350,10 @@ def initialize_database_tables():
                     quotation_id INT NOT NULL,
                     share_token VARCHAR(120) NOT NULL UNIQUE,
                     expires_at TIMESTAMP NOT NULL,
+                    download_clicked_at TIMESTAMP,
+                    download_pdf_sent_at TIMESTAMP,
+                    download_pdf_sent_success BOOLEAN DEFAULT FALSE,
+                    download_click_whatsapp VARCHAR(20),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
                 );
@@ -395,6 +399,24 @@ def initialize_database_tables():
             cursor.execute("""
                 ALTER TABLE quotation_whatsapp_send_logs
                 ADD COLUMN IF NOT EXISTS error_details TEXT
+            """)
+
+            # Ensure older databases can track quotation download clicks/success
+            cursor.execute("""
+                ALTER TABLE quotation_share_links
+                ADD COLUMN IF NOT EXISTS download_clicked_at TIMESTAMP
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_share_links
+                ADD COLUMN IF NOT EXISTS download_pdf_sent_at TIMESTAMP
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_share_links
+                ADD COLUMN IF NOT EXISTS download_pdf_sent_success BOOLEAN DEFAULT FALSE
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_share_links
+                ADD COLUMN IF NOT EXISTS download_click_whatsapp VARCHAR(20)
             """)
 
             #cursor.execute("""
@@ -1428,7 +1450,10 @@ def webhook():
 
                                                 try:
                                                 
-                                                    if message.get("type") == "interactive":
+                                                    if message.get("type") == "interactive" and not (
+                                                        message.get("interactive", {}).get("type") == "button_reply"
+                                                        and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").startswith("quotation_")
+                                                    ):
                                                         interactive = message.get("interactive", {})
 
 
@@ -4713,6 +4738,7 @@ def webhook():
                                                                 qid = None
 
                                                             if qid:
+                                                                mark_quotation_download_clicked(payload, sender_id)
                                                                 send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
                                                                 try:
                                                                     with get_db() as (qcur, _):
@@ -4820,7 +4846,7 @@ def webhook():
                                                                         q_media_id = upload_r.json()["id"]
 
                                                                         send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-                                                                        requests.post(
+                                                                        send_doc_response = requests.post(
                                                                             send_url,
                                                                             headers={"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"},
                                                                             json={
@@ -4831,8 +4857,11 @@ def webhook():
                                                                             },
                                                                             timeout=45
                                                                         )
+                                                                        send_doc_response.raise_for_status()
+                                                                        mark_quotation_download_send_result(payload, True, sender_id)
                                                                         print(f"✅ Quotation PDF {qid} sent to {sender_id}")
                                                                 except Exception as qe:
+                                                                    mark_quotation_download_send_result(payload, False, sender_id)
                                                                     print(f"❌ Error sending quotation PDF: {qe}")
                                                                     send_text_message(sender_id, "❌ Failed to generate your quotation. Please contact us directly.")
                                                             else:
@@ -4919,7 +4948,10 @@ def webhook():
 
                                                     try:
 
-                                                        if message.get("type") == "interactive":
+                                                        if message.get("type") == "interactive" and not (
+                                                            message.get("interactive", {}).get("type") == "button_reply"
+                                                            and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").startswith("quotation_")
+                                                        ):
                                                             interactive = message.get("interactive", {})
 
 
@@ -7373,6 +7405,7 @@ def webhook():
                                                                     qid = None
 
                                                                 if qid:
+                                                                    mark_quotation_download_clicked(payload, sender_id)
                                                                     send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
                                                                     try:
                                                                         with get_db() as (qcur, _):
@@ -7460,14 +7493,17 @@ def webhook():
                                                                             )
                                                                             upload_r.raise_for_status()
                                                                             q_media_id = upload_r.json()["id"]
-                                                                            requests.post(
+                                                                            send_doc_response = requests.post(
                                                                                 f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages",
                                                                                 headers={"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"},
                                                                                 json={"messaging_product": "whatsapp", "to": sender_id, "type": "document", "document": {"id": q_media_id, "filename": q_filename, "caption": q_caption}},
                                                                                 timeout=45
                                                                             )
+                                                                            send_doc_response.raise_for_status()
+                                                                            mark_quotation_download_send_result(payload, True, sender_id)
                                                                             print(f"✅ Quotation PDF {qid} sent to {sender_id}")
                                                                     except Exception as qe:
+                                                                        mark_quotation_download_send_result(payload, False, sender_id)
                                                                         print(f"❌ Error sending quotation PDF: {qe}")
                                                                         send_text_message(sender_id, "❌ Failed to generate your quotation. Please contact us directly.")
                                                                 else:
@@ -7541,7 +7577,10 @@ def webhook():
 
                                                     try:
                                                     
-                                                        if message.get("type") == "interactive":
+                                                        if message.get("type") == "interactive" and not (
+                                                            message.get("interactive", {}).get("type") == "button_reply"
+                                                            and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").startswith("quotation_")
+                                                        ):
                                                             interactive = message.get("interactive", {})
 
 
@@ -18045,6 +18084,41 @@ def log_quotation_whatsapp_send(
         logging.warning(f"Could not log quotation WhatsApp send for quotation {quotation_id}: {e}")
 
 
+def mark_quotation_download_clicked(share_token, whatsapp_number=''):
+    """Mark that client tapped the quotation download button in WhatsApp."""
+    if not share_token:
+        return
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE quotation_share_links
+                SET download_clicked_at = CURRENT_TIMESTAMP,
+                    download_click_whatsapp = %s
+                WHERE share_token = %s
+            """, (normalize_whatsapp_number(whatsapp_number), str(share_token)))
+            connection.commit()
+    except Exception as e:
+        logging.warning(f"Could not mark quotation download click for token {share_token}: {e}")
+
+
+def mark_quotation_download_send_result(share_token, send_success, whatsapp_number=''):
+    """Mark whether quotation PDF send succeeded after client clicked download."""
+    if not share_token:
+        return
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE quotation_share_links
+                SET download_pdf_sent_success = %s,
+                    download_pdf_sent_at = CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE download_pdf_sent_at END,
+                    download_click_whatsapp = COALESCE(NULLIF(download_click_whatsapp, ''), %s)
+                WHERE share_token = %s
+            """, (bool(send_success), bool(send_success), normalize_whatsapp_number(whatsapp_number), str(share_token)))
+            connection.commit()
+    except Exception as e:
+        logging.warning(f"Could not mark quotation download send result for token {share_token}: {e}")
+
+
 @app.route('/quotation/share/<share_token>', methods=['GET'])
 def view_shared_quotation(share_token):
     """Public share page opened from WhatsApp template URL button."""
@@ -18493,11 +18567,25 @@ def get_quotations():
                     'message': 'No quotations yet'
                 })
             
-            # Get all quotations
+            # Get all quotations with client download status from share link interactions
             cursor.execute("""
-                SELECT id, client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage, created_at
-                FROM quotations
-                ORDER BY created_at DESC
+                SELECT
+                    q.id,
+                    q.client_name,
+                    q.client_whatsapp,
+                    q.quotation_date,
+                    q.category,
+                    q.project_size,
+                    q.total_cost,
+                    q.markup_percentage,
+                    q.created_at,
+                    COALESCE(MAX(CASE WHEN qsl.download_pdf_sent_success THEN 1 ELSE 0 END), 0) AS was_downloaded,
+                    MAX(qsl.download_clicked_at) AS last_download_clicked_at,
+                    MAX(qsl.download_pdf_sent_at) AS last_download_sent_at
+                FROM quotations q
+                LEFT JOIN quotation_share_links qsl ON q.id = qsl.quotation_id
+                GROUP BY q.id, q.client_name, q.client_whatsapp, q.quotation_date, q.category, q.project_size, q.total_cost, q.markup_percentage, q.created_at
+                ORDER BY q.created_at DESC
             """)
             quotations = cursor.fetchall()
             
@@ -18550,7 +18638,10 @@ def get_quotations():
                         }
                         for schedule in schedules
                     ],
-                    'createdAt': quotation[8].isoformat() if quotation[8] else None
+                    'createdAt': quotation[8].isoformat() if quotation[8] else None,
+                    'downloaded': bool(quotation[9]),
+                    'downloadClickedAt': quotation[10].isoformat() if quotation[10] else None,
+                    'downloadSentAt': quotation[11].isoformat() if quotation[11] else None
                 })
             
             return jsonify({
