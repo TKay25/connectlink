@@ -5517,6 +5517,51 @@ function updateSentRemindersStats(reminders) {
     document.getElementById('failedSentCount').textContent = failed;
 }
 
+function parseAsUtcDate(dateValue) {
+    if (!dateValue) {
+        return null;
+    }
+
+    if (dateValue instanceof Date) {
+        return Number.isNaN(dateValue.getTime()) ? null : dateValue;
+    }
+
+    const raw = String(dateValue).trim();
+    if (!raw) {
+        return null;
+    }
+
+    const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+    const hasTimezone = /([zZ]|[+\-]\d{2}:\d{2})$/.test(normalized);
+    const utcCandidate = hasTimezone ? normalized : `${normalized}Z`;
+
+    const parsedUtc = new Date(utcCandidate);
+    if (!Number.isNaN(parsedUtc.getTime())) {
+        return parsedUtc;
+    }
+
+    const fallback = new Date(raw);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function formatZimbabweDateTime(dateValue, locale = 'en-GB') {
+    const parsed = parseAsUtcDate(dateValue);
+    if (!parsed) {
+        return 'N/A';
+    }
+
+    return parsed.toLocaleString(locale, {
+        timeZone: 'Africa/Harare',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+}
+
 // Function to display sent reminders in table
 function displaySentReminders(reminders) {
     const tableBody = document.getElementById('sentRemindersTableBody');
@@ -5559,21 +5604,7 @@ function displaySentReminders(reminders) {
         }).format(reminder.amount_due || 0);
         
         // Format date
-        let formattedDate = 'N/A';
-        if (reminder.sent_at) {
-            try {
-                const sentDate = new Date(reminder.sent_at);
-                formattedDate = sentDate.toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            } catch (e) {
-                formattedDate = reminder.sent_at;
-            }
-        }
+        const formattedDate = reminder.sent_at ? formatZimbabweDateTime(reminder.sent_at) : 'N/A';
         
         // Days info label
         const daysLabel = reminder.status === 'overdue' ? 'Overdue by' : 
@@ -9083,7 +9114,7 @@ $(document).ready(function() {
         
         let notesHtml = '';
         notes.forEach((note, index) => {
-            const date = new Date(note.timestamp).toLocaleString();
+            const date = formatZimbabweDateTime(note.timestamp);
             notesHtml += `
                 <div class="card mb-1 ${index !== 0 ? 'mt-1' : ''}" style="border-radius: 0.25rem;">
                     <div class="card-body p-1">
@@ -11578,7 +11609,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         rows.forEach((row, index) => {
-            const sentAt = row.sentAt ? new Date(row.sentAt).toLocaleString('en-GB') : 'N/A';
+            const sentAt = row.sentAt ? formatZimbabweDateTime(row.sentAt) : 'N/A';
             const totalCost = Number(row.totalCost || 0);
             const dlBadge = row.downloaded
                 ? `<span style="background:#d1e7dd;color:#0f5132;padding:3px 7px;border-radius:10px;font-size:0.65rem;font-weight:600;" title="${row.downloadSentAt || row.downloadClickedAt || ''}">Downloaded</span>`
