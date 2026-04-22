@@ -370,7 +370,7 @@ def initialize_database_tables():
                 );
             """)
 
-            # Log successful WhatsApp quotation sends for portal reporting
+            # Log WhatsApp quotation send outcomes for portal reporting
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS quotation_whatsapp_send_logs (
                     id SERIAL PRIMARY KEY,
@@ -378,11 +378,23 @@ def initialize_database_tables():
                     whatsapp_number VARCHAR(20),
                     client_name VARCHAR(255),
                     send_type VARCHAR(40) NOT NULL,
+                    send_status VARCHAR(20) NOT NULL DEFAULT 'success',
+                    error_details TEXT,
                     whatsapp_message_id VARCHAR(255),
                     source_channel VARCHAR(40) DEFAULT 'portal',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
                 );
+            """)
+
+            # Ensure older databases also have status/error columns on send logs
+            cursor.execute("""
+                ALTER TABLE quotation_whatsapp_send_logs
+                ADD COLUMN IF NOT EXISTS send_status VARCHAR(20) NOT NULL DEFAULT 'success'
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_whatsapp_send_logs
+                ADD COLUMN IF NOT EXISTS error_details TEXT
             """)
 
             #cursor.execute("""
@@ -1296,6 +1308,27 @@ def webhook():
                                         target_number = normalize_whatsapp_number(outbox_row[1] or recipient_id)
                                         target_client_name = (outbox_row[2] or 'Client').strip() or 'Client'
                                         fallback_already_sent = bool(outbox_row[3])
+
+                                        # Record the failure once so portal can show Failed status entries
+                                        cursor.execute("""
+                                            SELECT COUNT(*)
+                                            FROM quotation_whatsapp_send_logs
+                                            WHERE whatsapp_message_id = %s
+                                              AND send_status = 'failed'
+                                              AND send_type = 'document'
+                                        """, (outbound_message_id,))
+                                        existing_failed = cursor.fetchone()[0]
+                                        if existing_failed == 0:
+                                            log_quotation_whatsapp_send(
+                                                safe_qid,
+                                                target_number,
+                                                target_client_name,
+                                                'document',
+                                                outbound_message_id,
+                                                'webhook_status',
+                                                send_status='failed',
+                                                error_details=error_text
+                                            )
 
                                         if fallback_already_sent:
                                             print(f"ℹ️ Template fallback already sent for message_id={outbound_message_id}")
@@ -17980,19 +18013,30 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
     return response_data
 
 
-def log_quotation_whatsapp_send(quotation_id, whatsapp_number, client_name, send_type, whatsapp_message_id='', source_channel='portal'):
-    """Persist successful quotation WhatsApp sends for Sent Quotations portal view."""
+def log_quotation_whatsapp_send(
+    quotation_id,
+    whatsapp_number,
+    client_name,
+    send_type,
+    whatsapp_message_id='',
+    source_channel='portal',
+    send_status='success',
+    error_details=''
+):
+    """Persist quotation WhatsApp send outcomes for Sent Quotations portal view."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
                 INSERT INTO quotation_whatsapp_send_logs
-                (quotation_id, whatsapp_number, client_name, send_type, whatsapp_message_id, source_channel)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (quotation_id, whatsapp_number, client_name, send_type, send_status, error_details, whatsapp_message_id, source_channel)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 int(quotation_id),
                 normalize_whatsapp_number(whatsapp_number),
                 (client_name or 'Client').strip() or 'Client',
                 send_type,
+                (send_status or 'success').strip().lower(),
+                str(error_details or '')[:2000],
                 whatsapp_message_id or '',
                 source_channel or 'portal'
             ))
@@ -18525,7 +18569,7 @@ def get_quotations():
 
 @app.route('/api/get-sent-quotations', methods=['GET'])
 def get_sent_quotations():
-    """Retrieve successful quotation sends to WhatsApp for Quotations Portal modal."""
+    """Retrieve quotation send outcomes to WhatsApp for Quotations Portal modal."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
@@ -18540,6 +18584,8 @@ def get_sent_quotations():
                     q.markup_percentage,
                     q.quotation_date,
                     ql.send_type,
+                    ql.send_status,
+                    ql.error_details,
                     ql.source_channel,
                     ql.whatsapp_message_id,
                     ql.created_at
@@ -18561,9 +18607,11 @@ def get_sent_quotations():
                     'markup': float(row[7]) if row[7] else 0,
                     'quotationDate': row[8].isoformat() if row[8] else None,
                     'sendType': row[9] or 'document',
-                    'sourceChannel': row[10] or 'portal',
-                    'messageId': row[11] or '',
-                    'sentAt': row[12].isoformat() if row[12] else None
+                    'sendStatus': row[10] or 'success',
+                    'errorDetails': row[11] or '',
+                    'sourceChannel': row[12] or 'portal',
+                    'messageId': row[13] or '',
+                    'sentAt': row[14].isoformat() if row[14] else None
                 }
                 for row in rows
             ]

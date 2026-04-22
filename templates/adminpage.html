@@ -2908,6 +2908,20 @@
                         </div>
                         <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
                             <div id="sentQuotationsSummary" style="margin-bottom: 10px; font-size: 0.8rem; color: #555;"></div>
+                            <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <label for="sentQuotationsStatusFilter" style="font-size: 0.75rem; font-weight: 600; margin: 0;">Status Filter:</label>
+                                <select id="sentQuotationsStatusFilter" class="form-control form-control-sm" style="max-width: 180px;" onchange="applySentQuotationsFilter()">
+                                    <option value="all">All</option>
+                                    <option value="success">Success</option>
+                                    <option value="failed">Failed</option>
+                                </select>
+                                <label for="sentQuotationsTypeFilter" style="font-size: 0.75rem; font-weight: 600; margin: 0 0 0 8px;">Type Filter:</label>
+                                <select id="sentQuotationsTypeFilter" class="form-control form-control-sm" style="max-width: 210px;" onchange="applySentQuotationsFilter()">
+                                    <option value="all">All</option>
+                                    <option value="document">PDF Document</option>
+                                    <option value="template_fallback">Template Fallback</option>
+                                </select>
+                            </div>
                             <div id="sentQuotationsContainer">
                                 <p class="text-muted text-center" style="padding: 20px;">Loading sent quotations...</p>
                             </div>
@@ -11481,6 +11495,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openSentQuotationsModal() {
         openModal('sentQuotationsModal');
+        const statusFilter = document.getElementById('sentQuotationsStatusFilter');
+        if (statusFilter) {
+            statusFilter.value = 'all';
+        }
+        const typeFilter = document.getElementById('sentQuotationsTypeFilter');
+        if (typeFilter) {
+            typeFilter.value = 'all';
+        }
         loadSentQuotations();
     }
 
@@ -11490,6 +11512,103 @@ document.addEventListener('DOMContentLoaded', () => {
             return '<span style="background:#fff3cd; color:#7a5a00; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">Template Fallback</span>';
         }
         return '<span style="background:#d1ecf1; color:#0c5460; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">PDF Document</span>';
+    }
+    function formatSendStatusBadge(sendStatus) {
+        const status = (sendStatus || '').toLowerCase();
+        if (status === 'failed') {
+            return '<span style="background:#f8d7da; color:#721c24; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">Failed</span>';
+        }
+        return '<span style="background:#d4edda; color:#155724; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">Success</span>';
+    }
+
+    function getFilteredSentQuotations(rows, statusFilterValue, typeFilterValue) {
+        const selectedStatus = (statusFilterValue || 'all').toLowerCase();
+        const selectedType = (typeFilterValue || 'all').toLowerCase();
+
+        return rows.filter(r => {
+            const status = (r.sendStatus || 'success').toLowerCase();
+            const sendType = (r.sendType || 'document').toLowerCase();
+
+            const statusMatch = selectedStatus === 'all' || status === selectedStatus;
+            const typeMatch = selectedType === 'all' || sendType === selectedType;
+
+            return statusMatch && typeMatch;
+        });
+    }
+
+    function renderSentQuotationsTable(rows, allRowsCount = rows.length, allRows = []) {
+        const container = document.getElementById('sentQuotationsContainer');
+        const summary = document.getElementById('sentQuotationsSummary');
+        const statusFilterSelect = document.getElementById('sentQuotationsStatusFilter');
+        const typeFilterSelect = document.getElementById('sentQuotationsTypeFilter');
+        if (!container || !summary) {
+            return;
+        }
+
+        const selectedStatus = statusFilterSelect ? statusFilterSelect.value : 'all';
+        const selectedType = typeFilterSelect ? typeFilterSelect.value : 'all';
+        const summaryRows = allRows.length > 0 ? allRows : rows;
+        const successCount = summaryRows.filter(r => (r.sendStatus || 'success').toLowerCase() !== 'failed').length;
+        const failedCount = summaryRows.filter(r => (r.sendStatus || '').toLowerCase() === 'failed').length;
+        const showingText = (selectedStatus === 'all' && selectedType === 'all') ? '' : ` | Showing: ${rows.length} of ${allRowsCount}`;
+        summary.textContent = `Total sent quotations: ${allRowsCount} | Success: ${successCount} | Failed: ${failedCount}${showingText}`;
+
+        if (rows.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No quotations match the selected filters.</p>';
+            return;
+        }
+
+        let html = `
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
+                    <thead>
+                        <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
+                            <th style="padding: 6px; text-align: left;">Sent At</th>
+                            <th style="padding: 6px; text-align: left;">Client</th>
+                            <th style="padding: 6px; text-align: left;">WhatsApp</th>
+                            <th style="padding: 6px; text-align: left;">Category</th>
+                            <th style="padding: 6px; text-align: right;">Total Cost</th>
+                            <th style="padding: 6px; text-align: center;">Type</th>
+                            <th style="padding: 6px; text-align: center;">Status</th>
+                            <th style="padding: 6px; text-align: left;">Message ID</th>
+                            <th style="padding: 6px; text-align: center;">Quotation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        rows.forEach((row, index) => {
+            const sentAt = row.sentAt ? new Date(row.sentAt).toLocaleString('en-GB') : 'N/A';
+            const totalCost = Number(row.totalCost || 0);
+            const messageIdShort = row.messageId ? row.messageId.slice(0, 40) + (row.messageId.length > 40 ? '...' : '') : 'N/A';
+
+            html += `
+                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                    <td style="padding: 6px;">${sentAt}</td>
+                    <td style="padding: 6px;">${row.clientName || 'Client'}</td>
+                    <td style="padding: 6px;">${row.whatsappNumber || 'N/A'}</td>
+                    <td style="padding: 6px;">${row.category || 'N/A'}</td>
+                    <td style="padding: 6px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 6px; text-align: center;">${formatSendTypeBadge(row.sendType)}</td>
+                    <td style="padding: 6px; text-align: center;">${formatSendStatusBadge(row.sendStatus)}</td>
+                    <td style="padding: 6px; font-family: monospace;">${messageIdShort}</td>
+                    <td style="padding: 6px; text-align: center;">#${row.quotationId || ''}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    }
+
+    function applySentQuotationsFilter() {
+        const allRows = window.sentQuotationsRowsCache || [];
+        const statusFilterSelect = document.getElementById('sentQuotationsStatusFilter');
+        const typeFilterSelect = document.getElementById('sentQuotationsTypeFilter');
+        const selectedStatus = statusFilterSelect ? statusFilterSelect.value : 'all';
+        const selectedType = typeFilterSelect ? typeFilterSelect.value : 'all';
+        const filteredRows = getFilteredSentQuotations(allRows, selectedStatus, selectedType);
+        renderSentQuotationsTable(filteredRows, allRows.length, allRows);
     }
 
     function loadSentQuotations() {
@@ -11515,52 +11634,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const rows = result.data || [];
-                summary.textContent = `Total sent quotations: ${result.count || rows.length}`;
-
-                if (rows.length === 0) {
-                    container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No quotation has been successfully sent via WhatsApp yet.</p>';
-                    return;
-                }
-
-                let html = `
-                    <div style="overflow-x: auto;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
-                            <thead>
-                                <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
-                                    <th style="padding: 6px; text-align: left;">Sent At</th>
-                                    <th style="padding: 6px; text-align: left;">Client</th>
-                                    <th style="padding: 6px; text-align: left;">WhatsApp</th>
-                                    <th style="padding: 6px; text-align: left;">Category</th>
-                                    <th style="padding: 6px; text-align: right;">Total Cost</th>
-                                    <th style="padding: 6px; text-align: center;">Type</th>
-                                    <th style="padding: 6px; text-align: left;">Message ID</th>
-                                    <th style="padding: 6px; text-align: center;">Quotation</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
-
-                rows.forEach((row, index) => {
-                    const sentAt = row.sentAt ? new Date(row.sentAt).toLocaleString('en-GB') : 'N/A';
-                    const totalCost = Number(row.totalCost || 0);
-                    const messageIdShort = row.messageId ? row.messageId.slice(0, 40) + (row.messageId.length > 40 ? '...' : '') : 'N/A';
-
-                    html += `
-                        <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                            <td style="padding: 6px;">${sentAt}</td>
-                            <td style="padding: 6px;">${row.clientName || 'Client'}</td>
-                            <td style="padding: 6px;">${row.whatsappNumber || 'N/A'}</td>
-                            <td style="padding: 6px;">${row.category || 'N/A'}</td>
-                            <td style="padding: 6px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                            <td style="padding: 6px; text-align: center;">${formatSendTypeBadge(row.sendType)}</td>
-                            <td style="padding: 6px; font-family: monospace;">${messageIdShort}</td>
-                            <td style="padding: 6px; text-align: center;">#${row.quotationId || ''}</td>
-                        </tr>
-                    `;
-                });
-
-                html += '</tbody></table></div>';
-                container.innerHTML = html;
+                window.sentQuotationsRowsCache = rows;
+                applySentQuotationsFilter();
             })
             .catch(error => {
                 summary.textContent = 'Unable to load send history';
