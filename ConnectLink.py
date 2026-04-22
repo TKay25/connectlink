@@ -17365,7 +17365,7 @@ def get_quotation_rates():
                     'id': rate[0],
                     'item': rate[1],
                     'daysPerSqMeter': float(rate[2]),
-                    'inhouseRate': float(rate[3])
+                    'inhouseRate': str(rate[3])
                 })
             
             return jsonify({
@@ -17420,6 +17420,125 @@ def save_quotation_rates():
         logging.error(f'Error saving quotation rates: {str(e)}')
         if 'connection' in locals():
             connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def normalize_whatsapp_number(raw_number):
+    """Normalize WhatsApp numbers to digits-only format, preserving any country code.
+    Only applies Zimbabwe (263) prefix when the number is in local format (starts with 0).
+    All other numbers (already include a country code) are returned as-is.
+    """
+    digits = re.sub(r'\D', '', str(raw_number or '').strip())
+    if not digits:
+        return ''
+
+    # Local Zimbabwe format: 07xxxxxxxx or 08xxxxxxxx → 263xxxxxxxx
+    if digits.startswith('0') and len(digits) >= 10:
+        return '263' + digits[1:]
+
+    # Already has a country code (any country) — use as-is
+    return digits
+
+
+def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
+    """Upload a PDF to Meta and send it as a WhatsApp document message."""
+    upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+    upload_headers = {
+        'Authorization': f'Bearer {ACCESS_TOKEN}'
+    }
+
+    files = {
+        'file': (filename, io.BytesIO(pdf_bytes), 'application/pdf'),
+        'type': (None, 'application/pdf'),
+        'messaging_product': (None, 'whatsapp')
+    }
+
+    upload_response = requests.post(upload_url, headers=upload_headers, files=files, timeout=45)
+    upload_response.raise_for_status()
+    media_id = upload_response.json().get('id')
+
+    if not media_id:
+        raise ValueError('Media upload succeeded but no media id was returned')
+
+    send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    send_headers = {
+        'Authorization': f'Bearer {ACCESS_TOKEN}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': recipient_number,
+        'type': 'document',
+        'document': {
+            'id': media_id,
+            'filename': filename,
+            'caption': caption
+        }
+    }
+
+    send_response = requests.post(send_url, headers=send_headers, json=payload, timeout=45)
+    send_response.raise_for_status()
+    return send_response.json()
+
+
+@app.route('/api/send-quotation-whatsapp', methods=['POST'])
+def send_quotation_whatsapp():
+    """Send quotation PDF to client WhatsApp number provided in quotation flow."""
+    try:
+        if not ACCESS_TOKEN or not PHONE_NUMBER_ID:
+            return jsonify({
+                'success': False,
+                'error': 'WhatsApp API is not configured on this server'
+            }), 500
+
+        payload = request.get_json(silent=True) or {}
+        client_name = (payload.get('clientName') or 'Client').strip()
+        raw_number = payload.get('whatsappNumber') or payload.get('clientWhatsapp')
+        pdf_base64 = payload.get('pdfBase64') or ''
+
+        whatsapp_number = normalize_whatsapp_number(raw_number)
+        if not whatsapp_number:
+            return jsonify({
+                'success': False,
+                'error': 'A valid client WhatsApp number is required'
+            }), 400
+
+        if not pdf_base64:
+            return jsonify({
+                'success': False,
+                'error': 'PDF payload is missing'
+            }), 400
+
+        try:
+            pdf_bytes = base64.b64decode(pdf_base64, validate=True)
+        except Exception:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid PDF payload'
+            }), 400
+
+        safe_client_name = ''.join(ch for ch in client_name if ch.isalnum() or ch in (' ', '_')).strip().replace(' ', '_')
+        safe_client_name = safe_client_name or 'Client'
+        filename = f'Quotation_{safe_client_name}_{int(time.time())}.pdf'
+        caption = f'Quotation for {client_name} from ConnectLink Properties'
+
+        whatsapp_response = send_pdf_document_whatsapp(
+            whatsapp_number,
+            pdf_bytes,
+            filename,
+            caption
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Quotation sent to {whatsapp_number}',
+            'whatsapp_number': whatsapp_number,
+            'whatsapp_response': whatsapp_response
+        })
+    except Exception as e:
+        logging.error(f'Error sending quotation to WhatsApp: {str(e)}')
         return jsonify({
             'success': False,
             'error': str(e)

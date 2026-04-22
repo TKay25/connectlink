@@ -10211,7 +10211,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const markupMultiplier = 1 + (markup / 100);
 
             quotationRatesCache.forEach((rate, index) => {
-                const basePrice = rate.inhouseRate * sqm;
+                const inhouseRateValue = Number(rate.inhouseRate) || 0;
+                const basePrice = inhouseRateValue * sqm;
                 const clientPrice = basePrice * markupMultiplier;
 
                 itemsHTML += `
@@ -10221,7 +10222,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="flex: 1;">
                                 <div class="fw-bold" style="font-size: 0.95rem; margin-bottom: 4px;">${rate.item}</div>
                                 <small class="text-muted" style="display: block; line-height: 1.5;">
-                                    Base: <strong>$${rate.inhouseRate.toFixed(2)}</strong>/sqm 
+                                    Base: <strong>$${rate.inhouseRate}</strong>/sqm 
                                     × <strong>${sqm}</strong> sqm 
                                     = <strong>$${basePrice.toFixed(2)}</strong>
                                     <br>
@@ -10612,6 +10613,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Prepare data for saving
             const quotationData = {
                 clientName: data.clientName,
+                clientWhatsapp: data.clientWhatsapp || '',
                 quotationDate: data.quotationDate,
                 category: data.category,
                 size: data.size,
@@ -10657,14 +10659,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        function generateQuotationPDF() {
+        async function generateQuotationPDF(outputMode = 'download') {
             const data = window.quotationData;
             const ganttData = window.ganttChartData || [];
 
             // Validate data exists
             if (!data) {
                 alert('No quotation data available. Please create a quotation first.');
-                return;
+                return null;
             }
 
             // Provide defaults for missing properties
@@ -10851,17 +10853,97 @@ document.addEventListener('DOMContentLoaded', () => {
                 jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
             };
 
-            html2pdf().set(options).from(htmlContent).save();
+            const worker = html2pdf().set(options).from(htmlContent);
+            if (outputMode === 'datauri') {
+                return worker.outputPdf('datauristring');
+            }
+
+            await worker.save();
+            return null;
         }
 
         // Expose for portal download flow (outside this ready scope)
         window.generateQuotationPDF = generateQuotationPDF;
 
         // Send Quotation & Gantt button
-        $('#sendQuotationBtn').click(function() {
+        $('#sendQuotationBtn').click(async function() {
             const data = window.quotationData;
-            alert('Send feature:\nQuotation will be sent to ' + data.clientName + '\nTotal: USD ' + data.totalCost.toLocaleString('en-IN') + '\n\nThis will send email with quotation and Gantt chart.');
-            // TODO: Implement actual send functionality
+            if (!data) {
+                alert('No quotation data available. Please create a quotation first.');
+                return;
+            }
+
+            const clientWhatsapp = (data.clientWhatsapp || '').toString().trim();
+            if (!clientWhatsapp) {
+                alert('Client WhatsApp number is required before sending quotation.');
+                return;
+            }
+
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+
+            try {
+                // Step 1: Save quotation to database first
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+                const ganttData = window.ganttChartData || [];
+                const savePayload = {
+                    clientName: data.clientName,
+                    clientWhatsapp: data.clientWhatsapp || '',
+                    quotationDate: data.quotationDate,
+                    category: data.category,
+                    size: data.size,
+                    totalCost: data.totalCost,
+                    markup: data.markup,
+                    items: data.items || [],
+                    schedules: ganttData
+                };
+
+                const saveResponse = await fetch('/api/save-quotation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(savePayload)
+                });
+
+                const saveResult = await saveResponse.json();
+                if (!saveResponse.ok || !saveResult.success) {
+                    throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
+                }
+
+                // Step 2: Generate PDF as data URI
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+                const dataUri = await generateQuotationPDF('datauri');
+                const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
+
+                if (!pdfBase64) {
+                    throw new Error('Failed to generate quotation PDF for sending');
+                }
+
+                // Step 3: Send PDF to client's WhatsApp
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
+                const sendResponse = await fetch('/api/send-quotation-whatsapp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clientName: data.clientName || 'Client',
+                        whatsappNumber: clientWhatsapp,
+                        pdfBase64: pdfBase64
+                    })
+                });
+
+                const sendResult = await sendResponse.json();
+                if (!sendResponse.ok || !sendResult.success) {
+                    throw new Error(sendResult.error || 'Failed to send quotation on WhatsApp');
+                }
+
+                alert('Quotation saved (ID: ' + saveResult.quotation_id + ') and sent to WhatsApp: ' + sendResult.whatsapp_number);
+            } catch (error) {
+                console.error('Error sending quotation:', error);
+                alert('Failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         });
 
         // Reset form when modal is closed
@@ -11627,6 +11709,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Convert API format to window.quotationData format
                         const data = {
                             clientName: quotation.clientName,
+                            clientWhatsapp: quotation.clientWhatsapp || '',
                             quotationDate: quotation.quotationDate,
                             category: quotation.category,
                             size: quotation.projectSize,
