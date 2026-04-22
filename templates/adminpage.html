@@ -10933,10 +10933,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const sendResult = await sendResponse.json();
                 if (!sendResponse.ok || !sendResult.success) {
-                    throw new Error(sendResult.error || 'Failed to send quotation on WhatsApp');
+                    const errorMessage = sendResult.error || 'Failed to send quotation on WhatsApp';
+                    const extraHint = sendResult.hint ? ('\n\n' + sendResult.hint) : '';
+                    throw new Error(errorMessage + extraHint);
                 }
 
-                alert('Quotation saved (ID: ' + saveResult.quotation_id + ') and sent to WhatsApp: ' + sendResult.whatsapp_number);
+                alert('Quotation saved (ID: ' + saveResult.quotation_id + ') and accepted by WhatsApp API for: ' + sendResult.whatsapp_number + '\nDelivery status depends on recipient availability and WhatsApp conversation rules.');
             } catch (error) {
                 console.error('Error sending quotation:', error);
                 alert('Failed: ' + error.message);

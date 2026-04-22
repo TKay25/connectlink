@@ -17487,7 +17487,17 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
     print(f"📨 WhatsApp send response [{send_response.status_code}]: {send_data}")
 
     if send_response.status_code != 200 or 'error' in send_data:
-        raise ValueError(f"WhatsApp send failed: {send_data.get('error', send_data)}")
+        error_payload = send_data.get('error', send_data)
+        if isinstance(error_payload, dict):
+            error_code = error_payload.get('code', 'unknown')
+            error_message = error_payload.get('message', 'Unknown WhatsApp API error')
+            error_details = (error_payload.get('error_data') or {}).get('details', '')
+            combined_message = f"WhatsApp send failed [code {error_code}]: {error_message}"
+            if error_details:
+                combined_message = f"{combined_message} | Details: {error_details}"
+            raise ValueError(combined_message)
+
+        raise ValueError(f"WhatsApp send failed: {error_payload}")
 
     if not send_data.get('messages'):
         raise ValueError(f"WhatsApp send returned no message confirmation: {send_data}")
@@ -17543,19 +17553,39 @@ def send_quotation_whatsapp():
             caption
         )
 
-        print(f"✅ Quotation PDF sent to {whatsapp_number}: {whatsapp_response}")
+        print(f"✅ Quotation PDF accepted by WhatsApp API for {whatsapp_number}: {whatsapp_response}")
         return jsonify({
             'success': True,
-            'message': f'Quotation sent to {whatsapp_number}',
+            'message': f'Quotation accepted by WhatsApp API for {whatsapp_number} (delivery pending recipient status)',
             'whatsapp_number': whatsapp_number,
             'message_id': whatsapp_response.get('messages', [{}])[0].get('id', '')
         })
     except Exception as e:
-        logging.error(f'Error sending quotation to WhatsApp: {str(e)}')
+        error_text = str(e)
+        error_lower = error_text.lower()
+        requires_template = (
+            '131047' in error_text
+            or 'outside the allowed window' in error_lower
+            or '24 hour' in error_lower
+            or 're-engagement message' in error_lower
+        )
+
+        hint = None
+        status_code = 500
+        if requires_template:
+            status_code = 400
+            hint = (
+                'This number is outside the 24-hour customer service window. '
+                'Use an approved WhatsApp template first, then send the PDF after the customer replies.'
+            )
+
+        logging.error(f'Error sending quotation to WhatsApp: {error_text}')
         return jsonify({
             'success': False,
-            'error': str(e)
-        }), 500
+            'error': error_text,
+            'requires_template': requires_template,
+            'hint': hint
+        }), status_code
 
 @app.route('/api/save-quotation', methods=['POST'])
 def save_quotation():
