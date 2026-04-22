@@ -11065,10 +11065,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('#quotationRatesBody tr').forEach(row => {
                 const item = row.querySelector('.quotation-item-input').value.trim();
                 const days = parseFloat(row.querySelector('.quotation-days-input').value) || 0;
-                const rate = parseFloat(row.querySelector('.quotation-rate-input').value) || 0;
+                const rateStr = row.querySelector('.quotation-rate-input').value.trim();
 
-                if (item) {
-                    rates.push({ item, daysPerSqMeter: days, inhouseRate: rate });
+                if (item && rateStr !== '') {
+                    // Send as string to preserve full decimal precision (avoid float64 rounding)
+                    rates.push({ item, daysPerSqMeter: days, inhouseRate: rateStr });
                 }
             });
 
