@@ -12096,12 +12096,29 @@ def get_temp_enquiries():
     with get_db() as (cursor, connection):
 
         try:
-            # Use the same cursor you already have in your code
-            usersdataquerytempenq = """
-                SELECT id, wanumber, enqtype, created_at
-                FROM appenqtemp
-                ORDER BY created_at DESC NULLS LAST, id DESC;
-            """
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_name = 'appenqtemp'
+                    AND column_name = 'created_at'
+                )
+            """)
+            has_created_at = cursor.fetchone()[0]
+
+            if has_created_at:
+                usersdataquerytempenq = """
+                    SELECT id, wanumber, enqtype, created_at
+                    FROM appenqtemp
+                    ORDER BY created_at DESC NULLS LAST, id DESC;
+                """
+            else:
+                usersdataquerytempenq = """
+                    SELECT id, wanumber, enqtype, NULL::timestamp AS created_at
+                    FROM appenqtemp
+                    ORDER BY id DESC;
+                """
+
             cursor.execute(usersdataquerytempenq)
             usersdataquerytempenqfetch = cursor.fetchall()
 

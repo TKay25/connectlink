@@ -7266,19 +7266,13 @@ function loadEnquiriesData() {
 function showLoading(show) {
     const loadingRow = document.getElementById('loadingRow');
     const noDataMessage = document.getElementById('noDataMessage');
-    
-    // Add null checks
-    if (!loadingRow || !noDataMessage) {
-        console.warn('Loading elements not found in DOM');
-        return;
-    }
-    
+
     if (show) {
-        loadingRow.classList.remove('d-none');
-        noDataMessage.classList.add('d-none');
+        if (loadingRow) loadingRow.classList.remove('d-none');
+        if (noDataMessage) noDataMessage.classList.add('d-none');
     } else {
-        loadingRow.classList.add('d-none');
-        noDataMessage.classList.remove('d-none');
+        if (loadingRow) loadingRow.classList.add('d-none');
+        if (noDataMessage) noDataMessage.classList.remove('d-none');
     }
 }
 
