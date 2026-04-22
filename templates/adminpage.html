@@ -3623,7 +3623,10 @@
 
             <!-- Items & Costs Table -->
             <div class="mb-4">
-                <h6 class="fw-bold mb-3">Selected Items</h6>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">Selected Items</h6>
+                    <span id="fullHouseDisplayModeBadge" class="badge" style="display: none; background-color: #0A1A3A; color: #fff; font-size: 0.75rem; padding: 6px 10px;">Mode: All Items</span>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered">
                         <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
@@ -3645,6 +3648,15 @@
                     <span class="fw-bold">Total Cost:</span>
                     <span class="fw-bold fs-4" style="color: var(--crimson-sidebar, #9B1D2C);">USD <span id="quotationTotalCost">0.00</span></span>
                 </div>
+            </div>
+
+            <div id="fullHouseDisplayModeContainer" class="mb-4 p-3 border rounded" style="display: none; background-color: #fff8e1; border-left: 4px solid #ff9800;">
+                <label for="fullHouseDisplayMode" class="form-label fw-bold mb-2">Full House Display Mode</label>
+                <select id="fullHouseDisplayMode" class="form-control">
+                    <option value="all_items">Show All Construction Items</option>
+                    <option value="full_house_only">Show Full House Item Only</option>
+                </select>
+                <small class="text-muted">This affects quotation PDF output for both download and WhatsApp send.</small>
             </div>
 
             <!-- Gantt Chart Display Section -->
@@ -10653,6 +10665,86 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Handle Generate Quotation button click
+        function getSelectedFullHouseDisplayMode() {
+            return $('#fullHouseDisplayMode').val() || 'all_items';
+        }
+
+        function buildFullHouseSummaryItem(data) {
+            const sqm = Number(data?.size) || 0;
+            const total = Number(data?.totalCost) || 0;
+            const effectiveRate = sqm > 0 ? (total / sqm) : total;
+
+            return [{
+                name: 'Full House',
+                item: 'Full House',
+                sqm: sqm,
+                inhouseRate: effectiveRate,
+                total: total,
+                clientPrice: total
+            }];
+        }
+
+        function getItemsForQuotationOutput(data) {
+            if (data && data.isFullHouseMode && getSelectedFullHouseDisplayMode() === 'full_house_only') {
+                return buildFullHouseSummaryItem(data);
+            }
+            return (data && Array.isArray(data.items)) ? data.items : [];
+        }
+
+        function renderPreviewItemsTable(data) {
+            const previewItems = getItemsForQuotationOutput(data);
+            let tableHTML = '';
+
+            previewItems.forEach(item => {
+                const rowTotal = Number(item.clientPrice || item.total || 0);
+                tableHTML += `<tr>
+                    <td style="font-size: 0.85rem;">${item.item || item.name || 'Item'}</td>
+                    <td style="font-size: 0.85rem; text-align: right;"><strong>USD ${rowTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                </tr>`;
+            });
+
+            $('#quotationItemsTable').html(tableHTML);
+            updateFullHouseDisplayModeBadge(data);
+        }
+
+        function updateFullHouseDisplayModeBadge(data) {
+            const badge = $('#fullHouseDisplayModeBadge');
+            const isFullHouseMode = !!(data && data.isFullHouseMode);
+
+            if (!isFullHouseMode) {
+                badge.hide();
+                return;
+            }
+
+            const mode = getSelectedFullHouseDisplayMode();
+            if (mode === 'full_house_only') {
+                badge.text('Mode: Full House Only');
+                badge.css({ backgroundColor: '#ff9800', color: '#1b1b1b' });
+            } else {
+                badge.text('Mode: All Items');
+                badge.css({ backgroundColor: '#0A1A3A', color: '#ffffff' });
+            }
+
+            badge.show();
+        }
+
+        function updateFullHouseDisplayModeUI(data) {
+            const isFullHouseMode = !!(data && data.isFullHouseMode);
+            if (isFullHouseMode) {
+                $('#fullHouseDisplayModeContainer').show();
+            } else {
+                $('#fullHouseDisplayModeContainer').hide();
+                $('#fullHouseDisplayMode').val('all_items');
+                $('#fullHouseDisplayModeBadge').hide();
+            }
+        }
+
+        $('#fullHouseDisplayMode').on('change', function() {
+            if (window.quotationData) {
+                renderPreviewItemsTable(window.quotationData);
+            }
+        });
+
         $('#generateQuotationBtn').click(function() {
             // Get form data
             const category = $('#quotationCategory').val();
@@ -10687,6 +10779,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let baseCost = 0;
             let orderedConstructionItems = [];
             let markup = 0;
+            let isFullHouseMode = false;
 
             if (category === 'construction') {
                 window.fullHouseDurationByItemId = null;
@@ -10724,6 +10817,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const fullHouseSelected = selectedRateItems.some(item => isFullHouseItemName(item.item));
                 if (fullHouseSelected) {
+                    isFullHouseMode = true;
                     const sqm = parseFloat($('#quotationSize').val());
                     markup = parseFloat($('#quotationMarkup').val());
                     const proportionalResult = buildFullHouseProportionalSelection(selectedRateItems, sqm, markup);
@@ -10757,16 +10851,6 @@ document.addEventListener('DOMContentLoaded', () => {
             $('#previewDate').text(new Date(quotationDate).toLocaleDateString('en-IN'));
             $('#previewSize').text(category === 'construction' ? $('#quotationSize').val() : '-');
 
-            // Populate items table
-            let tableHTML = '';
-            selectedItems.forEach(item => {
-                tableHTML += `<tr>
-                    <td style="font-size: 0.85rem;">${item.name}</td>
-                    <td style="font-size: 0.85rem; text-align: right;"><strong>USD ${item.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
-                </tr>`;
-            });
-            $('#quotationItemsTable').html(tableHTML);
-
             // Update total cost
             $('#quotationTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
@@ -10784,8 +10868,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 markup: markup,
                 markupAmount: markupAmount,
                 totalCost: totalCost,
-                orderedConstructionItems: orderedConstructionItems || []
+                orderedConstructionItems: orderedConstructionItems || [],
+                isFullHouseMode: isFullHouseMode
             };
+
+            updateFullHouseDisplayModeUI(window.quotationData);
+            renderPreviewItemsTable(window.quotationData);
 
             // Close generator modal
             closeModal('quotationgeneratorModal');
@@ -10920,7 +11008,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const markup = data.markup || 0;
             const markupAmount = data.markupAmount || 0;
             const totalCost = data.totalCost || baseCost;
-            const items = data.items || [];
+            const items = getItemsForQuotationOutput(data);
             const formatCurrency = (value) => `USD ${Number(value || 0).toLocaleString('en-IN', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
@@ -11211,6 +11299,9 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#quotationPreviewModal').on('hidden.bs.modal', function() {
             // Reset for next use
             window.quotationData = null;
+            $('#fullHouseDisplayModeContainer').hide();
+            $('#fullHouseDisplayMode').val('all_items');
+            $('#fullHouseDisplayModeBadge').hide();
         });
 
         // Quotation Rates Modal functionality
