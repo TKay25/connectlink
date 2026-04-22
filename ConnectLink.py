@@ -18779,20 +18779,25 @@ def get_sent_quotations():
                 SELECT
                     ql.id,
                     ql.quotation_id,
-                    COALESCE(NULLIF(ql.client_name, ''), 'Client') AS client_name,
-                    COALESCE(NULLIF(ql.whatsapp_number, ''), '') AS whatsapp_number,
-                    COALESCE(NULLIF(ql.snapshot_category, ''), '') AS category,
-                    COALESCE(ql.snapshot_project_size, 0) AS project_size,
-                    COALESCE(ql.snapshot_total_cost, 0) AS total_cost,
-                    COALESCE(ql.snapshot_markup, 0) AS markup_percentage,
-                    ql.snapshot_quotation_date AS quotation_date,
+                    COALESCE(NULLIF(ql.client_name, ''), q.client_name, 'Client') AS client_name,
+                    COALESCE(NULLIF(ql.whatsapp_number, ''), q.client_whatsapp, '') AS whatsapp_number,
+                    COALESCE(NULLIF(ql.snapshot_category, ''), q.category, '') AS category,
+                    COALESCE(ql.snapshot_project_size, q.project_size, 0) AS project_size,
+                    COALESCE(ql.snapshot_total_cost, q.total_cost, 0) AS total_cost,
+                    COALESCE(ql.snapshot_markup, q.markup_percentage, 0) AS markup_percentage,
+                    COALESCE(ql.snapshot_quotation_date, q.quotation_date) AS quotation_date,
                     ql.send_type,
                     ql.send_status,
                     ql.error_details,
                     ql.source_channel,
                     ql.whatsapp_message_id,
-                    ql.created_at
+                    ql.created_at,
+                    COALESCE(MAX(qsl.download_pdf_sent_success::int) OVER (PARTITION BY ql.quotation_id), 0) AS downloaded,
+                    MAX(qsl.download_pdf_sent_at) OVER (PARTITION BY ql.quotation_id) AS download_sent_at,
+                    MAX(qsl.download_clicked_at) OVER (PARTITION BY ql.quotation_id) AS download_clicked_at
                 FROM quotation_whatsapp_send_logs ql
+                LEFT JOIN quotations q ON q.id = ql.quotation_id
+                LEFT JOIN quotation_share_links qsl ON qsl.quotation_id = ql.quotation_id
                 ORDER BY ql.created_at DESC
             """)
             rows = cursor.fetchall()
@@ -18813,7 +18818,10 @@ def get_sent_quotations():
                     'errorDetails': row[11] or '',
                     'sourceChannel': row[12] or 'portal',
                     'messageId': row[13] or '',
-                    'sentAt': row[14].isoformat() if row[14] else None
+                    'sentAt': row[14].isoformat() if row[14] else None,
+                    'downloaded': bool(row[15]),
+                    'downloadSentAt': row[16].isoformat() if row[16] else None,
+                    'downloadClickedAt': row[17].isoformat() if row[17] else None
                 }
                 for row in rows
             ]
