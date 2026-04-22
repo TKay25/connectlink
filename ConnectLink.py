@@ -1508,7 +1508,7 @@ def webhook():
                                                 
                                                     if message.get("type") == "interactive" and not (
                                                         message.get("interactive", {}).get("type") == "button_reply"
-                                                        and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").startswith("quotation_")
+                                                        and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
                                                     ):
                                                         interactive = message.get("interactive", {})
 
@@ -4784,7 +4784,7 @@ def webhook():
                                                                 project_id = payload.replace(config['payload_prefix'], '')
                                                                 break
                                                         
-                                                        if payload and payload.startswith('quotation_'):
+                                                        if payload and payload.lower().startswith('quotation_'):
                                                             # Template quick-reply: "Download Quotation" button
                                                             # Payload format: quotation_{id}_{random} or just quotation_{id}
                                                             try:
@@ -5006,7 +5006,7 @@ def webhook():
 
                                                         if message.get("type") == "interactive" and not (
                                                             message.get("interactive", {}).get("type") == "button_reply"
-                                                            and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").startswith("quotation_")
+                                                            and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
                                                         ):
                                                             interactive = message.get("interactive", {})
 
@@ -7453,7 +7453,7 @@ def webhook():
                                                                     project_id = payload.replace(config['payload_prefix'], '')
                                                                     break
                                                             
-                                                            if payload and payload.startswith('quotation_'):
+                                                            if payload and payload.lower().startswith('quotation_'):
                                                                 try:
                                                                     parts = payload.split('_')
                                                                     qid = int(parts[1])
@@ -7635,7 +7635,7 @@ def webhook():
                                                     
                                                         if message.get("type") == "interactive" and not (
                                                             message.get("interactive", {}).get("type") == "button_reply"
-                                                            and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").startswith("quotation_")
+                                                            and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
                                                         ):
                                                             interactive = message.get("interactive", {})
 
@@ -8681,6 +8681,136 @@ def webhook():
 
                                                                 continue
                                                             
+
+                                                        elif (
+                                                            message_type == "button"
+                                                            or (
+                                                                message_type == "interactive"
+                                                                and message.get("interactive", {}).get("type") == "button_reply"
+                                                            )
+                                                        ):
+
+                                                            button = message.get("button", {})
+                                                            interactive_button_reply = message.get("interactive", {}).get("button_reply", {})
+                                                            button_text = button.get("text", "") or interactive_button_reply.get("title", "")
+                                                            payload = button.get("payload", "") or interactive_button_reply.get("id", "")
+
+                                                            print(f"🔘 Template button clicked: {button_text}")
+                                                            print(f"📦 Button payload: {payload}")
+
+                                                            if payload and payload.lower().startswith('quotation_'):
+                                                                try:
+                                                                    parts = payload.split('_')
+                                                                    qid = int(parts[1])
+                                                                except (IndexError, ValueError):
+                                                                    qid = None
+
+                                                                if qid:
+                                                                    mark_quotation_download_clicked(payload, sender_id)
+                                                                    send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
+                                                                    try:
+                                                                        with get_db() as (qcur, _):
+                                                                            qcur.execute("""
+                                                                                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
+                                                                                FROM quotations WHERE id = %s
+                                                                            """, (qid,))
+                                                                            qrow = qcur.fetchone()
+                                                                            qcur.execute("SELECT item_name, quantity, unit_rate, total_price FROM quotation_items WHERE quotation_id = %s ORDER BY item_order", (qid,))
+                                                                            qitems = qcur.fetchall()
+                                                                            qcur.execute("SELECT work_scope, start_date, end_date, days FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order", (qid,))
+                                                                            qschedules = qcur.fetchall()
+
+                                                                        if not qrow:
+                                                                            send_text_message(sender_id, "❌ Quotation not found.")
+                                                                        else:
+                                                                            q_client = qrow[1] or 'Client'
+                                                                            q_date = qrow[2].strftime('%d %B %Y') if qrow[2] else ''
+                                                                            q_category = qrow[3] or ''
+                                                                            q_size = float(qrow[4]) if qrow[4] else 0
+                                                                            q_total = float(qrow[5]) if qrow[5] else 0
+                                                                            deposit = q_total * 0.30
+                                                                            balance = q_total - deposit
+                                                                            monthly = balance / 5
+
+                                                                            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+                                                                            with open(logo_path, 'rb') as img_f:
+                                                                                logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
+
+                                                                            items_rows = ''.join(
+                                                                                f"<tr><td>{html.escape(str(i[0]))}</td><td>{float(i[1]):,.2f}</td><td>{float(i[2]):,.6f}</td><td>{float(i[3]):,.2f}</td></tr>"
+                                                                                for i in qitems
+                                                                            )
+                                                                            sched_rows = ''.join(
+                                                                                f"<tr><td>{html.escape(str(s[0]))}</td><td>{s[1]}</td><td>{s[2]}</td><td>{int(s[3]) if s[3] else 0}</td></tr>"
+                                                                                for s in qschedules
+                                                                            )
+                                                                            quot_html = f"""
+                                                                            <!doctype html><html><head><meta charset='utf-8'>
+                                                                            <style>
+                                                                              @page {{size:A4;margin:10mm}}
+                                                                              body{{font-family:Arial,sans-serif;font-size:11px;color:#1E2A56}}
+                                                                              img{{width:120px}}h1{{font-size:15px;font-weight:900;margin:6px 0}}
+                                                                              table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}}
+                                                                              th{{background:#1E2A56;color:#fff;padding:5px;text-align:left}}
+                                                                              td{{padding:4px 5px;border-bottom:1px solid #e0e3ef}}
+                                                                              .sum{{display:flex;gap:8px;margin:8px 0}}
+                                                                              .sum-box{{flex:1;background:#f4f6fb;border:1px solid #d0d5e8;border-radius:6px;padding:6px;text-align:center}}
+                                                                              .sum-val{{font-size:12px;font-weight:bold}}
+                                                                              .sec{{margin-top:10px;font-weight:bold;font-size:11px;color:#1E2A56;border-bottom:1px solid #1E2A56;padding-bottom:2px}}
+                                                                            </style></head><body>
+                                                                            <img src='data:image/png;base64,{logo_b64}'>
+                                                                            <h1>Project Quotation</h1>
+                                                                            <div class='sec'>PROJECT DETAILS</div>
+                                                                            <table><tr><td><b>Client:</b> {html.escape(q_client)}</td><td><b>Date:</b> {q_date}</td></tr>
+                                                                            <tr><td><b>Category:</b> {html.escape(q_category)}</td><td><b>Size:</b> {q_size:,.2f} sqm</td></tr></table>
+                                                                            <div class='sec'>QUOTATION SUMMARY</div>
+                                                                            <div class='sum'>
+                                                                              <div class='sum-box'><div>Total</div><div class='sum-val'>USD {q_total:,.2f}</div></div>
+                                                                              <div class='sum-box'><div>Deposit (30%)</div><div class='sum-val'>USD {deposit:,.2f}</div></div>
+                                                                              <div class='sum-box'><div>Balance</div><div class='sum-val'>USD {balance:,.2f}</div></div>
+                                                                              <div class='sum-box'><div>Monthly (5 months)</div><div class='sum-val'>USD {monthly:,.2f}</div></div>
+                                                                            </div>
+                                                                            <div class='sec'>CONSTRUCTION ITEMS</div>
+                                                                            <table><thead><tr><th>Item</th><th>Qty (sqm)</th><th>Unit Rate</th><th>Total (USD)</th></tr></thead>
+                                                                            <tbody>{items_rows}</tbody></table>
+                                                                            <div class='sec'>PROJECT SCHEDULE</div>
+                                                                            <table><thead><tr><th>Task</th><th>Start</th><th>End</th><th>Days</th></tr></thead>
+                                                                            <tbody>{sched_rows}</tbody></table>
+                                                                            <div style='margin-top:12px;font-size:9px;color:#888'>ConnectLink Properties • info@connectlinkproperties.co.zw • +263 773368558</div>
+                                                                            </body></html>"""
+
+                                                                            from weasyprint import HTML as WeasyprintHTML
+                                                                            pdf_bytes = WeasyprintHTML(string=quot_html).write_pdf()
+
+                                                                            safe_name = ''.join(c for c in q_client if c.isalnum() or c == ' ').replace(' ', '_')
+                                                                            q_filename = f"Quotation_{safe_name}_{qid}.pdf"
+                                                                            q_caption = f"📄 *PROJECT QUOTATION*\n\nClient: {q_client}\nCategory: {q_category}\nTotal: USD {q_total:,.2f}\n\nSend 'Hello' for more options."
+
+                                                                            upload_r = requests.post(
+                                                                                f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media",
+                                                                                headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
+                                                                                files={"file": (q_filename, io.BytesIO(pdf_bytes), "application/pdf"), "type": (None, "application/pdf"), "messaging_product": (None, "whatsapp")},
+                                                                                timeout=45
+                                                                            )
+                                                                            upload_r.raise_for_status()
+                                                                            q_media_id = upload_r.json()["id"]
+                                                                            send_doc_response = requests.post(
+                                                                                f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages",
+                                                                                headers={"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"},
+                                                                                json={"messaging_product": "whatsapp", "to": sender_id, "type": "document", "document": {"id": q_media_id, "filename": q_filename, "caption": q_caption}},
+                                                                                timeout=45
+                                                                            )
+                                                                            send_doc_response.raise_for_status()
+                                                                            mark_quotation_download_send_result(payload, True, sender_id)
+                                                                            print(f"✅ Quotation PDF {qid} sent to {sender_id}")
+                                                                    except Exception as qe:
+                                                                        mark_quotation_download_send_result(payload, False, sender_id)
+                                                                        print(f"❌ Error sending quotation PDF: {qe}")
+                                                                        send_text_message(sender_id, "❌ Failed to generate your quotation. Please contact us directly.")
+                                                                else:
+                                                                    send_text_message(sender_id, "❌ Invalid quotation reference.")
+                                                            else:
+                                                                print(f"❌ Unknown payload: {payload}")
 
 
                                                         else:
