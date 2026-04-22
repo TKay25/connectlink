@@ -11679,10 +11679,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-primary btn-sm" onclick="downloadQuotationPDFFromPortal(${quotation.id})">
                 <i class="bi bi-download"></i> Download PDF
             </button>
-            <button class="btn btn-success btn-sm" onclick="sendQuotationFromPortal(${quotation.id})" ${!wa ? 'disabled title="No WhatsApp number saved"' : ''}>
+            <button class="btn btn-primary btn-sm" onclick="sendQuotationFromPortal(${quotation.id})" ${!wa ? 'disabled title="No WhatsApp number saved"' : ''}>
                 <i class="bi bi-whatsapp"></i> Send via WhatsApp
             </button>
-            <button class="btn btn-warning btn-sm text-dark" onclick="editQuotationFromPortal(${quotation.id})">
+            <button class="btn btn-primary btn-sm" onclick="editQuotationFromPortal(${quotation.id})">
                 <i class="bi bi-pencil"></i> Edit
             </button>
         </div>`;
