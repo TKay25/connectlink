@@ -10780,6 +10780,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        window.getSelectedFullHouseDisplayMode = getSelectedFullHouseDisplayMode;
+        window.getSchedulesForQuotationOutput = getSchedulesForQuotationOutput;
+
         $('#fullHouseDisplayMode').on('change', function() {
             if (window.quotationData) {
                 renderPreviewItemsTable(window.quotationData);
@@ -11687,11 +11690,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const displayItems = getSchedulesForQuotationOutput(ganttItems, window.quotationData);
+        const displayItems = window.getSchedulesForQuotationOutput(ganttItems, window.quotationData);
         const isSummaryMode = !!(
             window.quotationData
             && window.quotationData.isFullHouseMode
-            && getSelectedFullHouseDisplayMode() === 'full_house_only'
+            && window.getSelectedFullHouseDisplayMode() === 'full_house_only'
         );
 
         let html = `
