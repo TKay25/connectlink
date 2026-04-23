@@ -10048,6 +10048,47 @@ def remove_system_user():
             }), 500
 
 
+@app.route('/update-system-user', methods=['POST'])
+def update_system_user():
+    data = request.get_json() or {}
+
+    user_id = data.get('user_id')
+    full_name = (data.get('fullname') or '').strip()
+    email = (data.get('email') or '').strip()
+    whatsapp = (data.get('whatsapp') or '').strip()
+
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'User ID is required'}), 400
+
+    if not full_name or not email:
+        return jsonify({'status': 'error', 'message': 'Name and email are required'}), 400
+
+    with get_db() as (cursor, connection):
+        try:
+            cursor.execute("""
+                UPDATE connectlinkusers
+                SET name = %s,
+                    email = %s,
+                    whatsapp = %s
+                WHERE id = %s
+            """, (full_name, email, whatsapp or None, user_id))
+
+            if cursor.rowcount == 0:
+                return jsonify({'status': 'error', 'message': 'User not found'}), 404
+
+            connection.commit()
+
+            return jsonify({
+                'status': 'success',
+                'message': 'User updated successfully'
+            })
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to update user: {str(e)}'
+            }), 500
+
+
 
 
 @app.route('/dashboard')
@@ -12793,8 +12834,21 @@ def run1(userid):
 
         usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email','whatsapp'])
 
+        usersdatamain['whatsapp'] = usersdatamain['whatsapp'].apply(
+            lambda value: '' if pd.isna(value) else str(value).replace('.0', '')
+        )
 
-        usersdatamain['Action'] = usersdatamain.apply(lambda row: f'''<div><button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#removeUserModal" data-user-id="{row['id']}" data-user-name="{html.escape(str(row.get('name', '')))}"data-user-email="{html.escape(str(row.get('email', '')))}">Remove</button></div>''', axis=1)
+        usersdatamain['Action'] = usersdatamain.apply(
+            lambda row: (
+                f'''<div style="display:flex; gap:8px;">'''
+                f'''<button class="btn btn-primary btn-sm system-user-edit-btn" data-user-id="{row['id']}">Edit</button>'''
+                f'''<button class="btn btn-success btn-sm system-user-save-btn d-none" data-user-id="{row['id']}">Save</button>'''
+                f'''<button class="btn btn-secondary btn-sm system-user-cancel-btn d-none" data-user-id="{row['id']}">Cancel</button>'''
+                f'''<button class="btn btn-danger btn-sm system-user-remove-btn" onclick="openRemoveUserModal('{row['id']}', '{html.escape(str(row.get('name', '')))}', '{html.escape(str(row.get('email', '')))}')">Remove</button>'''
+                f'''</div>'''
+            ),
+            axis=1
+        )
         usersdatamain = usersdatamain[['id', 'datecreated','name','email','whatsapp','Action']]
         usersdatamain_html = usersdatamain.to_html(classes="table table-bordered table-theme", table_id="allusersTable", index=False,  escape=False,)
 

@@ -1874,6 +1874,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <small class="text-muted d-block">Estimated records:</small>
+
                         <span class="fw-bold fs-5" id="recordCount">--</span>
                     </div>
                     <div class="text-end">
@@ -8400,23 +8401,121 @@ function decodeHtmlEntities(text) {
     return textarea.value;
 }
 
-// Handle modal show event
-document.getElementById('removeUserModal')?.addEventListener('show.bs.modal', function(event) {
-    const button = event.relatedTarget;
-    
-    // Extract data from button attributes
-    const userId = button.getAttribute('data-user-id');
-    const userNameEncoded = button.getAttribute('data-user-name') || '';
-    const userEmailEncoded = button.getAttribute('data-user-email') || '';
-    
-    // Decode the HTML entities
-    const userName = decodeHtmlEntities(userNameEncoded);
-    const userEmail = decodeHtmlEntities(userEmailEncoded);
-    
-    // Populate modal fields
+// Open remove modal with selected user values
+function openRemoveUserModal(userId, userNameEncoded, userEmailEncoded) {
+    const userName = decodeHtmlEntities(userNameEncoded || '');
+    const userEmail = decodeHtmlEntities(userEmailEncoded || '');
+
     document.getElementById('modalUserId').value = userId;
     document.getElementById('modalUserName').textContent = userName;
     document.getElementById('modalUserEmail').textContent = userEmail;
+
+    openModal('removeUserModal');
+}
+
+function setSystemUserRowEditing(tr, isEditing) {
+    const cells = tr.querySelectorAll('td');
+    if (cells.length < 6) return;
+
+    const editableIndexes = [2, 3, 4]; // name, email, whatsapp
+    editableIndexes.forEach((idx) => {
+        const cell = cells[idx];
+        cell.contentEditable = isEditing ? 'true' : 'false';
+        cell.style.background = isEditing ? '#fff9db' : '';
+        cell.style.outline = isEditing ? '1px dashed #9B1D2C' : '';
+    });
+
+    const editBtn = tr.querySelector('.system-user-edit-btn');
+    const saveBtn = tr.querySelector('.system-user-save-btn');
+    const cancelBtn = tr.querySelector('.system-user-cancel-btn');
+    const removeBtn = tr.querySelector('.system-user-remove-btn');
+
+    editBtn?.classList.toggle('d-none', isEditing);
+    saveBtn?.classList.toggle('d-none', !isEditing);
+    cancelBtn?.classList.toggle('d-none', !isEditing);
+    removeBtn?.classList.toggle('d-none', isEditing);
+}
+
+function getSystemUserRowPayload(tr) {
+    const cells = tr.querySelectorAll('td');
+    return {
+        user_id: cells[0]?.textContent.trim(),
+        fullname: cells[2]?.textContent.trim(),
+        email: cells[3]?.textContent.trim(),
+        whatsapp: cells[4]?.textContent.trim()
+    };
+}
+
+document.addEventListener('click', async function (event) {
+    const editBtn = event.target.closest('.system-user-edit-btn');
+    const saveBtn = event.target.closest('.system-user-save-btn');
+    const cancelBtn = event.target.closest('.system-user-cancel-btn');
+
+    if (!editBtn && !saveBtn && !cancelBtn) return;
+
+    const tr = event.target.closest('tr');
+    if (!tr) return;
+
+    const cells = tr.querySelectorAll('td');
+    if (cells.length < 6) return;
+
+    if (editBtn) {
+        tr.dataset.originalName = cells[2].textContent;
+        tr.dataset.originalEmail = cells[3].textContent;
+        tr.dataset.originalWhatsapp = cells[4].textContent;
+        setSystemUserRowEditing(tr, true);
+        return;
+    }
+
+    if (cancelBtn) {
+        cells[2].textContent = tr.dataset.originalName || '';
+        cells[3].textContent = tr.dataset.originalEmail || '';
+        cells[4].textContent = tr.dataset.originalWhatsapp || '';
+        setSystemUserRowEditing(tr, false);
+        return;
+    }
+
+    if (saveBtn) {
+        const passcode = window.prompt('Enter Admin Permission Passcode to save changes:');
+        if (passcode === null) return;
+        if (passcode.trim() !== 'conlink01admin01') {
+            alert('Invalid Admin Permission Passcode.');
+            return;
+        }
+
+        const payload = getSystemUserRowPayload(tr);
+        if (!payload.fullname || !payload.email) {
+            alert('Name and email are required.');
+            return;
+        }
+
+        saveBtn.disabled = true;
+        const oldText = saveBtn.textContent;
+        saveBtn.textContent = 'Saving...';
+
+        try {
+            const response = await fetch('/update-system-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                setSystemUserRowEditing(tr, false);
+                alert('User updated successfully!');
+                return;
+            }
+
+            alert('Error: ' + (result.message || 'Failed to update user.'));
+        } catch (error) {
+            console.error('Inline user update failed', error);
+            alert('Failed to update user.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = oldText;
+        }
+    }
 });
 
 // Handle form submission (using your pattern)
@@ -8457,8 +8556,8 @@ document.getElementById("removeUserForm")?.addEventListener("submit", async func
             this.reset();
             
             // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById("removeUserModal"));
-            modal.hide();
+            closeModal('removeUserModal');
+            location.reload();
             
             // Optional: Remove the row from table or refresh page
             // location.reload(); // Refresh page
@@ -8474,12 +8573,14 @@ document.getElementById("removeUserForm")?.addEventListener("submit", async func
 });
 
 // Optional: Clear form when modal is hidden
-document.getElementById('removeUserModal')?.addEventListener('hidden.bs.modal', function() {
+document.getElementById('removeUserModal')?.addEventListener('transitionend', function() {
+    if (this.classList.contains('active')) return;
     document.getElementById('removeUserForm').reset();
     document.getElementById('modalUserId').value = '';
     document.getElementById('modalUserName').textContent = 'Loading...';
     document.getElementById('modalUserEmail').textContent = 'Loading...';
 });
+
 </script>
 <script>
 
@@ -8974,8 +9075,8 @@ document.getElementById("createUserForm").addEventListener("submit", async funct
         if (result.status === "success") {
             alert("User created successfully!");
             this.reset();
-            const modal = bootstrap.Modal.getInstance(document.getElementById("createUserModal"));
-            modal.hide();
+            closeModal('createUserModal');
+            location.reload();
         } else {
             alert("Error: " + result.message);
         }
