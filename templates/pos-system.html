@@ -547,8 +547,13 @@
                 min-width: 0 !important;
                 padding: 8px !important;
             }
+            /* Always show the toggle-sidebar (hamburger) in portrait mode */
             .toggle-sidebar {
-                display: none !important;
+                display: flex !important;
+                position: fixed;
+                left: 12px !important;
+                top: 12px !important;
+                z-index: 1100;
             }
             .stat-card, .section-card, .product-card, .product-card-compact {
                 width: 100% !important;
@@ -738,10 +743,10 @@
         }
 
         @media print {
-                        body.receipt-print-mode, body.receipt-print-mode * {
-                            font-size: 20px !important;
-                            line-height: 1.7 !important;
-                        }
+            body.receipt-print-mode, body.receipt-print-mode * {
+                font-size: 26px !important;
+                line-height: 1.8 !important;
+            }
             body.receipt-print-mode > * {
                 display: none !important;
             }
