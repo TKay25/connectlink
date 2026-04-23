@@ -181,6 +181,16 @@ def initialize_database_tables():
             """)
 
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS enquiry_attachment_button_map (
+                    id SERIAL PRIMARY KEY,
+                    template_message_id VARCHAR(255),
+                    enquiry_id INT,
+                    recipient_whatsapp VARCHAR(30),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS connectlinkusers (
                     id SERIAL PRIMARY KEY,
                     datecreated date,
@@ -4784,6 +4794,8 @@ def webhook():
                                                                 project_id = payload.replace(config['payload_prefix'], '')
                                                                 break
                                                         
+                                                        normalized_button_text = (button_text or "").strip().lower()
+
                                                         if payload and payload.lower().startswith('enquiry_attachment_'):
                                                             try:
                                                                 enquiry_id = int(payload.split('_')[-1])
@@ -4795,6 +4807,15 @@ def webhook():
                                                                 deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                             else:
                                                                 send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
+
+                                                        elif normalized_button_text == 'download attachment':
+                                                            enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
+
+                                                            if enquiry_id:
+                                                                send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
+                                                                deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                            else:
+                                                                send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
 
                                                         elif payload and payload.lower().startswith('quotation_'):
                                                             # Template quick-reply: "Download Quotation" button
@@ -5144,36 +5165,30 @@ def webhook():
                                                                         use_attachment_template = has_attachment_value == 'yes'
 
                                                                         template_name = "enquiryattachment" if use_attachment_template else "enqauto2"
-                                                                        components = [
-                                                                            {
-                                                                                "type": "body",
-                                                                                "parameters": [
-                                                                                    {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
-                                                                                    {"type": "text", "text": f"+{sender_id}"},
-                                                                                    {"type": "text", "text": timestamp_str},
-                                                                                    {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
-                                                                                    {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
-                                                                                    {"type": "text", "text": enquiry_data.get('has_attachment')}
-                                                                                ]
-                                                                            }
-                                                                        ]
-
                                                                         if use_attachment_template:
-                                                                            components.append(
-                                                                                {
-                                                                                    "type": "button",
-                                                                                    "sub_type": "quick_reply",
-                                                                                    "index": 0,
-                                                                                    "parameters": [
-                                                                                        {
-                                                                                            "type": "payload",
-                                                                                            "payload": f"enquiry_attachment_{enquiry_data.get('enquiry_id')}"
-                                                                                        }
-                                                                                    ]
+                                                                            payload = {
+                                                                                "messaging_product": "whatsapp",
+                                                                                "recipient_type": "individual",
+                                                                                "to": admin_number,
+                                                                                "type": "template",
+                                                                                "template": {
+                                                                                    "name": template_name,
+                                                                                    "language": {"code": "en"}
                                                                                 }
-                                                                            )
+                                                                            }
                                                                         else:
-                                                                            components.append(
+                                                                            components = [
+                                                                                {
+                                                                                    "type": "body",
+                                                                                    "parameters": [
+                                                                                        {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
+                                                                                        {"type": "text", "text": f"+{sender_id}"},
+                                                                                        {"type": "text", "text": timestamp_str},
+                                                                                        {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
+                                                                                        {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
+                                                                                        {"type": "text", "text": enquiry_data.get('has_attachment')}
+                                                                                    ]
+                                                                                },
                                                                                 {
                                                                                     "type": "button",
                                                                                     "sub_type": "quick_reply",
@@ -5185,24 +5200,32 @@ def webhook():
                                                                                         }
                                                                                     ]
                                                                                 }
-                                                                            )
-                                                                        
-                                                                        # Template payload with quick-reply button
-                                                                        payload = {
-                                                                            "messaging_product": "whatsapp",
-                                                                            "recipient_type": "individual",
-                                                                            "to": admin_number,
-                                                                            "type": "template",
-                                                                            "template": {
-                                                                                "name": template_name,
-                                                                                "language": {"code": "en"},
-                                                                                "components": components
+                                                                            ]
+                                                                            payload = {
+                                                                                "messaging_product": "whatsapp",
+                                                                                "recipient_type": "individual",
+                                                                                "to": admin_number,
+                                                                                "type": "template",
+                                                                                "template": {
+                                                                                    "name": template_name,
+                                                                                    "language": {"code": "en"},
+                                                                                    "components": components
+                                                                                }
                                                                             }
-                                                                        }
-                                                                        
-                                                                        # Send request
+
                                                                         response = requests.post(url, headers=headers, json=payload)
-                                                                        return response.json()
+                                                                        response_data = response.json()
+
+                                                                        if use_attachment_template:
+                                                                            message_id = ((response_data.get('messages') or [{}])[0]).get('id') if isinstance(response_data, dict) else None
+                                                                            if message_id:
+                                                                                log_enquiry_attachment_button_message(
+                                                                                    message_id,
+                                                                                    enquiry_data.get('enquiry_id'),
+                                                                                    admin_number
+                                                                                )
+
+                                                                        return response_data
 
                                                                     # Usage
                                                                     admin_numbers = ["263774822568", "263773368558", "263777665277"]
@@ -7366,6 +7389,8 @@ def webhook():
                                                                     project_id = payload.replace(config['payload_prefix'], '')
                                                                     break
                                                             
+                                                            normalized_button_text = (button_text or "").strip().lower()
+
                                                             if payload and payload.lower().startswith('enquiry_attachment_'):
                                                                 try:
                                                                     enquiry_id = int(payload.split('_')[-1])
@@ -7377,6 +7402,15 @@ def webhook():
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
+
+                                                            elif normalized_button_text == 'download attachment':
+                                                                enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
+
+                                                                if enquiry_id:
+                                                                    send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
+                                                                    deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                else:
+                                                                    send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
 
                                                             elif payload and payload.lower().startswith('quotation_'):
                                                                 try:
@@ -7711,36 +7745,30 @@ def webhook():
                                                                         use_attachment_template = has_attachment_value == 'yes'
 
                                                                         template_name = "enquiryattachment" if use_attachment_template else "enqauto2"
-                                                                        components = [
-                                                                            {
-                                                                                "type": "body",
-                                                                                "parameters": [
-                                                                                    {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
-                                                                                    {"type": "text", "text": f"+{sender_id}"},
-                                                                                    {"type": "text", "text": timestamp_str},
-                                                                                    {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
-                                                                                    {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
-                                                                                    {"type": "text", "text": enquiry_data.get('has_attachment')}
-                                                                                ]
-                                                                            }
-                                                                        ]
-
                                                                         if use_attachment_template:
-                                                                            components.append(
-                                                                                {
-                                                                                    "type": "button",
-                                                                                    "sub_type": "quick_reply",
-                                                                                    "index": 0,
-                                                                                    "parameters": [
-                                                                                        {
-                                                                                            "type": "payload",
-                                                                                            "payload": f"enquiry_attachment_{enquiry_data.get('enquiry_id')}"
-                                                                                        }
-                                                                                    ]
+                                                                            payload = {
+                                                                                "messaging_product": "whatsapp",
+                                                                                "recipient_type": "individual",
+                                                                                "to": admin_number,
+                                                                                "type": "template",
+                                                                                "template": {
+                                                                                    "name": template_name,
+                                                                                    "language": {"code": "en"}
                                                                                 }
-                                                                            )
+                                                                            }
                                                                         else:
-                                                                            components.append(
+                                                                            components = [
+                                                                                {
+                                                                                    "type": "body",
+                                                                                    "parameters": [
+                                                                                        {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
+                                                                                        {"type": "text", "text": f"+{sender_id}"},
+                                                                                        {"type": "text", "text": timestamp_str},
+                                                                                        {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
+                                                                                        {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
+                                                                                        {"type": "text", "text": enquiry_data.get('has_attachment')}
+                                                                                    ]
+                                                                                },
                                                                                 {
                                                                                     "type": "button",
                                                                                     "sub_type": "quick_reply",
@@ -7752,24 +7780,32 @@ def webhook():
                                                                                         }
                                                                                     ]
                                                                                 }
-                                                                            )
-                                                                        
-                                                                        # Template payload with quick-reply button
-                                                                        payload = {
-                                                                            "messaging_product": "whatsapp",
-                                                                            "recipient_type": "individual",
-                                                                            "to": admin_number,
-                                                                            "type": "template",
-                                                                            "template": {
-                                                                                "name": template_name,
-                                                                                "language": {"code": "en"},
-                                                                                "components": components
+                                                                            ]
+                                                                            payload = {
+                                                                                "messaging_product": "whatsapp",
+                                                                                "recipient_type": "individual",
+                                                                                "to": admin_number,
+                                                                                "type": "template",
+                                                                                "template": {
+                                                                                    "name": template_name,
+                                                                                    "language": {"code": "en"},
+                                                                                    "components": components
+                                                                                }
                                                                             }
-                                                                        }
-                                                                        
-                                                                        # Send request
+
                                                                         response = requests.post(url, headers=headers, json=payload)
-                                                                        return response.json()
+                                                                        response_data = response.json()
+
+                                                                        if use_attachment_template:
+                                                                            message_id = ((response_data.get('messages') or [{}])[0]).get('id') if isinstance(response_data, dict) else None
+                                                                            if message_id:
+                                                                                log_enquiry_attachment_button_message(
+                                                                                    message_id,
+                                                                                    enquiry_data.get('enquiry_id'),
+                                                                                    admin_number
+                                                                                )
+
+                                                                        return response_data
 
                                                                     # Usage
                                                                     admin_numbers = ["263774822568", "263773368558", "263777665277"]
@@ -8575,6 +8611,8 @@ def webhook():
                                                                     print(f"❌ Text message error: {str(e)}")
                                                                     return None
 
+                                                            normalized_button_text = (button_text or "").strip().lower()
+
                                                             if payload and payload.lower().startswith('enquiry_attachment_'):
                                                                 try:
                                                                     enquiry_id = int(payload.split('_')[-1])
@@ -8586,6 +8624,15 @@ def webhook():
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
+
+                                                            elif normalized_button_text == 'download attachment':
+                                                                enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
+
+                                                                if enquiry_id:
+                                                                    send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
+                                                                    deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                else:
+                                                                    send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
 
                                                             elif payload and payload.lower().startswith('quotation_'):
                                                                 try:
@@ -18057,6 +18104,78 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
             send_text_message(recipient_number, "❌ Failed to send enquiry attachment. Please try again.")
         print(f"❌ Error sending enquiry attachment {enquiry_id}: {exc}")
         return False
+
+
+def log_enquiry_attachment_button_message(template_message_id, enquiry_id, recipient_number):
+    """Store template message ID so no-variable quick-reply clicks can be resolved reliably."""
+    if not template_message_id or not enquiry_id:
+        return
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                """
+                INSERT INTO enquiry_attachment_button_map
+                    (template_message_id, enquiry_id, recipient_whatsapp)
+                VALUES (%s, %s, %s)
+                """,
+                (str(template_message_id), int(enquiry_id), str(recipient_number or ''))
+            )
+            connection.commit()
+    except Exception as exc:
+        logging.exception("Failed to log enquiry attachment button message mapping")
+        print(f"❌ Mapping log failed: {exc}")
+
+
+def resolve_enquiry_attachment_id_from_click(message, sender_id):
+    """Resolve enquiry ID for attachment download using button payload or message context ID."""
+    button = message.get("button", {}) if isinstance(message, dict) else {}
+    interactive_button_reply = message.get("interactive", {}).get("button_reply", {}) if isinstance(message, dict) else {}
+    payload = (button.get("payload", "") or interactive_button_reply.get("id", "") or "").strip()
+
+    if payload.lower().startswith('enquiry_attachment_'):
+        try:
+            return int(payload.split('_')[-1])
+        except (IndexError, ValueError):
+            return None
+
+    context_id = (message.get("context", {}).get("id", "") if isinstance(message, dict) else "").strip()
+    try:
+        with get_db() as (cursor, _):
+            if context_id:
+                cursor.execute(
+                    """
+                    SELECT enquiry_id
+                    FROM enquiry_attachment_button_map
+                    WHERE template_message_id = %s
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (context_id,)
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    return int(row[0])
+
+            # Fallback: last attachment template sent to this WhatsApp user
+            cursor.execute(
+                """
+                SELECT enquiry_id
+                FROM enquiry_attachment_button_map
+                WHERE recipient_whatsapp = %s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (str(sender_id),)
+            )
+            row = cursor.fetchone()
+            if row and row[0]:
+                return int(row[0])
+    except Exception as exc:
+        logging.exception("Failed to resolve enquiry attachment from click")
+        print(f"❌ Attachment click resolution failed: {exc}")
+
+    return None
 
 
 def is_template_window_error(error_text):
