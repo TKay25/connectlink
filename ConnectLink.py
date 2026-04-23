@@ -18489,30 +18489,38 @@ def get_quotations():
 
             cursor.execute("""
                 SELECT
-                    q.id,
-                    q.client_name,
-                    q.client_whatsapp,
-                    q.quotation_date,
-                    q.category,
-                    q.project_size,
-                    q.total_cost,
-                    q.markup_percentage,
-                    COALESCE(qs.downloaded, FALSE) AS downloaded,
-                    qs.download_clicked_at,
-                    qs.download_pdf_sent_at
-                FROM quotations q
-                LEFT JOIN (
+                    id,
+                    client_name,
+                    client_whatsapp,
+                    quotation_date,
+                    category,
+                    project_size,
+                    total_cost,
+                    markup_percentage
+                FROM quotations
+                ORDER BY created_at DESC, id DESC
+            """)
+            quotations = cursor.fetchall()
+
+            share_status_by_quotation = {}
+            try:
+                cursor.execute("""
                     SELECT
                         quotation_id,
-                        MAX(download_pdf_sent_success) AS downloaded,
+                        MAX(CASE WHEN download_pdf_sent_success THEN 1 ELSE 0 END) AS downloaded,
                         MAX(download_clicked_at) AS download_clicked_at,
                         MAX(download_pdf_sent_at) AS download_pdf_sent_at
                     FROM quotation_share_links
                     GROUP BY quotation_id
-                ) qs ON qs.quotation_id = q.id
-                ORDER BY q.created_at DESC, q.id DESC
-            """)
-            quotations = cursor.fetchall()
+                """)
+                for row in cursor.fetchall():
+                    share_status_by_quotation[row[0]] = {
+                        'downloaded': bool(row[1]),
+                        'downloadClickedAt': row[2].isoformat() if row[2] else None,
+                        'downloadSentAt': row[3].isoformat() if row[3] else None
+                    }
+            except Exception as share_status_err:
+                logging.warning(f"Could not load quotation share status: {share_status_err}")
 
             cursor.execute("""
                 SELECT quotation_id, item_name, quantity, unit_rate, total_price
@@ -18548,6 +18556,7 @@ def get_quotations():
             result = []
             for quotation in quotations:
                 quotation_id = quotation[0]
+                share_status = share_status_by_quotation.get(quotation_id, {})
                 result.append({
                     'id': quotation_id,
                     'clientName': quotation[1] or 'Client',
@@ -18559,9 +18568,9 @@ def get_quotations():
                     'markup': float(quotation[7]) if quotation[7] else 0,
                     'items': items_by_quotation.get(quotation_id, []),
                     'schedules': schedules_by_quotation.get(quotation_id, []),
-                    'downloaded': bool(quotation[8]),
-                    'downloadClickedAt': quotation[9].isoformat() if quotation[9] else None,
-                    'downloadSentAt': quotation[10].isoformat() if quotation[10] else None
+                    'downloaded': share_status.get('downloaded', False),
+                    'downloadClickedAt': share_status.get('downloadClickedAt'),
+                    'downloadSentAt': share_status.get('downloadSentAt')
                 })
 
             return jsonify({
