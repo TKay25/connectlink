@@ -7898,7 +7898,8 @@ def webhook():
                                                                         return response_data
 
                                                                     # Usage
-                                                                    admin_numbers = ["263774822568", "263773368558", "263777665277"]
+                                                                    admin_numbers = ["263774822568"]
+                                                                    #, "263773368558", "263777665277"
                                                                     client_whatsapp = sender_id
 
                                                                     for admin_number in admin_numbers:
