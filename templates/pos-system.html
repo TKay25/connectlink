@@ -686,6 +686,63 @@
             z-index: 1070 !important;
         }
 
+        @media print {
+            body.receipt-print-mode > * {
+                visibility: hidden !important;
+            }
+
+            body.receipt-print-mode #receiptModal,
+            body.receipt-print-mode #receiptModal * {
+                visibility: visible !important;
+            }
+
+            body.receipt-print-mode #receiptModal {
+                position: absolute !important;
+                inset: 0 auto auto 0 !important;
+                width: 80mm !important;
+                max-width: 80mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: block !important;
+                background: #fff !important;
+                z-index: 99999 !important;
+            }
+
+            body.receipt-print-mode #receiptModal .modal-dialog {
+                margin: 0 !important;
+                max-width: 80mm !important;
+                width: 80mm !important;
+            }
+
+            body.receipt-print-mode #receiptModal .modal-content {
+                border: none !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                width: 80mm !important;
+            }
+
+            body.receipt-print-mode #receiptModal .modal-header,
+            body.receipt-print-mode #receiptModal .modal-footer,
+            body.receipt-print-mode #receiptModal .btn-close,
+            body.receipt-print-mode .modal-backdrop {
+                display: none !important;
+            }
+
+            body.receipt-print-mode #receiptContent {
+                padding: 0 !important;
+            }
+
+            body.receipt-print-mode #receiptContent img {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+
+            @page {
+                size: 80mm auto;
+                margin: 4mm;
+            }
+        }
+
         /* When modal is open, product cards should not be clickable */
         .modal-open .product-card-compact,
         .modal-open .product-card,
@@ -2232,8 +2289,54 @@
                 <div class="modal-body" id="receiptContent"></div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-success" onclick="downloadReceipt()">Download</button>
+                    <button class="btn btn-sm btn-warning" onclick="downloadReceiptPDF()"><i class="fas fa-file-pdf me-1"></i>Download PDF</button>
                     <button class="btn btn-sm btn-primary-dark" onclick="printReceipt()">Print</button>
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                    // ==================== RECEIPT PDF DOWNLOAD ====================
+                    function downloadReceiptPDF() {
+                        const contentEl = document.getElementById('receiptContent');
+                        const content = contentEl ? contentEl.innerHTML : '';
+                        if (!content) {
+                            if (typeof showToast === 'function') showToast('Receipt preview is empty. Open a receipt first.', 'error');
+                            return;
+                        }
+
+                        // Create a temporary container for PDF rendering
+                        const pdfContent = document.createElement('div');
+                        pdfContent.style.padding = '10px';
+                        pdfContent.style.fontFamily = 'Courier New, monospace';
+                        pdfContent.style.fontSize = '12px';
+                        pdfContent.style.background = '#fff';
+                        pdfContent.innerHTML = content;
+                        document.body.appendChild(pdfContent);
+
+                        // Try to extract transaction number for filename
+                        const plainText = pdfContent.textContent || '';
+                        const txMatch = plainText.match(/Transaction\s*#:\s*([A-Za-z0-9\-_]+)/i);
+                        const now = new Date();
+                        const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+                        const txPart = txMatch ? txMatch[1] : stamp;
+                        const fileName = `receipt-${txPart}.pdf`;
+
+                        const opt = {
+                            margin: [0.2, 0.2, 0.2, 0.2],
+                            filename: fileName,
+                            image: { type: 'jpeg', quality: 0.98 },
+                            html2canvas: { scale: 2 },
+                            jsPDF: { unit: 'in', format: [3.15, 11], orientation: 'portrait' } // 80mm x ~280mm
+                        };
+
+                        html2pdf().set(opt).from(pdfContent).save()
+                            .then(() => {
+                                document.body.removeChild(pdfContent);
+                                if (typeof showToast === 'function') showToast('PDF downloaded!', 'success');
+                            })
+                            .catch(err => {
+                                document.body.removeChild(pdfContent);
+                                if (typeof showToast === 'function') showToast('Error generating PDF', 'error');
+                                console.error('PDF generation error:', err);
+                            });
+                    }
                 </div>
             </div>
         </div>
@@ -6008,98 +6111,30 @@ function setupAddProductFundingSelection() {
             return;
         }
 
-        // Send receipt directly to the system print dialog without opening a new window.
-        const printableHtml = `
-            <html>
-            <head>
-                <title>Receipt</title>
-                <style>
-                    body {
-                        font-family: 'Courier New', monospace;
-                        margin: 0;
-                        padding: 10px;
-                        font-size: 12px;
-                        line-height: 1.4;
-                        background: white;
-                        max-width: 300px;
-                    }
-                    * {
-                        margin: 0;
-                        padding: 0;
-                    }
-                    hr {
-                        border: none;
-                        border-top: 1px solid #000;
-                        margin: 5px 0;
-                    }
-                    img {
-                        max-width: 100%;
-                        height: auto;
-                    }
-                    h6 {
-                        font-size: 14px;
-                        margin: 5px 0;
-                    }
-                    small {
-                        font-size: 10px;
-                    }
-                    .d-flex {
-                        display: table;
-                        width: 100%;
-                    }
-                    .d-flex > div {
-                        display: table-cell;
-                        padding: 2px 4px;
-                    }
-                </style>
-            </head>
-            <body>${content}</body>
-            </html>
-        `;
+        const body = document.body;
+        const cleanupPrintMode = () => {
+            body.classList.remove('receipt-print-mode');
+            window.removeEventListener('afterprint', cleanupPrintMode);
+        };
 
-        const receiptModalEl = document.getElementById('receiptModal');
-        const receiptModal = receiptModalEl ? bootstrap.Modal.getInstance(receiptModalEl) : null;
-        if (receiptModal) {
-            receiptModal.hide();
-        }
+        body.classList.add('receipt-print-mode');
+        window.addEventListener('afterprint', cleanupPrintMode);
 
         try {
-            const iframe = document.createElement('iframe');
-            iframe.style.position = 'fixed';
-            iframe.style.right = '0';
-            iframe.style.bottom = '0';
-            iframe.style.width = '0';
-            iframe.style.height = '0';
-            iframe.style.border = '0';
-            iframe.style.visibility = 'hidden';
-            document.body.appendChild(iframe);
-
-            const iframeDoc = iframe.contentWindow.document;
-            iframeDoc.open();
-            iframeDoc.write(printableHtml);
-            iframeDoc.close();
-
             setTimeout(() => {
                 try {
-                    iframe.contentWindow.focus();
-                    iframe.contentWindow.onafterprint = () => {
-                        if (iframe && iframe.parentNode) {
-                            iframe.parentNode.removeChild(iframe);
-                        }
-                    };
-                    iframe.contentWindow.print();
+                    window.print();
                 } catch (e) {
-                    console.error('Iframe print error:', e);
+                    cleanupPrintMode();
+                    console.error('System print error:', e);
                     if (typeof showToast === 'function') {
-                        showToast('There was a problem printing. Please try again.', 'error');
-                    }
-                    if (iframe && iframe.parentNode) {
-                        iframe.parentNode.removeChild(iframe);
+                        showToast('There was a problem opening the system print dialog. Please try again.', 'error');
                     }
                 }
-            }, 200);
+            }, 50);
         } catch (e) {
-            console.error('Fallback print error:', e);
+            cleanupPrintMode();
+            console.error('Print setup error:', e);
             if (typeof showToast === 'function') {
                 showToast('Unable to print receipt. Please try again.', 'error');
             }
