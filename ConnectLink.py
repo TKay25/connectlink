@@ -4796,130 +4796,7 @@ def webhook():
                                                             if qid:
                                                                 mark_quotation_download_clicked(payload, sender_id)
                                                                 send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
-                                                                try:
-                                                                    with get_db() as (qcur, _):
-                                                                        qcur.execute("""
-                                                                            SELECT q.id, q.client_name, q.quotation_date, q.category,
-                                                                                   q.project_size, q.total_cost, q.markup_percentage
-                                                                            FROM quotations q WHERE q.id = %s
-                                                                        """, (qid,))
-                                                                        qrow = qcur.fetchone()
-
-                                                                        qcur.execute("""
-                                                                            SELECT item_name, quantity, unit_rate, total_price
-                                                                            FROM quotation_items WHERE quotation_id = %s ORDER BY item_order
-                                                                        """, (qid,))
-                                                                        qitems = qcur.fetchall()
-
-                                                                        qcur.execute("""
-                                                                            SELECT work_scope, start_date, end_date, days
-                                                                            FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order
-                                                                        """, (qid,))
-                                                                        qschedules = qcur.fetchall()
-
-                                                                    if not qrow:
-                                                                        send_text_message(sender_id, "❌ Quotation not found.")
-                                                                    else:
-                                                                        q_client = qrow[1] or 'Client'
-                                                                        q_date = qrow[2].strftime('%d %B %Y') if qrow[2] else ''
-                                                                        q_category = qrow[3] or ''
-                                                                        q_size = float(qrow[4]) if qrow[4] else 0
-                                                                        q_total = float(qrow[5]) if qrow[5] else 0
-                                                                        q_markup = float(qrow[6]) if qrow[6] else 0
-                                                                        deposit = q_total * 0.30
-                                                                        balance = q_total - deposit
-                                                                        monthly = balance / 5
-
-                                                                        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
-                                                                        with open(logo_path, 'rb') as img_f:
-                                                                            logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
-
-                                                                        items_rows = ''.join(
-                                                                            f"<tr><td>{html.escape(str(i[0]))}</td><td>{float(i[1]):,.2f}</td><td>{float(i[2]):,.6f}</td><td>{float(i[3]):,.2f}</td></tr>"
-                                                                            for i in qitems
-                                                                        )
-                                                                        sched_rows = ''.join(
-                                                                            f"<tr><td>{html.escape(str(s[0]))}</td><td>{s[1]}</td><td>{s[2]}</td><td>{int(s[3]) if s[3] else 0}</td></tr>"
-                                                                            for s in qschedules
-                                                                        )
-
-                                                                        quot_html = f"""
-                                                                        <!doctype html><html><head><meta charset='utf-8'>
-                                                                        <style>
-                                                                          @page {{size:A4;margin:10mm}}
-                                                                          body{{font-family:Arial,sans-serif;font-size:11px;color:#1E2A56}}
-                                                                          img{{width:120px}}
-                                                                          h1{{font-size:15px;font-weight:900;margin:6px 0}}
-                                                                          table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}}
-                                                                          th{{background:#1E2A56;color:#fff;padding:5px;text-align:left}}
-                                                                          td{{padding:4px 5px;border-bottom:1px solid #e0e3ef}}
-                                                                          .sum{{display:flex;gap:8px;margin:8px 0}}
-                                                                          .sum-box{{flex:1;background:#f4f6fb;border:1px solid #d0d5e8;border-radius:6px;padding:6px;text-align:center}}
-                                                                          .sum-val{{font-size:12px;font-weight:bold}}
-                                                                          .sec{{margin-top:10px;font-weight:bold;font-size:11px;color:#1E2A56;border-bottom:1px solid #1E2A56;padding-bottom:2px}}
-                                                                        </style></head><body>
-                                                                        <img src='data:image/png;base64,{logo_b64}'>
-                                                                        <h1>Project Quotation</h1>
-                                                                        <div class='sec'>PROJECT DETAILS</div>
-                                                                        <table><tr><td><b>Client:</b> {html.escape(q_client)}</td><td><b>Date:</b> {q_date}</td></tr>
-                                                                        <tr><td><b>Category:</b> {html.escape(q_category)}</td><td><b>Size:</b> {q_size:,.2f} sqm</td></tr></table>
-                                                                        <div class='sec'>QUOTATION SUMMARY</div>
-                                                                        <div class='sum'>
-                                                                          <div class='sum-box'><div>Total</div><div class='sum-val'>USD {q_total:,.2f}</div></div>
-                                                                          <div class='sum-box'><div>Deposit (30%)</div><div class='sum-val'>USD {deposit:,.2f}</div></div>
-                                                                          <div class='sum-box'><div>Balance</div><div class='sum-val'>USD {balance:,.2f}</div></div>
-                                                                          <div class='sum-box'><div>Monthly (5 months)</div><div class='sum-val'>USD {monthly:,.2f}</div></div>
-                                                                        </div>
-                                                                        <div class='sec'>CONSTRUCTION ITEMS</div>
-                                                                        <table><thead><tr><th>Item</th><th>Qty (sqm)</th><th>Unit Rate</th><th>Total (USD)</th></tr></thead>
-                                                                        <tbody>{items_rows}</tbody></table>
-                                                                        <div class='sec'>PROJECT SCHEDULE</div>
-                                                                        <table><thead><tr><th>Task</th><th>Start</th><th>End</th><th>Days</th></tr></thead>
-                                                                        <tbody>{sched_rows}</tbody></table>
-                                                                        <div style='margin-top:12px;font-size:9px;color:#888'>ConnectLink Properties • info@connectlinkproperties.co.zw • +263 773368558</div>
-                                                                        </body></html>
-                                                                        """
-
-                                                                        from weasyprint import HTML as WeasyprintHTML
-                                                                        pdf_bytes = WeasyprintHTML(string=quot_html).write_pdf()
-
-                                                                        safe_name = ''.join(c for c in q_client if c.isalnum() or c == ' ').replace(' ', '_')
-                                                                        q_filename = f"Quotation_{safe_name}_{qid}.pdf"
-                                                                        q_caption = f"📄 *PROJECT QUOTATION*\n\nClient: {q_client}\nCategory: {q_category}\nTotal: USD {q_total:,.2f}\n\nSend 'Hello' for more options."
-
-                                                                        upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
-                                                                        upload_r = requests.post(
-                                                                            upload_url,
-                                                                            headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
-                                                                            files={
-                                                                                "file": (q_filename, io.BytesIO(pdf_bytes), "application/pdf"),
-                                                                                "type": (None, "application/pdf"),
-                                                                                "messaging_product": (None, "whatsapp")
-                                                                            },
-                                                                            timeout=45
-                                                                        )
-                                                                        upload_r.raise_for_status()
-                                                                        q_media_id = upload_r.json()["id"]
-
-                                                                        send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-                                                                        send_doc_response = requests.post(
-                                                                            send_url,
-                                                                            headers={"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"},
-                                                                            json={
-                                                                                "messaging_product": "whatsapp",
-                                                                                "to": sender_id,
-                                                                                "type": "document",
-                                                                                "document": {"id": q_media_id, "filename": q_filename, "caption": q_caption}
-                                                                            },
-                                                                            timeout=45
-                                                                        )
-                                                                        send_doc_response.raise_for_status()
-                                                                        mark_quotation_download_send_result(payload, True, sender_id)
-                                                                        print(f"✅ Quotation PDF {qid} sent to {sender_id}")
-                                                                except Exception as qe:
-                                                                    mark_quotation_download_send_result(payload, False, sender_id)
-                                                                    print(f"❌ Error sending quotation PDF: {qe}")
-                                                                    send_text_message(sender_id, "❌ Failed to generate your quotation. Please contact us directly.")
+                                                                deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
                                                             else:
                                                                 send_text_message(sender_id, "❌ Invalid quotation reference.")
 
@@ -7463,105 +7340,7 @@ def webhook():
                                                                 if qid:
                                                                     mark_quotation_download_clicked(payload, sender_id)
                                                                     send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
-                                                                    try:
-                                                                        with get_db() as (qcur, _):
-                                                                            qcur.execute("""
-                                                                                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
-                                                                                FROM quotations WHERE id = %s
-                                                                            """, (qid,))
-                                                                            qrow = qcur.fetchone()
-                                                                            qcur.execute("SELECT item_name, quantity, unit_rate, total_price FROM quotation_items WHERE quotation_id = %s ORDER BY item_order", (qid,))
-                                                                            qitems = qcur.fetchall()
-                                                                            qcur.execute("SELECT work_scope, start_date, end_date, days FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order", (qid,))
-                                                                            qschedules = qcur.fetchall()
-
-                                                                        if not qrow:
-                                                                            send_text_message(sender_id, "❌ Quotation not found.")
-                                                                        else:
-                                                                            q_client = qrow[1] or 'Client'
-                                                                            q_date = qrow[2].strftime('%d %B %Y') if qrow[2] else ''
-                                                                            q_category = qrow[3] or ''
-                                                                            q_size = float(qrow[4]) if qrow[4] else 0
-                                                                            q_total = float(qrow[5]) if qrow[5] else 0
-                                                                            deposit = q_total * 0.30
-                                                                            balance = q_total - deposit
-                                                                            monthly = balance / 5
-
-                                                                            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
-                                                                            with open(logo_path, 'rb') as img_f:
-                                                                                logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
-
-                                                                            items_rows = ''.join(
-                                                                                f"<tr><td>{html.escape(str(i[0]))}</td><td>{float(i[1]):,.2f}</td><td>{float(i[2]):,.6f}</td><td>{float(i[3]):,.2f}</td></tr>"
-                                                                                for i in qitems
-                                                                            )
-                                                                            sched_rows = ''.join(
-                                                                                f"<tr><td>{html.escape(str(s[0]))}</td><td>{s[1]}</td><td>{s[2]}</td><td>{int(s[3]) if s[3] else 0}</td></tr>"
-                                                                                for s in qschedules
-                                                                            )
-                                                                            quot_html = f"""
-                                                                            <!doctype html><html><head><meta charset='utf-8'>
-                                                                            <style>
-                                                                              @page {{size:A4;margin:10mm}}
-                                                                              body{{font-family:Arial,sans-serif;font-size:11px;color:#1E2A56}}
-                                                                              img{{width:120px}}h1{{font-size:15px;font-weight:900;margin:6px 0}}
-                                                                              table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}}
-                                                                              th{{background:#1E2A56;color:#fff;padding:5px;text-align:left}}
-                                                                              td{{padding:4px 5px;border-bottom:1px solid #e0e3ef}}
-                                                                              .sum{{display:flex;gap:8px;margin:8px 0}}
-                                                                              .sum-box{{flex:1;background:#f4f6fb;border:1px solid #d0d5e8;border-radius:6px;padding:6px;text-align:center}}
-                                                                              .sum-val{{font-size:12px;font-weight:bold}}
-                                                                              .sec{{margin-top:10px;font-weight:bold;font-size:11px;color:#1E2A56;border-bottom:1px solid #1E2A56;padding-bottom:2px}}
-                                                                            </style></head><body>
-                                                                            <img src='data:image/png;base64,{logo_b64}'>
-                                                                            <h1>Project Quotation</h1>
-                                                                            <div class='sec'>PROJECT DETAILS</div>
-                                                                            <table><tr><td><b>Client:</b> {html.escape(q_client)}</td><td><b>Date:</b> {q_date}</td></tr>
-                                                                            <tr><td><b>Category:</b> {html.escape(q_category)}</td><td><b>Size:</b> {q_size:,.2f} sqm</td></tr></table>
-                                                                            <div class='sec'>QUOTATION SUMMARY</div>
-                                                                            <div class='sum'>
-                                                                              <div class='sum-box'><div>Total</div><div class='sum-val'>USD {q_total:,.2f}</div></div>
-                                                                              <div class='sum-box'><div>Deposit (30%)</div><div class='sum-val'>USD {deposit:,.2f}</div></div>
-                                                                              <div class='sum-box'><div>Balance</div><div class='sum-val'>USD {balance:,.2f}</div></div>
-                                                                              <div class='sum-box'><div>Monthly (5 months)</div><div class='sum-val'>USD {monthly:,.2f}</div></div>
-                                                                            </div>
-                                                                            <div class='sec'>CONSTRUCTION ITEMS</div>
-                                                                            <table><thead><tr><th>Item</th><th>Qty (sqm)</th><th>Unit Rate</th><th>Total (USD)</th></tr></thead>
-                                                                            <tbody>{items_rows}</tbody></table>
-                                                                            <div class='sec'>PROJECT SCHEDULE</div>
-                                                                            <table><thead><tr><th>Task</th><th>Start</th><th>End</th><th>Days</th></tr></thead>
-                                                                            <tbody>{sched_rows}</tbody></table>
-                                                                            <div style='margin-top:12px;font-size:9px;color:#888'>ConnectLink Properties • info@connectlinkproperties.co.zw • +263 773368558</div>
-                                                                            </body></html>"""
-
-                                                                            from weasyprint import HTML as WeasyprintHTML
-                                                                            pdf_bytes = WeasyprintHTML(string=quot_html).write_pdf()
-
-                                                                            safe_name = ''.join(c for c in q_client if c.isalnum() or c == ' ').replace(' ', '_')
-                                                                            q_filename = f"Quotation_{safe_name}_{qid}.pdf"
-                                                                            q_caption = f"📄 *PROJECT QUOTATION*\n\nClient: {q_client}\nCategory: {q_category}\nTotal: USD {q_total:,.2f}\n\nSend 'Hello' for more options."
-
-                                                                            upload_r = requests.post(
-                                                                                f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media",
-                                                                                headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
-                                                                                files={"file": (q_filename, io.BytesIO(pdf_bytes), "application/pdf"), "type": (None, "application/pdf"), "messaging_product": (None, "whatsapp")},
-                                                                                timeout=45
-                                                                            )
-                                                                            upload_r.raise_for_status()
-                                                                            q_media_id = upload_r.json()["id"]
-                                                                            send_doc_response = requests.post(
-                                                                                f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages",
-                                                                                headers={"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"},
-                                                                                json={"messaging_product": "whatsapp", "to": sender_id, "type": "document", "document": {"id": q_media_id, "filename": q_filename, "caption": q_caption}},
-                                                                                timeout=45
-                                                                            )
-                                                                            send_doc_response.raise_for_status()
-                                                                            mark_quotation_download_send_result(payload, True, sender_id)
-                                                                            print(f"✅ Quotation PDF {qid} sent to {sender_id}")
-                                                                    except Exception as qe:
-                                                                        mark_quotation_download_send_result(payload, False, sender_id)
-                                                                        print(f"❌ Error sending quotation PDF: {qe}")
-                                                                        send_text_message(sender_id, "❌ Failed to generate your quotation. Please contact us directly.")
+                                                                    deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid quotation reference.")
 
@@ -8734,105 +8513,7 @@ def webhook():
                                                                 if qid:
                                                                     mark_quotation_download_clicked(payload, sender_id)
                                                                     send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
-                                                                    try:
-                                                                        with get_db() as (qcur, _):
-                                                                            qcur.execute("""
-                                                                                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
-                                                                                FROM quotations WHERE id = %s
-                                                                            """, (qid,))
-                                                                            qrow = qcur.fetchone()
-                                                                            qcur.execute("SELECT item_name, quantity, unit_rate, total_price FROM quotation_items WHERE quotation_id = %s ORDER BY item_order", (qid,))
-                                                                            qitems = qcur.fetchall()
-                                                                            qcur.execute("SELECT work_scope, start_date, end_date, days FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order", (qid,))
-                                                                            qschedules = qcur.fetchall()
-
-                                                                        if not qrow:
-                                                                            send_text_message(sender_id, "❌ Quotation not found.")
-                                                                        else:
-                                                                            q_client = qrow[1] or 'Client'
-                                                                            q_date = qrow[2].strftime('%d %B %Y') if qrow[2] else ''
-                                                                            q_category = qrow[3] or ''
-                                                                            q_size = float(qrow[4]) if qrow[4] else 0
-                                                                            q_total = float(qrow[5]) if qrow[5] else 0
-                                                                            deposit = q_total * 0.30
-                                                                            balance = q_total - deposit
-                                                                            monthly = balance / 5
-
-                                                                            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
-                                                                            with open(logo_path, 'rb') as img_f:
-                                                                                logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
-
-                                                                            items_rows = ''.join(
-                                                                                f"<tr><td>{html.escape(str(i[0]))}</td><td>{float(i[1]):,.2f}</td><td>{float(i[2]):,.6f}</td><td>{float(i[3]):,.2f}</td></tr>"
-                                                                                for i in qitems
-                                                                            )
-                                                                            sched_rows = ''.join(
-                                                                                f"<tr><td>{html.escape(str(s[0]))}</td><td>{s[1]}</td><td>{s[2]}</td><td>{int(s[3]) if s[3] else 0}</td></tr>"
-                                                                                for s in qschedules
-                                                                            )
-                                                                            quot_html = f"""
-                                                                            <!doctype html><html><head><meta charset='utf-8'>
-                                                                            <style>
-                                                                              @page {{size:A4;margin:10mm}}
-                                                                              body{{font-family:Arial,sans-serif;font-size:11px;color:#1E2A56}}
-                                                                              img{{width:120px}}h1{{font-size:15px;font-weight:900;margin:6px 0}}
-                                                                              table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}}
-                                                                              th{{background:#1E2A56;color:#fff;padding:5px;text-align:left}}
-                                                                              td{{padding:4px 5px;border-bottom:1px solid #e0e3ef}}
-                                                                              .sum{{display:flex;gap:8px;margin:8px 0}}
-                                                                              .sum-box{{flex:1;background:#f4f6fb;border:1px solid #d0d5e8;border-radius:6px;padding:6px;text-align:center}}
-                                                                              .sum-val{{font-size:12px;font-weight:bold}}
-                                                                              .sec{{margin-top:10px;font-weight:bold;font-size:11px;color:#1E2A56;border-bottom:1px solid #1E2A56;padding-bottom:2px}}
-                                                                            </style></head><body>
-                                                                            <img src='data:image/png;base64,{logo_b64}'>
-                                                                            <h1>Project Quotation</h1>
-                                                                            <div class='sec'>PROJECT DETAILS</div>
-                                                                            <table><tr><td><b>Client:</b> {html.escape(q_client)}</td><td><b>Date:</b> {q_date}</td></tr>
-                                                                            <tr><td><b>Category:</b> {html.escape(q_category)}</td><td><b>Size:</b> {q_size:,.2f} sqm</td></tr></table>
-                                                                            <div class='sec'>QUOTATION SUMMARY</div>
-                                                                            <div class='sum'>
-                                                                              <div class='sum-box'><div>Total</div><div class='sum-val'>USD {q_total:,.2f}</div></div>
-                                                                              <div class='sum-box'><div>Deposit (30%)</div><div class='sum-val'>USD {deposit:,.2f}</div></div>
-                                                                              <div class='sum-box'><div>Balance</div><div class='sum-val'>USD {balance:,.2f}</div></div>
-                                                                              <div class='sum-box'><div>Monthly (5 months)</div><div class='sum-val'>USD {monthly:,.2f}</div></div>
-                                                                            </div>
-                                                                            <div class='sec'>CONSTRUCTION ITEMS</div>
-                                                                            <table><thead><tr><th>Item</th><th>Qty (sqm)</th><th>Unit Rate</th><th>Total (USD)</th></tr></thead>
-                                                                            <tbody>{items_rows}</tbody></table>
-                                                                            <div class='sec'>PROJECT SCHEDULE</div>
-                                                                            <table><thead><tr><th>Task</th><th>Start</th><th>End</th><th>Days</th></tr></thead>
-                                                                            <tbody>{sched_rows}</tbody></table>
-                                                                            <div style='margin-top:12px;font-size:9px;color:#888'>ConnectLink Properties • info@connectlinkproperties.co.zw • +263 773368558</div>
-                                                                            </body></html>"""
-
-                                                                            from weasyprint import HTML as WeasyprintHTML
-                                                                            pdf_bytes = WeasyprintHTML(string=quot_html).write_pdf()
-
-                                                                            safe_name = ''.join(c for c in q_client if c.isalnum() or c == ' ').replace(' ', '_')
-                                                                            q_filename = f"Quotation_{safe_name}_{qid}.pdf"
-                                                                            q_caption = f"📄 *PROJECT QUOTATION*\n\nClient: {q_client}\nCategory: {q_category}\nTotal: USD {q_total:,.2f}\n\nSend 'Hello' for more options."
-
-                                                                            upload_r = requests.post(
-                                                                                f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media",
-                                                                                headers={"Authorization": f"Bearer {ACCESS_TOKEN}"},
-                                                                                files={"file": (q_filename, io.BytesIO(pdf_bytes), "application/pdf"), "type": (None, "application/pdf"), "messaging_product": (None, "whatsapp")},
-                                                                                timeout=45
-                                                                            )
-                                                                            upload_r.raise_for_status()
-                                                                            q_media_id = upload_r.json()["id"]
-                                                                            send_doc_response = requests.post(
-                                                                                f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages",
-                                                                                headers={"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"},
-                                                                                json={"messaging_product": "whatsapp", "to": sender_id, "type": "document", "document": {"id": q_media_id, "filename": q_filename, "caption": q_caption}},
-                                                                                timeout=45
-                                                                            )
-                                                                            send_doc_response.raise_for_status()
-                                                                            mark_quotation_download_send_result(payload, True, sender_id)
-                                                                            print(f"✅ Quotation PDF {qid} sent to {sender_id}")
-                                                                    except Exception as qe:
-                                                                        mark_quotation_download_send_result(payload, False, sender_id)
-                                                                        print(f"❌ Error sending quotation PDF: {qe}")
-                                                                        send_text_message(sender_id, "❌ Failed to generate your quotation. Please contact us directly.")
+                                                                    deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid quotation reference.")
                                                             else:
@@ -18216,6 +17897,188 @@ def create_quotation_share_token(quotation_id):
     return token
 
 
+def mark_quotation_download_clicked(share_token, whatsapp_number=''):
+    """Record that a quotation download button was clicked in WhatsApp."""
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            UPDATE quotation_share_links
+            SET download_clicked_at = CURRENT_TIMESTAMP,
+                download_click_whatsapp = COALESCE(NULLIF(%s, ''), download_click_whatsapp)
+            WHERE share_token = %s
+        """, (whatsapp_number, share_token))
+        connection.commit()
+
+
+def mark_quotation_download_send_result(share_token, sent_success, whatsapp_number=''):
+    """Record whether the PDF was successfully sent after a WhatsApp share-link click."""
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            UPDATE quotation_share_links
+            SET download_pdf_sent_at = CURRENT_TIMESTAMP,
+                download_pdf_sent_success = %s,
+                download_click_whatsapp = COALESCE(NULLIF(%s, ''), download_click_whatsapp)
+            WHERE share_token = %s
+        """, (sent_success, whatsapp_number, share_token))
+        connection.commit()
+
+
+def get_quotation_share_url(share_token):
+    """Build the public share URL for a quotation token when a public base URL is available."""
+    public_base = PUBLIC_BASE_URL
+    if not public_base:
+        try:
+            public_base = request.url_root.rstrip('/')
+        except RuntimeError:
+            public_base = ''
+
+    if not public_base:
+        return ''
+
+    return f"{public_base}/quotation/share/{share_token}"
+
+
+def build_quotation_pdf_document(quotation_id):
+    """Build the PDF payload for a saved quotation."""
+    with get_db() as (cursor, _):
+        cursor.execute("""
+            SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
+            FROM quotations
+            WHERE id = %s
+        """, (quotation_id,))
+        quotation = cursor.fetchone()
+
+        if not quotation:
+            raise LookupError(f"Quotation {quotation_id} not found")
+
+        cursor.execute("""
+            SELECT item_name, quantity, unit_rate, total_price
+            FROM quotation_items
+            WHERE quotation_id = %s
+            ORDER BY item_order
+        """, (quotation_id,))
+        items = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT work_scope, start_date, end_date, days
+            FROM quotation_schedules
+            WHERE quotation_id = %s
+            ORDER BY task_order
+        """, (quotation_id,))
+        schedules = cursor.fetchall()
+
+    client_name = quotation[1] or 'Client'
+    quotation_date = quotation[2].strftime('%d %B %Y') if quotation[2] else ''
+    category = quotation[3] or ''
+    project_size = float(quotation[4]) if quotation[4] else 0
+    total_cost = float(quotation[5]) if quotation[5] else 0
+    deposit = total_cost * 0.30
+    balance = total_cost - deposit
+    monthly = balance / 5 if balance else 0
+
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+    with open(logo_path, 'rb') as img_f:
+        logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
+
+    items_rows = ''.join(
+        f"<tr><td>{html.escape(str(item[0]))}</td><td>{float(item[1]):,.2f}</td><td>{float(item[2]):,.6f}</td><td>{float(item[3]):,.2f}</td></tr>"
+        for item in items
+    )
+    sched_rows = ''.join(
+        f"<tr><td>{html.escape(str(schedule[0]))}</td><td>{schedule[1]}</td><td>{schedule[2]}</td><td>{int(schedule[3]) if schedule[3] else 0}</td></tr>"
+        for schedule in schedules
+    )
+
+    quot_html = f"""
+    <!doctype html><html><head><meta charset='utf-8'>
+    <style>
+      @page {{size:A4;margin:10mm}}
+      body{{font-family:Arial,sans-serif;font-size:11px;color:#1E2A56}}
+      img{{width:120px}}
+      h1{{font-size:15px;font-weight:900;margin:6px 0}}
+      table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}}
+      th{{background:#1E2A56;color:#fff;padding:5px;text-align:left}}
+      td{{padding:4px 5px;border-bottom:1px solid #e0e3ef}}
+      .sum{{display:flex;gap:8px;margin:8px 0}}
+      .sum-box{{flex:1;background:#f4f6fb;border:1px solid #d0d5e8;border-radius:6px;padding:6px;text-align:center}}
+      .sum-val{{font-size:12px;font-weight:bold}}
+      .sec{{margin-top:10px;font-weight:bold;font-size:11px;color:#1E2A56;border-bottom:1px solid #1E2A56;padding-bottom:2px}}
+    </style></head><body>
+    <img src='data:image/png;base64,{logo_b64}'>
+    <h1>Project Quotation</h1>
+    <div class='sec'>PROJECT DETAILS</div>
+    <table><tr><td><b>Client:</b> {html.escape(client_name)}</td><td><b>Date:</b> {quotation_date}</td></tr>
+    <tr><td><b>Category:</b> {html.escape(category)}</td><td><b>Size:</b> {project_size:,.2f} sqm</td></tr></table>
+    <div class='sec'>QUOTATION SUMMARY</div>
+    <div class='sum'>
+      <div class='sum-box'><div>Total</div><div class='sum-val'>USD {total_cost:,.2f}</div></div>
+      <div class='sum-box'><div>Deposit (30%)</div><div class='sum-val'>USD {deposit:,.2f}</div></div>
+      <div class='sum-box'><div>Balance</div><div class='sum-val'>USD {balance:,.2f}</div></div>
+      <div class='sum-box'><div>Monthly (5 months)</div><div class='sum-val'>USD {monthly:,.2f}</div></div>
+    </div>
+    <div class='sec'>CONSTRUCTION ITEMS</div>
+    <table><thead><tr><th>Item</th><th>Qty (sqm)</th><th>Unit Rate</th><th>Total (USD)</th></tr></thead>
+    <tbody>{items_rows}</tbody></table>
+    <div class='sec'>PROJECT SCHEDULE</div>
+    <table><thead><tr><th>Task</th><th>Start</th><th>End</th><th>Days</th></tr></thead>
+    <tbody>{sched_rows}</tbody></table>
+    <div style='margin-top:12px;font-size:9px;color:#888'>ConnectLink Properties • info@connectlinkproperties.co.zw • +263 773368558</div>
+    </body></html>
+    """
+
+    pdf_bytes = HTML(string=quot_html).write_pdf()
+    safe_name = ''.join(char for char in client_name if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+    filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
+    caption = (
+        f"PROJECT QUOTATION\n\nClient: {client_name}\n"
+        f"Category: {category}\nTotal: USD {total_cost:,.2f}\n\n"
+        "Send 'Hello' for more options."
+    )
+
+    return pdf_bytes, filename, caption
+
+
+def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
+    """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
+    try:
+        pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
+    except LookupError:
+        if send_text_message:
+            send_text_message(recipient_number, "❌ Quotation not found.")
+        return False
+    except Exception as exc:
+        logging.exception("Error generating quotation PDF %s", quotation_id)
+        mark_quotation_download_send_result(share_token, False, recipient_number)
+        share_url = get_quotation_share_url(share_token)
+        if send_text_message and share_url:
+            send_text_message(
+                recipient_number,
+                f"⚠️ We couldn't generate the PDF just now. You can still open your quotation here:\n{share_url}"
+            )
+        elif send_text_message:
+            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+        print(f"❌ Error generating quotation PDF {quotation_id}: {exc}")
+        return False
+
+    try:
+        send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption)
+        mark_quotation_download_send_result(share_token, True, recipient_number)
+        print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
+        return True
+    except Exception as exc:
+        logging.exception("Error sending quotation PDF %s", quotation_id)
+        mark_quotation_download_send_result(share_token, False, recipient_number)
+        share_url = get_quotation_share_url(share_token)
+        if send_text_message and share_url:
+            send_text_message(
+                recipient_number,
+                f"⚠️ We couldn't send the PDF on WhatsApp just now. You can still open your quotation here:\n{share_url}"
+            )
+        elif send_text_message:
+            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+        print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
+        return False
+
+
 def send_quotation_download_template(recipient_number, share_token, client_name='', category='', project_size=0):
     """Send approved CTA template with URL button to quotation share page.
 
@@ -18279,261 +18142,115 @@ def log_quotation_whatsapp_send(
     whatsapp_number,
     client_name,
     send_type,
-    whatsapp_message_id='',
+    whatsapp_message_id,
     source_channel='portal',
     send_status='success',
-    error_details='',
+    error_details=None,
     snapshot_category='',
     snapshot_project_size=0,
     snapshot_total_cost=0,
     snapshot_markup=0,
     snapshot_quotation_date=None
 ):
-    """Persist quotation WhatsApp send outcomes for Sent Quotations portal view."""
-    try:
-        with get_db() as (cursor, connection):
-            cursor.execute("""
-                INSERT INTO quotation_whatsapp_send_logs
-                (
-                    quotation_id,
-                    whatsapp_number,
-                    client_name,
-                    snapshot_category,
-                    snapshot_project_size,
-                    snapshot_total_cost,
-                    snapshot_markup,
-                    snapshot_quotation_date,
-                    send_type,
-                    send_status,
-                    error_details,
-                    whatsapp_message_id,
-                    source_channel
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                int(quotation_id),
-                normalize_whatsapp_number(whatsapp_number),
-                (client_name or 'Client').strip() or 'Client',
-                str(snapshot_category or '')[:255],
-                float(snapshot_project_size or 0),
-                float(snapshot_total_cost or 0),
-                float(snapshot_markup or 0),
+    """Persist a quotation WhatsApp send outcome for portal reporting."""
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            INSERT INTO quotation_whatsapp_send_logs (
+                quotation_id,
+                whatsapp_number,
+                client_name,
+                snapshot_category,
+                snapshot_project_size,
+                snapshot_total_cost,
+                snapshot_markup,
                 snapshot_quotation_date,
                 send_type,
-                (send_status or 'success').strip().lower(),
-                str(error_details or '')[:2000],
-                whatsapp_message_id or '',
-                source_channel or 'portal'
-            ))
-            connection.commit()
-    except Exception as e:
-        logging.warning(f"Could not log quotation WhatsApp send for quotation {quotation_id}: {e}")
-
-
-def mark_quotation_download_clicked(share_token, whatsapp_number=''):
-    """Mark that client tapped the quotation download button in WhatsApp."""
-    if not share_token:
-        return
-    try:
-        with get_db() as (cursor, connection):
-            cursor.execute("""
-                UPDATE quotation_share_links
-                SET download_clicked_at = CURRENT_TIMESTAMP,
-                    download_click_whatsapp = %s
-                WHERE share_token = %s
-            """, (normalize_whatsapp_number(whatsapp_number), str(share_token)))
-            connection.commit()
-    except Exception as e:
-        logging.warning(f"Could not mark quotation download click for token {share_token}: {e}")
-
-
-def mark_quotation_download_send_result(share_token, send_success, whatsapp_number=''):
-    """Mark whether quotation PDF send succeeded after client clicked download."""
-    if not share_token:
-        return
-    try:
-        with get_db() as (cursor, connection):
-            cursor.execute("""
-                UPDATE quotation_share_links
-                SET download_pdf_sent_success = %s,
-                    download_pdf_sent_at = CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE download_pdf_sent_at END,
-                    download_click_whatsapp = COALESCE(NULLIF(download_click_whatsapp, ''), %s)
-                WHERE share_token = %s
-            """, (bool(send_success), bool(send_success), normalize_whatsapp_number(whatsapp_number), str(share_token)))
-            connection.commit()
-    except Exception as e:
-        logging.warning(f"Could not mark quotation download send result for token {share_token}: {e}")
-
-
-@app.route('/quotation/share/<share_token>', methods=['GET'])
-def view_shared_quotation(share_token):
-    """Public share page opened from WhatsApp template URL button."""
-    try:
-        with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT q.id, q.client_name, q.quotation_date, q.category, q.project_size, q.total_cost, q.markup_percentage,
-                       qsl.expires_at
-                FROM quotation_share_links qsl
-                INNER JOIN quotations q ON q.id = qsl.quotation_id
-                WHERE qsl.share_token = %s
-                LIMIT 1
-            """, (share_token,))
-            quotation = cursor.fetchone()
-
-            if not quotation:
-                return Response("<h3>Invalid quotation link.</h3>", mimetype='text/html', status=404)
-
-            quotation_id = quotation[0]
-            expires_at = quotation[7]
-            if expires_at and datetime.now() > expires_at:
-                return Response("<h3>This quotation link has expired.</h3>", mimetype='text/html', status=410)
-
-            cursor.execute("""
-                SELECT item_name, quantity, unit_rate, total_price
-                FROM quotation_items
-                WHERE quotation_id = %s
-                ORDER BY item_order ASC
-            """, (quotation_id,))
-            items = cursor.fetchall()
-
-            safe_client = html.escape(str(quotation[1] or 'Client'))
-            safe_category = html.escape(str(quotation[3] or 'General'))
-            quotation_date = quotation[2].isoformat() if quotation[2] else ''
-            project_size = float(quotation[4]) if quotation[4] else 0
-            total_cost = float(quotation[5]) if quotation[5] else 0
-            markup = float(quotation[6]) if quotation[6] else 0
-
-            rows_html = ""
-            for item in items:
-                item_name = html.escape(str(item[0] or ''))
-                qty = float(item[1]) if item[1] else 0
-                rate = float(item[2]) if item[2] else 0
-                total = float(item[3]) if item[3] else 0
-                rows_html += (
-                    f"<tr><td>{item_name}</td><td>{qty:,.2f}</td><td>{rate:,.6f}</td><td>{total:,.2f}</td></tr>"
-                )
-
-            page = f"""
-            <!doctype html>
-            <html>
-            <head>
-                <meta charset='utf-8'>
-                <meta name='viewport' content='width=device-width, initial-scale=1'>
-                <title>Quotation #{quotation_id}</title>
-                <style>
-                    body {{ font-family: Arial, sans-serif; margin: 20px; color: #1E2A56; }}
-                    .card {{ border: 1px solid #d9dbe7; border-radius: 10px; padding: 16px; max-width: 900px; margin: 0 auto; }}
-                    h2 {{ margin-top: 0; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 12px; }}
-                    th, td {{ border: 1px solid #e5e7ef; padding: 8px; text-align: left; font-size: 14px; }}
-                    th {{ background: #f4f6fb; }}
-                    .meta {{ margin: 8px 0; font-size: 14px; }}
-                    .btn {{ display: inline-block; margin-top: 14px; background: #1E2A56; color: #fff; text-decoration: none; padding: 10px 14px; border-radius: 8px; }}
-                </style>
-            </head>
-            <body>
-                <div class='card'>
-                    <h2>Project Quotation</h2>
-                    <div class='meta'><strong>Quotation ID:</strong> {quotation_id}</div>
-                    <div class='meta'><strong>Client:</strong> {safe_client}</div>
-                    <div class='meta'><strong>Date:</strong> {quotation_date}</div>
-                    <div class='meta'><strong>Category:</strong> {safe_category}</div>
-                    <div class='meta'><strong>Project Size:</strong> {project_size:,.2f} sqm</div>
-                    <div class='meta'><strong>Markup:</strong> {markup:,.2f}%</div>
-                    <div class='meta'><strong>Total:</strong> USD {total_cost:,.2f}</div>
-                    <table>
-                        <thead>
-                            <tr><th>Item</th><th>Quantity (sqm)</th><th>Unit Rate (USD)</th><th>Total (USD)</th></tr>
-                        </thead>
-                        <tbody>{rows_html}</tbody>
-                    </table>
-                    <a class='btn' href='#' onclick='window.print(); return false;'>Download / Print</a>
-                </div>
-            </body>
-            </html>
-            """
-            return Response(page, mimetype='text/html')
-    except Exception as e:
-        logging.error(f"Error rendering shared quotation: {e}")
-        return Response("<h3>Could not load this quotation link.</h3>", mimetype='text/html', status=500)
+                send_status,
+                error_details,
+                whatsapp_message_id,
+                source_channel
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            quotation_id,
+            whatsapp_number,
+            client_name,
+            snapshot_category,
+            snapshot_project_size,
+            snapshot_total_cost,
+            snapshot_markup,
+            snapshot_quotation_date,
+            send_type,
+            send_status,
+            error_details,
+            whatsapp_message_id,
+            source_channel
+        ))
+        connection.commit()
 
 
 @app.route('/api/send-quotation-whatsapp', methods=['POST'])
 def send_quotation_whatsapp():
-    """Send quotation PDF to client WhatsApp number provided in quotation flow."""
+    """Send a quotation PDF to WhatsApp or fall back to the approved template outside the service window."""
     try:
-        if not ACCESS_TOKEN or not PHONE_NUMBER_ID:
-            return jsonify({
-                'success': False,
-                'error': 'WhatsApp API is not configured on this server'
-            }), 500
+        data = request.get_json() or {}
 
-        payload = request.get_json(silent=True) or {}
-        client_name = (payload.get('clientName') or 'Client').strip()
-        raw_number = payload.get('whatsappNumber') or payload.get('clientWhatsapp')
-        pdf_base64 = payload.get('pdfBase64') or ''
-        quotation_id = payload.get('quotationId')
+        client_name = data.get('clientName', 'Unknown')
+        whatsapp_number = normalize_whatsapp_number(data.get('whatsappNumber', ''))
+        quotation_id = data.get('quotationId')
+        pdf_base64 = data.get('pdfBase64', '')
 
-        whatsapp_number = normalize_whatsapp_number(raw_number)
         if not whatsapp_number:
-            return jsonify({
-                'success': False,
-                'error': 'A valid client WhatsApp number is required'
-            }), 400
+            return jsonify({'success': False, 'error': 'WhatsApp number is required'}), 400
+
+        if not quotation_id:
+            return jsonify({'success': False, 'error': 'Quotation ID is required'}), 400
 
         if not pdf_base64:
-            return jsonify({
-                'success': False,
-                'error': 'PDF payload is missing'
-            }), 400
+            return jsonify({'success': False, 'error': 'Quotation PDF is required'}), 400
 
         try:
-            pdf_bytes = base64.b64decode(pdf_base64, validate=True)
+            pdf_bytes = base64.b64decode(pdf_base64)
         except Exception:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid PDF payload'
-            }), 400
+            return jsonify({'success': False, 'error': 'Invalid PDF payload'}), 400
 
-        safe_client_name = ''.join(ch for ch in client_name if ch.isalnum() or ch in (' ', '_')).strip().replace(' ', '_')
-        safe_client_name = safe_client_name or 'Client'
-        filename = f'Quotation_{safe_client_name}_{int(time.time())}.pdf'
-        caption = f'Quotation for {client_name} from ConnectLink Properties'
+        safe_qid = int(quotation_id)
+        snapshot_category = data.get('category') or ''
+        snapshot_project_size = data.get('projectSize') or data.get('size') or 0
+        snapshot_total_cost = data.get('totalCost') or 0
+        snapshot_markup = data.get('markup') or 0
+        snapshot_quotation_date = data.get('quotationDate') or None
 
-        whatsapp_response = send_pdf_document_whatsapp(
-            whatsapp_number,
-            pdf_bytes,
-            filename,
-            caption
+        try:
+            with get_db() as (sc, _):
+                sc.execute("""
+                    SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                    FROM quotations
+                    WHERE id = %s
+                """, (safe_qid,))
+                srow = sc.fetchone()
+                if srow:
+                    snapshot_category = srow[0] if srow[0] is not None else snapshot_category
+                    snapshot_project_size = srow[1] if srow[1] is not None else snapshot_project_size
+                    snapshot_total_cost = srow[2] if srow[2] is not None else snapshot_total_cost
+                    snapshot_markup = srow[3] if srow[3] is not None else snapshot_markup
+                    snapshot_quotation_date = srow[4] if srow[4] is not None else snapshot_quotation_date
+        except Exception as snapshot_err:
+            logging.warning(f"Could not fetch quotation snapshot from DB: {snapshot_err}")
+
+        safe_name = ''.join(char for char in str(client_name) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+        filename = f"Quotation_{safe_name}_{safe_qid}.pdf"
+        caption = (
+            f"PROJECT QUOTATION\n\nClient: {client_name}\n"
+            f"Category: {snapshot_category or 'Construction'}\n"
+            f"Total: USD {float(snapshot_total_cost or 0):,.2f}\n\n"
+            "Send 'Hello' for more options."
         )
 
-        outbound_message_id = whatsapp_response.get('messages', [{}])[0].get('id', '')
+        whatsapp_response = send_pdf_document_whatsapp(whatsapp_number, pdf_bytes, filename, caption)
+        outbound_message_id = ((whatsapp_response or {}).get('messages') or [{}])[0].get('id', '')
+
         if quotation_id and outbound_message_id:
             try:
-                safe_qid = int(quotation_id)
-                snapshot_category = payload.get('category') or ''
-                snapshot_project_size = payload.get('projectSize') or payload.get('size') or 0
-                snapshot_total_cost = payload.get('totalCost') or 0
-                snapshot_markup = payload.get('markup') or 0
-                snapshot_quotation_date = payload.get('quotationDate') or None
-
-                try:
-                    with get_db() as (sc, _):
-                        sc.execute("""
-                            SELECT category, project_size, total_cost, markup_percentage, quotation_date
-                            FROM quotations
-                            WHERE id = %s
-                        """, (safe_qid,))
-                        srow = sc.fetchone()
-                        if srow:
-                            snapshot_category = srow[0] if srow[0] is not None else snapshot_category
-                            snapshot_project_size = srow[1] if srow[1] is not None else snapshot_project_size
-                            snapshot_total_cost = srow[2] if srow[2] is not None else snapshot_total_cost
-                            snapshot_markup = srow[3] if srow[3] is not None else snapshot_markup
-                            snapshot_quotation_date = srow[4] if srow[4] is not None else snapshot_quotation_date
-                except Exception as snapshot_err:
-                    logging.warning(f"Could not fetch quotation snapshot from DB: {snapshot_err}")
-
                 with get_db() as (oc, oconn):
                     oc.execute("""
                         INSERT INTO quotation_whatsapp_outbox
@@ -18575,17 +18292,20 @@ def send_quotation_whatsapp():
     except Exception as e:
         error_text = str(e)
         requires_template = is_template_window_error(error_text)
+        data = request.get_json(silent=True) or {}
+        quotation_id = data.get('quotationId')
+        client_name = data.get('clientName', 'Unknown')
+        whatsapp_number = normalize_whatsapp_number(data.get('whatsappNumber', ''))
 
         if requires_template and quotation_id:
             try:
                 safe_qid = int(quotation_id)
-
-                # Fetch category and project_size from saved quotation for template variables
                 q_category = ''
                 q_size = 0
                 q_total = 0
                 q_markup = 0
                 q_date = None
+
                 try:
                     with get_db() as (qc, _):
                         qc.execute("""
@@ -18605,8 +18325,11 @@ def send_quotation_whatsapp():
 
                 share_token = create_quotation_share_token(safe_qid)
                 template_response = send_quotation_download_template(
-                    whatsapp_number, share_token,
-                    client_name=client_name, category=q_category, project_size=q_size
+                    whatsapp_number,
+                    share_token,
+                    client_name=client_name,
+                    category=q_category,
+                    project_size=q_size
                 )
 
                 template_message_id = template_response.get('messages', [{}])[0].get('id', '')
@@ -18666,104 +18389,12 @@ def send_quotation_whatsapp():
             'hint': hint
         }), status_code
 
-@app.route('/api/save-quotation', methods=['POST'])
-def save_quotation():
-    """Save complete quotation with items and schedules to the database"""
-    try:
-        data = request.json
-        
-        # Check if data is None
-        if data is None:
-            return jsonify({
-                'success': False,
-                'error': 'No JSON data provided or invalid Content-Type'
-            }), 400
-        
-        client_name = data.get('clientName', 'Unknown')
-        client_whatsapp = data.get('clientWhatsapp', '')
-        quotation_date = data.get('quotationDate', date.today().isoformat())
-        category = data.get('category', 'General')
-        project_size = float(data.get('size', 0)) if data.get('size') else 0
-        total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
-        markup = float(data.get('markup', 0)) if data.get('markup') else 0
-        items = data.get('items', [])
-        schedules = data.get('schedules', [])
-        
-        with get_db() as (cursor, connection):
-            # Insert quotation header
-            cursor.execute("""
-                INSERT INTO quotations 
-                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup))
-            
-            quotation_id = cursor.fetchone()[0]
-            
-            # Insert quotation items
-            for idx, item in enumerate(items):
-                item_name = item.get('name') or item.get('item', 'Item')
-                quantity = float(item.get('sqm', 0)) if item.get('sqm') else 0
-                unit_rate = float(item.get('inhouseRate', 0)) if item.get('inhouseRate') else 0
-                total_price = float(item.get('total', 0)) if item.get('total') else 0
-                
-                cursor.execute("""
-                    INSERT INTO quotation_items
-                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    quotation_id,
-                    item_name,
-                    quantity,
-                    unit_rate,
-                    total_price,
-                    idx + 1
-                ))
-            
-            # Insert quotation schedules
-            for idx, schedule in enumerate(schedules):
-                work_scope = schedule.get('item', 'Task')
-                start_date = schedule.get('startDate')
-                end_date = schedule.get('endDate')
-                days = int(schedule.get('days', 0)) if schedule.get('days') else 0
-                
-                cursor.execute("""
-                    INSERT INTO quotation_schedules
-                    (quotation_id, work_scope, start_date, end_date, days, task_order)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    quotation_id,
-                    work_scope,
-                    start_date,
-                    end_date,
-                    days,
-                    idx + 1
-                ))
-            
-            connection.commit()
-            
-            return jsonify({
-                'success': True,
-                'message': 'Quotation saved successfully',
-                'quotation_id': quotation_id
-            })
-    except Exception as e:
-        logging.error(f'Error saving quotation: {str(e)}')
-        if 'connection' in locals():
-            connection.rollback()
-        return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
 
 @app.route('/api/update-quotation/<int:quotation_id>', methods=['PUT'])
 def update_quotation(quotation_id):
-    """Update an existing quotation's header, items and schedules"""
+    """Update an existing quotation with its items and schedules."""
     try:
-        data = request.json
-        if data is None:
-            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
-
+        data = request.get_json() or {}
         client_name = data.get('clientName', 'Unknown')
         client_whatsapp = data.get('clientWhatsapp', '')
         quotation_date = data.get('quotationDate', date.today().isoformat())
@@ -18855,8 +18486,7 @@ def get_quotations():
                     'count': 0,
                     'message': 'No quotations yet'
                 })
-            
-            # Get all quotations with client download status from share link interactions
+
             cursor.execute("""
                 SELECT
                     q.id,
@@ -18867,72 +18497,73 @@ def get_quotations():
                     q.project_size,
                     q.total_cost,
                     q.markup_percentage,
-                    q.created_at,
-                    COALESCE(MAX(CASE WHEN qsl.download_pdf_sent_success THEN 1 ELSE 0 END), 0) AS was_downloaded,
-                    MAX(qsl.download_clicked_at) AS last_download_clicked_at,
-                    MAX(qsl.download_pdf_sent_at) AS last_download_sent_at
+                    COALESCE(qs.downloaded, FALSE) AS downloaded,
+                    qs.download_clicked_at,
+                    qs.download_pdf_sent_at
                 FROM quotations q
-                LEFT JOIN quotation_share_links qsl ON q.id = qsl.quotation_id
-                GROUP BY q.id, q.client_name, q.client_whatsapp, q.quotation_date, q.category, q.project_size, q.total_cost, q.markup_percentage, q.created_at
-                ORDER BY q.created_at DESC
+                LEFT JOIN (
+                    SELECT
+                        quotation_id,
+                        MAX(download_pdf_sent_success) AS downloaded,
+                        MAX(download_clicked_at) AS download_clicked_at,
+                        MAX(download_pdf_sent_at) AS download_pdf_sent_at
+                    FROM quotation_share_links
+                    GROUP BY quotation_id
+                ) qs ON qs.quotation_id = q.id
+                ORDER BY q.created_at DESC, q.id DESC
             """)
             quotations = cursor.fetchall()
-            
+
+            cursor.execute("""
+                SELECT quotation_id, item_name, quantity, unit_rate, total_price
+                FROM quotation_items
+                ORDER BY quotation_id, item_order, id
+            """)
+            items_by_quotation = {}
+            for row in cursor.fetchall():
+                items_by_quotation.setdefault(row[0], []).append({
+                    'name': row[1] or 'Item',
+                    'quantity': float(row[2]) if row[2] else 0,
+                    'unitRate': float(row[3]) if row[3] else 0,
+                    'totalPrice': float(row[4]) if row[4] else 0
+                })
+
+            schedules_by_quotation = {}
+            try:
+                cursor.execute("""
+                    SELECT quotation_id, work_scope, start_date, end_date, days
+                    FROM quotation_schedules
+                    ORDER BY quotation_id, task_order, id
+                """)
+                for row in cursor.fetchall():
+                    schedules_by_quotation.setdefault(row[0], []).append({
+                        'workScope': row[1] or 'Task',
+                        'startDate': row[2].isoformat() if row[2] else None,
+                        'endDate': row[3].isoformat() if row[3] else None,
+                        'days': int(row[4]) if row[4] else 0
+                    })
+            except Exception:
+                schedules_by_quotation = {}
+
             result = []
             for quotation in quotations:
                 quotation_id = quotation[0]
-                
-                # Get items for this quotation
-                cursor.execute("""
-                    SELECT item_name, quantity, unit_rate, total_price, item_order
-                    FROM quotation_items
-                    WHERE quotation_id = %s
-                    ORDER BY item_order ASC
-                """, (quotation_id,))
-                items = cursor.fetchall()
-                
-                # Get schedules for this quotation
-                cursor.execute("""
-                    SELECT work_scope, start_date, end_date, days, task_order
-                    FROM quotation_schedules
-                    WHERE quotation_id = %s
-                    ORDER BY task_order ASC
-                """, (quotation_id,))
-                schedules = cursor.fetchall()
-                
                 result.append({
                     'id': quotation_id,
-                    'clientName': quotation[1],
+                    'clientName': quotation[1] or 'Client',
                     'clientWhatsapp': quotation[2] or '',
                     'quotationDate': quotation[3].isoformat() if quotation[3] else None,
-                    'category': quotation[4],
+                    'category': quotation[4] or '',
                     'projectSize': float(quotation[5]) if quotation[5] else 0,
-                    'totalCost': float(quotation[6]),
+                    'totalCost': float(quotation[6]) if quotation[6] else 0,
                     'markup': float(quotation[7]) if quotation[7] else 0,
-                    'items': [
-                        {
-                            'name': item[0],
-                            'quantity': float(item[1]) if item[1] else 0,
-                            'unitRate': float(item[2]) if item[2] else 0,
-                            'totalPrice': float(item[3]) if item[3] else 0
-                        }
-                        for item in items
-                    ],
-                    'schedules': [
-                        {
-                            'workScope': schedule[0],
-                            'startDate': schedule[1].isoformat() if schedule[1] else None,
-                            'endDate': schedule[2].isoformat() if schedule[2] else None,
-                            'days': int(schedule[3]) if schedule[3] else 0
-                        }
-                        for schedule in schedules
-                    ],
-                    'createdAt': quotation[8].isoformat() if quotation[8] else None,
-                    'downloaded': bool(quotation[9]),
-                    'downloadClickedAt': quotation[10].isoformat() if quotation[10] else None,
-                    'downloadSentAt': quotation[11].isoformat() if quotation[11] else None
+                    'items': items_by_quotation.get(quotation_id, []),
+                    'schedules': schedules_by_quotation.get(quotation_id, []),
+                    'downloaded': bool(quotation[8]),
+                    'downloadClickedAt': quotation[9].isoformat() if quotation[9] else None,
+                    'downloadSentAt': quotation[10].isoformat() if quotation[10] else None
                 })
-            
+
             return jsonify({
                 'success': True,
                 'data': result,
