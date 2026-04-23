@@ -17979,51 +17979,169 @@ def build_quotation_pdf_document(quotation_id):
     with open(logo_path, 'rb') as img_f:
         logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
 
-    items_rows = ''.join(
-        f"<tr><td>{html.escape(str(item[0]))}</td><td>{float(item[1]):,.2f}</td><td>{float(item[2]):,.6f}</td><td>{float(item[3]):,.2f}</td></tr>"
-        for item in items
-    )
-    sched_rows = ''.join(
-        f"<tr><td>{html.escape(str(schedule[0]))}</td><td>{schedule[1]}</td><td>{schedule[2]}</td><td>{int(schedule[3]) if schedule[3] else 0}</td></tr>"
-        for schedule in schedules
-    )
+        def fmt_pdf_date(value):
+                if hasattr(value, 'strftime'):
+                        return value.strftime('%d %B %Y')
+                return html.escape(str(value or ''))
 
-    quot_html = f"""
-    <!doctype html><html><head><meta charset='utf-8'>
-    <style>
-      @page {{size:A4;margin:10mm}}
-      body{{font-family:Arial,sans-serif;font-size:11px;color:#1E2A56}}
-      img{{width:120px}}
-      h1{{font-size:15px;font-weight:900;margin:6px 0}}
-      table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:10px}}
-      th{{background:#1E2A56;color:#fff;padding:5px;text-align:left}}
-      td{{padding:4px 5px;border-bottom:1px solid #e0e3ef}}
-      .sum{{display:flex;gap:8px;margin:8px 0}}
-      .sum-box{{flex:1;background:#f4f6fb;border:1px solid #d0d5e8;border-radius:6px;padding:6px;text-align:center}}
-      .sum-val{{font-size:12px;font-weight:bold}}
-      .sec{{margin-top:10px;font-weight:bold;font-size:11px;color:#1E2A56;border-bottom:1px solid #1E2A56;padding-bottom:2px}}
-    </style></head><body>
-    <img src='data:image/png;base64,{logo_b64}'>
-    <h1>Project Quotation</h1>
-    <div class='sec'>PROJECT DETAILS</div>
-    <table><tr><td><b>Client:</b> {html.escape(client_name)}</td><td><b>Date:</b> {quotation_date}</td></tr>
-    <tr><td><b>Category:</b> {html.escape(category)}</td><td><b>Size:</b> {project_size:,.2f} sqm</td></tr></table>
-    <div class='sec'>QUOTATION SUMMARY</div>
-    <div class='sum'>
-      <div class='sum-box'><div>Total</div><div class='sum-val'>USD {total_cost:,.2f}</div></div>
-      <div class='sum-box'><div>Deposit (30%)</div><div class='sum-val'>USD {deposit:,.2f}</div></div>
-      <div class='sum-box'><div>Balance</div><div class='sum-val'>USD {balance:,.2f}</div></div>
-      <div class='sum-box'><div>Monthly (5 months)</div><div class='sum-val'>USD {monthly:,.2f}</div></div>
-    </div>
-    <div class='sec'>CONSTRUCTION ITEMS</div>
-    <table><thead><tr><th>Item</th><th>Qty (sqm)</th><th>Unit Rate</th><th>Total (USD)</th></tr></thead>
-    <tbody>{items_rows}</tbody></table>
-    <div class='sec'>PROJECT SCHEDULE</div>
-    <table><thead><tr><th>Task</th><th>Start</th><th>End</th><th>Days</th></tr></thead>
-    <tbody>{sched_rows}</tbody></table>
-    <div style='margin-top:12px;font-size:9px;color:#888'>ConnectLink Properties • info@connectlinkproperties.co.zw • +263 773368558</div>
-    </body></html>
-    """
+        items_rows = ''
+        for index, item in enumerate(items, start=1):
+                item_name = html.escape(str(item[0] or ''))
+                qty = float(item[1]) if item[1] else 0
+                rate = float(item[2]) if item[2] else 0
+                total = float(item[3]) if item[3] else 0
+                bg = '#ffffff' if index % 2 else '#fafbff'
+                items_rows += (
+                        f"<tr style='background:{bg}; page-break-inside:avoid; break-inside:avoid;'>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef; font-weight:700; text-align:center;'>{index}</td>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef;'>{item_name}</td>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center;'>{qty:,.2f}</td>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right;'>USD {rate:,.2f}</td>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right; font-weight:700; color:#1E2A56;'>USD {total:,.2f}</td>"
+                        "</tr>"
+                )
+
+        if not items_rows:
+                items_rows = (
+                        "<tr><td colspan='5' style='padding:14px 10px; border:1px solid #d8deef; text-align:center; color:#5a678a;'>"
+                        "No quotation items available.</td></tr>"
+                )
+
+        sched_rows = ''
+        for index, schedule in enumerate(schedules, start=1):
+                work_scope = html.escape(str(schedule[0] or 'Item'))
+                start_date = fmt_pdf_date(schedule[1])
+                end_date = fmt_pdf_date(schedule[2])
+                days = int(schedule[3]) if schedule[3] else 0
+                bg = '#ffffff' if index % 2 else '#fafbff'
+                sched_rows += (
+                        f"<tr style='background:{bg}; page-break-inside:avoid; break-inside:avoid;'>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef; font-weight:700; text-align:center;'>{index}</td>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef;'>{work_scope}</td>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center;'>{start_date}</td>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center;'>{end_date}</td>"
+                        f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center; font-weight:700; color:#1E2A56;'>{days}</td>"
+                        "</tr>"
+                )
+
+        if not sched_rows:
+                sched_rows = (
+                        "<tr><td colspan='5' style='padding:14px 10px; border:1px solid #d8deef; text-align:center; color:#5a678a;'>"
+                        "No project schedule available.</td></tr>"
+                )
+
+        quot_html = f"""
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset='utf-8'>
+            <style>
+                @page {{ size:A4; margin:6mm; }}
+                body {{ font-family: Arial, sans-serif; background:#ffffff; color:#1E2A56; margin:0; padding:0; }}
+            </style>
+        </head>
+        <body>
+            <div style='background:#ffffff; width:100%; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px; box-sizing:border-box;'>
+                <img src='data:image/png;base64,{logo_b64}' alt='ConnectLink Logo' style='display:block; margin:0 auto 10px auto; width:130px; max-width:100%;'>
+                <h1 style='margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56; text-transform:uppercase; letter-spacing:1px;'>Project Quotation</h1>
+                <div style='width:100px; height:2px; background:#1E2A56; margin:0 auto 14px auto; border-radius:10px;'></div>
+
+                <p style='font-size:12px; margin:0 0 12px 0; line-height:1.5;'>This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{html.escape(client_name)}</strong>.</p>
+
+                <div style='page-break-inside:avoid; break-inside:avoid;'>
+                    <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>PROJECT DETAILS</h4>
+                    <div style='display:table; width:100%; table-layout:fixed; margin-bottom:20px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; box-sizing:border-box;'>
+                        <div style='display:table-cell; width:50%; vertical-align:top; padding-right:10px; box-sizing:border-box;'>
+                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Client Name:</strong> <span>{html.escape(client_name)}</span></div>
+                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Project Size:</strong> <span>{project_size:,.2f} Sq. Meters</span></div>
+                        </div>
+                        <div style='display:table-cell; width:50%; vertical-align:top; padding-left:10px; box-sizing:border-box;'>
+                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Category:</strong> <span>{html.escape(category)}</span></div>
+                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Date:</strong> <span>{quotation_date}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style='page-break-inside:avoid; break-inside:avoid;'>
+                    <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
+                    <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
+                        <div style='display:table; width:100%; table-layout:fixed;'>
+                            <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
+                                <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Total Amount</div>
+                                <div style='font-size:14px; font-weight:900; color:#1E2A56;'>USD {total_cost:,.2f}</div>
+                            </div>
+                            <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
+                                <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Deposit (30%)</div>
+                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {deposit:,.2f}</div>
+                            </div>
+                            <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
+                                <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Balance</div>
+                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {balance:,.2f}</div>
+                            </div>
+                            <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; box-sizing:border-box;'>
+                                <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Monthly Installments (over 5 months)</div>
+                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {monthly:,.2f}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style='page-break-inside:avoid; break-inside:avoid;'>
+                    <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>CONSTRUCTION ITEMS</h4>
+                    <table style='width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px;'>
+                        <thead>
+                            <tr style='background:#1E2A56; color:white;'>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:7%;'>#</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:left; width:43%;'>Item Description</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:15%;'>Qty (Sq.M)</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:right; width:17%;'>Unit Rate</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:right; width:18%;'>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>{items_rows}</tbody>
+                    </table>
+                </div>
+
+                <div style='page-break-inside:avoid; break-inside:avoid;'>
+                    <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>PROJECT SCHEDULE</h4>
+                    <table style='width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px;'>
+                        <thead>
+                            <tr style='background:#1E2A56; color:white;'>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:7%;'>#</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:left; width:41%;'>Work Scope</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:18%;'>Start Date</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:18%;'>End Date</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:16%;'>Days</th>
+                            </tr>
+                        </thead>
+                        <tbody>{sched_rows}</tbody>
+                    </table>
+                </div>
+
+                <div style='page-break-inside:avoid; break-inside:avoid;'>
+                    <div style='display:table; width:100%; table-layout:fixed; margin-top:6px;'>
+                        <div style='display:table-cell; width:50%; vertical-align:top; padding-right:8px; box-sizing:border-box;'>
+                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.6; min-height:132px;'>
+                                <strong>Important Note:</strong> This quotation is valid for 30 days from the date of issue. Please confirm your requirement before expiry. All prices are in USD and payment terms will be finalized in the formal agreement.
+                                <div style='margin-top:8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
+                            </div>
+                        </div>
+                        <div style='display:table-cell; width:50%; vertical-align:top; padding-left:8px; box-sizing:border-box;'>
+                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.7; min-height:132px;'>
+                                <strong style='display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px;'>Banking Details</strong>
+                                <div><strong>Bank:</strong> ZB BANK</div>
+                                <div><strong>Branch:</strong> Msasa</div>
+                                <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+                                <div><strong>Account No:</strong> 450600586638405</div>
+                                <div><strong>Account Type:</strong> USD Account</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
 
     pdf_bytes = HTML(string=quot_html).write_pdf()
     safe_name = ''.join(char for char in client_name if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
