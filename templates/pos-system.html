@@ -699,29 +699,32 @@
             body.receipt-print-mode #receiptModal {
                 position: absolute !important;
                 inset: 0 auto auto 0 !important;
-                width: 210mm !important; /* ISO A4 width */
-                max-width: 210mm !important;
-                min-height: 297mm !important; /* ISO A4 height */
+                width: 100% !important;
+                max-width: none !important;
+                min-height: 100% !important;
                 margin: 0 !important;
-                padding: 0 !important;
+                padding: 24mm 16mm 24mm 16mm !important;
                 display: block !important;
                 background: #fff !important;
                 z-index: 99999 !important;
+                font-size: 18px !important;
+                line-height: 1.6 !important;
             }
 
             body.receipt-print-mode #receiptModal .modal-dialog {
                 margin: 0 !important;
-                max-width: 210mm !important;
-                width: 210mm !important;
-                min-height: 297mm !important;
+                max-width: none !important;
+                width: 100% !important;
+                min-height: 100% !important;
             }
 
             body.receipt-print-mode #receiptModal .modal-content {
                 border: none !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
-                width: 210mm !important;
-                min-height: 297mm !important;
+                width: 100% !important;
+                min-height: 100% !important;
+                background: #fff !important;
             }
 
             body.receipt-print-mode #receiptModal .modal-header,
@@ -733,6 +736,8 @@
 
             body.receipt-print-mode #receiptContent {
                 padding: 0 !important;
+                font-size: 18px !important;
+                line-height: 1.6 !important;
             }
 
             body.receipt-print-mode #receiptContent img {
