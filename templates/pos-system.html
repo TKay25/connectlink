@@ -2231,6 +2231,7 @@
                 </div>
                 <div class="modal-body" id="receiptContent"></div>
                 <div class="modal-footer">
+                    <button class="btn btn-sm btn-success" onclick="downloadReceipt()">Download</button>
                     <button class="btn btn-sm btn-primary-dark" onclick="printReceipt()">Print</button>
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
@@ -6050,9 +6051,31 @@ function setupAddProductFundingSelection() {
                         display: table-cell;
                         padding: 2px 4px;
                     }
+                    .print-controls {
+                        margin-bottom: 8px;
+                        text-align: center;
+                    }
+                    .print-controls button {
+                        border: 1px solid #999;
+                        background: #f5f5f5;
+                        color: #222;
+                        padding: 4px 8px;
+                        font-size: 11px;
+                        cursor: pointer;
+                    }
+                    @media print {
+                        .print-controls {
+                            display: none;
+                        }
+                    }
                 </style>
             </head>
-            <body>${content}</body>
+            <body>
+                <div class="print-controls">
+                    <button onclick="window.close()">Close Window</button>
+                </div>
+                ${content}
+            </body>
             </html>
         `;
 
@@ -6071,10 +6094,6 @@ function setupAddProductFundingSelection() {
                         // Small delay to ensure rendering is complete
                         setTimeout(() => {
                             popup.print();
-                            // Close popup after print dialog is dismissed (1-2 seconds)
-                            setTimeout(() => {
-                                try { popup.close(); } catch (e) {}
-                            }, 1500);
                         }, 300);
                     } catch (e) {
                         console.error('Print error:', e);
@@ -6113,13 +6132,12 @@ function setupAddProductFundingSelection() {
             setTimeout(() => {
                 try {
                     iframe.contentWindow.focus();
-                    iframe.contentWindow.print();
-                    
-                    setTimeout(() => {
+                    iframe.contentWindow.onafterprint = () => {
                         if (iframe && iframe.parentNode) {
                             iframe.parentNode.removeChild(iframe);
                         }
-                    }, 1500);
+                    };
+                    iframe.contentWindow.print();
                 } catch (e) {
                     console.error('Iframe print error:', e);
                     if (typeof showToast === 'function') {
@@ -6132,6 +6150,88 @@ function setupAddProductFundingSelection() {
             if (typeof showToast === 'function') {
                 showToast('Unable to print receipt. Please try again.', 'error');
             }
+        }
+    }
+
+    function downloadReceipt() {
+        const contentEl = document.getElementById('receiptContent');
+        const content = contentEl ? contentEl.innerHTML : '';
+        if (!content) {
+            if (typeof showToast === 'function') showToast('Receipt preview is empty. Open a receipt first.', 'error');
+            return;
+        }
+
+        const printableHtml = `
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Receipt</title>
+                <style>
+                    body {
+                        font-family: 'Courier New', monospace;
+                        margin: 0;
+                        padding: 10px;
+                        font-size: 12px;
+                        line-height: 1.4;
+                        background: white;
+                        max-width: 300px;
+                    }
+                    * {
+                        margin: 0;
+                        padding: 0;
+                    }
+                    hr {
+                        border: none;
+                        border-top: 1px solid #000;
+                        margin: 5px 0;
+                    }
+                    img {
+                        max-width: 100%;
+                        height: auto;
+                    }
+                    h6 {
+                        font-size: 14px;
+                        margin: 5px 0;
+                    }
+                    small {
+                        font-size: 10px;
+                    }
+                    .d-flex {
+                        display: table;
+                        width: 100%;
+                    }
+                    .d-flex > div {
+                        display: table-cell;
+                        padding: 2px 4px;
+                    }
+                </style>
+            </head>
+            <body>${content}</body>
+            </html>
+        `;
+
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = content;
+        const plainText = tempContainer.textContent || '';
+        const txMatch = plainText.match(/Transaction\s*#:\s*([A-Za-z0-9\-_]+)/i);
+
+        const now = new Date();
+        const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+        const txPart = txMatch ? txMatch[1] : stamp;
+        const fileName = `receipt-${txPart}.html`;
+
+        const blob = new Blob([printableHtml], { type: 'text/html;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+
+        if (typeof showToast === 'function') {
+            showToast(`Receipt downloaded: ${fileName}`, 'success');
         }
     }
     
