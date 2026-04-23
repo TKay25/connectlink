@@ -5219,6 +5219,59 @@ def webhook():
                                                                         response = requests.post(url, headers=headers, json=payload)
                                                                         response_data = response.json()
 
+                                                                        if (not use_attachment_template) and isinstance(response_data, dict) and response_data.get('error'):
+                                                                            error_data = response_data.get('error', {})
+                                                                            error_details = str((error_data.get('error_data') or {}).get('details', '')).lower()
+
+                                                                            # Some approved versions of enqauto2 include a button component.
+                                                                            # Retry with common button variants when Meta reports component mismatch.
+                                                                            if error_data.get('code') == 132000 or 'button' in error_details:
+                                                                                fallback_component_sets = [
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "quick_reply",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "payload", "payload": f"contact_client_{enquiry_data.get('enquiry_id')}"}
+                                                                                        ]
+                                                                                    }],
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "url",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "text", "text": wa_link}
+                                                                                        ]
+                                                                                    }],
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "quick_reply",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "text", "text": wa_link}
+                                                                                        ]
+                                                                                    }]
+                                                                                ]
+
+                                                                                for fallback_components in fallback_component_sets:
+                                                                                    fallback_payload = {
+                                                                                        "messaging_product": "whatsapp",
+                                                                                        "recipient_type": "individual",
+                                                                                        "to": admin_number,
+                                                                                        "type": "template",
+                                                                                        "template": {
+                                                                                            "name": template_name,
+                                                                                            "language": {"code": "en"},
+                                                                                            "components": fallback_components
+                                                                                        }
+                                                                                    }
+                                                                                    fallback_response = requests.post(url, headers=headers, json=fallback_payload)
+                                                                                    fallback_data = fallback_response.json()
+                                                                                    if isinstance(fallback_data, dict) and not fallback_data.get('error'):
+                                                                                        print("✅ enqauto2 sent after fallback with button component")
+                                                                                        response_data = fallback_data
+                                                                                        break
+
                                                                         if use_attachment_template:
                                                                             message_id = ((response_data.get('messages') or [{}])[0]).get('id') if isinstance(response_data, dict) else None
                                                                             if message_id:
@@ -7797,6 +7850,59 @@ def webhook():
 
                                                                         response = requests.post(url, headers=headers, json=payload)
                                                                         response_data = response.json()
+
+                                                                        if (not use_attachment_template) and isinstance(response_data, dict) and response_data.get('error'):
+                                                                            error_data = response_data.get('error', {})
+                                                                            error_details = str((error_data.get('error_data') or {}).get('details', '')).lower()
+
+                                                                            # Some approved versions of enqauto2 include a button component.
+                                                                            # Retry with common button variants when Meta reports component mismatch.
+                                                                            if error_data.get('code') == 132000 or 'button' in error_details:
+                                                                                fallback_component_sets = [
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "quick_reply",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "payload", "payload": f"contact_client_{enquiry_data.get('enquiry_id')}"}
+                                                                                        ]
+                                                                                    }],
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "url",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "text", "text": wa_link}
+                                                                                        ]
+                                                                                    }],
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "quick_reply",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "text", "text": wa_link}
+                                                                                        ]
+                                                                                    }]
+                                                                                ]
+
+                                                                                for fallback_components in fallback_component_sets:
+                                                                                    fallback_payload = {
+                                                                                        "messaging_product": "whatsapp",
+                                                                                        "recipient_type": "individual",
+                                                                                        "to": admin_number,
+                                                                                        "type": "template",
+                                                                                        "template": {
+                                                                                            "name": template_name,
+                                                                                            "language": {"code": "en"},
+                                                                                            "components": fallback_components
+                                                                                        }
+                                                                                    }
+                                                                                    fallback_response = requests.post(url, headers=headers, json=fallback_payload)
+                                                                                    fallback_data = fallback_response.json()
+                                                                                    if isinstance(fallback_data, dict) and not fallback_data.get('error'):
+                                                                                        print("✅ enqauto2 sent after fallback with button component")
+                                                                                        response_data = fallback_data
+                                                                                        break
 
                                                                         if use_attachment_template:
                                                                             message_id = ((response_data.get('messages') or [{}])[0]).get('id') if isinstance(response_data, dict) else None
@@ -18895,6 +19001,75 @@ def update_quotation(quotation_id):
         })
     except Exception as e:
         logging.error(f'Error updating quotation {quotation_id}: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/save-quotation', methods=['POST'])
+def save_quotation():
+    """Create a new quotation with items and schedules."""
+    try:
+        data = request.get_json() or {}
+        client_name = data.get('clientName', 'Unknown')
+        client_whatsapp = data.get('clientWhatsapp', '')
+        quotation_date = data.get('quotationDate', date.today().isoformat())
+        category = data.get('category', 'General')
+        project_size = float(data.get('size', 0)) if data.get('size') else 0
+        total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
+        markup = float(data.get('markup', 0)) if data.get('markup') else 0
+        items = data.get('items', [])
+        schedules = data.get('schedules', [])
+
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                """
+                INSERT INTO quotations
+                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup)
+            )
+            quotation_id = cursor.fetchone()[0]
+
+            for idx, item in enumerate(items):
+                item_name = item.get('name') or item.get('item', 'Item')
+                quantity = float(item.get('sqm', 0)) if item.get('sqm') else 0
+                unit_rate = float(item.get('inhouseRate', 0)) if item.get('inhouseRate') else 0
+                total_price = float(item.get('total', 0)) if item.get('total') else 0
+                cursor.execute(
+                    """
+                    INSERT INTO quotation_items
+                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1)
+                )
+
+            for idx, schedule in enumerate(schedules):
+                work_scope = schedule.get('item', 'Task')
+                start_date = schedule.get('startDate')
+                end_date = schedule.get('endDate')
+                days = int(schedule.get('days', 0)) if schedule.get('days') else 0
+                cursor.execute(
+                    """
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (quotation_id, work_scope, start_date, end_date, days, idx + 1)
+                )
+
+            connection.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Quotation saved successfully',
+            'quotation_id': quotation_id
+        })
+    except Exception as e:
+        logging.error(f'Error saving quotation: {str(e)}')
         if 'connection' in locals():
             connection.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
