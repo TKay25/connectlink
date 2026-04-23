@@ -692,45 +692,28 @@
                             line-height: 1.7 !important;
                         }
             body.receipt-print-mode > * {
-                visibility: hidden !important;
+                display: none !important;
             }
 
             body.receipt-print-mode #receiptModal,
             body.receipt-print-mode #receiptModal * {
+                display: block !important;
                 visibility: visible !important;
             }
 
             body.receipt-print-mode #receiptModal {
-                position: absolute !important;
-                inset: 0 auto auto 0 !important;
+                position: static !important;
                 width: 100% !important;
-                max-width: none !important;
-                min-height: 100% !important;
+                max-width: 100% !important;
+                min-height: 0 !important;
                 margin: 0 !important;
-                padding: 24mm 16mm 24mm 16mm !important;
-                display: block !important;
-                background: #fff !important;
-                z-index: 99999 !important;
-                font-size: 18px !important;
-                line-height: 1.6 !important;
-            }
-
-            body.receipt-print-mode #receiptModal .modal-dialog {
-                margin: 0 !important;
-                max-width: none !important;
-                width: 100% !important;
-                min-height: 100% !important;
-            }
-
-            body.receipt-print-mode #receiptModal .modal-content {
-                border: none !important;
+                padding: 0 !important;
+                background: none !important;
                 box-shadow: none !important;
-                border-radius: 0 !important;
-                width: 100% !important;
-                min-height: 100% !important;
-                background: #fff !important;
             }
 
+            body.receipt-print-mode #receiptModal .modal-dialog,
+            body.receipt-print-mode #receiptModal .modal-content,
             body.receipt-print-mode #receiptModal .modal-header,
             body.receipt-print-mode #receiptModal .modal-footer,
             body.receipt-print-mode #receiptModal .btn-close,
@@ -739,9 +722,15 @@
             }
 
             body.receipt-print-mode #receiptContent {
-                padding: 0 !important;
-                font-size: 18px !important;
-                line-height: 1.6 !important;
+                display: block !important;
+                margin: 0 auto !important;
+                padding: 24mm 16mm 24mm 16mm !important;
+                font-size: 20px !important;
+                line-height: 1.7 !important;
+                background: #fff !important;
+                width: 100% !important;
+                max-width: 180mm !important;
+                page-break-inside: avoid !important;
             }
 
             body.receipt-print-mode #receiptContent img {
