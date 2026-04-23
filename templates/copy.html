@@ -7311,6 +7311,13 @@ function deleteSelectedEnquiries() {
         alert('Please select enquiries to delete');
         return;
     }
+
+    const passcode = prompt('Enter Admin Permission Passcode to delete selected enquiries:');
+    if (passcode === null) return;
+    if (!passcode.trim()) {
+        alert('Admin passcode is required.');
+        return;
+    }
     
     if (!confirm(`Delete ${selectedEnquiries.size} selected enquiry(s)?`)) {
         return;
@@ -7319,7 +7326,10 @@ function deleteSelectedEnquiries() {
     fetch('/batch_delete_enquiries', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({enquiry_ids: Array.from(selectedEnquiries)})
+        body: JSON.stringify({
+            enquiry_ids: Array.from(selectedEnquiries),
+            admin_passcode: passcode.trim()
+        })
     })
     .then(response => response.json())
     .then(data => {
@@ -7339,12 +7349,22 @@ function deleteSelectedEnquiries() {
 
 // Delete single enquiry
 function deleteEnquiry(id) {
+    const passcode = prompt('Enter Admin Permission Passcode to delete this enquiry:');
+    if (passcode === null) return;
+    if (!passcode.trim()) {
+        alert('Admin passcode is required.');
+        return;
+    }
+
     if (!confirm('Delete this enquiry?')) return;
     
     fetch('/delete_temp_enquiry', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({enquiry_id: id})
+        body: JSON.stringify({
+            enquiry_id: id,
+            admin_passcode: passcode.trim()
+        })
     })
     .then(response => response.json())
     .then(data => {

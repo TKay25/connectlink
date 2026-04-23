@@ -12259,8 +12259,15 @@ def delete_temp_enquiry():
     with get_db() as (cursor, connection):
 
         try:
-            data = request.json
+            data = request.json or {}
             enquiry_id = data.get('enquiry_id')
+            admin_passcode = (data.get('admin_passcode') or '').strip()
+
+            if admin_passcode != "conlink01admin01":
+                return jsonify({'success': False, 'message': 'Invalid Admin Permission Passcode.'}), 403
+
+            if not enquiry_id:
+                return jsonify({'success': False, 'message': 'Missing enquiry id.'}), 400
             
             cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (enquiry_id,))
             connection.commit()
@@ -12277,8 +12284,15 @@ def batch_delete_enquiries():
     with get_db() as (cursor, connection):
 
         try:
-            data = request.json
+            data = request.json or {}
             enquiry_ids = data.get('enquiry_ids', [])
+            admin_passcode = (data.get('admin_passcode') or '').strip()
+
+            if admin_passcode != "conlink01admin01":
+                return jsonify({'success': False, 'message': 'Invalid Admin Permission Passcode.'}), 403
+
+            if not enquiry_ids:
+                return jsonify({'success': False, 'message': 'No enquiries selected.'}), 400
             
             if enquiry_ids:
                 placeholders = ','.join(['%s'] * len(enquiry_ids))
