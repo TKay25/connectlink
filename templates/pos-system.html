@@ -1,4 +1,3 @@
-  
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -518,61 +517,6 @@
             white-space: nowrap;
         }
 
-      /* Tablet Portrait Layout Improvements (only for small screens) */
-        @media (max-width: 900px) and (orientation: portrait) {
-            .sidebar {
-                position: static;
-                width: 100vw !important;
-                height: auto !important;
-                min-height: 0 !important;
-                box-shadow: none !important;
-                border-radius: 0 !important;
-                z-index: 1000;
-                display: flex;
-                flex-direction: row;
-                flex-wrap: wrap;
-                align-items: center;
-                justify-content: flex-start;
-                padding: 0 0 8px 0;
-            }
-            .sidebar-header, .sidebar-menu {
-                width: 100%;
-                text-align: center;
-                padding: 8px 0;
-            }
-            .main-content {
-                margin-left: 0 !important;
-                margin-top: 0 !important;
-                width: 100vw !important;
-                min-width: 0 !important;
-                padding: 8px !important;
-            }
-            /* Always show the toggle-sidebar (hamburger) in portrait mode */
-            .toggle-sidebar {
-                display: flex !important;
-                position: fixed;
-                left: 12px !important;
-                top: 12px !important;
-                z-index: 1100;
-            }
-            .stat-card, .section-card, .product-card, .product-card-compact {
-                width: 100% !important;
-                min-width: 0 !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-            }
-            .top-bar {
-                border-radius: 0 !important;
-                margin-bottom: 8px !important;
-                padding: 8px 4px !important;
-            }
-            .modal-dialog {
-                margin: 0 auto !important;
-                max-width: 98vw !important;
-                width: 98vw !important;
-            }
-        }
-
         @keyframes slideDown {
             from {
                 transform: translateX(-50%) translateY(-100px);
@@ -740,86 +684,6 @@
         /* Payment loader modal highest */
         #paymentLoaderModal {
             z-index: 1070 !important;
-        }
-
-        @media print {
-            body.receipt-print-mode, body.receipt-print-mode * {
-                font-size: 26px !important;
-                line-height: 1.8 !important;
-            }
-            body.receipt-print-mode > * {
-                display: none !important;
-            }
-
-            body.receipt-print-mode #receiptModal,
-            body.receipt-print-mode #receiptModal * {
-                display: block !important;
-                visibility: visible !important;
-            }
-
-            body.receipt-print-mode #receiptModal {
-                position: static !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                min-height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                background: none !important;
-                box-shadow: none !important;
-            }
-
-            body.receipt-print-mode #receiptModal .modal-dialog,
-            body.receipt-print-mode #receiptModal .modal-content,
-            body.receipt-print-mode #receiptModal .modal-header,
-            body.receipt-print-mode #receiptModal .modal-footer,
-            body.receipt-print-mode #receiptModal .btn-close,
-            body.receipt-print-mode .modal-backdrop {
-                display: none !important;
-            }
-
-            body.receipt-print-mode #receiptContent {
-                display: block !important;
-                margin: 0 !important;
-                padding: 1mm 1mm 1mm 1mm !important;
-                font-size: 24px !important;
-                line-height: 1.1 !important;
-                background: #fff !important;
-                width: 100% !important;
-                max-width: 180mm !important;
-                page-break-inside: avoid !important;
-            }
-            body.receipt-print-mode #receiptContent table,
-            body.receipt-print-mode #receiptContent th,
-            body.receipt-print-mode #receiptContent td {
-                font-size: 22px !important;
-                padding: 0 2px !important;
-                line-height: 1 !important;
-            }
-            body.receipt-print-mode #receiptContent th,
-            body.receipt-print-mode #receiptContent td {
-                vertical-align: middle !important;
-            }
-            body.receipt-print-mode #receiptContent .d-flex {
-                gap: 0 !important;
-                margin-bottom: 0 !important;
-            }
-            body.receipt-print-mode #receiptContent .mb-2,
-            body.receipt-print-mode #receiptContent .my-2,
-            body.receipt-print-mode #receiptContent .my-1,
-            body.receipt-print-mode #receiptContent hr {
-                margin-top: 0 !important;
-                margin-bottom: 0 !important;
-            }
-
-            body.receipt-print-mode #receiptContent img {
-                max-width: 100% !important;
-                height: auto !important;
-            }
-
-            @page {
-                size: A4;
-                margin: 8mm;
-            }
         }
 
         /* When modal is open, product cards should not be clickable */
@@ -2367,7 +2231,6 @@
                 </div>
                 <div class="modal-body" id="receiptContent"></div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-success" onclick="downloadReceipt()">Download</button>
                     <button class="btn btn-sm btn-primary-dark" onclick="printReceipt()">Print</button>
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
@@ -6082,17 +5945,22 @@ function setupAddProductFundingSelection() {
                 <hr class="my-1">
         `;
         
-        // Items list with compact block layout for print
+        // Items list with proper layout
         receiptHTML += items.map(item => {
             const itemPrice = item.sell_price || item.price || 0;
             const itemTotal = itemPrice * item.quantity;
+            
             return `
-                <div style="margin-bottom:2px;">
-                    <div><strong>${escapeHtml(item.name)}</strong></div>
-                    ${item.unit_type && item.unit_details ? `<div><small class="text-muted">${item.unit_type}: ${item.unit_details}</small></div>` : ''}
-                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:inherit;">
-                        <span>$${itemPrice.toFixed(2)} x ${item.quantity}</span>
-                        <span><strong>$${itemTotal.toFixed(2)}</strong></span>
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="text-start" style="width: 45%;">
+                        <strong>${escapeHtml(item.name)}</strong>
+                        ${item.unit_type && item.unit_details ? `<div><small class="text-muted">${item.unit_type}: ${item.unit_details}</small></div>` : ''}
+                    </div>
+                    <div class="text-center" style="width: 30%;">
+                        <small>$${itemPrice.toFixed(2)} x ${item.quantity}</small>
+                    </div>
+                    <div class="text-end" style="width: 20%;">
+                        <strong>$${itemTotal.toFixed(2)}</strong>
                     </div>
                 </div>
             `;
@@ -6139,116 +6007,113 @@ function setupAddProductFundingSelection() {
             return;
         }
 
-        const body = document.body;
-        const cleanupPrintMode = () => {
-            body.classList.remove('receipt-print-mode');
-            window.removeEventListener('afterprint', cleanupPrintMode);
-        };
-
-        body.classList.add('receipt-print-mode');
-        window.addEventListener('afterprint', cleanupPrintMode);
-
-        try {
-            setTimeout(() => {
-                try {
-                    window.print();
-                } catch (e) {
-                    cleanupPrintMode();
-                    console.error('System print error:', e);
-                    if (typeof showToast === 'function') {
-                        showToast('There was a problem opening the system print dialog. Please try again.', 'error');
-                    }
-                }
-            }, 50);
-        } catch (e) {
-            cleanupPrintMode();
-            console.error('Print setup error:', e);
-            if (typeof showToast === 'function') {
-                showToast('Unable to print receipt. Please try again.', 'error');
-            }
-        }
-    }
-
-    function downloadReceipt() {
-        const contentEl = document.getElementById('receiptContent');
-        const content = contentEl ? contentEl.innerHTML : '';
-        if (!content) {
-            if (typeof showToast === 'function') showToast('Receipt preview is empty. Open a receipt first.', 'error');
-            return;
-        }
-
         const printableHtml = `
             <html>
             <head>
-                <meta charset="UTF-8">
                 <title>Receipt</title>
                 <style>
+                    @page {
+                        size: 80mm auto;
+                        margin: 0;
+                    }
                     body {
                         font-family: 'Courier New', monospace;
-                        margin: 0;
-                        padding: 10px;
-                        font-size: 12px;
-                        line-height: 1.4;
+                        width: 80mm;
+                        margin: 0 auto;
+                        padding: 8px 5px;
+                        font-size: 11px;
+                        line-height: 1.3;
                         background: white;
-                        max-width: 300px;
                     }
                     * {
                         margin: 0;
                         padding: 0;
+                        box-sizing: border-box;
                     }
+                    .text-center { text-align: center; }
+                    .text-start { text-align: left; }
+                    .text-end { text-align: right; }
                     hr {
+                        margin: 4px 0;
                         border: none;
-                        border-top: 1px solid #000;
-                        margin: 5px 0;
+                        border-top: 1px dashed #888;
                     }
-                    img {
-                        max-width: 100%;
-                        height: auto;
-                    }
-                    h6 {
-                        font-size: 14px;
-                        margin: 5px 0;
-                    }
-                    small {
-                        font-size: 10px;
-                    }
-                    .d-flex {
-                        display: table;
-                        width: 100%;
-                    }
-                    .d-flex > div {
-                        display: table-cell;
-                        padding: 2px 4px;
-                    }
+                    .receipt-header { text-align: center; margin-bottom: 8px; }
+                    .receipt-header img { max-width: 120px; height: auto; margin-bottom: 4px; }
+                    .receipt-header h6 { font-size: 14px; font-weight: bold; margin: 2px 0; }
+                    .receipt-header small { font-size: 9px; }
+                    .item-row { margin: 6px 0; width: 100%; }
+                    .item-name { font-weight: bold; word-break: break-word; }
+                    .item-detail { font-size: 9px; color: #666; margin-top: 2px; }
+                    .item-line { display: flex; justify-content: space-between; margin-top: 2px; }
+                    .total-line { display: flex; justify-content: space-between; margin: 5px 0; font-weight: bold; }
+                    .payment-line { display: flex; justify-content: space-between; margin: 3px 0; }
+                    .footer { text-align: center; margin-top: 10px; font-size: 9px; }
+                    .divider { border-top: 1px dashed #888; margin: 8px 0; }
+                    .transaction-number { font-size: 9px; text-align: center; margin: 5px 0; }
                 </style>
             </head>
             <body>${content}</body>
             </html>
         `;
 
-        const tempContainer = document.createElement('div');
-        tempContainer.innerHTML = content;
-        const plainText = tempContainer.textContent || '';
-        const txMatch = plainText.match(/Transaction\s*#:\s*([A-Za-z0-9\-_]+)/i);
+        const popup = window.open('', '_blank');
+        if (popup) {
+            popup.document.open();
+            popup.document.write(printableHtml);
+            popup.document.close();
 
-        const now = new Date();
-        const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
-        const txPart = txMatch ? txMatch[1] : stamp;
-        const fileName = `receipt-${txPart}.html`;
+            const printFromPopup = () => {
+                try {
+                    popup.focus();
+                    popup.print();
+                    setTimeout(() => {
+                        try { popup.close(); } catch (e) {}
+                    }, 700);
+                } catch (e) {
+                    if (typeof showToast === 'function') {
+                        showToast('There was a problem printing the page. Please try again.', 'error');
+                    }
+                }
+            };
 
-        const blob = new Blob([printableHtml], { type: 'text/html;charset=utf-8' });
-        const blobUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-
-        if (typeof showToast === 'function') {
-            showToast(`Receipt downloaded: ${fileName}`, 'success');
+            if (popup.document.readyState === 'complete') {
+                setTimeout(printFromPopup, 150);
+            } else {
+                popup.onload = () => setTimeout(printFromPopup, 150);
+            }
+            return;
         }
+
+        // Popup blocked fallback (common on tablets)
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '-10000px';
+        iframe.style.bottom = '0';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        const iframeDoc = iframe.contentWindow.document;
+        iframeDoc.open();
+        iframeDoc.write(printableHtml);
+        iframeDoc.close();
+
+        setTimeout(() => {
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) {
+                if (typeof showToast === 'function') {
+                    showToast('There was a problem printing the page. Please try again.', 'error');
+                }
+            } finally {
+                setTimeout(() => {
+                    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                }, 1200);
+            }
+        }, 200);
     }
     
     // ==================== REPORT FUNCTIONS ====================
