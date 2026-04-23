@@ -2232,8 +2232,32 @@
                 <div class="modal-body" id="receiptContent"></div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-primary-dark" onclick="printReceipt()">Print</button>
+                    <button class="btn btn-sm btn-outline-success" id="downloadPdfFallbackBtn" style="display:none;" onclick="downloadPdfFallback()">
+                        <i class="fas fa-file-pdf"></i> Download PDF
+                    </button>
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
+                // Download PDF fallback function (uses html2pdf.js)
+                function downloadPdfFallback() {
+                    const contentEl = document.getElementById('receiptContent');
+                    if (!contentEl) return;
+                    const opt = {
+                        margin:       0.2,
+                        filename:     'receipt.pdf',
+                        image:        { type: 'jpeg', quality: 0.98 },
+                        html2canvas:  { scale: 2 },
+                        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                    };
+                    html2pdf().set(opt).from(contentEl).save();
+                }
+                // Hide fallback button on modal open
+                const receiptModalEl = document.getElementById('receiptModal');
+                if (receiptModalEl) {
+                    receiptModalEl.addEventListener('show.bs.modal', function() {
+                        const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
+                        if (pdfBtn) pdfBtn.style.display = 'none';
+                    });
+                }
             </div>
         </div>
     </div>
@@ -5999,7 +6023,18 @@ function setupAddProductFundingSelection() {
         return receiptHTML;
     }
     
+
     function printReceipt() {
+        // 1. Close/hide the modal if open
+        const receiptModal = document.getElementById('receiptModal');
+        if (receiptModal && typeof bootstrap !== 'undefined') {
+            try {
+                const modalInstance = bootstrap.Modal.getInstance(receiptModal) || new bootstrap.Modal(receiptModal);
+                modalInstance.hide();
+            } catch (e) {}
+        }
+
+        // 2. Get receipt content
         const contentEl = document.getElementById('receiptContent');
         const content = contentEl ? contentEl.innerHTML : '';
         if (!content) {
@@ -6007,7 +6042,7 @@ function setupAddProductFundingSelection() {
             return;
         }
 
-        // Minimal, fast-printing HTML/CSS for instant preview
+        // 3. Minimal, fast-printing HTML/CSS for instant preview
         const printableHtml = `
             <html>
             <head>
@@ -6033,7 +6068,42 @@ function setupAddProductFundingSelection() {
             </html>
         `;
 
-        // Use popup for print, fallback to iframe if blocked
+        // 4. Detect if on tablet/mobile (user agent or screen size)
+        const isTablet = /iPad|Android|Tablet|PlayBook|Silk|Kindle|Nexus 7|Nexus 10|KFAPWI|Touch/.test(navigator.userAgent) || (window.innerWidth <= 900 && window.innerHeight >= 600);
+
+        // 5. On tablets, always use iframe method (skip popup)
+        if (isTablet) {
+            try {
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+                const iframeDoc = iframe.contentWindow.document;
+                iframeDoc.open();
+                iframeDoc.write(printableHtml);
+                iframeDoc.close();
+                setTimeout(() => {
+                    try {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                        setTimeout(() => {
+                            if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                        }, 1200);
+                    } catch (e) {
+                        if (typeof showToast === 'function') showToast('There was a problem printing. Please try again.', 'error');
+                        // Always show Download PDF fallback button if available
+                        const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
+                        if (pdfBtn) pdfBtn.style.display = '';
+                    }
+                }, 200);
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('Unable to print receipt. Please try again.', 'error');
+                const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
+                if (pdfBtn) pdfBtn.style.display = '';
+            }
+            return;
+        }
+
+        // 6. Desktop: Try popup, fallback to iframe
         try {
             const popup = window.open('', '_blank', 'width=400,height=600');
             if (popup) {
@@ -6050,6 +6120,8 @@ function setupAddProductFundingSelection() {
                         }, 200);
                     } catch (e) {
                         if (typeof showToast === 'function') showToast('Unable to open print preview. Please try again.', 'error');
+                        const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
+                        if (pdfBtn) pdfBtn.style.display = '';
                     }
                 };
                 if (popup.document.readyState === 'complete' || popup.document.readyState === 'interactive') {
@@ -6064,7 +6136,7 @@ function setupAddProductFundingSelection() {
             }
         } catch (e) {}
 
-        // Fallback: iframe method
+        // 7. Fallback: iframe method
         try {
             const iframe = document.createElement('iframe');
             iframe.style.display = 'none';
@@ -6082,10 +6154,14 @@ function setupAddProductFundingSelection() {
                     }, 1200);
                 } catch (e) {
                     if (typeof showToast === 'function') showToast('There was a problem printing. Please try again.', 'error');
+                    const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
+                    if (pdfBtn) pdfBtn.style.display = '';
                 }
             }, 200);
         } catch (e) {
             if (typeof showToast === 'function') showToast('Unable to print receipt. Please try again.', 'error');
+            const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
+            if (pdfBtn) pdfBtn.style.display = '';
         }
     }
     
