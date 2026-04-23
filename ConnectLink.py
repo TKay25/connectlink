@@ -1518,7 +1518,11 @@ def webhook():
                                                 
                                                     if message.get("type") == "interactive" and not (
                                                         message.get("interactive", {}).get("type") == "button_reply"
-                                                        and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
+                                                        and (
+                                                            (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
+                                                            or (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("enquiry_attachment_")
+                                                            or (message.get("interactive", {}).get("button_reply", {}).get("title", "") or "").strip().lower() == "download attachment"
+                                                        )
                                                     ):
                                                         interactive = message.get("interactive", {})
 
@@ -4805,8 +4809,10 @@ def webhook():
                                                             if enquiry_id:
                                                                 send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                 deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                return jsonify({"status": "received"}), 200
                                                             else:
                                                                 send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
+                                                                return jsonify({"status": "received"}), 200
 
                                                         elif normalized_button_text == 'download attachment':
                                                             enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
@@ -4814,8 +4820,10 @@ def webhook():
                                                             if enquiry_id:
                                                                 send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                 deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                return jsonify({"status": "received"}), 200
                                                             else:
                                                                 send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
+                                                                return jsonify({"status": "received"}), 200
 
                                                         elif payload and payload.lower().startswith('quotation_'):
                                                             # Template quick-reply: "Download Quotation" button
@@ -4830,8 +4838,10 @@ def webhook():
                                                                 mark_quotation_download_clicked(payload, sender_id)
                                                                 send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
                                                                 deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
+                                                                return jsonify({"status": "received"}), 200
                                                             else:
                                                                 send_text_message(sender_id, "❌ Invalid quotation reference.")
+                                                                return jsonify({"status": "received"}), 200
 
                                                         elif matched_type and project_id:
                                                             config = RECEIPT_CONFIG[matched_type]
@@ -4916,7 +4926,11 @@ def webhook():
 
                                                         if message.get("type") == "interactive" and not (
                                                             message.get("interactive", {}).get("type") == "button_reply"
-                                                            and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
+                                                            and (
+                                                                (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
+                                                                or (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("enquiry_attachment_")
+                                                                or (message.get("interactive", {}).get("button_reply", {}).get("title", "") or "").strip().lower() == "download attachment"
+                                                            )
                                                         ):
                                                             interactive = message.get("interactive", {})
 
@@ -5187,17 +5201,6 @@ def webhook():
                                                                                         {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
                                                                                         {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
                                                                                         {"type": "text", "text": enquiry_data.get('has_attachment')}
-                                                                                    ]
-                                                                                },
-                                                                                {
-                                                                                    "type": "button",
-                                                                                    "sub_type": "quick_reply",
-                                                                                    "index": 0,
-                                                                                    "parameters": [
-                                                                                        {
-                                                                                            "type": "text",
-                                                                                            "text": wa_link
-                                                                                        }
                                                                                     ]
                                                                                 }
                                                                             ]
@@ -7400,8 +7403,10 @@ def webhook():
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
+                                                                    continue
 
                                                             elif normalized_button_text == 'download attachment':
                                                                 enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
@@ -7409,8 +7414,10 @@ def webhook():
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
+                                                                    continue
 
                                                             elif payload and payload.lower().startswith('quotation_'):
                                                                 try:
@@ -7423,8 +7430,10 @@ def webhook():
                                                                     mark_quotation_download_clicked(payload, sender_id)
                                                                     send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
                                                                     deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
+                                                                    continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid quotation reference.")
+                                                                    continue
 
                                                             elif matched_type and project_id:
                                                                 config = RECEIPT_CONFIG[matched_type]
@@ -7496,7 +7505,11 @@ def webhook():
                                                     
                                                         if message.get("type") == "interactive" and not (
                                                             message.get("interactive", {}).get("type") == "button_reply"
-                                                            and (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
+                                                            and (
+                                                                (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
+                                                                or (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("enquiry_attachment_")
+                                                                or (message.get("interactive", {}).get("button_reply", {}).get("title", "") or "").strip().lower() == "download attachment"
+                                                            )
                                                         ):
                                                             interactive = message.get("interactive", {})
 
@@ -7767,17 +7780,6 @@ def webhook():
                                                                                         {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
                                                                                         {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
                                                                                         {"type": "text", "text": enquiry_data.get('has_attachment')}
-                                                                                    ]
-                                                                                },
-                                                                                {
-                                                                                    "type": "button",
-                                                                                    "sub_type": "quick_reply",
-                                                                                    "index": 0,
-                                                                                    "parameters": [
-                                                                                        {
-                                                                                            "type": "text",
-                                                                                            "text": wa_link
-                                                                                        }
                                                                                     ]
                                                                                 }
                                                                             ]
@@ -8622,8 +8624,10 @@ def webhook():
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
+                                                                    continue
 
                                                             elif normalized_button_text == 'download attachment':
                                                                 enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
@@ -8631,8 +8635,10 @@ def webhook():
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
+                                                                    continue
 
                                                             elif payload and payload.lower().startswith('quotation_'):
                                                                 try:
@@ -8645,8 +8651,10 @@ def webhook():
                                                                     mark_quotation_download_clicked(payload, sender_id)
                                                                     send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
                                                                     deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
+                                                                    continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid quotation reference.")
+                                                                    continue
                                                             else:
                                                                 print(f"❌ Unknown payload: {payload}")
 
