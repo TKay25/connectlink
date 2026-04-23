@@ -6008,7 +6008,7 @@ function setupAddProductFundingSelection() {
             return;
         }
 
-        // Simplified print HTML with minimal CSS to prevent "preparing preview" hang
+        // Send receipt directly to the system print dialog without opening a new window.
         const printableHtml = `
             <html>
             <head>
@@ -6051,58 +6051,27 @@ function setupAddProductFundingSelection() {
                         display: table-cell;
                         padding: 2px 4px;
                     }
-                    .print-controls {
-                        margin-bottom: 8px;
-                        text-align: center;
-                    }
-                    .print-controls button {
-                        border: 1px solid #999;
-                        background: #f5f5f5;
-                        color: #222;
-                        padding: 4px 8px;
-                        font-size: 11px;
-                        cursor: pointer;
-                        margin: 0 4px;
-                    }
-                    @media print {
-                        .print-controls {
-                            display: none;
-                        }
-                    }
                 </style>
             </head>
-            <body>
-                <div class="print-controls">
-                    <button onclick="window.print()">Print Receipt</button>
-                    <button onclick="window.close()">Close Window</button>
-                </div>
-                ${content}
-            </body>
+            <body>${content}</body>
             </html>
         `;
 
-        // Use simple window.open approach
-        const popup = window.open('', '_blank', 'width=400,height=600');
-        if (popup) {
-            try {
-                popup.document.open();
-                popup.document.write(printableHtml);
-                popup.document.close();
-
-                popup.focus();
-                if (typeof showToast === 'function') {
-                    showToast('Print page opened. Tap "Print Receipt" on that page to choose your Bluetooth thermal printer.', 'success');
-                }
-                return;
-            } catch (e) {
-                console.error('Popup error:', e);
-            }
+        const receiptModalEl = document.getElementById('receiptModal');
+        const receiptModal = receiptModalEl ? bootstrap.Modal.getInstance(receiptModalEl) : null;
+        if (receiptModal) {
+            receiptModal.hide();
         }
 
-        // Fallback: If popup blocked, use iframe method
         try {
             const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
+            iframe.style.position = 'fixed';
+            iframe.style.right = '0';
+            iframe.style.bottom = '0';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.style.border = '0';
+            iframe.style.visibility = 'hidden';
             document.body.appendChild(iframe);
 
             const iframeDoc = iframe.contentWindow.document;
@@ -6123,6 +6092,9 @@ function setupAddProductFundingSelection() {
                     console.error('Iframe print error:', e);
                     if (typeof showToast === 'function') {
                         showToast('There was a problem printing. Please try again.', 'error');
+                    }
+                    if (iframe && iframe.parentNode) {
+                        iframe.parentNode.removeChild(iframe);
                     }
                 }
             }, 200);
