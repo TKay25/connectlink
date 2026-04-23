@@ -2232,32 +2232,8 @@
                 <div class="modal-body" id="receiptContent"></div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-primary-dark" onclick="printReceipt()">Print</button>
-                    <button class="btn btn-sm btn-outline-success" id="downloadPdfFallbackBtn" style="display:none;" onclick="downloadPdfFallback()">
-                        <i class="fas fa-file-pdf"></i> Download PDF
-                    </button>
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
-                // Download PDF fallback function (uses html2pdf.js)
-                function downloadPdfFallback() {
-                    const contentEl = document.getElementById('receiptContent');
-                    if (!contentEl) return;
-                    const opt = {
-                        margin:       0.2,
-                        filename:     'receipt.pdf',
-                        image:        { type: 'jpeg', quality: 0.98 },
-                        html2canvas:  { scale: 2 },
-                        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                    };
-                    html2pdf().set(opt).from(contentEl).save();
-                }
-                // Hide fallback button on modal open
-                const receiptModalEl = document.getElementById('receiptModal');
-                if (receiptModalEl) {
-                    receiptModalEl.addEventListener('show.bs.modal', function() {
-                        const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
-                        if (pdfBtn) pdfBtn.style.display = 'none';
-                    });
-                }
             </div>
         </div>
     </div>
