@@ -2232,6 +2232,7 @@
                 <div class="modal-body" id="receiptContent"></div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-primary-dark" onclick="printReceipt()">Print</button>
+                    <button id="downloadPdfFallback" class="btn btn-sm btn-danger" style="display:none;" onclick="downloadReceipt()">Download PDF (if print fails)</button>
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -6057,63 +6058,74 @@ function setupAddProductFundingSelection() {
             </html>
         `;
 
-        const popup = window.open('', '_blank');
-        if (popup) {
-            popup.document.open();
-            popup.document.write(printableHtml);
-            popup.document.close();
-
-            const printFromPopup = () => {
-                try {
-                    popup.focus();
-                    popup.print();
-                    setTimeout(() => {
-                        try { popup.close(); } catch (e) {}
-                    }, 700);
-                } catch (e) {
-                    if (typeof showToast === 'function') {
-                        showToast('There was a problem printing the page. Please try again.', 'error');
-                    }
-                }
-            };
-
-            if (popup.document.readyState === 'complete') {
-                setTimeout(printFromPopup, 150);
-            } else {
-                popup.onload = () => setTimeout(printFromPopup, 150);
-            }
-            return;
-        }
-
-        // Popup blocked fallback (common on tablets)
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'fixed';
-        iframe.style.right = '-10000px';
-        iframe.style.bottom = '0';
-        iframe.style.width = '1px';
-        iframe.style.height = '1px';
-        iframe.style.border = '0';
-        document.body.appendChild(iframe);
-
-        const iframeDoc = iframe.contentWindow.document;
-        iframeDoc.open();
-        iframeDoc.write(printableHtml);
-        iframeDoc.close();
-
+        // Add a longer delay to ensure content is loaded
         setTimeout(() => {
+            let printed = false;
             try {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-            } catch (e) {
-                if (typeof showToast === 'function') {
-                    showToast('There was a problem printing the page. Please try again.', 'error');
+                const popup = window.open('', '_blank');
+                if (popup) {
+                    popup.document.open();
+                    popup.document.write(printableHtml);
+                    popup.document.close();
+                    const printFromPopup = () => {
+                        try {
+                            popup.focus();
+                            popup.print();
+                            printed = true;
+                            setTimeout(() => { try { popup.close(); } catch (e) {} }, 700);
+                        } catch (e) {
+                            if (typeof showToast === 'function') showToast('There was a problem printing the page. Please try again.', 'error');
+                        }
+                    };
+                    if (popup.document.readyState === 'complete') {
+                        setTimeout(printFromPopup, 350);
+                    } else {
+                        popup.onload = () => setTimeout(printFromPopup, 350);
+                    }
+                    return;
                 }
-            } finally {
-                setTimeout(() => {
-                    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-                }, 1200);
+            } catch (e) {
+                // Continue to iframe fallback
             }
-        }, 200);
+            // Popup blocked fallback (common on tablets)
+            try {
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'fixed';
+                iframe.style.right = '-10000px';
+                iframe.style.bottom = '0';
+                iframe.style.width = '1px';
+                iframe.style.height = '1px';
+                iframe.style.border = '0';
+                document.body.appendChild(iframe);
+                const iframeDoc = iframe.contentWindow.document;
+                iframeDoc.open();
+                iframeDoc.write(printableHtml);
+                iframeDoc.close();
+                setTimeout(() => {
+                    try {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                        printed = true;
+                    } catch (e) {
+                        if (typeof showToast === 'function') showToast('There was a problem printing the page. Please try again.', 'error');
+                    } finally {
+                        setTimeout(() => {
+                            if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                        }, 1200);
+                    }
+                }, 400);
+            } catch (e) {
+                if (typeof showToast === 'function') showToast('Printing failed. Try downloading the PDF.', 'error');
+            }
+            // If not printed, show PDF download fallback
+            setTimeout(() => {
+                if (!printed) {
+                    if (typeof showToast === 'function') showToast('Printing failed. Please use the Download PDF button.', 'error');
+                    const pdfBtn = document.getElementById('downloadPdfFallback');
+                    if (pdfBtn) pdfBtn.style.display = 'inline-block';
+                }
+            }, 1200);
+        }, 350);
     }
     
     // ==================== REPORT FUNCTIONS ====================
