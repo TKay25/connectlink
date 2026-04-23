@@ -6062,6 +6062,7 @@ function setupAddProductFundingSelection() {
                         padding: 4px 8px;
                         font-size: 11px;
                         cursor: pointer;
+                        margin: 0 4px;
                     }
                     @media print {
                         .print-controls {
@@ -6072,6 +6073,7 @@ function setupAddProductFundingSelection() {
             </head>
             <body>
                 <div class="print-controls">
+                    <button onclick="window.print()">Print Receipt</button>
                     <button onclick="window.close()">Close Window</button>
                 </div>
                 ${content}
@@ -6087,30 +6089,9 @@ function setupAddProductFundingSelection() {
                 popup.document.write(printableHtml);
                 popup.document.close();
 
-                // Wait for content to fully load before printing
-                const printAfterLoad = () => {
-                    try {
-                        popup.focus();
-                        // Small delay to ensure rendering is complete
-                        setTimeout(() => {
-                            popup.print();
-                        }, 300);
-                    } catch (e) {
-                        console.error('Print error:', e);
-                        if (typeof showToast === 'function') {
-                            showToast('Unable to open print preview. Please try again.', 'error');
-                        }
-                    }
-                };
-
-                // Trigger print when document is ready
-                if (popup.document.readyState === 'complete' || popup.document.readyState === 'interactive') {
-                    setTimeout(printAfterLoad, 100);
-                } else {
-                    popup.onload = printAfterLoad;
-                    popup.onreadystatechange = () => {
-                        if (popup.document.readyState === 'complete') printAfterLoad();
-                    };
+                popup.focus();
+                if (typeof showToast === 'function') {
+                    showToast('Print page opened. Tap "Print Receipt" on that page to choose your Bluetooth thermal printer.', 'success');
                 }
                 return;
             } catch (e) {
