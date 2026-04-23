@@ -6007,113 +6007,132 @@ function setupAddProductFundingSelection() {
             return;
         }
 
+        // Simplified print HTML with minimal CSS to prevent "preparing preview" hang
         const printableHtml = `
             <html>
             <head>
                 <title>Receipt</title>
                 <style>
-                    @page {
-                        size: 80mm auto;
-                        margin: 0;
-                    }
                     body {
                         font-family: 'Courier New', monospace;
-                        width: 80mm;
-                        margin: 0 auto;
-                        padding: 8px 5px;
-                        font-size: 11px;
-                        line-height: 1.3;
+                        margin: 0;
+                        padding: 10px;
+                        font-size: 12px;
+                        line-height: 1.4;
                         background: white;
+                        max-width: 300px;
                     }
                     * {
                         margin: 0;
                         padding: 0;
-                        box-sizing: border-box;
                     }
-                    .text-center { text-align: center; }
-                    .text-start { text-align: left; }
-                    .text-end { text-align: right; }
                     hr {
-                        margin: 4px 0;
                         border: none;
-                        border-top: 1px dashed #888;
+                        border-top: 1px solid #000;
+                        margin: 5px 0;
                     }
-                    .receipt-header { text-align: center; margin-bottom: 8px; }
-                    .receipt-header img { max-width: 120px; height: auto; margin-bottom: 4px; }
-                    .receipt-header h6 { font-size: 14px; font-weight: bold; margin: 2px 0; }
-                    .receipt-header small { font-size: 9px; }
-                    .item-row { margin: 6px 0; width: 100%; }
-                    .item-name { font-weight: bold; word-break: break-word; }
-                    .item-detail { font-size: 9px; color: #666; margin-top: 2px; }
-                    .item-line { display: flex; justify-content: space-between; margin-top: 2px; }
-                    .total-line { display: flex; justify-content: space-between; margin: 5px 0; font-weight: bold; }
-                    .payment-line { display: flex; justify-content: space-between; margin: 3px 0; }
-                    .footer { text-align: center; margin-top: 10px; font-size: 9px; }
-                    .divider { border-top: 1px dashed #888; margin: 8px 0; }
-                    .transaction-number { font-size: 9px; text-align: center; margin: 5px 0; }
+                    img {
+                        max-width: 100%;
+                        height: auto;
+                    }
+                    h6 {
+                        font-size: 14px;
+                        margin: 5px 0;
+                    }
+                    small {
+                        font-size: 10px;
+                    }
+                    .d-flex {
+                        display: table;
+                        width: 100%;
+                    }
+                    .d-flex > div {
+                        display: table-cell;
+                        padding: 2px 4px;
+                    }
                 </style>
             </head>
             <body>${content}</body>
             </html>
         `;
 
-        const popup = window.open('', '_blank');
+        // Use simple window.open approach
+        const popup = window.open('', '_blank', 'width=400,height=600');
         if (popup) {
-            popup.document.open();
-            popup.document.write(printableHtml);
-            popup.document.close();
+            try {
+                popup.document.open();
+                popup.document.write(printableHtml);
+                popup.document.close();
 
-            const printFromPopup = () => {
-                try {
-                    popup.focus();
-                    popup.print();
-                    setTimeout(() => {
-                        try { popup.close(); } catch (e) {}
-                    }, 700);
-                } catch (e) {
-                    if (typeof showToast === 'function') {
-                        showToast('There was a problem printing the page. Please try again.', 'error');
+                // Wait for content to fully load before printing
+                const printAfterLoad = () => {
+                    try {
+                        popup.focus();
+                        // Small delay to ensure rendering is complete
+                        setTimeout(() => {
+                            popup.print();
+                            // Close popup after print dialog is dismissed (1-2 seconds)
+                            setTimeout(() => {
+                                try { popup.close(); } catch (e) {}
+                            }, 1500);
+                        }, 300);
+                    } catch (e) {
+                        console.error('Print error:', e);
+                        if (typeof showToast === 'function') {
+                            showToast('Unable to open print preview. Please try again.', 'error');
+                        }
                     }
-                }
-            };
+                };
 
-            if (popup.document.readyState === 'complete') {
-                setTimeout(printFromPopup, 150);
-            } else {
-                popup.onload = () => setTimeout(printFromPopup, 150);
+                // Trigger print when document is ready
+                if (popup.document.readyState === 'complete' || popup.document.readyState === 'interactive') {
+                    setTimeout(printAfterLoad, 100);
+                } else {
+                    popup.onload = printAfterLoad;
+                    popup.onreadystatechange = () => {
+                        if (popup.document.readyState === 'complete') printAfterLoad();
+                    };
+                }
+                return;
+            } catch (e) {
+                console.error('Popup error:', e);
             }
-            return;
         }
 
-        // Popup blocked fallback (common on tablets)
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'fixed';
-        iframe.style.right = '-10000px';
-        iframe.style.bottom = '0';
-        iframe.style.width = '1px';
-        iframe.style.height = '1px';
-        iframe.style.border = '0';
-        document.body.appendChild(iframe);
+        // Fallback: If popup blocked, use iframe method
+        try {
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.body.appendChild(iframe);
 
-        const iframeDoc = iframe.contentWindow.document;
-        iframeDoc.open();
-        iframeDoc.write(printableHtml);
-        iframeDoc.close();
+            const iframeDoc = iframe.contentWindow.document;
+            iframeDoc.open();
+            iframeDoc.write(printableHtml);
+            iframeDoc.close();
 
-        setTimeout(() => {
-            try {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-            } catch (e) {
-                if (typeof showToast === 'function') {
-                    showToast('There was a problem printing the page. Please try again.', 'error');
+            setTimeout(() => {
+                try {
+                    iframe.contentWindow.focus();
+                    iframe.contentWindow.print();
+                    
+                    setTimeout(() => {
+                        if (iframe && iframe.parentNode) {
+                            iframe.parentNode.removeChild(iframe);
+                        }
+                    }, 1500);
+                } catch (e) {
+                    console.error('Iframe print error:', e);
+                    if (typeof showToast === 'function') {
+                        showToast('There was a problem printing. Please try again.', 'error');
+                    }
                 }
-            } finally {
-                setTimeout(() => {
-                    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-                }, 1200);
+            }, 200);
+        } catch (e) {
+            console.error('Fallback print error:', e);
+            if (typeof showToast === 'function') {
+                showToast('Unable to print receipt. Please try again.', 'error');
             }
-        }, 200);
+        }
     }
     
     // ==================== REPORT FUNCTIONS ====================
