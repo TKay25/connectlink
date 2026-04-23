@@ -5169,52 +5169,43 @@ def webhook():
                                                                         wa_link = f"https://wa.me/+{sender_id}"
                                                                         
                                                                         # Format timestamp
-                                                                        timestamp = enquiry_data.get('timestamp', datetime.now())
-                                                                        if isinstance(timestamp, datetime):
-                                                                            timestamp_str = timestamp.strftime('%d %B %Y %H:%M')
+                                                                        timestamp_param = enquiry_data.get('timestamp', datetime.now())
+                                                                        if isinstance(timestamp_param, datetime):
+                                                                            timestamp_str = timestamp_param.strftime('%d %B %Y %H:%M')
                                                                         else:
-                                                                            timestamp_str = str(timestamp)
+                                                                            timestamp_str = str(timestamp_param)
 
                                                                         has_attachment_value = str(enquiry_data.get('has_attachment', '')).strip().lower()
                                                                         use_attachment_template = has_attachment_value == 'yes'
 
                                                                         template_name = "enquiryattachment" if use_attachment_template else "enqauto2"
-                                                                        if use_attachment_template:
-                                                                            payload = {
-                                                                                "messaging_product": "whatsapp",
-                                                                                "recipient_type": "individual",
-                                                                                "to": admin_number,
-                                                                                "type": "template",
-                                                                                "template": {
-                                                                                    "name": template_name,
-                                                                                    "language": {"code": "en"}
-                                                                                }
+                                                                        
+                                                                        # Build components for both templates
+                                                                        components = [
+                                                                            {
+                                                                                "type": "body",
+                                                                                "parameters": [
+                                                                                    {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
+                                                                                    {"type": "text", "text": f"+{sender_id}"},
+                                                                                    {"type": "text", "text": timestamp_str},
+                                                                                    {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
+                                                                                    {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
+                                                                                    {"type": "text", "text": enquiry_data.get('has_attachment')}
+                                                                                ]
                                                                             }
-                                                                        else:
-                                                                            components = [
-                                                                                {
-                                                                                    "type": "body",
-                                                                                    "parameters": [
-                                                                                        {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
-                                                                                        {"type": "text", "text": f"+{sender_id}"},
-                                                                                        {"type": "text", "text": timestamp_str},
-                                                                                        {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
-                                                                                        {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
-                                                                                        {"type": "text", "text": enquiry_data.get('has_attachment')}
-                                                                                    ]
-                                                                                }
-                                                                            ]
-                                                                            payload = {
-                                                                                "messaging_product": "whatsapp",
-                                                                                "recipient_type": "individual",
-                                                                                "to": admin_number,
-                                                                                "type": "template",
-                                                                                "template": {
-                                                                                    "name": template_name,
-                                                                                    "language": {"code": "en"},
-                                                                                    "components": components
-                                                                                }
+                                                                        ]
+                                                                        
+                                                                        payload = {
+                                                                            "messaging_product": "whatsapp",
+                                                                            "recipient_type": "individual",
+                                                                            "to": admin_number,
+                                                                            "type": "template",
+                                                                            "template": {
+                                                                                "name": template_name,
+                                                                                "language": {"code": "en"},
+                                                                                "components": components
                                                                             }
+                                                                        }
 
                                                                         response = requests.post(url, headers=headers, json=payload)
                                                                         response_data = response.json()
@@ -7811,42 +7802,33 @@ def webhook():
                                                                         use_attachment_template = has_attachment_value == 'yes'
 
                                                                         template_name = "enquiryattachment" if use_attachment_template else "enqauto2"
-                                                                        if use_attachment_template:
-                                                                            payload = {
-                                                                                "messaging_product": "whatsapp",
-                                                                                "recipient_type": "individual",
-                                                                                "to": admin_number,
-                                                                                "type": "template",
-                                                                                "template": {
-                                                                                    "name": template_name,
-                                                                                    "language": {"code": "en"}
-                                                                                }
+                                                                        
+                                                                        # Build components for both templates
+                                                                        components = [
+                                                                            {
+                                                                                "type": "body",
+                                                                                "parameters": [
+                                                                                    {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
+                                                                                    {"type": "text", "text": f"+{sender_id}"},
+                                                                                    {"type": "text", "text": timestamp_str},
+                                                                                    {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
+                                                                                    {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
+                                                                                    {"type": "text", "text": enquiry_data.get('has_attachment')}
+                                                                                ]
                                                                             }
-                                                                        else:
-                                                                            components = [
-                                                                                {
-                                                                                    "type": "body",
-                                                                                    "parameters": [
-                                                                                        {"type": "text", "text": f"#{enquiry_data.get('enquiry_id')}"},
-                                                                                        {"type": "text", "text": f"+{sender_id}"},
-                                                                                        {"type": "text", "text": timestamp_str},
-                                                                                        {"type": "text", "text": enquiry_data.get('enquiry_type_display', 'General')},
-                                                                                        {"type": "text", "text": enquiry_data.get('user_message', 'No additional details')},
-                                                                                        {"type": "text", "text": enquiry_data.get('has_attachment')}
-                                                                                    ]
-                                                                                }
-                                                                            ]
-                                                                            payload = {
-                                                                                "messaging_product": "whatsapp",
-                                                                                "recipient_type": "individual",
-                                                                                "to": admin_number,
-                                                                                "type": "template",
-                                                                                "template": {
-                                                                                    "name": template_name,
-                                                                                    "language": {"code": "en"},
-                                                                                    "components": components
-                                                                                }
+                                                                        ]
+                                                                        
+                                                                        payload = {
+                                                                            "messaging_product": "whatsapp",
+                                                                            "recipient_type": "individual",
+                                                                            "to": admin_number,
+                                                                            "type": "template",
+                                                                            "template": {
+                                                                                "name": template_name,
+                                                                                "language": {"code": "en"},
+                                                                                "components": components
                                                                             }
+                                                                        }
 
                                                                         response = requests.post(url, headers=headers, json=payload)
                                                                         response_data = response.json()
