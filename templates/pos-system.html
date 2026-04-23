@@ -687,6 +687,10 @@
         }
 
         @media print {
+                        body.receipt-print-mode, body.receipt-print-mode * {
+                            font-size: 20px !important;
+                            line-height: 1.7 !important;
+                        }
             body.receipt-print-mode > * {
                 visibility: hidden !important;
             }
