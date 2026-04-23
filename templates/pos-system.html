@@ -5993,9 +5993,14 @@ function setupAddProductFundingSelection() {
     }
     
     function printReceipt() {
-        const content = document.getElementById('receiptContent').innerHTML;
-        const win = window.open('', '_blank');
-        win.document.write(`
+        const contentEl = document.getElementById('receiptContent');
+        const content = contentEl ? contentEl.innerHTML : '';
+        if (!content) {
+            if (typeof showToast === 'function') showToast('Receipt preview is empty. Open a receipt first.', 'error');
+            return;
+        }
+
+        const printableHtml = `
             <html>
             <head>
                 <title>Receipt</title>
@@ -6018,89 +6023,90 @@ function setupAddProductFundingSelection() {
                         padding: 0;
                         box-sizing: border-box;
                     }
-                    .text-center {
-                        text-align: center;
-                    }
-                    .text-start {
-                        text-align: left;
-                    }
-                    .text-end {
-                        text-align: right;
-                    }
+                    .text-center { text-align: center; }
+                    .text-start { text-align: left; }
+                    .text-end { text-align: right; }
                     hr {
                         margin: 4px 0;
                         border: none;
                         border-top: 1px dashed #888;
                     }
-                    .receipt-header {
-                        text-align: center;
-                        margin-bottom: 8px;
-                    }
-                    .receipt-header img {
-                        max-width: 120px;
-                        height: auto;
-                        margin-bottom: 4px;
-                    }
-                    .receipt-header h6 {
-                        font-size: 14px;
-                        font-weight: bold;
-                        margin: 2px 0;
-                    }
-                    .receipt-header small {
-                        font-size: 9px;
-                    }
-                    .item-row {
-                        margin: 6px 0;
-                        width: 100%;
-                    }
-                    .item-name {
-                        font-weight: bold;
-                        word-break: break-word;
-                    }
-                    .item-detail {
-                        font-size: 9px;
-                        color: #666;
-                        margin-top: 2px;
-                    }
-                    .item-line {
-                        display: flex;
-                        justify-content: space-between;
-                        margin-top: 2px;
-                    }
-                    .total-line {
-                        display: flex;
-                        justify-content: space-between;
-                        margin: 5px 0;
-                        font-weight: bold;
-                    }
-                    .payment-line {
-                        display: flex;
-                        justify-content: space-between;
-                        margin: 3px 0;
-                    }
-                    .footer {
-                        text-align: center;
-                        margin-top: 10px;
-                        font-size: 9px;
-                    }
-                    .divider {
-                        border-top: 1px dashed #888;
-                        margin: 8px 0;
-                    }
-                    .transaction-number {
-                        font-size: 9px;
-                        text-align: center;
-                        margin: 5px 0;
-                    }
+                    .receipt-header { text-align: center; margin-bottom: 8px; }
+                    .receipt-header img { max-width: 120px; height: auto; margin-bottom: 4px; }
+                    .receipt-header h6 { font-size: 14px; font-weight: bold; margin: 2px 0; }
+                    .receipt-header small { font-size: 9px; }
+                    .item-row { margin: 6px 0; width: 100%; }
+                    .item-name { font-weight: bold; word-break: break-word; }
+                    .item-detail { font-size: 9px; color: #666; margin-top: 2px; }
+                    .item-line { display: flex; justify-content: space-between; margin-top: 2px; }
+                    .total-line { display: flex; justify-content: space-between; margin: 5px 0; font-weight: bold; }
+                    .payment-line { display: flex; justify-content: space-between; margin: 3px 0; }
+                    .footer { text-align: center; margin-top: 10px; font-size: 9px; }
+                    .divider { border-top: 1px dashed #888; margin: 8px 0; }
+                    .transaction-number { font-size: 9px; text-align: center; margin: 5px 0; }
                 </style>
             </head>
-            <body>
-                ${content}
-            </body>
+            <body>${content}</body>
             </html>
-        `);
-        win.print();
-        win.close();
+        `;
+
+        const popup = window.open('', '_blank');
+        if (popup) {
+            popup.document.open();
+            popup.document.write(printableHtml);
+            popup.document.close();
+
+            const printFromPopup = () => {
+                try {
+                    popup.focus();
+                    popup.print();
+                    setTimeout(() => {
+                        try { popup.close(); } catch (e) {}
+                    }, 700);
+                } catch (e) {
+                    if (typeof showToast === 'function') {
+                        showToast('There was a problem printing the page. Please try again.', 'error');
+                    }
+                }
+            };
+
+            if (popup.document.readyState === 'complete') {
+                setTimeout(printFromPopup, 150);
+            } else {
+                popup.onload = () => setTimeout(printFromPopup, 150);
+            }
+            return;
+        }
+
+        // Popup blocked fallback (common on tablets)
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '-10000px';
+        iframe.style.bottom = '0';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        const iframeDoc = iframe.contentWindow.document;
+        iframeDoc.open();
+        iframeDoc.write(printableHtml);
+        iframeDoc.close();
+
+        setTimeout(() => {
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) {
+                if (typeof showToast === 'function') {
+                    showToast('There was a problem printing the page. Please try again.', 'error');
+                }
+            } finally {
+                setTimeout(() => {
+                    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                }, 1200);
+            }
+        }, 200);
     }
     
     // ==================== REPORT FUNCTIONS ====================
