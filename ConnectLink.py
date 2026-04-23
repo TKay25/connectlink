@@ -15584,6 +15584,37 @@ def update_enquiry_status(enquiry_id):
         return jsonify({'status': 'error', 'message': f'Failed to update status: {str(e)}'}), 500
 
 
+@app.route('/api/enquiries/<int:enquiry_id>/delete', methods=['POST'])
+def delete_main_enquiry(enquiry_id):
+    """Delete an enquiry from the main enquiries portal after admin passcode validation."""
+    try:
+        data = request.json or {}
+        admin_passcode = (data.get('admin_passcode') or '').strip()
+
+        if admin_passcode != "conlink01admin01":
+            return jsonify({'status': 'error', 'message': 'Invalid Admin Permission Passcode.'}), 403
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                DELETE FROM connectlinkenquiries
+                WHERE id = %s
+                RETURNING id;
+            """, (enquiry_id,))
+            deleted_row = cursor.fetchone()
+            connection.commit()
+
+            if not deleted_row:
+                return jsonify({'status': 'error', 'message': 'Enquiry not found.'}), 404
+
+            return jsonify({
+                'status': 'success',
+                'message': 'Enquiry deleted successfully.',
+                'enquiry_id': enquiry_id
+            })
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Failed to delete enquiry: {str(e)}'}), 500
+
 
 # Add these routes to your Flask app
 

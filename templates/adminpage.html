@@ -3079,6 +3079,7 @@
                                         <th style="width: 120px; max-width: 120px;">Message</th>
                                         <th style="width: 80px;">Status</th>
                                         <th style="width: 60px;">Document</th>
+                                        <th style="width: 80px;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -3127,6 +3128,14 @@
                                                 PDF
                                             </a>
                                             {% endif %}
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger delete-enquiry-btn"
+                                                    type="button"
+                                                    data-id="{{ enquiry.id }}"
+                                                    style="font-size: 11px;">
+                                                Delete
+                                            </button>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -8132,6 +8141,37 @@ document.addEventListener('click', function(e) {
             
             // Remove the listener to prevent multiple calls
             select.removeEventListener('change', handleChange);
+        });
+    }
+
+    // Delete enquiry with admin passcode
+    if (e.target.classList.contains('delete-enquiry-btn')) {
+        const enquiryId = e.target.getAttribute('data-id');
+        const passcode = prompt('Enter Admin Permission Passcode to delete this enquiry:');
+        if (passcode === null) return;
+        if (!passcode.trim()) {
+            alert('Admin passcode is required.');
+            return;
+        }
+        if (!confirm('Delete this enquiry?')) return;
+
+        fetch(`/api/enquiries/${enquiryId}/delete`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ admin_passcode: passcode.trim() })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const row = document.getElementById(`enquiry-row-${enquiryId}`);
+                if (row) row.remove();
+                alert('✅ ' + data.message);
+            } else {
+                alert('❌ ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Network error: ' + error);
         });
     }
 });
