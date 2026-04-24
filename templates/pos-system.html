@@ -2466,10 +2466,15 @@
         }
     });
     
+
+    // Base64-encoded logo (static/images/reqlogo.jpg)
+    const RECEIPT_LOGO_BASE64 =
+        'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD...'; // <-- Replace with your actual base64 string
+
     async function saveNewCategory() {
         const useAISuggestion = document.getElementById('useAISuggestion').checked;
         let categoryName, subCategoryName;
-        
+
         if (useAISuggestion) {
             categoryName = document.getElementById('newCategoryName').value.trim();
             subCategoryName = document.getElementById('newSubCategoryName').value.trim();
@@ -2477,12 +2482,12 @@
             categoryName = document.getElementById('customCategoryName').value.trim();
             subCategoryName = document.getElementById('customSubCategoryName').value.trim();
         }
-        
+
         if (!categoryName || !subCategoryName) {
             alert('Please enter both category name and sub-category name');
             return;
         }
-        
+
         try {
             // Save to backend
             const response = await fetch(`${API_BASE}/api/categories/create`, {
@@ -2494,14 +2499,45 @@
                     subcategory_name: subCategoryName
                 })
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 // Add to local categoryMapping
                 categoryMapping[categoryName] = [subCategoryName];
-                
-                // Always use a hidden iframe for printing (no popup, no visible preview)
+
+                // --- Robust print logic (always use base64 logo, always define printableHtml) ---
+                let printableHtml = `
+                <html>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>Receipt</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
+                        .receipt-container { width: 260px; margin: 0 auto; padding: 10px; }
+                        .receipt-logo { text-align: center; margin-bottom: 10px; }
+                        .receipt-logo img { max-width: 120px; }
+                        .receipt-title { text-align: center; font-weight: bold; margin-bottom: 8px; }
+                        .receipt-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+                        .receipt-table th, .receipt-table td { padding: 2px 0; text-align: left; }
+                        .receipt-table th { border-bottom: 1px solid #ccc; }
+                        .receipt-footer { text-align: center; font-size: 11px; margin-top: 10px; }
+                    </style>
+                </head>
+                <body>
+                    <div class='receipt-container'>
+                        <div class='receipt-logo'><img src='${RECEIPT_LOGO_BASE64}' alt='Logo'></div>
+                        <div class='receipt-title'>${categoryName} - ${subCategoryName}</div>
+                        <table class='receipt-table'>
+                            <tr><th>Category</th><td>${categoryName}</td></tr>
+                            <tr><th>Sub-Category</th><td>${subCategoryName}</td></tr>
+                        </table>
+                        <div class='receipt-footer'>Thank you for using ConnectLink!</div>
+                    </div>
+                </body>
+                </html>
+                `;
+
                 try {
                     // Temporarily hide the modal visually (do not close)
                     const receiptModal = document.getElementById('receiptModal');
@@ -2542,13 +2578,12 @@
                     const receiptModal = document.getElementById('receiptModal');
                     if (receiptModal) receiptModal.style.display = '';
                 }
-
             }
         } catch (e) {
             console.error('Error saving new category:', e);
             showToast('Error saving new category', 'error');
         }
-    } // <-- Close async function
+    }
 
 // ==================== PRODUCT LIST RENDERING ====================
 function renderAllProductsList(data) {
