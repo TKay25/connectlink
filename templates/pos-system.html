@@ -301,6 +301,7 @@
             min-height: 1.8em;
             display: -webkit-box;
             -webkit-line-clamp: 2;
+            line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow-wrap: anywhere;
         }
@@ -1034,9 +1035,7 @@
         }
     </style>
 </head>
-<body>
-
-<!-- All Products Modal -->
+</body>
 <div class="modal fade" id="allProductsModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
@@ -2502,132 +2501,56 @@
                 // Add to local categoryMapping
                 categoryMapping[categoryName] = [subCategoryName];
                 
-                // Add option to main category select
-                const mainCatSelect = document.getElementById('productMainCategory');
-                if (mainCatSelect) {
-                    const option = document.createElement('option');
-                    option.value = categoryName;
-                    option.textContent = categoryName;
-                    mainCatSelect.appendChild(option);
-                }
-                
-                // Close modal
-                bootstrap.Modal.getInstance(document.getElementById('createCategoryModal')).hide();
-                
-                // Apply the classification
-                const classification = window.pendingClassification;
-                const subCatSelect = document.getElementById('productSubCategory');
-                
-                if (mainCatSelect && subCatSelect) {
-                    mainCatSelect.value = categoryName;
-                    mainCatSelect.dispatchEvent(new Event('change'));
-                    
-                    setTimeout(() => {
-                        subCatSelect.value = subCategoryName;
-                        const confidenceText = `AI Confidence: ${classification.confidence}% (${classification.method})`;
-                        displayAIConfidence(confidenceText, classification.confidence);
-                    }, 100);
-                }
-                
-                // Show success message
-                alert(`✅ Category "${categoryName}" with sub-category "${subCategoryName}" created successfully!`);
-            } else {
-                alert('Error creating category: ' + (result.message || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Error saving category:', error);
-            alert('Error creating category. Please try again.');
-        }
-    }
-    
-    function displayAIConfidence(text, confidence) {
-        let badge = document.getElementById('aiConfidenceBadge');
-        
-        if (!badge) {
-            const mainCatDiv = document.getElementById('productMainCategory')?.parentElement;
-            if (mainCatDiv) {
-                badge = document.createElement('small');
-                badge.id = 'aiConfidenceBadge';
-                badge.style.cssText = 'display: block; margin-top: 5px; padding: 5px; border-radius: 3px;';
-                mainCatDiv.appendChild(badge);
-            }
-        }
-        
-        if (badge) {
-            const color = confidence >= 80 ? '#198754' : confidence >= 50 ? '#ffc107' : '#dc2626';
-            badge.style.color = color;
-            badge.style.backgroundColor = color + '20';
-            badge.innerHTML = `<i class="bi bi-robot"></i> ${text}`;
-        }
-    }
-    
-    // Setup AI classification when product name input changes
-    document.addEventListener('DOMContentLoaded', function() {
-        const productNameInput = document.getElementById('productName');
-        if (productNameInput) {
-            productNameInput.addEventListener('blur', async function() {
-                clearTimeout(aiClassificationTimeout);
-                const productName = this.value.trim();
-                
-                if (productName.length >= 2) {
-                    // Get description if available
-                    const descInput = document.getElementById('productDescription');
-                    const description = descInput ? descInput.value.trim() : "";
-                    
-                    // Call AI classifier
-                    const classification = await getAIProductClassification(productName, description);
-                    if (classification) {
-                        applyAIClassification(classification);
+                // Always use a hidden iframe for printing (no popup, no visible preview)
+                try {
+                    // Temporarily hide the modal visually (do not close)
+                    const receiptModal = document.getElementById('receiptModal');
+                    let prevDisplay = null;
+                    if (receiptModal) {
+                        prevDisplay = receiptModal.style.display;
+                        receiptModal.style.display = 'none';
                     }
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    document.body.appendChild(iframe);
+                    const iframeDoc = iframe.contentWindow.document;
+                    iframeDoc.open();
+                    iframeDoc.write(printableHtml);
+                    iframeDoc.close();
+                    setTimeout(() => {
+                        try {
+                            iframe.contentWindow.focus();
+                            iframe.contentWindow.print();
+                            setTimeout(() => {
+                                if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                                // Restore modal display after print
+                                if (receiptModal) receiptModal.style.display = prevDisplay || '';
+                            }, 1200);
+                        } catch (e) {
+                            if (typeof showToast === 'function') showToast('There was a problem printing. Please try again.', 'error');
+                            const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
+                            if (pdfBtn) pdfBtn.style.display = '';
+                            // Restore modal display if error
+                            if (receiptModal) receiptModal.style.display = prevDisplay || '';
+                        }
+                    }, 200);
+                } catch (e) {
+                    if (typeof showToast === 'function') showToast('Unable to print receipt. Please try again.', 'error');
+                    const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
+                    if (pdfBtn) pdfBtn.style.display = '';
+                    // Restore modal display if error
+                    const receiptModal = document.getElementById('receiptModal');
+                    if (receiptModal) receiptModal.style.display = '';
                 }
-            });
-            
-            // Also offer suggestions as user types (optional - for future autocomplete)
-            productNameInput.addEventListener('input', function() {
-                clearTimeout(aiClassificationTimeout);
-                /**
-                 * Optionally debounce and show suggestions as user types
-                 * This could be enhanced to show a dropdown of similar products
-                 */
-            });
+
+            }
+        } catch (e) {
+            console.error('Error saving new category:', e);
+            showToast('Error saving new category', 'error');
         }
-    });
+    } // <-- Close async function
 
-// Store filtered data for exports
-let currentAllProductsData = [];
-let currentLowStockData = [];
-let currentOutOfStockData = [];
-
-// Show All Products Modal
-function showAllProductsModal() {
-    const container = document.getElementById('allProductsList');
-    if (!container) return;
-    
-    if (!products.length) {
-        container.innerHTML = '<div class="text-center text-muted py-4">No products found</div>';
-        currentAllProductsData = [];
-    } else {
-        currentAllProductsData = [...products];
-        renderAllProductsList(currentAllProductsData);
-        
-        // Setup search
-        const searchInput = document.getElementById('allProductsSearch');
-        if (searchInput) {
-            searchInput.value = '';
-            searchInput.oninput = (e) => {
-                const term = e.target.value.toLowerCase();
-                const filtered = products.filter(p => 
-                    p.name.toLowerCase().includes(term) || 
-                    p.category.toLowerCase().includes(term)
-                );
-                renderAllProductsList(filtered);
-            };
-        }
-    }
-    
-    new bootstrap.Modal(document.getElementById('allProductsModal')).show();
-}
-
+// ==================== PRODUCT LIST RENDERING ====================
 function renderAllProductsList(data) {
     const container = document.getElementById('allProductsList');
     if (!data.length) {
@@ -6887,10 +6810,9 @@ function setupEventListeners() {
         
         navigateTo('pos');
     }
-    
-
 
     init();
 </script>
 </body>
 </html>
+ </html>
