@@ -5958,17 +5958,27 @@ function setupAddProductFundingSelection() {
     }
     
 function printReceipt() {
-    // Get receipt content
-    const contentEl = document.getElementById('receiptContent');
-    const content = contentEl ? contentEl.innerHTML : '';
+    // IMPORTANT: Get the receipt modal content specifically
+    const receiptModal = document.getElementById('receiptModal');
+    const receiptContentDiv = document.getElementById('receiptContent');
     
-    if (!content || content.trim() === '') {
-        if (typeof showToast === 'function') showToast('Receipt preview is empty. Open a receipt first.', 'error');
+    // Get the content from the receipt modal
+    let receiptHtml = '';
+    if (receiptContentDiv) {
+        receiptHtml = receiptContentDiv.innerHTML;
+    }
+    
+    // Validate we have actual receipt content (not empty and not page content)
+    if (!receiptHtml || receiptHtml.trim() === '' || receiptHtml.includes('No transactions')) {
+        if (typeof showToast === 'function') {
+            showToast('No receipt to print. Please complete a transaction first.', 'error');
+        } else {
+            alert('No receipt to print. Please complete a transaction first.');
+        }
         return;
     }
     
     // Close the modal first (critical to avoid printing issues)
-    const receiptModal = document.getElementById('receiptModal');
     if (receiptModal && typeof bootstrap !== 'undefined') {
         try {
             const modalInstance = bootstrap.Modal.getInstance(receiptModal);
@@ -5983,13 +5993,13 @@ function printReceipt() {
         document.body.style.overflow = '';
     }, 50);
     
-    // Create clean print HTML
+    // Create clean print HTML - ONLY the receipt content
     const printableHtml = `
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>Receipt</title>
+            <title>ConnectLink Hardware - Receipt</title>
             <style>
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 body {
@@ -6019,7 +6029,7 @@ function printReceipt() {
         </head>
         <body>
             <div class="receipt-container">
-                ${content}
+                ${receiptHtml}
             </div>
         </body>
         </html>
@@ -6048,24 +6058,14 @@ function printReceipt() {
                 if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
             }, 1500);
         } catch (e) {
-            if (typeof showToast === 'function') showToast('There was a problem printing. Please try again.', 'error');
+            console.error('Print error:', e);
+            if (typeof showToast === 'function') {
+                showToast('There was a problem printing. Please try again.', 'error');
+            }
             if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            
-            // Fallback: try popup window
-            try {
-                const popup = window.open('', '_blank', 'width=400,height=600');
-                if (popup) {
-                    popup.document.write(printableHtml);
-                    popup.document.close();
-                    popup.focus();
-                    popup.print();
-                    setTimeout(() => popup.close(), 1000);
-                }
-            } catch (err) {}
         }
     }, 200);
 }
-
 
     // Either delete this function entirely or update it to check if the element exists
     function renderSalesChart() {
