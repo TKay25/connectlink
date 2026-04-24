@@ -4074,24 +4074,24 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
     // ==================== TRANSACTION FILTERS ====================
 
     // View receipt for a specific transaction
-    function viewReceipt(transactionId) {
-        const transaction = transactionsData.transactions.find(t => t.id === transactionId || t.transaction_number === transactionId);
-    
-        if (!transaction) {
-            showToast('Transaction not found', 'error');
-            return;
-        }
+function viewReceipt(transactionId) {
+    const transaction = transactionsData.transactions.find(t => t.id === transactionId || t.transaction_number === transactionId);
 
-        // Extract values from transaction
-        const items = transaction.items || [];
-        const method = transaction.payment_method || 'cash';
-        const paid = transaction.amount_paid || transaction.total || 0;
-        const change = transaction.change_amount || 0;
-
-        // Generate receipt HTML
-        const receiptHTML = generateReceiptHTML(items, method, paid, change);
-        showReceiptWithPrint(receiptHTML);
+    if (!transaction) {
+        showToast('Transaction not found', 'error');
+        return;
     }
+
+    // Extract values from transaction
+    const items = transaction.items || [];
+    const method = transaction.payment_method || 'cash';
+    const paid = transaction.amount_paid || transaction.total || 0;
+    const change = transaction.change_amount || 0;
+
+    // Generate receipt HTML using the same function
+    const receiptHTML = generateReceiptHTML(items, method, paid, change);
+    showReceiptWithPrint(receiptHTML);
+}
 
     function generatePastReceiptHTML(transaction) {
         const total = transaction.total || 0;
@@ -5975,16 +5975,15 @@ function showReceiptWithPrint(receiptHTML) {
     new bootstrap.Modal(document.getElementById('receiptModal')).show();
 }
 
-// COMPLETELY REPLACE your printReceipt function with this:
+// FIXED printReceipt - DOES NOT CLOSE the modal
 function printReceipt() {
     console.log('printReceipt called');
-    console.log('lastReceiptHTML length:', lastReceiptHTML ? lastReceiptHTML.length : 0);
     
     // FIRST: Try to get from stored variable
     let receiptHtml = lastReceiptHTML;
     
-    // SECOND: If stored is empty, try the DOM element
-    if (!receiptHtml || receiptHtml.trim() === '') {
+    // SECOND: If stored is empty, try the DOM element (but modal is still open)
+    if (!receiptHtml || receiptHtml.trim() === '' || receiptHtml.includes('No transactions')) {
         const receiptContentDiv = document.getElementById('receiptContent');
         if (receiptContentDiv) {
             receiptHtml = receiptContentDiv.innerHTML;
@@ -5992,7 +5991,7 @@ function printReceipt() {
         }
     }
     
-    // THIRD: Validate it's actually a receipt (not transactions page)
+    // Validate it's actually a receipt
     if (!receiptHtml || receiptHtml.trim() === '' || 
         receiptHtml.includes('No transactions') || 
         receiptHtml.includes('Transaction History') ||
@@ -6006,23 +6005,8 @@ function printReceipt() {
         return;
     }
     
-    // Close the modal
-    const receiptModal = document.getElementById('receiptModal');
-    if (receiptModal && typeof bootstrap !== 'undefined') {
-        try {
-            const modalInstance = bootstrap.Modal.getInstance(receiptModal);
-            if (modalInstance) modalInstance.hide();
-        } catch (e) {}
-    }
-    
-    // Clean up backdrops
-    setTimeout(() => {
-        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-    }, 50);
-    
-    // Create clean print HTML
+    // DO NOT CLOSE THE MODAL - Just print from what's visible
+    // Create clean print HTML directly from the current receipt content
     const printableHtml = `
         <!DOCTYPE html>
         <html>
@@ -6049,6 +6033,8 @@ function printReceipt() {
                 .fw-bold { font-weight: bold; }
                 .small { font-size: 10px; }
                 .text-success { color: #198754; }
+                .text-muted { color: #6c757d; }
+                img { max-width: 100%; height: auto; }
                 @media print {
                     body { margin: 0; padding: 0; }
                 }
@@ -6062,7 +6048,7 @@ function printReceipt() {
         </html>
     `;
     
-    // Print using iframe
+    // Print using iframe (doesn't affect the open modal)
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
@@ -6092,6 +6078,86 @@ function printReceipt() {
             if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
         }
     }, 200);
+}
+
+// FIXED generateReceiptHTML - Make sure product names show correctly
+function generateReceiptHTML(items, method, paid, change) {
+    const total = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
+    
+    let receiptHTML = `
+        <div class="text-center">
+            <img src="/static/images/reqlogo.jpg" style="height: 45px; width: auto;" alt="ConnectLink Properties Logo">
+            <h6 class="fw-bold mt-1">ConnectLink Hardware</h6>
+            <small>Hardware Supply</small>
+            <hr class="my-1">
+            <small>${new Date().toLocaleString()}</small>
+            <hr class="my-1">
+    `;
+    
+    // Items list - FIXED to show product names properly
+    receiptHTML += items.map(item => {
+        const itemPrice = item.sell_price || item.price || 0;
+        const itemTotal = itemPrice * item.quantity;
+        const productName = item.name || item.product_name || 'Unknown Product';
+        const unitType = item.unit_type || '';
+        const unitDetails = item.unit_details || '';
+        
+        let unitInfo = '';
+        if (unitType && unitDetails) {
+            unitInfo = `<div><small class="text-muted">${unitType}: ${unitDetails}</small></div>`;
+        } else if (unitType) {
+            unitInfo = `<div><small class="text-muted">${unitType}</small></div>`;
+        } else if (unitDetails) {
+            unitInfo = `<div><small class="text-muted">${unitDetails}</small></div>`;
+        }
+        
+        return `
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="text-start" style="width: 45%;">
+                    <strong>${escapeHtml(productName)}</strong>
+                    ${unitInfo}
+                </div>
+                <div class="text-center" style="width: 30%;">
+                    <small>$${itemPrice.toFixed(2)} x ${item.quantity}</small>
+                </div>
+                <div class="text-end" style="width: 20%;">
+                    <strong>$${itemTotal.toFixed(2)}</strong>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    receiptHTML += `
+            <hr class="my-2">
+            <div class="d-flex justify-content-between small">
+                <strong>Total:</strong>
+                <strong>$${total.toFixed(2)}</strong>
+            </div>
+    `;
+    
+    if (method === 'cash') {
+        receiptHTML += `
+            <hr class="my-1">
+            <div class="d-flex justify-content-between small">
+                <span>Amount Tendered:</span>
+                <span>$${paid.toFixed(2)}</span>
+            </div>
+            <div class="d-flex justify-content-between small">
+                <span>Change:</span>
+                <span class="text-success">$${change.toFixed(2)}</span>
+            </div>
+        `;
+    }
+    
+    receiptHTML += `
+            <hr class="my-1">
+            <div class="small">Payment: ${method.toUpperCase()}</div>
+            <hr class="my-1">
+            <small>Thank you! Please come again</small>
+        </div>
+    `;
+    
+    return receiptHTML;
 }
 
     // Either delete this function entirely or update it to check if the element exists
