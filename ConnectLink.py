@@ -8931,6 +8931,8 @@ def run1hardware():
     return products
 
 
+
+
 # Get specific stock addition
 # Get specific stock addition
 @app.route('/api/stock-additions/<int:addition_id>', methods=['GET'])
@@ -9331,7 +9333,75 @@ def create_product():
         'message': 'Product created successfully'
     }), 201
 
-# Add to your update_product endpoint
+@app.route('/api/products/<int:product_id>/price', methods=['PUT'])
+@login_required
+def update_product_price(product_id):
+    """Update product selling price"""
+    try:
+        data = request.json
+        new_price = data.get('sell_price')
+        reason = data.get('reason', 'price_adjustment')
+        old_price = data.get('old_price')
+        
+        if new_price is None:
+            return jsonify({'error': 'New price is required'}), 400
+        
+        # Get current product info
+        product_query = "SELECT id, name, buy_price, sell_price FROM products WHERE id = %s"
+        product = execute_query(product_query, (product_id,), fetch_one=True)
+        
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+        
+        product_name = product[1]
+        current_sell_price = float(product[3]) if product[3] else 0
+        buy_price = float(product[2]) if product[2] else 0
+        
+        # Update the selling price
+        update_query = """
+            UPDATE products 
+            SET sell_price = %s, price = %s, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = %s
+        """
+        execute_query(update_query, (new_price, new_price, product_id), commit=True)
+        
+        # Log price change (optional - for audit trail)
+        try:
+            # Check if price_change_log table exists
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'price_change_log'
+                    )
+                """)
+                table_exists = cursor.fetchone()[0]
+                
+                if table_exists:
+                    log_query = """
+                        INSERT INTO price_change_log 
+                        (product_id, product_name, old_price, new_price, reason, changed_by, changed_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                    """
+                    execute_query(log_query, (
+                        product_id, product_name, old_price or current_sell_price, 
+                        new_price, reason, session.get('username', 'system')
+                    ), commit=True)
+        except Exception as log_error:
+            # Table might not exist, just continue
+            print(f"Note: Could not log price change: {log_error}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Price updated from ${current_sell_price:.2f} to ${new_price:.2f}',
+            'old_price': current_sell_price,
+            'new_price': new_price
+        })
+        
+    except Exception as e:
+        print(f"Error updating product price: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/products/<int:product_id>', methods=['PUT'])
 @login_required
 def update_product(product_id):
@@ -9340,7 +9410,7 @@ def update_product(product_id):
     update_fields = []
     params = []
     
-    updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'stock', 'min_stock_level', 'description']
+    updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'price', 'stock', 'min_stock_level', 'description']
     
     for field in updatable_fields:
         if field in data:
@@ -9354,11 +9424,18 @@ def update_product(product_id):
             INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at)
             VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         """
+        # Get current stock to calculate quantity added
+        current_stock = execute_query("SELECT stock FROM products WHERE id = %s", (product_id,), fetch_one=True)
+        if current_stock:
+            quantity_added = data.get('stock') - current_stock[0]
+        else:
+            quantity_added = data.get('stock', 0)
+            
         execute_query(stock_log_query, (
             product_id,
-            data.get('stock') - (execute_query("SELECT stock FROM products WHERE id = %s", (product_id,), fetch_one=True)[0] or 0),
-            data.get('buy_price'),
-            data.get('total_cost'),
+            quantity_added,
+            data.get('buy_price', 0),
+            data.get('total_cost', 0),
             data.get('funding_source'),
             session['user_id']
         ), commit=True)
