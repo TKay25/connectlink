@@ -5895,73 +5895,85 @@ function setupAddProductFundingSelection() {
         }
     }
     
-    function generateReceiptHTML(items, method, paid, change) {
-        const total = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
+// FIXED generateReceiptHTML - Increased font sizes for better readability
+function generateReceiptHTML(items, method, paid, change) {
+    const total = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
+    
+    let receiptHTML = `
+        <div class="text-center">
+            <img src="/static/images/reqlogo.jpg" style="height: 55px; width: auto;" alt="ConnectLink Properties Logo">
+            <h5 class="fw-bold mt-2 mb-1" style="font-size: 18px;">ConnectLink Hardware</h5>
+            <div style="font-size: 13px;">Hardware Supply</div>
+            <hr class="my-2">
+            <div style="font-size: 13px;">${new Date().toLocaleString()}</div>
+            <hr class="my-2">
+    `;
+    
+    // Items list - Larger fonts
+    receiptHTML += items.map(item => {
+        const itemPrice = item.sell_price || item.price || 0;
+        const itemTotal = itemPrice * item.quantity;
+        const productName = item.name || item.product_name || 'Unknown Product';
+        const unitType = item.unit_type || '';
+        const unitDetails = item.unit_details || '';
         
-        let receiptHTML = `
-            <div class="text-center">
-                <img src="/static/images/reqlogo.jpg" style="height: 45px; width: auto;" alt="ConnectLink Properties Logo">
-                <h6 class="fw-bold mt-1">ConnectLink Hardware</h6>
-                <small>Hardware Supply</small>
-                <hr class="my-1">
-                <small>${new Date().toLocaleString()}</small>
-                <hr class="my-1">
-        `;
-        
-        // Items list with proper layout
-        receiptHTML += items.map(item => {
-            const itemPrice = item.sell_price || item.price || 0;
-            const itemTotal = itemPrice * item.quantity;
-            
-            return `
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div class="text-start" style="width: 45%;">
-                        <strong>${escapeHtml(item.name)}</strong>
-                        ${item.unit_type && item.unit_details ? `<div><small class="text-muted">${item.unit_type}: ${item.unit_details}</small></div>` : ''}
-                    </div>
-                    <div class="text-center" style="width: 30%;">
-                        <small>$${itemPrice.toFixed(2)} x ${item.quantity}</small>
-                    </div>
-                    <div class="text-end" style="width: 20%;">
-                        <strong>$${itemTotal.toFixed(2)}</strong>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        receiptHTML += `
-                <hr class="my-2">
-                <div class="d-flex justify-content-between small">
-                    <strong>Total:</strong>
-                    <strong>$${total.toFixed(2)}</strong>
-                </div>
-        `;
-        
-        if (method === 'cash') {
-            receiptHTML += `
-                <hr class="my-1">
-                <div class="d-flex justify-content-between small">
-                    <span>Amount Tendered:</span>
-                    <span>$${paid.toFixed(2)}</span>
-                </div>
-                <div class="d-flex justify-content-between small">
-                    <span>Change:</span>
-                    <span class="text-success">$${change.toFixed(2)}</span>
-                </div>
-            `;
+        let unitInfo = '';
+        if (unitType && unitDetails) {
+            unitInfo = `<div style="font-size: 11px; color: #6c757d;">${unitType}: ${unitDetails}</div>`;
+        } else if (unitType) {
+            unitInfo = `<div style="font-size: 11px; color: #6c757d;">${unitType}</div>`;
+        } else if (unitDetails) {
+            unitInfo = `<div style="font-size: 11px; color: #6c757d;">${unitDetails}</div>`;
         }
         
-        receiptHTML += `
-                <hr class="my-1">
-                <div class="small">Payment: ${method.toUpperCase()}</div>
-                <hr class="my-1">
-                <small>Thank you! Please come again</small>
+        return `
+            <div class="d-flex justify-content-between align-items-start mb-3" style="font-size: 14px;">
+                <div class="text-start" style="width: 45%;">
+                    <strong style="font-size: 14px;">${escapeHtml(productName)}</strong>
+                    ${unitInfo}
+                </div>
+                <div class="text-center" style="width: 30%;">
+                    <span style="font-size: 13px;">$${itemPrice.toFixed(2)} x ${item.quantity}</span>
+                </div>
+                <div class="text-end" style="width: 20%;">
+                    <strong style="font-size: 14px;">$${itemTotal.toFixed(2)}</strong>
+                </div>
             </div>
         `;
-        
-        return receiptHTML;
+    }).join('');
+    
+    receiptHTML += `
+            <hr class="my-2">
+            <div class="d-flex justify-content-between" style="font-size: 16px; font-weight: bold; margin: 12px 0;">
+                <span>TOTAL:</span>
+                <span>$${total.toFixed(2)}</span>
+            </div>
+    `;
+    
+    if (method === 'cash') {
+        receiptHTML += `
+            <hr class="my-1">
+            <div class="d-flex justify-content-between" style="font-size: 13px; margin: 5px 0;">
+                <span>Amount Tendered:</span>
+                <span>$${paid.toFixed(2)}</span>
+            </div>
+            <div class="d-flex justify-content-between" style="font-size: 13px; margin: 5px 0;">
+                <span>Change:</span>
+                <span class="text-success" style="font-weight: bold;">$${change.toFixed(2)}</span>
+            </div>
+        `;
     }
     
+    receiptHTML += `
+            <hr class="my-2">
+            <div style="font-size: 13px; text-align: center; margin: 8px 0;">Payment: ${method.toUpperCase()}</div>
+            <hr class="my-2">
+            <div style="font-size: 13px; text-align: center; margin-top: 10px;">Thank you! Please come again</div>
+        </div>
+    `;
+    
+    return receiptHTML;
+}
 // Store the last receipt HTML separately (not in the DOM)
 let lastReceiptHTML = '';
 
@@ -6007,47 +6019,51 @@ function printReceipt() {
     
     // DO NOT CLOSE THE MODAL - Just print from what's visible
     // Create clean print HTML directly from the current receipt content
-    const printableHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>ConnectLink Hardware - Receipt</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body {
-                    font-family: 'Courier New', monospace;
-                    background: white;
-                    padding: 12px;
-                    font-size: 12px;
-                    line-height: 1.4;
-                }
-                .receipt-container {
-                    max-width: 300px;
-                    margin: 0 auto;
-                }
-                hr { border: none; border-top: 1px dashed #000; margin: 8px 0; }
-                .text-center { text-align: center; }
-                .d-flex { display: flex; }
-                .justify-content-between { justify-content: space-between; }
-                .fw-bold { font-weight: bold; }
-                .small { font-size: 10px; }
-                .text-success { color: #198754; }
-                .text-muted { color: #6c757d; }
-                img { max-width: 100%; height: auto; }
-                @media print {
-                    body { margin: 0; padding: 0; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="receipt-container">
-                ${receiptHtml}
-            </div>
-        </body>
-        </html>
-    `;
-    
+
+const printableHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>ConnectLink Hardware - Receipt</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: 'Courier New', monospace;
+                background: white;
+                padding: 15px;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+            .receipt-container {
+                max-width: 350px;
+                margin: 0 auto;
+            }
+            hr { border: none; border-top: 1px dashed #000; margin: 10px 0; }
+            .text-center { text-align: center; }
+            .d-flex { display: flex; }
+            .justify-content-between { justify-content: space-between; }
+            .fw-bold { font-weight: bold; }
+            .small { font-size: 12px; }
+            .text-success { color: #198754; }
+            .text-muted { color: #6c757d; }
+            img { max-width: 100%; height: auto; }
+            h5 { font-size: 18px; }
+            h6 { font-size: 16px; }
+            strong { font-size: 14px; }
+            @media print {
+                body { margin: 0; padding: 10px; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="receipt-container">
+            ${receiptHtml}
+        </div>
+    </body>
+    </html>
+`;
+
     // Print using iframe (doesn't affect the open modal)
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
