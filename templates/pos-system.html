@@ -6050,6 +6050,13 @@ function setupAddProductFundingSelection() {
         // 5. On tablets, always use iframe method (skip popup)
         if (isTablet) {
             try {
+                // Temporarily hide the modal visually (do not close)
+                const receiptModal = document.getElementById('receiptModal');
+                let prevDisplay = null;
+                if (receiptModal) {
+                    prevDisplay = receiptModal.style.display;
+                    receiptModal.style.display = 'none';
+                }
                 const iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
                 document.body.appendChild(iframe);
@@ -6063,18 +6070,24 @@ function setupAddProductFundingSelection() {
                         iframe.contentWindow.print();
                         setTimeout(() => {
                             if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                            // Restore modal display after print
+                            if (receiptModal) receiptModal.style.display = prevDisplay || '';
                         }, 1200);
                     } catch (e) {
                         if (typeof showToast === 'function') showToast('There was a problem printing. Please try again.', 'error');
-                        // Always show Download PDF fallback button if available
                         const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
                         if (pdfBtn) pdfBtn.style.display = '';
+                        // Restore modal display if error
+                        if (receiptModal) receiptModal.style.display = prevDisplay || '';
                     }
                 }, 200);
             } catch (e) {
                 if (typeof showToast === 'function') showToast('Unable to print receipt. Please try again.', 'error');
                 const pdfBtn = document.getElementById('downloadPdfFallbackBtn');
                 if (pdfBtn) pdfBtn.style.display = '';
+                // Restore modal display if error
+                const receiptModal = document.getElementById('receiptModal');
+                if (receiptModal) receiptModal.style.display = '';
             }
             return;
         }
