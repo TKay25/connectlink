@@ -9336,12 +9336,10 @@ def create_product():
 @app.route('/api/products/<int:product_id>/price', methods=['PUT'])
 @login_required
 def update_product_price(product_id):
-    """Update product selling price"""
+    """Update product selling price - using ONLY sell_price"""
     try:
         data = request.json
         new_price = data.get('sell_price')
-        reason = data.get('reason', 'price_adjustment')
-        old_price = data.get('old_price')
         
         if new_price is None:
             return jsonify({'error': 'New price is required'}), 400
@@ -9357,39 +9355,13 @@ def update_product_price(product_id):
         current_sell_price = float(product[3]) if product[3] else 0
         buy_price = float(product[2]) if product[2] else 0
         
-        # Update the selling price
+        # Update ONLY sell_price - NO 'price' column reference
         update_query = """
             UPDATE products 
-            SET sell_price = %s, price = %s, updated_at = CURRENT_TIMESTAMP 
+            SET sell_price = %s, updated_at = CURRENT_TIMESTAMP 
             WHERE id = %s
         """
-        execute_query(update_query, (new_price, new_price, product_id), commit=True)
-        
-        # Log price change (optional - for audit trail)
-        try:
-            # Check if price_change_log table exists
-            with get_db() as (cursor, connection):
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_name = 'price_change_log'
-                    )
-                """)
-                table_exists = cursor.fetchone()[0]
-                
-                if table_exists:
-                    log_query = """
-                        INSERT INTO price_change_log 
-                        (product_id, product_name, old_price, new_price, reason, changed_by, changed_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-                    """
-                    execute_query(log_query, (
-                        product_id, product_name, old_price or current_sell_price, 
-                        new_price, reason, session.get('username', 'system')
-                    ), commit=True)
-        except Exception as log_error:
-            # Table might not exist, just continue
-            print(f"Note: Could not log price change: {log_error}")
+        execute_query(update_query, (new_price, product_id), commit=True)
         
         return jsonify({
             'success': True,
