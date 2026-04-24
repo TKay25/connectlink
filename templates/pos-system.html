@@ -4073,7 +4073,6 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
 
     // ==================== TRANSACTION FILTERS ====================
 
-    // View receipt for a specific transaction
 function viewReceipt(transactionId) {
     const transaction = transactionsData.transactions.find(t => t.id === transactionId || t.transaction_number === transactionId);
 
@@ -5895,22 +5894,14 @@ function setupAddProductFundingSelection() {
         }
     }
     
-// FIXED generateReceiptHTML - Increased font sizes for better readability
+
 function generateReceiptHTML(items, method, paid, change) {
     const total = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
     
-    let receiptHTML = `
-        <div class="text-center">
-            <img src="/static/images/reqlogo.jpg" style="height: 55px; width: auto;" alt="ConnectLink Properties Logo">
-            <h5 class="fw-bold mt-2 mb-1" style="font-size: 18px;">ConnectLink Hardware</h5>
-            <div style="font-size: 13px;">Hardware Supply</div>
-            <hr class="my-2">
-            <div style="font-size: 13px;">${new Date().toLocaleString()}</div>
-            <hr class="my-2">
-    `;
-    
-    // Items list - Larger fonts
-    receiptHTML += items.map(item => {
+    // Build items HTML
+    let itemsHtml = '';
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         const itemPrice = item.sell_price || item.price || 0;
         const itemTotal = itemPrice * item.quantity;
         const productName = item.name || item.product_name || 'Unknown Product';
@@ -5919,110 +5910,167 @@ function generateReceiptHTML(items, method, paid, change) {
         
         let unitInfo = '';
         if (unitType && unitDetails) {
-            unitInfo = `<div style="font-size: 11px; color: #6c757d;">${unitType}: ${unitDetails}</div>`;
+            unitInfo = `<div style="font-size: 11px; color: #6c757d; margin-top: 2px;">${this.escapeHtml(unitType)}: ${this.escapeHtml(unitDetails)}</div>`;
         } else if (unitType) {
-            unitInfo = `<div style="font-size: 11px; color: #6c757d;">${unitType}</div>`;
+            unitInfo = `<div style="font-size: 11px; color: #6c757d; margin-top: 2px;">${this.escapeHtml(unitType)}</div>`;
         } else if (unitDetails) {
-            unitInfo = `<div style="font-size: 11px; color: #6c757d;">${unitDetails}</div>`;
+            unitInfo = `<div style="font-size: 11px; color: #6c757d; margin-top: 2px;">${this.escapeHtml(unitDetails)}</div>`;
         }
         
-        return `
-            <div class="d-flex justify-content-between align-items-start mb-3" style="font-size: 14px;">
-                <div class="text-start" style="width: 45%;">
-                    <strong style="font-size: 14px;">${escapeHtml(productName)}</strong>
+        itemsHtml += `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                <div style="width: 50%; text-align: left;">
+                    <strong style="font-size: 13px;">${escapeHtml(productName)}</strong>
                     ${unitInfo}
                 </div>
-                <div class="text-center" style="width: 30%;">
-                    <span style="font-size: 13px;">$${itemPrice.toFixed(2)} x ${item.quantity}</span>
+                <div style="width: 25%; text-align: center;">
+                    <span style="font-size: 12px;">${itemPrice.toFixed(2)} x ${item.quantity}</span>
                 </div>
-                <div class="text-end" style="width: 20%;">
-                    <strong style="font-size: 14px;">$${itemTotal.toFixed(2)}</strong>
+                <div style="width: 25%; text-align: right;">
+                    <strong style="font-size: 13px;">$${itemTotal.toFixed(2)}</strong>
                 </div>
-            </div>
-        `;
-    }).join('');
-    
-    receiptHTML += `
-            <hr class="my-2">
-            <div class="d-flex justify-content-between" style="font-size: 16px; font-weight: bold; margin: 12px 0;">
-                <span>TOTAL:</span>
-                <span>$${total.toFixed(2)}</span>
-            </div>
-    `;
-    
-    if (method === 'cash') {
-        receiptHTML += `
-            <hr class="my-1">
-            <div class="d-flex justify-content-between" style="font-size: 13px; margin: 5px 0;">
-                <span>Amount Tendered:</span>
-                <span>$${paid.toFixed(2)}</span>
-            </div>
-            <div class="d-flex justify-content-between" style="font-size: 13px; margin: 5px 0;">
-                <span>Change:</span>
-                <span class="text-success" style="font-weight: bold;">$${change.toFixed(2)}</span>
             </div>
         `;
     }
     
-    receiptHTML += `
-            <hr class="my-2">
-            <div style="font-size: 13px; text-align: center; margin: 8px 0;">Payment: ${method.toUpperCase()}</div>
-            <hr class="my-2">
-            <div style="font-size: 13px; text-align: center; margin-top: 10px;">Thank you! Please come again</div>
+    // Build payment section
+    let paymentHtml = '';
+    if (method === 'cash') {
+        paymentHtml = `
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 5px 0;">
+                <span>Amount Tendered:</span>
+                <span>$${paid.toFixed(2)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 5px 0;">
+                <span>Change:</span>
+                <span style="color: #198754; font-weight: bold;">$${change.toFixed(2)}</span>
+            </div>
+        `;
+    }
+    
+    // Return COMPLETE PURE receipt HTML (no wrapper with buttons)
+    return `
+        <div style="text-align: center; font-family: 'Courier New', monospace; width: 100%;">
+            <div style="margin-bottom: 10px;">
+                <img src="/static/images/reqlogo.jpg" style="height: 50px; width: auto; display: block; margin: 0 auto;" alt="Logo">
+                <h5 style="font-size: 16px; font-weight: bold; margin: 8px 0 2px 0;">ConnectLink Hardware</h5>
+                <div style="font-size: 11px;">Hardware Supply</div>
+            </div>
+            
+            <hr style="margin: 8px 0; border: none; border-top: 1px dashed #000;">
+            
+            <div style="font-size: 11px; margin: 5px 0;">${new Date().toLocaleString()}</div>
+            
+            <hr style="margin: 8px 0; border: none; border-top: 1px dashed #000;">
+            
+            ${itemsHtml}
+            
+            <hr style="margin: 8px 0; border: none; border-top: 1px dashed #000;">
+            
+            <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; margin: 10px 0;">
+                <span>TOTAL:</span>
+                <span>$${total.toFixed(2)}</span>
+            </div>
+            
+            ${paymentHtml}
+            
+            <hr style="margin: 8px 0; border: none; border-top: 1px dashed #000;">
+            
+            <div style="font-size: 12px; text-align: center; margin: 5px 0;">Payment: ${method.toUpperCase()}</div>
+            
+            <hr style="margin: 8px 0; border: none; border-top: 1px dashed #000;">
+            
+            <div style="font-size: 11px; text-align: center; margin-top: 10px;">Thank you! Please come again</div>
         </div>
     `;
-    
-    return receiptHTML;
 }
+
 // Store the last receipt HTML separately (not in the DOM)
 let lastReceiptHTML = '';
 
 // Show receipt modal with clean content
 function showReceiptWithPrint(receiptHTML) {
     // Store the clean receipt HTML for printing
-    lastReceiptHTML = receiptHTML;
+    cleanReceiptHTML = receiptHTML;
     
-    // Display in modal - wrap in a clean div
-    document.getElementById('receiptContent').innerHTML = `<div class="receipt-print-content">${receiptHTML}</div>`;
-    new bootstrap.Modal(document.getElementById('receiptModal')).show();
+    // Display in modal - wrap in a container
+    const receiptContentDiv = document.getElementById('receiptContent');
+    if (receiptContentDiv) {
+        receiptContentDiv.innerHTML = receiptHTML;
+    }
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('receiptModal'));
+    modal.show();
 }
 
-// FIXED printReceipt - Uses clean stored HTML, no modal elements
+
+// Print receipt - uses stored clean HTML, completely separate from modal
 function printReceipt() {
     console.log('printReceipt called');
     
-    // Use the stored clean receipt HTML
-    let receiptHtml = lastReceiptHTML;
+    // Use the stored clean receipt HTML (PURE, no modal elements)
+    let receiptHtml = cleanReceiptHTML;
     
-    // If stored is empty, try to extract from DOM
-    if (!receiptHtml || receiptHtml.trim() === '') {
+    // If no stored receipt, try to get from DOM but strip any modal elements
+    if (!receiptHtml || receiptHtml.trim() === '' || receiptHtml.length < 100) {
         const receiptContentDiv = document.getElementById('receiptContent');
-        if (receiptContentDiv) {
-            // Try to extract just the receipt content
-            const innerContent = receiptContentDiv.innerHTML;
-            const match = innerContent.match(/<div class="receipt-print-content">(.*?)<\/div>/s);
-            if (match && match[1]) {
-                receiptHtml = match[1];
-            } else {
-                receiptHtml = innerContent;
-            }
+        if (receiptContentDiv && receiptContentDiv.innerHTML) {
+            receiptHtml = receiptContentDiv.innerHTML;
         }
     }
     
-    // Validate it's actually a receipt
-    if (!receiptHtml || receiptHtml.trim() === '' || 
-        receiptHtml.includes('No transactions') || 
-        receiptHtml.includes('Transaction History') ||
-        receiptHtml.length < 100) {
-        
-        if (typeof showToast === 'function') {
-            showToast('No receipt to print. Please complete a transaction first.', 'error');
-        }
+    // Final validation
+    if (!receiptHtml || receiptHtml.trim() === '' || receiptHtml.length < 100) {
+        showToast('No receipt to print. Please complete a transaction first.', 'error');
         return;
     }
     
-    // Create clean print HTML - ONLY the receipt, no modals
-    const printableHtml = `
+    // Create COMPLETELY SEPARATE print document - nothing from the modal
+    const printWindow = window.open('', '_blank', 'width=400,height=600,toolbar=yes,menubar=yes');
+    
+    if (!printWindow) {
+        // Fallback to iframe if popup blocked
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.left = '-9999px';
+        document.body.appendChild(iframe);
+        
+        const iframeDoc = iframe.contentWindow.document;
+        iframeDoc.write(getPrintDocumentHTML(receiptHtml));
+        iframeDoc.close();
+        
+        setTimeout(() => {
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+                setTimeout(() => {
+                    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+                }, 1000);
+            } catch (e) {
+                console.error('Print error:', e);
+                showToast('There was a problem printing. Please try again.', 'error');
+                if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+            }
+        }, 200);
+        return;
+    }
+    
+    // Write to new window and print
+    printWindow.document.write(getPrintDocumentHTML(receiptHtml));
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(() => {
+        printWindow.print();
+        setTimeout(() => {
+            printWindow.close();
+        }, 500);
+    }, 300);
+}
+
+function getPrintDocumentHTML(receiptHtml) {
+    return `
         <!DOCTYPE html>
         <html>
         <head>
@@ -6038,37 +6086,25 @@ function printReceipt() {
                     font-family: 'Courier New', monospace;
                     background: white;
                     padding: 20px;
-                    font-size: 14px;
-                    line-height: 1.5;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
                 }
                 .receipt-paper {
-                    max-width: 350px;
-                    margin: 0 auto;
+                    max-width: 320px;
+                    width: 100%;
                     background: white;
-                }
-                hr {
-                    border: none;
-                    border-top: 1px dashed #000;
-                    margin: 10px 0;
-                }
-                .text-center {
-                    text-align: center;
-                }
-                .text-success {
-                    color: #198754;
-                }
-                img {
-                    max-width: 120px;
-                    height: auto;
-                    display: block;
-                    margin: 0 auto;
+                    padding: 10px;
                 }
                 @media print {
                     body {
-                        padding: 10px;
+                        padding: 0;
+                        margin: 0;
                     }
-                    .no-print {
-                        display: none;
+                    .receipt-paper {
+                        margin: 0;
+                        padding: 5px;
                     }
                 }
             </style>
@@ -6080,37 +6116,6 @@ function printReceipt() {
         </body>
         </html>
     `;
-    
-    // Print using iframe
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = 'none';
-    document.body.appendChild(iframe);
-    
-    const iframeDoc = iframe.contentWindow.document;
-    iframeDoc.open();
-    iframeDoc.write(printableHtml);
-    iframeDoc.close();
-    
-    setTimeout(() => {
-        try {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-            setTimeout(() => {
-                if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-            }, 1500);
-        } catch (e) {
-            console.error('Print error:', e);
-            if (typeof showToast === 'function') {
-                showToast('There was a problem printing. Please try again.', 'error');
-            }
-            if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-        }
-    }, 200);
 }
 
 function generateReceiptHTML(items, method, paid, change) {
