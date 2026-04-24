@@ -1,33 +1,3 @@
-// Save new selling price for a product
-async function saveSellPrice(productId) {
-    const input = document.getElementById(`sellPriceInput-${productId}`);
-    if (!input) return;
-    const newSellPrice = parseFloat(input.value);
-    if (isNaN(newSellPrice) || newSellPrice < 0) {
-        showToast('Please enter a valid selling price!', 'error');
-        return;
-    }
-    showLoader('Updating selling price...');
-    try {
-        const response = await fetch(`${API_BASE}/api/products/${productId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ sell_price: newSellPrice })
-        });
-        const data = await response.json();
-        if (data.success) {
-            showToast('Selling price updated!', 'success');
-            await fetchProductsFromAPI();
-        } else {
-            showToast(data.error || 'Failed to update price', 'error');
-        }
-    } catch (error) {
-        showToast('Connection error', 'error');
-    } finally {
-        hideLoader();
-    }
-}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1549,7 +1519,9 @@ async function saveSellPrice(productId) {
                             </thead>
                             <tbody id="inventoryList">
                                 <td><td colspan="9" class="text-center">Loading products... 
-                            </body>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -4599,38 +4571,49 @@ function renderFilteredTransactions() {
             });
     }
 
-function renderInventory() {
-    const container = document.getElementById('inventoryList');
-    if (!container) return;
-    if (!products.length) {
-        container.innerHTML = '<tr><td colspan="10" class="text-center">No products found</td></tr>';
-        return;
+function renderTransactions() {
+    console.log('Rendering transactions page...');
+    
+    // Reset filters
+    const startDateInput = document.getElementById('filterStartDate');
+    const endDateInput = document.getElementById('filterEndDate');
+    const paymentMethodSelect = document.getElementById('filterPaymentMethod');
+    const productNameInput = document.getElementById('filterProductName');
+    const receiptNumberInput = document.getElementById('filterReceiptNumber');
+    
+    if (startDateInput) startDateInput.value = '';
+    if (endDateInput) endDateInput.value = '';
+    if (paymentMethodSelect) paymentMethodSelect.value = 'all';
+    if (productNameInput) productNameInput.value = '';
+    if (receiptNumberInput) receiptNumberInput.value = '';
+    
+    filteredTransactions = [];
+    
+    // Fetch fresh transaction data
+    fetchTransactionsData();
+}
+
+// Replace the old fetchTransactions with this simpler version
+async function fetchTransactions() {
+    console.log('fetchTransactions called during init');
+    // This is now handled by fetchTransactionsData when needed
+    // Keep this for backward compatibility but don't auto-render
+    try {
+        const response = await fetch(`${API_BASE}/api/transactions`, { credentials: 'include' });
+        console.log('fetchTransactions response status:', response.status);
+        const data = await response.json();
+        console.log('fetchTransactions data:', data);
+        if (data.success) {
+            transactionsData.transactions = data.transactions;
+            filteredTransactions = [];
+            console.log('transactionsData.transactions set with', data.transactions.length, 'transactions');
+        } else {
+            console.error('fetchTransactions failed:', data);
+        }
+    } catch (error) { 
+        console.error('Error in fetchTransactions:', error); 
     }
-    container.innerHTML = products.map(product => `
-        <tr>
-            <td>${product.id}</td>
-            <td>${escapeHtml(product.name)}</td>
-            <td>${escapeHtml(product.category)}</td>
-            <td>${escapeHtml(product.unit_type)}</td>
-            <td>${escapeHtml(product.unit_details || '')}</td>
-            <td>$${(product.buy_price || 0).toFixed(2)}</td>
-            <td>
-                <input type="number" step="0.01" min="0" class="form-control form-control-sm" style="width:90px;display:inline-block;" id="sellPriceInput-${product.id}" value="${(product.sell_price || product.price || 0).toFixed(2)}">
-                <button class="btn btn-sm btn-success ms-1" onclick="saveSellPrice(${product.id})"><i class="fas fa-save"></i></button>
-            </td>
-            <td>${product.stock}</td>
-            <td>
-                <span class="badge ${product.stock === 0 ? 'badge-low-stock' : product.stock < 10 ? 'bg-warning' : 'bg-success'}">
-                    ${product.stock === 0 ? 'Out of Stock' : product.stock < 10 ? 'Low' : 'In Stock'}
-                </span>
-            </td>
-            <td>
-                <button class="btn btn-sm btn-primary-dark" onclick="openEditProductModal(${product.id})"><i class="fas fa-edit"></i> Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="showDeleteConfirmation(${product.id})"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
-    }
+}
 
 async function fetchTransactionsData() {
     console.log('fetchTransactionsData called');
@@ -6936,3 +6919,4 @@ function setupEventListeners() {
 </script>
 </body>
 </html>
+ </html>
