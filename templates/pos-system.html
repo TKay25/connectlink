@@ -4076,15 +4076,20 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
     // View receipt for a specific transaction
     function viewReceipt(transactionId) {
         const transaction = transactionsData.transactions.find(t => t.id === transactionId || t.transaction_number === transactionId);
-        
+    
         if (!transaction) {
             showToast('Transaction not found', 'error');
             return;
         }
-        
+
+        // Extract values from transaction
+        const items = transaction.items || [];
+        const method = transaction.payment_method || 'cash';
+        const paid = transaction.amount_paid || transaction.total || 0;
+        const change = transaction.change_amount || 0;
+
         // Generate receipt HTML
-        // After successful payment
-        const receiptHTML = generateReceiptHTML(cart, method, paid, change);
+        const receiptHTML = generateReceiptHTML(items, method, paid, change);
         showReceiptWithPrint(receiptHTML);
     }
 
