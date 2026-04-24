@@ -4083,9 +4083,9 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
         }
         
         // Generate receipt HTML
-        const receiptHTML = generatePastReceiptHTML(transaction);
-        document.getElementById('receiptContent').innerHTML = receiptHTML;
-        new bootstrap.Modal(document.getElementById('receiptModal')).show();
+        // After successful payment
+        const receiptHTML = generateReceiptHTML(cart, method, paid, change);
+        showReceiptWithPrint(receiptHTML);
     }
 
     function generatePastReceiptHTML(transaction) {
@@ -5869,9 +5869,9 @@ function setupAddProductFundingSelection() {
             updateStats();
             hidePaymentLoader();
             
+            // After successful payment
             const receiptHTML = generateReceiptHTML(cart, method, paid, change);
-            document.getElementById('receiptContent').innerHTML = receiptHTML;
-            new bootstrap.Modal(document.getElementById('receiptModal')).show();
+            showReceiptWithPrint(receiptHTML);
             
             cart = [];
             updateCartDisplay();
@@ -5957,19 +5957,42 @@ function setupAddProductFundingSelection() {
         return receiptHTML;
     }
     
-function printReceipt() {
-    // IMPORTANT: Get the receipt modal content specifically
-    const receiptModal = document.getElementById('receiptModal');
-    const receiptContentDiv = document.getElementById('receiptContent');
+// Store the last receipt HTML separately (not in the DOM)
+let lastReceiptHTML = '';
+
+// Modified function to show receipt modal AND store the receipt
+function showReceiptWithPrint(receiptHTML) {
+    // Store for printing
+    lastReceiptHTML = receiptHTML;
     
-    // Get the content from the receipt modal
-    let receiptHtml = '';
-    if (receiptContentDiv) {
-        receiptHtml = receiptContentDiv.innerHTML;
+    // Display in modal
+    document.getElementById('receiptContent').innerHTML = receiptHTML;
+    new bootstrap.Modal(document.getElementById('receiptModal')).show();
+}
+
+// COMPLETELY REPLACE your printReceipt function with this:
+function printReceipt() {
+    console.log('printReceipt called');
+    console.log('lastReceiptHTML length:', lastReceiptHTML ? lastReceiptHTML.length : 0);
+    
+    // FIRST: Try to get from stored variable
+    let receiptHtml = lastReceiptHTML;
+    
+    // SECOND: If stored is empty, try the DOM element
+    if (!receiptHtml || receiptHtml.trim() === '') {
+        const receiptContentDiv = document.getElementById('receiptContent');
+        if (receiptContentDiv) {
+            receiptHtml = receiptContentDiv.innerHTML;
+            console.log('Got from DOM, length:', receiptHtml.length);
+        }
     }
     
-    // Validate we have actual receipt content (not empty and not page content)
-    if (!receiptHtml || receiptHtml.trim() === '' || receiptHtml.includes('No transactions')) {
+    // THIRD: Validate it's actually a receipt (not transactions page)
+    if (!receiptHtml || receiptHtml.trim() === '' || 
+        receiptHtml.includes('No transactions') || 
+        receiptHtml.includes('Transaction History') ||
+        receiptHtml.length < 50) {
+        
         if (typeof showToast === 'function') {
             showToast('No receipt to print. Please complete a transaction first.', 'error');
         } else {
@@ -5978,7 +6001,8 @@ function printReceipt() {
         return;
     }
     
-    // Close the modal first (critical to avoid printing issues)
+    // Close the modal
+    const receiptModal = document.getElementById('receiptModal');
     if (receiptModal && typeof bootstrap !== 'undefined') {
         try {
             const modalInstance = bootstrap.Modal.getInstance(receiptModal);
@@ -5986,14 +6010,14 @@ function printReceipt() {
         } catch (e) {}
     }
     
-    // Clean up any leftover backdrops
+    // Clean up backdrops
     setTimeout(() => {
         document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
     }, 50);
     
-    // Create clean print HTML - ONLY the receipt content
+    // Create clean print HTML
     const printableHtml = `
         <!DOCTYPE html>
         <html>
@@ -6020,8 +6044,6 @@ function printReceipt() {
                 .fw-bold { font-weight: bold; }
                 .small { font-size: 10px; }
                 .text-success { color: #198754; }
-                .text-muted { color: #6c757d; }
-                img { max-width: 100%; height: auto; }
                 @media print {
                     body { margin: 0; padding: 0; }
                 }
@@ -6035,7 +6057,7 @@ function printReceipt() {
         </html>
     `;
     
-    // Use iframe method for reliable printing
+    // Print using iframe
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.right = '0';
