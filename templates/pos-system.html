@@ -6663,8 +6663,12 @@ function renderInventory() {
     `).join('');
 }
 
-// New function to edit selling price
+// New function to edit selling price - FIXED
 function editSellingPrice(productId, productName, currentPrice) {
+    // Find the product to get buy price
+    const product = products.find(p => p.id === productId);
+    const currentBuyPrice = product ? (product.buy_price || 0) : 0;
+    
     // Create modal dynamically
     const modalHtml = `
         <div class="modal fade" id="editPriceModal" tabindex="-1">
@@ -6678,7 +6682,8 @@ function editSellingPrice(productId, productName, currentPrice) {
                         <div class="alert alert-info mb-3" style="font-size: 0.75rem;">
                             <i class="fas fa-info-circle me-1"></i> 
                             <strong>Product:</strong> ${escapeHtml(productName)}<br>
-                            <strong>Current Price:</strong> <span id="currentPriceDisplay">$${currentPrice.toFixed(2)}</span>
+                            <strong>Buying Price:</strong> $${currentBuyPrice.toFixed(2)}<br>
+                            <strong>Current Selling Price:</strong> <span id="currentPriceDisplay">$${currentPrice.toFixed(2)}</span>
                         </div>
                         
                         <label class="form-label" for="newSellingPrice">New Selling Price ($) *</label>
@@ -6695,7 +6700,7 @@ function editSellingPrice(productId, productName, currentPrice) {
                         
                         <div id="priceWarning" class="alert alert-warning small" style="display: none;">
                             <i class="fas fa-exclamation-triangle me-1"></i>
-                            <strong>Warning:</strong> New price is lower than buying price ($${(currentBuyPrice || 0).toFixed(2)})! This will result in a loss per unit.
+                            <strong>Warning:</strong> New price is lower than buying price ($${currentBuyPrice.toFixed(2)})! This will result in a loss per unit.
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -6717,8 +6722,7 @@ function editSellingPrice(productId, productName, currentPrice) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     
     // Store current buy price for validation
-    const product = products.find(p => p.id === productId);
-    window.currentBuyPriceForEdit = product ? (product.buy_price || 0) : 0;
+    window.currentBuyPriceForEdit = currentBuyPrice;
     
     // Add warning check
     const priceInput = document.getElementById('newSellingPrice');
@@ -6726,7 +6730,8 @@ function editSellingPrice(productId, productName, currentPrice) {
     
     priceInput.addEventListener('input', function() {
         const newPrice = parseFloat(this.value) || 0;
-        if (newPrice < window.currentBuyPriceForEdit && window.currentBuyPriceForEdit > 0) {
+        const buyPrice = window.currentBuyPriceForEdit;
+        if (newPrice < buyPrice && buyPrice > 0) {
             warningDiv.style.display = 'block';
         } else {
             warningDiv.style.display = 'none';
@@ -6738,7 +6743,10 @@ function editSellingPrice(productId, productName, currentPrice) {
     modal.show();
 }
 
+
+
 // Function to confirm and update price
+// Function to confirm and update price - FIXED
 async function confirmPriceUpdate(productId) {
     const newPrice = parseFloat(document.getElementById('newSellingPrice').value);
     const reason = document.getElementById('priceReason').value;
@@ -6749,12 +6757,18 @@ async function confirmPriceUpdate(productId) {
     }
     
     const product = products.find(p => p.id === productId);
+    if (!product) {
+        showToast('Product not found!', 'error');
+        return;
+    }
+    
     const oldPrice = product.sell_price || product.price || 0;
     const productName = product.name;
+    const buyPrice = product.buy_price || 0;
     
     // Show warning if price is too low
-    if (newPrice < (product.buy_price || 0)) {
-        const confirmLow = confirm(`WARNING: New price $${newPrice.toFixed(2)} is lower than buying price $${(product.buy_price || 0).toFixed(2)}. This will result in a loss of $${((product.buy_price || 0) - newPrice).toFixed(2)} per unit sold.\n\nDo you want to continue?`);
+    if (newPrice < buyPrice) {
+        const confirmLow = confirm(`WARNING: New price $${newPrice.toFixed(2)} is lower than buying price $${buyPrice.toFixed(2)}. This will result in a loss of $${(buyPrice - newPrice).toFixed(2)} per unit sold.\n\nDo you want to continue?`);
         if (!confirmLow) return;
     }
     
@@ -6802,7 +6816,7 @@ async function confirmPriceUpdate(productId) {
         }
     } catch (error) {
         console.error('Price update error:', error);
-        showToast('Connection error', 'error');
+        showToast('Connection error: ' + (error.message || 'Please try again'), 'error');
     } finally {
         hideLoader();
     }
