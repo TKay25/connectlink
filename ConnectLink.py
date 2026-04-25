@@ -13996,19 +13996,40 @@ def download_inventory_excel():
             """)
             rows = cursor.fetchall()
             columns = ['ID', 'Product', 'Category', 'Unit', 'Detail', 'Buy Price', 'Sell Price', 'Stock', 'Stock-Status']
+
         # Create DataFrame
         df = pd.DataFrame(rows, columns=columns)
+
+        # Calculate totals as in UI
+        total_purchase_value = 0.0
+        total_sales_value = 0.0
+        for row in rows:
+            buy_price = float(row[5]) if row[5] else 0.0
+            sell_price = float(row[6]) if row[6] else 0.0
+            stock = int(row[7]) if row[7] else 0
+            total_purchase_value += buy_price * stock
+            total_sales_value += sell_price * stock
+
         # Write to Excel in memory
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Inventory')
+            # Append totals at the bottom
+            workbook = writer.book
+            worksheet = writer.sheets['Inventory']
+            last_row = len(df) + 2  # +2 for header row and 1-based index
+            worksheet.cell(row=last_row, column=5, value="Total Stock Purchase Value:")
+            worksheet.cell(row=last_row, column=6, value=total_purchase_value)
+            worksheet.cell(row=last_row+1, column=5, value="Total Sales Value:")
+            worksheet.cell(row=last_row+1, column=6, value=total_sales_value)
+
         output.seek(0)
         # Send as file
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=f'Inventory_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            download_name=f'Inventory ConnectLink Hardware_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
         )
     except Exception as e:
         print(f"Error generating inventory Excel: {e}")
