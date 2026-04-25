@@ -4819,6 +4819,7 @@ def webhook():
 
                                                             if enquiry_id:
                                                                 send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
+                                                                time.sleep(1)
                                                                 deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                 return jsonify({"status": "received"}), 200
                                                             else:
@@ -7481,6 +7482,7 @@ def webhook():
 
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
+                                                                    time.sleep(1)
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                     continue
                                                                 else:
@@ -7492,6 +7494,7 @@ def webhook():
 
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
+                                                                    time.sleep(1)
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                     continue
                                                                 else:
@@ -8782,6 +8785,7 @@ def webhook():
 
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
+                                                                    time.sleep(1)
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                     continue
                                                                 else:
@@ -8793,6 +8797,7 @@ def webhook():
 
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
+                                                                    time.sleep(1)
                                                                     deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                     continue
                                                                 else:
@@ -18314,9 +18319,8 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
 
     return send_data
 
-
 def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_message=None):
-    """Fetch enquiry attachment from DB and send it as a WhatsApp PDF document."""
+    """Fetch enquiry attachment from DB and send as WhatsApp PDF or return link"""
     try:
         with get_db() as (cursor, _):
             cursor.execute(
@@ -18354,17 +18358,45 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
 
     date_part = timestamp.strftime('%Y%m%d') if hasattr(timestamp, 'strftime') else datetime.now().strftime('%Y%m%d')
     filename = f"Enquiry_Attachment_{enquiry_id}_{client_whatsapp}_{date_part}.pdf"
-    caption = f"Enquiry Attachment\nReference: #{enquiry_id}"
-
+    
+    # Try to send as PDF document first (works on both mobile and desktop)
     try:
-        send_pdf_document_whatsapp(recipient_number, plan_data, filename, caption)
+        send_pdf_document_whatsapp(recipient_number, plan_data, filename, f"Enquiry Attachment\nReference: #{enquiry_id}")
         return True
     except Exception as exc:
-        logging.exception("Error sending enquiry attachment PDF %s", enquiry_id)
+        # If PDF document fails, send a clickable link instead
+        logging.warning(f"Direct PDF send failed, sending link instead: {exc}")
+        
+        # You'll need to create a download endpoint for this
+        download_link = f"https://your-domain.com/api/enquiries/{enquiry_id}/plan"
+        
+        link_message = f"""📎 *Enquiry Attachment Available*
+
+            Reference: #{enquiry_id}
+
+            The attachment couldn't be sent directly. Please click the link below to download:
+
+            🔗 {download_link}."""
+        
         if send_text_message:
-            send_text_message(recipient_number, "❌ Failed to send enquiry attachment. Please try again.")
-        print(f"❌ Error sending enquiry attachment {enquiry_id}: {exc}")
-        return False
+            send_text_message(recipient_number, link_message)
+        else:
+            # Send as text message via WhatsApp
+            url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+            headers = {
+                'Authorization': f'Bearer {ACCESS_TOKEN}',
+                'Content-Type': 'application/json'
+            }
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": recipient_number,
+                "type": "text",
+                "text": {"body": link_message}
+            }
+            requests.post(url, headers=headers, json=payload)
+        
+        return True
 
 
 def log_enquiry_attachment_button_message(template_message_id, enquiry_id, recipient_number):
