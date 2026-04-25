@@ -2625,6 +2625,25 @@
     }
 
 // ==================== PRODUCT LIST RENDERING ====================
+function showAllProductsModal() {
+    // Show the All Products modal
+    const modal = new bootstrap.Modal(document.getElementById('allProductsModal'));
+    modal.show();
+    // Fetch and render all products
+    fetch(`${API_BASE}/api/products`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.products) {
+                renderAllProductsList(data.products);
+            } else {
+                renderAllProductsList([]);
+            }
+        })
+        .catch(() => renderAllProductsList([]));
+    // Clear search box
+    const searchInput = document.getElementById('allProductsSearch');
+    if (searchInput) searchInput.value = '';
+}
 function renderAllProductsList(data) {
     const container = document.getElementById('allProductsList');
     if (!data.length) {
