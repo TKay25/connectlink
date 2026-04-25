@@ -2377,17 +2377,44 @@
                         return;
                     }
                     // Map to export columns (match table)
-                    const exportData = filteredProducts.map(p => ({
-                        'ID': p.id,
-                        'Product': p.name,
-                        'Category': p.category,
-                        'Unit': p.unit_type || 'N/A',
-                        'Detail': p.unit_details || 'N/A',
-                        'Buy Price': p.buy_price || 0,
-                        'Sell Price': p.sell_price || p.price || 0,
-                        'Stock': p.stock,
-                        'Stock-Status': p.stock < 5 ? 'Low' : 'OK',
-                    }));
+                    let totalBuy = 0;
+                    let totalSell = 0;
+                    const exportData = filteredProducts.map(p => {
+                        const buyPrice = p.buy_price || 0;
+                        const sellPrice = p.sell_price || p.price || 0;
+                        const stock = p.stock || 0;
+                        const totalBuyPrice = buyPrice * stock;
+                        const totalSellPrice = sellPrice * stock;
+                        totalBuy += totalBuyPrice;
+                        totalSell += totalSellPrice;
+                        return {
+                            'ID': p.id,
+                            'Product': p.name,
+                            'Category': p.category,
+                            'Unit': p.unit_type || 'N/A',
+                            'Detail': p.unit_details || 'N/A',
+                            'Buy Price': buyPrice,
+                            'Sell Price': sellPrice,
+                            'Stock': stock,
+                            'Total Buy Price': totalBuyPrice,
+                            'Total Sell Price': totalSellPrice,
+                            'Stock-Status': stock < 5 ? 'Low' : 'OK',
+                        };
+                    });
+                    // Add totals row
+                    exportData.push({
+                        'ID': '',
+                        'Product': '',
+                        'Category': '',
+                        'Unit': '',
+                        'Detail': '',
+                        'Buy Price': '',
+                        'Sell Price': 'TOTALS:',
+                        'Stock': '',
+                        'Total Buy Price': totalBuy,
+                        'Total Sell Price': totalSell,
+                        'Stock-Status': ''
+                    });
                     const ws = XLSX.utils.json_to_sheet(exportData);
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
