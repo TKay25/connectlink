@@ -2415,7 +2415,47 @@
                         'Total Sell Price': totalSell,
                         'Stock-Status': ''
                     });
-                    const ws = XLSX.utils.json_to_sheet(exportData);
+                    // SheetJS styling for headers and borders
+                    const ws = XLSX.utils.json_to_sheet(exportData, {cellStyles: true});
+                    // Get header keys
+                    const headerKeys = Object.keys(exportData[0]);
+                    // Style header row
+                    headerKeys.forEach((key, idx) => {
+                        const cellRef = XLSX.utils.encode_cell({c: idx, r: 0});
+                        if (!ws[cellRef]) return;
+                        ws[cellRef].s = {
+                            font: {bold: true, color: {rgb: 'FFFFFF'}},
+                            fill: {patternType: 'solid', fgColor: {rgb: '0A2B3E'}},
+                            alignment: {horizontal: 'center', vertical: 'center'},
+                            border: {
+                                top: {style: 'thin', color: {rgb: '888888'}},
+                                bottom: {style: 'thin', color: {rgb: '888888'}},
+                                left: {style: 'thin', color: {rgb: '888888'}},
+                                right: {style: 'thin', color: {rgb: '888888'}}
+                            }
+                        };
+                    });
+                    // Style all data cells with borders
+                    for (let r = 1; r < exportData.length; r++) {
+                        for (let c = 0; c < headerKeys.length; c++) {
+                            const cellRef = XLSX.utils.encode_cell({c, r});
+                            if (!ws[cellRef]) continue;
+                            ws[cellRef].s = {
+                                border: {
+                                    top: {style: 'thin', color: {rgb: 'CCCCCC'}},
+                                    bottom: {style: 'thin', color: {rgb: 'CCCCCC'}},
+                                    left: {style: 'thin', color: {rgb: 'CCCCCC'}},
+                                    right: {style: 'thin', color: {rgb: 'CCCCCC'}}
+                                },
+                                alignment: {vertical: 'center'}
+                            };
+                            // Highlight totals row
+                            if (r === exportData.length - 1) {
+                                ws[cellRef].s.fill = {patternType: 'solid', fgColor: {rgb: 'FFF9C4'}};
+                                ws[cellRef].s.font = {bold: true, color: {rgb: '0A2B3E'}};
+                            }
+                        }
+                    }
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
                     XLSX.writeFile(wb, `Inventory_ConnectLink_${new Date().toISOString().split('T')[0]}.xlsx`);
