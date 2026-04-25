@@ -5178,9 +5178,8 @@ def webhook():
                                                                         has_attachment_value = str(enquiry_data.get('has_attachment', '')).strip().lower()
                                                                         use_attachment_template = has_attachment_value == 'yes'
 
-                                                                        template_name = "enquiryattachment" if use_attachment_template else "enqauto2"
-                                                                        
-                                                                        # Build components for both templates
+                                                                        # ALWAYS send enqauto2 first (it works)
+                                                                        template_name = "enqauto2"
                                                                         components = [
                                                                             {
                                                                                 "type": "body",
@@ -5194,7 +5193,7 @@ def webhook():
                                                                                 ]
                                                                             }
                                                                         ]
-                                                                        
+
                                                                         payload = {
                                                                             "messaging_product": "whatsapp",
                                                                             "recipient_type": "individual",
@@ -5207,8 +5206,26 @@ def webhook():
                                                                             }
                                                                         }
 
+                                                                        # Send enqauto2
                                                                         response = requests.post(url, headers=headers, json=payload)
                                                                         response_data = response.json()
+
+                                                                        # If there's an attachment, ALSO send enquiryattachment (even without variables)
+                                                                        if use_attachment_template:
+                                                                            attachment_payload = {
+                                                                                "messaging_product": "whatsapp",
+                                                                                "recipient_type": "individual",
+                                                                                "to": admin_number,
+                                                                                "type": "template",
+                                                                                "template": {
+                                                                                    "name": "enquiryattachment",
+                                                                                    "language": {"code": "en"}
+                                                                                    # NO components array because it has no variables!
+                                                                                }
+                                                                            }
+                                                                            
+                                                                            attachment_response = requests.post(url, headers=headers, json=attachment_payload)
+                                                                            print(f"✅ enquiryattachment sent: {attachment_response.status_code}")
 
                                                                         if isinstance(response_data, dict) and response_data.get('error'):
                                                                             error_data = response_data.get('error', {})
@@ -7818,9 +7835,8 @@ def webhook():
                                                                         has_attachment_value = str(enquiry_data.get('has_attachment', '')).strip().lower()
                                                                         use_attachment_template = has_attachment_value == 'yes'
 
-                                                                        template_name = "enquiryattachment" if use_attachment_template else "enqauto2"
-                                                                        
-                                                                        # Build components for both templates
+                                                                        # ALWAYS send enqauto2 first (it works)
+                                                                        template_name = "enqauto2"
                                                                         components = [
                                                                             {
                                                                                 "type": "body",
@@ -7834,7 +7850,7 @@ def webhook():
                                                                                 ]
                                                                             }
                                                                         ]
-                                                                        
+
                                                                         payload = {
                                                                             "messaging_product": "whatsapp",
                                                                             "recipient_type": "individual",
@@ -7847,8 +7863,27 @@ def webhook():
                                                                             }
                                                                         }
 
+                                                                        # Send enqauto2
                                                                         response = requests.post(url, headers=headers, json=payload)
                                                                         response_data = response.json()
+
+                                                                        # If there's an attachment, ALSO send enquiryattachment (even without variables)
+                                                                        if use_attachment_template:
+                                                                            attachment_payload = {
+                                                                                "messaging_product": "whatsapp",
+                                                                                "recipient_type": "individual",
+                                                                                "to": admin_number,
+                                                                                "type": "template",
+                                                                                "template": {
+                                                                                    "name": "enquiryattachment",
+                                                                                    "language": {"code": "en"}
+                                                                                    # NO components array because it has no variables!
+                                                                                }
+                                                                            }
+                                                                            
+                                                                            attachment_response = requests.post(url, headers=headers, json=attachment_payload)
+                                                                            print(f"✅ enquiryattachment sent: {attachment_response.status_code}")
+
 
                                                                         if isinstance(response_data, dict) and response_data.get('error'):
                                                                             error_data = response_data.get('error', {})
@@ -7932,7 +7967,7 @@ def webhook():
                                                                         return response_data
 
                                                                     # Usage
-                                                                    admin_numbers = ["263774822568"]
+                                                                    admin_numbers = ["263774822568", "263773368558", "263777665277"]
                                                                     #, "263773368558", "263777665277"
                                                                     client_whatsapp = sender_id
 
