@@ -2363,37 +2363,41 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         initializeCategoryDropdowns();
-        // Download Inventory Excel button handler
+        // Download Inventory Excel button handler (frontend export of visible table)
         const downloadBtn = document.getElementById('downloadInventoryExcelBtn');
         if (downloadBtn) {
             downloadBtn.addEventListener('click', function() {
                 downloadBtn.disabled = true;
                 downloadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
-                fetch(`${API_BASE}/download_inventory_excel`, {
-                    method: 'GET',
-                    credentials: 'include'
-                })
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to generate Excel file');
-                    return response.blob();
-                })
-                .then(blob => {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `Inventory ConnectLink Hardware_${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)}.xlsx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    window.URL.revokeObjectURL(url);
-                })
-                .catch(err => {
-                    alert('Failed to download inventory Excel: ' + err.message);
-                })
-                .finally(() => {
+                try {
+                    // Use the same filter as the inventory table
+                    const filteredProducts = filterInventory();
+                    if (!filteredProducts.length) {
+                        alert('No products to export.');
+                        return;
+                    }
+                    // Map to export columns (match table)
+                    const exportData = filteredProducts.map(p => ({
+                        'ID': p.id,
+                        'Product': p.name,
+                        'Category': p.category,
+                        'Unit': p.unit_type || 'N/A',
+                        'Detail': p.unit_details || 'N/A',
+                        'Buy Price': p.buy_price || 0,
+                        'Sell Price': p.sell_price || p.price || 0,
+                        'Stock': p.stock,
+                        'Stock-Status': p.stock < 5 ? 'Low' : 'OK',
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(exportData);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+                    XLSX.writeFile(wb, `Inventory_ConnectLink_${new Date().toISOString().split('T')[0]}.xlsx`);
+                } catch (err) {
+                    alert('Failed to export inventory Excel: ' + err.message);
+                } finally {
                     downloadBtn.disabled = false;
                     downloadBtn.innerHTML = '<i class="fas fa-file-excel me-1"></i>Download Excel';
-                });
+                }
             });
         }
     });
