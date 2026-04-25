@@ -2381,7 +2381,7 @@
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `Inventory_${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)}.xlsx`;
+                    a.download = `Inventory ConnectLink Hardware_${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)}.xlsx`;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
@@ -3013,6 +3013,7 @@ async function fetchProductsFromAPI() {
         
         if (productsData.success) {
             products = productsData.products;
+            currentAllProductsData = [...products]; // <-- Ensure export uses latest products
             renderProducts();
             renderInventory();
             updateInventoryMetrics(); // Add this line
@@ -4715,6 +4716,11 @@ async function fetchTransactionsData() {
     let categoryChart = null;
     let categoriesList = [];
     let productToDelete = null;
+
+    // Export helpers
+    let currentAllProductsData = [];
+    let currentLowStockData = [];
+    let currentOutOfStockData = [];
     
     // Payment loader modal instance
     let paymentLoaderModal = null;
