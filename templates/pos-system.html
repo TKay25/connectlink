@@ -1437,16 +1437,19 @@
                 <div class="section-card">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h5 class="fw-bold mb-0"><i class="fas fa-boxes me-1"></i>Inventory Management</h5>
-                        <div class="d-flex gap-2">
-                            <div class="position-relative" style="width: 250px;">
-                                <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
-                                <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
-                                <input type="text" class="form-control ps-5" id="inventorySearch" placeholder="Search by name, category, or details..." style="border-radius: 30px; font-size: 0.7rem; padding: 5px 10px;" autocomplete="off">
+                            <div class="d-flex gap-2">
+                                <div class="position-relative" style="width: 250px;">
+                                    <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
+                                    <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
+                                    <input type="text" class="form-control ps-5" id="inventorySearch" placeholder="Search by name, category, or details..." style="border-radius: 30px; font-size: 0.7rem; padding: 5px 10px;" autocomplete="off">
+                                </div>
+                                <button class="btn btn-primary-dark" onclick="showAddInventoryModal()">
+                                    <i class="fas fa-plus me-1"></i>Add Product
+                                </button>
+                                <button class="btn btn-success" id="downloadInventoryExcelBtn">
+                                    <i class="fas fa-file-excel me-1"></i>Download Excel
+                                </button>
                             </div>
-                            <button class="btn btn-primary-dark" onclick="showAddInventoryModal()">
-                                <i class="fas fa-plus me-1"></i>Add Product
-                            </button>
-                        </div>
                     </div>
                     
                     <!-- Inventory Summary Cards -->
@@ -2357,7 +2360,43 @@
     }
 
     // Initialize when DOM is ready
-    document.addEventListener('DOMContentLoaded', initializeCategoryDropdowns);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCategoryDropdowns();
+        // Download Inventory Excel button handler
+        const downloadBtn = document.getElementById('downloadInventoryExcelBtn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', function() {
+                downloadBtn.disabled = true;
+                downloadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+                fetch(`${API_BASE}/download_inventory_excel`, {
+                    method: 'GET',
+                    credentials: 'include'
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to generate Excel file');
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Inventory_${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 15)}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(err => {
+                    alert('Failed to download inventory Excel: ' + err.message);
+                })
+                .finally(() => {
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = '<i class="fas fa-file-excel me-1"></i>Download Excel';
+                });
+            });
+        }
+    });
 
     // ==================== AI PRODUCT CLASSIFIER ====================
     

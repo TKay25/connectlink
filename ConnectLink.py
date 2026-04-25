@@ -13981,6 +13981,38 @@ def get_enquiries_data():
         print(f"Error getting enquiries: {str(e)}")
         return []
 
+@app.route('/download_inventory_excel', methods=['GET'])
+@login_required
+def download_inventory_excel():
+    """Download all inventory as an Excel file."""
+    try:
+        # Fetch all products
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock, 
+                       CASE WHEN stock > 0 THEN 'In Stock' ELSE 'Out of Stock' END as stock_status
+                FROM products
+                ORDER BY id
+            """)
+            rows = cursor.fetchall()
+            columns = ['ID', 'Product', 'Category', 'Unit', 'Detail', 'Buy Price', 'Sell Price', 'Stock', 'Stock-Status']
+        # Create DataFrame
+        df = pd.DataFrame(rows, columns=columns)
+        # Write to Excel in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Inventory')
+        output.seek(0)
+        # Send as file
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'Inventory_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        )
+    except Exception as e:
+        print(f"Error generating inventory Excel: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/export_cashflow', methods=['POST'])
 def export_cashflow():
