@@ -3694,59 +3694,59 @@
 
 <!-- Gantt Chart Builder Modal -->
 <div id="ganttChartBuilderModal" class="modal-overlay">
-    <div class="modal-container xlarge" style="color: var(--dark-blue-deep);">
-        <div class="modal-header-custom">
-            <h3><i class="bi bi-diagram-3"></i> Project Gantt Chart Builder</h3>
-            <button class="close-modal" onclick="closeModal('ganttChartBuilderModal')">
+    <div class="modal-container xlarge" style="color: var(--dark-blue-deep); font-size: 0.78rem;">
+        <div class="modal-header-custom" style="padding: 10px 16px;">
+            <h3 style="font-size: 1rem; margin-bottom: 0;"><i class="bi bi-diagram-3"></i> Project Gantt Chart Builder</h3>
+            <button class="close-modal" style="font-size: 1rem; padding: 2px 8px;" onclick="closeModal('ganttChartBuilderModal')">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="modal-body-custom" style="padding: 20px;">
-            <div style="display: flex; flex-direction: column;">
-                <div id="ganttFullHouseDisplayModeContainer" class="mb-3 p-3 border rounded" style="display: none; background-color: #fff8e1; border-left: 4px solid #ff9800;">
-                    <label for="ganttFullHouseDisplayMode" class="form-label fw-bold mb-2">Full House Display Mode</label>
-                    <select id="ganttFullHouseDisplayMode" class="form-control">
+        <div class="modal-body-custom" style="padding: 10px 10px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div id="ganttFullHouseDisplayModeContainer" class="mb-2 p-2 border rounded" style="display: none; background-color: #fff8e1; border-left: 3px solid #ff9800; font-size: 0.85em;">
+                    <label for="ganttFullHouseDisplayMode" class="form-label fw-bold mb-1" style="font-size: 0.9em;">Full House Display Mode</label>
+                    <select id="ganttFullHouseDisplayMode" class="form-control form-control-sm" style="font-size: 0.95em;">
                         <option value="all_items">Show All Construction Items</option>
                         <option value="full_house_only">Show Full House Item Only</option>
                     </select>
-                    <small class="text-muted">This also affects Construction Items Schedule in this builder.</small>
+                    <small class="text-muted" style="font-size: 0.85em;">This also affects Construction Items Schedule in this builder.</small>
                 </div>
 
                 <!-- Items Table -->
                 <div>
-                    <h5 style="margin-top: 0; margin-bottom: 15px; font-weight: bold;">
+                    <h5 style="margin-top: 0; margin-bottom: 8px; font-weight: bold; font-size: 0.95em;">
                         <i class="bi bi-list-check"></i> Construction Items Schedule
                     </h5>
-                    <div style="margin-bottom: 15px;">
-                        <button type="button" class="btn btn-sm btn-primary" id="addGanttItemBtn">
+                    <div style="margin-bottom: 8px;">
+                        <button type="button" class="btn btn-sm btn-primary" id="addGanttItemBtn" style="font-size: 0.9em; padding: 2px 10px;">
                             <i class="bi bi-plus"></i> Add Item
                         </button>
                     </div>
-                    <div id="ganttItemsList" style="background: white; border-radius: 6px; overflow-x: auto;">
+                    <div id="ganttItemsList" style="background: white; border-radius: 4px; overflow-x: auto; font-size: 0.95em;">
                         <!-- Items will be populated here -->
                     </div>
                 </div>
 
                 <!-- Summary Section -->
-                <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 6px; border-left: 4px solid #4caf50;">
+                <div style="margin-top: 10px; padding: 7px; background-color: #e8f5e9; border-radius: 4px; border-left: 3px solid #4caf50; font-size: 0.92em;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">
-                                <strong>Total Project Duration:</strong> <span id="ganttTotalDays" style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">0</span> days
+                            <div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">
+                                <strong>Total Project Duration:</strong> <span id="ganttTotalDays" style="color: #2196F3; font-weight: bold; font-size: 1em;">0</span> days
                             </div>
                         </div>
                         <div>
-                            <div style="font-size: 0.9rem; color: #666; margin-bottom: 8px;">
-                                <strong>Total Cost:</strong> <span id="ganttTotalCost" style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">USD 0.00</span>
+                            <div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">
+                                <strong>Total Cost:</strong> <span id="ganttTotalCost" style="color: #2196F3; font-weight: bold; font-size: 1em;">USD 0.00</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="modal-footer-custom">
-            <button type="button" class="btn btn-primary" onclick="closeModal('ganttChartBuilderModal')">Cancel</button>
-            <button type="button" class="btn btn-primary" id="saveGanttChartBtn">Preview Quotation</button>
+        <div class="modal-footer-custom" style="padding: 8px 10px;">
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" onclick="closeModal('ganttChartBuilderModal')">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" id="saveGanttChartBtn">Preview Quotation</button>
         </div>
     </div>
 </div>
