@@ -2213,6 +2213,8 @@
                         <label class="form-label">Main Category *</label>
                         <select class="form-select" id="editProductMainCategory">
                             <option value="">-- Select Category --</option>
+                            <option value="Single storey construction">Single storey construction</option>
+                            <option value="Double storey construction">Double storey construction</option>
                             <option value="Gas Products"><i class="bi bi-fire"></i> Gas Products</option>
                             <option value="Building Materials"><i class="bi bi-bricks"></i> Building Materials</option>
                             <option value="Electrical"><i class="bi bi-lightning-charge"></i> Electrical</option>
@@ -2273,6 +2275,8 @@
                             <label class="form-label" for="productMainCategory">Main Category *</label>
                             <select class="form-select" id="productMainCategory">
                                 <option value="">-- Select Category --</option>
+                                <option value="Single storey construction">Single storey construction</option>
+                                <option value="Double storey construction">Double storey construction</option>
                                 <option value="Gas Products">Gas Products</option>
                                 <option value="Building Materials">Building Materials</option>
                                 <option value="Electrical">Electrical</option>
@@ -2475,6 +2479,8 @@
 
     // Category & Sub-Category Mapping
     const categoryMapping = {
+        "Single storey construction": ["Foundation", "Walls", "Roof", "Finishing"],
+        "Double storey construction": ["Foundation", "Lower Floor", "Upper Floor", "Roof", "Finishing"],
         "Gas Products": ["Gas Tanks", "Gas Regulators"],
         "Building Materials": ["Brickforce", "DPC", "Plastic", "Wire Mesh", "Edge Strips", "Barbed Wire", "Rope", "Sand Paper"],
         "Electrical": ["Cables", "Conduit", "Couplings", "Cover Boxes", "Round Boxes", "Switches", "Sockets", "Breakers", "Magnetic Breakers", "Meter Boxes", "Insulation Tape", "Lampholders", "LED Lights", "Earth Rods", "Cable Terminals", "Gang Switches", "Cooker Units"],
