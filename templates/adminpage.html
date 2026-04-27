@@ -3460,7 +3460,8 @@
                     <label for="quotationCategory" class="form-label fw-bold">Quotation Category <span class="text-danger">*</span></label>
                     <select class="form-control" id="quotationCategory" name="category" required>
                         <option value="">-- Select Category --</option>
-                        <option value="construction">Construction</option>
+                        <option value="construction_single">Single Storey Construction</option>
+                        <option value="construction_double">Double Storey Construction</option>
                         <option value="kitchen">Kitchen and Cabinets</option>
                         <option value="tv_units">TV Units</option>
                         <option value="doors">Doors</option>
@@ -6621,6 +6622,31 @@ async function refreshEntireTable() {
 </script>
 
 <script>
+function filterConstructionItemsByStoreyType(selectedItems, category, isFullHouseMode = false) {
+    if (category !== 'construction') {
+        return selectedItems;
+    }
+    
+    const isSingleStorey = (category === 'construction_single');
+    const isDoubleStorey = (category === 'construction_double');
+    
+    // Items to exclude for single storey construction
+    const excludedForSingleStorey = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
+    
+    if (isSingleStorey && !isFullHouseMode) {
+        // Filter out excluded items
+        return selectedItems.filter(item => {
+            const itemName = item.name || item.item || '';
+            return !excludedForSingleStorey.some(excluded => 
+                itemName.toLowerCase().includes(excluded.toLowerCase())
+            );
+        });
+    }
+    
+    // For double storey, keep all items
+    return selectedItems;
+}
+
 function downloadCashflowFile() {
     const btn = document.getElementById("exportcashflowBtn");
     
@@ -10658,7 +10684,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        // Update selected items in drag-drop area
         function updateSelectedItemsList() {
             // Get all checked items in order they appear in left panel
             let selectedItems = [];
@@ -10671,9 +10696,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
 
+            // Store selected items globally for later processing
+            window.selectedConstructionItems = selectedItems;
+            
+            // Apply filtering based on selected category
+            const category = $('#quotationCategory').val();
+            const isFullHouseMode = window.quotationData ? window.quotationData.isFullHouseMode : false;
+            
+            let filteredItems = selectedItems;
+            
+            // If single storey construction, filter out specific items
+            if (category === 'construction_single') {
+                const excludedItems = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
+                filteredItems = selectedItems.filter(item => {
+                    return !excludedItems.some(excluded => 
+                        item.name.toLowerCase().includes(excluded.toLowerCase())
+                    );
+                });
+            }
+
             // Build the drag-drop items
             let dragItemsHTML = '';
-            selectedItems.forEach((item, index) => {
+            filteredItems.forEach((item, index) => {
                 dragItemsHTML += `
                     <div class="selected-item-drag" data-item-id="${item.id}" draggable="true" style="
                         background: white;
@@ -10697,7 +10741,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
 
-            if (selectedItems.length === 0) {
+            if (filteredItems.length === 0) {
                 $('#selectedItemsContainer').html('');
                 $('#emptyDropZoneMsg').show();
             } else {
@@ -10715,6 +10759,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         }
+
 
         // Drag and drop functionality
         let draggedElement = null;
@@ -10759,8 +10804,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show/Hide Size field and Construction Details based on category selection
         $('#quotationCategory').change(function() {
             const selectedCategory = $(this).val();
+            const isConstruction = (selectedCategory === 'construction_single' || selectedCategory === 'construction_double');
             
-            if (selectedCategory === 'construction') {
+            if (isConstruction) {
                 $('#quotationSizeContainer').show();
                 $('#constructionDetailsContainer').show();
                 $('#quotationSize').prop('required', true);
@@ -10986,8 +11032,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Check if construction category (either single or double storey)
+            const isConstruction = (category === 'construction_single' || category === 'construction_double');
+            const isSingleStorey = (category === 'construction_single');
+            
             // If construction is selected, validate additional fields
-            if (category === 'construction') {
+            if (isConstruction) {
                 const size = $('#quotationSize').val();
                 const markup = $('#quotationMarkup').val();
                 if (!size || !markup) {
@@ -11010,8 +11060,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let markup = 0;
             let isFullHouseMode = false;
 
-            if (category === 'construction') {
+            if (isConstruction) {
                 window.fullHouseDurationByItemId = null;
+
+                const sqm = parseFloat($('#quotationSize').val());
+                markup = parseFloat($('#quotationMarkup').val());
 
                 // Get items in the ORDER they appear in the drag-drop area
                 const selectedRateItems = [];
@@ -11021,8 +11074,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const itemData = quotationRatesCache.find(item => item.id == itemId);
                     if (itemData) {
                         selectedRateItems.push(itemData);
-                        const sqm = parseFloat($('#quotationSize').val());
-                        markup = parseFloat($('#quotationMarkup').val());
                         const basePrice = itemData.inhouseRate * sqm;
                         const clientPrice = basePrice * (1 + (markup / 100));
 
@@ -11044,11 +11095,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
+                // Filter for single storey construction (remove Deck Pouring, Shattering, Steel Fixing)
+                if (isSingleStorey) {
+                    const excludedItems = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
+                    const originalCount = orderedConstructionItems.length;
+                    
+                    orderedConstructionItems = orderedConstructionItems.filter(item => {
+                        return !excludedItems.some(excluded => 
+                            (item.item || '').toLowerCase().includes(excluded.toLowerCase())
+                        );
+                    });
+                    
+                    selectedItems = selectedItems.filter(item => {
+                        return !excludedItems.some(excluded => 
+                            (item.name || '').toLowerCase().includes(excluded.toLowerCase())
+                        );
+                    });
+                    
+                    // Recalculate totals after filtering
+                    if (originalCount !== orderedConstructionItems.length) {
+                        totalCost = selectedItems.reduce((sum, item) => sum + item.total, 0);
+                        baseCost = selectedItems.reduce((sum, item) => sum + (item.total / (1 + (markup / 100))), 0);
+                        
+                        // Show warning notification
+                        $('<div class="alert alert-warning alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; padding: 12px 20px; font-size: 0.85rem;">' +
+                            '<strong><i class="bi bi-info-circle"></i> Note:</strong> Deck Pouring, Shattering, and Steel Fixing are not applicable for single storey construction and have been automatically excluded.' +
+                            '<button type="button" class="btn-close" data-bs-dismiss="alert" style="float: right; background: transparent; border: none; font-size: 1.2rem;"></button></div>')
+                            .appendTo('body')
+                            .delay(5000)
+                            .fadeOut(300, function() { $(this).remove(); });
+                    }
+                }
+
+                // Check if Full House is selected
                 const fullHouseSelected = selectedRateItems.some(item => isFullHouseItemName(item.item));
                 if (fullHouseSelected) {
                     isFullHouseMode = true;
-                    const sqm = parseFloat($('#quotationSize').val());
-                    markup = parseFloat($('#quotationMarkup').val());
                     const proportionalResult = buildFullHouseProportionalSelection(selectedRateItems, sqm, markup);
 
                     if (!proportionalResult) {
@@ -11061,6 +11143,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     baseCost = proportionalResult.baseCost;
                     totalCost = proportionalResult.totalCost;
                     window.fullHouseDurationByItemId = proportionalResult.durationByItemId;
+                    
+                    // Filter proportional items for single storey if needed
+                    if (isSingleStorey) {
+                        const excludedItems = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
+                        orderedConstructionItems = orderedConstructionItems.filter(item => {
+                            return !excludedItems.some(excluded => 
+                                (item.item || '').toLowerCase().includes(excluded.toLowerCase())
+                            );
+                        });
+                        
+                        selectedItems = selectedItems.filter(item => {
+                            return !excludedItems.some(excluded => 
+                                (item.name || '').toLowerCase().includes(excluded.toLowerCase())
+                            );
+                        });
+                        
+                        // Recalculate totals
+                        totalCost = selectedItems.reduce((sum, item) => sum + item.total, 0);
+                        baseCost = selectedItems.reduce((sum, item) => sum + (item.total / (1 + (markup / 100))), 0);
+                    }
                 }
             } else {
                 window.fullHouseDurationByItemId = null;
@@ -11068,7 +11170,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const categoryName = category.replace('_', ' ').charAt(0).toUpperCase() + category.slice(1);
                 selectedItems.push({
                     name: categoryName + ' Service',
-                    total: 50000
+                    total: 50000,
+                    clientPrice: 50000
                 });
                 baseCost = 50000;
                 totalCost = 50000;
@@ -11076,9 +11179,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update preview modal content
             $('#previewClientName').text(clientName);
-            $('#previewCategory').text(category.replace('_', ' ').toUpperCase());
+            let displayCategory = category === 'construction_single' ? 'Single Storey Construction' : 
+                                category === 'construction_double' ? 'Double Storey Construction' : 
+                                category.replace('_', ' ').toUpperCase();
+            $('#previewCategory').text(displayCategory);
             $('#previewDate').text(new Date(quotationDate).toLocaleDateString('en-IN'));
-            $('#previewSize').text(category === 'construction' ? $('#quotationSize').val() : '-');
+            $('#previewSize').text(isConstruction ? $('#quotationSize').val() : '-');
 
             // Update total cost
             $('#quotationTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -11091,7 +11197,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clientWhatsapp: clientWhatsapp,
                 quotationDate: quotationDate,
                 date: quotationDate,
-                size: category === 'construction' ? $('#quotationSize').val() : null,
+                size: isConstruction ? $('#quotationSize').val() : null,
                 items: selectedItems,
                 baseCost: baseCost,
                 markup: markup,
@@ -11108,7 +11214,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal('quotationgeneratorModal');
 
             // For construction, show Gantt chart builder; otherwise show preview
-            if (category === 'construction') {
+            if (isConstruction) {
                 // Initialize Gantt with selected items in order
                 const sqm = parseFloat($('#quotationSize').val());
                 ganttItems = [];
@@ -11149,6 +11255,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 300);
             }
         });
+
+
 
         // Download Quotation & Gantt button
         $('#downloadQuotationBtn').click(function() {
