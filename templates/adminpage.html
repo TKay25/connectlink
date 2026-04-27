@@ -12101,16 +12101,16 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         let html = `
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.68rem;">
                 <thead>
                     <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
-                        <th style="padding: 4px 6px; text-align: left; font-weight: bold;">#</th>
-                        <th style="padding: 4px 6px; text-align: left; font-weight: bold;">Work Scope</th>
-                        <th style="padding: 4px 6px; text-align: center; font-weight: bold;">Start date</th>
-                        <th style="padding: 4px 6px; text-align: center; font-weight: bold;">End date</th>
-                        <th style="padding: 4px 6px; text-align: center; font-weight: bold;">Days</th>
-                        <th style="padding: 4px 6px; text-align: right; font-weight: bold;">Cost</th>
-                        <th style="padding: 4px 6px; text-align: center; font-weight: bold;">Action</th>
+                        <th style="padding: 2px 3px; text-align: left; font-weight: bold;">#</th>
+                        <th style="padding: 2px 3px; text-align: left; font-weight: bold;">Work Scope</th>
+                        <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Start date</th>
+                        <th style="padding: 2px 3px; text-align: center; font-weight: bold;">End date</th>
+                        <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Days</th>
+                        <th style="padding: 2px 3px; text-align: right; font-weight: bold;">Cost</th>
+                        <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -12125,13 +12125,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isSummaryMode) {
                 html += `
                     <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                        <td style="padding: 4px 6px; text-align: left; font-weight: bold;">${index + 1}</td>
-                        <td style="padding: 4px 6px; text-align: left; font-weight: 700;">${item.item}</td>
-                        <td style="padding: 4px 6px; text-align: center;">${formattedStart}</td>
-                        <td style="padding: 4px 6px; text-align: center;">${formattedEnd}</td>
-                        <td style="padding: 4px 6px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                        <td style="padding: 4px 6px; text-align: right; color: #2196F3; font-weight: bold;">USD ${Number(item.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style="padding: 4px 6px; text-align: center; color: #777; font-style: italic;">Summary</td>
+                        <td style="padding: 2px 3px; text-align: left; font-weight: bold;">${index + 1}</td>
+                        <td style="padding: 2px 3px; text-align: left; font-weight: 700;">${item.item}</td>
+                        <td style="padding: 2px 3px; text-align: center;">${formattedStart}</td>
+                        <td style="padding: 2px 3px; text-align: center;">${formattedEnd}</td>
+                        <td style="padding: 2px 3px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
+                        <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">USD ${Number(item.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 2px 3px; text-align: center; color: #777; font-style: italic;">Summary</td>
                     </tr>
                 `;
                 return;
@@ -12139,18 +12139,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             html += `
                 <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                    <td style="padding: 4px 6px; text-align: left; font-weight: bold;">${index + 1}</td>
-                    <td style="padding: 4px 6px; text-align: left;">${item.item}</td>
-                    <td style="padding: 4px 6px; text-align: center;">
-                        <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="font-size: 0.75rem; padding: 2px 4px; height: 24px;">
+                    <td style="padding: 2px 3px; text-align: left; font-weight: bold;">${index + 1}</td>
+                    <td style="padding: 2px 3px; text-align: left;">${item.item}</td>
+                    <td style="padding: 2px 3px; text-align: center;">
+                        <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="font-size: 0.65rem; padding: 1px 2px; height: 20px;">
                     </td>
-                    <td style="padding: 4px 6px; text-align: center;">
-                        <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="font-size: 0.75rem; padding: 2px 4px; height: 24px;">
+                    <td style="padding: 2px 3px; text-align: center;">
+                        <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="font-size: 0.65rem; padding: 1px 2px; height: 20px;">
                     </td>
-                    <td style="padding: 4px 6px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                    <td style="padding: 4px 6px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td style="padding: 4px 6px; text-align: center;">
-                        <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 2px 6px; font-size: 0.7rem;">Delete</button>
+                    <td style="padding: 2px 3px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
+                    <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 2px 3px; text-align: center;">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 1px 4px; font-size: 0.6rem;">Delete</button>
                     </td>
                 </tr>
             `;
