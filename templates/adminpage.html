@@ -3610,49 +3610,49 @@
 
 <!-- Quotation Preview Modal - Blur Overlay Version -->
 <div id="quotationPreviewModal" class="modal-overlay">
-    <div class="modal-container large" style="color: var(--dark-blue-deep)">
-        <div class="modal-header-custom">
-            <h3><i class="bi bi-eye"></i> Quotation Preview</h3>
-            <button class="close-modal" onclick="closeModal('quotationPreviewModal')">
+    <div class="modal-container large" style="color: var(--dark-blue-deep); font-size: 0.78rem;">
+        <div class="modal-header-custom" style="padding: 10px 16px;">
+            <h3 style="font-size: 1rem;"><i class="bi bi-eye"></i> Quotation Preview</h3>
+            <button class="close-modal" style="font-size: 1rem; padding: 2px 8px;" onclick="closeModal('quotationPreviewModal')">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto; padding: 10px 10px;">
             <!-- Client & Project Info -->
-            <div class="mb-4 p-3 border rounded" style="background-color: #f8f9fa;">
+            <div class="mb-3 p-2 border rounded" style="background-color: #f8f9fa; font-size: 0.92em;">
                 <div class="row">
                     <div class="col-md-6">
-                        <p class="mb-1"><strong>Client Name:</strong> <span id="previewClientName"></span></p>
-                        <p class="mb-0"><strong>Category:</strong> <span id="previewCategory"></span></p>
+                        <p class="mb-1" style="font-size: 0.95em;"><strong>Client Name:</strong> <span id="previewClientName"></span></p>
+                        <p class="mb-0" style="font-size: 0.95em;"><strong>Category:</strong> <span id="previewCategory"></span></p>
                     </div>
                     <div class="col-md-6">
-                        <p class="mb-1"><strong>Date:</strong> <span id="previewDate"></span></p>
-                        <p class="mb-0"><strong>Size:</strong> <span id="previewSize">- square meters</span></p>
+                        <p class="mb-1" style="font-size: 0.95em;"><strong>Date:</strong> <span id="previewDate"></span></p>
+                        <p class="mb-0" style="font-size: 0.95em;"><strong>Size:</strong> <span id="previewSize">- square meters</span></p>
                     </div>
                 </div>
             </div>
 
-            <div id="fullHouseDisplayModeContainer" class="mb-4 p-3 border rounded" style="display: none; background-color: #fff8e1; border-left: 4px solid #ff9800;">
-                <label for="fullHouseDisplayMode" class="form-label fw-bold mb-2">Full House Display Mode</label>
-                <select id="fullHouseDisplayMode" class="form-control">
+            <div id="fullHouseDisplayModeContainer" class="mb-3 p-2 border rounded" style="display: none; background-color: #fff8e1; border-left: 3px solid #ff9800; font-size: 0.85em;">
+                <label for="fullHouseDisplayMode" class="form-label fw-bold mb-1" style="font-size: 0.9em;">Full House Display Mode</label>
+                <select id="fullHouseDisplayMode" class="form-control form-control-sm" style="font-size: 0.95em;">
                     <option value="all_items">Show All Construction Items</option>
                     <option value="full_house_only">Show Full House Item Only</option>
                 </select>
-                <small class="text-muted">This affects quotation PDF output for both download and WhatsApp send.</small>
+                <small class="text-muted" style="font-size: 0.85em;">This affects quotation PDF output for both download and WhatsApp send.</small>
             </div>
 
             <!-- Items & Costs Table -->
-            <div class="mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="fw-bold mb-0">Selected Items</h6>
-                    <span id="fullHouseDisplayModeBadge" class="badge" style="display: none; background-color: #0A1A3A; color: #fff; font-size: 0.75rem; padding: 6px 10px;">Mode: All Items</span>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold mb-0" style="font-size: 0.95em;">Selected Items</h6>
+                    <span id="fullHouseDisplayModeBadge" class="badge" style="display: none; background-color: #0A1A3A; color: #fff; font-size: 0.7rem; padding: 4px 8px;">Mode: All Items</span>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered">
+                    <table class="table table-sm table-bordered" style="font-size: 0.75em;">
                         <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
                             <tr>
-                                <th style="font-size: 0.8rem;">Item</th>
-                                <th style="font-size: 0.8rem; text-align: right;">Client Price</th>
+                                <th style="font-size: 0.95em; padding: 4px 6px;">Item</th>
+                                <th style="font-size: 0.95em; text-align: right; padding: 4px 6px;">Client Price</th>
                             </tr>
                         </thead>
                         <tbody id="quotationItemsTable">
@@ -3663,29 +3663,29 @@
             </div>
 
             <!-- Total Cost Summary -->
-            <div class="mb-4 p-3 border rounded" style="background-color: #e8f4f8; border-left: 4px solid var(--crimson-sidebar, #9B1D2C);">
+            <div class="mb-3 p-2 border rounded" style="background-color: #e8f4f8; border-left: 3px solid var(--crimson-sidebar, #9B1D2C); font-size: 0.92em;">
                 <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold">Total Cost:</span>
-                    <span class="fw-bold fs-4" style="color: var(--crimson-sidebar, #9B1D2C);">USD <span id="quotationTotalCost">0.00</span></span>
+                    <span class="fw-bold" style="font-size: 0.95em;">Total Cost:</span>
+                    <span class="fw-bold" style="color: var(--crimson-sidebar, #9B1D2C); font-size: 1.1em;">USD <span id="quotationTotalCost">0.00</span></span>
                 </div>
             </div>
 
             <!-- Gantt Chart Display Section -->
-            <div class="mb-3">
-                <h5 style="margin-bottom: 1rem; font-weight: bold;">Project Schedule</h5>
-                <div id="ganttChartContainer" class="border rounded p-3" style="background-color: #f8f9fa; max-height: 400px; overflow-y: auto;">
-                    <div id="ganttChartContent" style="width: 100%; display: flex; align-items: center; justify-content: center; min-height: 300px;">
+            <div class="mb-2">
+                <h5 style="margin-bottom: 0.7rem; font-weight: bold; font-size: 0.95em;">Project Schedule</h5>
+                <div id="ganttChartContainer" class="border rounded p-2" style="background-color: #f8f9fa; max-height: 300px; overflow-y: auto;">
+                    <div id="ganttChartContent" style="width: 100%; display: flex; align-items: center; justify-content: center; min-height: 180px; font-size: 0.9em;">
                         <p style="color: #666;">Gantt chart will be displayed here</p>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="modal-footer-custom">
-            <button type="button" class="btn btn-primary" onclick="closeModal('quotationPreviewModal')">Back</button>
-            <button type="button" class="btn btn-primary" id="downloadQuotationBtn">
+        <div class="modal-footer-custom" style="padding: 8px 10px;">
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" onclick="closeModal('quotationPreviewModal')">Back</button>
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" id="downloadQuotationBtn">
                 <i class="bi bi-download"></i> Save & Download Quotation & Gantt Chart
             </button>
-            <button type="button" class="btn btn-primary" id="sendQuotationBtn">
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" id="sendQuotationBtn">
                 <i class="bi bi-send"></i> Send Quotation & Gantt Chart
             </button>
         </div>
