@@ -3460,8 +3460,7 @@
                     <label for="quotationCategory" class="form-label fw-bold">Quotation Category <span class="text-danger">*</span></label>
                     <select class="form-control" id="quotationCategory" name="category" required>
                         <option value="">-- Select Category --</option>
-                        <option value="single_storey_construction">Single Storey Construction</option>
-                        <option value="double_storey_construction">Double Storey Construction</option>
+                        <option value="construction">Construction</option>
                         <option value="kitchen">Kitchen and Cabinets</option>
                         <option value="tv_units">TV Units</option>
                         <option value="doors">Doors</option>
@@ -10452,10 +10451,11 @@ document.addEventListener('DOMContentLoaded', () => {
         function renderConstructionItemsList() {
             const sqm = parseFloat($('#quotationSize').val()) || 0;
             const markup = parseFloat($('#quotationMarkup').val()) || 30;
+            
             // Update display
             $('#displaySqm').text(sqm > 0 ? sqm : '--');
             $('#displayMarkup').text(markup + '%');
-
+            
             if (quotationRatesCache.length === 0) {
                 $('#constructionItemsList').html('<p class="text-muted p-3">No items available</p>');
                 $('#constructionTotal').text('0.00');
@@ -10468,18 +10468,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Filter logic for single/double storey
-            let filteredRates = quotationRatesCache;
-            const selectedCategory = ($('#quotationCategory').val() || '').toLowerCase();
-            if (selectedCategory === 'single_storey_construction') {
-                const excludeItems = ['deck pouring', 'shattering', 'steel fixing'];
-                filteredRates = quotationRatesCache.filter(rate => !excludeItems.includes((rate.item || '').toLowerCase()));
-            }
-
             let itemsHTML = '';
             const markupMultiplier = 1 + (markup / 100);
 
-            filteredRates.forEach((rate, index) => {
+            quotationRatesCache.forEach((rate, index) => {
                 const inhouseRateValue = Number(rate.inhouseRate) || 0;
                 const basePrice = inhouseRateValue * sqm;
                 const clientPrice = basePrice * markupMultiplier;
