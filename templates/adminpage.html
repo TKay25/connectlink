@@ -10477,6 +10477,11 @@ document.addEventListener('DOMContentLoaded', () => {
         function renderConstructionItemsList() {
             const sqm = parseFloat($('#quotationSize').val()) || 0;
             const markup = parseFloat($('#quotationMarkup').val()) || 30;
+            const category = $('#quotationCategory').val();
+            const isSingleStorey = (category === 'construction_single');
+            
+            // Items to exclude for single storey construction
+            const excludedForSingleStorey = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
             
             // Update display
             $('#displaySqm').text(sqm > 0 ? sqm : '--');
@@ -10501,13 +10506,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const inhouseRateValue = Number(rate.inhouseRate) || 0;
                 const basePrice = inhouseRateValue * sqm;
                 const clientPrice = basePrice * markupMultiplier;
-
+                
+                // Check if this item should be excluded for single storey
+                const isExcludedForSingleStorey = isSingleStorey && excludedForSingleStorey.some(excluded => 
+                    (rate.item || '').toLowerCase().includes(excluded.toLowerCase())
+                );
+                
+                const itemStyle = isExcludedForSingleStorey ? 'opacity: 0.6; background-color: #f5f5f5;' : '';
+                const disabledAttr = isExcludedForSingleStorey ? 'disabled' : '';
+                const checkboxDisabled = isExcludedForSingleStorey ? 'disabled' : '';
+                const cursorStyle = isExcludedForSingleStorey ? 'cursor: not-allowed;' : 'cursor: pointer;';
+                const tooltip = isExcludedForSingleStorey ? 'title="This item is not applicable for single storey construction"' : '';
+                
                 itemsHTML += `
-                    <div class="border-bottom p-3 construction-item-row" data-item-id="${rate.id}" data-item-name="${rate.item}" data-client-price="${clientPrice}" style="background-color: ${index % 2 === 0 ? '#fff' : '#f8f9fa'};">
+                    <div class="border-bottom p-3 construction-item-row" data-item-id="${rate.id}" data-item-name="${rate.item}" data-client-price="${clientPrice}" style="background-color: ${index % 2 === 0 ? '#fff' : '#f8f9fa'}; ${itemStyle}">
                         <div style="display: flex; align-items: flex-start; gap: 10px;">
-                            <input type="checkbox" class="form-check-input construction-item-checkbox" style="margin-top: 3px; cursor: pointer;">
+                            <input type="checkbox" class="form-check-input construction-item-checkbox" ${checkboxDisabled} style="margin-top: 3px; ${cursorStyle}" ${tooltip}>
                             <div style="flex: 1;">
-                                <div class="fw-bold" style="font-size: 0.95rem; margin-bottom: 4px;">${rate.item}</div>
+                                <div class="fw-bold" style="font-size: 0.95rem; margin-bottom: 4px;">${rate.item} ${isExcludedForSingleStorey ? '<span class="badge bg-secondary ms-2" style="font-size: 0.6rem;">Not for Single Storey</span>' : ''}</div>
                                 <small class="text-muted" style="display: block; line-height: 1.5;">
                                     Base: <strong>$${rate.inhouseRate}</strong>/sqm 
                                     × <strong>${sqm}</strong> sqm 
@@ -10525,15 +10541,19 @@ document.addEventListener('DOMContentLoaded', () => {
             $('#constructionItemsList').html(itemsHTML);
 
             // Reattach event handlers
-            $('.construction-item-checkbox').change(function() {
+            $('.construction-item-checkbox:not(:disabled)').change(function() {
                 updateSelectedItemsList();
                 calculateConstructionTotal();
             });
-
-            // Make item row clickable for checkbox
+            
+            // Make item row clickable for checkbox (only if not disabled)
             $('.construction-item-row').click(function(e) {
+                const checkbox = $(this).find('.construction-item-checkbox');
+                if (checkbox.is(':disabled')) {
+                    e.preventDefault();
+                    return;
+                }
                 if (e.target.tagName !== 'INPUT') {
-                    const checkbox = $(this).find('.construction-item-checkbox');
                     checkbox.prop('checked', !checkbox.prop('checked')).change();
                 }
             });
@@ -10559,8 +10579,28 @@ document.addEventListener('DOMContentLoaded', () => {
         // Calculate and display total construction cost
         function calculateConstructionTotal() {
             let total = 0;
+            const category = $('#quotationCategory').val();
+            const isSingleStorey = (category === 'construction_single');
+            
+            // Items to exclude for single storey construction
+            const excludedForSingleStorey = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
+            
             $('.construction-item-checkbox:checked').each(function() {
-                total += parseFloat($(this).closest('.construction-item-row').data('client-price'));
+                const itemRow = $(this).closest('.construction-item-row');
+                const itemName = itemRow.data('item-name');
+                let clientPrice = parseFloat(itemRow.data('client-price'));
+                
+                // For single storey, exclude the specified items from the total
+                if (isSingleStorey) {
+                    const shouldExclude = excludedForSingleStorey.some(excluded => 
+                        (itemName || '').toLowerCase().includes(excluded.toLowerCase())
+                    );
+                    if (shouldExclude) {
+                        return; // Skip this item, don't add to total
+                    }
+                }
+                
+                total += clientPrice;
             });
             $('#constructionTotal').text(total.toFixed(2));
         }
@@ -10687,37 +10727,37 @@ document.addEventListener('DOMContentLoaded', () => {
         function updateSelectedItemsList() {
             // Get all checked items in order they appear in left panel
             let selectedItems = [];
+            const category = $('#quotationCategory').val();
+            const isSingleStorey = (category === 'construction_single');
+            const excludedForSingleStorey = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
+            
             $('.construction-item-checkbox:checked').each(function() {
                 const itemRow = $(this).closest('.construction-item-row');
+                const itemName = itemRow.data('item-name');
+                
+                // Skip excluded items for single storey
+                if (isSingleStorey) {
+                    const shouldExclude = excludedForSingleStorey.some(excluded => 
+                        (itemName || '').toLowerCase().includes(excluded.toLowerCase())
+                    );
+                    if (shouldExclude) {
+                        return; // Skip this item
+                    }
+                }
+                
                 selectedItems.push({
                     id: itemRow.data('item-id'),
-                    name: itemRow.data('item-name'),
+                    name: itemName,
                     price: itemRow.data('client-price')
                 });
             });
 
             // Store selected items globally for later processing
             window.selectedConstructionItems = selectedItems;
-            
-            // Apply filtering based on selected category
-            const category = $('#quotationCategory').val();
-            const isFullHouseMode = window.quotationData ? window.quotationData.isFullHouseMode : false;
-            
-            let filteredItems = selectedItems;
-            
-            // If single storey construction, filter out specific items
-            if (category === 'construction_single') {
-                const excludedItems = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
-                filteredItems = selectedItems.filter(item => {
-                    return !excludedItems.some(excluded => 
-                        item.name.toLowerCase().includes(excluded.toLowerCase())
-                    );
-                });
-            }
 
             // Build the drag-drop items
             let dragItemsHTML = '';
-            filteredItems.forEach((item, index) => {
+            selectedItems.forEach((item, index) => {
                 dragItemsHTML += `
                     <div class="selected-item-drag" data-item-id="${item.id}" draggable="true" style="
                         background: white;
@@ -10741,7 +10781,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
 
-            if (filteredItems.length === 0) {
+            if (selectedItems.length === 0) {
                 $('#selectedItemsContainer').html('');
                 $('#emptyDropZoneMsg').show();
             } else {
