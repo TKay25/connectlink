@@ -10613,8 +10613,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function isFullHouseItemName(name) {
+            if (!name) return false;
             const normalized = normalizeConstructionItemName(name);
-            return normalized.includes('fullhouse');
+            // Add more variations if needed
+            return normalized.includes('fullhouse') || 
+                normalized.includes('full house') ||
+                normalized.includes('full-house');
         }
 
         function distributeIntegerDays(weights, totalDays) {
@@ -10699,12 +10703,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 return (effectiveWeights[index] / effectiveWeightSum) * fullHouseClientTotal;
             });
 
-            const clientTotalsRounded = rawClientTotals.map(v => Number(v.toFixed(2)));
-            const roundedSum = clientTotalsRounded.reduce((sum, v) => sum + v, 0);
-            const roundingDiff = Number((fullHouseClientTotal - roundedSum).toFixed(2));
-            if (clientTotalsRounded.length > 0) {
-                const lastIdx = clientTotalsRounded.length - 1;
-                clientTotalsRounded[lastIdx] = Number((clientTotalsRounded[lastIdx] + roundingDiff).toFixed(2));
+            // Round down to 2 decimals and track remainder
+            const clientTotalsRounded = rawClientTotals.map(v => Math.floor(v * 100) / 100);
+            let roundedSum = clientTotalsRounded.reduce((sum, v) => sum + v, 0);
+            
+            // Calculate the rounding difference
+            let roundingDiff = Number((fullHouseClientTotal - roundedSum).toFixed(2));
+            
+            // Distribute the rounding difference to the largest items to avoid negative values
+            if (Math.abs(roundingDiff) > 0.01) {
+                // Sort items by their raw value (largest first) to distribute remainder
+                const sortedIndices = rawClientTotals
+                    .map((value, idx) => ({ idx, value }))
+                    .sort((a, b) => b.value - a.value);
+                
+                let remainingDiff = roundingDiff;
+                for (let i = 0; i < sortedIndices.length && remainingDiff > 0.009; i++) {
+                    const idx = sortedIndices[i].idx;
+                    // Add 0.01 to this item
+                    clientTotalsRounded[idx] = Number((clientTotalsRounded[idx] + 0.01).toFixed(2));
+                    remainingDiff = Number((remainingDiff - 0.01).toFixed(2));
+                }
+                
+                // Recalculate the sum after distribution
+                roundedSum = clientTotalsRounded.reduce((sum, v) => sum + v, 0);
+                roundingDiff = Number((fullHouseClientTotal - roundedSum).toFixed(2));
+                
+                // If there's still a small remainder, add it to the first item (ensuring it doesn't go negative)
+                if (Math.abs(roundingDiff) > 0.009) {
+                    if (clientTotalsRounded[0] + roundingDiff > 0) {
+                        clientTotalsRounded[0] = Number((clientTotalsRounded[0] + roundingDiff).toFixed(2));
+                    }
+                }
+            }
+            
+            // Final cleanup: ensure no negative values
+            for (let i = 0; i < clientTotalsRounded.length; i++) {
+                if (clientTotalsRounded[i] < 0) {
+                    clientTotalsRounded[i] = 0;
+                }
             }
 
             const durationByItemId = {};
@@ -10712,7 +10749,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const orderedConstructionItems = [];
 
             componentItems.forEach((item, index) => {
-                const clientPrice = clientTotalsRounded[index] || 0;
+                let clientPrice = clientTotalsRounded[index] || 0;
+                
+                // Ensure minimum price of 0.01 for items that should have value
+                const rawTotal = rawClientTotals[index];
+                if (rawTotal > 0.01 && clientPrice < 0.01) {
+                    clientPrice = 0.01;
+                }
+                
                 const baseTotal = clientPrice / markupMultiplier;
                 const effectiveInhouseRate = sqmValue > 0 ? (baseTotal / sqmValue) : 0;
 
@@ -10733,11 +10777,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 durationByItemId[item.id] = Math.max(1, rawDays);
             });
 
+            // Calculate final totals (recalculate to ensure accuracy)
+            const finalTotalCost = selectedItems.reduce((sum, item) => sum + item.total, 0);
+            const finalBaseCost = selectedItems.reduce((sum, item) => sum + (item.total / markupMultiplier), 0);
+
             return {
                 selectedItems,
                 orderedConstructionItems,
-                baseCost: Number(fullHouseBaseTotal.toFixed(2)),
-                totalCost: Number(fullHouseClientTotal.toFixed(2)),
+                baseCost: Number(finalBaseCost.toFixed(2)),
+                totalCost: Number(finalTotalCost.toFixed(2)),
                 durationByItemId
             };
         }
