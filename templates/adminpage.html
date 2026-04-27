@@ -10652,10 +10652,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return base;
         }
 
-        function buildFullHouseProportionalSelection(selectedRateItems, sqm, markup) {
+        function buildFullHouseProportionalSelection(selectedRateItems, sqm, markup, category = null) {
             const sqmValue = Math.max(0, Number(sqm) || 0);
             const markupValue = Number(markup) || 0;
             const markupMultiplier = 1 + (markupValue / 100);
+            
+            const isSingleStorey = (category === 'construction_single');
+            const excludedItems = isSingleStorey ? ['Deck Pouring', 'Shattering', 'Steel Fixing'] : [];
 
             const selected = Array.isArray(selectedRateItems) ? selectedRateItems : [];
             const fullHouseItem = selected.find(item => isFullHouseItemName(item.item));
@@ -10663,7 +10666,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 return null;
             }
 
-            const componentItems = quotationRatesCache.filter(item => !isFullHouseItemName(item.item));
+            // Get component items - filter out excluded items for single storey
+            let componentItems = quotationRatesCache.filter(item => !isFullHouseItemName(item.item));
+            
+            // For single storey, filter out the excluded items
+            if (isSingleStorey) {
+                componentItems = componentItems.filter(item => {
+                    return !excludedItems.some(excluded => 
+                        (item.item || '').toLowerCase().includes(excluded.toLowerCase())
+                    );
+                });
+            }
+            
             if (!componentItems.length) {
                 return null;
             }
@@ -10672,11 +10686,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const fullHouseBaseTotal = fullHouseRate * sqmValue;
             const fullHouseClientTotal = fullHouseBaseTotal * markupMultiplier;
 
+            // Calculate weights based on inhouse rates
             const weights = componentItems.map(item => Math.max(0, Number(item.inhouseRate) || 0));
             const sumWeights = weights.reduce((sum, w) => sum + w, 0);
+            
+            // If all weights are zero, use equal distribution
             const effectiveWeights = sumWeights > 0 ? weights : componentItems.map(() => 1);
             const effectiveWeightSum = effectiveWeights.reduce((sum, w) => sum + w, 0);
 
+            // Calculate proportional client totals
             const rawClientTotals = componentItems.map((item, index) => {
                 return (effectiveWeights[index] / effectiveWeightSum) * fullHouseClientTotal;
             });
@@ -11169,39 +11187,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Check if Full House is selected
                 const fullHouseSelected = selectedRateItems.some(item => isFullHouseItemName(item.item));
+
+                // Inside the generateQuotationBtn click handler, where you call buildFullHouseProportionalSelection
                 if (fullHouseSelected) {
                     isFullHouseMode = true;
-                    const proportionalResult = buildFullHouseProportionalSelection(selectedRateItems, sqm, markup);
+                    // Pass the category to the function
+                    const proportionalResult = buildFullHouseProportionalSelection(selectedRateItems, sqm, markup, category);
 
                     if (!proportionalResult) {
                         alert('Full House proportional allocation could not be calculated. Please ensure square meters is entered and quotation rates contain other construction items.');
                         return;
                     }
 
-                    selectedItems = proportionalResult.selectedItems;
-                    orderedConstructionItems = proportionalResult.orderedConstructionItems;
-                    baseCost = proportionalResult.baseCost;
-                    totalCost = proportionalResult.totalCost;
+                    // Get the proportional results
+                    let proportionalSelectedItems = proportionalResult.selectedItems;
+                    let proportionalOrderedItems = proportionalResult.orderedConstructionItems;
+                    let proportionalBaseCost = proportionalResult.baseCost;
+                    let proportionalTotalCost = proportionalResult.totalCost;
+                    
+                    // For single storey construction, the items are already filtered inside the function
+                    selectedItems = proportionalSelectedItems;
+                    orderedConstructionItems = proportionalOrderedItems;
+                    baseCost = proportionalBaseCost;
+                    totalCost = proportionalTotalCost;
+                    
                     window.fullHouseDurationByItemId = proportionalResult.durationByItemId;
                     
-                    // Filter proportional items for single storey if needed
-                    if (isSingleStorey) {
-                        const excludedItems = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
-                        orderedConstructionItems = orderedConstructionItems.filter(item => {
-                            return !excludedItems.some(excluded => 
-                                (item.item || '').toLowerCase().includes(excluded.toLowerCase())
-                            );
-                        });
-                        
-                        selectedItems = selectedItems.filter(item => {
-                            return !excludedItems.some(excluded => 
-                                (item.name || '').toLowerCase().includes(excluded.toLowerCase())
-                            );
-                        });
-                        
-                        // Recalculate totals
-                        totalCost = selectedItems.reduce((sum, item) => sum + item.total, 0);
-                        baseCost = selectedItems.reduce((sum, item) => sum + (item.total / (1 + (markup / 100))), 0);
+                    // Show warning for single storey if items were filtered
+                    if (isSingleStorey && proportionalResult.filteredItemsCount > 0) {
+                        $('<div class="alert alert-warning alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; padding: 12px 20px; font-size: 0.85rem; z-index: 99999;">' +
+                            '<strong><i class="bi bi-info-circle"></i> Note:</strong> Deck Pouring, Shattering, and Steel Fixing are not applicable for single storey construction and have been automatically excluded from your Full House quotation.' +
+                            '<button type="button" class="btn-close" data-bs-dismiss="alert" style="float: right; background: transparent; border: none; font-size: 1.2rem; margin-left: 10px;"></button></div>')
+                            .appendTo('body')
+                            .delay(8000)
+                            .fadeOut(500, function() { $(this).remove(); });
                     }
                 }
             } else {
