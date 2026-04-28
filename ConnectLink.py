@@ -4808,7 +4808,18 @@ def webhook():
 
                                                             if enquiry_id:
                                                                 send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
-                                                                deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                # ADD THIS: Small delay before processing
+                                                                time.sleep(1)  # Critical for mobile
+                                                                
+                                                                # Now deliver the attachment
+                                                                try:
+                                                                    result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    if not result:
+                                                                        send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
+                                                                except Exception as e:
+                                                                    print(f"❌ Error delivering attachment: {e}")
+                                                                    send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
+
                                                                 return jsonify({"status": "received"}), 200
                                                             else:
                                                                 send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
@@ -4819,9 +4830,19 @@ def webhook():
 
                                                             if enquiry_id:
                                                                 send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
-                                                                time.sleep(1)
-                                                                deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                time.sleep(1)  # Critical for mobile
+                                                                
+                                                                # Now deliver the attachment
+                                                                try:
+                                                                    result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    if not result:
+                                                                        send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
+                                                                except Exception as e:
+                                                                    print(f"❌ Error delivering attachment: {e}")
+                                                                    send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
+
                                                                 return jsonify({"status": "received"}), 200
+                                                            
                                                             else:
                                                                 send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
                                                                 return jsonify({"status": "received"}), 200
@@ -7482,8 +7503,17 @@ def webhook():
 
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
-                                                                    time.sleep(1)
-                                                                    deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    time.sleep(1)  # Critical for mobile
+                                                                    
+                                                                    # Now deliver the attachment
+                                                                    try:
+                                                                        result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                        if not result:
+                                                                            send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
+                                                                    except Exception as e:
+                                                                        print(f"❌ Error delivering attachment: {e}")
+                                                                        send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
+
                                                                     continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
@@ -7494,8 +7524,17 @@ def webhook():
 
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
-                                                                    time.sleep(1)
-                                                                    deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    time.sleep(1)  # Critical for mobile
+                                                                    
+                                                                    # Now deliver the attachment
+                                                                    try:
+                                                                        result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                        if not result:
+                                                                            send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
+                                                                    except Exception as e:
+                                                                        print(f"❌ Error delivering attachment: {e}")
+                                                                        send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
+
                                                                     continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
@@ -8785,8 +8824,17 @@ def webhook():
 
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
-                                                                    time.sleep(1)
-                                                                    deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    time.sleep(1)  # Critical for mobile
+                                                                    
+                                                                    # Now deliver the attachment
+                                                                    try:
+                                                                        result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                        if not result:
+                                                                            send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
+                                                                    except Exception as e:
+                                                                        print(f"❌ Error delivering attachment: {e}")
+                                                                        send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
+                                                                        
                                                                     continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
@@ -8797,8 +8845,17 @@ def webhook():
 
                                                                 if enquiry_id:
                                                                     send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
-                                                                    time.sleep(1)
-                                                                    deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                    time.sleep(1)  # Critical for mobile
+                                                                    
+                                                                    # Now deliver the attachment
+                                                                    try:
+                                                                        result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
+                                                                        if not result:
+                                                                            send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
+                                                                    except Exception as e:
+                                                                        print(f"❌ Error delivering attachment: {e}")
+                                                                        send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
+                                                                        
                                                                     continue
                                                                 else:
                                                                     send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
@@ -18373,7 +18430,10 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
     return send_data
 
 def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_message=None):
-    """Fetch enquiry attachment from DB and send as WhatsApp PDF or return link"""
+    """Fetch enquiry attachment from DB and send as WhatsApp PDF"""
+    
+    print(f"🔍 Starting PDF delivery for enquiry {enquiry_id} to {recipient_number}")
+    
     try:
         with get_db() as (cursor, _):
             cursor.execute(
@@ -18385,14 +18445,16 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
                 (enquiry_id,)
             )
             row = cursor.fetchone()
+            print(f"🔍 Database query completed, row exists: {row is not None}")
     except Exception as exc:
         logging.exception("Error loading enquiry attachment %s", enquiry_id)
+        print(f"❌ Database error: {exc}")
         if send_text_message:
             send_text_message(recipient_number, "❌ Failed to load the enquiry attachment.")
-        print(f"❌ Error loading enquiry attachment {enquiry_id}: {exc}")
         return False
 
     if not row or row[0] is None:
+        print(f"❌ No attachment found for enquiry {enquiry_id}")
         if send_text_message:
             send_text_message(recipient_number, "❌ No attachment found for this enquiry.")
         return False
@@ -18403,54 +18465,147 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
 
     if isinstance(plan_data, memoryview):
         plan_data = plan_data.tobytes()
+        print(f"🔍 Converted memoryview to bytes, size: {len(plan_data)} bytes")
 
     if not plan_data:
+        print(f"❌ Empty plan data for enquiry {enquiry_id}")
         if send_text_message:
             send_text_message(recipient_number, "❌ The attachment file is empty.")
         return False
 
-    date_part = timestamp.strftime('%Y%m%d') if hasattr(timestamp, 'strftime') else datetime.now().strftime('%Y%m%d')
-    filename = f"Enquiry_Attachment_{enquiry_id}_{client_whatsapp}_{date_part}.pdf"
+    file_size_mb = len(plan_data) / (1024 * 1024)
+    print(f"📊 Attachment size: {file_size_mb:.2f} MB")
     
-    # Try to send as PDF document first (works on both mobile and desktop)
-    try:
-        send_pdf_document_whatsapp(recipient_number, plan_data, filename, f"Enquiry Attachment\nReference: #{enquiry_id}")
-        return True
-    except Exception as exc:
-        # If PDF document fails, send a clickable link instead
-        logging.warning(f"Direct PDF send failed, sending link instead: {exc}")
-        
-        # You'll need to create a download endpoint for this
+    # MOBILE FIX: If file > 2MB, send as link instead of PDF
+    if file_size_mb > 2:
+        print(f"⚠️ File too large ({file_size_mb:.2f}MB) for mobile, sending link instead")
         download_link = f"https://your-domain.com/api/enquiries/{enquiry_id}/plan"
-        
         link_message = f"""📎 *Enquiry Attachment Available*
 
-            Reference: #{enquiry_id}
+Reference: #{enquiry_id}
+File size: {file_size_mb:.1f} MB
 
-            The attachment couldn't be sent directly. Please click the link below to download:
+⚠️ For better mobile experience, please click the link below to download:
 
-            🔗 {download_link}."""
+🔗 {download_link}"""
         
         if send_text_message:
             send_text_message(recipient_number, link_message)
         else:
-            # Send as text message via WhatsApp
-            url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-            headers = {
-                'Authorization': f'Bearer {ACCESS_TOKEN}',
-                'Content-Type': 'application/json'
-            }
-            payload = {
-                "messaging_product": "whatsapp",
-                "recipient_type": "individual",
-                "to": recipient_number,
-                "type": "text",
-                "text": {"body": link_message}
-            }
-            requests.post(url, headers=headers, json=payload)
-        
+            send_whatsapp_message(recipient_number, link_message)
         return True
 
+    date_part = timestamp.strftime('%Y%m%d') if hasattr(timestamp, 'strftime') else datetime.now().strftime('%Y%m%d')
+    filename = f"Enquiry_Attachment_{enquiry_id}_{client_whatsapp}_{date_part}.pdf"
+    caption = f"Enquiry Attachment\nReference: #{enquiry_id}"
+    
+    print(f"📤 Attempting to send PDF ({file_size_mb:.2f}MB) to {recipient_number}")
+    
+    try:
+        # MOBILE FIX: Use lower timeout and simpler payload
+        result = send_pdf_mobile_optimized(recipient_number, plan_data, filename, caption)
+        print(f"✅ PDF sent successfully to mobile: {result}")
+        return True
+    except Exception as exc:
+        print(f"❌ Failed to send PDF to mobile: {exc}")
+        logging.exception(f"Mobile PDF send failed: {exc}")
+        
+        # Fallback: Send download link
+        download_link = f"https://your-domain.com/api/enquiries/{enquiry_id}/plan"
+        link_message = f"📎 *Enquiry Attachment*\n\nClick this link to download:\n{download_link}\n\nReference: #{enquiry_id}"
+        
+        if send_text_message:
+            send_text_message(recipient_number, link_message)
+        else:
+            send_whatsapp_message(recipient_number, link_message)
+        return True
+
+def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption):
+    """Mobile-optimized PDF sender with lower timeouts and simpler payload"""
+    
+    import requests
+    import io
+    
+    # Check if we're on mobile vs desktop (approximate by number format)
+    # Zimbabwe numbers starting with 2637 or 263 are typically mobile
+    is_mobile = recipient_number.startswith('2637') or recipient_number.startswith('263')
+    
+    if is_mobile and len(pdf_bytes) > 2 * 1024 * 1024:  # > 2MB for mobile
+        raise ValueError(f"File too large ({len(pdf_bytes)/(1024*1024):.1f}MB) for mobile")
+    
+    upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+    upload_headers = {'Authorization': f'Bearer {ACCESS_TOKEN}'}
+    
+    # For mobile, use smaller chunks and simpler file object
+    file_obj = io.BytesIO(pdf_bytes)
+    
+    files = {
+        'file': (filename, file_obj, 'application/pdf'),
+        'messaging_product': (None, 'whatsapp')
+    }
+    
+    # Shorter timeout for mobile
+    timeout = 30 if is_mobile else 60
+    
+    try:
+        print(f"📤 Uploading to WhatsApp API (timeout: {timeout}s)...")
+        upload_response = requests.post(upload_url, headers=upload_headers, 
+                                       files=files, timeout=timeout)
+        print(f"📤 Upload status: {upload_response.status_code}")
+        
+        upload_data = upload_response.json()
+        
+        if upload_response.status_code != 200 or 'id' not in upload_data:
+            error_msg = upload_data.get('error', {}).get('message', 'Unknown error')
+            raise ValueError(f"Upload failed: {error_msg}")
+        
+        media_id = upload_data['id']
+        print(f"📤 Upload successful, media_id: {media_id}")
+        
+        # CRITICAL: Wait for mobile to process the upload
+        if is_mobile:
+            import time
+            time.sleep(2)
+        
+        # Send the document
+        send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        send_headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Simpler payload for mobile
+        payload = {
+            'messaging_product': 'whatsapp',
+            'to': recipient_number,
+            'type': 'document',
+            'document': {
+                'id': media_id,
+                'filename': filename,
+                'caption': caption
+            }
+        }
+        
+        print(f"📨 Sending document message...")
+        send_response = requests.post(send_url, headers=send_headers, 
+                                     json=payload, timeout=timeout)
+        print(f"📨 Send status: {send_response.status_code}")
+        
+        send_data = send_response.json()
+        
+        if send_response.status_code != 200 or 'error' in send_data:
+            error_msg = send_data.get('error', {}).get('message', 'Unknown error')
+            raise ValueError(f"Send failed: {error_msg}")
+        
+        print(f"✅ Document sent successfully")
+        return send_data
+        
+    except requests.Timeout:
+        print(f"❌ Timeout on mobile")
+        raise Exception("Mobile timeout - file may be too large")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        raise
 
 def log_enquiry_attachment_button_message(template_message_id, enquiry_id, recipient_number):
     """Store template message ID so no-variable quick-reply clicks can be resolved reliably."""

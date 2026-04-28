@@ -27,3 +27,4 @@ numpy
 python-socketio
 fuzzywuzzy
 python-Levenshtein
+PyPDF2
