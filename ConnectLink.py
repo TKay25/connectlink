@@ -16383,109 +16383,109 @@ def update_project():
                     installment9amount = float(installment9amountupdate)
                     installment10amount = float(installment10amountupdate)
 
-            # --- Build UPDATE query with conditional quotation_id (only update if provided) ---
-            # Build values list for query
-            values = [
-                clientname,
-                completion_status,
-                project_start_date,
-                contractamount,
-                depositpaid,
-                depositdatepaid,
-                monthstopay,
-                monthlyinstallment,
-                installment1_date,
-                installment2_date,
-                installment3_date,
-                installment4_date,
-                installment5_date,
-                installment6_date,
-                installment7_date,
-                installment8_date,
-                installment9_date,
-                installment10_date,
-                projscope,
-                project_name,
-                installment1amount,
-                installment2amount,
-                installment3amount,
-                installment4amount,
-                installment5amount,
-                installment6amount,
-                installment7amount,
-                installment8amount,
-                installment9amount,
-                installment10amount,
-                installment1_duedate,
-                installment2_duedate,
-                installment3_duedate,
-                installment4_duedate,
-                installment5_duedate,
-                installment6_duedate,
-                installment7_duedate,
-                installment8_duedate,
-                installment9_duedate,
-                installment10_duedate
-            ]
-            
-            # Only include quotation_id if it's actually provided and not None/empty
-            quotation_clause = ""
-            if quotation_id is not None:
-                quotation_clause = ", quotation_id = %s"
-                values.append(quotation_id)
-            
-            query = f"""
-                UPDATE connectlinkdatabase
-                SET 
-                    clientname = %s,
-                    projectcompletionstatus = %s,
-                    projectstartdate = %s,
-                    totalcontractamount = %s,
-                    depositorbullet = %s,
-                    datedepositorbullet = %s,
-                    monthstopay = %s,
-                    monthlyinstallment = %s,
-                    installment1date = %s,
-                    installment2date = %s,
-                    installment3date = %s,
-                    installment4date = %s,
-                    installment5date = %s,
-                    installment6date = %s,
-                    installment7date = %s,
-                    installment8date = %s,
-                    installment9date = %s,
-                    installment10date = %s,
-                    projectdescription = %s,
-                    projectname = %s,  
-                    installment1amount = %s, 
-                    installment2amount = %s, 
-                    installment3amount = %s, 
-                    installment4amount = %s, 
-                    installment5amount = %s, 
-                    installment6amount = %s,
-                    installment7amount = %s,
-                    installment8amount = %s,
-                    installment9amount = %s,
-                    installment10amount = %s,
-                    installment1duedate = %s,
-                    installment2duedate = %s,
-                    installment3duedate = %s,
-                    installment4duedate = %s,
-                    installment5duedate = %s,
-                    installment6duedate = %s,
-                    installment7duedate = %s,
-                    installment8duedate = %s,
-                    installment9duedate = %s,
-                    installment10duedate = %s
-                    {quotation_clause}
-                WHERE id = %s
-            """
-            
-            values.append(project_id)
-            values = tuple(values)
+        # --- Build UPDATE query with conditional quotation_id (only update if provided) ---
+        # Build values list for query
+        values = [
+            clientname,
+            completion_status,
+            project_start_date,
+            contractamount,
+            depositpaid,
+            depositdatepaid,
+            monthstopay,
+            monthlyinstallment,
+            installment1_date,
+            installment2_date,
+            installment3_date,
+            installment4_date,
+            installment5_date,
+            installment6_date,
+            installment7_date,
+            installment8_date,
+            installment9_date,
+            installment10_date,
+            projscope,
+            project_name,
+            installment1amount,
+            installment2amount,
+            installment3amount,
+            installment4amount,
+            installment5amount,
+            installment6amount,
+            installment7amount,
+            installment8amount,
+            installment9amount,
+            installment10amount,
+            installment1_duedate,
+            installment2_duedate,
+            installment3_duedate,
+            installment4_duedate,
+            installment5_duedate,
+            installment6_duedate,
+            installment7_duedate,
+            installment8_duedate,
+            installment9_duedate,
+            installment10_duedate
+        ]
+        
+        # Only include quotation_id if it's actually provided and not None/empty
+        quotation_clause = ""
+        if quotation_id is not None:
+            quotation_clause = ", quotation_id = %s"
+            values.append(quotation_id)
+        
+        query = f"""
+            UPDATE connectlinkdatabase
+            SET 
+                clientname = %s,
+                projectcompletionstatus = %s,
+                projectstartdate = %s,
+                totalcontractamount = %s,
+                depositorbullet = %s,
+                datedepositorbullet = %s,
+                monthstopay = %s,
+                monthlyinstallment = %s,
+                installment1date = %s,
+                installment2date = %s,
+                installment3date = %s,
+                installment4date = %s,
+                installment5date = %s,
+                installment6date = %s,
+                installment7date = %s,
+                installment8date = %s,
+                installment9date = %s,
+                installment10date = %s,
+                projectdescription = %s,
+                projectname = %s,  
+                installment1amount = %s, 
+                installment2amount = %s, 
+                installment3amount = %s, 
+                installment4amount = %s, 
+                installment5amount = %s, 
+                installment6amount = %s,
+                installment7amount = %s,
+                installment8amount = %s,
+                installment9amount = %s,
+                installment10amount = %s,
+                installment1duedate = %s,
+                installment2duedate = %s,
+                installment3duedate = %s,
+                installment4duedate = %s,
+                installment5duedate = %s,
+                installment6duedate = %s,
+                installment7duedate = %s,
+                installment8duedate = %s,
+                installment9duedate = %s,
+                installment10duedate = %s
+                {quotation_clause}
+            WHERE id = %s
+        """
+        
+        values.append(project_id)
+        values = tuple(values)
 
-            cursor.execute(query, values)
-            connection.commit()
+        cursor.execute(query, values)
+        connection.commit()
 
         flash("Project updated successfully!", "success")
         return jsonify({
@@ -16497,6 +16497,7 @@ def get_mom_id_for_project(project_start_date):
     """Get MOM ID for a project based on month/year and existing momid values"""
     with get_db() as (cursor, connection):
         try:
+
             # Extract month and year from the project start date
             month = project_start_date.month
             year = project_start_date.year
