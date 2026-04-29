@@ -6021,6 +6021,7 @@ def webhook():
 
                                                                         # Prepare project data
                                                                         project = {
+                                                                                                                                                        'payment_method': row[19] if len(row) > 19 else '',
                                                                             'project_id_num': row[0],
                                                                             'client_name': row[1],
                                                                             'client_idnumber': row[2],
@@ -6481,7 +6482,9 @@ def webhook():
                                                                                 <h4 class="section-title">PAYMENT TERMS</h4>
                                                                                 <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['depositorbullet']}</div></div>
-                                                                                
+                                                                                <div class="field-row"><div class="field-label">Payment Method:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">{project.get('payment_method', '')}</div></div>
+
+                                                                                {'' if project.get('payment_method', '').strip() == 'Once Off Payment' else f'''
                                                                                 <div class="section-header">PAYMENT SCHEDULE</div>
                                                                                 <table class="payment-table">
                                                                                     <thead>
@@ -6503,6 +6506,7 @@ def webhook():
                                                                                         <tr><td>{project['installment10duedate']}</td><td style="font-weight: 700;">{project['installment10amount']}</td></tr>
                                                                                     </tbody>
                                                                                 </table>
+                                                                                '''}
                                                                                 
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
