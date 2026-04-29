@@ -6021,7 +6021,7 @@ def webhook():
 
                                                                         # Prepare project data
                                                                         project = {
-                                                                            'payment_method': row[19] if len(row) > 19 else '',
+                                                                            'payment_method': row[18] if len(row) > 18 else '',
                                                                             'project_id_num': row[0],
                                                                             'client_name': row[1],
                                                                             'client_idnumber': row[2],
@@ -10905,7 +10905,7 @@ def download_contract(project_id):
 
             # Map project row to dictionary
             project = {
-                'payment_method': row[19] if len(row) > 19 else '',
+                'payment_method': row[18] if len(row) > 18 else '',
                 'project_id_num': row[0],
                 'client_name': row[1],
                 'client_idnumber': row[2],
