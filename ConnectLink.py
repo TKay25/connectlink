@@ -16036,6 +16036,7 @@ def update_project():
     
         if int(monthstopay) == 0:
 
+            depositpaid = float(contractamount) if contractamount else 0.0
             installment1amountupdate = None
             installment2amountupdate = None
             installment3amountupdate = None
@@ -16066,6 +16067,16 @@ def update_project():
             installment8_duedate = None
             installment9_duedate = None
             installment10_duedate = None
+            installment1amount = None
+            installment2amount = None
+            installment3amount = None
+            installment4amount = None
+            installment5amount = None
+            installment6amount = None
+            installment7amount = None
+            installment8amount = None
+            installment9amount = None
+            installment10amount = None
 
             monthlyinstallment = 0
             first_installment_due_date = None
