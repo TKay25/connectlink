@@ -16571,15 +16571,15 @@ def contract_log():
                 months_to_pay = request.form.get('months_to_pay')
 
                 if payment_method == "Bullet":
-                    depostorbullet = request.form.get('total_contract_price')
+                    depositorbullet = request.form.get('total_contract_price')
                     deposit_payment_date = request.form.get('bullet_payment_date')
 
 
                 elif payment_method == "Installments":
-                    depostorbullet = request.form.get('deposit_required')
+                    depositorbullet = request.form.get('deposit_required')
                     deposit_payment_date = request.form.get('deposit_payment_date')
 
-                monthlyinstallment = (float(total_contract_price) - float(depostorbullet))/int(months_to_pay)
+                monthlyinstallment = (float(total_contract_price) - float(depositorbullet))/int(months_to_pay)
                 project_completion_status = "Ongoing"
                 first_installment_due_date = request.form.get('first_installment_due_date')
                 first_installment_due_date_calc = datetime.strptime(first_installment_due_date, "%Y-%m-%d").date()
@@ -16834,7 +16834,7 @@ def contract_log():
                         safe_float(total_contract_price),
                         payment_method,
                         safe_int(months_to_pay),
-                        safe_float(depostorbullet),
+                        safe_float(depositorbullet),
                         safe_date(deposit_payment_date),
                         safe_float(monthlyinstallment),
                         safe_date(first_installment_due_date),
