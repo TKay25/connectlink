@@ -16041,7 +16041,7 @@ def update_project():
         quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
     
         if int(monthstopay) == 0:
-
+            paymentmethod = "Once Off Payment"
             depositpaid = float(contractamount) if contractamount else 0.0
             installment1amountupdate = None
             installment2amountupdate = None
@@ -16088,6 +16088,8 @@ def update_project():
             first_installment_due_date = None
 
         elif int(monthstopay) > 0:
+
+            paymentmethod = "Installments"
             
             # Capture quotation_id from form
             def safe_int(v):
@@ -16408,6 +16410,7 @@ def update_project():
         # Build values list for query
         values = [
             clientname,
+            paymentmethod,
             completion_status,
             project_start_date,
             contractamount,
@@ -16459,6 +16462,7 @@ def update_project():
             UPDATE connectlinkdatabase
             SET 
                 clientname = %s,
+                paymentmethod = %s,
                 projectcompletionstatus = %s,
                 projectstartdate = %s,
                 totalcontractamount = %s,
@@ -16634,6 +16638,7 @@ def contract_log():
                 months_to_pay = request.form.get('months_to_pay')
 
                 if payment_method == "Once Off Payment":
+
                     depositorbullet = request.form.get('total_contract_price')
                     deposit_payment_date = request.form.get('bullet_payment_date')
                     monthlyinstallment = 0
