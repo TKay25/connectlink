@@ -16635,15 +16635,16 @@ def contract_log():
                 latepaymentinterest = request.form.get('late_payment_interest')
 
                 payment_method = request.form.get('payment_method')
-                months_to_pay = request.form.get('months_to_pay')
 
                 if payment_method == "Once Off Payment":
 
                     depositorbullet = request.form.get('total_contract_price')
                     deposit_payment_date = request.form.get('bullet_payment_date')
                     monthlyinstallment = 0
+                    months_to_pay = 0
+                    first_installment_due_date = None
 
-                    latepaymentinterest = None
+                    latepaymentinterest = 5
                     installment1amount = None
                     installment2amount = None
                     installment3amount = None
@@ -16655,7 +16656,6 @@ def contract_log():
                     installment9amount = None
                     installment10amount = None
 
-                    first_installment_due_date = None
                     installment1duedate = None
                     installment2duedate = None
                     installment3duedate = None
@@ -16668,6 +16668,8 @@ def contract_log():
                     installment10duedate = None
 
                 elif payment_method == "Installments":
+                    months_to_pay = request.form.get('months_to_pay')
+
                     depositorbullet = request.form.get('deposit_required')
                     deposit_payment_date = request.form.get('deposit_payment_date')
 
