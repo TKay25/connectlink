@@ -6484,7 +6484,7 @@ def webhook():
                                                                                 <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['depositorbullet']}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Payment Method:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">{project.get('payment_method', '')}</div></div>
 
-                                                                                {'' if project.get('payment_method', '').strip() == 'Once Off Payment' else f'''
+                                                                                {'' if str(project.get('payment_method', '')).strip() == 'Once Off Payment' else f'''
                                                                                 <div class="section-header">PAYMENT SCHEDULE</div>
                                                                                 <table class="payment-table">
                                                                                     <thead>
@@ -11459,7 +11459,7 @@ def download_contract(project_id):
 
                     <div class="field-row"><div class="field-label">Payment Method:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">{project.get('payment_method', '')}</div></div>
 
-                    {'' if project.get('payment_method', '').strip() == 'Once Off Payment' else f'''
+                    {'' if str(project.get('payment_method', '')).strip() == 'Once Off Payment' else f'''
                     <div class="section-header">PAYMENT SCHEDULE</div>
                     <table class="payment-table">
                         <thead>
