@@ -11592,10 +11592,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly Installments (over 5 months)</div>
                                     <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency((Number(totalCost || 0) * 0.70) / 5)}</div>
                                 </div>
-                                <div style="display: table-cell; width: 20%; padding: 8px 10px; text-align: center; box-sizing: border-box;">
-                                    <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Total Duration (Days)</div>
-                                    <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${totalDays}</div>
-                                </div>
+                                <!-- Removed total duration (days) from quotation summary as requested -->
                             </div>
                         </div>
                         </div>
