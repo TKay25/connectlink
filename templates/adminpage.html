@@ -11476,7 +11476,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
 
-            let totalQty = 0;
+            let firstQty = null;
             let totalUnitRate = 0;
             let totalTotal = 0;
             let itemCount = 0;
@@ -11488,6 +11488,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (item.clientPrice && item.sqm) {
                     rate = Number(item.clientPrice) / Number(item.sqm);
                 }
+                if (firstQty === null) {
+                    firstQty = sqm;
+                }
                 itemRows += `
                     <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#fafbff'}; page-break-inside: avoid; break-inside: avoid;">
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; font-weight: 700; text-align: center;">${index + 1}</td>
@@ -11496,7 +11499,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right;">${formatCurrency(rate)}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; font-weight: 700; color: #1E2A56;">${formatCurrency(itemTotal)}</td>
                     </tr>`;
-                totalQty += Number(sqm);
                 totalUnitRate += Number(rate);
                 totalTotal += Number(itemTotal);
                 itemCount += 1;
@@ -11506,7 +11508,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 itemRows += `
                     <tr style="background: #e0e0e0; font-weight: bold;">
                         <td colspan="2" style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right;">Totals</td>
-                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center;">${totalQty}</td>
+                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center;">${firstQty !== null ? firstQty : ''}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right;">${formatCurrency(totalUnitRate)}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; color: #1E2A56;">${formatCurrency(totalTotal)}</td>
                     </tr>`;
