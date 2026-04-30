@@ -11981,142 +11981,105 @@ def download_payments_history(project_id):
             with open(logo_path, 'rb') as img:
                 logo_base64 = base64.b64encode(img.read()).decode('utf-8')
 
-            # Build payments table rows
+            # Calculate summary values
+            total_contract = row[17] if row[17] else 0
+            deposit_paid = row[23] if row[23] else 0
+            # Sum of all installment amounts
+            installment_total = sum([p['amount'] if p['amount'] else 0 for p in payments])
+            # Total paid installments
+            paid_total = 0
+            for p in payments:
+                if p['paid'] != 'Not Paid' and p['amount']:
+                    paid_total += p['amount']
+            balance_installments = installment_total - paid_total
+            outstanding_balance = total_contract - (deposit_paid + paid_total)
+
+            # Build payments table rows (styled)
             payment_rows = ""
             for p in payments:
                 payment_rows += f"""
                     <tr>
-                        <td style="border:1px solid #ccc;padding:8px;">{p['name']}</td>
-                        <td style="border:1px solid #ccc;padding:8px;">{p['amount']}</td>
-                        <td style="border:1px solid #ccc;padding:8px;">{p['due']}</td>
-                        <td style="border:1px solid #ccc;padding:8px;">{p['paid']}</td>
+                        <td>{p['name']}</td>
+                        <td>${p['amount'] if p['amount'] else '—'}</td>
+                        <td>{p['due']}</td>
+                        <td>{p['paid']}</td>
                     </tr>
                 """
 
             html = f"""
             <!DOCTYPE html>
-            <html lang="en">
+            <html lang='en'>
             <head>
-                <meta charset="UTF-8">
-
+                <meta charset='UTF-8'>
                 <style>
-                    body {{
-                        font-family: 'Arial', sans-serif;
-                        margin: 40px;
-                        color: #1E2A56;
-                        background-color: #ffffff;
-                        line-height: 1.5;
-                    }}
-
-                    .header {{
-                        text-align: center;
-                        margin-bottom: 25px;
-                    }}
-
-                    .logo {{
-                        width: 170px;
-                        margin-bottom: 12px;
-                    }}
-
-                    h1 {{
-                        font-size: 24px;
-                        margin: 5px 0 0 0;
-                        font-weight: 800;
-                    }}
-
-                    .tagline {{
-                        font-size: 13px;
-                        color: #445;
-                        margin-top: 3px;
-                    }}
-
-                    .section-title {{
-                        font-size: 17px;
-                        margin-top: 35px;
-                        margin-bottom: 12px;
-                        padding-bottom: 6px;
-                        border-bottom: 2px solid #1E2A56;
-                        font-weight: 800;
-                    }}
-
-                    .info-box {{
-                        padding: 12px 16px;
-                        border: 1px solid #d3d6e4;
-                        border-radius: 8px;
-                        background: #f9faff;
-                        margin-bottom: 10px;
-                    }}
-
-                    .info-box p {{
-                        margin: 3px 0;
-                        font-size: 14px;
-                    }}
-
-                    table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-top: 10px;
-                        font-size: 14px;
-                    }}
-
-                    th {{
-                        background: #1E2A56;
-                        color: #fff;
-                        padding: 10px;
-                        text-align: left;
-                        font-size: 14px;
-                    }}
-
-                    td {{
-                        padding: 10px;
-                        border-bottom: 1px solid #e0e3ef;
-                    }}
-
-                    tr:nth-child(even) {{
-                        background: #f4f6fb;
-                    }}
-
-                    .footer {{
-                        margin-top: 35px;
-                        text-align: right;
-                        font-size: 12px;
-                        color: #666;
-                    }}
+                    @page {{ size: A4; margin: 1.5cm; }}
+                    body {{ font-family: 'Inter', 'Segoe UI', Arial, sans-serif; background: #fff; color: #1E2A56; margin: 0; padding: 0; }}
+                    .header {{ text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #0A1A3A; }}
+                    .logo {{ width: 110px; margin: 0 auto 8px auto; display: block; }}
+                    .company-name {{ font-size: 22px; font-weight: 800; color: #0A1A3A; margin-bottom: 2px; letter-spacing: 0.5px; }}
+                    .report-title {{ font-size: 15px; color: #C12B3E; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1.2px; }}
+                    .report-date {{ font-size: 11px; color: #5a678a; margin-bottom: 0; }}
+                    .summary-section {{ background: #fafbff; border: 1.5px solid #0A1A3A; border-radius: 10px; padding: 18px 20px; margin: 18px 0 24px 0; display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; }}
+                    .summary-card {{ background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(10,26,58,0.06); padding: 16px 22px; min-width: 180px; text-align: center; border: 1px solid #e0e6f3; }}
+                    .summary-label {{ font-size: 11px; color: #5a678a; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px; }}
+                    .summary-value {{ font-size: 19px; font-weight: 800; color: #0A1A3A; letter-spacing: 0.2px; }}
+                    .summary-value.red {{ color: #e74c3c; }}
+                    .summary-value.green {{ color: #27ae60; }}
+                    .summary-value.blue {{ color: #0A1A3A; }}
+                    .summary-value.orange {{ color: #f39c12; }}
+                    .section-title {{ color: #fff; background: #0A1A3A; padding: 8px 16px; border-radius: 8px; margin: 0 0 18px 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-align: center; }}
+                    .info-box {{ padding: 12px 16px; border: 1px solid #d3d6e4; border-radius: 8px; background: #f9faff; margin-bottom: 10px; }}
+                    .info-box p {{ margin: 3px 0; font-size: 14px; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }}
+                    th {{ background: #1E2A56; color: #fff; padding: 10px; text-align: left; font-size: 14px; }}
+                    td {{ padding: 10px; border-bottom: 1px solid #e0e3ef; }}
+                    tr:nth-child(even) {{ background: #f4f6fb; }}
+                    .footer {{ margin-top: 35px; text-align: right; font-size: 12px; color: #666; }}
                 </style>
             </head>
-
             <body>
-
-                <div class="header">
-                    <img src="data:image/png;base64,{logo_base64}" class="logo">
-                    <h3>Payments History</3>
-                    <div class="tagline">Official Client Payment Record</div>
+                <div class='header'>
+                    <img src='data:image/png;base64,{logo_base64}' class='logo'>
+                    <div class='company-name'>{companyname}</div>
+                    <div class='report-title'>Payments History</div>
+                    <div class='report-date'>Generated on {datetime.now().strftime('%d %B %Y')}</div>
                 </div>
-
-                <div class="section-title">Client Information</div>
-                <div class="info-box">
+                <div class='summary-section'>
+                    <div class='summary-card'>
+                        <div class='summary-label'>Total Contract Price</div>
+                        <div class='summary-value blue'>${total_contract:,.2f}</div>
+                    </div>
+                    <div class='summary-card'>
+                        <div class='summary-label'>Deposit Paid</div>
+                        <div class='summary-value green'>${deposit_paid:,.2f}</div>
+                    </div>
+                    <div class='summary-card'>
+                        <div class='summary-label'>Installment Balance</div>
+                        <div class='summary-value orange'>${balance_installments:,.2f}</div>
+                    </div>
+                    <div class='summary-card'>
+                        <div class='summary-label'>Outstanding Balance</div>
+                        <div class='summary-value red'>${outstanding_balance:,.2f}</div>
+                    </div>
+                </div>
+                <div class='section-title'>Client Information</div>
+                <div class='info-box'>
                     <p><strong>Name:</strong> {row[1]}</p>
                     <p><strong>Address:</strong> {row[3]}</p>
                     <p><strong>Contact:</strong> 0{row[4]}</p>
                     <p><strong>Email:</strong> {row[5]}</p>
                 </div>
-
-                <div class="section-title">Project Information</div>
-                <div class="info-box">
+                <div class='section-title'>Project Information</div>
+                <div class='info-box'>
                     <p><strong>Project Name:</strong> {row[10]}</p>
                     <p><strong>Location:</strong> {row[11]}</p>
                     <p><strong>Administrator:</strong> {row[13]}</p>
                 </div>
-
-                
-                <!-- DEPOSIT / BULLET PAYMENT -->
-                <div class="section-title">Payments Breakdown</div>
-
-                <div class="info-box">
+                <div class='section-title'>Payments Breakdown</div>
+                <div class='info-box'>
                     <p><strong>Deposit / Bullet Payment:</strong> USD {row[23] if row[23] else '—'}</p>
                     <p><strong>Date Paid:</strong> {row[24].strftime('%d %B %Y') if row[24] else '—'}</p>
                 </div>
-
                 <table>
                     <thead>
                         <tr>
@@ -12130,11 +12093,7 @@ def download_payments_history(project_id):
                         {payment_rows}
                     </tbody>
                 </table>
-
-                <div class="footer">
-                    Generated on {datetime.now().strftime("%d %B %Y")}
-                </div>
-
+                <div class='footer'>Generated on {datetime.now().strftime('%d %B %Y')}</div>
             </body>
             </html>
             """
