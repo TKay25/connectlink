@@ -11475,12 +11475,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
 
-            let itemRows = '';
+
+            let totalQty = 0;
+            let totalUnitRate = 0;
+            let totalTotal = 0;
+            let itemCount = 0;
+            itemRows = '';
             items.forEach((item, index) => {
-                // Use clientPrice (marked-up rate) for PDF only
                 const itemTotal = item.clientPrice || item.total || 0;
                 const sqm = item.sqm || 1;
-                // Use client unit rate for PDF: clientPrice / sqm (if available), else fallback to inhouseRate
                 let rate = item.inhouseRate || 0;
                 if (item.clientPrice && item.sqm) {
                     rate = Number(item.clientPrice) / Number(item.sqm);
@@ -11493,9 +11496,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right;">${formatCurrency(rate)}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; font-weight: 700; color: #1E2A56;">${formatCurrency(itemTotal)}</td>
                     </tr>`;
+                totalQty += Number(sqm);
+                totalUnitRate += Number(rate);
+                totalTotal += Number(itemTotal);
+                itemCount += 1;
             });
 
-            if (!itemRows) {
+            if (itemCount > 0) {
+                itemRows += `
+                    <tr style="background: #e0e0e0; font-weight: bold;">
+                        <td colspan="2" style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right;">Totals</td>
+                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center;">${totalQty}</td>
+                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right;">${formatCurrency(totalUnitRate)}</td>
+                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; color: #1E2A56;">${formatCurrency(totalTotal)}</td>
+                    </tr>`;
+            } else {
                 itemRows = `
                     <tr>
                         <td colspan="5" style="padding: 14px 10px; border: 1px solid #d8deef; text-align: center; color: #5a678a;">No quotation items available.</td>
@@ -11503,10 +11518,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let scheduleRows = '';
+            let totalDays = 0;
             schedulesForOutput.forEach((item, index) => {
                 const startDate = item.startDate ? formatPdfDate(item.startDate) : '';
                 const endDate = item.endDate ? formatPdfDate(item.endDate) : '';
-                const days = item.days || 0;
+                const days = Number(item.days) || 0;
                 scheduleRows += `
                     <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#fafbff'}; page-break-inside: avoid; break-inside: avoid;">
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; font-weight: 700; text-align: center;">${index + 1}</td>
@@ -11515,9 +11531,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center;">${endDate}</td>
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; font-weight: 700; color: #1E2A56;">${days}</td>
                     </tr>`;
+                totalDays += days;
             });
 
-            if (!scheduleRows) {
+            if (schedulesForOutput.length > 0) {
+                scheduleRows += `
+                    <tr style="background: #e0e0e0; font-weight: bold;">
+                        <td colspan="4" style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right;">Total Days</td>
+                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; color: #1E2A56;">${totalDays}</td>
+                    </tr>`;
+            } else {
                 scheduleRows = `
                     <tr>
                         <td colspan="5" style="padding: 14px 10px; border: 1px solid #d8deef; text-align: center; color: #5a678a;">No project schedule available.</td>
@@ -11553,21 +11576,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
                         <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
                             <div style="display: table; width: 100%; table-layout: fixed;">
-                                <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                <div style="display: table-cell; width: 20%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
                                     <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
                                     <div style="font-size: 14px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
                                 </div>
-                                <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                <div style="display: table-cell; width: 20%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
                                     <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
                                     <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(Number(totalCost || 0) * 0.30)}</div>
                                 </div>
-                                <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                <div style="display: table-cell; width: 20%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
                                     <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
                                     <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(Number(totalCost || 0) * 0.70)}</div>
                                 </div>
-                                <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; box-sizing: border-box;">
+                                <div style="display: table-cell; width: 20%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
                                     <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly Installments (over 5 months)</div>
                                     <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency((Number(totalCost || 0) * 0.70) / 5)}</div>
+                                </div>
+                                <div style="display: table-cell; width: 20%; padding: 8px 10px; text-align: center; box-sizing: border-box;">
+                                    <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Total Duration (Days)</div>
+                                    <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${totalDays}</div>
                                 </div>
                             </div>
                         </div>
