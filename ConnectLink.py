@@ -4465,20 +4465,17 @@ def webhook():
                                                                     with open(logo_path, 'rb') as img:
                                                                         logo_base64 = base64.b64encode(img.read()).decode('utf-8')
 
-                                                                    # Format amount with thousands separator and small decimal
+                                                                    # Format amount with standard US/UK thousands separator
                                                                     amount = row[9]  # amount field is always at index 9
-                                                                    if amount:
-                                                                        if '.' in str(amount):
-                                                                            whole, decimal = str(amount).split('.')
-                                                                            decimal = decimal[:2].ljust(2, '0')
-                                                                        else:
-                                                                            whole, decimal = str(amount), '00'
-                                                                        formatted_whole = format(int(whole), ',')
-                                                                        formatted_amount = f"{formatted_whole}.{decimal}"
-                                                                    else:
-                                                                        formatted_whole = '0'
+                                                                    try:
+                                                                        formatted_amount = f"{float(amount):,.2f}"
+                                                                    except Exception:
                                                                         formatted_amount = '0.00'
-                                                                        decimal = '00'
+                                                                    # For compatibility with templates that use whole/decimal
+                                                                    if '.' in formatted_amount:
+                                                                        formatted_whole, decimal = formatted_amount.split('.')
+                                                                    else:
+                                                                        formatted_whole, decimal = formatted_amount, '00'
 
                                                                     # Format dates
                                                                     if config['has_due_date']:
@@ -7163,20 +7160,17 @@ def webhook():
                                                                         with open(logo_path, 'rb') as img:
                                                                             logo_base64 = base64.b64encode(img.read()).decode('utf-8')
 
-                                                                        # Format amount with thousands separator and small decimal
+                                                                        # Format amount with standard US/UK thousands separator
                                                                         amount = row[9]  # amount field is always at index 9
-                                                                        if amount:
-                                                                            if '.' in str(amount):
-                                                                                whole, decimal = str(amount).split('.')
-                                                                                decimal = decimal[:2].ljust(2, '0')
-                                                                            else:
-                                                                                whole, decimal = str(amount), '00'
-                                                                            formatted_whole = format(int(whole), ',')
-                                                                            formatted_amount = f"{formatted_whole}.{decimal}"
-                                                                        else:
-                                                                            formatted_whole = '0'
+                                                                        try:
+                                                                            formatted_amount = f"{float(amount):,.2f}"
+                                                                        except Exception:
                                                                             formatted_amount = '0.00'
-                                                                            decimal = '00'
+                                                                        # For compatibility with templates that use whole/decimal
+                                                                        if '.' in formatted_amount:
+                                                                            formatted_whole, decimal = formatted_amount.split('.')
+                                                                        else:
+                                                                            formatted_whole, decimal = formatted_amount, '00'
 
                                                                         # Format dates
                                                                         if config['has_due_date']:
