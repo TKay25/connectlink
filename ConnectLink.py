@@ -18844,13 +18844,21 @@ def get_quotation_share_url(share_token):
     return f"{public_base}/quotation/share/{share_token}"
 
 def fmt_currency(value):
-    """Convert to Western format (1,175,635.76)"""
+    """Convert Indian format string to Western format"""
     try:
-        # If it's a string with commas, remove them first
+        # If it's a string with Indian commas (11,75,635.76), remove ALL commas
         if isinstance(value, str):
-            value = value.replace(',', '')
-        return f"{float(value):,.2f}"
-    except:
+            # Remove all commas first
+            cleaned = value.replace(',', '')
+            # Convert to float
+            num = float(cleaned)
+        else:
+            num = float(value)
+        
+        # Now format with Western commas (groups of 3)
+        return f"{num:,.2f}"
+    except Exception as e:
+        print(f"Format error: {e}, value: {value}")
         return "0.00"
     
 def build_quotation_pdf_document(quotation_id):
