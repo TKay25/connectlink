@@ -18843,7 +18843,16 @@ def get_quotation_share_url(share_token):
 
     return f"{public_base}/quotation/share/{share_token}"
 
-
+def fmt_currency(value):
+    """Convert to Western format (1,175,635.76)"""
+    try:
+        # If it's a string with commas, remove them first
+        if isinstance(value, str):
+            value = value.replace(',', '')
+        return f"{float(value):,.2f}"
+    except:
+        return "0.00"
+    
 def build_quotation_pdf_document(quotation_id):
     """Build the PDF payload for a saved quotation."""
     with get_db() as (cursor, _):
@@ -18975,19 +18984,19 @@ def build_quotation_pdf_document(quotation_id):
                         <div style='display:table; width:100%; table-layout:fixed;'>
                             <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
                                 <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Total Amount</div>
-                                <div style='font-size:14px; font-weight:900; color:#1E2A56;'>USD {total_cost:,.2f}</div>
+                                <div style='font-size:14px; font-weight:900; color:#1E2A56;'>USD {fmt_currency(total_cost)}</div>
                             </div>
                             <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
                                 <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Deposit (30%)</div>
-                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {deposit:,.2f}</div>
+                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {fmt_currency(deposit)}</div>
                             </div>
                             <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
                                 <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Balance</div>
-                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {balance:,.2f}</div>
+                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {fmt_currency(balance)}</div>
                             </div>
                             <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; box-sizing:border-box;'>
                                 <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Monthly Installments (over 5 months)</div>
-                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {monthly:,.2f}</div>
+                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {fmt_currency(monthly)}</div>
                             </div>
                         </div>
                     </div>
