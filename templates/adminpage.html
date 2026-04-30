@@ -11067,7 +11067,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rowTotal = Number(item.clientPrice || item.total || 0);
                 tableHTML += `<tr>
                     <td style="font-size: 0.85rem;">${item.item || item.name || 'Item'}</td>
-                    <td style="font-size: 0.85rem; text-align: right;"><strong>USD ${rowTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                    <td style="font-size: 0.85rem; text-align: right;"><strong>USD ${rowTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
                 </tr>`;
             });
 
@@ -11295,11 +11295,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 category === 'construction_double' ? 'Double Storey Construction' : 
                                 category.replace('_', ' ').toUpperCase();
             $('#previewCategory').text(displayCategory);
-            $('#previewDate').text(new Date(quotationDate).toLocaleDateString('en-IN'));
+            $('#previewDate').text(new Date(quotationDate).toLocaleDateString('en-US'));
             $('#previewSize').text(isConstruction ? $('#quotationSize').val() : '-');
 
             // Update total cost
-            $('#quotationTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            $('#quotationTotalCost').text(totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
             // Store data for later use
             const markupAmount = totalCost - baseCost;
@@ -11459,7 +11459,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const markupAmount = data.markupAmount || 0;
             const totalCost = data.totalCost || baseCost;
             const items = getItemsForQuotationOutput(data);
-            const formatCurrency = (value) => `USD ${Number(value || 0).toLocaleString('en-IN', {
+            const formatCurrency = (value) => `USD ${Number(value || 0).toLocaleString('en-US', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             })}`;
@@ -12074,7 +12074,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding: 10px; text-align: center;">${formattedStart}</td>
                         <td style="padding: 10px; text-align: center;">${formattedEnd}</td>
                         <td style="padding: 10px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                        <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                 `;
             });
@@ -12135,7 +12135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td style="padding: 2px 3px; text-align: center;">${formattedStart}</td>
                         <td style="padding: 2px 3px; text-align: center;">${formattedEnd}</td>
                         <td style="padding: 2px 3px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                        <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">USD ${Number(item.price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">USD ${Number(item.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td style="padding: 2px 3px; text-align: center; color: #777; font-style: italic;">Summary</td>
                     </tr>
                 `;
@@ -12153,7 +12153,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="font-size: 0.65rem; padding: 1px 2px; height: 20px;">
                     </td>
                     <td style="padding: 2px 3px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                    <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td style="padding: 2px 3px; text-align: center;">
                         <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 1px 4px; font-size: 0.6rem;">Delete</button>
                     </td>
@@ -12179,7 +12179,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         $('#ganttTotalDays').text(totalDays);
-        $('#ganttTotalCost').text(totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        $('#ganttTotalCost').text(totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     }
 
     function updateGanttItemDate(index, type, value) {
