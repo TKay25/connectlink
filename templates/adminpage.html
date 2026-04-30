@@ -11477,9 +11477,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let itemRows = '';
             items.forEach((item, index) => {
+                // Use clientPrice (marked-up rate) for PDF only
                 const itemTotal = item.clientPrice || item.total || 0;
                 const sqm = item.sqm || 1;
-                const rate = item.inhouseRate || 0;
+                // Use client unit rate for PDF: clientPrice / sqm (if available), else fallback to inhouseRate
+                let rate = item.inhouseRate || 0;
+                if (item.clientPrice && item.sqm) {
+                    rate = Number(item.clientPrice) / Number(item.sqm);
+                }
                 itemRows += `
                     <tr style="background: ${index % 2 === 0 ? '#ffffff' : '#fafbff'}; page-break-inside: avoid; break-inside: avoid;">
                         <td style="padding: 8px 10px; border: 1px solid #d8deef; font-weight: 700; text-align: center;">${index + 1}</td>
