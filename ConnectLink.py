@@ -18959,6 +18959,11 @@ def build_quotation_pdf_document(quotation_id):
                     </div>
                 </div>
 
+                <span style="display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; box-shadow: 0 2px 8px rgba(255, 215, 0, 0.08); letter-spacing: 0.2px;">
+                    <i class="bi bi-info-circle-fill" style="margin-right: 6px;"></i>
+                    For a full breakdown of your quotation, <span style="color: #d32f2f;">see the detailed quotation tables below</span>.
+                </span>
+
                 <div style='page-break-inside:avoid; break-inside:avoid;'>
                     <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>CONSTRUCTION ITEMS</h4>
                     <table style='width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px;'>
