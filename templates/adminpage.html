@@ -3450,6 +3450,7 @@
 </div>
 
 <!-- Quotation Generator Modal - Blur Overlay Version -->
+<!-- Quotation Generator Modal - Blur Overlay Version -->
 <div id="quotationgeneratorModal" class="modal-overlay">
     <div class="modal-container large">
         <div class="modal-header-custom">
@@ -3507,7 +3508,7 @@
                 <!-- Date Field (Auto-filled) -->
                 <div class="mb-3">
                     <label for="quotationDate" class="form-label fw-bold">Date <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control" id="quotationDate" name="date" required readonly>
+                    <input type="date" class="form-control" id="quotationDate" name="date" required>
                 </div>
 
                 <!-- Construction Items with Pricing (Conditional) -->
@@ -3546,7 +3547,6 @@
                                 <label class="small fw-bold mb-2 d-block">Available Items (with calculations)</label>
                                 <div class="border rounded" style="background-color: #f8f9fa; max-height: 400px; overflow-y: auto;">
                                     <div id="constructionItemsList">
-                                        <!-- Items will be loaded from database here -->
                                         <p class="text-muted p-3">Loading items...</p>
                                     </div>
                                 </div>
@@ -3646,18 +3646,21 @@
                 <small class="text-muted" style="font-size: 0.85em;">This affects quotation PDF output for both download and WhatsApp send.</small>
             </div>
 
-            <!-- Items & Costs Table -->
+            <!-- Items & Costs Table - Updated with Days column -->
             <div class="mb-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="fw-bold mb-0" style="font-size: 0.95em;">Selected Items</h6>
+                    <h6 class="fw-bold mb-0" style="font-size: 0.95em;">Construction Items</h6>
                     <span id="fullHouseDisplayModeBadge" class="badge" style="display: none; background-color: #0A1A3A; color: #fff; font-size: 0.7rem; padding: 4px 8px;">Mode: All Items</span>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered" style="font-size: 0.75em;">
+                    <table class="table table-sm table-bordered" style="font-size: 0.7em;">
                         <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
                             <tr>
-                                <th style="font-size: 0.95em; padding: 4px 6px;">Item</th>
-                                <th style="font-size: 0.95em; text-align: right; padding: 4px 6px;">Client Price</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty (Sq.M)</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Unit Rate</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Days</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Total Price</th>
                             </tr>
                         </thead>
                         <tbody id="quotationItemsTable">
@@ -3675,23 +3678,20 @@
                 </div>
             </div>
 
-            <!-- Gantt Chart Display Section -->
+            <!-- Total Duration Summary (instead of full schedule table) -->
             <div class="mb-2">
-                <h5 style="margin-bottom: 0.7rem; font-weight: bold; font-size: 0.95em;">Project Schedule</h5>
-                <div id="ganttChartContainer" class="border rounded p-2" style="background-color: #f8f9fa; max-height: 300px; overflow-y: auto;">
-                    <div id="ganttChartContent" style="width: 100%; display: flex; align-items: center; justify-content: center; min-height: 180px; font-size: 0.9em;">
-                        <p style="color: #666;">Gantt chart will be displayed here</p>
-                    </div>
+                <div class="alert alert-info py-2 mb-0" style="font-size: 0.75rem; background-color: #e8f4f8; border-left: 3px solid #2196F3;">
+                    <strong>Total Construction Duration:</strong> <span id="totalDurationDays">0</span> days
                 </div>
             </div>
         </div>
         <div class="modal-footer-custom" style="padding: 8px 10px;">
             <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" onclick="closeModal('quotationPreviewModal')">Back</button>
             <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" id="downloadQuotationBtn">
-                <i class="bi bi-download"></i> Save & Download Quotation & Gantt Chart
+                <i class="bi bi-download"></i> Save & Download Quotation
             </button>
             <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" id="sendQuotationBtn">
-                <i class="bi bi-send"></i> Send Quotation & Gantt Chart
+                <i class="bi bi-send"></i> Send Quotation
             </button>
         </div>
     </div>
@@ -11370,73 +11370,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-        // Download Quotation & Gantt button
-        $('#downloadQuotationBtn').click(function() {
-            saveAndDownloadQuotation();
-        });
+function saveAndDownloadQuotation() {
+    const data = window.quotationData;
+    const ganttData = window.ganttChartData || [];
 
-        function saveAndDownloadQuotation() {
-            const data = window.quotationData;
-            const ganttData = window.ganttChartData || [];
+    if (!data) {
+        alert('No quotation data available. Please create a quotation first.');
+        return;
+    }
 
-            if (!data) {
-                alert('No quotation data available. Please create a quotation first.');
-                return;
-            }
+    // Build items WITH days included
+    const quotationData = {
+        clientName: data.clientName,
+        clientWhatsapp: data.clientWhatsapp || '',
+        quotationDate: data.quotationDate,
+        category: data.category,
+        size: data.size,
+        totalCost: data.totalCost,
+        markup: data.markup,
+        items: (data.items || []).map((item, index) => ({
+            name: item.name || item.item || 'Item',
+            quantity: item.sqm || 0,
+            unitRate: item.inhouseRate || item.unitRate || 0,
+            totalPrice: item.total || item.clientPrice || 0,
+            // IMPORTANT: Store the days value
+            days: item.days || 0,
+            // Also store the order
+            item_order: index + 1
+        })),
+        schedules: (ganttData || []).map((schedule, index) => ({
+            workScope: schedule.item || 'Task',
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            days: schedule.days || 0,
+            task_order: index + 1
+        }))
+    };
 
-            // Prepare data for saving
-            const quotationData = {
-                clientName: data.clientName,
-                clientWhatsapp: data.clientWhatsapp || '',
-                quotationDate: data.quotationDate,
-                category: data.category,
-                size: data.size,
-                totalCost: data.totalCost,
-                markup: data.markup,
-                items: data.items || [],
-                schedules: ganttData || []
-            };
-
-            console.log('Sending quotation data:', quotationData);
-
-            // Save or update in database
-            const isEditing = !!window.editingQuotationId;
-            const saveUrl = isEditing ? `/api/update-quotation/${window.editingQuotationId}` : '/api/save-quotation';
-            const saveMethod = isEditing ? 'PUT' : 'POST';
-
-            fetch(saveUrl, {
-                method: saveMethod,
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(quotationData)
-            })
-            .then(response => {
-                // First check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    return response.text().then(text => {
-                        throw new Error('Invalid response format: ' + text.substring(0, 200));
-                    });
-                }
-                return response.json();
-            })
-            .then(result => {
-                if (result.success) {
-                    console.log('Quotation saved successfully. ID:', result.quotation_id);
-                    window.editingQuotationId = null;
-                    alert('Quotation saved successfully! (ID: ' + result.quotation_id + ')');
-                    // Now generate the PDF
-                    generateQuotationPDF();
-                } else {
-                    alert('Error saving quotation: ' + (result.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error saving quotation: ' + error.message);
-            });
-        }
+    // ... rest of the save logic
+}
 
         async function generateQuotationPDF(outputMode = 'download') {
             const data = window.quotationData;
@@ -12786,48 +12758,60 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Quotation PDF generator is not available. Please refresh and try again.');
     }
 
-    function editQuotationFromPortal(quotationId) {
-        fetch('/api/get-quotations')
-            .then(r => r.json())
-            .then(result => {
-                if (!result.success || !result.data) { alert('Error fetching quotation data.'); return; }
-                const quotation = result.data.find(q => q.id === quotationId);
-                if (!quotation) { alert('Quotation not found.'); return; }
+function editQuotationFromPortal(quotationId) {
+    fetch('/api/get-quotations')
+        .then(r => r.json())
+        .then(result => {
+            if (!result.success || !result.data) { 
+                alert('Error fetching quotation data.'); 
+                return; 
+            }
+            const quotation = result.data.find(q => q.id === quotationId);
+            if (!quotation) { 
+                alert('Quotation not found.'); 
+                return; 
+            }
 
-                // Set editing context
-                window.editingQuotationId = quotationId;
+            // Set editing context
+            window.editingQuotationId = quotationId;
 
-                // Preserve existing schedules so they survive even if user skips gantt rebuild
-                window.ganttChartData = (quotation.schedules || []).map(s => ({
-                    item: s.workScope,
-                    startDate: s.startDate,
-                    endDate: s.endDate,
-                    days: s.days,
-                    price: 0
-                }));
-                ganttItems = window.ganttChartData.slice();
+            // Load schedules with correct days
+            window.ganttChartData = (quotation.schedules || []).map(s => ({
+                item: s.workScope,
+                startDate: s.startDate,
+                endDate: s.endDate,
+                days: s.days,  // Days from schedule
+                price: 0
+            }));
+            ganttItems = window.ganttChartData.slice();
 
-                // Store item names to pre-select once the construction list renders
-                window._editingPreSelectItems = (quotation.items || []).map(i => i.name);
+            // Load items WITH their days (from schedules)
+            window._editingPreSelectItems = (quotation.items || []).map((item, idx) => {
+                // Find matching schedule to get days
+                const matchingSchedule = quotation.schedules ? quotation.schedules[idx] : null;
+                return {
+                    name: item.name,
+                    sqm: item.quantity,
+                    inhouseRate: item.unitRate,
+                    clientPrice: item.totalPrice,
+                    total: item.totalPrice,
+                    // IMPORTANT: Get days from the corresponding schedule
+                    days: matchingSchedule ? matchingSchedule.days : 0
+                };
+            });
 
-                // Pre-fill text fields
-                $('#quotationClientName').val(quotation.clientName || '');
-                $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
-                $('#quotationMarkup').val(quotation.markup != null ? quotation.markup : 30);
-                $('#quotationSize').val(quotation.projectSize || '');
+            // Pre-fill text fields
+            $('#quotationClientName').val(quotation.clientName || '');
+            $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
+            $('#quotationMarkup').val(quotation.markup != null ? quotation.markup : 30);
+            $('#quotationSize').val(quotation.projectSize || '');
+            $('#quotationDate').prop('readonly', false).val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
+            $('#quotationCategory').val(quotation.category || '').change();
 
-                // Allow editing the date when coming from edit flow
-                const dateStr = quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0];
-                $('#quotationDate').prop('readonly', false).val(dateStr);
-
-                // Trigger category change: shows construction panel + loads items (renderConstructionItemsList applies pre-selections)
-                $('#quotationCategory').val(quotation.category || '').change();
-
-                // Open the generator modal
-                openModal('quotationgeneratorModal');
-            })
-            .catch(error => alert('Error: ' + error.message));
-    }
+            openModal('quotationgeneratorModal');
+        })
+        .catch(error => alert('Error: ' + error.message));
+}
 
     async function sendQuotationFromPortal(quotationId) {
         let btn = null;

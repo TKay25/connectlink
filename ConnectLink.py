@@ -11705,6 +11705,12 @@ def download_contract(project_id):
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
+                    <div class="section-header">ZESA and Water Connections</div>
+                    <div class="terms-box">
+                        <ul>
+                            <li>On Full House construction, all ZESA and water connection fees shall be borne or paid for by the Client.</li>
+                        </ul>
+                    </div>
 
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
@@ -18827,16 +18833,18 @@ def build_quotation_pdf_document(quotation_id):
         if not quotation:
             raise LookupError(f"Quotation {quotation_id} not found")
 
+        # Get items WITH their order
         cursor.execute("""
-            SELECT item_name, quantity, unit_rate, total_price
+            SELECT item_name, quantity, unit_rate, total_price, item_order
             FROM quotation_items
             WHERE quotation_id = %s
             ORDER BY item_order
         """, (quotation_id,))
         items = cursor.fetchall()
 
+        # Get schedules WITH their order
         cursor.execute("""
-            SELECT work_scope, start_date, end_date, days
+            SELECT work_scope, start_date, end_date, days, task_order
             FROM quotation_schedules
             WHERE quotation_id = %s
             ORDER BY task_order
@@ -18852,7 +18860,7 @@ def build_quotation_pdf_document(quotation_id):
     balance = total_cost - deposit
     monthly = balance / 5 if balance else 0
 
-    # Calculate total construction duration in days
+    # Calculate total construction duration in days from schedules
     total_construction_days = sum(int(schedule[3]) if schedule[3] else 0 for schedule in schedules)
 
     logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
@@ -18864,28 +18872,41 @@ def build_quotation_pdf_document(quotation_id):
                 return value.strftime('%d %B %Y')
             return html.escape(str(value or ''))
 
-        # Build items table with days included (matching items with schedules by order)
+        # Build a dictionary to map day values by item_order for quick lookup
+        days_by_order = {}
+        for schedule in schedules:
+            order = schedule[4]  # task_order
+            days = int(schedule[3]) if schedule[3] else 0
+            days_by_order[order] = days
+
+        # Build items table with days included (matching by item_order)
         items_rows = ''
-        for index, item in enumerate(items, start=1):
+        total_items_cost = 0
+        
+        for item in items:
             item_name = html.escape(str(item[0] or ''))
             qty = float(item[1]) if item[1] else 0
             rate = float(item[2]) if item[2] else 0
             total = float(item[3]) if item[3] else 0
+            item_order = int(item[4]) if len(item) > 4 and item[4] else 0
             
-            # Get days for this item (match by order index)
-            days = int(schedules[index-1][3]) if index-1 < len(schedules) and schedules[index-1][3] else 0
+            # Get days using item_order (1-based index)
+            days = days_by_order.get(item_order, 0)
             
-            bg = '#ffffff' if index % 2 else '#fafbff'
+            # Alternate background colors
+            bg = '#ffffff' if item_order % 2 else '#fafbff'
+            
             items_rows += (
                 f"<tr style='background:{bg}; page-break-inside:avoid; break-inside:avoid;'>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef; font-weight:700; text-align:center;'>{index}</td>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef;'>{item_name}</td>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center;'>{qty:,.2f}</td>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right;'>USD {rate:,.2f}</td>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center;'>{days}</td>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right; font-weight:700; color:#1E2A56;'>USD {total:,.2f}</td>"
-                "</tr>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; font-weight:700; text-align:center; width:5%;'>{item_order}</td>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;'>{item_name}</td>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center; width:12%;'>{qty:,.2f}</td>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;'>USD {rate:,.2f}</td>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;'>{days}</td>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right; width:20%; font-weight:700; color:#1E2A56;'>USD {total:,.2f}</td>"
+                "</td>"
             )
+            total_items_cost += total
 
         if not items_rows:
             items_rows = (
@@ -18894,7 +18915,6 @@ def build_quotation_pdf_document(quotation_id):
             )
 
         # Total row for items table
-        total_items_cost = sum(float(item[3]) if item[3] else 0 for item in items)
         items_total_row = f"""
         <tr style='background:#1E2A56; color:white; font-weight:bold;'>
             <td colspan='5' style='padding:8px 10px; border:1px solid #2a3a78; text-align:right;'><strong>TOTAL</strong></td>
@@ -18910,6 +18930,9 @@ def build_quotation_pdf_document(quotation_id):
             <style>
                 @page {{ size:A4; margin:6mm; }}
                 body {{ font-family: Arial, sans-serif; background:#ffffff; color:#1E2A56; margin:0; padding:0; }}
+                table {{ width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }}
+                th {{ padding: 8px 10px; border: 1px solid #2a3a78; }}
+                td {{ padding: 8px 10px; border: 1px solid #d8deef; }}
             </style>
         </head>
         <body>
@@ -18920,6 +18943,7 @@ def build_quotation_pdf_document(quotation_id):
 
                 <p style='font-size:12px; margin:0 0 12px 0; line-height:1.5;'>This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{html.escape(client_name)}</strong>.</p>
 
+                <!-- PROJECT DETAILS -->
                 <div style='page-break-inside:avoid; break-inside:avoid;'>
                     <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>PROJECT DETAILS</h4>
                     <div style='display:table; width:100%; table-layout:fixed; margin-bottom:20px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; box-sizing:border-box;'>
@@ -18935,6 +18959,7 @@ def build_quotation_pdf_document(quotation_id):
                     </div>
                 </div>
 
+                <!-- QUOTATION SUMMARY -->
                 <div style='page-break-inside:avoid; break-inside:avoid;'>
                     <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
                     <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
@@ -18959,23 +18984,27 @@ def build_quotation_pdf_document(quotation_id):
                     </div>
                 </div>
 
-                <span style="display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; box-shadow: 0 2px 8px rgba(255, 215, 0, 0.08); letter-spacing: 0.2px;">
-                    <i class="bi bi-info-circle-fill" style="margin-right: 6px;"></i>
-                    For a full breakdown of your quotation, <span style="color: #d32f2f;">see the detailed quotation tables below</span>.
-                </span>
+                <!-- INFO MESSAGE -->
+                <div style='margin-bottom: 22px; text-align: center;'>
+                    <span style='display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;'>
+                        <i class='bi bi-info-circle-fill' style='margin-right: 6px;'></i>
+                        For a full breakdown of your quotation, <span style='color: #d32f2f;'>see the detailed quotation table below</span>.
+                    </span>
+                </div>
 
+                <!-- CONSTRUCTION ITEMS TABLE with Days column -->
                 <div style='page-break-inside:avoid; break-inside:avoid;'>
                     <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>CONSTRUCTION ITEMS</h4>
-                    <table style='width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px;'>
+                    <table>
                         <thead>
                             <tr style='background:#1E2A56; color:white;'>
-                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:6%;'>#</th>
-                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:left; width:38%;'>Item Description</th>
-                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:13%;'>Qty (Sq.M)</th>
-                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:right; width:15%;'>Unit Rate</th>
-                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:10%;'>Days</th>
-                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:right; width:18%;'>Total</th>
-                            </table>
+                                <th style='text-align:center; width:6%;'>#</th>
+                                <th style='text-align:left; width:38%;'>Item Description</th>
+                                <th style='text-align:center; width:13%;'>Qty (Sq.M)</th>
+                                <th style='text-align:right; width:15%;'>Unit Rate</th>
+                                <th style='text-align:center; width:10%;'>Days</th>
+                                <th style='text-align:right; width:18%;'>Total</th>
+                            <tr>
                         </thead>
                         <tbody>
                             {items_rows}
@@ -18984,11 +19013,12 @@ def build_quotation_pdf_document(quotation_id):
                     </table>
                 </div>
 
+                <!-- IMPORTANT NOTE & BANKING DETAILS -->
                 <div style='page-break-inside:avoid; break-inside:avoid;'>
                     <div style='display:table; width:100%; table-layout:fixed; margin-top:6px;'>
                         <div style='display:table-cell; width:50%; vertical-align:top; padding-right:8px; box-sizing:border-box;'>
                             <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.6; min-height:132px;'>
-                                <strong>Important Note:</strong> This quotation is valid for 30 days from the date of issue. Please confirm your requirement before expiry. All prices are in USD and payment terms will be finalized in the formal agreement.
+                                <strong>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
                                 <div style='margin-top:8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
                             </div>
                         </div>
