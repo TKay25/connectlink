@@ -693,7 +693,42 @@
     </div>
 </div>
 
-
+<!-- Quotation Details Modal -->
+<div id="quotationDetailsModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-file-text-fill"></i> QUOTATION DETAILS</h3>
+            <button class="close-modal" onclick="closeModal('quotationDetailsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto; padding: 20px;">
+            <div id="quotationDetailsContent">
+                <!-- Dynamic content will be loaded here -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Loading quotation details...</p>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-primary" id="downloadQuotationFromModalBtn">
+                <i class="bi bi-download"></i> Download PDF
+            </button>
+            <button type="button" class="btn btn-primary" id="sendQuotationFromModalBtn">
+                <i class="bi bi-whatsapp"></i> Send via WhatsApp
+            </button>
+            <button type="button" class="btn btn-primary" id="editQuotationFromModalBtn">
+                <i class="bi bi-pencil"></i> Edit Quotation
+            </button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('quotationDetailsModal')">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
 
  <div id="createUserModal" class="modal-overlay">
     <div class="modal-container" style="width: 30%">
@@ -12650,116 +12685,361 @@ function renderGanttItemsList() {
             });
     }
 
-    function displayQuotations(quotations) {
-        const container = document.getElementById('quotationsContainer');
-        
-        if (!quotations || quotations.length === 0) {
-            container.innerHTML = '<p class="text-muted text-center" style="padding: 6px;">No quotations saved yet</p>';
-            return;
-        }
+function displayQuotations(quotations) {
+    const container = document.getElementById('quotationsContainer');
+    
+    if (!quotations || quotations.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center" style="padding: 6px;">No quotations saved yet</p>';
+        return;
+    }
 
-        let html = `
-            <div style="margin-bottom: 15px;">
-                <input type="text" id="quotationsSearch" class="form-control" placeholder="Search quotations (Client, Category, Date, Cost...)" style="max-width: 400px; font-size: 0.65rem;">
-            </div>
-            <div style="overflow-x: auto;">
-                <table id="quotationsTable" style="width: 100%; border-collapse: collapse; font-size: 0.65rem;">
-                    <thead>
-                        <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
-                            <th style="padding: 4px; text-align: left; font-weight: bold;">#</th>
-                            <th style="padding: 4px; text-align: left; font-weight: bold;">Client Name</th>
-                            <th style="padding: 4px; text-align: left; font-weight: bold;">Category</th>
-                            <th style="padding: 4px; text-align: center; font-weight: bold;">Project Size</th>
-                            <th style="padding: 4px; text-align: center; font-weight: bold;">Markup %</th>
-                            <th style="padding: 4px; text-align: right; font-weight: bold;">Total Cost</th>
-                            <th style="padding: 4px; text-align: center; font-weight: bold;">Date</th>
-                            <th style="padding: 4px; text-align: center; font-weight: bold;">Items</th>
-                            <th style="padding: 4px; text-align: center; font-weight: bold;">Tasks</th>
-                            <th style="padding: 4px; text-align: center; font-weight: bold;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+    let html = `
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="quotationsSearch" class="form-control" placeholder="Search quotations (Client, Category, Date, Cost...)" style="max-width: 400px; font-size: 0.65rem;">
+        </div>
+        <div style="overflow-x: auto;">
+            <table id="quotationsTable" style="width: 100%; border-collapse: collapse; font-size: 0.65rem;">
+                <thead>
+                    <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
+                        <th style="padding: 4px; text-align: left; font-weight: bold;">ID</th>
+                        <th style="padding: 4px; text-align: left; font-weight: bold;">Client Name</th>
+                        <th style="padding: 4px; text-align: left; font-weight: bold;">Category</th>
+                        <th style="padding: 4px; text-align: center; font-weight: bold;">Project Size</th>
+                        <th style="padding: 4px; text-align: center; font-weight: bold;">Markup %</th>
+                        <th style="padding: 4px; text-align: right; font-weight: bold;">Total Cost</th>
+                        <th style="padding: 4px; text-align: center; font-weight: bold;">Date</th>
+                        <th style="padding: 4px; text-align: center; font-weight: bold;">Items</th>
+                        <th style="padding: 4px; text-align: center; font-weight: bold;">Tasks</th>
+                        <th style="padding: 4px; text-align: center; font-weight: bold;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    // Sort by ID descending
+    const sortedQuotations = [...quotations].sort((a, b) => b.id - a.id);
+
+    sortedQuotations.forEach((quotation) => {
+        const formattedDate = new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const itemCount = quotation.items ? quotation.items.length : 0;
+        const taskCount = quotation.schedules ? quotation.schedules.length : 0;
+        const totalCost = quotation.totalCost || 0;
+        html += `
+            <tr style="border-bottom: 1px solid #ddd; background-color: #fff; font-size: 0.65rem;">
+                <td style="padding: 4px; text-align: left; font-weight: bold;">${quotation.id}</td>
+                <td style="padding: 4px; text-align: left;">${escapeHtml(quotation.clientName || 'N/A')}</td>
+                <td style="padding: 4px; text-align: left;">${escapeHtml(quotation.category || 'N/A')}</td>
+                <td style="padding: 4px; text-align: center;">${quotation.projectSize || 'N/A'}</td>
+                <td style="padding: 4px; text-align: center;">${quotation.markup || '0'}%</td>
+                <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td style="padding: 4px; text-align: center;">${formattedDate}</td>
+                <td style="padding: 4px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${itemCount}</span></td>
+                <td style="padding: 4px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${taskCount}</span></td>
+                <td style="padding: 4px; text-align: center;">
+                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" data-client="${escapeHtml(quotation.clientName)}" style="padding: 2px 6px; font-size: 0.6rem;">
+                        <i class="bi bi-eye"></i> View
+                    </button>
+                </td>
+            </table>
         `;
+    });
 
-        quotations.forEach((quotation, index) => {
-            const formattedDate = new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            const itemCount = quotation.items ? quotation.items.length : 0;
-            const taskCount = quotation.schedules ? quotation.schedules.length : 0;
-            const totalCost = quotation.totalCost || 0;
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+
+    // Initialize DataTable
+    setTimeout(() => {
+        if ($('#quotationsTable').length && !$.fn.DataTable.isDataTable('#quotationsTable')) {
+            try {
+                const table = $('#quotationsTable').DataTable({
+                    order: [[0, 'desc']],
+                    paging: false,
+                    searching: true,
+                    ordering: true,
+                    info: true,
+                    lengthChange: false,
+                    dom: 'f',
+                    columnDefs: [
+                        { orderable: true, targets: [0, 1, 2, 3, 4, 5, 6] },
+                        { orderable: false, targets: [7, 8, 9] }
+                    ]
+                });
+
+                const searchInput = document.getElementById('quotationsSearch');
+                if (searchInput && table) {
+                    const newSearchInput = searchInput.cloneNode(true);
+                    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+                    newSearchInput.addEventListener('keyup', function() {
+                        table.search(this.value).draw();
+                    });
+                }
+            } catch (error) {
+                console.warn('DataTable initialization failed:', error);
+            }
+        }
+    }, 100);
+
+    // Attach view button event listeners
+    document.querySelectorAll('.view-quotation-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const quotationId = parseInt(this.dataset.id);
+            viewQuotationDetails(quotationId);
+        });
+    });
+}
+
+// Global variable to store current quotation data
+let currentViewingQuotation = null;
+
+async function viewQuotationDetails(quotationId) {
+    // Show modal first with loading state
+    openModal('quotationDetailsModal');
+    
+    const contentDiv = document.getElementById('quotationDetailsContent');
+    contentDiv.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-muted">Loading quotation details...</p>
+        </div>
+    `;
+    
+    try {
+        // Fetch quotation data
+        const response = await fetch('/api/get-quotations');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const quotation = result.data.find(q => q.id === quotationId);
+            if (quotation) {
+                currentViewingQuotation = quotation;
+                displayQuotationDetailsInModal(quotation);
+            } else {
+                contentDiv.innerHTML = '<div class="alert alert-danger">Quotation not found</div>';
+            }
+        } else {
+            contentDiv.innerHTML = '<div class="alert alert-danger">Error loading quotation details</div>';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        contentDiv.innerHTML = '<div class="alert alert-danger">Error loading quotation details</div>';
+    }
+}
+
+function displayQuotationDetailsInModal(quotation) {
+    const contentDiv = document.getElementById('quotationDetailsContent');
+    
+    // Calculate totals
+    const totalCost = quotation.totalCost || 0;
+    const markup = quotation.markup || 0;
+    const baseCost = totalCost / (1 + (markup / 100));
+    const markupAmount = totalCost - baseCost;
+    
+    let html = `
+        <!-- Header Info -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card p-3 mb-2" style="background: #f8f9fa;">
+                    <small class="text-muted">Quotation ID</small>
+                    <h5 class="mb-0">#${quotation.id}</h5>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3 mb-2" style="background: #f8f9fa;">
+                    <small class="text-muted">Date Created</small>
+                    <h5 class="mb-0">${new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</h5>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Client Info -->
+        <div class="card mb-3">
+            <div class="card-header" style="background: #0A1A3A; color: white;">
+                <i class="bi bi-person-fill"></i> Client Information
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Client Name:</strong> ${escapeHtml(quotation.clientName || 'N/A')}</p>
+                        <p><strong>WhatsApp:</strong> ${quotation.clientWhatsapp || 'N/A'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Category:</strong> ${escapeHtml(quotation.category || 'N/A')}</p>
+                        <p><strong>Project Size:</strong> ${quotation.projectSize || '0'} sq.m</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Cost Summary -->
+        <div class="card mb-3">
+            <div class="card-header" style="background: #0A1A3A; color: white;">
+                <i class="bi bi-calculator-fill"></i> Cost Summary
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center p-2" style="background: #e8f0fe; border-radius: 8px;">
+                            <small class="text-muted">Base Cost</small>
+                            <h5 class="mb-0 text-primary">USD ${baseCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-2" style="background: #fff3e0; border-radius: 8px;">
+                            <small class="text-muted">Markup (${markup}%)</small>
+                            <h5 class="mb-0 text-warning">USD ${markupAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h5>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-2" style="background: #e8f5e9; border-radius: 8px;">
+                            <small class="text-muted">Total Cost</small>
+                            <h5 class="mb-0 text-success">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Construction Items Table
+    if (quotation.items && quotation.items.length > 0) {
+        html += `
+            <div class="card mb-3">
+                <div class="card-header" style="background: #0A1A3A; color: white;">
+                    <i class="bi bi-list-check"></i> Construction Items
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0" style="font-size: 0.7rem;">
+                            <thead style="background-color: #9B1D2C; color: white;">
+                                <tr>
+                                    <th style="padding: 6px;">#</th>
+                                    <th style="padding: 6px; text-align: left;">Item Description</th>
+                                    <th style="padding: 6px; text-align: center;">Qty (sq.m)</th>
+                                    <th style="padding: 6px; text-align: right;">Unit Rate (USD)</th>
+                                    <th style="padding: 6px; text-align: right;">Total (USD)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+        `;
+        
+        quotation.items.forEach((item, idx) => {
+            const qty = item.quantity || 0;
+            const unitRate = item.unitRate || 0;
+            const totalPrice = item.totalPrice || 0;
             html += `
-                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'}; font-size: 0.65rem;">
-                    <td style="padding: 4px; text-align: left; font-weight: bold;">${index + 1}</td>
-                    <td style="padding: 4px; text-align: left;">${quotation.clientName || 'N/A'}</td>
-                    <td style="padding: 4px; text-align: left;">${quotation.category || 'N/A'}</td>
-                    <td style="padding: 4px; text-align: center;">${quotation.projectSize || 'N/A'}</td>
-                    <td style="padding: 4px; text-align: center;">${quotation.markup || '0'}%</td>
-                    <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td style="padding: 4px; text-align: center;">${formattedDate}</td>
-                    <td style="padding: 4px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${itemCount}</span></td>
-                    <td style="padding: 4px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${taskCount}</span></td>
-                    <td style="padding: 4px; text-align: center;">
-                        <button class="btn btn-sm btn-primary" style="padding: 2px 6px; font-size: 0.6rem; margin-right: 2px;" onclick="toggleQuotationDetails(${quotation.id}); event.stopPropagation();">View</button>
-                        <button class="btn btn-sm btn-danger" style="padding: 2px 6px; font-size: 0.6rem;" onclick="deleteQuotation(${quotation.id}, '${quotation.clientName}'); event.stopPropagation();">Delete</button>
-                    </td>
+                <tr>
+                    <td style="padding: 4px;">${idx + 1}</td>
+                    <td style="padding: 4px; text-align: left;">${escapeHtml(item.name || 'Item')}</td>
+                    <td style="padding: 4px; text-align: center;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style="padding: 4px; text-align: right;">USD ${unitRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style="padding: 4px; text-align: right; font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 </tr>
             `;
         });
-
+        
         html += `
-                    </tbody>
-                </table>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div id="quotationDetailsContainer" style="margin-top: 15px;"></div>
+        `;
+    }
+    
+    // Work Schedule Table
+    if (quotation.schedules && quotation.schedules.length > 0) {
+        let totalDays = 0;
+        quotation.schedules.forEach(s => { totalDays += (s.days || 0); });
+        
+        html += `
+            <div class="card mb-3">
+                <div class="card-header" style="background: #0A1A3A; color: white;">
+                    <i class="bi bi-calendar-event"></i> Work Schedule (${totalDays} Total Days)
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0" style="font-size: 0.7rem;">
+                            <thead style="background-color: #9B1D2C; color: white;">
+                                <tr>
+                                    <th style="padding: 6px;">#</th>
+                                    <th style="padding: 6px; text-align: left;">Work Scope</th>
+                                    <th style="padding: 6px; text-align: center;">Start Date</th>
+                                    <th style="padding: 6px; text-align: center;">End Date</th>
+                                    <th style="padding: 6px; text-align: center;">Days</th>
+                                </tr>
+                            </thead>
+                            <tbody>
         `;
         
-        container.innerHTML = html;
-
-        // Initialize DataTables for Quotations
-        setTimeout(() => {
-            if ($('#quotationsTable').length && !$.fn.DataTable.isDataTable('#quotationsTable')) {
-                try {
-                    const table = $('#quotationsTable').DataTable({
-                        order: [[6, 'desc']], // Default sort by Date (column 6)
-                        paging: false,
-                        searching: true,
-                        ordering: true,
-                        info: true,
-                        lengthChange: false,
-                        dom: 'f',  // Show search box only
-                        columnDefs: [
-                               { orderable: true, targets: [0, 1, 2, 3, 4, 5, 6] },
-                               { orderable: false, targets: [7, 8, 9] }
-                        ]
-                    });
-
-                    // Custom search functionality
-                    const searchInput = document.getElementById('quotationsSearch');
-                    if (searchInput && table) {
-                        searchInput.addEventListener('keyup', function() {
-                            table.search(this.value).draw();
-                        });
-                    }
-                } catch (error) {
-                    console.warn('DataTable initialization failed for quotationsTable:', error);
-                }
-            }
-        }, 100);
-    }
-
-    function toggleQuotationDetails(quotationId) {
-        const detailsContainer = document.getElementById('quotationDetailsContainer');
+        quotation.schedules.forEach((schedule, idx) => {
+            const startDate = schedule.startDate ? new Date(schedule.startDate).toLocaleDateString('en-GB') : 'N/A';
+            const endDate = schedule.endDate ? new Date(schedule.endDate).toLocaleDateString('en-GB') : 'N/A';
+            html += `
+                <tr>
+                    <td style="padding: 4px;">${idx + 1}</td>
+                    <td style="padding: 4px; text-align: left;">${escapeHtml(schedule.workScope || 'Task')}</td>
+                    <td style="padding: 4px; text-align: center;">${startDate}</td>
+                    <td style="padding: 4px; text-align: center;">${endDate}</td>
+                    <td style="padding: 4px; text-align: center; font-weight: bold;">${schedule.days || 0}</td>
+                </tr>
+            `;
+        });
         
-        // If the same quotation is already displayed, toggle it off
-        if (detailsContainer.dataset.currentId === String(quotationId)) {
-            detailsContainer.innerHTML = '';
-            detailsContainer.dataset.currentId = '';
-            return;
+        html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    contentDiv.innerHTML = html;
+}
+// Add this to your document ready or after modal is defined
+$(document).ready(function() {
+    // Download PDF button in modal
+    $('#downloadQuotationFromModalBtn').on('click', function() {
+        if (currentViewingQuotation) {
+            downloadQuotationPDFFromPortal(currentViewingQuotation.id);
+        } else {
+            alert('No quotation selected');
         }
-        
-        // Load new quotation details
-        detailsContainer.dataset.currentId = quotationId;
-        loadQuotationDetails(quotationId);
-    }
+    });
+    
+    // Send via WhatsApp button in modal
+    $('#sendQuotationFromModalBtn').on('click', function() {
+        if (currentViewingQuotation) {
+            sendQuotationFromPortal(currentViewingQuotation.id);
+        } else {
+            alert('No quotation selected');
+        }
+    });
+    
+    // Edit Quotation button in modal
+    $('#editQuotationFromModalBtn').on('click', function() {
+        if (currentViewingQuotation) {
+            closeModal('quotationDetailsModal');
+            editQuotationFromPortal(currentViewingQuotation.id);
+        } else {
+            alert('No quotation selected');
+        }
+    });
+});
+// Helper function to escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
     function deleteQuotation(quotationId, clientName) {
         // Confirm deletion
@@ -12801,27 +13081,6 @@ function renderGanttItemsList() {
             deleteBtn.disabled = false;
             deleteBtn.textContent = 'Delete';
         });
-    }
-
-    function loadQuotationDetails(quotationId) {
-        const detailsContainer = document.getElementById('quotationDetailsContainer');
-        detailsContainer.innerHTML = '<p style="padding: 10px;">Loading details...</p>';
-        
-        // Get the quotation data from the display data
-        fetch('/api/get-quotations')
-            .then(response => response.json())
-            .then(result => {
-                if (result.success && result.data) {
-                    const quotation = result.data.find(q => q.id === quotationId);
-                    if (quotation) {
-                        displayQuotationDetails(quotation, detailsContainer);
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                detailsContainer.innerHTML = '<p style="padding: 10px; color: red;">Error loading details</p>';
-            });
     }
 
     function displayQuotationDetails(quotation, container) {
