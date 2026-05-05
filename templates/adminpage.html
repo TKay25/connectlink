@@ -11536,36 +11536,48 @@ async function saveAndDownloadQuotation() {
     const data = window.quotationData;
     const ganttData = window.ganttChartData || [];
 
+    console.log('=== SAVE AND DOWNLOAD QUOTATION DEBUG ===');
+    console.log('Quotation Data:', data);
+    console.log('Gantt Data:', ganttData);
+    console.log('Items count:', data?.items?.length);
+    
     if (!data) {
         alert('No quotation data available. Please create a quotation first.');
         return;
     }
 
-    // Build items WITH days included
-    const quotationData = {
+    // Make sure we have valid items with correct values
+    if (!data.items || data.items.length === 0) {
+        alert('No items found in quotation. Please add construction items.');
+        return;
+    }
+
+    // Build payload with correct structure for backend
+    const quotationPayload = {
         clientName: data.clientName,
         clientWhatsapp: data.clientWhatsapp || '',
         quotationDate: data.quotationDate,
         category: data.category,
-        size: data.size,
-        totalCost: data.totalCost,
-        markup: data.markup,
+        size: parseFloat(data.size) || 0,
+        totalCost: parseFloat(data.totalCost) || 0,
+        markup: parseFloat(data.markup) || 0,
         items: (data.items || []).map((item, index) => ({
             name: item.name || item.item || 'Item',
-            quantity: item.sqm || 0,
-            unitRate: item.inhouseRate || item.unitRate || 0,
-            totalPrice: item.total || item.clientPrice || 0,
-            days: item.days || (ganttData[index] ? ganttData[index].days : 0),
+            quantity: parseFloat(item.sqm) || 0,
+            unitRate: parseFloat(item.inhouseRate) || 0,
+            totalPrice: parseFloat(item.clientPrice || item.total || 0),
             item_order: index + 1
         })),
         schedules: (ganttData || []).map((schedule, index) => ({
-            workScope: schedule.item || 'Task',
+            workScope: schedule.item || schedule.workScope || 'Task',
             startDate: schedule.startDate,
             endDate: schedule.endDate,
-            days: schedule.days || 0,
+            days: parseInt(schedule.days) || 1,
             task_order: index + 1
         }))
     };
+
+    console.log('Sending payload to server:', quotationPayload);
 
     const saveBtn = document.getElementById('downloadQuotationBtn');
     const originalText = saveBtn ? saveBtn.innerHTML : 'Save & Download Quotation';
@@ -11573,43 +11585,19 @@ async function saveAndDownloadQuotation() {
     try {
         if (saveBtn) {
             saveBtn.disabled = true;
-            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Checking for duplicates...';
-        }
-        
-        // Step 1: Check for duplicate quotation
-        const duplicateCheck = await checkDuplicateQuotation(quotationData);
-        
-        if (duplicateCheck.isDuplicate) {
-            if (saveBtn) {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = originalText;
-            }
-            
-            // Ask user if they want to load the existing quotation instead
-            const userChoice = confirm(
-                `${duplicateCheck.message}\n\n` +
-                `Would you like to load the existing quotation instead of creating a duplicate?`
-            );
-            
-            if (userChoice && duplicateCheck.existingQuotation) {
-                // Load the existing quotation for editing
-                loadExistingQuotationForEdit(duplicateCheck.existingQuotation.id);
-            }
-            return;
-        }
-        
-        if (saveBtn) {
             saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
         }
         
-        // Step 2: Save quotation to database
+        // Save quotation to database
         const saveResponse = await fetch('/api/save-quotation', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(quotationData)
+            body: JSON.stringify(quotationPayload)
         });
         
         const saveResult = await saveResponse.json();
+        
+        console.log('Server response:', saveResult);
         
         if (!saveResult.success) {
             throw new Error(saveResult.error || 'Failed to save quotation');
@@ -11622,13 +11610,15 @@ async function saveAndDownloadQuotation() {
             saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
         }
         
-        // Step 3: Generate and download PDF
+        // Generate and download PDF
         await generateQuotationPDF('download');
         
         alert(`✅ Quotation saved successfully! (ID: ${saveResult.quotation_id})\nPDF download has started.`);
         
         // Refresh quotations list
-        loadQuotations();
+        if (typeof loadQuotations === 'function') {
+            loadQuotations();
+        }
         
     } catch (error) {
         console.error('Error:', error);
