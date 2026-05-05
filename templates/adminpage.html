@@ -3109,82 +3109,72 @@
                             </div>
                         </div>
 
-                        <div class="container2" style="max-height: 500px; overflow-y: auto;">
-
-                            <table class="table-theme" id="enquiriesDetailTable">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Date</th>
-                                        <th>Client</th>
-                                        <th>Username</th>
-                                        <th>Category</th>
-                                        <th style="width: 120px; max-width: 120px;">Message</th>
-                                        <th style="width: 80px;">Status</th>
-                                        <th style="width: 60px;">Document</th>
-                                        <th style="width: 80px;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for enquiry in enquiries_data %}
-                                    <tr class="enquiry-row"  id="enquiry-row-{{ enquiry.id }}"
-                                        data-id="{{ enquiry.id }}"
-                                        data-category="{{ enquiry.category }}"
-                                        data-status="{{ enquiry.status }}"
-                                        data-client="{{ enquiry.clientwhatsapp }}"
-                                        data-username="{{ enquiry.username }}"
-                                        data-message="{{ enquiry.message }}">
-                                        <td>#{{ enquiry.id }}</td>
-                                        <td>{{ enquiry.timestamp }}</td>
-                                        <td>
-                                            <a href="https://wa.me/{{ enquiry.clientwhatsapp }}" target="_blank">
-                                                +{{ enquiry.clientwhatsapp }}
-                                            </a>
-                                        </td>
-                                        <td>{{ enquiry.username }}</td>
-                                        <td><span class="badge bg-secondary" style="font-size: 11px;">{{ enquiry.category }}</span></td>
-                                        <td>
-                                            <div class="message-container">
-                                                <span class="message-preview">
-                                                    {{ enquiry['message'][:10] if enquiry['message'] and enquiry['message']|length > 10 else enquiry['message'] or 'No message' }}
-                                                    {% if enquiry['message'] and enquiry['message']|length > 10 %}
-                                                    ... <a href="javascript:void(0)" class="expand-message" data-id="{{ enquiry['id'] }}">[Show More]</a>
-                                                    {% endif %}
-                                                </span>
-                                                <div class="message-full" id="message-full-{{ enquiry['id'] }}" style="display: none;">
-                                                    {{ enquiry['message'] or 'No message' }}
-                                                    <br>
-                                                    <a href="javascript:void(0)" class="collapse-message" data-id="{{ enquiry['id'] }}">[Show Less]</a>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <select class="form-select status-select" style="font-size: 11px;" data-id="{{ enquiry.id }}">
-                                                <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
-                                                <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                                                <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            {% if enquiry.has_plan %}
-                                            <a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success" style="font-size: 11px;">
-                                                PDF
-                                            </a>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-danger delete-enquiry-btn"
-                                                    type="button"
-                                                    data-id="{{ enquiry.id }}"
-                                                    style="font-size: 11px;">
-                                                Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+<div class="container2" style="max-height: 500px; overflow-y: auto;">
+    <table class="table-theme" id="enquiriesDetailTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Username</th>
+                <th>Category</th>
+                <th style="width: 120px;">Message</th>
+                <th style="width: 80px;">Status</th>
+                <th style="width: 60px;">Document</th>
+                <th style="width: 80px;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for enquiry in enquiries_data %}
+            <tr class="enquiry-row" id="enquiry-row-{{ enquiry.id }}">
+                <td>{{ enquiry.id }}</td>  <!-- Just the number, no # symbol -->
+                <td>{{ enquiry.timestamp }}</td>
+                <td>
+                    <a href="https://wa.me/{{ enquiry.clientwhatsapp }}" target="_blank">
+                        +{{ enquiry.clientwhatsapp }}
+                    </a>
+                </td>
+                <td>{{ enquiry.username }}</td>
+                <td><span class="badge bg-secondary">{{ enquiry.category }}</span></td>
+                <td>
+                    <div class="message-container">
+                        <span class="message-preview">
+                            {{ enquiry.message[:10] if enquiry.message and enquiry.message|length > 10 else enquiry.message or 'No message' }}
+                            {% if enquiry.message and enquiry.message|length > 10 %}
+                            ... <a href="javascript:void(0)" class="expand-message" data-id="{{ enquiry.id }}">[Show More]</a>
+                            {% endif %}
+                        </span>
+                        <div class="message-full" id="message-full-{{ enquiry.id }}" style="display: none;">
+                            {{ enquiry.message or 'No message' }}
+                            <br>
+                            <a href="javascript:void(0)" class="collapse-message" data-id="{{ enquiry.id }}">[Show Less]</a>
                         </div>
+                    </div>
+                </td>
+                <td>
+                    <select class="form-select status-select" style="font-size: 11px;" data-id="{{ enquiry.id }}">
+                        <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                        <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
+                    </select>
+                </td>
+                <td>
+                    {% if enquiry.has_plan %}
+                    <a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success">PDF</a>
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-danger delete-enquiry-btn" type="button" data-id="{{ enquiry.id }}">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
                     </div>
                 </div>
 
