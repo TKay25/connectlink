@@ -11400,9 +11400,7 @@ async function generateQuotationPDF(outputMode = 'download') {
     const size = data.size || '0';
     const category = data.category || 'General';
     const quotationDate = data.quotationDate || new Date().toISOString().split('T')[0];
-    const baseCost = data.baseCost || 0;
-    const markup = data.markup || 0;
-    const totalCost = data.totalCost || baseCost;
+    const totalCost = data.totalCost || 0;
     const items = data.items || [];
     const schedules = ganttData || [];
 
@@ -11426,6 +11424,14 @@ async function generateQuotationPDF(outputMode = 'download') {
         });
     };
 
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     // Build a map of days by item index from schedules
     const daysByIndex = {};
     schedules.forEach((schedule, idx) => {
@@ -11438,25 +11444,26 @@ async function generateQuotationPDF(outputMode = 'download') {
         totalConstructionDays += Number(schedule.days) || 0;
     });
 
-    // Build items table with Days column
+    // Build items table with Days column and total days
     let itemRows = '';
     let totalDisplayCost = 0;
+    let totalDaysSum = 0;
     
     items.forEach((item, index) => {
         const itemName = item.item || item.name || 'Item';
         const qty = Number(item.sqm) || 0;
         const rate = Number(item.inhouseRate) || Number(item.unitRate) || 0;
-        // Get days from schedules by index, fallback to item.days
         const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
         const itemTotal = Number(item.clientPrice || item.total || 0);
         
         totalDisplayCost += itemTotal;
+        totalDaysSum += days;
         const bg = index % 2 === 0 ? '#ffffff' : '#fafbff';
         
         itemRows += `
             <tr style="background: ${bg}; page-break-inside: avoid; break-inside: avoid;">
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 5%;">${index + 1}</td>
-                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: left; width: 38%;">${escapeHtml(itemName)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: left; width: 38%;">${escapeHtml(itemName)}</table>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 12%;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 15%;">${formatCurrency(rate)}</td>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 10%; font-weight: 600; color: #2196F3;">${days}</td>
@@ -11475,12 +11482,13 @@ async function generateQuotationPDF(outputMode = 'download') {
         `;
     }
 
-    // Total row
+    // Total row with Days summary
     const itemsTotalRow = `
         <tr style="background: #1E2A56; color: white; font-weight: bold;">
-            <td colspan="5" style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>TOTAL</strong></td>
+            <td colspan="4" style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>TOTAL</strong></td>
+            <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; font-weight: bold; font-size: 13px;"><strong>${totalDaysSum}</strong></td>
             <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>${formatCurrency(totalDisplayCost)}</strong></td>
-        </tr>
+        </table>
     `;
 
     // Calculate deposit and monthly installments
@@ -11498,7 +11506,7 @@ async function generateQuotationPDF(outputMode = 'download') {
 
                 <p style="font-size: 12px; margin: 0 0 12px 0; line-height: 1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>${escapeHtml(clientName)}</strong>.</p>
 
-                <!-- PROJECT DETAILS -->
+                <!-- PROJECT DETAILS (Duration removed from here) -->
                 <div style="page-break-inside: avoid; break-inside: avoid;">
                     <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT DETAILS</h4>
                     <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 12px 16px; box-sizing: border-box;">
@@ -11513,25 +11521,29 @@ async function generateQuotationPDF(outputMode = 'download') {
                     </div>
                 </div>
 
-                <!-- QUOTATION SUMMARY -->
-                <div>
+                <!-- QUOTATION SUMMARY with Duration as a 5th column (neat layout) -->
+                <div style="page-break-inside: avoid; break-inside: avoid;">
                     <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
                     <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
-                        <div style="display: table; width: 100%; table-layout: fixed;">
-                            <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
-                                <div style="font-size: 14px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
+                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
+                            <div style="padding: 0 5px;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
+                                <div style="font-size: 13px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
                             </div>
-                            <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
+                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(depositAmount)}</div>
                             </div>
-                            <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
+                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
                             </div>
-                            <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; box-sizing: border-box;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly Installments (over 5 months)</div>
+                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Duration</div>
+                                <div style="font-size: 13px; font-weight: 700; color: #2196F3;">${totalConstructionDays} Days</div>
+                            </div>
+                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over 5 months)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
                             </div>
                         </div>
@@ -11539,36 +11551,30 @@ async function generateQuotationPDF(outputMode = 'download') {
                 </div>
 
                 <!-- IMPORTANT NOTE & BANKING DETAILS -->
-                <div>
-                    <div style='display:table; width:100%; table-layout:fixed; margin-top:6px;'>
-                        <div style='display:table-cell; width:50%; vertical-align:top; padding-right:8px; box-sizing:border-box;'>
-                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.6; min-height:132px;'>
-                                <strong>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
-                                <div style='margin-top:8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
-                            </div>
-                        </div>
-                        <div style='display:table-cell; width:50%; vertical-align:top; padding-left:8px; box-sizing:border-box;'>
-                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.7; min-height:132px;'>
-                                <strong style='display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px;'>Banking Details</strong>
-                                <div><strong>Bank:</strong> ZB BANK</div>
-                                <div><strong>Branch:</strong> Msasa</div>
-                                <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
-                                <div><strong>Account No:</strong> 450600586638405</div>
-                                <div><strong>Account Type:</strong> USD Account</div>
-                            </div>
-                        </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
+                    <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;">
+                        <strong style="color: #d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                        <div style="margin-top: 8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
+                    </div>
+                    <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;">
+                        <strong style="display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;">Banking Details</strong>
+                        <div><strong>Bank:</strong> ZB BANK</div>
+                        <div><strong>Branch:</strong> Msasa</div>
+                        <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+                        <div><strong>Account No:</strong> 450600586638405</div>
+                        <div><strong>Account Type:</strong> USD Account</div>
                     </div>
                 </div>
 
                 <!-- INFO MESSAGE -->
-                <div style='margin-bottom: 22px; text-align: center;'>
-                    <span style='display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;'>
-                        <i class='bi bi-info-circle-fill' style='margin-right: 6px;'></i>
-                        For a full breakdown of your quotation, <span style='color: #d32f2f;'>see the detailed quotation table below</span>.
+                <div style="margin-bottom: 22px; text-align: center;">
+                    <span style="display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;">
+                        <i class="bi bi-info-circle-fill" style="margin-right: 6px;"></i>
+                        For a full breakdown of your quotation, <span style="color: #d32f2f;">see the detailed quotation table below</span>.
                     </span>
                 </div>
 
-                <!-- CONSTRUCTION ITEMS TABLE with Days column -->
+                <!-- CONSTRUCTION ITEMS TABLE with Days column and Total Days row -->
                 <div style="page-break-inside: avoid; break-inside: avoid;">
                     <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
                     <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
