@@ -13975,10 +13975,9 @@ def download_audit_report():
         return jsonify({'success': False, 'error': str(e)}), 500
         
 def get_enquiries_data():
-    """Get enquiries data for template"""
+    """Get enquiries data for template - sorted by ID descending"""
     try:
         with get_db() as (cursor, connection):
-            # Get enquiries
             cursor.execute("""
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
                        plan IS NOT NULL as has_plan, status, username
@@ -13987,16 +13986,15 @@ def get_enquiries_data():
             """)
             enquiries = cursor.fetchall()
             
-            # Convert to list of dicts
             enquiries_list = []
             for enquiry in enquiries:
                 enquiries_list.append({
-                    'id': enquiry[0],
-                    'timestamp': enquiry[1].strftime('%d/%m %H:%M') if enquiry[1] else '',
-                    'username': enquiry[7],
+                    'id': enquiry[0],  # Just the number
+                    'timestamp': enquiry[1].strftime('%d/%m/%Y %H:%M') if enquiry[1] else '',
+                    'username': enquiry[7] or 'Unknown',
                     'clientwhatsapp': enquiry[2],
-                    'category': enquiry[3],
-                    'message': enquiry[4],
+                    'category': enquiry[3] or 'General',
+                    'message': enquiry[4] or 'No message',
                     'has_plan': enquiry[5],
                     'status': enquiry[6] or 'pending'
                 })

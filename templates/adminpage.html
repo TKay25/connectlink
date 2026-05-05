@@ -8428,24 +8428,32 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DataTable initialized with column visibility settings');
 
     // Initialize DataTable for Enquiries
-    if ($('#enquiriesDetailTable').length) {
-        try {
-            $('#enquiriesDetailTable').DataTable({
-                order: [[0, 'desc']],
-                paging: false,
-                searching: false,
-                ordering: true,
-                info: false,
-                pageLength: 10,
-                lengthChange: false,
-                columnDefs: [
-                    { orderable: true, targets: '_all' }
-                ]
-            });
-        } catch (error) {
-            console.warn('DataTable initialization failed for enquiriesDetailTable:', error);
-        }
+// In your document ready function, initialize DataTable on enquiriesDetailTable
+$(document).ready(function() {
+    // Initialize DataTable for Enquiries (visible table)
+    if ($('#enquiriesDetailTable').length && !$.fn.DataTable.isDataTable('#enquiriesDetailTable')) {
+        $('#enquiriesDetailTable').DataTable({
+            order: [[0, 'desc']],  // Sort by ID column (first column) descending (newest first)
+            paging: false,
+            searching: false,
+            ordering: true,
+            info: true,
+            lengthChange: false,
+            language: {
+                emptyTable: 'No enquiries found',
+                search: "Search:",
+                info: "Showing _START_ to _END_ of _TOTAL_ enquiries",
+                infoEmpty: "Showing 0 to 0 of 0 enquiries"
+            },
+            columnDefs: [
+                { orderable: true, targets: [0] },  // ID column - sortable
+                { orderable: true, targets: [1] },  // Date column - sortable
+                { orderable: false, targets: [5, 6, 7, 8] }  // Disable sorting on message, status, document, action
+            ]
+        });
+        console.log('✅ Enquiries table initialized with sorting by ID DESC');
     }
+});
     
     // Auto-filter to latest month on page load
     const monthFilterElement = document.getElementById('monthFilter');
