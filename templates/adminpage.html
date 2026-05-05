@@ -11276,29 +11276,50 @@ $('#generateQuotationBtn').click(function() {
         window.ganttItems = [];
         let currentStartDate = parseDateGantt(quotationDate);
 
+        // DEBUG: Log quotationRatesCache
+        console.log('=== QUOTATION DATA DEBUG ===');
+        console.log('SQM:', sqm);
+        console.log('Markup:', markup);
+        console.log('Markup Multiplier:', markupMultiplier);
+        console.log('quotationRatesCache length:', quotationRatesCache ? quotationRatesCache.length : 0);
+        
         document.querySelectorAll('.selected-item-drag').forEach((dragItem, idx) => {
             const itemId = dragItem.getAttribute('data-item-id');
+            console.log(`Processing item ${idx + 1}, ID: ${itemId}`);
+            
             // Find the original item data from quotationRatesCache
             const itemData = quotationRatesCache.find(item => item.id == itemId);
             if (itemData) {
+                // DEBUG: Log item data
+                console.log(`Item found: ${itemData.item}`, {
+                    inhouseRate: itemData.inhouseRate,
+                    daysPerSqMeter: itemData.daysPerSqMeter
+                });
+                
                 selectedRateItems.push(itemData);
-                const basePrice = itemData.inhouseRate * sqm;
+                
+                // CRITICAL FIX: Ensure numeric values
+                const inhouseRateValue = parseFloat(itemData.inhouseRate) || 0;
+                const daysPerSqmValue = parseFloat(itemData.daysPerSqMeter) || 0;
+                
+                const basePrice = inhouseRateValue * sqm;
                 const clientPrice = basePrice * markupMultiplier;
                 
                 // Calculate days for this item
-                const daysPerSqm = itemData.daysPerSqMeter || 0;
-                const duration = Math.max(1, Math.round(daysPerSqm * sqm));
+                const duration = Math.max(1, Math.round(daysPerSqmValue * sqm));
                 
                 // Calculate end date based on duration
                 const endDate = new Date(currentStartDate);
                 endDate.setDate(endDate.getDate() + duration - 1);
+                
+                console.log(`  Calculated: basePrice=${basePrice}, clientPrice=${clientPrice}, duration=${duration}`);
                 
                 // Store in window.ganttItems with correct days
                 window.ganttItems.push({
                     id: itemData.id,
                     item: itemData.item,
                     price: clientPrice,
-                    daysPerSqMeter: daysPerSqm,
+                    daysPerSqMeter: daysPerSqmValue,
                     startDate: formatDateGantt(currentStartDate),
                     endDate: formatDateGantt(endDate),
                     days: duration
@@ -11311,8 +11332,9 @@ $('#generateQuotationBtn').click(function() {
                 selectedItems.push({
                     name: itemData.item,
                     total: clientPrice,
+                    clientPrice: clientPrice,  // Add both for compatibility
                     sqm: sqm,
-                    inhouseRate: itemData.inhouseRate,
+                    inhouseRate: inhouseRateValue,
                     days: duration
                 });
 
@@ -11324,8 +11346,12 @@ $('#generateQuotationBtn').click(function() {
 
                 baseCost += basePrice;
                 totalCost += clientPrice;
+            } else {
+                console.warn(`Item with ID ${itemId} not found in quotationRatesCache!`);
             }
         });
+
+        console.log('Final totals:', { totalCost, baseCost, selectedItemsCount: selectedItems.length });
 
         // Filter for single storey construction (remove Deck Pouring, Shattering, Steel Fixing)
         if (isSingleStorey) {
@@ -11473,6 +11499,13 @@ $('#generateQuotationBtn').click(function() {
         orderedConstructionItems: orderedConstructionItems || [],
         isFullHouseMode: isFullHouseMode
     };
+
+    // DEBUG: Log final quotationData
+    console.log('Final quotationData:', {
+        totalCost: window.quotationData.totalCost,
+        itemsCount: window.quotationData.items.length,
+        firstItem: window.quotationData.items[0]
+    });
 
     // Update the ganttItems reference
     ganttItems = window.ganttItems;
