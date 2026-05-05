@@ -11694,7 +11694,7 @@ function renderPreviewItemsTable(data) {
     previewItems.forEach((item, index) => {
         const qty = Number(item.sqm) || 0;
         const rate = Number(item.inhouseRate) || 0;
-        // IMPORTANT: Get days from schedules by index, not from item
+        // Get days from schedules by index
         const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
         const total = Number(item.clientPrice || item.total || 0);
         
@@ -11716,7 +11716,7 @@ function renderPreviewItemsTable(data) {
             <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
             <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDaysSum}</strong></td>
             <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>${formatCurrency(totalCostPreview)}</strong></td>
-        </tr>`;
+        </table>`;
     }
 
     $('#quotationItemsTable').html(tableHTML);
