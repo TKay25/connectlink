@@ -18950,7 +18950,6 @@ def build_quotation_pdf_document(quotation_id):
                         <div style='display:table-cell; width:50%; vertical-align:top; padding-right:10px; box-sizing:border-box;'>
                             <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Client Name:</strong> <span>{html.escape(client_name)}</span></div>
                             <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Project Size:</strong> <span>{project_size:,.2f} Sq. Meters</span></div>
-                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Duration:</strong> <span>{total_construction_days} Days</span></div>
                         </div>
                         <div style='display:table-cell; width:50%; vertical-align:top; padding-left:10px; box-sizing:border-box;'>
                             <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Category:</strong> <span>{html.escape(category)}</span></div>
@@ -18960,7 +18959,7 @@ def build_quotation_pdf_document(quotation_id):
                 </div>
 
                 <!-- QUOTATION SUMMARY -->
-                <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <div>
                     <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
                     <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
                         <div style='display:table; width:100%; table-layout:fixed;'>
@@ -18979,6 +18978,28 @@ def build_quotation_pdf_document(quotation_id):
                             <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; box-sizing:border-box;'>
                                 <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Monthly Installments (over 5 months)</div>
                                 <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {fmt_currency(monthly)}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IMPORTANT NOTE & BANKING DETAILS -->
+                <div>
+                    <div style='display:table; width:100%; table-layout:fixed; margin-top:6px;'>
+                        <div style='display:table-cell; width:50%; vertical-align:top; padding-right:8px; box-sizing:border-box;'>
+                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.6; min-height:132px;'>
+                                <strong>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                                <div style='margin-top:8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
+                            </div>
+                        </div>
+                        <div style='display:table-cell; width:50%; vertical-align:top; padding-left:8px; box-sizing:border-box;'>
+                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.7; min-height:132px;'>
+                                <strong style='display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px;'>Banking Details</strong>
+                                <div><strong>Bank:</strong> ZB BANK</div>
+                                <div><strong>Branch:</strong> Msasa</div>
+                                <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+                                <div><strong>Account No:</strong> 450600586638405</div>
+                                <div><strong>Account Type:</strong> USD Account</div>
                             </div>
                         </div>
                     </div>
@@ -19013,27 +19034,6 @@ def build_quotation_pdf_document(quotation_id):
                     </table>
                 </div>
 
-                <!-- IMPORTANT NOTE & BANKING DETAILS -->
-                <div style='page-break-inside:avoid; break-inside:avoid;'>
-                    <div style='display:table; width:100%; table-layout:fixed; margin-top:6px;'>
-                        <div style='display:table-cell; width:50%; vertical-align:top; padding-right:8px; box-sizing:border-box;'>
-                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.6; min-height:132px;'>
-                                <strong>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
-                                <div style='margin-top:8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
-                            </div>
-                        </div>
-                        <div style='display:table-cell; width:50%; vertical-align:top; padding-left:8px; box-sizing:border-box;'>
-                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.7; min-height:132px;'>
-                                <strong style='display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px;'>Banking Details</strong>
-                                <div><strong>Bank:</strong> ZB BANK</div>
-                                <div><strong>Branch:</strong> Msasa</div>
-                                <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
-                                <div><strong>Account No:</strong> 450600586638405</div>
-                                <div><strong>Account Type:</strong> USD Account</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </body>
         </html>
