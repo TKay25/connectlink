@@ -13033,6 +13033,8 @@ async function viewQuotationDetails(quotationId) {
         contentDiv.innerHTML = '<div class="alert alert-danger">Error loading quotation details</div>';
     }
 }
+
+
 function displayQuotationDetailsInModal(quotation) {
     const contentDiv = document.getElementById('quotationDetailsContent');
     
@@ -13041,6 +13043,7 @@ function displayQuotationDetailsInModal(quotation) {
     const markup = quotation.markup || 0;
     const baseCost = totalCost / (1 + (markup / 100));
     const markupAmount = totalCost - baseCost;
+    const markupMultiplier = 1 + (markup / 100);
     
     let html = `
         <style>
@@ -13072,7 +13075,7 @@ function displayQuotationDetailsInModal(quotation) {
             }
             .modal-detail-value {
                 flex: 1;
-                color: #0E1F42;
+                color: #0A1A3A;
             }
             .modal-summary-box {
                 background: #f8f9fa;
@@ -13086,7 +13089,7 @@ function displayQuotationDetailsInModal(quotation) {
                 text-transform: uppercase;
             }
             .modal-summary-value {
-                font-size: 0.75rem;
+                font-size: 0.85rem;
                 font-weight: bold;
             }
             .modal-table {
@@ -13104,10 +13107,18 @@ function displayQuotationDetailsInModal(quotation) {
             .modal-table td {
                 padding: 3px 6px;
                 border-bottom: 1px solid #e8e8e8;
-                color: #0E1F42;  /* Deep dark blue - add this line */
+                color: #0E1F42;
             }
             .modal-table tr:nth-child(even) {
                 background: #f9f9f9;
+            }
+            .modal-table td:first-child {
+                font-weight: 600;
+                color: #0A1A3A;
+            }
+            .modal-table td:last-child {
+                font-weight: 600;
+                color: #0A1A3A;
             }
         </style>
         
@@ -13117,7 +13128,7 @@ function displayQuotationDetailsInModal(quotation) {
                 <div class="modal-detail-card">
                     <div class="modal-detail-header">QUOTATION ID</div>
                     <div class="modal-detail-body">
-                        <div class="modal-detail-value" style="font-weight: bold;">#${quotation.id}</div>
+                        <div class="modal-detail-value" style="font-weight: bold; color: #0A1A3A;">#${quotation.id}</div>
                     </div>
                 </div>
             </div>
@@ -13125,7 +13136,7 @@ function displayQuotationDetailsInModal(quotation) {
                 <div class="modal-detail-card">
                     <div class="modal-detail-header">DATE CREATED</div>
                     <div class="modal-detail-body">
-                        <div class="modal-detail-value">${new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                        <div class="modal-detail-value" style="color: #0E1F42;">${new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                     </div>
                 </div>
             </div>
@@ -13141,21 +13152,21 @@ function displayQuotationDetailsInModal(quotation) {
                     <div class="col-md-6">
                         <div class="modal-detail-row">
                             <span class="modal-detail-label">Name:</span>
-                            <span class="modal-detail-value">${escapeHtml(quotation.clientName || 'N/A')}</span>
+                            <span class="modal-detail-value" style="color: #0E1F42;">${escapeHtml(quotation.clientName || 'N/A')}</span>
                         </div>
                         <div class="modal-detail-row">
                             <span class="modal-detail-label">WhatsApp:</span>
-                            <span class="modal-detail-value">${quotation.clientWhatsapp || 'N/A'}</span>
+                            <span class="modal-detail-value" style="color: #0E1F42;">${quotation.clientWhatsapp || 'N/A'}</span>
                         </div>
                     </div>
                     <div class="col-md-6">
                         <div class="modal-detail-row">
                             <span class="modal-detail-label">Category:</span>
-                            <span class="modal-detail-value">${escapeHtml(quotation.category || 'N/A')}</span>
+                            <span class="modal-detail-value" style="color: #0E1F42;">${escapeHtml(quotation.category || 'N/A')}</span>
                         </div>
                         <div class="modal-detail-row">
                             <span class="modal-detail-label">Project Size:</span>
-                            <span class="modal-detail-value">${quotation.projectSize || '0'} sq.m</span>
+                            <span class="modal-detail-value" style="color: #0E1F42;">${quotation.projectSize || '0'} sq.m</span>
                         </div>
                     </div>
                 </div>
@@ -13172,19 +13183,19 @@ function displayQuotationDetailsInModal(quotation) {
                     <div class="col-md-4">
                         <div class="modal-summary-box">
                             <div class="modal-summary-label">Base Cost</div>
-                            <div class="modal-summary-value text-primary">USD ${baseCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                            <div class="modal-summary-value" style="color: #0A1A3A;">USD ${baseCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="modal-summary-box">
                             <div class="modal-summary-label">Markup (${markup}%)</div>
-                            <div class="modal-summary-value text-warning">USD ${markupAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                            <div class="modal-summary-value" style="color: #0E1F42;">USD ${markupAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="modal-summary-box">
                             <div class="modal-summary-label">Total Cost</div>
-                            <div class="modal-summary-value text-success">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                            <div class="modal-summary-value" style="color: #0A1A3A; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                         </div>
                     </div>
                 </div>
@@ -13192,7 +13203,7 @@ function displayQuotationDetailsInModal(quotation) {
         </div>
     `;
     
-    // Construction Items Table
+    // Construction Items Table - WITH BOTH RATES
     if (quotation.items && quotation.items.length > 0) {
         html += `
             <div class="modal-detail-card mb-3">
@@ -13204,10 +13215,11 @@ function displayQuotationDetailsInModal(quotation) {
                         <table class="modal-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 40px;">#</th>
+                                    <th style="width: 35px;">#</th>
                                     <th>Item Description</th>
-                                    <th style="width: 70px; text-align: center;">Qty</th>
-                                    <th style="width: 80px; text-align: right;">Unit Rate</th>
+                                    <th style="width: 60px; text-align: center;">Qty</th>
+                                    <th style="width: 75px; text-align: right;">Inhouse Rate</th>
+                                    <th style="width: 75px; text-align: right;">Client Rate</th>
                                     <th style="width: 80px; text-align: right;">Total</th>
                                 </tr>
                             </thead>
@@ -13216,15 +13228,17 @@ function displayQuotationDetailsInModal(quotation) {
         
         quotation.items.forEach((item, idx) => {
             const qty = item.quantity || 0;
-            const unitRate = item.unitRate || 0;
+            const inhouseRate = item.unitRate || 0;
+            const clientRate = inhouseRate * markupMultiplier;
             const totalPrice = item.totalPrice || 0;
             html += `
                 <tr>
-                    <td style="text-align: center;">${idx + 1}</td>
-                    <td>${escapeHtml(item.name || 'Item')}</td>
-                    <td style="text-align: center;">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
-                    <td style="text-align: right;">${unitRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td style="text-align: right; font-weight: 500;">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style="text-align: center; color: #0A1A3A; font-weight: 600;">${idx + 1}</td>
+                    <td style="color: #0E1F42;">${escapeHtml(item.name || 'Item')}</td>
+                    <td style="text-align: center; color: #0E1F42;">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
+                    <td style="text-align: right; color: #0E1F42;">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style="text-align: right; color: #0A1A3A; font-weight: 500;">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td style="text-align: right; color: #0A1A3A; font-weight: 600;">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 </tr>
             `;
         });
@@ -13253,11 +13267,11 @@ function displayQuotationDetailsInModal(quotation) {
                         <table class="modal-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 40px;">#</th>
+                                    <th style="width: 35px;">#</th>
                                     <th>Work Scope</th>
-                                    <th style="width: 80px; text-align: center;">Start Date</th>
-                                    <th style="width: 80px; text-align: center;">End Date</th>
-                                    <th style="width: 50px; text-align: center;">Days</th>
+                                    <th style="width: 75px; text-align: center;">Start Date</th>
+                                    <th style="width: 75px; text-align: center;">End Date</th>
+                                    <th style="width: 45px; text-align: center;">Days</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -13268,11 +13282,11 @@ function displayQuotationDetailsInModal(quotation) {
             const endDate = schedule.endDate ? new Date(schedule.endDate).toLocaleDateString('en-GB') : 'N/A';
             html += `
                 <tr>
-                    <td style="text-align: center;">${idx + 1}</td>
-                    <td>${escapeHtml(schedule.workScope || 'Task')}</td>
-                    <td style="text-align: center; font-size: 0.55rem;">${startDate}</td>
-                    <td style="text-align: center; font-size: 0.55rem;">${endDate}</td>
-                    <td style="text-align: center; font-weight: bold;">${schedule.days || 0}</td>
+                    <td style="text-align: center; color: #0A1A3A; font-weight: 600;">${idx + 1}</td>
+                    <td style="color: #0E1F42;">${escapeHtml(schedule.workScope || 'Task')}</td>
+                    <td style="text-align: center; color: #0E1F42; font-size: 0.55rem;">${startDate}</td>
+                    <td style="text-align: center; color: #0E1F42; font-size: 0.55rem;">${endDate}</td>
+                    <td style="text-align: center; color: #0A1A3A; font-weight: 600;">${schedule.days || 0}</td>
                 </tr>
             `;
         });
@@ -13288,6 +13302,7 @@ function displayQuotationDetailsInModal(quotation) {
     
     contentDiv.innerHTML = html;
 }
+
 // Add this to your document ready or after modal is defined
 $(document).ready(function() {
     // Download PDF button in modal
