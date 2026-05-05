@@ -19506,6 +19506,11 @@ def save_quotation():
     """Create a new quotation with items and schedules."""
     try:
         data = request.get_json() or {}
+        
+        # DEBUG: Print received data
+        print("\n=== SAVE QUOTATION DEBUG ===")
+        print(f"Received data: {data}")
+        
         client_name = data.get('clientName', 'Unknown')
         client_whatsapp = data.get('clientWhatsapp', '')
         quotation_date = data.get('quotationDate', date.today().isoformat())
@@ -19515,48 +19520,60 @@ def save_quotation():
         markup = float(data.get('markup', 0)) if data.get('markup') else 0
         items = data.get('items', [])
         schedules = data.get('schedules', [])
-
+        
+        print(f"Items received: {len(items)}")
+        for i, item in enumerate(items):
+            print(f"  Item {i}: name={item.get('name')}, quantity={item.get('quantity')}, unitRate={item.get('unitRate')}, totalPrice={item.get('totalPrice')}")
+        
         with get_db() as (cursor, connection):
-            cursor.execute(
-                """
+            # Insert quotation header
+            cursor.execute("""
                 INSERT INTO quotations
                 (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-                """,
-                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup)
-            )
+            """, (
+                client_name, client_whatsapp, quotation_date, category, 
+                project_size, total_cost, markup
+            ))
             quotation_id = cursor.fetchone()[0]
-
+            print(f"Created quotation ID: {quotation_id}")
+            
+            # Insert items - MAKE SURE VALUES ARE NOT ZERO
             for idx, item in enumerate(items):
                 item_name = item.get('name') or item.get('item', 'Item')
-                quantity = float(item.get('sqm', 0)) if item.get('sqm') else 0
-                unit_rate = float(item.get('inhouseRate', 0)) if item.get('inhouseRate') else 0
-                total_price = float(item.get('total', 0)) if item.get('total') else 0
-                cursor.execute(
-                    """
+                # CRITICAL: Parse values as floats, default to 0
+                quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
+                unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
+                total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
+                
+                print(f"  Saving item {idx+1}: {item_name} - Qty:{quantity}, Rate:{unit_rate}, Total:{total_price}")
+                
+                cursor.execute("""
                     INSERT INTO quotation_items
                     (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                    """,
-                    (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1)
-                )
-
+                """, (
+                    quotation_id, item_name, quantity, unit_rate, total_price, idx + 1
+                ))
+            
+            # Insert schedules (optional)
             for idx, schedule in enumerate(schedules):
-                work_scope = schedule.get('item', 'Task')
+                work_scope = schedule.get('workScope', schedule.get('item', 'Task'))
                 start_date = schedule.get('startDate')
                 end_date = schedule.get('endDate')
                 days = int(schedule.get('days', 0)) if schedule.get('days') else 0
-                cursor.execute(
-                    """
+                cursor.execute("""
                     INSERT INTO quotation_schedules
                     (quotation_id, work_scope, start_date, end_date, days, task_order)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                    """,
-                    (quotation_id, work_scope, start_date, end_date, days, idx + 1)
-                )
-
+                """, (
+                    quotation_id, work_scope, start_date, end_date, days, idx + 1
+                ))
+            
             connection.commit()
+            print(f"✅ Quotation {quotation_id} saved successfully!")
+            print("===============================\n")
 
         return jsonify({
             'success': True,
@@ -19565,10 +19582,15 @@ def save_quotation():
         })
     except Exception as e:
         logging.error(f'Error saving quotation: {str(e)}')
+        logging.error(traceback.format_exc())
         if 'connection' in locals():
             connection.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
+        
 @app.route('/api/get-quotations', methods=['GET'])
 def get_quotations():
     """Retrieve all quotations with merged items and schedules"""
