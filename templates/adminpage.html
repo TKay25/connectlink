@@ -12165,84 +12165,96 @@ function addItemToGantt(itemName) {
     renderGanttItemsList();
 }
 
-        document.getElementById('saveGanttChartBtn')?.addEventListener('click', function() {
-            if (ganttItems.length === 0) {
-                alert('Please add at least one task to the schedule.');
-                return;
-            }
+document.getElementById('saveGanttChartBtn')?.addEventListener('click', function() {
+    if (ganttItems.length === 0) {
+        alert('Please add at least one task to the schedule.');
+        return;
+    }
 
-            // Store gantt chart data
-            window.ganttChartData = ganttItems;
-            
-            // Close gantt modal and show quotation preview
-            closeModal('ganttChartBuilderModal');
-            setTimeout(() => {
-                openModal('quotationPreviewModal');
-                displayGanttChartInPreview();
-            }, 300);
-        });
+    // Store gantt chart data
+    window.ganttChartData = ganttItems;
+    
+    // Close gantt modal and show quotation preview
+    closeModal('ganttChartBuilderModal');
+    setTimeout(() => {
+        openModal('quotationPreviewModal');
+        // Only call displayGanttChartInPreview if the modal is actually open
+        const previewModal = document.getElementById('quotationPreviewModal');
+        if (previewModal && previewModal.classList.contains('active')) {
+            displayGanttChartInPreview();
+        }
+    }, 300);
+});
 
         // Display gantt chart in quotation preview
-        function toggleGanttChart() {
-            const container = document.getElementById('ganttChartContainer');
-            if (container) {
-                container.style.display = container.style.display === 'none' ? 'block' : 'none';
-                if (container.style.display === 'block') {
-                    displayGanttChartInPreview();
-                }
-            }
+function toggleGanttChart() {
+    const container = document.getElementById('ganttChartContainer');
+    if (container) {
+        container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        if (container.style.display === 'block') {
+            displayGanttChartInPreview();
         }
+    }
+}
 
-        function displayGanttChartInPreview() {
-            const content = document.getElementById('ganttChartContent');
-            
-            if (!window.ganttChartData || window.ganttChartData.length === 0) {
-                content.innerHTML = '<p style="color: #999;">No gantt chart data available</p>';
-                return;
-            }
+function displayGanttChartInPreview() {
+    const content = document.getElementById('ganttChartContent');
+    
+    // Check if element exists
+    if (!content) {
+        console.warn('ganttChartContent element not found');
+        return;
+    }
+    
+    if (!window.ganttChartData || window.ganttChartData.length === 0) {
+        content.innerHTML = '<p style="color: #999;">No gantt chart data available</p>';
+        return;
+    }
 
-            const items = getSchedulesForQuotationOutput(window.ganttChartData, window.quotationData);
+    const items = getSchedulesForQuotationOutput(window.ganttChartData, window.quotationData);
 
-            let html = `
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
-                    <thead>
-                        <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
-                            <th style="padding: 10px; text-align: left; font-weight: bold;">#</th>
-                            <th style="padding: 10px; text-align: left; font-weight: bold;">Work Scope</th>
-                            <th style="padding: 10px; text-align: center; font-weight: bold;">Start date</th>
-                            <th style="padding: 10px; text-align: center; font-weight: bold;">End date</th>
-                            <th style="padding: 10px; text-align: center; font-weight: bold;">Days</th>
-                            <th style="padding: 10px; text-align: right; font-weight: bold;">Cost</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+                <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
+                    <th style="padding: 10px; text-align: left; font-weight: bold;">#</th>
+                    <th style="padding: 10px; text-align: left; font-weight: bold;">Work Scope</th>
+                    <th style="padding: 10px; text-align: center; font-weight: bold;">Start date</th>
+                    <th style="padding: 10px; text-align: center; font-weight: bold;">End date</th>
+                    <th style="padding: 10px; text-align: center; font-weight: bold;">Days</th>
+                    <th style="padding: 10px; text-align: right; font-weight: bold;">Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
-            items.forEach((item, index) => {
-                const startDate = parseDateGantt(item.startDate);
-                const endDate = parseDateGantt(item.endDate);
-                const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    items.forEach((item, index) => {
+        const startDate = parseDateGantt(item.startDate);
+        const endDate = parseDateGantt(item.endDate);
+        const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-                html += `
-                    <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                        <td style="padding: 10px; text-align: left; font-weight: bold;">${index + 1}</td>
-                        <td style="padding: 10px; text-align: left;">${item.item}</td>
-                        <td style="padding: 10px; text-align: center;">${formattedStart}</td>
-                        <td style="padding: 10px; text-align: center;">${formattedEnd}</td>
-                        <td style="padding: 10px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                        <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    </tr>
-                `;
-            });
+        html += `
+            <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                <td style="padding: 10px; text-align: left; font-weight: bold;">${index + 1}</td>
+                <td style="padding: 10px; text-align: left;">${escapeHtml(item.item)}</td>
+                <td style="padding: 10px; text-align: center;">${formattedStart}</td>
+                <td style="padding: 10px; text-align: center;">${formattedEnd}</td>
+                <td style="padding: 10px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
+                <td style="padding: 10px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            </tr>
+        `;
+    });
 
-            html += `
-                    </tbody>
-                </table>
-            `;
-            content.innerHTML = html;
-            content.style.height = 'auto';
-        }
+    html += `
+            </tbody>
+        </table>
+    `;
+    
+    content.innerHTML = html;
+    // Remove the line that tries to set content.style.height
+    // content.style.height = 'auto';  // REMOVE or comment out this line
+}
     });
 
     // Global helper functions (outside document.ready for HTML event handler access)

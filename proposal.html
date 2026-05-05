@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proposal | Unified Messenger Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        /* Professional print-friendly styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Roboto', system-ui, -apple-system, sans-serif;
+            background: #eef2f5;
+            padding: 2rem 1rem;
+            color: #1a2c3e;
+        }
+
+        /* Proposal card container */
+        .proposal-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.12);
+            overflow: hidden;
+        }
+
+        /* Header with deep dark blue */
+        .proposal-header {
+            background: #0B2B4F;
+            color: white;
+            padding: 2.5rem 2rem;
+            border-bottom: 4px solid #1E5A9C;
+        }
+
+        .proposal-header h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.3px;
+        }
+
+        .proposal-header .badge-proposal {
+            background: rgba(255,255,255,0.15);
+            padding: 0.3rem 1rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        /* Section styling */
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0B2B4F;
+            border-left: 4px solid #0B2B4F;
+            padding-left: 1rem;
+            margin-bottom: 1.25rem;
+            margin-top: 0.5rem;
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: #EFF3F8;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #0B2B4F;
+        }
+
+        .table-features td, .table-features th {
+            padding: 0.85rem;
+            vertical-align: middle;
+            border-color: #e9ecef;
+        }
+
+        .pricing-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .pricing-card:hover {
+            box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.1);
+        }
+
+        .pricing-header {
+            background: #F8FAFE;
+            padding: 1rem;
+            border-bottom: 1px solid #eef2f6;
+            border-radius: 20px 20px 0 0;
+            font-weight: 700;
+        }
+
+        .price-amount {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #0B2B4F;
+        }
+
+        .btn-proposal {
+            background: #0B2B4F;
+            color: white;
+            border-radius: 40px;
+            padding: 0.6rem 1.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-proposal:hover {
+            background: #1E4A76;
+            transform: translateY(-2px);
+        }
+
+        .footer-note {
+            background: #F9FBFD;
+            border-top: 1px solid #e9edf2;
+            font-size: 0.75rem;
+            color: #5b6e8c;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            .proposal-container {
+                box-shadow: none;
+                border-radius: 0;
+                max-width: 100%;
+            }
+            .btn-proposal, .no-print {
+                display: none !important;
+            }
+            .section-title {
+                break-after: avoid;
+            }
+            .pricing-card {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            .proposal-header {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            a[href]:after {
+                content: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .proposal-header {
+                padding: 1.5rem;
+            }
+            .proposal-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="proposal-container">
+        <!-- Header with client and proposal info -->
+        <div class="proposal-header">
+            <div class="d-flex flex-wrap justify-content-between align-items-start">
+                <div>
+                    <div class="badge-proposal mb-2">OFFICIAL PROPOSAL</div>
+                    <h1>Unified Messenger</h1>
+                    <p class="lead mb-0 opacity-75">Multi-Platform Business Messaging Dashboard</p>
+                </div>
+                <div class="text-end mt-3 mt-sm-0">
+                    <div class="small opacity-75">Proposal #: UM-2026-001</div>
+                    <div class="small opacity-75">Date: May 05, 2026</div>
+                    <div class="small opacity-75">Valid until: June 05, 2026</div>
+                </div>
+            </div>
+            <hr class="my-3 opacity-25">
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <div class="small opacity-75">Prepared For:</div>
+                    <div class="fw-semibold">[Client Company Name]</div>
+                    <div class="small opacity-75">Attn: [Client Name / Marketing Director]</div>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="small opacity-75">Prepared By:</div>
+                    <div class="fw-semibold">NexusTech Solutions</div>
+                    <div class="small opacity-75">contact@nexustech.com | +1 (555) 789-0123</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="p-4 p-md-5">
+            <div class="mb-4">
+                <div class="section-title">Executive Summary</div>
+                <p class="text-secondary">Unified Messenger is a powerful, centralized communication platform that enables your business to manage customer conversations across WhatsApp, Facebook Messenger, Twitter/X, and Instagram DM — all from a single, intuitive dashboard. Streamline customer support, execute bulk marketing campaigns, maintain compliance with opt-in consent, and gain analytics insights without switching between apps.</p>
+                <p class="text-secondary mb-0">With real-time messaging, contact database management, broadcast automation, and platform status monitoring, Unified Messenger helps you reduce response times, increase engagement, and drive more revenue through personalized omnichannel outreach.</p>
+            </div>
+
+            <!-- Key Benefits (3 columns) -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-4">
+                    <div class="d-flex gap-3">
+                        <div class="feature-icon flex-shrink-0"><i class="bi bi-chat-dots-fill"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">Omnichannel Inbox</h6>
+                            <p class="small text-secondary">Manage all social messaging apps from one place. No more logging into multiple platforms.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-3">
+                        <div class="feature-icon flex-shrink-0"><i class="bi bi-megaphone-fill"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">Bulk Broadcast</h6>
+                            <p class="small text-secondary">Send targeted campaigns to opted-in contacts. Filter by tags, activity, or platform.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-3">
+                        <div class="feature-icon flex-shrink-0"><i class="bi bi-shield-check"></i></div>
+                        <div>
+                            <h6 class="fw-bold mb-1">GDPR & Opt-in Ready</h6>
+                            <p class="small text-secondary">Automatic consent tracking, compliance-first contact storage for safe broadcasting.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features & Specifications Table -->
+            <div class="mb-5">
+                <div class="section-title">System Capabilities</div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-features align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40%">Feature</th>
+                                <th style="width: 60%">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><i class="bi bi-whatsapp me-2 text-success"></i> <strong>WhatsApp Integration</strong></td><td>Send/receive messages via WhatsApp Business API, support for templates and media.</td></tr>
+                            <tr><td><i class="bi bi-facebook me-2 text-primary"></i> <strong>Facebook Messenger</strong></td><td>Connect Facebook Page, sync contacts automatically, view conversation history.</td></tr>
+                            <tr><td><i class="bi bi-twitter-x me-2 text-info"></i> <strong>Twitter/X Direct Messages</strong></td><td>Send DMs using @username resolution, track interactions.</td></tr>
+                            <tr><td><i class="bi bi-instagram me-2 text-danger"></i> <strong>Instagram DMs</strong></td><td>Full Instagram messaging support via connected business account.</td></tr>
+                            <tr><td><i class="bi bi-megaphone me-2"></i> <strong>Smart Broadcast Engine</strong></td><td>Campaign scheduler, rate limiting, audience segmentation (tags, active users, all opted-in).</td></tr>
+                            <tr><td><i class="bi bi-people me-2"></i> <strong>Centralized Contact DB</strong></td><td>Store all contacts with platform IDs, custom tags, opt-in status, interaction history.</td></tr>
+                            <tr><td><i class="bi bi-pie-chart me-2"></i> <strong>Analytics Dashboard</strong></td><td>Real-time charts for contacts by platform, messages sent, broadcast performance.</td></tr>
+                            <tr><td><i class="bi bi-clock-history me-2"></i> <strong>Full History Logs</strong></td><td>Searchable message archive with filters by platform, date, contact.</td></tr>
+                            <tr><td><i class="bi bi-plug me-2"></i> <strong>Webhook & Socket Events</strong></td><td>Live updates for incoming messages, delivery receipts, broadcast completion.</td></tr>
+                            <tr><td><i class="bi bi-shield-lock me-2"></i> <strong>Role-Based Access</strong></td><td>Secure login, user sessions, logout protection.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Platform Status & Architecture -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <div class="section-title">Supported Platforms</div>
+                    <div class="d-flex flex-wrap gap-2 mb-2">
+                        <span class="badge bg-dark px-3 py-2"><i class="bi bi-whatsapp me-1"></i> WhatsApp</span>
+                        <span class="badge bg-dark px-3 py-2"><i class="bi bi-facebook me-1"></i> Facebook Messenger</span>
+                        <span class="badge bg-dark px-3 py-2"><i class="bi bi-twitter-x me-1"></i> Twitter/X</span>
+                        <span class="badge bg-dark px-3 py-2"><i class="bi bi-instagram me-1"></i> Instagram</span>
+                    </div>
+                    <p class="small text-secondary mt-2">Each platform is configured via official APIs (WhatsApp Business API, Facebook Graph API, Twitter v2, Instagram Basic Display). Credentials stored securely via environment variables.</p>
+                </div>
+                <div class="col-md-6">
+                    <div class="section-title">Deployment Options</div>
+                    <ul class="list-unstyled small">
+                        <li class="mb-2"><i class="bi bi-cloud-check text-primary me-2"></i> <strong>Cloud Hosted</strong> – Fully managed SaaS, 99.9% uptime SLA</li>
+                        <li class="mb-2"><i class="bi bi-server me-2 text-primary"></i> <strong>On-Premise / Private Cloud</strong> – For enterprises with data sovereignty needs</li>
+                        <li class="mb-2"><i class="bi bi-arrow-repeat me-2 text-primary"></i> <strong>Auto-scaling</strong> – Handles thousands of messages per minute</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Pricing Plans (clean, professional) -->
+            <div class="mb-5">
+                <div class="section-title">Investment & Licensing</div>
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="pricing-card h-100">
+                            <div class="pricing-header text-center">
+                                <h5 class="mb-0">Starter</h5>
+                                <small class="text-secondary">For small businesses</small>
+                            </div>
+                            <div class="p-3 text-center">
+                                <div class="price-amount">$349</div>
+                                <div class="small text-secondary">one-time setup + monthly</div>
+                                <hr class="my-2">
+                                <ul class="list-unstyled small text-start mt-2">
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> Up to 3 platforms</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> 5,000 contacts</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> 5k broadcasts/month</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> Email support</li>
+                                </ul>
+                                <div class="mt-3"><strong>$99/mo</strong> <span class="text-secondary">billed monthly</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="pricing-card h-100 border border-primary">
+                            <div class="pricing-header text-center" style="background:#EFF3F8;">
+                                <h5 class="mb-0 text-primary">Business</h5>
+                                <small class="text-secondary">Recommended</small>
+                            </div>
+                            <div class="p-3 text-center">
+                                <div class="price-amount">$749</div>
+                                <div class="small text-secondary">one-time setup + monthly</div>
+                                <hr class="my-2">
+                                <ul class="list-unstyled small text-start mt-2">
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> All 4 platforms included</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> 50,000 contacts</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> Unlimited broadcasts</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> Priority support + onboarding</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> Advanced segmentation</li>
+                                </ul>
+                                <div class="mt-3"><strong>$249/mo</strong> <span class="text-secondary">billed monthly</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="pricing-card h-100">
+                            <div class="pricing-header text-center">
+                                <h5 class="mb-0">Enterprise</h5>
+                                <small class="text-secondary">Custom volume & SLAs</small>
+                            </div>
+                            <div class="p-3 text-center">
+                                <div class="price-amount">Custom</div>
+                                <div class="small text-secondary">tailored solution</div>
+                                <hr class="my-2">
+                                <ul class="list-unstyled small text-start mt-2">
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> Unlimited contacts</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> Dedicated account manager</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> Custom API integrations</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> On-premise deployment option</li>
+                                    <li><i class="bi bi-check-circle-fill text-success me-2 fs-6"></i> 99.95% SLA</li>
+                                </ul>
+                                <div class="mt-3"><a href="#" class="small">Contact sales →</a></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-light border mt-3 p-2 text-center small text-secondary">
+                    <i class="bi bi-info-circle me-1"></i> All plans include SSL encryption, regular backups, and compliance with GDPR opt-in consent.
+                </div>
+            </div>
+
+            <!-- Implementation Timeline -->
+            <div class="mb-5">
+                <div class="section-title">Implementation Roadmap</div>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-2 text-center h-100">
+                            <div class="fw-bold text-primary">Week 1</div>
+                            <div class="small">Discovery & API credential setup (WhatsApp Business, FB, Twitter, IG)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-2 text-center h-100">
+                            <div class="fw-bold text-primary">Week 2</div>
+                            <div class="small">Platform integration, contact migration, UI customization</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-2 text-center h-100">
+                            <div class="fw-bold text-primary">Week 3</div>
+                            <div class="small">Testing, user acceptance, team training session</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-2 text-center h-100">
+                            <div class="fw-bold text-primary">Week 4</div>
+                            <div class="small">Go-live & post-launch support week</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Why Choose Us / ROI -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="section-title">Why Unified Messenger?</div>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="bi bi-graph-up-arrow text-success me-2"></i> <strong>60% faster response time</strong> – centralize all customer messages.</li>
+                        <li class="mb-2"><i class="bi bi-cash-stack text-success me-2"></i> <strong>Reduce operational costs</strong> by eliminating multi-tool subscriptions.</li>
+                        <li class="mb-2"><i class="bi bi-bar-chart-steps text-success me-2"></i> <strong>Actionable analytics</strong> to refine marketing campaigns.</li>
+                        <li class="mb-2"><i class="bi bi-patch-check text-success me-2"></i> <strong>Future-proof</strong> – easy to add more channels (Telegram, LinkedIn coming).</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <div class="section-title">Support & Maintenance</div>
+                    <p class="small text-secondary">All plans include:</p>
+                    <ul class="small text-secondary">
+                        <li>24/7 monitoring and server uptime guarantee</li>
+                        <li>Regular security patches & API updates</li>
+                        <li>Dedicated Slack/Email support channel (Business & Enterprise)</li>
+                        <li>Monthly performance report & usage insights</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Terms & Signature Section -->
+            <div class="border-top pt-4 mt-3">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="small fw-bold mb-1">Terms & Conditions</p>
+                        <p class="small text-secondary">This proposal is valid for 30 days. Pricing excludes applicable taxes. Setup fee includes installation, configuration of up to 4 platforms, data migration (if needed), and one training session. Monthly fees are billed in advance. Cancellation requires 30-day notice.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 bg-light">
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="small fw-bold">Authorized Signature</div>
+                                    <div class="border-bottom border-dark mt-3 mb-2" style="width: 90%; height: 30px;"></div>
+                                    <div class="small">Client Representative</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="small fw-bold">Date</div>
+                                    <div class="border-bottom border-dark mt-3 mb-2" style="width: 90%; height: 30px;"></div>
+                                    <div class="small">mm/dd/yyyy</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-4 no-print">
+                    <button class="btn btn-proposal me-3" onclick="window.print();"><i class="bi bi-printer me-2"></i> Print / Save as PDF</button>
+                    <button class="btn btn-outline-secondary" onclick="alert('Proposal ready. Contact sales@nexustech.com to proceed.');"><i class="bi bi-envelope me-2"></i> Accept Proposal</button>
+                </div>
+                <div class="footer-note text-center p-3 mt-4 small">
+                    <i class="bi bi-c-circle"></i> 2026 NexusTech Solutions — Unified Messenger. All trademarks are property of their respective owners.
+                    <br>This document is confidential and intended solely for the named client.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Optional Bootstrap JS bundle for print/interactive -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // simple helper: print-friendly
+        (function() {
+            // ensure print layout retains colors
+            if (window.matchMedia) {
+                window.matchMedia('print').addListener(function(mql) {
+                    if (mql.matches) {
+                        // nothing extra needed
+                    }
+                });
+            }
+        })();
+    </script>
+</body>
+</html>
