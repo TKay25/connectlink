@@ -8730,19 +8730,12 @@ function getSystemUserRowPayload(tr) {
 }
 
 
-// Make sure the button event listener is attached
 $(document).ready(function() {
-    // Save & Download button in preview modal
-    $('#downloadQuotationBtn').off('click').on('click', async function() {
-        console.log('Save & Download button clicked');
-        console.log('window.quotationData:', window.quotationData);
-        
-        if (!window.quotationData) {
-            alert('No quotation data found. Please generate a quotation first.');
-            return;
-        }
-        
-        await saveAndDownloadQuotation();
+    // Attach save button event listener
+    $('#downloadQuotationBtn').off('click').on('click', function(e) {
+        e.preventDefault();
+        console.log('Save button clicked - calling saveAndDownloadQuotation');
+        saveAndDownloadQuotation();
     });
 });
 
