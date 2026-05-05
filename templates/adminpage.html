@@ -10438,14 +10438,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   </script>
 <script>
+
+    let quotationRatesCache = [];
+    let ganttItems = [];
+
     $(document).ready(function () {
         // DataTables for placeholder tables removed - actual tables are rendered server-side
         // Only initialize DataTables on visible tables that contain actual data
     });
 
     // Global variables for quotation and Gantt chart
-    let quotationRatesCache = [];
-    let ganttItems = [];
 
     // Quotation Generator Modal Logic
     $(document).ready(function() {
@@ -11104,7 +11106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
- $('#generateQuotationBtn').click(function() {
+$('#generateQuotationBtn').click(function() {
     // Get form data
     const category = $('#quotationCategory').val();
     const clientName = $('#quotationClientName').val();
@@ -11143,7 +11145,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let orderedConstructionItems = [];
     let markup = 0;
     let isFullHouseMode = false;
-    let ganttItems = [];
+    
+    // Clear and prepare gantt items
+    window.ganttChartData = [];
+    window.ganttItems = [];
 
     if (isConstruction) {
         window.fullHouseDurationByItemId = null;
@@ -11155,8 +11160,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Get items in the ORDER they appear in the drag-drop area
         const selectedRateItems = [];
         
-        // Clear existing ganttItems
-        ganttItems = [];
+        // Clear existing gantt items
+        window.ganttItems = [];
         let currentStartDate = parseDateGantt(quotationDate);
 
         document.querySelectorAll('.selected-item-drag').forEach((dragItem, idx) => {
@@ -11176,8 +11181,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const endDate = new Date(currentStartDate);
                 endDate.setDate(endDate.getDate() + duration - 1);
                 
-                // Store in ganttItems with correct days
-                ganttItems.push({
+                // Store in window.ganttItems with correct days
+                window.ganttItems.push({
                     id: itemData.id,
                     item: itemData.item,
                     price: clientPrice,
@@ -11221,7 +11226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
             });
             
-            ganttItems = ganttItems.filter(item => {
+            window.ganttItems = window.ganttItems.filter(item => {
                 return !excludedItems.some(excluded => 
                     (item.item || '').toLowerCase().includes(excluded.toLowerCase())
                 );
@@ -11274,7 +11279,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.fullHouseDurationByItemId = proportionalResult.durationByItemId;
             
             // Rebuild ganttItems with proportional days
-            ganttItems = [];
+            window.ganttItems = [];
             let cumulatedStart = parseDateGantt(quotationDate);
             
             selectedItems.forEach((item, idx) => {
@@ -11283,7 +11288,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const endDate = new Date(cumulatedStart);
                 endDate.setDate(endDate.getDate() + duration - 1);
                 
-                ganttItems.push({
+                window.ganttItems.push({
                     id: itemId,
                     item: item.name,
                     price: item.total,
@@ -11296,17 +11301,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 cumulatedStart = new Date(endDate);
                 cumulatedStart.setDate(cumulatedStart.getDate() + 1);
             });
-            
-            // Show warning for single storey if items were filtered
-            if (isSingleStorey && proportionalResult.filteredItemsCount > 0) {
-                $('<div class="alert alert-warning alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; padding: 12px 20px; font-size: 0.85rem; z-index: 99999;">' +
-                    '<strong><i class="bi bi-info-circle"></i> Note:</strong> Deck Pouring, Shattering, and Steel Fixing are not applicable for single storey construction and have been automatically excluded from your Full House quotation.' +
-                    '<button type="button" class="btn-close" data-bs-dismiss="alert" style="float: right; background: transparent; border: none; font-size: 1.2rem; margin-left: 10px;"></button></div>')
-                    .appendTo('body')
-                    .delay(8000)
-                    .fadeOut(500, function() { $(this).remove(); });
-            }
         }
+        
+        // Store window.ganttChartData for preview
+        window.ganttChartData = window.ganttItems;
+        
     } else {
         window.fullHouseDurationByItemId = null;
         // For non-construction categories, add a single item
@@ -11321,7 +11320,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         baseCost = 50000;
         totalCost = 50000;
-        ganttItems = [];
+        window.ganttItems = [];
+        window.ganttChartData = [];
     }
 
     // Update preview modal content
@@ -11362,7 +11362,8 @@ document.addEventListener('DOMContentLoaded', () => {
         isFullHouseMode: isFullHouseMode
     };
 
-    window.ganttChartData = ganttItems;
+    // Update the ganttItems reference
+    ganttItems = window.ganttItems;
 
     updateFullHouseDisplayModeUI(window.quotationData);
     
@@ -11384,7 +11385,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     }
 });
-
 
 function saveAndDownloadQuotation() {
     const data = window.quotationData;
@@ -12033,11 +12033,13 @@ window.getItemsForQuotationOutput = getItemsForQuotationOutput;
 
         // ===== GANTT CHART BUILDER FUNCTIONALITY =====
         function initializeGanttChart() {
-            // Initialize empty if new, load if exists
+            // Use the global ganttItems array
             if (ganttItems.length === 0) {
-                ganttItems = [];
+                // If no items, show empty state
+                renderGanttItemsList();
+                return;
             }
-
+            
             updateFullHouseDisplayModeUI(window.quotationData);
             const currentMode = getSelectedFullHouseDisplayMode();
             $('#fullHouseDisplayMode').val(currentMode);
@@ -12083,36 +12085,47 @@ window.getItemsForQuotationOutput = getItemsForQuotationOutput;
             document.body.appendChild(dialog);
         }
 
-        function addItemToGantt(itemName) {
-            // Remove dialog
-            document.querySelectorAll('div[style*="position: fixed"]').forEach(el => {
-                if (el.textContent.includes('Select Construction Item')) el.remove();
-            });
+function addItemToGantt(itemName) {
+    // Remove dialog
+    document.querySelectorAll('div[style*="position: fixed"]').forEach(el => {
+        if (el.textContent.includes('Select Construction Item')) el.remove();
+    });
 
-            const rateData = quotationRatesCache.find(r => r.item === itemName);
-            const sqm = parseFloat($('#quotationSize').val()) || 1;
-            const markup = parseFloat($('#quotationMarkup').val()) || 30;
-            const basePrice = (rateData ? rateData.inhouseRate : 0) * sqm;
-            const clientPrice = basePrice * (1 + (markup / 100));
-            const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
-            const duration = Math.max(1, Math.round(daysPerSqm * sqm));
+    const rateData = quotationRatesCache.find(r => r.item === itemName);
+    const sqm = parseFloat($('#quotationSize').val()) || 1;
+    const markup = parseFloat($('#quotationMarkup').val()) || 30;
+    const basePrice = (rateData ? rateData.inhouseRate : 0) * sqm;
+    const clientPrice = basePrice * (1 + (markup / 100));
+    const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
+    const duration = Math.max(1, Math.round(daysPerSqm * sqm));
 
-            const startDate = new Date();
-            const endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + duration - 1);
+    // Calculate start date based on last item
+    let startDate = new Date();
+    if (ganttItems.length > 0) {
+        const lastItem = ganttItems[ganttItems.length - 1];
+        startDate = parseDateGantt(lastItem.endDate);
+        startDate.setDate(startDate.getDate() + 1);
+    }
+    
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + duration - 1);
 
-            ganttItems.push({
-                id: rateData ? rateData.id : null,
-                item: itemName,
-                price: clientPrice,
-                daysPerSqMeter: daysPerSqm,
-                startDate: formatDateGantt(startDate),
-                endDate: formatDateGantt(endDate),
-                days: duration
-            });
+    // Push to global ganttItems array
+    ganttItems.push({
+        id: rateData ? rateData.id : null,
+        item: itemName,
+        price: clientPrice,
+        daysPerSqMeter: daysPerSqm,
+        startDate: formatDateGantt(startDate),
+        endDate: formatDateGantt(endDate),
+        days: duration
+    });
 
-            renderGanttItemsList();
-        }
+    // Also update window.ganttChartData
+    window.ganttChartData = ganttItems;
+    
+    renderGanttItemsList();
+}
 
         document.getElementById('saveGanttChartBtn')?.addEventListener('click', function() {
             if (ganttItems.length === 0) {
@@ -12195,85 +12208,70 @@ window.getItemsForQuotationOutput = getItemsForQuotationOutput;
     });
 
     // Global helper functions (outside document.ready for HTML event handler access)
-    function renderGanttItemsList() {
-        const listEl = document.getElementById('ganttItemsList');
-        
-        if (ganttItems.length === 0) {
+function renderGanttItemsList() {
+    const listEl = document.getElementById('ganttItemsList');
+    
+    // Use the global ganttItems array
+    if (!ganttItems || ganttItems.length === 0) {
+        if (listEl) {
             listEl.innerHTML = '<div style="text-align: center; color: #999; padding: 30px 20px;">No items added yet.<br>Click "Add Item" to begin.</div>';
-            updateGanttSummary();
-            return;
         }
+        updateGanttSummary();
+        return;
+    }
 
-        const displayItems = window.getSchedulesForQuotationOutput(ganttItems, window.quotationData);
-        const isSummaryMode = !!(
-            window.quotationData
-            && window.quotationData.isFullHouseMode
-            && window.getSelectedFullHouseDisplayMode() === 'full_house_only'
-        );
-
-        let html = `
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.68rem;">
-                <thead>
-                    <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
-                        <th style="padding: 2px 3px; text-align: left; font-weight: bold;">#</th>
-                        <th style="padding: 2px 3px; text-align: left; font-weight: bold;">Work Scope</th>
-                        <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Start date</th>
-                        <th style="padding: 2px 3px; text-align: center; font-weight: bold;">End date</th>
-                        <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Days</th>
-                        <th style="padding: 2px 3px; text-align: right; font-weight: bold;">Cost</th>
-                        <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        displayItems.forEach((item, index) => {
-            const startDate = parseDateGantt(item.startDate);
-            const endDate = parseDateGantt(item.endDate);
-            const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-            if (isSummaryMode) {
-                html += `
-                    <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                        <td style="padding: 2px 3px; text-align: left; font-weight: bold;">${index + 1}</td>
-                        <td style="padding: 2px 3px; text-align: left; font-weight: 700;">${item.item}</td>
-                        <td style="padding: 2px 3px; text-align: center;">${formattedStart}</td>
-                        <td style="padding: 2px 3px; text-align: center;">${formattedEnd}</td>
-                        <td style="padding: 2px 3px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                        <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">USD ${Number(item.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style="padding: 2px 3px; text-align: center; color: #777; font-style: italic;">Summary</td>
-                    </tr>
-                `;
-                return;
-            }
-
-            html += `
-                <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
-                    <td style="padding: 2px 3px; text-align: left; font-weight: bold;">${index + 1}</td>
-                    <td style="padding: 2px 3px; text-align: left;">${item.item}</td>
-                    <td style="padding: 2px 3px; text-align: center;">
-                        <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="font-size: 0.65rem; padding: 1px 2px; height: 20px;">
-                    </td>
-                    <td style="padding: 2px 3px; text-align: center;">
-                        <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="font-size: 0.65rem; padding: 1px 2px; height: 20px;">
-                    </td>
-                    <td style="padding: 2px 3px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
-                    <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">USD ${item.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td style="padding: 2px 3px; text-align: center;">
-                        <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 1px 4px; font-size: 0.6rem;">Delete</button>
-                    </td>
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.68rem;">
+            <thead>
+                <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
+                    <th style="padding: 2px 3px; text-align: left; font-weight: bold;">#</th>
+                    <th style="padding: 2px 3px; text-align: left; font-weight: bold;">Work Scope</th>
+                    <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Start date</th>
+                    <th style="padding: 2px 3px; text-align: center; font-weight: bold;">End date</th>
+                    <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Days</th>
+                    <th style="padding: 2px 3px; text-align: right; font-weight: bold;">Cost</th>
+                    <th style="padding: 2px 3px; text-align: center; font-weight: bold;">Action</th>
                 </tr>
-            `;
-        });
+            </thead>
+            <tbody>
+    `;
+
+    ganttItems.forEach((item, index) => {
+        const startDate = parseDateGantt(item.startDate);
+        const endDate = parseDateGantt(item.endDate);
+        const formattedStart = startDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const formattedEnd = endDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
         html += `
-                </tbody>
-            </table>
+            <tr style="border-bottom: 1px solid #ddd; background-color: ${index % 2 === 0 ? '#fff' : '#f9f9f9'};">
+                <td style="padding: 2px 3px; text-align: left; font-weight: bold;">${index + 1}</td>
+                <td style="padding: 2px 3px; text-align: left;">${item.item}</td>
+                <td style="padding: 2px 3px; text-align: center;">
+                    <input type="date" class="form-control form-control-sm" value="${item.startDate}" onchange="updateGanttItemDate(${index}, 'start', this.value)" style="font-size: 0.65rem; padding: 1px 2px; height: 20px;">
+                </td>
+                <td style="padding: 2px 3px; text-align: center;">
+                    <input type="date" class="form-control form-control-sm" value="${item.endDate}" onchange="updateGanttItemDate(${index}, 'end', this.value)" style="font-size: 0.65rem; padding: 1px 2px; height: 20px;">
+                </td>
+                <td style="padding: 2px 3px; text-align: center; color: #2196F3; font-weight: bold;">${item.days}</td>
+                <td style="padding: 2px 3px; text-align: right; color: #2196F3; font-weight: bold;">${formatCurrency(item.price)}</td>
+                <td style="padding: 2px 3px; text-align: center;">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removeGanttItem(${index})" style="padding: 1px 4px; font-size: 0.6rem;">Delete</button>
+                </td>
+            </tr>
         `;
+    });
+
+    html += `
+            </tbody>
+        </table>
+    `;
+    
+    if (listEl) {
         listEl.innerHTML = html;
-        updateGanttSummary();
     }
+    updateGanttSummary();
+}
+
 
     function updateGanttSummary() {
         let totalDays = 0;
