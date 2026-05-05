@@ -11539,10 +11539,36 @@ async function saveAndDownloadQuotation() {
     try {
         if (saveBtn) {
             saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Checking for duplicates...';
+        }
+        
+        // Step 1: Check for duplicate quotation
+        const duplicateCheck = await checkDuplicateQuotation(quotationData);
+        
+        if (duplicateCheck.isDuplicate) {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+            }
+            
+            // Ask user if they want to load the existing quotation instead
+            const userChoice = confirm(
+                `${duplicateCheck.message}\n\n` +
+                `Would you like to load the existing quotation instead of creating a duplicate?`
+            );
+            
+            if (userChoice && duplicateCheck.existingQuotation) {
+                // Load the existing quotation for editing
+                loadExistingQuotationForEdit(duplicateCheck.existingQuotation.id);
+            }
+            return;
+        }
+        
+        if (saveBtn) {
             saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
         }
         
-        // Step 1: Save quotation to database
+        // Step 2: Save quotation to database
         const saveResponse = await fetch('/api/save-quotation', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -11562,10 +11588,13 @@ async function saveAndDownloadQuotation() {
             saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
         }
         
-        // Step 2: Generate and download PDF
+        // Step 3: Generate and download PDF
         await generateQuotationPDF('download');
         
         alert(`✅ Quotation saved successfully! (ID: ${saveResult.quotation_id})\nPDF download has started.`);
+        
+        // Refresh quotations list
+        loadQuotations();
         
     } catch (error) {
         console.error('Error:', error);
@@ -11576,6 +11605,35 @@ async function saveAndDownloadQuotation() {
             saveBtn.innerHTML = originalText;
         }
     }
+}
+
+// Function to load existing quotation for editing
+function loadExistingQuotationForEdit(quotationId) {
+    fetch('/api/get-quotations')
+        .then(r => r.json())
+        .then(result => {
+            if (!result.success || !result.data) {
+                alert('Error loading existing quotation.');
+                return;
+            }
+            const quotation = result.data.find(q => q.id === quotationId);
+            if (!quotation) {
+                alert('Quotation not found.');
+                return;
+            }
+            
+            // Close the preview modal if open
+            closeModal('quotationPreviewModal');
+            
+            // Load the quotation for editing
+            editQuotationFromPortal(quotationId);
+            
+            alert(`Loaded existing quotation #${quotationId}. You can modify and save it as a new version if needed.`);
+        })
+        .catch(error => {
+            console.error('Error loading quotation:', error);
+            alert('Error loading existing quotation.');
+        });
 }
 // ==================== QUOTATION PDF GENERATION WITH DAYS COLUMN ====================
 
@@ -11882,100 +11940,146 @@ window.renderPreviewItemsTable = renderPreviewItemsTable;
 window.getItemsForQuotationOutput = getItemsForQuotationOutput;
 
 
-        // Send Quotation & Gantt button
-        $('#sendQuotationBtn').click(async function() {
-            const data = window.quotationData;
-            if (!data) {
-                alert('No quotation data available. Please create a quotation first.');
-                return;
-            }
+// Update the sendQuotationBtn click handler
+$('#sendQuotationBtn').click(async function() {
+    const data = window.quotationData;
+    if (!data) {
+        alert('No quotation data available. Please create a quotation first.');
+        return;
+    }
 
-            const clientWhatsapp = (data.clientWhatsapp || '').toString().trim();
-            if (!clientWhatsapp) {
-                alert('Client WhatsApp number is required before sending quotation.');
-                return;
-            }
+    const clientWhatsapp = (data.clientWhatsapp || '').toString().trim();
+    if (!clientWhatsapp) {
+        alert('Client WhatsApp number is required before sending quotation.');
+        return;
+    }
 
-            const btn = this;
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
 
-            try {
-                // Step 1: Save quotation to database first
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
-                const ganttData = window.ganttChartData || [];
-                const savePayload = {
-                    clientName: data.clientName,
-                    clientWhatsapp: data.clientWhatsapp || '',
-                    quotationDate: data.quotationDate,
-                    category: data.category,
-                    size: data.size,
-                    totalCost: data.totalCost,
-                    markup: data.markup,
-                    items: data.items || [],
-                    schedules: ganttData
-                };
-
-                const isEditing = !!window.editingQuotationId;
-                const saveUrl = isEditing ? `/api/update-quotation/${window.editingQuotationId}` : '/api/save-quotation';
-                const saveMethod = isEditing ? 'PUT' : 'POST';
-
-                const saveResponse = await fetch(saveUrl, {
-                    method: saveMethod,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(savePayload)
-                });
-
-                const saveResult = await saveResponse.json();
-                if (!saveResponse.ok || !saveResult.success) {
-                    throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
-                }
-                if (isEditing) { window.editingQuotationId = null; }
-
-                // Step 2: Generate PDF as data URI
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
-                const dataUri = await generateQuotationPDF('datauri');
-                const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
-
-                if (!pdfBase64) {
-                    throw new Error('Failed to generate quotation PDF for sending');
-                }
-
-                // Step 3: Send PDF to client's WhatsApp
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
-                const sendResponse = await fetch('/api/send-quotation-whatsapp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        clientName: data.clientName || 'Client',
-                        whatsappNumber: clientWhatsapp,
-                        quotationId: saveResult.quotation_id,
-                        pdfBase64: pdfBase64
-                    })
-                });
-
-                const sendResult = await sendResponse.json();
-                if (!sendResponse.ok || !sendResult.success) {
-                    const errorMessage = sendResult.error || 'Failed to send quotation on WhatsApp';
-                    const extraHint = sendResult.hint ? ('\n\n' + sendResult.hint) : '';
-                    throw new Error(errorMessage + extraHint);
-                }
-
-                if (sendResult.used_template) {
-                    alert('Quotation saved (ID: ' + saveResult.quotation_id + '). Customer is outside 24-hour window, so a WhatsApp template with "Download Quotation" button was sent to: ' + sendResult.whatsapp_number);
-                } else {
-                    alert('Quotation saved (ID: ' + saveResult.quotation_id + ') and accepted by WhatsApp API for: ' + sendResult.whatsapp_number + '\nDelivery status depends on recipient availability and WhatsApp conversation rules.');
-                }
-            } catch (error) {
-                console.error('Error sending quotation:', error);
-                alert('Failed: ' + error.message);
-            } finally {
+    try {
+        // Build quotation data (same as save function)
+        const ganttData = window.ganttChartData || [];
+        const quotationData = {
+            clientName: data.clientName,
+            clientWhatsapp: data.clientWhatsapp || '',
+            quotationDate: data.quotationDate,
+            category: data.category,
+            size: data.size,
+            totalCost: data.totalCost,
+            markup: data.markup,
+            items: (data.items || []).map((item, index) => ({
+                name: item.name || item.item || 'Item',
+                quantity: item.sqm || 0,
+                unitRate: item.inhouseRate || item.unitRate || 0,
+                totalPrice: item.total || item.clientPrice || 0,
+                days: item.days || (ganttData[index] ? ganttData[index].days : 0),
+                item_order: index + 1
+            })),
+            schedules: (ganttData || []).map((schedule, index) => ({
+                workScope: schedule.item || 'Task',
+                startDate: schedule.startDate,
+                endDate: schedule.endDate,
+                days: schedule.days || 0,
+                task_order: index + 1
+            }))
+        };
+        
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Checking for duplicates...';
+        
+        // Check for duplicate before sending
+        const duplicateCheck = await checkDuplicateQuotation(quotationData);
+        
+        if (duplicateCheck.isDuplicate) {
+            const userChoice = confirm(
+                `${duplicateCheck.message}\n\n` +
+                `A quotation with these exact details already exists (ID: ${duplicateCheck.existingQuotation.id}).\n\n` +
+                `Do you want to send the existing quotation instead?`
+            );
+            
+            if (userChoice && duplicateCheck.existingQuotation) {
+                // Send the existing quotation
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending existing quotation...';
+                await sendQuotationFromPortal(duplicateCheck.existingQuotation.id);
+                alert(`Existing quotation #${duplicateCheck.existingQuotation.id} sent successfully!`);
                 btn.disabled = false;
                 btn.innerHTML = originalText;
+                return;
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                return;
             }
+        }
+        
+        // No duplicate found, proceed with saving and sending
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+        
+        const isEditing = !!window.editingQuotationId;
+        const saveUrl = isEditing ? `/api/update-quotation/${window.editingQuotationId}` : '/api/save-quotation';
+        const saveMethod = isEditing ? 'PUT' : 'POST';
+
+        const saveResponse = await fetch(saveUrl, {
+            method: saveMethod,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(quotationData)
         });
 
-        // Reset form when modal is closed
+        const saveResult = await saveResponse.json();
+        if (!saveResponse.ok || !saveResult.success) {
+            throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
+        }
+        
+        if (isEditing) { window.editingQuotationId = null; }
+
+        // Generate and send PDF...
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+        const dataUri = await generateQuotationPDF('datauri');
+        const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
+
+        if (!pdfBase64) {
+            throw new Error('Failed to generate quotation PDF for sending');
+        }
+
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
+        const sendResponse = await fetch('/api/send-quotation-whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clientName: data.clientName || 'Client',
+                whatsappNumber: clientWhatsapp,
+                quotationId: saveResult.quotation_id,
+                pdfBase64: pdfBase64
+            })
+        });
+
+        const sendResult = await sendResponse.json();
+        if (!sendResponse.ok || !sendResult.success) {
+            const errorMessage = sendResult.error || 'Failed to send quotation on WhatsApp';
+            const extraHint = sendResult.hint ? ('\n\n' + sendResult.hint) : '';
+            throw new Error(errorMessage + extraHint);
+        }
+
+        if (sendResult.used_template) {
+            alert('Quotation saved (ID: ' + saveResult.quotation_id + '). Customer is outside 24-hour window, so a WhatsApp template with "Download Quotation" button was sent to: ' + sendResult.whatsapp_number);
+        } else {
+            alert('Quotation saved (ID: ' + saveResult.quotation_id + ') and accepted by WhatsApp API for: ' + sendResult.whatsapp_number + '\nDelivery status depends on recipient availability and WhatsApp conversation rules.');
+        }
+        
+        // Refresh quotations list
+        loadQuotations();
+        
+    } catch (error) {
+        console.error('Error sending quotation:', error);
+        alert('Failed: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+});
+
+// Reset form when modal is closed
         $('#quotationgeneratorModal').on('hidden.bs.modal', function() {
             $('#quotationGeneratorForm')[0].reset();
             $('#quotationDate').val(today);
@@ -12791,6 +12895,81 @@ function displayQuotations(quotations) {
             viewQuotationDetails(quotationId);
         });
     });
+}
+
+// Add this function before your saveAndDownloadQuotation function
+async function checkDuplicateQuotation(quotationData) {
+    try {
+        const response = await fetch('/api/get-quotations');
+        const result = await response.json();
+        
+        if (!result.success || !result.data) {
+            return { isDuplicate: false };
+        }
+        
+        // Check for exact match on key fields
+        const duplicate = result.data.find(existing => {
+            // Compare client name (case-insensitive, trimmed)
+            const clientNameMatch = existing.clientName?.trim().toLowerCase() === quotationData.clientName?.trim().toLowerCase();
+            
+            // Compare category
+            const categoryMatch = existing.category?.toLowerCase() === quotationData.category?.toLowerCase();
+            
+            // Compare project size (within 0.01 tolerance)
+            const sizeMatch = Math.abs((existing.projectSize || 0) - (quotationData.size || 0)) < 0.01;
+            
+            // Compare total cost (within 0.01 tolerance)
+            const costMatch = Math.abs((existing.totalCost || 0) - (quotationData.totalCost || 0)) < 0.01;
+            
+            // Compare markup percentage
+            const markupMatch = Math.abs((existing.markup || 0) - (quotationData.markup || 0)) < 0.01;
+            
+            // Compare number of items
+            const itemsCountMatch = (existing.items?.length || 0) === (quotationData.items?.length || 0);
+            
+            // If all key fields match, it's a duplicate
+            if (clientNameMatch && categoryMatch && sizeMatch && costMatch && markupMatch && itemsCountMatch) {
+                // Optional: Also check if items are the same
+                let itemsMatch = true;
+                if (itemsCountMatch && quotationData.items?.length > 0) {
+                    for (let i = 0; i < quotationData.items.length; i++) {
+                        const existingItem = existing.items[i];
+                        const newItem = quotationData.items[i];
+                        if (!existingItem || !newItem) {
+                            itemsMatch = false;
+                            break;
+                        }
+                        if (existingItem.name?.toLowerCase() !== newItem.name?.toLowerCase() ||
+                            Math.abs((existingItem.quantity || 0) - (newItem.quantity || 0)) > 0.01 ||
+                            Math.abs((existingItem.unitRate || 0) - (newItem.unitRate || 0)) > 0.01) {
+                            itemsMatch = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (itemsMatch) {
+                    return { 
+                        isDuplicate: true, 
+                        existingQuotation: existing,
+                        message: `A quotation with identical details already exists (ID: ${existing.id}, Date: ${new Date(existing.quotationDate).toLocaleDateString()})`
+                    };
+                }
+            }
+            
+            return false;
+        });
+        
+        if (duplicate) {
+            return duplicate;
+        }
+        
+        return { isDuplicate: false };
+        
+    } catch (error) {
+        console.error('Error checking for duplicates:', error);
+        return { isDuplicate: false, error: error.message };
+    }
 }
 
 // Global variable to store current quotation data
