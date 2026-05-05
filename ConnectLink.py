@@ -18977,12 +18977,12 @@ def build_quotation_pdf_document(quotation_id):
                                 <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {fmt_currency(balance)}</div>
                             </div>
                             <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
-                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Duration</div>
-                                <div style='font-size: 13px; font-weight: 700; color: #2196F3;'>{total_construction_days} Days</div>
-                            </div>
-                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
                                 <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over 5 months)</div>
                                 <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {fmt_currency(monthly)}</div>
+                            </div>
+                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Duration</div>
+                                <div style='font-size: 13px; font-weight: 700; color: #2196F3;'>{total_construction_days} Days</div>
                             </div>
                         </div>
                     </div>
