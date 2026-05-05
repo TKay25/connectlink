@@ -9525,238 +9525,256 @@ $(document).ready(function() {
 
 
 
-    // Handle Update button click
-    $(document).on('click', '.update-project-btn', function () {
+$(document).on('click', '.update-project-btn', function () {
+    // Get the table row that contains this button
+    const $row = $(this).closest('tr');
+    const table = window.dataTable;
+    const rowData = table.row($row).data(); // This gets ALL data including hidden
 
+    // Helper function to safely get data with fallback
+    const getData = (index, fallback = '') => {
+        return (rowData && rowData[index] !== undefined && rowData[index] !== null) ? rowData[index] : fallback;
+    };
 
+    // Get data from table cells
+    const momid = getData(0);
+    const clientName = getData(1);
+    const clientnationalidnumber = getData(2);
+    const clientresaddress = getData(3).replace(/\\r\\n/g, '\n');
+    const clientwhatsapp = getData(4);
+    const clientemail = getData(5);
+    const clientnextofkinnameRaw = getData(6);
+    const clientnextofkinaddress = getData(7).replace(/\\r\\n/g, '\n');
+    const clientnextofkinphone = getData(8);
+    const clientnextofkinrelationship = getData(9);
+    const projectName = getData(10);
+    const projectScope = getData(12);
+    const adminName = getData(13);
+    const projectStartDateref = getData(14);
+    const totalcontractamount = getData(17);
+    const monthstopay = getData(19);
+    const depositorbullet = getData(23);
+    const datedepositorbullet = getData(24);
+    
+    // Installment amounts (1-10)
+    const installment1Amount = getData(26);
+    const installment1DueDate = getData(27);
+    const installment1Date = getData(28);
+    const installment2Amount = getData(29);
+    const installment2DueDate = getData(30);
+    const installment2Date = getData(31);
+    const installment3Amount = getData(32);
+    const installment3DueDate = getData(33);
+    const installment3Date = getData(34);
+    const installment4Amount = getData(35);
+    const installment4DueDate = getData(36);
+    const installment4Date = getData(37);
+    const installment5Amount = getData(38);
+    const installment5DueDate = getData(39);
+    const installment5Date = getData(40);
+    const installment6Amount = getData(41);
+    const installment6DueDate = getData(42);
+    const installment6Date = getData(43);
+    const installment7Amount = getData(44);
+    const installment7DueDate = getData(45);
+    const installment7Date = getData(46);
+    const installment8Amount = getData(47);
+    const installment8DueDate = getData(48);
+    const installment8Date = getData(49);
+    const installment9Amount = getData(50);
+    const installment9DueDate = getData(51);
+    const installment9Date = getData(52);
+    const installment10Amount = getData(53);
+    const installment10DueDate = getData(54);
+    const installment10Date = getData(55);
+    
+    const completionStatus = getData(56);
+    const id = getData(58);
+    const quotationRef = getData(59);
 
-        // Get the table row that contains this button
-        const $row = $(this).closest('tr');
-        const table = window.dataTable;
-        const rowData = table.row($row).data(); // This gets ALL data including hidden
+    // Decode HTML entities function
+    function decodeEntities(text) {
+        if (!text) return '';
+        const textarea = document.createElement('textarea');
+        textarea.innerHTML = text;
+        return textarea.value;
+    }
 
-        // Get data from table cells - adjust indices based on your table structure
-        // You'll need to check what column index each data is in
-        const momid = rowData[0]; // First column (ID)
-        const clientName = rowData[1]; // Second column (Client Name)
-        const clientnationalidnumber = rowData[2]; // Third column (Client National ID Number)
-        const clientresaddress = rowData[3].replace(/\\r\\n/g, '\n'); // Fourth column (Client Residential Address)
-        const clientwhatsapp = rowData[4]; // Fifth column (Client WhatsApp Number)
-        const clientemail = rowData[5]; // Sixth column (Client Email)
-        const clientnextofkinname = rowData[6].replace(/&nbsp;/g, ' ').replace(/\s+/g, ' '); // Seventh column (Client Next of Kin Name)
-        const clientnextofkinaddress = rowData[7].replace(/\\r\\n/g, '\n'); // Eighth column (Client Next of Kin Address)
-        const clientnextofkinphone = rowData[8]; // Ninth column (Client Next of Kin Phone)
-        const clientnextofkinrelationship = rowData[9]; // Tenth column (Client Next of Kin Relationship)
-        const projectName = rowData[10]; // Tenth column (Project Name)
-        const projectStartDateref = rowData[14]; // Tenth column (Project Name)
-        const projectScope = rowData[12]; // Project Scope
-        const totalcontractamount = rowData[17]; // Total Contract Amount
-        const adminName = rowData[13]; // Admin Name
-        const monthstopay = rowData[19]; // Months to Pay
-        const completionStatus = rowData[56]; // Status
-        const depositorbullet = rowData[23]; // Deposit amount
-        const datedepositorbullet = rowData[24]; // Deposit date
-        const installment1Amount = rowData[26]; // Installment 1 amount
-        const installment1DueDate = rowData[27]; // Installment 1 due date
-        const installment1Date = rowData[28]; // Installment 1 paid date
-        const installment2Amount = rowData[29]; // Installment 2 amount
-        const installment2DueDate = rowData[30]; // Installment 2 due date
-        const installment2Date = rowData[31]; // Installment 2 paid date
-        const installment3Amount = rowData[32]; // Installment 3 amount
-        const installment3DueDate = rowData[33]; // Installment 3 due date
-        const installment3Date = rowData[34]; // Installment 3 paid date
-        const installment4Amount = rowData[35]; // Installment 4 amount
-        const installment4DueDate = rowData[36]; // Installment 4 due date
-        const installment4Date = rowData[37]; // Installment 4 paid date
-        const installment5Amount = rowData[38]; // Installment 5 amount
-        const installment5DueDate = rowData[39]; // Installment 5 due date
-        const installment5Date = rowData[40]; // Installment 5 paid date
-        const installment6Amount = rowData[41]; // Installment 6 amount
-        const installment6DueDate = rowData[42]; // Installment 6 due date
-        const installment6Date = rowData[43]; // Installment 6 paid date
-        const installment7Amount = rowData[44]; // Installment 7 amount
-        const installment7DueDate = rowData[45]; // Installment 7 due date
-        const installment7Date = rowData[46]; // Installment 7 paid date
-        const installment8Amount = rowData[47]; // Installment 8 amount
-        const installment8DueDate = rowData[48]; // Installment 8 due date
-        const installment8Date = rowData[49]; // Installment 8 paid date
-        const installment9Amount = rowData[50]; // Installment 9 amount
-        const installment9DueDate = rowData[51]; // Installment 9 due date
-        const installment9Date = rowData[52]; // Installment 9 paid date
-        const installment10Amount = rowData[53]; // Installment 10 amount
-        const installment10DueDate = rowData[54]; // Installment 10 due date
-        const installment10Date = rowData[55]; // Installment 10 paid date
-
-
-        const id = rowData[58]; // First column (ID)
-        const quotationRef = rowData[59]; // QREF (Quotation Reference) - HTML badge
-
-        // Extract numeric quotation_id from HTML badge (e.g., <span...>123</span> → 123)
-        let quotationId = null;
-        if (quotationRef && quotationRef !== '<span class="badge bg-secondary">N/A</span>') {
-            const match = quotationRef.match(/>([^<]+)<\/span>/);
-            quotationId = match ? match[1] : null;
-        }
+    // Format date for input field (handles multiple formats)
+    function formatForDateInput(dateText) {
+        if (!dateText || dateText === 'None' || dateText === 'null' || dateText === 'N/A') return '';
         
-        // Log extraction result for debugging
-        if (quotationRef) {
-            console.log('QREF Extraction Debug:', {
-                rawHTML: quotationRef,
-                extractedId: quotationId,
-                isNA: quotationRef === '<span class="badge bg-secondary">N/A</span>'
-            });
-        }
-
-        // Strip HTML tags
-        const plainText = projectScope.replace(/<[^>]*>/g, '');
-
-        $('#updateCompletionStatus option[value="ph"]').text(completionStatus);
-
-        // Debug: Check what values you're getting
-        console.log('Row data:', {
-            id, clientName, projectName, adminName, projectStartDateref,
-            completionStatus, installment1Amount, 
-            installment1DueDate, quotationId
-        });
-        
-        // Set values in the modal
-        $('#updateProjectId').val(id);
-        $('#updateProjectIdother').val(id);
-        // IMPORTANT: Only set quotation_id if it was extracted (not null)
-        // Backend will NOT update quotation_id if value is empty/null, preserving existing value
-        if (quotationId) {
-            $('#updateProjectQuotationId').val(quotationId);
-        }
-        $('#updateClientName').val(clientName);
-        $('#updateClientNameother').val(clientName);
-        $('#updateClientNationalIdNumber').val(clientnationalidnumber);
-        $('#updateClientResidentialAddress').val(clientresaddress);
-        $('#updateClientWhatsAppNumber').val(clientwhatsapp);
-        $('#updateClientEmail').val(clientemail);
-
-        function decodeEntities(text) {
-            return text.replace(/&nbsp;/g, ' ')
-                    .replace(/&amp;/g, '&')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&quot;/g, '"')
-                    .replace(/&#039;/g, "'");
-        }
-
-        $('#updateClientNextOfKinName').val(decodeEntities(clientnextofkinname));
-
-        $('#updateClientNextOfKinName').val(clientnextofkinname);
-        $('#updateClientNextOfKinAddress').val(clientnextofkinaddress);
-        $('#updateClientNextOfKinPhone').val(clientnextofkinphone);
-        $('#updateClientNextOfKinRelationship').val(clientnextofkinrelationship);
-
-
-        $('#updateProjectName').val(projectName);
-        $('#updateAdminName').val(adminName);
-        $('#updateTotalContractAmount').val(totalcontractamount);
-        $('#updateMonthsToPay').val(monthstopay);
-        $('#updateProjectScope').val(plainText);
-        $('#updateCompletionStatus').val(completionStatus);
-        $('#updateDepositPaid').val(depositorbullet);
-        $('#updateDatePaid').val(formatForDateInput(datedepositorbullet));
-        
-        // Installment 1 dates
-        $('#updateInstallment1Amount').val(installment1Amount);
-        $('#updateInstallment1DueDate').val(formatForDateInput(installment1DueDate));
-        $('#updateInstallment1Date').val(formatForDateInput(installment1Date));
-        
-        // Installment 2 dates
-        $('#updateInstallment2Amount').val(installment2Amount);
-        $('#updateInstallment2DueDate').val(formatForDateInput(installment2DueDate));
-        $('#updateInstallment2Date').val(formatForDateInput(installment2Date));
-        
-        // Installment 3 dates
-        $('#updateInstallment3Amount').val(installment3Amount);
-        $('#updateInstallment3DueDate').val(formatForDateInput(installment3DueDate));
-        $('#updateInstallment3Date').val(formatForDateInput(installment3Date));
-        
-        // Installment 4 dates
-        $('#updateInstallment4Amount').val(installment4Amount);
-        $('#updateInstallment4DueDate').val(formatForDateInput(installment4DueDate));
-        $('#updateInstallment4Date').val(formatForDateInput(installment4Date));
-        
-        // Installment 5 dates
-        $('#updateInstallment5Amount').val(installment5Amount);
-        $('#updateInstallment5DueDate').val(formatForDateInput(installment5DueDate));
-        $('#updateInstallment5Date').val(formatForDateInput(installment5Date));
-        
-        // Installment 6 dates
-        $('#updateInstallment6Amount').val(installment6Amount);
-        $('#updateInstallment6DueDate').val(formatForDateInput(installment6DueDate));
-        $('#updateInstallment6Date').val(formatForDateInput(installment6Date));
-             
-        $('#updateInstallment7Amount').val(installment7Amount);
-        $('#updateInstallment7DueDate').val(formatForDateInput(installment7DueDate));
-        $('#updateInstallment7Date').val(formatForDateInput(installment7Date));
-
-        $('#updateInstallment8Amount').val(installment8Amount);
-        $('#updateInstallment8DueDate').val(formatForDateInput(installment8DueDate));
-        $('#updateInstallment8Date').val(formatForDateInput(installment8Date));
-
-        $('#updateInstallment9Amount').val(installment9Amount);
-        $('#updateInstallment9DueDate').val(formatForDateInput(installment9DueDate));
-        $('#updateInstallment9Date').val(formatForDateInput(installment9Date));
-
-        $('#updateInstallment10Amount').val(installment10Amount);
-        $('#updateInstallment10DueDate').val(formatForDateInput(installment10DueDate));
-        $('#updateInstallment10Date').val(formatForDateInput(installment10Date));
-
-        function formatForDateInput(dateText) {
-            if (!dateText || dateText === 'None' || dateText === 'null') return '';
-            
-            // Handle "20 January 2026" format
-            const monthMap = {
-                'january': '01', 'february': '02', 'march': '03',
-                'april': '04', 'may': '05', 'june': '06',
-                'july': '07', 'august': '08', 'september': '09',
-                'october': '10', 'november': '11', 'december': '12'
-            };
-            
-            // Parse "20 January 2026"
-            const parts = dateText.toLowerCase().split(' ');
-            
-            if (parts.length === 3) {
-                const day = parts[0].padStart(2, '0');
-                const month = monthMap[parts[1]] || '01';
-                const year = parts[2];
-                
-                // Format as YYYY-MM-DD for date input
-                return `${year}-${month}-${day}`;
-            }
-            
-            // If it's already in some other format, try to parse
+        // If already in YYYY-MM-DD format
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) {
             return dateText;
         }
-
-        $('#updateProjectStartDate').val(formatForDateInput(projectStartDateref));
         
-        // Store original project start date globally for Gantt chart updates
-        window.originalProjectStartDate = formatForDateInput(projectStartDateref);
+        // Handle "20 January 2026" or "20 Jan 2026" format
+        const monthMap = {
+            'january': '01', 'jan': '01', 'jan.': '01',
+            'february': '02', 'feb': '02', 'feb.': '02',
+            'march': '03', 'mar': '03', 'mar.': '03',
+            'april': '04', 'apr': '04', 'apr.': '04',
+            'may': '05',
+            'june': '06', 'jun': '06', 'jun.': '06',
+            'july': '07', 'jul': '07', 'jul.': '07',
+            'august': '08', 'aug': '08', 'aug.': '08',
+            'september': '09', 'sep': '09', 'sep.': '09', 'sept': '09',
+            'october': '10', 'oct': '10', 'oct.': '10',
+            'november': '11', 'nov': '11', 'nov.': '11',
+            'december': '12', 'dec': '12', 'dec.': '12'
+        };
         
-        // Add change listener to project start date field
-        document.getElementById('updateProjectStartDate').addEventListener('change', function() {
-            const newStartDate = this.value;
-            console.log('Project start date changed to:', newStartDate);
-            
-            // Update Gantt chart dates if it exists
-            if (window.ganttSchedules && window.ganttSchedules.length > 0) {
-                updateGanttDatesWithProjectStartDate(newStartDate);
-            } else {
-                console.log('Gantt chart not yet loaded, will use new date on next open');
+        const parts = dateText.toLowerCase().split(' ');
+        if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = monthMap[parts[1]] || '01';
+            const year = parts[2];
+            if (year && year.length === 4) {
+                return `${year}-${month}-${day}`;
             }
-        });
+        }
         
-        // Store the quotation reference for use in other details mod al
-        window.currentProjectQuotationRef = quotationRef;
+        // Try parsing as Date object
+        try {
+            const parsed = new Date(dateText);
+            if (!isNaN(parsed.getTime())) {
+                const year = parsed.getFullYear();
+                const month = String(parsed.getMonth() + 1).padStart(2, '0');
+                const day = String(parsed.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+        } catch (e) {
+            console.warn('Date parsing error:', e);
+        }
         
-        // Show the modal
-    });
+        return dateText;
+    }
+
+    // Extract numeric quotation_id from HTML badge
+    let quotationId = null;
+    if (quotationRef && quotationRef !== '<span class="badge bg-secondary">N/A</span>') {
+        const match = quotationRef.match(/>([^<]+)<\/span>/);
+        quotationId = match ? match[1] : null;
+    }
     
+    // Log for debugging
+    console.log('Update Project - Row data:', {
+        id, clientName, projectName, adminName, projectStartDateref,
+        completionStatus, installment1Amount, installment1DueDate, quotationId
+    });
+
+    // Strip HTML tags from project scope
+    const plainText = projectScope ? projectScope.replace(/<[^>]*>/g, '') : '';
+
+    // Set values in the modal - FIXED duplicate assignment
+    $('#updateProjectId').val(id);
+    $('#updateProjectIdother').val(id);
+    
+    if (quotationId) {
+        $('#updateProjectQuotationId').val(quotationId);
+    }
+    
+    $('#updateClientName').val(clientName);
+    $('#updateClientNameother').val(clientName);
+    $('#updateClientNationalIdNumber').val(clientnationalidnumber);
+    $('#updateClientResidentialAddress').val(clientresaddress);
+    $('#updateClientWhatsAppNumber').val(clientwhatsapp);
+    $('#updateClientEmail').val(clientemail);
+    
+    // FIXED: Only set once with decoded value
+    const decodedNextOfKinName = decodeEntities(clientnextofkinnameRaw);
+    $('#updateClientNextOfKinName').val(decodedNextOfKinName);
+    $('#updateClientNextOfKinAddress').val(clientnextofkinaddress);
+    $('#updateClientNextOfKinPhone').val(clientnextofkinphone);
+    $('#updateClientNextOfKinRelationship').val(clientnextofkinrelationship);
+
+    $('#updateProjectName').val(projectName);
+    $('#updateAdminName').val(adminName);
+    $('#updateTotalContractAmount').val(totalcontractamount);
+    $('#updateMonthsToPay').val(monthstopay);
+    $('#updateProjectScope').val(plainText);
+    
+    // Set completion status
+    if (completionStatus) {
+        $('#updateCompletionStatus').val(completionStatus);
+    }
+    
+    $('#updateDepositPaid').val(depositorbullet);
+    $('#updateDatePaid').val(formatForDateInput(datedepositorbullet));
+    
+    // Installment dates (1-10)
+    $('#updateInstallment1Amount').val(installment1Amount);
+    $('#updateInstallment1DueDate').val(formatForDateInput(installment1DueDate));
+    $('#updateInstallment1Date').val(formatForDateInput(installment1Date));
+    
+    $('#updateInstallment2Amount').val(installment2Amount);
+    $('#updateInstallment2DueDate').val(formatForDateInput(installment2DueDate));
+    $('#updateInstallment2Date').val(formatForDateInput(installment2Date));
+    
+    $('#updateInstallment3Amount').val(installment3Amount);
+    $('#updateInstallment3DueDate').val(formatForDateInput(installment3DueDate));
+    $('#updateInstallment3Date').val(formatForDateInput(installment3Date));
+    
+    $('#updateInstallment4Amount').val(installment4Amount);
+    $('#updateInstallment4DueDate').val(formatForDateInput(installment4DueDate));
+    $('#updateInstallment4Date').val(formatForDateInput(installment4Date));
+    
+    $('#updateInstallment5Amount').val(installment5Amount);
+    $('#updateInstallment5DueDate').val(formatForDateInput(installment5DueDate));
+    $('#updateInstallment5Date').val(formatForDateInput(installment5Date));
+    
+    $('#updateInstallment6Amount').val(installment6Amount);
+    $('#updateInstallment6DueDate').val(formatForDateInput(installment6DueDate));
+    $('#updateInstallment6Date').val(formatForDateInput(installment6Date));
+         
+    $('#updateInstallment7Amount').val(installment7Amount);
+    $('#updateInstallment7DueDate').val(formatForDateInput(installment7DueDate));
+    $('#updateInstallment7Date').val(formatForDateInput(installment7Date));
+
+    $('#updateInstallment8Amount').val(installment8Amount);
+    $('#updateInstallment8DueDate').val(formatForDateInput(installment8DueDate));
+    $('#updateInstallment8Date').val(formatForDateInput(installment8Date));
+
+    $('#updateInstallment9Amount').val(installment9Amount);
+    $('#updateInstallment9DueDate').val(formatForDateInput(installment9DueDate));
+    $('#updateInstallment9Date').val(formatForDateInput(installment9Date));
+
+    $('#updateInstallment10Amount').val(installment10Amount);
+    $('#updateInstallment10DueDate').val(formatForDateInput(installment10DueDate));
+    $('#updateInstallment10Date').val(formatForDateInput(installment10Date));
+
+    // Set project start date
+    const formattedStartDate = formatForDateInput(projectStartDateref);
+    $('#updateProjectStartDate').val(formattedStartDate);
+    
+    // Store original project start date globally for Gantt chart updates
+    window.originalProjectStartDate = formattedStartDate;
+    
+    // Remove existing listener to avoid duplicates, then add new one
+    const startDateInput = document.getElementById('updateProjectStartDate');
+    const newListener = function() {
+        const newStartDate = this.value;
+        console.log('Project start date changed to:', newStartDate);
+        
+        if (window.ganttSchedules && window.ganttSchedules.length > 0) {
+            updateGanttDatesWithProjectStartDate(newStartDate);
+        } else {
+            console.log('Gantt chart not yet loaded, will use new date on next open');
+        }
+    };
+    
+    // Remove old listener if exists, add new one
+    startDateInput.removeEventListener('change', window._projectStartDateListener);
+    window._projectStartDateListener = newListener;
+    startDateInput.addEventListener('change', window._projectStartDateListener);
+    
+    // Store the quotation reference for use in other details modal
+    window.currentProjectQuotationRef = quotationRef;
+    
+    // Open the modal
+    openModal('updateModal');
+});    
     // Rest of your save handler...
 });
 </script>
@@ -11444,7 +11462,8 @@ $('#generateQuotationBtn').click(function() {
     }
 });
 
-function saveAndDownloadQuotation() {
+// Replace your existing saveAndDownloadQuotation function with this complete version
+async function saveAndDownloadQuotation() {
     const data = window.quotationData;
     const ganttData = window.ganttChartData || [];
 
@@ -11467,9 +11486,7 @@ function saveAndDownloadQuotation() {
             quantity: item.sqm || 0,
             unitRate: item.inhouseRate || item.unitRate || 0,
             totalPrice: item.total || item.clientPrice || 0,
-            // IMPORTANT: Store the days value
-            days: item.days || 0,
-            // Also store the order
+            days: item.days || (ganttData[index] ? ganttData[index].days : 0),
             item_order: index + 1
         })),
         schedules: (ganttData || []).map((schedule, index) => ({
@@ -11481,9 +11498,50 @@ function saveAndDownloadQuotation() {
         }))
     };
 
-    // ... rest of the save logic
+    const saveBtn = document.getElementById('downloadQuotationBtn');
+    const originalText = saveBtn ? saveBtn.innerHTML : 'Save & Download Quotation';
+    
+    try {
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+        }
+        
+        // Step 1: Save quotation to database
+        const saveResponse = await fetch('/api/save-quotation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(quotationData)
+        });
+        
+        const saveResult = await saveResponse.json();
+        
+        if (!saveResult.success) {
+            throw new Error(saveResult.error || 'Failed to save quotation');
+        }
+        
+        // Store the quotation ID for reference
+        window.lastSavedQuotationId = saveResult.quotation_id;
+        
+        if (saveBtn) {
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+        }
+        
+        // Step 2: Generate and download PDF
+        await generateQuotationPDF('download');
+        
+        alert(`✅ Quotation saved successfully! (ID: ${saveResult.quotation_id})\nPDF download has started.`);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error: ' + error.message);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    }
 }
-
 // ==================== QUOTATION PDF GENERATION WITH DAYS COLUMN ====================
 
 async function generateQuotationPDF(outputMode = 'download') {
