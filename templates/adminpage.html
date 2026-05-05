@@ -3779,6 +3779,72 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 
+// ==================== GLOBAL HELPER FUNCTIONS ====================
+
+function formatCurrency(value) {
+    return `USD ${Number(value || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatPdfDate(value) {
+    if (!value) return '';
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return value || '';
+    }
+    return parsedDate.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+    });
+}
+
+function formatDateGantt(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function parseDateGantt(value) {
+    if (value instanceof Date) {
+        return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+    }
+    const stringValue = (value || '').toString();
+    const dateOnly = stringValue.split('T')[0];
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
+    if (match) {
+        const year = Number(match[1]);
+        const month = Number(match[2]) - 1;
+        const day = Number(match[3]);
+        return new Date(year, month, day);
+    }
+    const fallback = new Date(value);
+    if (Number.isNaN(fallback.getTime())) {
+        return new Date();
+    }
+    return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
+}
+
+function calculateDays(startDate, endDate) {
+    const start = parseDateGantt(startDate);
+    const end = parseDateGantt(endDate);
+    if (end < start) {
+        return 1;
+    }
+    const diffTime = end - start;
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Attach function to window object to make it global
     window.openOtherDetailsModal = function() {
@@ -4523,15 +4589,7 @@ function attachGanttCalculationListeners() {
         date.setDate(date.getDate() + parseInt(days));
         return date.toISOString().split('T')[0];
     }
-    
-    // Helper function to calculate days between two dates
-    function calculateDaysDifference(startDateStr, endDateStr) {
-        const startDate = new Date(startDateStr);
-        const endDate = new Date(endDateStr);
-        const diffTime = endDate - startDate;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return Math.max(0, diffDays);
-    }
+
     
     startDateInputs.forEach(input => {
         input.addEventListener('change', function() {
@@ -11426,13 +11484,6 @@ function saveAndDownloadQuotation() {
     // ... rest of the save logic
 }
 
-function formatCurrency(value) {
-    return `USD ${Number(value || 0).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })}`;
-}
-
 // ==================== QUOTATION PDF GENERATION WITH DAYS COLUMN ====================
 
 async function generateQuotationPDF(outputMode = 'download') {
@@ -11468,13 +11519,6 @@ async function generateQuotationPDF(outputMode = 'download') {
         });
     };
 
-    // Helper function to escape HTML
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 
     // Build a map of days by item index from schedules
     const daysByIndex = {};
@@ -11669,12 +11713,6 @@ async function generateQuotationPDF(outputMode = 'download') {
     return null;
 }
 // Helper function to escape HTML
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
 
 function renderPreviewItemsTable(data) {
     const previewItems = getItemsForQuotationOutput(data);
@@ -12318,47 +12356,6 @@ function renderGanttItemsList() {
     function removeGanttItem(index) {
         ganttItems.splice(index, 1);
         renderGanttItemsList();
-    }
-
-    function formatDateGantt(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    function parseDateGantt(value) {
-        if (value instanceof Date) {
-            return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-        }
-
-        const stringValue = (value || '').toString();
-        const dateOnly = stringValue.split('T')[0];
-        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
-        if (match) {
-            const year = Number(match[1]);
-            const month = Number(match[2]) - 1;
-            const day = Number(match[3]);
-            return new Date(year, month, day);
-        }
-
-        const fallback = new Date(value);
-        if (Number.isNaN(fallback.getTime())) {
-            return new Date();
-        }
-        return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
-    }
-
-    function calculateDays(startDate, endDate) {
-        const start = parseDateGantt(startDate);
-        const end = parseDateGantt(endDate);
-
-        if (end < start) {
-            return 1;
-        }
-
-        const diffTime = end - start;
-        return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
     }
 
     // Load quotations when tab is shown
