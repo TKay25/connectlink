@@ -12788,7 +12788,7 @@ function renderGanttItemsList() {
                 container.innerHTML = '<p class="text-danger text-center" style="padding: 6px;">Error loading quotations: ' + error.message + '</p>';
             });
     }
-    
+
 function displayQuotations(quotations) {
     const container = document.getElementById('quotationsContainer');
     
@@ -12808,22 +12808,22 @@ function displayQuotations(quotations) {
             <table style="width: 100%; font-size: 0.6rem; margin-bottom: 0; border-collapse: collapse;">
                 <thead style="position: sticky; top: 0; background-color: #0A1A3A; z-index: 10;">
                     <tr style="color: white;">
-                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem;">ID</th>
-                        <th style="padding: 5px 4px; text-align: left; font-size: 0.6rem;">Client Name</th>
-                        <th style="padding: 5px 4px; text-align: left; font-size: 0.6rem;">Category</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 65px; font-size: 0.6rem;">Size</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 60px; font-size: 0.6rem;">Markup</th>
-                        <th style="padding: 5px 4px; text-align: right; width: 100px; font-size: 0.6rem;">Total Cost</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 75px; font-size: 0.6rem;">Date</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem;">Items</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem;">Tasks</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 70px; font-size: 0.6rem;">Actions</th>
-                    </table>
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem; border: 1px solid #1E2A56;">ID</th>
+                        <th style="padding: 5px 4px; text-align: left; font-size: 0.6rem; border: 1px solid #1E2A56;">Client Name</th>
+                        <th style="padding: 5px 4px; text-align: left; font-size: 0.6rem; border: 1px solid #1E2A56;">Category</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 65px; font-size: 0.6rem; border: 1px solid #1E2A56;">Size</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 60px; font-size: 0.6rem; border: 1px solid #1E2A56;">Markup</th>
+                        <th style="padding: 5px 4px; text-align: right; width: 100px; font-size: 0.6rem; border: 1px solid #1E2A56;">Total Cost</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 75px; font-size: 0.6rem; border: 1px solid #1E2A56;">Date</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem; border: 1px solid #1E2A56;">Items</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem; border: 1px solid #1E2A56;">Tasks</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 70px; font-size: 0.6rem; border: 1px solid #1E2A56;">Actions</th>
+                    </tr>
                 </thead>
                 <tbody>
     `;
 
-    sortedQuotations.forEach((quotation) => {
+    sortedQuotations.forEach((quotation, index) => {
         // Format date properly
         let formattedDate = 'N/A';
         if (quotation.quotationDate) {
@@ -12855,18 +12855,21 @@ function displayQuotations(quotations) {
         };
         displayCategory = categoryMap[displayCategory] || displayCategory;
         
+        // Alternate row colors
+        const rowBg = index % 2 === 0 ? '#ffffff' : '#f9f9f9';
+        
         html += `
-            <tr style="border-bottom: 1px solid #e8e8e8;">
-                <td style="padding: 4px 4px; text-align: center; font-weight: 600; font-size: 0.6rem;">${quotation.id}</td>
-                <td style="padding: 4px 4px; text-align: left; font-size: 0.6rem;">${escapeHtml(quotation.clientName || 'N/A')}</td>
-                <td style="padding: 4px 4px; text-align: left; font-size: 0.6rem;">${escapeHtml(displayCategory)}</td>
-                <td style="padding: 4px 4px; text-align: center; font-size: 0.6rem;">${quotation.projectSize || '0'}</td>
-                <td style="padding: 4px 4px; text-align: center; font-size: 0.6rem;">${quotation.markup || '0'}%</td>
-                <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: #9B1D2C; font-size: 0.6rem;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td style="padding: 4px 4px; text-align: center; font-size: 0.55rem;">${formattedDate}</td>
-                <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary" style="font-size: 0.55rem; padding: 2px 5px;">${itemCount}</span></td>
-                <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary" style="font-size: 0.55rem; padding: 2px 5px;">${taskCount}</span></td>
-                <td style="padding: 4px 4px; text-align: center;">
+            <tr style="border-bottom: 1px solid #e8e8e8; background-color: ${rowBg};">
+                <td style="padding: 4px 4px; text-align: center; font-weight: 600; font-size: 0.6rem; border: 1px solid #e8e8e8;">${quotation.id}</td>
+                <td style="padding: 4px 4px; text-align: left; font-size: 0.6rem; border: 1px solid #e8e8e8;">${escapeHtml(quotation.clientName || 'N/A')}</td>
+                <td style="padding: 4px 4px; text-align: left; font-size: 0.6rem; border: 1px solid #e8e8e8;">${escapeHtml(displayCategory)}</td>
+                <td style="padding: 4px 4px; text-align: center; font-size: 0.6rem; border: 1px solid #e8e8e8;">${quotation.projectSize || '0'}</td>
+                <td style="padding: 4px 4px; text-align: center; font-size: 0.6rem; border: 1px solid #e8e8e8;">${quotation.markup || '0'}%</td>
+                <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: #9B1D2C; font-size: 0.6rem; border: 1px solid #e8e8e8;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td style="padding: 4px 4px; text-align: center; font-size: 0.55rem; border: 1px solid #e8e8e8;">${formattedDate}</td>
+                <td style="padding: 4px 4px; text-align: center; border: 1px solid #e8e8e8;"><span class="badge bg-secondary" style="font-size: 0.55rem; padding: 2px 5px;">${itemCount}</span></td>
+                <td style="padding: 4px 4px; text-align: center; border: 1px solid #e8e8e8;"><span class="badge bg-secondary" style="font-size: 0.55rem; padding: 2px 5px;">${taskCount}</span></td>
+                <td style="padding: 4px 4px; text-align: center; border: 1px solid #e8e8e8;">
                     <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px; font-size: 0.55rem;">
                         <i class="bi bi-eye" style="font-size: 0.6rem;"></i> View
                     </button>
