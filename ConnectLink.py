@@ -146,6 +146,23 @@ def initialize_database_tables():
             """)
 
             cursor.execute("""
+                SELECT 
+                    qi.quotation_id,
+                    qi.item_name,
+                    qi.quantity,
+                    qi.unit_rate,
+                    qi.total_price
+                FROM quotation_items qi
+                ORDER BY qi.quotation_id DESC
+                LIMIT 10
+            """)
+            debug_items = cursor.fetchall()
+            print("\n=== DEBUG: Last 10 quotation items from database ===")
+            for item in debug_items:
+                print(f"Quotation {item[0]}: {item[1]} - Qty:{item[2]}, Rate:{item[3]}, Total:{item[4]}")
+            print("==================================================\n")
+
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS appenqtemp (
                     id SERIAL PRIMARY KEY,
                     wanumber INT,
@@ -19567,7 +19584,6 @@ def get_quotations():
             table_exists = cursor.fetchone()[0]
             
             if not table_exists:
-                logging.warning('Quotations table does not exist')
                 return jsonify({
                     'success': True,
                     'data': [],
@@ -19575,6 +19591,7 @@ def get_quotations():
                     'message': 'No quotations yet'
                 })
 
+            # Get all quotations - ORDER BY id DESC
             cursor.execute("""
                 SELECT
                     id,
@@ -19586,65 +19603,67 @@ def get_quotations():
                     total_cost,
                     markup_percentage
                 FROM quotations
-                ORDER BY created_at DESC, id DESC
+                ORDER BY id DESC
             """)
             quotations = cursor.fetchall()
 
-            share_status_by_quotation = {}
-            try:
-                cursor.execute("""
-                    SELECT
-                        quotation_id,
-                        MAX(CASE WHEN download_pdf_sent_success THEN 1 ELSE 0 END) AS downloaded,
-                        MAX(download_clicked_at) AS download_clicked_at,
-                        MAX(download_pdf_sent_at) AS download_pdf_sent_at
-                    FROM quotation_share_links
-                    GROUP BY quotation_id
-                """)
-                for row in cursor.fetchall():
-                    share_status_by_quotation[row[0]] = {
-                        'downloaded': bool(row[1]),
-                        'downloadClickedAt': row[2].isoformat() if row[2] else None,
-                        'downloadSentAt': row[3].isoformat() if row[3] else None
-                    }
-            except Exception as share_status_err:
-                logging.warning(f"Could not load quotation share status: {share_status_err}")
-
+            # Get all items with their values
             cursor.execute("""
-                SELECT quotation_id, item_name, quantity, unit_rate, total_price
+                SELECT 
+                    quotation_id, 
+                    item_name, 
+                    quantity, 
+                    unit_rate, 
+                    total_price,
+                    item_order
                 FROM quotation_items
-                ORDER BY quotation_id, item_order, id
+                ORDER BY quotation_id, item_order
             """)
             items_by_quotation = {}
             for row in cursor.fetchall():
-                items_by_quotation.setdefault(row[0], []).append({
+                q_id = row[0]
+                if q_id not in items_by_quotation:
+                    items_by_quotation[q_id] = []
+                items_by_quotation[q_id].append({
                     'name': row[1] or 'Item',
                     'quantity': float(row[2]) if row[2] else 0,
                     'unitRate': float(row[3]) if row[3] else 0,
-                    'totalPrice': float(row[4]) if row[4] else 0
+                    'totalPrice': float(row[4]) if row[4] else 0,
+                    'item_order': row[5] if row[5] else 0
                 })
 
+            # Get all schedules
             schedules_by_quotation = {}
             try:
                 cursor.execute("""
-                    SELECT quotation_id, work_scope, start_date, end_date, days
+                    SELECT 
+                        quotation_id, 
+                        work_scope, 
+                        start_date, 
+                        end_date, 
+                        days,
+                        task_order
                     FROM quotation_schedules
-                    ORDER BY quotation_id, task_order, id
+                    ORDER BY quotation_id, task_order
                 """)
                 for row in cursor.fetchall():
-                    schedules_by_quotation.setdefault(row[0], []).append({
+                    q_id = row[0]
+                    if q_id not in schedules_by_quotation:
+                        schedules_by_quotation[q_id] = []
+                    schedules_by_quotation[q_id].append({
                         'workScope': row[1] or 'Task',
                         'startDate': row[2].isoformat() if row[2] else None,
                         'endDate': row[3].isoformat() if row[3] else None,
-                        'days': int(row[4]) if row[4] else 0
+                        'days': int(row[4]) if row[4] else 0,
+                        'task_order': row[5] if row[5] else 0
                     })
-            except Exception:
+            except Exception as e:
+                print(f"Error fetching schedules: {e}")
                 schedules_by_quotation = {}
 
             result = []
             for quotation in quotations:
                 quotation_id = quotation[0]
-                share_status = share_status_by_quotation.get(quotation_id, {})
                 result.append({
                     'id': quotation_id,
                     'clientName': quotation[1] or 'Client',
@@ -19655,11 +19674,15 @@ def get_quotations():
                     'totalCost': float(quotation[6]) if quotation[6] else 0,
                     'markup': float(quotation[7]) if quotation[7] else 0,
                     'items': items_by_quotation.get(quotation_id, []),
-                    'schedules': schedules_by_quotation.get(quotation_id, []),
-                    'downloaded': share_status.get('downloaded', False),
-                    'downloadClickedAt': share_status.get('downloadClickedAt'),
-                    'downloadSentAt': share_status.get('downloadSentAt')
+                    'schedules': schedules_by_quotation.get(quotation_id, [])
                 })
+
+            # DEBUG: Print first quotation's items
+            if result:
+                print(f"First quotation ID: {result[0]['id']}")
+                print(f"Items count: {len(result[0]['items'])}")
+                if result[0]['items']:
+                    print(f"First item: {result[0]['items'][0]}")
 
             return jsonify({
                 'success': True,
@@ -19673,7 +19696,6 @@ def get_quotations():
             'success': False,
             'error': str(e)
         }), 500
-
 
 @app.route('/api/get-sent-quotations', methods=['GET'])
 def get_sent_quotations():
