@@ -12797,54 +12797,77 @@ function displayQuotations(quotations) {
         return;
     }
 
+    // Sort by ID descending (newest first)
+    const sortedQuotations = [...quotations].sort((a, b) => b.id - a.id);
+
     let html = `
         <div style="margin-bottom: 15px;">
-            <input type="text" id="quotationsSearch" class="form-control" placeholder="Search quotations (Client, Category, Date, Cost...)" style="max-width: 400px; font-size: 0.65rem;">
+            <input type="text" id="quotationsSearch" class="form-control form-control-sm" placeholder="🔍 Search quotations (Client, Category, Date, Cost...)" style="max-width: 400px; font-size: 0.7rem;">
         </div>
-        <div style="overflow-x: auto;">
-            <table id="quotationsTable" style="width: 100%; border-collapse: collapse; font-size: 0.65rem;">
-                <thead>
-                    <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
-                        <th style="padding: 4px; text-align: left; font-weight: bold;">ID</th>
-                        <th style="padding: 4px; text-align: left; font-weight: bold;">Client Name</th>
-                        <th style="padding: 4px; text-align: left; font-weight: bold;">Category</th>
-                        <th style="padding: 4px; text-align: center; font-weight: bold;">Project Size</th>
-                        <th style="padding: 4px; text-align: center; font-weight: bold;">Markup %</th>
-                        <th style="padding: 4px; text-align: right; font-weight: bold;">Total Cost</th>
-                        <th style="padding: 4px; text-align: center; font-weight: bold;">Date</th>
-                        <th style="padding: 4px; text-align: center; font-weight: bold;">Items</th>
-                        <th style="padding: 4px; text-align: center; font-weight: bold;">Tasks</th>
-                        <th style="padding: 4px; text-align: center; font-weight: bold;">Actions</th>
+        <div style="overflow-x: auto; border: 1px solid #dee2e6; border-radius: 8px; background: white;">
+            <table class="table table-bordered table-striped table-hover" id="quotationsTable" style="width: 100%; font-size: 0.7rem; margin-bottom: 0;">
+                <thead style="background-color: #0A1A3A; color: white; position: sticky; top: 0;">
+                    <tr>
+                        <th style="padding: 8px 6px; text-align: center; width: 50px;">ID</th>
+                        <th style="padding: 8px 6px; text-align: left;">Client Name</th>
+                        <th style="padding: 8px 6px; text-align: left;">Category</th>
+                        <th style="padding: 8px 6px; text-align: center; width: 80px;">Project Size</th>
+                        <th style="padding: 8px 6px; text-align: center; width: 70px;">Markup %</th>
+                        <th style="padding: 8px 6px; text-align: right; width: 120px;">Total Cost</th>
+                        <th style="padding: 8px 6px; text-align: center; width: 90px;">Date</th>
+                        <th style="padding: 8px 6px; text-align: center; width: 50px;">Items</th>
+                        <th style="padding: 8px 6px; text-align: center; width: 50px;">Tasks</th>
+                        <th style="padding: 8px 6px; text-align: center; width: 100px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
 
-    // Sort by ID descending
-    const sortedQuotations = [...quotations].sort((a, b) => b.id - a.id);
-
     sortedQuotations.forEach((quotation) => {
-        const formattedDate = new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        // Format date properly
+        let formattedDate = 'N/A';
+        if (quotation.quotationDate) {
+            try {
+                const dateObj = new Date(quotation.quotationDate);
+                if (!isNaN(dateObj.getTime())) {
+                    formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                }
+            } catch(e) {
+                formattedDate = quotation.quotationDate;
+            }
+        }
+        
         const itemCount = quotation.items ? quotation.items.length : 0;
         const taskCount = quotation.schedules ? quotation.schedules.length : 0;
         const totalCost = quotation.totalCost || 0;
+        
+        // Format category for display
+        let displayCategory = quotation.category || 'N/A';
+        if (displayCategory === 'construction_single') displayCategory = 'Single Storey';
+        if (displayCategory === 'construction_double') displayCategory = 'Double Storey';
+        if (displayCategory === 'kitchen') displayCategory = 'Kitchen';
+        if (displayCategory === 'tv_units') displayCategory = 'TV Units';
+        
+        // Alternating row colors
+        const rowBg = 'white';
+        
         html += `
-            <tr style="border-bottom: 1px solid #ddd; background-color: #fff; font-size: 0.65rem;">
-                <td style="padding: 4px; text-align: left; font-weight: bold;">${quotation.id}</td>
-                <td style="padding: 4px; text-align: left;">${escapeHtml(quotation.clientName || 'N/A')}</td>
-                <td style="padding: 4px; text-align: left;">${escapeHtml(quotation.category || 'N/A')}</td>
-                <td style="padding: 4px; text-align: center;">${quotation.projectSize || 'N/A'}</td>
-                <td style="padding: 4px; text-align: center;">${quotation.markup || '0'}%</td>
-                <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td style="padding: 4px; text-align: center;">${formattedDate}</td>
-                <td style="padding: 4px; text-align: center;"><span style="background: #e8f0fe; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${itemCount}</span></td>
-                <td style="padding: 4px; text-align: center;"><span style="background: #f3e5f5; padding: 4px 4px; border-radius: 4px; font-size: 0.65rem;">${taskCount}</span></td>
-                <td style="padding: 4px; text-align: center;">
-                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" data-client="${escapeHtml(quotation.clientName)}" style="padding: 2px 6px; font-size: 0.6rem;">
+            <tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
+                <td style="padding: 6px; text-align: center; font-weight: bold; vertical-align: middle;">${quotation.id}</td>
+                <td style="padding: 6px; text-align: left; vertical-align: middle;">${escapeHtml(quotation.clientName || 'N/A')}</td>
+                <td style="padding: 6px; text-align: left; vertical-align: middle;">${escapeHtml(displayCategory)}</td>
+                <td style="padding: 6px; text-align: center; vertical-align: middle;">${quotation.projectSize || '0'}</td>
+                <td style="padding: 6px; text-align: center; vertical-align: middle;">${quotation.markup || '0'}%</td>
+                <td style="padding: 6px; text-align: right; vertical-align: middle; font-weight: bold; color: #9B1D2C;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td style="padding: 6px; text-align: center; vertical-align: middle;">${formattedDate}</td>
+                <td style="padding: 6px; text-align: center; vertical-align: middle;"><span class="badge bg-secondary" style="font-size: 0.65rem;">${itemCount}</span></td>
+                <td style="padding: 6px; text-align: center; vertical-align: middle;"><span class="badge bg-secondary" style="font-size: 0.65rem;">${taskCount}</span></td>
+                <td style="padding: 6px; text-align: center; vertical-align: middle;">
+                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 4px 8px; font-size: 0.6rem;">
                         <i class="bi bi-eye"></i> View
                     </button>
                 </td>
-            </table>
+            </tr>
         `;
     });
 
@@ -12861,21 +12884,34 @@ function displayQuotations(quotations) {
         if ($('#quotationsTable').length && !$.fn.DataTable.isDataTable('#quotationsTable')) {
             try {
                 const table = $('#quotationsTable').DataTable({
-                    order: [[0, 'desc']],
-                    paging: false,
+                    order: [[0, 'desc']],  // Sort by ID descending
+                    paging: true,
+                    pageLength: 10,
                     searching: true,
                     ordering: true,
                     info: true,
-                    lengthChange: false,
-                    dom: 'f',
+                    lengthChange: true,
+                    lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]],
+                    language: {
+                        search: "Search:",
+                        lengthMenu: "Show _MENU_ entries",
+                        info: "Showing _START_ to _END_ of _TOTAL_ quotations",
+                        infoEmpty: "Showing 0 to 0 of 0 quotations",
+                        infoFiltered: "(filtered from _MAX_ total entries)",
+                        emptyTable: "No quotations found"
+                    },
                     columnDefs: [
-                        { orderable: true, targets: [0, 1, 2, 3, 4, 5, 6] },
-                        { orderable: false, targets: [7, 8, 9] }
+                        { orderable: true, targets: [0, 1, 2, 3, 4, 5, 6] },  // Sortable columns
+                        { orderable: false, targets: [7, 8, 9] },  // Non-sortable columns
+                        { className: "text-center", targets: [0, 3, 4, 6, 7, 8, 9] },
+                        { className: "text-end", targets: [5] },
+                        { className: "text-start", targets: [1, 2] }
                     ]
                 });
 
+                // Custom search input
                 const searchInput = document.getElementById('quotationsSearch');
-                if (searchInput && table) {
+                if (searchInput) {
                     const newSearchInput = searchInput.cloneNode(true);
                     searchInput.parentNode.replaceChild(newSearchInput, searchInput);
                     newSearchInput.addEventListener('keyup', function() {
@@ -12890,11 +12926,16 @@ function displayQuotations(quotations) {
 
     // Attach view button event listeners
     document.querySelectorAll('.view-quotation-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const quotationId = parseInt(this.dataset.id);
-            viewQuotationDetails(quotationId);
-        });
+        btn.removeEventListener('click', handleViewClick);
+        btn.addEventListener('click', handleViewClick);
     });
+}
+
+// Separate handler function for view button
+function handleViewClick(e) {
+    const btn = e.currentTarget;
+    const quotationId = parseInt(btn.dataset.id);
+    viewQuotationDetails(quotationId);
 }
 
 // Add this function before your saveAndDownloadQuotation function
