@@ -11426,6 +11426,13 @@ function saveAndDownloadQuotation() {
     // ... rest of the save logic
 }
 
+function formatCurrency(value) {
+    return `USD ${Number(value || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
+}
+
 // ==================== QUOTATION PDF GENERATION WITH DAYS COLUMN ====================
 
 async function generateQuotationPDF(outputMode = 'download') {
@@ -11446,12 +11453,6 @@ async function generateQuotationPDF(outputMode = 'download') {
     const totalCost = data.totalCost || 0;
     const items = data.items || [];
     const schedules = ganttData || [];
-
-    // Helper function to format currency
-    const formatCurrency = (value) => `USD ${Number(value || 0).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    })}`;
 
     // Helper function to format date
     const formatPdfDate = (value) => {
