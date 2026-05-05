@@ -12788,12 +12788,12 @@ function renderGanttItemsList() {
                 container.innerHTML = '<p class="text-danger text-center" style="padding: 6px;">Error loading quotations: ' + error.message + '</p>';
             });
     }
-
+    
 function displayQuotations(quotations) {
     const container = document.getElementById('quotationsContainer');
     
     if (!quotations || quotations.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center" style="padding: 6px;">No quotations saved yet</p>';
+        container.innerHTML = '<p class="text-muted text-center" style="padding: 6px; font-size: 0.65rem;">No quotations saved yet</p>';
         return;
     }
 
@@ -12801,24 +12801,24 @@ function displayQuotations(quotations) {
     const sortedQuotations = [...quotations].sort((a, b) => b.id - a.id);
 
     let html = `
-        <div style="margin-bottom: 15px;">
-            <input type="text" id="quotationsSearch" class="form-control form-control-sm" placeholder="🔍 Search quotations (Client, Category, Date, Cost...)" style="max-width: 400px; font-size: 0.7rem;">
+        <div style="margin-bottom: 10px;">
+            <input type="text" id="quotationsSearch" class="form-control form-control-sm" placeholder="🔍 Search quotations..." style="max-width: 250px; font-size: 0.6rem; padding: 3px 6px;">
         </div>
-        <div style="overflow-x: auto; border: 1px solid #dee2e6; border-radius: 8px; background: white;">
-            <table class="table table-bordered table-striped table-hover" id="quotationsTable" style="width: 100%; font-size: 0.7rem; margin-bottom: 0;">
-                <thead style="background-color: #0A1A3A; color: white; position: sticky; top: 0;">
-                    <tr>
-                        <th style="padding: 8px 6px; text-align: center; width: 50px;">ID</th>
-                        <th style="padding: 8px 6px; text-align: left;">Client Name</th>
-                        <th style="padding: 8px 6px; text-align: left;">Category</th>
-                        <th style="padding: 8px 6px; text-align: center; width: 80px;">Project Size</th>
-                        <th style="padding: 8px 6px; text-align: center; width: 70px;">Markup %</th>
-                        <th style="padding: 8px 6px; text-align: right; width: 120px;">Total Cost</th>
-                        <th style="padding: 8px 6px; text-align: center; width: 90px;">Date</th>
-                        <th style="padding: 8px 6px; text-align: center; width: 50px;">Items</th>
-                        <th style="padding: 8px 6px; text-align: center; width: 50px;">Tasks</th>
-                        <th style="padding: 8px 6px; text-align: center; width: 100px;">Actions</th>
-                    </tr>
+        <div style="overflow-x: auto; overflow-y: auto; max-height: 500px; border: 1px solid #dee2e6; border-radius: 6px; background: white;">
+            <table style="width: 100%; font-size: 0.6rem; margin-bottom: 0; border-collapse: collapse;">
+                <thead style="position: sticky; top: 0; background-color: #0A1A3A; z-index: 10;">
+                    <tr style="color: white;">
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem;">ID</th>
+                        <th style="padding: 5px 4px; text-align: left; font-size: 0.6rem;">Client Name</th>
+                        <th style="padding: 5px 4px; text-align: left; font-size: 0.6rem;">Category</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 65px; font-size: 0.6rem;">Size</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 60px; font-size: 0.6rem;">Markup</th>
+                        <th style="padding: 5px 4px; text-align: right; width: 100px; font-size: 0.6rem;">Total Cost</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 75px; font-size: 0.6rem;">Date</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem;">Items</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; font-size: 0.6rem;">Tasks</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 70px; font-size: 0.6rem;">Actions</th>
+                    </table>
                 </thead>
                 <tbody>
     `;
@@ -12843,28 +12843,32 @@ function displayQuotations(quotations) {
         
         // Format category for display
         let displayCategory = quotation.category || 'N/A';
-        if (displayCategory === 'construction_single') displayCategory = 'Single Storey';
-        if (displayCategory === 'construction_double') displayCategory = 'Double Storey';
-        if (displayCategory === 'kitchen') displayCategory = 'Kitchen';
-        if (displayCategory === 'tv_units') displayCategory = 'TV Units';
-        
-        // Alternating row colors
-        const rowBg = 'white';
+        const categoryMap = {
+            'construction_single': 'Single Storey',
+            'construction_double': 'Double Storey',
+            'kitchen': 'Kitchen',
+            'tv_units': 'TV Units',
+            'doors': 'Doors',
+            'windows': 'Windows',
+            'flooring': 'Flooring',
+            'other': 'Other'
+        };
+        displayCategory = categoryMap[displayCategory] || displayCategory;
         
         html += `
-            <tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
-                <td style="padding: 6px; text-align: center; font-weight: bold; vertical-align: middle;">${quotation.id}</td>
-                <td style="padding: 6px; text-align: left; vertical-align: middle;">${escapeHtml(quotation.clientName || 'N/A')}</td>
-                <td style="padding: 6px; text-align: left; vertical-align: middle;">${escapeHtml(displayCategory)}</td>
-                <td style="padding: 6px; text-align: center; vertical-align: middle;">${quotation.projectSize || '0'}</td>
-                <td style="padding: 6px; text-align: center; vertical-align: middle;">${quotation.markup || '0'}%</td>
-                <td style="padding: 6px; text-align: right; vertical-align: middle; font-weight: bold; color: #9B1D2C;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td style="padding: 6px; text-align: center; vertical-align: middle;">${formattedDate}</td>
-                <td style="padding: 6px; text-align: center; vertical-align: middle;"><span class="badge bg-secondary" style="font-size: 0.65rem;">${itemCount}</span></td>
-                <td style="padding: 6px; text-align: center; vertical-align: middle;"><span class="badge bg-secondary" style="font-size: 0.65rem;">${taskCount}</span></td>
-                <td style="padding: 6px; text-align: center; vertical-align: middle;">
-                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 4px 8px; font-size: 0.6rem;">
-                        <i class="bi bi-eye"></i> View
+            <tr style="border-bottom: 1px solid #e8e8e8;">
+                <td style="padding: 4px 4px; text-align: center; font-weight: 600; font-size: 0.6rem;">${quotation.id}</td>
+                <td style="padding: 4px 4px; text-align: left; font-size: 0.6rem;">${escapeHtml(quotation.clientName || 'N/A')}</td>
+                <td style="padding: 4px 4px; text-align: left; font-size: 0.6rem;">${escapeHtml(displayCategory)}</td>
+                <td style="padding: 4px 4px; text-align: center; font-size: 0.6rem;">${quotation.projectSize || '0'}</td>
+                <td style="padding: 4px 4px; text-align: center; font-size: 0.6rem;">${quotation.markup || '0'}%</td>
+                <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: #9B1D2C; font-size: 0.6rem;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td style="padding: 4px 4px; text-align: center; font-size: 0.55rem;">${formattedDate}</td>
+                <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary" style="font-size: 0.55rem; padding: 2px 5px;">${itemCount}</span></td>
+                <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary" style="font-size: 0.55rem; padding: 2px 5px;">${taskCount}</span></td>
+                <td style="padding: 4px 4px; text-align: center;">
+                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px; font-size: 0.55rem;">
+                        <i class="bi bi-eye" style="font-size: 0.6rem;"></i> View
                     </button>
                 </td>
             </tr>
@@ -12879,56 +12883,31 @@ function displayQuotations(quotations) {
     
     container.innerHTML = html;
 
-    // Initialize DataTable
-    setTimeout(() => {
-        if ($('#quotationsTable').length && !$.fn.DataTable.isDataTable('#quotationsTable')) {
-            try {
-                const table = $('#quotationsTable').DataTable({
-                    order: [[0, 'desc']],  // Sort by ID descending
-                    paging: true,
-                    pageLength: 10,
-                    searching: true,
-                    ordering: true,
-                    info: true,
-                    lengthChange: true,
-                    lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "All"]],
-                    language: {
-                        search: "Search:",
-                        lengthMenu: "Show _MENU_ entries",
-                        info: "Showing _START_ to _END_ of _TOTAL_ quotations",
-                        infoEmpty: "Showing 0 to 0 of 0 quotations",
-                        infoFiltered: "(filtered from _MAX_ total entries)",
-                        emptyTable: "No quotations found"
-                    },
-                    columnDefs: [
-                        { orderable: true, targets: [0, 1, 2, 3, 4, 5, 6] },  // Sortable columns
-                        { orderable: false, targets: [7, 8, 9] },  // Non-sortable columns
-                        { className: "text-center", targets: [0, 3, 4, 6, 7, 8, 9] },
-                        { className: "text-end", targets: [5] },
-                        { className: "text-start", targets: [1, 2] }
-                    ]
-                });
-
-                // Custom search input
-                const searchInput = document.getElementById('quotationsSearch');
-                if (searchInput) {
-                    const newSearchInput = searchInput.cloneNode(true);
-                    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
-                    newSearchInput.addEventListener('keyup', function() {
-                        table.search(this.value).draw();
-                    });
-                }
-            } catch (error) {
-                console.warn('DataTable initialization failed:', error);
-            }
-        }
-    }, 100);
+    // Simple search functionality
+    const searchInput = document.getElementById('quotationsSearch');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#quotationsContainer tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+    }
 
     // Attach view button event listeners
     document.querySelectorAll('.view-quotation-btn').forEach(btn => {
         btn.removeEventListener('click', handleViewClick);
         btn.addEventListener('click', handleViewClick);
     });
+}
+
+// Separate handler function for view button
+function handleViewClick(e) {
+    const btn = e.currentTarget;
+    const quotationId = parseInt(btn.dataset.id);
+    viewQuotationDetails(quotationId);
 }
 
 // Separate handler function for view button
