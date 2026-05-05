@@ -11104,243 +11104,286 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        $('#generateQuotationBtn').click(function() {
-            // Get form data
-            const category = $('#quotationCategory').val();
-            const clientName = $('#quotationClientName').val();
-            const clientWhatsapp = $('#quotationClientWhatsapp').val();
-            const quotationDate = $('#quotationDate').val();
-            
-            if (!category || !clientName || !quotationDate) {
-                alert('Please fill in all required fields.');
-                return;
-            }
+ $('#generateQuotationBtn').click(function() {
+    // Get form data
+    const category = $('#quotationCategory').val();
+    const clientName = $('#quotationClientName').val();
+    const clientWhatsapp = $('#quotationClientWhatsapp').val();
+    const quotationDate = $('#quotationDate').val();
+    
+    if (!category || !clientName || !quotationDate) {
+        alert('Please fill in all required fields.');
+        return;
+    }
 
-            // Check if construction category (either single or double storey)
-            const isConstruction = (category === 'construction_single' || category === 'construction_double');
-            const isSingleStorey = (category === 'construction_single');
-            
-            // If construction is selected, validate additional fields
-            if (isConstruction) {
-                const size = $('#quotationSize').val();
-                const markup = $('#quotationMarkup').val();
-                if (!size || !markup) {
-                    alert('Please enter square meters and markup percentage.');
-                    return;
-                }
+    // Check if construction category (either single or double storey)
+    const isConstruction = (category === 'construction_single' || category === 'construction_double');
+    const isSingleStorey = (category === 'construction_single');
+    
+    // If construction is selected, validate additional fields
+    if (isConstruction) {
+        const size = $('#quotationSize').val();
+        const markup = $('#quotationMarkup').val();
+        if (!size || !markup) {
+            alert('Please enter square meters and markup percentage.');
+            return;
+        }
+        
+        const selectedDragItems = document.querySelectorAll('.selected-item-drag');
+        if (selectedDragItems.length === 0) {
+            alert('Please select at least one construction item.');
+            return;
+        }
+    }
+
+    // Populate preview modal
+    let selectedItems = [];
+    let totalCost = 0;
+    let baseCost = 0;
+    let orderedConstructionItems = [];
+    let markup = 0;
+    let isFullHouseMode = false;
+    let ganttItems = [];
+
+    if (isConstruction) {
+        window.fullHouseDurationByItemId = null;
+
+        const sqm = parseFloat($('#quotationSize').val());
+        markup = parseFloat($('#quotationMarkup').val());
+        const markupMultiplier = 1 + (markup / 100);
+
+        // Get items in the ORDER they appear in the drag-drop area
+        const selectedRateItems = [];
+        
+        // Clear existing ganttItems
+        ganttItems = [];
+        let currentStartDate = parseDateGantt(quotationDate);
+
+        document.querySelectorAll('.selected-item-drag').forEach((dragItem, idx) => {
+            const itemId = dragItem.getAttribute('data-item-id');
+            // Find the original item data from quotationRatesCache
+            const itemData = quotationRatesCache.find(item => item.id == itemId);
+            if (itemData) {
+                selectedRateItems.push(itemData);
+                const basePrice = itemData.inhouseRate * sqm;
+                const clientPrice = basePrice * markupMultiplier;
                 
-                const selectedDragItems = document.querySelectorAll('.selected-item-drag');
-                if (selectedDragItems.length === 0) {
-                    alert('Please select at least one construction item.');
-                    return;
-                }
-            }
-
-            // Populate preview modal
-            let selectedItems = [];
-            let totalCost = 0;
-            let baseCost = 0;
-            let orderedConstructionItems = [];
-            let markup = 0;
-            let isFullHouseMode = false;
-
-            if (isConstruction) {
-                window.fullHouseDurationByItemId = null;
-
-                const sqm = parseFloat($('#quotationSize').val());
-                markup = parseFloat($('#quotationMarkup').val());
-
-                // Get items in the ORDER they appear in the drag-drop area
-                const selectedRateItems = [];
-                document.querySelectorAll('.selected-item-drag').forEach((dragItem) => {
-                    const itemId = dragItem.getAttribute('data-item-id');
-                    // Find the original item data from quotationRatesCache
-                    const itemData = quotationRatesCache.find(item => item.id == itemId);
-                    if (itemData) {
-                        selectedRateItems.push(itemData);
-                        const basePrice = itemData.inhouseRate * sqm;
-                        const clientPrice = basePrice * (1 + (markup / 100));
-
-                        selectedItems.push({
-                            name: itemData.item,
-                            total: clientPrice,
-                            sqm: sqm,
-                            inhouseRate: itemData.inhouseRate
-                        });
-
-                        orderedConstructionItems.push({
-                            id: itemData.id,
-                            item: itemData.item,
-                            price: clientPrice
-                        });
-
-                        baseCost += basePrice;
-                        totalCost += clientPrice;
-                    }
+                // Calculate days for this item
+                const daysPerSqm = itemData.daysPerSqMeter || 0;
+                const duration = Math.max(1, Math.round(daysPerSqm * sqm));
+                
+                // Calculate end date based on duration
+                const endDate = new Date(currentStartDate);
+                endDate.setDate(endDate.getDate() + duration - 1);
+                
+                // Store in ganttItems with correct days
+                ganttItems.push({
+                    id: itemData.id,
+                    item: itemData.item,
+                    price: clientPrice,
+                    daysPerSqMeter: daysPerSqm,
+                    startDate: formatDateGantt(currentStartDate),
+                    endDate: formatDateGantt(endDate),
+                    days: duration
                 });
+                
+                // Next task starts where this one ends + 1 day
+                currentStartDate = new Date(endDate);
+                currentStartDate.setDate(currentStartDate.getDate() + 1);
 
-                // Filter for single storey construction (remove Deck Pouring, Shattering, Steel Fixing)
-                if (isSingleStorey) {
-                    const excludedItems = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
-                    const originalCount = orderedConstructionItems.length;
-                    
-                    orderedConstructionItems = orderedConstructionItems.filter(item => {
-                        return !excludedItems.some(excluded => 
-                            (item.item || '').toLowerCase().includes(excluded.toLowerCase())
-                        );
-                    });
-                    
-                    selectedItems = selectedItems.filter(item => {
-                        return !excludedItems.some(excluded => 
-                            (item.name || '').toLowerCase().includes(excluded.toLowerCase())
-                        );
-                    });
-                    
-                    // Recalculate totals after filtering
-                    if (originalCount !== orderedConstructionItems.length) {
-                        totalCost = selectedItems.reduce((sum, item) => sum + item.total, 0);
-                        baseCost = selectedItems.reduce((sum, item) => sum + (item.total / (1 + (markup / 100))), 0);
-                        
-                        // Show warning notification
-                        $('<div class="alert alert-warning alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; padding: 12px 20px; font-size: 0.85rem;">' +
-                            '<strong><i class="bi bi-info-circle"></i> Note:</strong> Deck Pouring, Shattering, and Steel Fixing are not applicable for single storey construction and have been automatically excluded.' +
-                            '<button type="button" class="btn-close" data-bs-dismiss="alert" style="float: right; background: transparent; border: none; font-size: 1.2rem;"></button></div>')
-                            .appendTo('body')
-                            .delay(5000)
-                            .fadeOut(300, function() { $(this).remove(); });
-                    }
-                }
-
-                // Check if Full House is selected
-                const fullHouseSelected = selectedRateItems.some(item => isFullHouseItemName(item.item));
-
-                // Inside the generateQuotationBtn click handler, where you call buildFullHouseProportionalSelection
-                if (fullHouseSelected) {
-                    isFullHouseMode = true;
-                    // Pass the category to the function
-                    const proportionalResult = buildFullHouseProportionalSelection(selectedRateItems, sqm, markup, category);
-
-                    if (!proportionalResult) {
-                        alert('Full House proportional allocation could not be calculated. Please ensure square meters is entered and quotation rates contain other construction items.');
-                        return;
-                    }
-
-                    // Get the proportional results
-                    let proportionalSelectedItems = proportionalResult.selectedItems;
-                    let proportionalOrderedItems = proportionalResult.orderedConstructionItems;
-                    let proportionalBaseCost = proportionalResult.baseCost;
-                    let proportionalTotalCost = proportionalResult.totalCost;
-                    
-                    // For single storey construction, the items are already filtered inside the function
-                    selectedItems = proportionalSelectedItems;
-                    orderedConstructionItems = proportionalOrderedItems;
-                    baseCost = proportionalBaseCost;
-                    totalCost = proportionalTotalCost;
-                    
-                    window.fullHouseDurationByItemId = proportionalResult.durationByItemId;
-                    
-                    // Show warning for single storey if items were filtered
-                    if (isSingleStorey && proportionalResult.filteredItemsCount > 0) {
-                        $('<div class="alert alert-warning alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; padding: 12px 20px; font-size: 0.85rem; z-index: 99999;">' +
-                            '<strong><i class="bi bi-info-circle"></i> Note:</strong> Deck Pouring, Shattering, and Steel Fixing are not applicable for single storey construction and have been automatically excluded from your Full House quotation.' +
-                            '<button type="button" class="btn-close" data-bs-dismiss="alert" style="float: right; background: transparent; border: none; font-size: 1.2rem; margin-left: 10px;"></button></div>')
-                            .appendTo('body')
-                            .delay(8000)
-                            .fadeOut(500, function() { $(this).remove(); });
-                    }
-                }
-            } else {
-                window.fullHouseDurationByItemId = null;
-                // For non-construction categories, add a single item
-                const categoryName = category.replace('_', ' ').charAt(0).toUpperCase() + category.slice(1);
                 selectedItems.push({
-                    name: categoryName + ' Service',
-                    total: 50000,
-                    clientPrice: 50000
+                    name: itemData.item,
+                    total: clientPrice,
+                    sqm: sqm,
+                    inhouseRate: itemData.inhouseRate,
+                    days: duration
                 });
-                baseCost = 50000;
-                totalCost = 50000;
-            }
 
-            // Update preview modal content
-            $('#previewClientName').text(clientName);
-            let displayCategory = category === 'construction_single' ? 'Single Storey Construction' : 
-                                category === 'construction_double' ? 'Double Storey Construction' : 
-                                category.replace('_', ' ').toUpperCase();
-            $('#previewCategory').text(displayCategory);
-            $('#previewDate').text(new Date(quotationDate).toLocaleDateString('en-US'));
-            $('#previewSize').text(isConstruction ? $('#quotationSize').val() : '-');
-
-            // Update total cost
-            $('#quotationTotalCost').text(totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-
-            // Store data for later use
-            const markupAmount = totalCost - baseCost;
-            window.quotationData = {
-                category: category,
-                clientName: clientName,
-                clientWhatsapp: clientWhatsapp,
-                quotationDate: quotationDate,
-                date: quotationDate,
-                size: isConstruction ? $('#quotationSize').val() : null,
-                items: selectedItems,
-                baseCost: baseCost,
-                markup: markup,
-                markupAmount: markupAmount,
-                totalCost: totalCost,
-                orderedConstructionItems: orderedConstructionItems || [],
-                isFullHouseMode: isFullHouseMode
-            };
-
-            updateFullHouseDisplayModeUI(window.quotationData);
-            renderPreviewItemsTable(window.quotationData);
-
-            // Close generator modal
-            closeModal('quotationgeneratorModal');
-
-            // For construction, show Gantt chart builder; otherwise show preview
-            if (isConstruction) {
-                // Initialize Gantt with selected items in order
-                const sqm = parseFloat($('#quotationSize').val());
-                ganttItems = [];
-                let currentStartDate = parseDateGantt(quotationDate);
-
-                orderedConstructionItems.forEach(item => {
-                    const rateData = quotationRatesCache.find(r => r.id == item.id);
-                    const daysPerSqm = rateData ? rateData.daysPerSqMeter : 1;
-                    const fallbackDuration = Math.max(1, Math.round(daysPerSqm * sqm));
-                    const proportionalDuration = window.fullHouseDurationByItemId && window.fullHouseDurationByItemId[item.id];
-                    const duration = Math.max(1, Number.isFinite(proportionalDuration) ? proportionalDuration : fallbackDuration);
-                    
-                    const endDate = new Date(currentStartDate);
-                    endDate.setDate(endDate.getDate() + duration - 1);
-                    
-                    ganttItems.push({
-                        id: item.id,
-                        item: item.item,
-                        price: item.price,
-                        daysPerSqMeter: daysPerSqm,
-                        startDate: formatDateGantt(currentStartDate),
-                        endDate: formatDateGantt(endDate),
-                        days: duration
-                    });
-                    
-                    // Next task starts where this one ends + 1 day
-                    currentStartDate = new Date(endDate);
-                    currentStartDate.setDate(currentStartDate.getDate() + 1);
+                orderedConstructionItems.push({
+                    id: itemData.id,
+                    item: itemData.item,
+                    price: clientPrice
                 });
-                
-                setTimeout(() => {
-                    openModal('ganttChartBuilderModal');
-                    initializeGanttChart();
-                }, 300);
-            } else {
-                setTimeout(() => {
-                    openModal('quotationPreviewModal');
-                }, 300);
+
+                baseCost += basePrice;
+                totalCost += clientPrice;
             }
         });
 
+        // Filter for single storey construction (remove Deck Pouring, Shattering, Steel Fixing)
+        if (isSingleStorey) {
+            const excludedItems = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
+            const originalCount = orderedConstructionItems.length;
+            
+            orderedConstructionItems = orderedConstructionItems.filter(item => {
+                return !excludedItems.some(excluded => 
+                    (item.item || '').toLowerCase().includes(excluded.toLowerCase())
+                );
+            });
+            
+            ganttItems = ganttItems.filter(item => {
+                return !excludedItems.some(excluded => 
+                    (item.item || '').toLowerCase().includes(excluded.toLowerCase())
+                );
+            });
+            
+            selectedItems = selectedItems.filter(item => {
+                return !excludedItems.some(excluded => 
+                    (item.name || '').toLowerCase().includes(excluded.toLowerCase())
+                );
+            });
+            
+            // Recalculate totals after filtering
+            if (originalCount !== orderedConstructionItems.length) {
+                totalCost = selectedItems.reduce((sum, item) => sum + item.total, 0);
+                baseCost = selectedItems.reduce((sum, item) => sum + (item.total / markupMultiplier), 0);
+                
+                // Show warning notification
+                $('<div class="alert alert-warning alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; padding: 12px 20px; font-size: 0.85rem;">' +
+                    '<strong><i class="bi bi-info-circle"></i> Note:</strong> Deck Pouring, Shattering, and Steel Fixing are not applicable for single storey construction and have been automatically excluded.' +
+                    '<button type="button" class="btn-close" data-bs-dismiss="alert" style="float: right; background: transparent; border: none; font-size: 1.2rem;"></button></div>')
+                    .appendTo('body')
+                    .delay(5000)
+                    .fadeOut(300, function() { $(this).remove(); });
+            }
+        }
+
+        // Check if Full House is selected
+        const fullHouseSelected = selectedRateItems.some(item => isFullHouseItemName(item.item));
+
+        if (fullHouseSelected) {
+            isFullHouseMode = true;
+            const proportionalResult = buildFullHouseProportionalSelection(selectedRateItems, sqm, markup, category);
+
+            if (!proportionalResult) {
+                alert('Full House proportional allocation could not be calculated. Please ensure square meters is entered and quotation rates contain other construction items.');
+                return;
+            }
+
+            // Get the proportional results
+            let proportionalSelectedItems = proportionalResult.selectedItems;
+            let proportionalOrderedItems = proportionalResult.orderedConstructionItems;
+            let proportionalBaseCost = proportionalResult.baseCost;
+            let proportionalTotalCost = proportionalResult.totalCost;
+            
+            selectedItems = proportionalSelectedItems;
+            orderedConstructionItems = proportionalOrderedItems;
+            baseCost = proportionalBaseCost;
+            totalCost = proportionalTotalCost;
+            
+            window.fullHouseDurationByItemId = proportionalResult.durationByItemId;
+            
+            // Rebuild ganttItems with proportional days
+            ganttItems = [];
+            let cumulatedStart = parseDateGantt(quotationDate);
+            
+            selectedItems.forEach((item, idx) => {
+                const itemId = orderedConstructionItems[idx]?.id;
+                const duration = window.fullHouseDurationByItemId[itemId] || 1;
+                const endDate = new Date(cumulatedStart);
+                endDate.setDate(endDate.getDate() + duration - 1);
+                
+                ganttItems.push({
+                    id: itemId,
+                    item: item.name,
+                    price: item.total,
+                    daysPerSqMeter: item.inhouseRate / sqm,
+                    startDate: formatDateGantt(cumulatedStart),
+                    endDate: formatDateGantt(endDate),
+                    days: duration
+                });
+                
+                cumulatedStart = new Date(endDate);
+                cumulatedStart.setDate(cumulatedStart.getDate() + 1);
+            });
+            
+            // Show warning for single storey if items were filtered
+            if (isSingleStorey && proportionalResult.filteredItemsCount > 0) {
+                $('<div class="alert alert-warning alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 8px; padding: 12px 20px; font-size: 0.85rem; z-index: 99999;">' +
+                    '<strong><i class="bi bi-info-circle"></i> Note:</strong> Deck Pouring, Shattering, and Steel Fixing are not applicable for single storey construction and have been automatically excluded from your Full House quotation.' +
+                    '<button type="button" class="btn-close" data-bs-dismiss="alert" style="float: right; background: transparent; border: none; font-size: 1.2rem; margin-left: 10px;"></button></div>')
+                    .appendTo('body')
+                    .delay(8000)
+                    .fadeOut(500, function() { $(this).remove(); });
+            }
+        }
+    } else {
+        window.fullHouseDurationByItemId = null;
+        // For non-construction categories, add a single item
+        const categoryName = category.replace('_', ' ').charAt(0).toUpperCase() + category.slice(1);
+        selectedItems.push({
+            name: categoryName + ' Service',
+            total: 50000,
+            clientPrice: 50000,
+            days: 0,
+            sqm: 0,
+            inhouseRate: 0
+        });
+        baseCost = 50000;
+        totalCost = 50000;
+        ganttItems = [];
+    }
+
+    // Update preview modal content
+    $('#previewClientName').text(clientName);
+    let displayCategory = category === 'construction_single' ? 'Single Storey Construction' : 
+                        category === 'construction_double' ? 'Double Storey Construction' : 
+                        category.replace('_', ' ').toUpperCase();
+    $('#previewCategory').text(displayCategory);
+    $('#previewDate').text(new Date(quotationDate).toLocaleDateString('en-US'));
+    $('#previewSize').text(isConstruction ? $('#quotationSize').val() : '-');
+
+    // Update total cost
+    $('#quotationTotalCost').text(totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+    // Store data for later use
+    const markupAmount = totalCost - baseCost;
+    window.quotationData = {
+        category: category,
+        clientName: clientName,
+        clientWhatsapp: clientWhatsapp,
+        quotationDate: quotationDate,
+        date: quotationDate,
+        size: isConstruction ? $('#quotationSize').val() : null,
+        items: selectedItems.map(item => ({
+            item: item.name,
+            name: item.name,
+            sqm: item.sqm,
+            inhouseRate: item.inhouseRate,
+            days: item.days || 0,
+            clientPrice: item.total,
+            total: item.total
+        })),
+        baseCost: baseCost,
+        markup: markup,
+        markupAmount: markupAmount,
+        totalCost: totalCost,
+        orderedConstructionItems: orderedConstructionItems || [],
+        isFullHouseMode: isFullHouseMode
+    };
+
+    window.ganttChartData = ganttItems;
+
+    updateFullHouseDisplayModeUI(window.quotationData);
+    
+    // Render preview items table with days from ganttData
+    renderPreviewItemsTable(window.quotationData);
+
+    // Close generator modal
+    closeModal('quotationgeneratorModal');
+
+    // For construction, show Gantt chart builder; otherwise show preview
+    if (isConstruction) {
+        setTimeout(() => {
+            openModal('ganttChartBuilderModal');
+            initializeGanttChart();
+        }, 300);
+    } else {
+        setTimeout(() => {
+            openModal('quotationPreviewModal');
+        }, 300);
+    }
+});
 
 
 function saveAndDownloadQuotation() {
@@ -11632,37 +11675,54 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Function to render preview items table (for the modal)
 function renderPreviewItemsTable(data) {
     const previewItems = getItemsForQuotationOutput(data);
     let tableHTML = '';
-    let totalDuration = 0;
+    let totalCostPreview = 0;
+    let totalDaysSum = 0;
     
-    // Get days from schedules
+    // Get schedules (gantt data) which contains the days
     const schedules = window.ganttChartData || [];
-    schedules.forEach(schedule => {
-        totalDuration += Number(schedule.days) || 0;
-    });
     
-    // Update total duration display
-    $('#totalDurationDays').text(totalDuration);
+    // Build a map of days by index
+    const daysByIndex = {};
+    schedules.forEach((schedule, idx) => {
+        daysByIndex[idx] = schedule.days || 0;
+    });
 
     previewItems.forEach((item, index) => {
         const qty = Number(item.sqm) || 0;
         const rate = Number(item.inhouseRate) || 0;
-        const days = Number(item.days) || (schedules[index] ? schedules[index].days : 0);
+        // IMPORTANT: Get days from schedules by index, not from item
+        const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
         const total = Number(item.clientPrice || item.total || 0);
+        
+        totalDaysSum += days;
+        totalCostPreview += total;
         
         tableHTML += `<tr>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${item.item || item.name || 'Item'}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">${formatCurrency(rate)}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${days}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">${formatCurrency(total)}</td>
         </tr>`;
     });
+    
+    // Add total row
+    if (previewItems.length > 0) {
+        tableHTML += `<tr>
+            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
+            <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDaysSum}</strong></td>
+            <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>${formatCurrency(totalCostPreview)}</strong></td>
+        </tr>`;
+    }
 
     $('#quotationItemsTable').html(tableHTML);
+    
+    // Update total duration display
+    $('#totalDurationDays').text(totalDaysSum);
+    
     updateFullHouseDisplayModeBadge(data);
 }
 
