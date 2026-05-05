@@ -8631,6 +8631,23 @@ function getSystemUserRowPayload(tr) {
     };
 }
 
+
+// Make sure the button event listener is attached
+$(document).ready(function() {
+    // Save & Download button in preview modal
+    $('#downloadQuotationBtn').off('click').on('click', async function() {
+        console.log('Save & Download button clicked');
+        console.log('window.quotationData:', window.quotationData);
+        
+        if (!window.quotationData) {
+            alert('No quotation data found. Please generate a quotation first.');
+            return;
+        }
+        
+        await saveAndDownloadQuotation();
+    });
+});
+
 document.addEventListener('click', async function (event) {
     const editBtn = event.target.closest('.system-user-edit-btn');
     const saveBtn = event.target.closest('.system-user-save-btn');
@@ -11529,50 +11546,84 @@ $('#generateQuotationBtn').click(function() {
             openModal('quotationPreviewModal');
         }, 300);
     }
+
+    // After building window.quotationData, add this confirmation
+    window.quotationData = {
+        category: category,
+        clientName: clientName,
+        clientWhatsapp: clientWhatsapp,
+        quotationDate: quotationDate,
+        size: isConstruction ? $('#quotationSize').val() : null,
+        items: selectedItems.map(item => ({
+            name: item.name,
+            item: item.name,
+            sqm: item.sqm,
+            inhouseRate: item.inhouseRate,
+            clientPrice: item.total,
+            total: item.total,
+            days: item.days || 0
+        })),
+        baseCost: baseCost,
+        markup: markup,
+        totalCost: totalCost,
+        isFullHouseMode: isFullHouseMode
+    };
+
+    // ADD THIS CONFIRMATION LOG
+    console.log('window.quotationData SET:', window.quotationData);
+    console.log('Items count:', window.quotationData.items.length);
+    console.log('First item:', window.quotationData.items[0]);
 });
 
 // Replace your existing saveAndDownloadQuotation function with this complete version
 async function saveAndDownloadQuotation() {
+    console.log('=== saveAndDownloadQuotation START ===');
+    
+    // Get data from window.quotationData (set when you click Generate)
     const data = window.quotationData;
     const ganttData = window.ganttChartData || [];
-
+    
+    console.log('Data from window.quotationData:', data);
+    
     if (!data) {
-        alert('No quotation data available.');
+        alert('No quotation data available. Please generate a quotation first.');
         return;
     }
-
-    // CRITICAL: Log what we're about to save
-    console.log('DATA TO SAVE:', JSON.stringify(data, null, 2));
     
-    // Make sure items have the correct structure with values
+    if (!data.items || data.items.length === 0) {
+        alert('No items found in quotation. Please add construction items.');
+        return;
+    }
+    
+    // Build the payload for the backend
     const payload = {
         clientName: data.clientName,
         clientWhatsapp: data.clientWhatsapp || '',
-        quotationDate: data.quotationDate,
+        quotationDate: data.quotationDate || new Date().toISOString().split('T')[0],
         category: data.category,
         size: parseFloat(data.size) || 0,
         totalCost: parseFloat(data.totalCost) || 0,
         markup: parseFloat(data.markup) || 0,
-        items: (data.items || []).map((item, idx) => ({
+        items: data.items.map((item, index) => ({
             name: item.name || item.item || 'Item',
             quantity: parseFloat(item.sqm) || 0,
             unitRate: parseFloat(item.inhouseRate) || 0,
-            totalPrice: parseFloat(item.total) || 0,
-            item_order: idx + 1
+            totalPrice: parseFloat(item.total || item.clientPrice) || 0,
+            item_order: index + 1
         })),
-        schedules: (ganttData || []).map((s, idx) => ({
-            workScope: s.item || 'Task',
-            startDate: s.startDate,
-            endDate: s.endDate,
-            days: parseInt(s.days) || 1,
-            task_order: idx + 1
+        schedules: ganttData.map((schedule, index) => ({
+            workScope: schedule.item || 'Task',
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            days: parseInt(schedule.days) || 1,
+            task_order: index + 1
         }))
     };
-
-    console.log('PAYLOAD BEING SENT:', payload);
+    
+    console.log('Payload being sent to server:', payload);
     
     const saveBtn = document.getElementById('downloadQuotationBtn');
-    const originalText = saveBtn ? saveBtn.innerHTML : 'Save';
+    const originalText = saveBtn ? saveBtn.innerHTML : 'Save & Download';
     
     try {
         if (saveBtn) {
@@ -11580,6 +11631,7 @@ async function saveAndDownloadQuotation() {
             saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
         }
         
+        // Save to database
         const response = await fetch('/api/save-quotation', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -11587,17 +11639,25 @@ async function saveAndDownloadQuotation() {
         });
         
         const result = await response.json();
-        console.log('SERVER RESPONSE:', result);
+        console.log('Server response:', result);
         
         if (!result.success) {
-            throw new Error(result.error || 'Save failed');
+            throw new Error(result.error || 'Failed to save quotation');
         }
         
-        alert(`✅ Quotation saved! (ID: ${result.quotation_id})`);
+        alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id})`);
         
-        // Generate and download PDF
-        if (saveBtn) saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+        if (saveBtn) {
+            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+        }
+        
+        // Generate PDF
         await generateQuotationPDF('download');
+        
+        // Refresh the quotations list
+        if (typeof loadQuotations === 'function') {
+            loadQuotations();
+        }
         
     } catch (error) {
         console.error('Error:', error);
@@ -11609,6 +11669,7 @@ async function saveAndDownloadQuotation() {
         }
     }
 }
+
 // Function to load existing quotation for editing
 function loadExistingQuotationForEdit(quotationId) {
     fetch('/api/get-quotations')
