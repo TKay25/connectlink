@@ -11449,10 +11449,19 @@ async function generateQuotationPDF(outputMode = 'download') {
     let totalDisplayCost = 0;
     let totalDaysSum = 0;
     
+    // In your generateQuotationPDF function, update the unit rate calculation:
+
+    // Get markup percentage from data
+    const markupPercentage = data.markup || 30;
+    const markupMultiplier = 1 + (markupPercentage / 100);
+
+    // Then when building each item row, calculate client unit rate:
     items.forEach((item, index) => {
         const itemName = item.item || item.name || 'Item';
         const qty = Number(item.sqm) || 0;
-        const rate = Number(item.inhouseRate) || Number(item.unitRate) || 0;
+        const inhouseRate = Number(item.inhouseRate) || Number(item.unitRate) || 0;
+        // Calculate client unit rate (inhouse + markup)
+        const clientUnitRate = inhouseRate * markupMultiplier;
         const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
         const itemTotal = Number(item.clientPrice || item.total || 0);
         
@@ -11465,7 +11474,7 @@ async function generateQuotationPDF(outputMode = 'download') {
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 6%;">${index + 1}</td>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: left; width: 38%;">${escapeHtml(itemName)}</td>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 13%;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 15%;">${formatCurrency(rate)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 15%;">${formatCurrency(clientUnitRate)}</td>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 10%; font-weight: 600; color: #2196F3;">${days}</td>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 18%; font-weight: 700; color: #1E2A56;">${formatCurrency(itemTotal)}</td>
             </tr>`;

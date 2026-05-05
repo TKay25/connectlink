@@ -18851,6 +18851,9 @@ def build_quotation_pdf_document(quotation_id):
         """, (quotation_id,))
         schedules = cursor.fetchall()
 
+        # Get markup percentage
+        markup_percentage = float(quotation[6]) if quotation[6] else 30
+
     client_name = quotation[1] or 'Client'
     quotation_date = quotation[2].strftime('%d %B %Y') if quotation[2] else ''
     category = quotation[3] or ''
@@ -18885,17 +18888,23 @@ def build_quotation_pdf_document(quotation_id):
             days = int(schedule[3]) if schedule[3] else 0
             days_by_order[order] = days
 
-        # Build items table rows - CORRECTED
+        # Build items table rows - CORRECTED with client unit rate
         items_rows = ''
         total_items_cost = 0
         total_days_sum = 0
         
+        # Calculate markup multiplier
+        markup_multiplier = 1 + (markup_percentage / 100)
+        
         for idx, item in enumerate(items, start=1):
             item_name = html.escape(str(item[0] or ''))
             qty = float(item[1]) if item[1] else 0
-            rate = float(item[2]) if item[2] else 0
+            inhouse_rate = float(item[2]) if item[2] else 0
             total = float(item[3]) if item[3] else 0
             item_order = int(item[4]) if len(item) > 4 and item[4] else idx
+            
+            # Calculate client unit rate (inhouse rate + markup)
+            client_unit_rate = inhouse_rate * markup_multiplier
             
             # Get days using item_order
             days = days_by_order.get(item_order, 0)
@@ -18909,7 +18918,7 @@ def build_quotation_pdf_document(quotation_id):
                 <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
                 <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{item_name}</td>
                 <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{qty:,.2f}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {rate:,.2f}</td>
+                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {client_unit_rate:,.2f}</td>
                 <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
                 <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {total:,.2f}</td>
             </tr>"""
