@@ -9351,13 +9351,7 @@ $(document).ready(function() {
         
         notesList.html(notesHtml);
     }
-    
-    // Helper function to escape HTML
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+
     
 $('#addNoteBtn').click(function() {
     const projectId = $('#notesProjectId').val();
@@ -11045,12 +11039,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }];
         }
 
-        function getItemsForQuotationOutput(data) {
-            if (data && data.isFullHouseMode && getSelectedFullHouseDisplayMode() === 'full_house_only') {
-                return buildFullHouseSummaryItem(data);
-            }
-            return (data && Array.isArray(data.items)) ? data.items : [];
-        }
 
         function getSchedulesForQuotationOutput(ganttData, data) {
             if (data && data.isFullHouseMode && getSelectedFullHouseDisplayMode() === 'full_house_only') {
@@ -11059,21 +11047,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return Array.isArray(ganttData) ? ganttData : [];
         }
 
-        function renderPreviewItemsTable(data) {
-            const previewItems = getItemsForQuotationOutput(data);
-            let tableHTML = '';
-
-            previewItems.forEach(item => {
-                const rowTotal = Number(item.clientPrice || item.total || 0);
-                tableHTML += `<tr>
-                    <td style="font-size: 0.85rem;">${item.item || item.name || 'Item'}</td>
-                    <td style="font-size: 0.85rem; text-align: right;"><strong>USD ${rowTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
-                </tr>`;
-            });
-
-            $('#quotationItemsTable').html(tableHTML);
-            updateFullHouseDisplayModeBadge(data);
-        }
 
         function updateFullHouseDisplayModeBadge(data) {
             const badge = $('#fullHouseDisplayModeBadge');
@@ -11410,153 +11383,203 @@ function saveAndDownloadQuotation() {
     // ... rest of the save logic
 }
 
-        async function generateQuotationPDF(outputMode = 'download') {
-            const data = window.quotationData;
-            const ganttData = window.ganttChartData || [];
+// ==================== QUOTATION PDF GENERATION WITH DAYS COLUMN ====================
 
-            // Validate data exists
-            if (!data) {
-                alert('No quotation data available. Please create a quotation first.');
-                return null;
-            }
+async function generateQuotationPDF(outputMode = 'download') {
+    const data = window.quotationData;
+    const ganttData = window.ganttChartData || [];
 
-            // Provide defaults for missing properties
-            const clientName = data.clientName || 'Client';
-            const size = data.size || '0';
-            const category = data.category || 'General';
-            const quotationDate = data.quotationDate || new Date().toISOString().split('T')[0];
-            const baseCost = data.baseCost || 0;
-            const markup = data.markup || 0;
-            const totalCost = data.totalCost || baseCost;
-            const items = data.items || [];
-            const schedules = ganttData || [];
+    // Validate data exists
+    if (!data) {
+        alert('No quotation data available. Please create a quotation first.');
+        return null;
+    }
 
-            // Helper function to format currency
-            const formatCurrency = (value) => `USD ${Number(value || 0).toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            })}`;
+    // Provide defaults for missing properties
+    const clientName = data.clientName || 'Client';
+    const size = data.size || '0';
+    const category = data.category || 'General';
+    const quotationDate = data.quotationDate || new Date().toISOString().split('T')[0];
+    const baseCost = data.baseCost || 0;
+    const markup = data.markup || 0;
+    const totalCost = data.totalCost || baseCost;
+    const items = data.items || [];
+    const schedules = ganttData || [];
 
-            // Helper function to format date
-            const formatPdfDate = (value) => {
-                if (!value) return '';
-                const parsedDate = new Date(value);
-                if (Number.isNaN(parsedDate.getTime())) {
-                    return value || '';
-                }
-                return parsedDate.toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric'
-                });
-            };
+    // Helper function to format currency
+    const formatCurrency = (value) => `USD ${Number(value || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
 
-            // Build items table with Days column
-            let itemRows = '';
-            let totalDisplayCost = 0;
-            
-            items.forEach((item, index) => {
-                const itemName = item.item || item.name || 'Item';
-                const qty = Number(item.sqm) || 0;
-                const rate = Number(item.inhouseRate) || Number(item.unitRate) || 0;
-                const days = Number(item.days) || 0;
-                const itemTotal = Number(item.clientPrice || item.total || 0);
-                
-                totalDisplayCost += itemTotal;
-                const bg = index % 2 === 0 ? '#ffffff' : '#fafbff';
-                
-                itemRows += `
-                    <tr style="background: ${bg}; page-break-inside: avoid; break-inside: avoid;">
-                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 5%;">${index + 1}</td>
-                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: left; width: 38%;">${itemName}</td>
-                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 12%;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 15%;">${formatCurrency(rate)}</td>
-                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 10%; font-weight: 600; color: #2196F3;">${days}</td>
-                        <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 20%; font-weight: 700; color: #1E2A56;">${formatCurrency(itemTotal)}</td>
-                    </tr>
-                `;
-            });
+    // Helper function to format date
+    const formatPdfDate = (value) => {
+        if (!value) return '';
+        const parsedDate = new Date(value);
+        if (Number.isNaN(parsedDate.getTime())) {
+            return value || '';
+        }
+        return parsedDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        });
+    };
 
-            if (!itemRows) {
-                itemRows = `
-                    <tr>
-                        <td colspan="6" style="padding: 14px 10px; border: 1px solid #d8deef; text-align: center; color: #5a678a;">
-                            No quotation items available.
-                        </td>
-                    </tr>
-                `;
-            }
+    // Build a map of days by item index from schedules
+    const daysByIndex = {};
+    schedules.forEach((schedule, idx) => {
+        daysByIndex[idx] = schedule.days || 0;
+    });
 
-            // Total row
-            const itemsTotalRow = `
-                <tr style="background: #1E2A56; color: white; font-weight: bold;">
-                    <td colspan="5" style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>TOTAL</strong></td>
-                    <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>${formatCurrency(totalDisplayCost)}</strong></td>
-                </tr>
-            `;
+    // Calculate total construction duration
+    let totalConstructionDays = 0;
+    schedules.forEach(schedule => {
+        totalConstructionDays += Number(schedule.days) || 0;
+    });
 
-            // Calculate deposit and monthly installments
-            const depositAmount = totalCost * 0.30;
-            const balanceAmount = totalCost - depositAmount;
-            const monthlyInstallment = balanceAmount / 5;
+    // Build items table with Days column
+    let itemRows = '';
+    let totalDisplayCost = 0;
+    
+    items.forEach((item, index) => {
+        const itemName = item.item || item.name || 'Item';
+        const qty = Number(item.sqm) || 0;
+        const rate = Number(item.inhouseRate) || Number(item.unitRate) || 0;
+        // Get days from schedules by index, fallback to item.days
+        const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
+        const itemTotal = Number(item.clientPrice || item.total || 0);
+        
+        totalDisplayCost += itemTotal;
+        const bg = index % 2 === 0 ? '#ffffff' : '#fafbff';
+        
+        itemRows += `
+            <tr style="background: ${bg}; page-break-inside: avoid; break-inside: avoid;">
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 5%;">${index + 1}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: left; width: 38%;">${escapeHtml(itemName)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 12%;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 15%;">${formatCurrency(rate)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 10%; font-weight: 600; color: #2196F3;">${days}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 20%; font-weight: 700; color: #1E2A56;">${formatCurrency(itemTotal)}</td>
+            </tr>
+        `;
+    });
 
-            // HTML template for PDF
-            const htmlContent = `
-                <div style="font-family: 'Roboto', Arial, sans-serif; background: #ffffff; color: #1E2A56; padding: 0; margin: 0;">
-                    <div style="background: #ffffff; width: 100%; padding: 14px 16px; border: 2px solid #1E2A56; border-radius: 10px; box-sizing: border-box;">
-                        <img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display: block; margin: 0 auto 10px auto; width: 130px; max-width: 100%;">
-                        <h1 style="margin: 0 0 6px 0; text-align: center; font-size: 16px; font-weight: 900; color: #1E2A56; text-transform: uppercase; letter-spacing: 1px;">Project Quotation</h1>
-                        <div style="width: 100px; height: 2px; background: #1E2A56; margin: 0 auto 14px auto; border-radius: 10px;"></div>
+    if (!itemRows) {
+        itemRows = `
+            <tr>
+                <td colspan="6" style="padding: 14px 10px; border: 1px solid #d8deef; text-align: center; color: #5a678a;">
+                    No quotation items available.
+                </td>
+            </tr>
+        `;
+    }
 
-                        <p style="font-size: 12px; margin: 0 0 12px 0; line-height: 1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>${clientName}</strong>.</p>
+    // Total row
+    const itemsTotalRow = `
+        <tr style="background: #1E2A56; color: white; font-weight: bold;">
+            <td colspan="5" style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>TOTAL</strong></td>
+            <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>${formatCurrency(totalDisplayCost)}</strong></td>
+        </tr>
+    `;
 
-                        <!-- PROJECT DETAILS -->
-                        <div style="page-break-inside: avoid; break-inside: avoid;">
-                            <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT DETAILS</h4>
-                            <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 12px 16px; box-sizing: border-box;">
-                                <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 10px; box-sizing: border-box;">
-                                    <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Client Name:</strong> <span>${clientName}</span></div>
-                                    <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Project Size:</strong> <span>${size} Sq. Meters</span></div>
-                                </div>
-                                <div style="display: table-cell; width: 50%; vertical-align: top; padding-left: 10px; box-sizing: border-box;">
-                                    <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Category:</strong> <span>${category}</span></div>
-                                    <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Date:</strong> <span>${formatPdfDate(quotationDate)}</span></div>
-                                </div>
+    // Calculate deposit and monthly installments
+    const depositAmount = totalCost * 0.30;
+    const balanceAmount = totalCost - depositAmount;
+    const monthlyInstallment = balanceAmount / 5;
+
+    // HTML template for PDF
+    const htmlContent = `
+        <div style="font-family: 'Roboto', Arial, sans-serif; background: #ffffff; color: #1E2A56; padding: 0; margin: 0;">
+            <div style="background: #ffffff; width: 100%; padding: 14px 16px; border: 2px solid #1E2A56; border-radius: 10px; box-sizing: border-box;">
+                <img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display: block; margin: 0 auto 10px auto; width: 130px; max-width: 100%;">
+                <h1 style="margin: 0 0 6px 0; text-align: center; font-size: 16px; font-weight: 900; color: #1E2A56; text-transform: uppercase; letter-spacing: 1px;">Project Quotation</h1>
+                <div style="width: 100px; height: 2px; background: #1E2A56; margin: 0 auto 14px auto; border-radius: 10px;"></div>
+
+                <p style="font-size: 12px; margin: 0 0 12px 0; line-height: 1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>${escapeHtml(clientName)}</strong>.</p>
+
+                <!-- PROJECT DETAILS -->
+                <div style="page-break-inside: avoid; break-inside: avoid;">
+                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT DETAILS</h4>
+                    <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 12px 16px; box-sizing: border-box;">
+                        <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 10px; box-sizing: border-box;">
+                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Client Name:</strong> <span>${escapeHtml(clientName)}</span></div>
+                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Project Size:</strong> <span>${size} Sq. Meters</span></div>
+                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Duration:</strong> <span>${totalConstructionDays} Days</span></div>
+                        </div>
+                        <div style="display: table-cell; width: 50%; vertical-align: top; padding-left: 10px; box-sizing: border-box;">
+                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Category:</strong> <span>${escapeHtml(category)}</span></div>
+                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Date:</strong> <span>${formatPdfDate(quotationDate)}</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- QUOTATION SUMMARY -->
+                <div style="page-break-inside: avoid; break-inside: avoid;">
+                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
+                    <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
+                        <div style="display: table; width: 100%; table-layout: fixed;">
+                            <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
+                                <div style="font-size: 14px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
+                            </div>
+                            <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
+                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(depositAmount)}</div>
+                            </div>
+                            <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
+                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
+                            </div>
+                            <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; box-sizing: border-box;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly Installments (over 5 months)</div>
+                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- QUOTATION SUMMARY -->
-                        <div>
-                            <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
-                            <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
-                                <div style="display: table; width: 100%; table-layout: fixed;">
-                                    <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
-                                        <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
-                                        <div style="font-size: 14px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
-                                    </div>
-                                    <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
-                                        <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
-                                        <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(depositAmount)}</div>
-                                    </div>
-                                    <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; border-right: 1px solid #d8deef; box-sizing: border-box;">
-                                        <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
-                                        <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
-                                    </div>
-                                    <div style="display: table-cell; width: 25%; padding: 8px 10px; text-align: center; box-sizing: border-box;">
-                                        <div style="font-size: 10px; color: #5a678a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly Installments (over 5 months)</div>
-                                        <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
-                                    </div>
-                                </div>
+                <!-- INFO MESSAGE -->
+                <div style='margin-bottom: 22px; text-align: center;'>
+                    <span style='display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;'>
+                        <i class='bi bi-info-circle-fill' style='margin-right: 6px;'></i>
+                        For a full breakdown of your quotation, <span style='color: #d32f2f;'>see the detailed quotation table below</span>.
+                    </span>
+                </div>
+
+                <!-- CONSTRUCTION ITEMS TABLE with Days column -->
+                <div style="page-break-inside: avoid; break-inside: avoid;">
+                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
+                        <thead>
+                            <tr style="background: #1E2A56; color: white;">
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 38%;">Item Description</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 13%;">Qty (Sq.M)</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 15%;">Unit Rate</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 10%;">Days</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 18%;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemRows}
+                            ${itemsTotalRow}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- IMPORTANT NOTE & BANKING DETAILS -->
+                <div style='page-break-inside:avoid; break-inside:avoid;'>
+                    <div style='display:table; width:100%; table-layout:fixed; margin-top:6px;'>
+                        <div style='display:table-cell; width:50%; vertical-align:top; padding-right:8px; box-sizing:border-box;'>
+                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.6; min-height:132px;'>
+                                <strong>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                                <div style='margin-top:8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
                             </div>
                         </div>
-
-                        <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px;">
-                            <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;">
-                                <strong style="color: #d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
-                                <div style="margin-top: 8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
-                            </div>
-                            <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;">
-                                <strong style="display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;">Banking Details</strong>
+                        <div style='display:table-cell; width:50%; vertical-align:top; padding-left:8px; box-sizing:border-box;'>
+                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.7; min-height:132px;'>
+                                <strong style='display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px;'>Banking Details</strong>
                                 <div><strong>Bank:</strong> ZB BANK</div>
                                 <div><strong>Branch:</strong> Msasa</div>
                                 <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
@@ -11564,59 +11587,97 @@ function saveAndDownloadQuotation() {
                                 <div><strong>Account Type:</strong> USD Account</div>
                             </div>
                         </div>
-
-                        <span style="display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; box-shadow: 0 2px 8px rgba(255, 215, 0, 0.08); letter-spacing: 0.2px;">
-                            <i class="bi bi-info-circle-fill" style="margin-right: 6px;"></i>
-                            For a full breakdown of your quotation, <span style="color: #d32f2f;">see the detailed quotation table below</span>.
-                        </span>
-
-                        <!-- CONSTRUCTION ITEMS TABLE with Days column -->
-                        <div style="page-break-inside: avoid; break-inside: avoid;">
-                            <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
-                                <thead>
-                                    <tr style="background: #1E2A56; color: white;">
-                                        <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 5%;">#</th>
-                                        <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 38%;">Item Description</th>
-                                        <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Qty (Sq.M)</th>
-                                        <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 15%;">Unit Rate</th>
-                                        <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 10%;">Days</th>
-                                        <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 20%;">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${itemRows}
-                                    ${itemsTotalRow}
-                                </tbody>
-                            </table>
-                        </div>
-
-
                     </div>
                 </div>
-            `;
+            </div>
+        </div>
+    `;
 
-            // Generate PDF
-            const options = {
-                margin: [6, 6, 6, 6],
-                filename: `Quotation_${clientName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
-                pagebreak: { mode: ['css', 'legacy'] },
-                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
-            };
+    // Generate PDF
+    const options = {
+        margin: [6, 6, 6, 6],
+        filename: `Quotation_${clientName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+        pagebreak: { mode: ['css', 'legacy'] },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+    };
 
-            const worker = html2pdf().set(options).from(htmlContent);
-            
-            if (outputMode === 'datauri') {
-                return worker.outputPdf('datauristring');
-            }
+    const worker = html2pdf().set(options).from(htmlContent);
+    
+    if (outputMode === 'datauri') {
+        return worker.outputPdf('datauristring');
+    }
 
-            await worker.save();
-            return null;
-        }
-        // Expose for portal download flow (outside this ready scope)
-        window.generateQuotationPDF = generateQuotationPDF;
+    await worker.save();
+    return null;
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Function to render preview items table (for the modal)
+function renderPreviewItemsTable(data) {
+    const previewItems = getItemsForQuotationOutput(data);
+    let tableHTML = '';
+    let totalDuration = 0;
+    
+    // Get days from schedules
+    const schedules = window.ganttChartData || [];
+    schedules.forEach(schedule => {
+        totalDuration += Number(schedule.days) || 0;
+    });
+    
+    // Update total duration display
+    $('#totalDurationDays').text(totalDuration);
+
+    previewItems.forEach((item, index) => {
+        const qty = Number(item.sqm) || 0;
+        const rate = Number(item.inhouseRate) || 0;
+        const days = Number(item.days) || (schedules[index] ? schedules[index].days : 0);
+        const total = Number(item.clientPrice || item.total || 0);
+        
+        tableHTML += `<tr>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${item.item || item.name || 'Item'}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${days}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        </tr>`;
+    });
+
+    $('#quotationItemsTable').html(tableHTML);
+    updateFullHouseDisplayModeBadge(data);
+}
+
+// Function to get items for quotation output
+function getItemsForQuotationOutput(data) {
+    if (data && data.isFullHouseMode && getSelectedFullHouseDisplayMode() === 'full_house_only') {
+        return buildFullHouseSummaryItem(data);
+    }
+    
+    // Make sure items have all required fields including days
+    const items = (data && Array.isArray(data.items)) ? data.items : [];
+    return items.map((item, index) => ({
+        ...item,
+        item: item.item || item.name,
+        sqm: item.sqm || 0,
+        inhouseRate: item.inhouseRate || 0,
+        days: item.days || 0,
+        clientPrice: item.clientPrice || item.total || 0
+    }));
+}
+
+// Expose functions globally
+window.generateQuotationPDF = generateQuotationPDF;
+window.renderPreviewItemsTable = renderPreviewItemsTable;
+window.getItemsForQuotationOutput = getItemsForQuotationOutput;
+
 
         // Send Quotation & Gantt button
         $('#sendQuotationBtn').click(async function() {
