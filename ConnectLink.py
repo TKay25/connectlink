@@ -18872,6 +18872,12 @@ def build_quotation_pdf_document(quotation_id):
                 return value.strftime('%d %B %Y')
             return html.escape(str(value or ''))
 
+        def fmt_currency(value):
+            try:
+                return f"{float(value):,.2f}"
+            except Exception:
+                return "0.00"
+
         # Build a dictionary to map day values by item_order for quick lookup
         days_by_order = {}
         for schedule in schedules:
@@ -18882,6 +18888,7 @@ def build_quotation_pdf_document(quotation_id):
         # Build items table with days included (matching by item_order)
         items_rows = ''
         total_items_cost = 0
+        total_days_sum = 0
         
         for item in items:
             item_name = html.escape(str(item[0] or ''))
@@ -18892,32 +18899,34 @@ def build_quotation_pdf_document(quotation_id):
             
             # Get days using item_order (1-based index)
             days = days_by_order.get(item_order, 0)
+            total_days_sum += days
             
             # Alternate background colors
             bg = '#ffffff' if item_order % 2 else '#fafbff'
             
             items_rows += (
                 f"<tr style='background:{bg}; page-break-inside:avoid; break-inside:avoid;'>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef; font-weight:700; text-align:center; width:5%;'>{item_order}</td>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;'>{item_order}</td>"
                 f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;'>{item_name}</td>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center; width:12%;'>{qty:,.2f}</td>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;'>{qty:,.2f}</td>"
                 f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;'>USD {rate:,.2f}</td>"
                 f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;'>{days}</td>"
-                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right; width:20%; font-weight:700; color:#1E2A56;'>USD {total:,.2f}</td>"
-                "</td>"
+                f"<td style='padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;'>USD {total:,.2f}</td>"
+                "</tr>"
             )
             total_items_cost += total
 
         if not items_rows:
             items_rows = (
-                "<tr><td colspan='6' style='padding:14px 10px; border:1px solid #d8deef; text-align:center; color:#5a678a;'>"
+                "<table><td colspan='6' style='padding:14px 10px; border:1px solid #d8deef; text-align:center; color:#5a678a;'>"
                 "No quotation items available.</td></tr>"
             )
 
-        # Total row for items table
+        # Total row for items table with Days sum
         items_total_row = f"""
         <tr style='background:#1E2A56; color:white; font-weight:bold;'>
-            <td colspan='5' style='padding:8px 10px; border:1px solid #2a3a78; text-align:right;'><strong>TOTAL</strong></td>
+            <td colspan='4' style='padding:8px 10px; border:1px solid #2a3a78; text-align:right;'><strong>TOTAL</strong></td>
+            <td style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold; font-size:13px;'><strong>{total_days_sum}</strong></td>
             <td style='padding:8px 10px; border:1px solid #2a3a78; text-align:right;'><strong>USD {total_items_cost:,.2f}</strong></td>
         </tr>
         """
@@ -18943,7 +18952,7 @@ def build_quotation_pdf_document(quotation_id):
 
                 <p style='font-size:12px; margin:0 0 12px 0; line-height:1.5;'>This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{html.escape(client_name)}</strong>.</p>
 
-                <!-- PROJECT DETAILS -->
+                <!-- PROJECT DETAILS (Duration removed from here) -->
                 <div style='page-break-inside:avoid; break-inside:avoid;'>
                     <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>PROJECT DETAILS</h4>
                     <div style='display:table; width:100%; table-layout:fixed; margin-bottom:20px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; box-sizing:border-box;'>
@@ -18958,50 +18967,48 @@ def build_quotation_pdf_document(quotation_id):
                     </div>
                 </div>
 
-                <!-- QUOTATION SUMMARY -->
-                <div>
+                <!-- QUOTATION SUMMARY with Duration as a 5th column (neat CSS Grid layout) -->
+                <div style='page-break-inside:avoid; break-inside:avoid;'>
                     <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
                     <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
-                        <div style='display:table; width:100%; table-layout:fixed;'>
-                            <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
-                                <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Total Amount</div>
-                                <div style='font-size:14px; font-weight:900; color:#1E2A56;'>USD {fmt_currency(total_cost)}</div>
+                        <div style='display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;'>
+                            <div style='padding: 0 5px;'>
+                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Total Amount</div>
+                                <div style='font-size: 13px; font-weight: 900; color: #1E2A56;'>USD {fmt_currency(total_cost)}</div>
                             </div>
-                            <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
-                                <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Deposit (30%)</div>
-                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {fmt_currency(deposit)}</div>
+                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Deposit (30%)</div>
+                                <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {fmt_currency(deposit)}</div>
                             </div>
-                            <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; border-right:1px solid #d8deef; box-sizing:border-box;'>
-                                <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Balance</div>
-                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {fmt_currency(balance)}</div>
+                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Balance</div>
+                                <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {fmt_currency(balance)}</div>
                             </div>
-                            <div style='display:table-cell; width:25%; padding:8px 10px; text-align:center; box-sizing:border-box;'>
-                                <div style='font-size:10px; color:#5a678a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;'>Monthly Installments (over 5 months)</div>
-                                <div style='font-size:13px; font-weight:700; color:#1E2A56;'>USD {fmt_currency(monthly)}</div>
+                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Duration</div>
+                                <div style='font-size: 13px; font-weight: 700; color: #2196F3;'>{total_construction_days} Days</div>
+                            </div>
+                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over 5 months)</div>
+                                <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {fmt_currency(monthly)}</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- IMPORTANT NOTE & BANKING DETAILS -->
-                <div>
-                    <div style='display:table; width:100%; table-layout:fixed; margin-top:6px;'>
-                        <div style='display:table-cell; width:50%; vertical-align:top; padding-right:8px; box-sizing:border-box;'>
-                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.6; min-height:132px;'>
-                                <strong>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
-                                <div style='margin-top:8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
-                            </div>
-                        </div>
-                        <div style='display:table-cell; width:50%; vertical-align:top; padding-left:8px; box-sizing:border-box;'>
-                            <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px; line-height:1.7; min-height:132px;'>
-                                <strong style='display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px;'>Banking Details</strong>
-                                <div><strong>Bank:</strong> ZB BANK</div>
-                                <div><strong>Branch:</strong> Msasa</div>
-                                <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
-                                <div><strong>Account No:</strong> 450600586638405</div>
-                                <div><strong>Account Type:</strong> USD Account</div>
-                            </div>
-                        </div>
+                <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
+                    <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;'>
+                        <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                        <div style='margin-top: 8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
+                    </div>
+                    <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;'>
+                        <strong style='display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;'>Banking Details</strong>
+                        <div><strong>Bank:</strong> ZB BANK</div>
+                        <div><strong>Branch:</strong> Msasa</div>
+                        <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+                        <div><strong>Account No:</strong> 450600586638405</div>
+                        <div><strong>Account Type:</strong> USD Account</div>
                     </div>
                 </div>
 
@@ -19013,19 +19020,19 @@ def build_quotation_pdf_document(quotation_id):
                     </span>
                 </div>
 
-                <!-- CONSTRUCTION ITEMS TABLE with Days column -->
+                <!-- CONSTRUCTION ITEMS TABLE with Days column and Total Days row -->
                 <div style='page-break-inside:avoid; break-inside:avoid;'>
                     <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>CONSTRUCTION ITEMS</h4>
-                    <table>
+                    <table style='width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px;'>
                         <thead>
                             <tr style='background:#1E2A56; color:white;'>
-                                <th style='text-align:center; width:6%;'>#</th>
-                                <th style='text-align:left; width:38%;'>Item Description</th>
-                                <th style='text-align:center; width:13%;'>Qty (Sq.M)</th>
-                                <th style='text-align:right; width:15%;'>Unit Rate</th>
-                                <th style='text-align:center; width:10%;'>Days</th>
-                                <th style='text-align:right; width:18%;'>Total</th>
-                            <tr>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:6%;'>#</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:left; width:38%;'>Item Description</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:13%;'>Qty (Sq.M)</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:right; width:15%;'>Unit Rate</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:center; width:10%;'>Days</th>
+                                <th style='padding:8px 10px; border:1px solid #2a3a78; text-align:right; width:18%;'>Total</th>
+                            </tr>
                         </thead>
                         <tbody>
                             {items_rows}
@@ -19049,7 +19056,6 @@ def build_quotation_pdf_document(quotation_id):
     )
 
     return pdf_bytes, filename, caption
-
 
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
     """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
