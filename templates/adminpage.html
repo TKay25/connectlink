@@ -13670,11 +13670,21 @@ function renderGanttItemsList() {
         console.log('Manual reloadQuotations called');
         const container = document.getElementById('quotationsContainer');
         if (container) {
+            container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>';
             loadQuotations();
         } else {
             console.error('quotationsContainer not found for manual reload');
         }
     };
+
+    function reloadQuotations() {
+        console.log('Reloading quotations...');
+        const container = document.getElementById('quotationsContainer');
+        if (container) {
+            container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>';
+            loadQuotations(); // This should fetch and display again
+        }
+    }
 
     function openSentQuotationsModal() {
         openModal('sentQuotationsModal');
