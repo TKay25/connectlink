@@ -66,6 +66,53 @@ def initialize_database_tables():
     try:
         with get_db() as (cursor, connection):
 
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS kitchen_items (
+                    id SERIAL PRIMARY KEY,
+                    item_name VARCHAR(255) NOT NULL UNIQUE,
+                    default_price DECIMAL(15, 2) DEFAULT 0,
+                    default_days INT DEFAULT 1,
+                    is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );""")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS quotation_kitchen_items (
+                    id SERIAL PRIMARY KEY,
+                    quotation_id INT NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+                    item_name VARCHAR(255) NOT NULL,
+                    quantity INT NOT NULL DEFAULT 1,
+                    amount DECIMAL(15, 2) NOT NULL,
+                days INT NOT NULL DEFAULT 1,
+                item_order INT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );""")
+
+            cursor.execute("""
+            INSERT INTO kitchen_items (item_name, default_price, default_days) VALUES
+            ('Matt Kitchen including Local Granite', 4500, 5),
+            ('Matt Kitchen including Quartz', 5500, 5),
+            ('Gloss Kitchen including Quartz', 6000, 5),
+            ('High Gloss Kitchen including Quartz', 6500, 5),
+            ('Main Bedroom Cabinets', 2500, 3),
+            ('Other Bedroom Cabinets', 1800, 2),
+            ('Quartz Countertop', 800, 2),
+            ('Granite Countertop', 600, 2),
+            ('Solid Wood Cabinet', 350, 1),
+            ('MDF Cabinet', 200, 1),
+            ('Glass Cabinet Doors', 150, 1),
+            ('Soft-Close Hinges', 80, 0),
+            ('Drawer Runners', 100, 0),
+            ('Kitchen Sink', 250, 1),
+            ('Mixer Tap', 120, 1),
+            ('Backsplash Tiling', 400, 2),
+            ('Under Cabinet Lighting', 180, 1),
+            ('Island Countertop', 800, 2),
+            ('Wine Rack', 120, 1),
+            ('Corner Cabinet Carousel', 300, 1),
+            ('Pull-out Pantry', 250, 1)
+            ON CONFLICT (item_name) DO NOTHING;""")
+
             def get_table_columns(table_name):
                 try:
                     with get_db() as (cursor, connection):
