@@ -19750,6 +19750,15 @@ def save_quotation():
         
         is_kitchen = (category == 'kitchen')
         
+        # DEBUG: Print what we received
+        print(f"\n=== SAVING QUOTATION ===")
+        print(f"Category: {category}")
+        print(f"Is Kitchen: {is_kitchen}")
+        print(f"Client: {client_name}")
+        print(f"Items received: {len(items)}")
+        for i, item in enumerate(items):
+            print(f"  Item {i}: name={item.get('name')}, quantity={item.get('quantity')}, amount={item.get('amount')}, unitRate={item.get('unitRate')}, totalPrice={item.get('totalPrice')}")
+        
         if is_kitchen:
             # Kitchen: calculate total from items (quantity * amount)
             total_cost = sum(
@@ -19758,11 +19767,13 @@ def save_quotation():
             )
             project_size = 0
             markup = 0
+            print(f"Kitchen total cost calculated: {total_cost}")
         else:
             # Construction: existing logic
             project_size = float(data.get('size', 0)) if data.get('size') else 0
             total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
             markup = float(data.get('markup', 0)) if data.get('markup') else 0
+            print(f"Construction total cost: {total_cost}")
         
         with get_db() as (cursor, connection):
             # Insert quotation header
@@ -19776,29 +19787,41 @@ def save_quotation():
                 project_size, total_cost, markup
             ))
             quotation_id = cursor.fetchone()[0]
+            print(f"Created quotation ID: {quotation_id}")
             
             if is_kitchen:
-                # Save kitchen items to kitchen items table
+                # Save kitchen items to quotation_kitchen_items table
                 for idx, item in enumerate(items):
+                    # Get values with proper defaults
+                    item_name = item.get('name', 'Item')
+                    quantity = int(item.get('quantity', 1))
+                    amount = float(item.get('amount', 0))
+                    days = int(item.get('days', 1))
+                    total_price = float(item.get('totalPrice', quantity * amount))
+                    
+                    print(f"Inserting kitchen item {idx+1}: {item_name}, Qty:{quantity}, Amount:{amount}, Days:{days}, Total:{total_price}")
+                    
                     cursor.execute("""
                         INSERT INTO quotation_kitchen_items
                         (quotation_id, item_name, quantity, amount, days, item_order)
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (
                         quotation_id,
-                        item.get('name', 'Item'),
-                        int(item.get('quantity', 1)),
-                        float(item.get('amount', 0)),
-                        int(item.get('days', 1)),
+                        item_name,
+                        quantity,
+                        amount,
+                        days,
                         idx + 1
                     ))
             else:
-                # Save construction items to items table
+                # Save construction items to quotation_items table
                 for idx, item in enumerate(items):
                     item_name = item.get('name') or item.get('item', 'Item')
                     quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
                     unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
                     total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
+                    
+                    print(f"Inserting construction item {idx+1}: {item_name}, Qty:{quantity}, Rate:{unit_rate}, Total:{total_price}")
                     
                     cursor.execute("""
                         INSERT INTO quotation_items
@@ -19806,7 +19829,7 @@ def save_quotation():
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
             
-            # Save schedules (same for both)
+            # Save schedules
             for idx, schedule in enumerate(schedules):
                 work_scope = schedule.get('workScope', schedule.get('item', 'Task'))
                 start_date = schedule.get('startDate')
@@ -19819,20 +19842,22 @@ def save_quotation():
                 """, (quotation_id, work_scope, start_date, end_date, days, idx + 1))
             
             connection.commit()
+            print(f"✅ Quotation {quotation_id} saved successfully with total cost: {total_cost}")
             
-            return jsonify({
-                'success': True,
-                'message': 'Quotation saved successfully',
-                'quotation_id': quotation_id,
-                'category': category
-            })
+        return jsonify({
+            'success': True,
+            'message': 'Quotation saved successfully',
+            'quotation_id': quotation_id,
+            'total_cost': total_cost
+        })
     except Exception as e:
-        logging.error(f'Error saving quotation: {str(e)}')
-        logging.error(traceback.format_exc())
+        print(f"Error saving quotation: {str(e)}")
+        import traceback
+        traceback.print_exc()
         if 'connection' in locals():
             connection.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
-
+    
         
 @app.route('/api/get-quotations', methods=['GET'])
 def get_quotations():
@@ -19849,62 +19874,77 @@ def get_quotations():
             quotations = cursor.fetchall()
 
             # Get construction items
-            cursor.execute("""
-                SELECT quotation_id, item_name, quantity, unit_rate, total_price, item_order
-                FROM quotation_items
-                ORDER BY quotation_id, item_order
-            """)
             construction_items = {}
-            for row in cursor.fetchall():
-                q_id = row[0]
-                if q_id not in construction_items:
-                    construction_items[q_id] = []
-                construction_items[q_id].append({
-                    'name': row[1],
-                    'quantity': float(row[2]) if row[2] else 0,
-                    'unitRate': float(row[3]) if row[3] else 0,
-                    'totalPrice': float(row[4]) if row[4] else 0,
-                    'item_order': row[5]
-                })
+            try:
+                cursor.execute("""
+                    SELECT quotation_id, item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items
+                    ORDER BY quotation_id, item_order
+                """)
+                for row in cursor.fetchall():
+                    q_id = row[0]
+                    if q_id not in construction_items:
+                        construction_items[q_id] = []
+                    construction_items[q_id].append({
+                        'name': row[1],
+                        'quantity': float(row[2]) if row[2] else 0,
+                        'unitRate': float(row[3]) if row[3] else 0,
+                        'totalPrice': float(row[4]) if row[4] else 0,
+                    })
+            except Exception as e:
+                print(f"Note: quotation_items table may not exist: {e}")
 
             # Get kitchen items
-            cursor.execute("""
-                SELECT quotation_id, item_name, quantity, amount, days, item_order
-                FROM quotation_kitchen_items
-                ORDER BY quotation_id, item_order
-            """)
             kitchen_items = {}
-            for row in cursor.fetchall():
-                q_id = row[0]
-                if q_id not in kitchen_items:
-                    kitchen_items[q_id] = []
-                kitchen_items[q_id].append({
-                    'name': row[1],
-                    'quantity': int(row[2]),
-                    'amount': float(row[3]) if row[3] else 0,
-                    'days': int(row[4]) if row[4] else 1,
-                    'totalPrice': int(row[2]) * float(row[3]) if row[3] else 0,
-                    'item_order': row[5]
-                })
+            try:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'quotation_kitchen_items'
+                    )
+                """)
+                kitchen_table_exists = cursor.fetchone()[0]
+                
+                if kitchen_table_exists:
+                    cursor.execute("""
+                        SELECT quotation_id, item_name, quantity, amount, days, item_order
+                        FROM quotation_kitchen_items
+                        ORDER BY quotation_id, item_order
+                    """)
+                    for row in cursor.fetchall():
+                        q_id = row[0]
+                        if q_id not in kitchen_items:
+                            kitchen_items[q_id] = []
+                        kitchen_items[q_id].append({
+                            'name': row[1],
+                            'quantity': int(row[2]),
+                            'amount': float(row[3]) if row[3] else 0,
+                            'days': int(row[4]) if row[4] else 1,
+                            'totalPrice': int(row[2]) * float(row[3]) if row[3] else 0,
+                        })
+            except Exception as e:
+                print(f"Note: quotation_kitchen_items table may not exist: {e}")
 
             # Get schedules
-            cursor.execute("""
-                SELECT quotation_id, work_scope, start_date, end_date, days, task_order
-                FROM quotation_schedules
-                ORDER BY quotation_id, task_order
-            """)
             schedules_by_quotation = {}
-            for row in cursor.fetchall():
-                q_id = row[0]
-                if q_id not in schedules_by_quotation:
-                    schedules_by_quotation[q_id] = []
-                schedules_by_quotation[q_id].append({
-                    'workScope': row[1],
-                    'startDate': row[2].isoformat() if row[2] else None,
-                    'endDate': row[3].isoformat() if row[3] else None,
-                    'days': int(row[4]) if row[4] else 0,
-                    'task_order': row[5]
-                })
+            try:
+                cursor.execute("""
+                    SELECT quotation_id, work_scope, start_date, end_date, days, task_order
+                    FROM quotation_schedules
+                    ORDER BY quotation_id, task_order
+                """)
+                for row in cursor.fetchall():
+                    q_id = row[0]
+                    if q_id not in schedules_by_quotation:
+                        schedules_by_quotation[q_id] = []
+                    schedules_by_quotation[q_id].append({
+                        'workScope': row[1],
+                        'startDate': row[2].isoformat() if row[2] else None,
+                        'endDate': row[3].isoformat() if row[3] else None,
+                        'days': int(row[4]) if row[4] else 0,
+                    })
+            except Exception as e:
+                print(f"Note: quotation_schedules table may not exist: {e}")
 
             result = []
             for quotation in quotations:
@@ -19930,16 +19970,12 @@ def get_quotations():
                     'schedules': schedules_by_quotation.get(quotation_id, [])
                 })
 
-            return jsonify({
-                'success': True,
-                'data': result,
-                'count': len(result)
-            })
+            return jsonify({'success': True, 'data': result, 'count': len(result)})
     except Exception as e:
-        logging.error(f'Error fetching quotations: {str(e)}')
-        logging.error(traceback.format_exc())
-        return jsonify({'success': False, 'error': str(e)}), 500
-
+        print(f"Error fetching quotations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e), 'data': [], 'count': 0}), 500
 
 
 @app.route('/api/get-sent-quotations', methods=['GET'])
