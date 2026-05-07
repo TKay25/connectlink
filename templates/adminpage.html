@@ -3957,6 +3957,90 @@ $('#kitchenItemSelect').change(function() {
     }
 });
 
+window.kitchenCabinetItems = window.kitchenCabinetItems || [];
+
+// Render kitchen items table - GLOBAL VERSION
+function renderKitchenItemsTable() {
+    const tbody = document.getElementById('kitchenItemsBody');
+    if (!tbody) {
+        console.log('kitchenItemsBody not found yet');
+        return;
+    }
+    
+    if (!window.kitchenCabinetItems || window.kitchenCabinetItems.length === 0) {
+        tbody.innerHTML = `
+            <tr id="kitchenEmptyRow">
+                <td colspan="6" class="text-center py-3 text-muted">
+                    Click "Add Item" to add kitchen/cabinet items
+                </td>
+            </table>
+        `;
+        const itemCount = document.getElementById('kitchenItemCount');
+        const totalCost = document.getElementById('kitchenTotalCost');
+        const totalDays = document.getElementById('kitchenTotalDays');
+        if (itemCount) itemCount.textContent = '0';
+        if (totalCost) totalCost.textContent = '0.00';
+        if (totalDays) totalDays.textContent = '0';
+        return;
+    }
+    
+    let totalCostValue = 0;
+    let totalDaysValue = 0;
+    let html = '';
+    
+    window.kitchenCabinetItems.forEach((item, index) => {
+        const itemTotal = (item.quantity || 1) * (item.amount || 0);
+        totalCostValue += itemTotal;
+        totalDaysValue += (item.days || 1);
+        
+        html += `
+            <tr>
+                <td>
+                    <input type="text" class="form-control form-control-sm" 
+                           value="${escapeHtml(item.name || '')}" 
+                           data-index="${index}" data-field="name"
+                           onchange="updateKitchenItemField(${index}, 'name', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.quantity || 1}" min="1"
+                           data-index="${index}" data-field="quantity"
+                           onchange="updateKitchenItemField(${index}, 'quantity', parseInt(this.value) || 1)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.amount || 0}" min="0" step="100"
+                           data-index="${index}" data-field="amount"
+                           onchange="updateKitchenItemField(${index}, 'amount', parseFloat(this.value) || 0)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.days || 1}" min="1"
+                           data-index="${index}" data-field="days"
+                           onchange="updateKitchenItemField(${index}, 'days', parseInt(this.value) || 1)">
+                </td>
+                <td><strong>$${itemTotal.toLocaleString()}</strong></td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+    
+    const itemCountEl = document.getElementById('kitchenItemCount');
+    const totalCostEl = document.getElementById('kitchenTotalCost');
+    const totalDaysEl = document.getElementById('kitchenTotalDays');
+    
+    if (itemCountEl) itemCountEl.textContent = window.kitchenCabinetItems.length;
+    if (totalCostEl) totalCostEl.textContent = totalCostValue.toLocaleString();
+    if (totalDaysEl) totalDaysEl.textContent = totalDaysValue;
+}
+
+
 $('#confirmAddKitchenItemBtn').click(function() {
     let itemName = $('#kitchenItemSelect').val();
     if (!itemName) {
@@ -11976,6 +12060,8 @@ $('#generateQuotationBtn').click(function() {
     console.log('First item:', window.quotationData.items[0]);
 });
 
+
+
 function updateKitchenPreviewDisplay() {
     if (!window.quotationData || window.quotationData.category !== 'kitchen') {
         return;
@@ -12018,78 +12104,6 @@ function updateKitchenPreviewDisplay() {
     $('#quotationItemsTable').html(tableHTML);
     $('#totalDurationDays').text(totalDaysSum);
 }
-
-// Also update the renderKitchenItemsTable function to ensure data is stored globally
-function renderKitchenItemsTable() {
-    const tbody = $('#kitchenItemsBody');
-    
-    if (!window.kitchenCabinetItems) {
-        window.kitchenCabinetItems = [];
-    }
-    
-    if (window.kitchenCabinetItems.length === 0) {
-        tbody.html(`
-            <tr id="kitchenEmptyRow">
-                <td colspan="6" class="text-center py-3 text-muted">
-                    Click "Add Item" to add kitchen/cabinet items
-                </td>
-            </tr>
-        `);
-        $('#kitchenItemCount').text('0');
-        $('#kitchenTotalCost').text('0.00');
-        $('#kitchenTotalDays').text('0');
-        return;
-    }
-    
-    let totalCost = 0;
-    let totalDays = 0;
-    let html = '';
-    
-    window.kitchenCabinetItems.forEach((item, index) => {
-        totalCost += item.total;
-        totalDays += item.days;
-        
-        html += `
-            <tr>
-                <td>
-                    <input type="text" class="form-control form-control-sm" 
-                           value="${escapeHtml(item.name)}" 
-                           onchange="updateKitchenItem(${index}, 'name', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.quantity}" min="1"
-                           onchange="updateKitchenItem(${index}, 'quantity', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.amount}" min="0" step="100"
-                           onchange="updateKitchenItem(${index}, 'amount', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.days}" min="1"
-                           onchange="updateKitchenItem(${index}, 'days', this.value)">
-                </td>
-                <td><strong>$${item.total.toLocaleString()}</strong></td>
-                <td>
-                    <button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-    
-    tbody.html(html);
-    $('#kitchenItemCount').text(window.kitchenCabinetItems.length);
-    $('#kitchenTotalCost').text(totalCost.toLocaleString());
-    $('#kitchenTotalDays').text(totalDays);
-}
-
-// Make sure kitchenCabinetItems is initialized globally
-window.kitchenCabinetItems = window.kitchenCabinetItems || [];
-
 
 
 // Function to load existing quotation for editing
