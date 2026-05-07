@@ -591,6 +591,19 @@
         ::-webkit-scrollbar-thumb { background: var(--crimson-sidebar); border-radius: 10px; }
         .text-crimson { color: var(--crimson-bright); }
         hr { border-color: var(--dark-blue-deep); }
+
+        /* Kitchen preview table styling */
+        #quotationPreviewModal .table thead th {
+            background-color: #9B1D2C !important;
+            color: white !important;
+            font-size: 0.7rem !important;
+            padding: 4px 6px !important;
+        }
+
+        #quotationPreviewModal .table td {
+            font-size: 0.7rem !important;
+            padding: 4px 6px !important;
+        }
     </style>
 </head>
 
@@ -3293,6 +3306,99 @@
         </div>
     </main>
 
+<!-- Kitchen & Cabinets Preview Modal - SEPARATE -->
+<div id="kitchenPreviewModal" class="modal-overlay">
+    <div class="modal-container large" style="color: var(--dark-blue-deep); font-size: 0.78rem;">
+        <div class="modal-header-custom" style="padding: 10px 16px;">
+            <h3 style="font-size: 1rem;"><i class="bi bi-cabinet"></i> Kitchen & Cabinets Quotation</h3>
+            <button class="close-modal" style="font-size: 1rem; padding: 2px 8px;" onclick="closeModal('kitchenPreviewModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto; padding: 10px 10px;">
+            <!-- Client & Project Info -->
+            <div class="mb-3 p-2 border rounded" style="background-color: #f8f9fa; font-size: 0.92em;">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1" style="font-size: 0.95em;"><strong>Client Name:</strong> <span id="kitchenPreviewClientName"></span></p>
+                        <p class="mb-0" style="font-size: 0.95em;"><strong>Category:</strong> <span id="kitchenPreviewCategory">KITCHEN & CABINETS</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1" style="font-size: 0.95em;"><strong>Date:</strong> <span id="kitchenPreviewDate"></span></p>
+                        <p class="mb-0" style="font-size: 0.95em;"><strong>WhatsApp:</strong> <span id="kitchenPreviewWhatsapp"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="mb-3">
+                <h6 class="fw-bold mb-2" style="font-size: 0.95em;">Kitchen & Cabinet Items</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" style="font-size: 0.7em;">
+                        <thead style="background-color: #9B1D2C; color: white;">
+                            <tr>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Amount (USD)</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Days</th>
+                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Total Price</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kitchenPreviewItemsTable">
+                            <tr>
+                                <td colspan="5" class="text-center py-3">No items in this quotation</td>
+                            </table>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Total Cost Summary -->
+            <div class="mb-3 p-2 border rounded" style="background-color: #e8f4f8; border-left: 3px solid #9B1D2C; font-size: 0.92em;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold" style="font-size: 0.95em;">Total Cost:</span>
+                    <span class="fw-bold" style="color: #9B1D2C; font-size: 1.1em;">USD <span id="kitchenPreviewTotalCost">0.00</span></span>
+                </div>
+            </div>
+
+            <!-- Total Duration -->
+            <div class="mb-2">
+                <div class="alert alert-info py-2 mb-0" style="font-size: 0.75rem; background-color: #e8f4f8; border-left: 3px solid #2196F3;">
+                    <strong>Total Installation Duration:</strong> <span id="kitchenPreviewTotalDays">0</span> days
+                </div>
+            </div>
+
+            <!-- Work Schedule -->
+            <div class="mb-2" id="kitchenScheduleContainer" style="display: none;">
+                <h6 class="fw-bold mb-2" style="font-size: 0.95em;">Installation Schedule</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" style="font-size: 0.7em;">
+                        <thead style="background-color: #1E2A56; color: white;">
+                            <tr>
+                                <th style="width: 8%;">#</th>
+                                <th style="width: 52%; text-align: left;">Work Scope</th>
+                                <th style="width: 20%; text-align: center;">Start Date</th>
+                                <th style="width: 20%; text-align: center;">End Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kitchenPreviewScheduleBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom" style="padding: 8px 10px;">
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" onclick="closeModal('kitchenPreviewModal')">Back</button>
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" id="kitchenDownloadQuotationBtn">
+                <i class="bi bi-download"></i> Save & Download Quotation
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" id="kitchenSendQuotationBtn">
+                <i class="bi bi-send"></i> Send Quotation
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Remove User Modal - Blur Overlay Version -->
 <div id="removeUserModal" class="modal-overlay">
     <div class="modal-container">
@@ -3593,6 +3699,114 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Kitchen/Cabinets Container (NEW - replaces the need for separate modal) -->
+                <div id="kitchenCabinetContainer" style="display: none;">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold d-block mb-3">
+                            <i class="bi bi-cabinet"></i> Kitchen & Cabinet Items
+                        </label>
+
+                        <!-- Summary Box -->
+                        <div class="alert alert-light border mb-3" style="font-size: 0.9rem;">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div><strong>Items:</strong> <span id="kitchenItemCount">0</span></div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div><strong>Total Days:</strong> <span id="kitchenTotalDays">0</span></div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">Total: $<span id="kitchenTotalCost">0.00</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Item Button -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-success btn-sm" id="addKitchenItemBtn">
+                                <i class="bi bi-plus-circle"></i> Add Item
+                            </button>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered" id="kitchenItemsTable" style="font-size: 0.8rem;">
+                                <thead style="background-color: #1E2A56; color: white;">
+                                    <tr>
+                                        <th style="width: 35%;">Item Name</th>
+                                        <th style="width: 15%;">Qty</th>
+                                        <th style="width: 15%;">Amount (USD)</th>
+                                        <th style="width: 15%;">Days</th>
+                                        <th style="width: 15%;">Subtotal</th>
+                                        <th style="width: 5%;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kitchenItemsBody">
+                                    <tr id="kitchenEmptyRow">
+                                        <td colspan="6" class="text-center py-3 text-muted">
+                                            Click "Add Item" to add kitchen/cabinet items
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+<!-- Add Kitchen/Cabinet Item Modal -->
+<div id="addKitchenItemModal" class="modal-overlay">
+    <div class="modal-container small">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-plus-circle"></i> Add Kitchen/Cabinet Item</h3>
+            <button class="close-modal" onclick="closeModal('addKitchenItemModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Item Name</label>
+                <select class="form-select" id="kitchenItemSelect">
+                    <option value="">-- Select item or type new --</option>
+                    <option value="Matt Kitchen including Local Granite">Matt Kitchen including Local Granite</option>
+                    <option value="Matt Kitchen including Quartz">Matt Kitchen including Quartz</option>
+                    <option value="Gloss Kitchen including Quartz">Gloss Kitchen including Quartz</option>
+                    <option value="Main Bedroom Cabinets">Main Bedroom Cabinets</option>
+                    <option value="Other Bedroom Cabinets">Other Bedroom Cabinets</option>
+                </select>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="kitchenItemQty" value="1" min="1">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Amount (USD)</label>
+                    <input type="number" class="form-control" id="kitchenItemAmount" value="0" min="0" step="100">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Days</label>
+                    <input type="number" class="form-control" id="kitchenItemDays" value="1" min="1">
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="alert alert-info" id="otherBedroomsInfo" style="display: none;">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Other Bedrooms:</strong> For "Other Bedroom Cabinets", the amount will be multiplied by the number of bedrooms.
+                    <br>
+                    <label class="form-label mt-2">Number of other bedrooms:</label>
+                    <input type="number" class="form-control" id="otherBedroomsNumber" value="1" min="1" max="10">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('addKitchenItemModal')">Cancel</button>
+            <button type="button" class="btn btn-primary" id="confirmAddKitchenItemBtn">Add Item</button>
+        </div>
+    </div>
+</div>
+
+
             </form>
         </div>
         <div class="modal-footer-custom">
@@ -3806,6 +4020,200 @@
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
+
+let kitchenCabinetItems = [];
+
+// Show/hide container based on category selection
+$('#quotationCategory').change(function() {
+    const category = $(this).val();
+    
+    if (category === 'construction_single' || category === 'construction_double') {
+        $('#quotationSizeContainer').show();
+        $('#constructionDetailsContainer').show();
+        $('#kitchenCabinetContainer').hide();
+    } else if (category === 'kitchen') {
+        $('#quotationSizeContainer').hide();
+        $('#constructionDetailsContainer').hide();
+        $('#kitchenCabinetContainer').show();
+    } else {
+        $('#quotationSizeContainer').hide();
+        $('#constructionDetailsContainer').hide();
+        $('#kitchenCabinetContainer').hide();
+    }
+});
+
+// Show add item modal
+    $('#addKitchenItemBtn').off('click').on('click', function() {
+        // Store current form data in session before opening modal
+        const currentData = {
+            clientName: $('#quotationClientName').val(),
+            clientWhatsapp: $('#quotationClientWhatsapp').val(),
+            quotationDate: $('#quotationDate').val(),
+            items: window.kitchenCabinetItems || []
+        };
+        sessionStorage.setItem('kitchenQuotationBackup', JSON.stringify(currentData));
+        
+        // Open the add item modal
+        openModal('addKitchenItemModal');
+    });
+
+// Handle item selection change to show bedroom info
+$('#kitchenItemSelect').change(function() {
+    const selected = $(this).val();
+    if (selected === 'Other Bedroom Cabinets') {
+        $('#otherBedroomsInfo').show();
+    } else {
+        $('#otherBedroomsInfo').hide();
+    }
+});
+
+$('#addKitchenItemModal').on('hidden.bs.modal', function() {
+    const backup = sessionStorage.getItem('kitchenQuotationBackup');
+    if (backup) {
+        const data = JSON.parse(backup);
+        $('#quotationClientName').val(data.clientName);
+        $('#quotationClientWhatsapp').val(data.clientWhatsapp);
+        $('#quotationDate').val(data.quotationDate);
+        if (data.items && data.items.length) {
+            window.kitchenCabinetItems = data.items;
+            renderKitchenItemsTable();
+        }
+        sessionStorage.removeItem('kitchenQuotationBackup');
+    }
+});
+
+window.kitchenCabinetItems = window.kitchenCabinetItems || [];
+
+function renderKitchenItemsTable() {
+    const tbody = document.getElementById('kitchenItemsBody');
+    if (!tbody) return;
+    
+    // Update totals display
+    let totalCostValue = 0;
+    let totalDaysValue = 0;
+    
+    if (!window.kitchenCabinetItems || window.kitchenCabinetItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">Click "Add Item" to add kitchen/cabinet items</td></tr>`;
+        document.getElementById('kitchenItemCount').textContent = '0';
+        document.getElementById('kitchenTotalCost').textContent = '0.00';
+        document.getElementById('kitchenTotalDays').textContent = '0';
+        return;
+    }
+    
+    let html = '';
+    window.kitchenCabinetItems.forEach((item, index) => {
+        const itemTotal = (item.quantity || 1) * (item.amount || 0);
+        totalCostValue += itemTotal;
+        totalDaysValue += (item.days || 1);
+        
+        html += `
+            <tr>
+                <td><input type="text" class="form-control form-control-sm" value="${escapeHtml(item.name || '')}" onchange="updateKitchenItem(${index}, 'name', this.value)"></td>
+                <td><input type="number" class="form-control form-control-sm" value="${item.quantity || 1}" min="1" onchange="updateKitchenItem(${index}, 'quantity', this.value)"></td>
+                <td><input type="number" class="form-control form-control-sm" value="${item.amount || 0}" min="0" step="100" onchange="updateKitchenItem(${index}, 'amount', this.value)"></td>
+                <td><input type="number" class="form-control form-control-sm" value="${item.days || 1}" min="1" onchange="updateKitchenItem(${index}, 'days', this.value)"></td>
+                <td><strong>$${itemTotal.toLocaleString()}</strong></td>
+                <td><button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})"><i class="bi bi-trash"></i></button></td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+    document.getElementById('kitchenItemCount').textContent = window.kitchenCabinetItems.length;
+    document.getElementById('kitchenTotalCost').textContent = totalCostValue.toLocaleString();
+    document.getElementById('kitchenTotalDays').textContent = totalDaysValue;
+}
+
+
+$('#confirmAddKitchenItemBtn').click(function() {
+    let itemName = $('#kitchenItemSelect').val();
+    if (!itemName) {
+        alert('Please select an item');
+        return;
+    }
+    
+    let quantity = parseInt($('#kitchenItemQty').val()) || 1;
+    let amount = parseFloat($('#kitchenItemAmount').val()) || 0;
+    let days = parseInt($('#kitchenItemDays').val()) || 1;
+    
+    // Handle Other Bedrooms special case
+    if (itemName === 'Other Bedroom Cabinets') {
+        const otherCount = parseInt($('#otherBedroomsNumber').val()) || 1;
+        quantity = otherCount;
+        itemName = `${otherCount}x ${itemName}`;
+    }
+    
+    // Add to global array
+    window.kitchenCabinetItems.push({
+        name: itemName,
+        quantity: quantity,
+        amount: amount,
+        days: days,
+        total: quantity * amount
+    });
+    
+    console.log('Added item:', window.kitchenCabinetItems[window.kitchenCabinetItems.length - 1]);
+    console.log('All kitchen items:', window.kitchenCabinetItems);
+    
+    renderKitchenItemsTable();
+    closeModal('addKitchenItemModal');
+    
+    // Reset form
+    $('#kitchenItemSelect').val('');
+    $('#kitchenItemQty').val('1');
+    $('#kitchenItemAmount').val('0');
+    $('#kitchenItemDays').val('1');
+    $('#otherBedroomsNumber').val('1');
+    $('#otherBedroomsInfo').hide();
+});
+
+// Remove item from table
+function removeKitchenItem(index) {
+    console.log('Removing item at index:', index);
+    console.log('Before removal:', window.kitchenCabinetItems);
+    
+    if (window.kitchenCabinetItems && window.kitchenCabinetItems[index]) {
+        window.kitchenCabinetItems.splice(index, 1);
+        console.log('After removal:', window.kitchenCabinetItems);
+        
+        // Re-render the table
+        renderKitchenItemsTable();
+        
+        // Update the kitchenQuotationData if it exists
+        if (window.kitchenQuotationData) {
+            window.kitchenQuotationData.items = window.kitchenCabinetItems;
+            // Recalculate totals
+            let newTotal = 0;
+            let newDays = 0;
+            window.kitchenCabinetItems.forEach(item => {
+                newTotal += (item.quantity || 1) * (item.amount || 0);
+                newDays += (item.days || 1);
+            });
+            window.kitchenQuotationData.totalCost = newTotal;
+            window.kitchenQuotationData.totalDays = newDays;
+        }
+    } else {
+        console.error('Invalid index or kitchenCabinetItems not defined');
+    }
+}
+
+
+function updateKitchenItem(index, field, value) {
+    if (!window.kitchenCabinetItems[index]) return;
+    
+    if (field === 'quantity') {
+        window.kitchenCabinetItems[index].quantity = parseInt(value) || 1;
+    } else if (field === 'amount') {
+        window.kitchenCabinetItems[index].amount = parseFloat(value) || 0;
+    } else if (field === 'days') {
+        window.kitchenCabinetItems[index].days = parseInt(value) || 1;
+    } else if (field === 'name') {
+        window.kitchenCabinetItems[index].name = value;
+    }
+    
+    renderKitchenItemsTable();
+}
+
 
 // ==================== QUOTATION SAVE FUNCTION ====================
 async function saveAndDownloadQuotation() {
@@ -7476,6 +7884,402 @@ const enquiryTypeConfig = {
     }
 };
 
+
+function displayKitchenPreview() {
+    if (!window.kitchenQuotationData) return;
+    
+    const data = window.kitchenQuotationData;
+    
+    // Recalculate totals to ensure accuracy
+    let recalculatedTotal = 0;
+    let recalculatedDays = 0;
+    data.items.forEach(item => {
+        recalculatedTotal += (item.quantity || 1) * (item.amount || 0);
+        recalculatedDays += (item.days || 1);
+    });
+    
+    // Update data with recalculated values
+    data.totalCost = recalculatedTotal;
+    data.totalDays = recalculatedDays;
+    
+    console.log('Display preview - Total cost:', data.totalCost);
+    
+    // Update client info
+    document.getElementById('kitchenPreviewClientName').textContent = data.clientName;
+    document.getElementById('kitchenPreviewDate').textContent = new Date(data.quotationDate).toLocaleDateString('en-US');
+    document.getElementById('kitchenPreviewWhatsapp').textContent = data.clientWhatsapp || 'Not provided';
+    
+    // Build items table
+    let itemsHTML = '';
+    data.items.forEach((item) => {
+        const itemTotal = (item.quantity || 1) * (item.amount || 0);
+        itemsHTML += `<tr>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(item.name)}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity || 1}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${item.days || 1}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+        </tr>`;
+    });
+    
+    document.getElementById('kitchenPreviewItemsTable').innerHTML = itemsHTML;
+    document.getElementById('kitchenPreviewTotalCost').textContent = data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    document.getElementById('kitchenPreviewTotalDays').textContent = data.totalDays;
+    
+    // Build schedule if exists
+    if (data.schedules && data.schedules.length > 0) {
+        document.getElementById('kitchenScheduleContainer').style.display = 'block';
+        let scheduleHTML = '';
+        data.schedules.forEach((schedule, idx) => {
+            const startDate = new Date(schedule.startDate).toLocaleDateString('en-GB');
+            const endDate = new Date(schedule.endDate).toLocaleDateString('en-GB');
+            scheduleHTML += `<tr>
+                <td style="padding: 6px; text-align: center;">${idx + 1}</td>
+                <td style="padding: 6px; text-align: left;">${escapeHtml(schedule.workScope)}</td>
+                <td style="padding: 6px; text-align: center;">${startDate}</td>
+                <td style="padding: 6px; text-align: center;">${endDate}</td>
+            </tr>`;
+        });
+        document.getElementById('kitchenPreviewScheduleBody').innerHTML = scheduleHTML;
+    } else {
+        document.getElementById('kitchenScheduleContainer').style.display = 'none';
+    }
+}
+
+
+// Save Kitchen Quotation
+// Save Kitchen Quotation
+async function saveKitchenQuotation() {
+    if (!window.kitchenQuotationData) {
+        alert('No quotation data available');
+        return;
+    }
+    
+    const data = window.kitchenQuotationData;
+    
+    // DEBUG: Check what we're about to save
+    console.log('=== SAVING KITCHEN QUOTATION ===');
+    console.log('Total cost from data:', data.totalCost);
+    console.log('Items:', data.items);
+    
+    // Calculate total cost again to be SURE
+    let calculatedTotal = 0;
+    data.items.forEach(item => {
+        calculatedTotal += (item.quantity || 1) * (item.amount || 0);
+    });
+    console.log('Calculated total:', calculatedTotal);
+    
+    // Use the calculated total to be safe
+    const finalTotal = calculatedTotal;
+    
+    // In your saveKitchenQuotation function, make sure items include amount field
+    const payload = {
+        clientName: data.clientName,
+        clientWhatsapp: data.clientWhatsapp || '',
+        quotationDate: data.quotationDate,
+        category: 'kitchen',
+        size: 0,
+        totalCost: calculatedTotal,  // This already includes 30% markup
+        markup: 30,  // Explicitly set markup to 30%
+        items: data.items.map((item, index) => ({
+            name: item.name,
+            quantity: item.quantity || 1,
+            amount: item.amount || 0,  // Per-unit price (includes markup)
+            unitRate: item.amount / 1.30,  // Base unit rate (without markup) - for reference
+            days: item.days || 1,
+            totalPrice: (item.quantity || 1) * (item.amount || 0)
+        })),
+        schedules: data.schedules.map((schedule, index) => ({
+            workScope: schedule.workScope,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            days: schedule.days || 1,
+            task_order: index + 1
+        }))
+    };
+    
+    console.log('Payload being sent:', payload);
+    console.log('Payload totalCost:', payload.totalCost);
+    console.log('Payload items totalPrice sum:', payload.items.reduce((sum, i) => sum + i.totalPrice, 0));
+    
+    const saveBtn = document.getElementById('kitchenDownloadQuotationBtn');
+    const originalText = saveBtn.innerHTML;
+    
+    try {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+        
+        const response = await fetch('/api/save-quotation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        console.log('Save response:', result);
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to save quotation');
+        }
+        
+        alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id}) with total: $${finalTotal.toFixed(2)}`);
+        
+        // Generate PDF
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+        await generateKitchenPDF('download');
+        
+        // Refresh quotations list
+        if (typeof loadQuotations === 'function') {
+            loadQuotations();
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error: ' + error.message);
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+    }
+}
+
+// Send Kitchen Quotation
+// Send Kitchen Quotation
+async function sendKitchenQuotation() {
+    if (!window.kitchenQuotationData) {
+        alert('No quotation data available');
+        return;
+    }
+    
+    const data = window.kitchenQuotationData;
+    const clientWhatsapp = (data.clientWhatsapp || '').toString().trim();
+    
+    if (!clientWhatsapp) {
+        alert('Client WhatsApp number is required before sending quotation.');
+        return;
+    }
+    
+    // Calculate total cost again
+    let calculatedTotal = 0;
+    data.items.forEach(item => {
+        calculatedTotal += (item.quantity || 1) * (item.amount || 0);
+    });
+    const finalTotal = calculatedTotal;
+    
+    console.log('Sending kitchen quotation with total:', finalTotal);
+    
+    const btn = document.getElementById('kitchenSendQuotationBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    
+    try {
+        const payload = {
+            clientName: data.clientName,
+            clientWhatsapp: data.clientWhatsapp || '',
+            quotationDate: data.quotationDate,
+            category: 'kitchen',
+            size: 0,
+            totalCost: finalTotal,
+            markup: 0,
+            items: data.items.map((item, index) => ({
+                name: item.name,
+                quantity: item.quantity || 1,
+                unitRate: item.amount || 0,
+                totalPrice: (item.quantity || 1) * (item.amount || 0),
+                days: item.days || 1,
+                item_order: index + 1
+            })),
+            schedules: data.schedules.map((schedule, index) => ({
+                workScope: schedule.workScope,
+                startDate: schedule.startDate,
+                endDate: schedule.endDate,
+                days: schedule.days || 1,
+                task_order: index + 1
+            }))
+        };
+        
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+        
+        const saveResponse = await fetch('/api/save-quotation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const saveResult = await saveResponse.json();
+        console.log('Save result:', saveResult);
+        
+        if (!saveResult.success) {
+            throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
+        }
+        
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+        const dataUri = await generateKitchenPDF('datauri');
+        const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
+        
+        if (!pdfBase64) {
+            throw new Error('Failed to generate PDF');
+        }
+        
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
+        const sendResponse = await fetch('/api/send-quotation-whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                clientName: data.clientName,
+                whatsappNumber: clientWhatsapp,
+                quotationId: saveResult.quotation_id,
+                pdfBase64: pdfBase64
+            })
+        });
+        
+        const sendResult = await sendResponse.json();
+        if (!sendResult.success) {
+            throw new Error(sendResult.error || 'Failed to send');
+        }
+        
+        alert(`✅ Quotation sent successfully to ${clientWhatsapp}!`);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Failed: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+
+// Generate Kitchen PDF
+async function generateKitchenPDF(outputMode = 'download') {
+    const data = window.kitchenQuotationData;
+    if (!data) return null;
+    
+    const clientName = data.clientName || 'Client';
+    const quotationDate = data.quotationDate;
+    const totalCost = data.totalCost;
+    
+    // Build items rows
+    let itemsRows = '';
+    let totalDays = 0;
+    
+    data.items.forEach((item, index) => {
+        totalDays += item.days;
+        const bg = index % 2 === 0 ? '#ffffff' : '#fafbff';
+        itemsRows += `
+            <tr style="background:${bg};">
+                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center;">${index + 1}</td>
+                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left;">${escapeHtml(item.name)}</td>
+                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center;">${item.quantity}</td>
+                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; color:#2196F3;">${item.days}</td>
+                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; font-weight:700;">USD ${(item.totalPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            </tr>`;
+    });
+    
+    const itemsTotalRow = `
+        <tr style="background:#1E2A56; color:white;">
+            <td colspan="4" style="padding:8px 10px; text-align:right;"><strong>TOTAL</strong></td>
+            <td style="padding:8px 10px; text-align:center;"><strong>${totalDays}</strong></td>
+            <td style="padding:8px 10px; text-align:right;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
+        </tr>`;
+    
+    const depositAmount = totalCost * 0.30;
+    const balanceAmount = totalCost - depositAmount;
+    const monthlyInstallment = balanceAmount / 5;
+    
+    const htmlContent = `
+        <div style="font-family: 'Roboto', Arial, sans-serif; background:#ffffff; color:#1E2A56; padding:0;">
+            <div style="background:#ffffff; width:100%; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px;">
+                <img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display:block; margin:0 auto 10px auto; width:130px;">
+                <h1 style="margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56;">Kitchen & Cabinets Quotation</h1>
+                <div style="width:100px; height:2px; background:#1E2A56; margin:0 auto 14px auto;"></div>
+                
+                <p style="font-size:12px; margin:0 0 12px 0;">This quotation outlines the proposed kitchen/cabinet items for <strong>${escapeHtml(clientName)}</strong>.</p>
+                
+                <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; margin-bottom:20px;">
+                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+                        <div><strong>Client:</strong> ${escapeHtml(clientName)}</div>
+                        <div><strong>Category:</strong> Kitchen & Cabinets</div>
+                        <div><strong>Date:</strong> ${new Date(quotationDate).toLocaleDateString('en-GB')}</div>
+                    </div>
+                </div>
+                
+                <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;">
+                    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px; text-align:center;">
+                        <div><div style="font-size:10px; color:#5a678a;">Total Amount</div><div style="font-size:13px; font-weight:900;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                        <div><div style="font-size:10px; color:#5a678a;">Deposit (30%)</div><div style="font-size:13px; font-weight:700;">USD ${depositAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                        <div><div style="font-size:10px; color:#5a678a;">Balance</div><div style="font-size:13px; font-weight:700;">USD ${balanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                        <div><div style="font-size:10px; color:#5a678a;">Monthly (5 months)</div><div style="font-size:13px; font-weight:700;">USD ${monthlyInstallment.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                        <div><div style="font-size:10px; color:#5a678a;">Duration</div><div style="font-size:13px; font-weight:700; color:#2196F3;">${totalDays} Days</div></div>
+                    </div>
+                </div>
+                
+                <h4 style="background:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0;">KITCHEN & CABINET ITEMS</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px;">
+                    <thead>
+                        <tr><th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">#</th>
+                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Item</th>
+                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Qty</th>
+                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Unit Price</th>
+                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Days</th>
+                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsRows}
+                        ${itemsTotalRow}
+                    </tbody>
+                </table>
+                
+                <div style="display:flex; gap:16px; margin-bottom:20px;">
+                    <div style="flex:1; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px;">
+                        <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong>. All prices are in <strong>USD</strong>.
+                        <div style="margin-top:8px;"><strong>Terms:</strong> 30% deposit required before work commences.</div>
+                    </div>
+                    <div style="flex:1; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px;">
+                        <strong>Banking Details</strong>
+                        <div>Bank: ZB BANK</div>
+                        <div>Account: Connectlink Agency (Pvt) Ltd</div>
+                        <div>Account No: 450600586638405</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const options = {
+        margin: [6, 6, 6, 6],
+        filename: `Kitchen_Quotation_${clientName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+    };
+    
+    const worker = html2pdf().set(options).from(htmlContent);
+    
+    if (outputMode === 'datauri') {
+        return worker.outputPdf('datauristring');
+    }
+    
+    await worker.save();
+    return null;
+}
+
+// Attach event listeners for kitchen modal buttons
+$(document).ready(function() {
+    $('#kitchenDownloadQuotationBtn').off('click').on('click', saveKitchenQuotation);
+    $('#kitchenSendQuotationBtn').off('click').on('click', sendKitchenQuotation);
+    
+    // Hide kitchen container when switching from kitchen category
+    $('#quotationCategory').on('change', function() {
+        const category = $(this).val();
+        if (category !== 'kitchen') {
+            $('#kitchenCabinetContainer').hide();
+        }
+    });
+});
+
 // Load enquiries data
 function loadEnquiriesData() {
     console.log('Loading enquiries data...');
@@ -7520,6 +8324,24 @@ function loadEnquiriesData() {
         .finally(() => {
             showLoading(false);
         });
+}
+
+function addKitchenItemAndStay() {
+    // Get current form values WITHOUT navigating away
+    const clientName = document.getElementById('quotationClientName')?.value || '';
+    const clientWhatsapp = document.getElementById('quotationClientWhatsapp')?.value || '';
+    const quotationDate = document.getElementById('quotationDate')?.value || new Date().toISOString().split('T')[0];
+    
+    // Store in sessionStorage temporarily
+    sessionStorage.setItem('pendingKitchenQuotation', JSON.stringify({
+        clientName: clientName,
+        clientWhatsapp: clientWhatsapp,
+        quotationDate: quotationDate,
+        category: 'kitchen'
+    }));
+    
+    // Open the add item modal (already exists in your code)
+    openModal('addKitchenItemModal');
 }
 
 // Show/hide loading - FIXED with null checks
@@ -11146,7 +11968,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Load and display items from database
                 loadConstructionItemsFromDatabase();
-            } else {
+            } 
+            else if (selectedCategory === 'kitchen') {
+                    $('#quotationSizeContainer').hide();
+                    $('#constructionDetailsContainer').hide();
+                    $('#kitchenCabinetContainer').show();
+                    
+                    // Initialize kitchen items array if not exists
+                    if (!window.kitchenCabinetItems) {
+                        window.kitchenCabinetItems = [];
+                    }
+                    renderKitchenItemsTable();
+            } 
+            else {
                 $('#quotationSizeContainer').hide();
                 $('#constructionDetailsContainer').hide();
                 $('#quotationSize').prop('required', false);
@@ -11346,9 +12180,82 @@ $('#generateQuotationBtn').click(function() {
     // Check if construction category (either single or double storey)
     const isConstruction = (category === 'construction_single' || category === 'construction_double');
     const isSingleStorey = (category === 'construction_single');
-    
+
+    if (category === 'kitchen') {
+        if (!window.kitchenCabinetItems || window.kitchenCabinetItems.length === 0) {
+            alert('Please add at least one kitchen/cabinet item.');
+            return;
+        }
+        
+        // Calculate total cost and total days - MAKE SURE THIS IS CORRECT
+        let totalCost = 0;
+        let totalDays = 0;
+        
+        const itemsForQuotation = window.kitchenCabinetItems.map(item => {
+            const quantity = item.quantity || 1;
+            const amount = item.amount || 0;
+            const itemTotal = quantity * amount;
+            totalCost += itemTotal;
+            totalDays += (item.days || 1);
+            
+            console.log(`Item: ${item.name}, Qty: ${quantity}, Amount: ${amount}, Total: ${itemTotal}`);
+            
+            return {
+                name: item.name,
+                quantity: quantity,
+                amount: amount,
+                days: item.days || 1,
+                totalPrice: itemTotal
+            };
+        });
+        
+        console.log('FINAL TOTAL COST:', totalCost);
+        console.log('FINAL TOTAL DAYS:', totalDays);
+        
+        // Generate work schedule
+        let currentStartDate = new Date(quotationDate);
+        const schedules = [];
+        
+        window.kitchenCabinetItems.forEach((item) => {
+            const endDate = new Date(currentStartDate);
+            endDate.setDate(endDate.getDate() + (item.days || 1) - 1);
+            
+            schedules.push({
+                workScope: item.name,
+                startDate: currentStartDate.toISOString().split('T')[0],
+                endDate: endDate.toISOString().split('T')[0],
+                days: item.days || 1
+            });
+            
+            currentStartDate = new Date(endDate);
+            currentStartDate.setDate(currentStartDate.getDate() + 1);
+        });
+        
+        // Store data for kitchen
+        window.kitchenQuotationData = {
+            category: category,
+            clientName: clientName,
+            clientWhatsapp: clientWhatsapp,
+            quotationDate: quotationDate,
+            items: itemsForQuotation,
+            schedules: schedules,
+            totalCost: totalCost,
+            totalDays: totalDays
+        };
+        
+        console.log('Kitchen quotation data saved:', window.kitchenQuotationData);
+        
+        // Close generator and open KITCHEN preview modal
+        closeModal('quotationgeneratorModal');
+        setTimeout(() => {
+            displayKitchenPreview();
+            openModal('kitchenPreviewModal');
+        }, 300);
+        return;
+    }
+
     // If construction is selected, validate additional fields
-    if (isConstruction) {
+    else if (isConstruction) {
         const size = $('#quotationSize').val();
         const markup = $('#quotationMarkup').val();
         if (!size || !markup) {
@@ -11672,6 +12579,100 @@ $('#generateQuotationBtn').click(function() {
 });
 
 
+
+function updateKitchenPreviewDisplay() {
+    if (!window.quotationData || window.quotationData.category !== 'kitchen') {
+        return;
+    }
+    
+    const data = window.quotationData;
+    
+    console.log('=== KITCHEN PREVIEW DEBUG ===');
+    console.log('Data items:', data.items);
+    
+    // Update the preview modal with kitchen-specific display
+    const previewClientName = document.getElementById('previewClientName');
+    const previewCategory = document.getElementById('previewCategory');
+    const previewDate = document.getElementById('previewDate');
+    const previewSize = document.getElementById('previewSize');
+    const quotationTotalCost = document.getElementById('quotationTotalCost');
+    const totalDurationDays = document.getElementById('totalDurationDays');
+    const quotationItemsTable = document.getElementById('quotationItemsTable');
+    
+    if (previewClientName) previewClientName.textContent = data.clientName;
+    if (previewCategory) previewCategory.textContent = 'KITCHEN & CABINETS';
+    if (previewDate) previewDate.textContent = new Date(data.quotationDate).toLocaleDateString('en-US');
+    if (previewSize) previewSize.textContent = '-';
+    
+    // Calculate total if not already calculated
+    let totalCost = data.totalCost;
+    let totalDays = 0;
+    
+    // Build items table for kitchen items
+    let tableHTML = '';
+    
+    if (data.items && data.items.length > 0) {
+        // Create thead with kitchen-specific headers
+        tableHTML = `
+            <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
+                <tr>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty</th>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Amount (USD)</th>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Days</th>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Total Price</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        data.items.forEach((item) => {
+            const itemTotal = (item.quantity || 1) * (item.amount || 0);
+            const itemDays = item.days || 1;
+            totalDays += itemDays;
+            
+            tableHTML += `<tr>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(item.name || '')}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity || 1}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${itemDays}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            </tr>`;
+        });
+        
+        // Add total row
+        tableHTML += `<table>
+            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
+            <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDays}</strong></td>
+            <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
+        </table>`;
+        
+        tableHTML += `</tbody>`;
+    } else {
+        tableHTML = `
+            <tbody>
+                <tr><td colspan="5" class="text-center py-3">No items in this quotation</td></tr>
+            </tbody>
+        `;
+    }
+    
+    if (quotationItemsTable) quotationItemsTable.innerHTML = tableHTML;
+    if (totalDurationDays) totalDurationDays.textContent = totalDays;
+    if (quotationTotalCost) quotationTotalCost.textContent = totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    
+    // Also update the table headers in the preview modal
+    const tableHeaders = document.querySelectorAll('#quotationPreviewModal .table thead th');
+    if (tableHeaders.length >= 5) {
+        tableHeaders[0].textContent = 'Item';
+        tableHeaders[1].textContent = 'Qty';
+        tableHeaders[2].textContent = 'Amount (USD)';
+        tableHeaders[3].textContent = 'Days';
+        tableHeaders[4].textContent = 'Total Price';
+    }
+    
+    console.log('Kitchen preview updated - Total cost:', totalCost, 'Total days:', totalDays);
+}
+
 // Function to load existing quotation for editing
 function loadExistingQuotationForEdit(quotationId) {
     fetch('/api/get-quotations')
@@ -11942,6 +12943,12 @@ async function generateQuotationPDF(outputMode = 'download') {
 // Helper function to escape HTML
 
 function renderPreviewItemsTable(data) {
+
+    if (data && data.category === 'kitchen') {
+        updateKitchenPreviewDisplay();
+        return;
+    }
+
     const previewItems = getItemsForQuotationOutput(data);
     let tableHTML = '';
     let totalCostPreview = 0;
@@ -12663,11 +13670,21 @@ function renderGanttItemsList() {
         console.log('Manual reloadQuotations called');
         const container = document.getElementById('quotationsContainer');
         if (container) {
+            container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>';
             loadQuotations();
         } else {
             console.error('quotationsContainer not found for manual reload');
         }
     };
+
+    function reloadQuotations() {
+        console.log('Reloading quotations...');
+        const container = document.getElementById('quotationsContainer');
+        if (container) {
+            container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>';
+            loadQuotations(); // This should fetch and display again
+        }
+    }
 
     function openSentQuotationsModal() {
         openModal('sentQuotationsModal');
@@ -12893,7 +13910,7 @@ function displayQuotations(quotations) {
                         <th style="padding: 5px 4px; text-align: center; width: 75px; border: 1px solid #1E2A56;">Date</th>
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Items</th>
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Tasks</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 70px; border: 1px solid #1E2A56;">Actions</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 110px; border: 1px solid #1E2A56;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -12924,7 +13941,7 @@ function displayQuotations(quotations) {
         displayCategory = categoryMap[displayCategory] || displayCategory;
         
         html += `
-            <tr style="border-bottom: 1px solid #e8e8e8;">
+            <tr style="border-bottom: 1px solid #e8e8e8;" id="quotation-row-${quotation.id}">
                 <td style="padding: 4px 4px; text-align: center; font-weight: 600;">${quotation.id}</td>
                 <td style="padding: 4px 4px; text-align: left;">${escapeHtml(quotation.clientName || 'N/A')}</td>
                 <td style="padding: 4px 4px; text-align: left;">${escapeHtml(displayCategory)}</td>
@@ -12935,8 +13952,11 @@ function displayQuotations(quotations) {
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${itemCount}</span></td>
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${taskCount}</span></td>
                 <td style="padding: 4px 4px; text-align: center;">
-                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px;">
+                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px; margin-right: 4px;">
                         <i class="bi bi-eye"></i> View
+                    </button>
+                    <button class="btn btn-sm btn-danger delete-quotation-btn" data-id="${quotation.id}" data-name="${escapeHtml(quotation.clientName || 'Client')}" style="padding: 2px 6px;">
+                        <i class="bi bi-trash"></i> Delete
                     </button>
                 </td>
             </tr>
@@ -12958,7 +13978,8 @@ function displayQuotations(quotations) {
             const term = this.value.toLowerCase();
             const rows = document.querySelectorAll('#quotationsContainer tbody tr');
             rows.forEach(row => {
-                row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
             });
         };
     }
@@ -12969,7 +13990,228 @@ function displayQuotations(quotations) {
             viewQuotationDetails(parseInt(this.dataset.id));
         };
     });
+    
+    // Attach delete button handlers
+    document.querySelectorAll('.delete-quotation-btn').forEach(btn => {
+        btn.onclick = function() {
+            const quotationId = parseInt(this.dataset.id);
+            const clientName = this.dataset.name;
+            deleteQuotation(quotationId, clientName);
+        };
+    });
 }
+
+function deleteQuotation(quotationId, clientName) {
+    // Ask for confirmation
+    if (!confirm(`⚠️ Delete Quotation #${quotationId} for "${clientName}"?\n\nThis action cannot be undone.`)) {
+        return;
+    }
+    
+    // Show loading state on the button
+    const deleteBtn = event.target.closest('.delete-quotation-btn');
+    const originalHTML = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    
+    // Make API call to delete
+    fetch(`/api/quotations/${quotationId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {function displayQuotations(quotations) {
+    const container = document.getElementById('quotationsContainer');
+    
+    if (!quotations || quotations.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center" style="padding: 6px;">No quotations saved yet</p>';
+        return;
+    }
+
+    // Sort by ID descending
+    const sortedQuotations = [...quotations].sort((a, b) => b.id - a.id);
+
+    let html = `
+        <div style="margin-bottom: 10px;">
+            <input type="text" id="quotationsSearch" class="form-control form-control-sm" placeholder="🔍 Search quotations..." style="max-width: 250px; font-size: 0.6rem; padding: 3px 6px;">
+        </div>
+        <div style="overflow-x: auto; overflow-y: auto; max-height: 500px; border: 1px solid #dee2e6; border-radius: 6px; background: white;">
+            <table style="width: 100%; font-size: 0.6rem; margin-bottom: 0; border-collapse: collapse;">
+                <thead style="position: sticky; top: 0; background-color: #0A1A3A; z-index: 10;">
+                    <tr style="color: white;">
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">ID</th>
+                        <th style="padding: 5px 4px; text-align: left; border: 1px solid #1E2A56;">Client Name</th>
+                        <th style="padding: 5px 4px; text-align: left; border: 1px solid #1E2A56;">Category</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 65px; border: 1px solid #1E2A56;">Size</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 60px; border: 1px solid #1E2A56;">Markup</th>
+                        <th style="padding: 5px 4px; text-align: right; width: 100px; border: 1px solid #1E2A56;">Total Cost</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 75px; border: 1px solid #1E2A56;">Date</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Items</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Tasks</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 120px; border: 1px solid #1E2A56;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    sortedQuotations.forEach((quotation) => {
+        let formattedDate = 'N/A';
+        if (quotation.quotationDate) {
+            try {
+                const dateObj = new Date(quotation.quotationDate);
+                if (!isNaN(dateObj.getTime())) {
+                    formattedDate = dateObj.toLocaleDateString('en-GB');
+                }
+            } catch(e) {}
+        }
+        
+        const itemCount = quotation.items ? quotation.items.length : 0;
+        const taskCount = quotation.schedules ? quotation.schedules.length : 0;
+        const totalCost = quotation.totalCost || 0;
+        
+        let displayCategory = quotation.category || 'N/A';
+        const categoryMap = {
+            'construction_single': 'Single Storey',
+            'construction_double': 'Double Storey',
+            'kitchen': 'Kitchen',
+            'tv_units': 'TV Units'
+        };
+        displayCategory = categoryMap[displayCategory] || displayCategory;
+        
+        html += `
+            <tr style="border-bottom: 1px solid #e8e8e8;" id="quotation-row-${quotation.id}">
+                <td style="padding: 4px 4px; text-align: center; font-weight: 600;">${quotation.id}</td>
+                <td style="padding: 4px 4px; text-align: left;">${escapeHtml(quotation.clientName || 'N/A')}</td>
+                <td style="padding: 4px 4px; text-align: left;">${escapeHtml(displayCategory)}</td>
+                <td style="padding: 4px 4px; text-align: center;">${quotation.projectSize || '0'}</td>
+                <td style="padding: 4px 4px; text-align: center;">${quotation.markup || '0'}%</td>
+                <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: #9B1D2C;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 4px 4px; text-align: center;">${formattedDate}</td>
+                <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${itemCount}</span></td>
+                <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${taskCount}</span></td>
+                <td style="padding: 4px 4px; text-align: center;">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px; font-size: 0.6rem;">
+                            <i class="bi bi-eye"></i> View
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-quotation-btn" data-id="${quotation.id}" data-name="${escapeHtml(quotation.clientName || 'Client')}" style="padding: 2px 6px; font-size: 0.6rem;">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+
+    // Simple search
+    const searchInput = document.getElementById('quotationsSearch');
+    if (searchInput) {
+        searchInput.onkeyup = function() {
+            const term = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#quotationsContainer tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
+            });
+        };
+    }
+
+    // Attach view button handlers
+    document.querySelectorAll('.view-quotation-btn').forEach(btn => {
+        btn.onclick = function(e) {
+            e.stopPropagation();
+            viewQuotationDetails(parseInt(this.dataset.id));
+        };
+    });
+    
+    // Attach delete button handlers
+    document.querySelectorAll('.delete-quotation-btn').forEach(btn => {
+        btn.onclick = function(e) {
+            e.stopPropagation();
+            const quotationId = parseInt(this.dataset.id);
+            const clientName = this.dataset.name;
+            deleteQuotation(quotationId, clientName);
+        };
+    });
+}
+
+
+            // Remove the row from the table
+            const row = document.getElementById(`quotation-row-${quotationId}`);
+            if (row) {
+                row.remove();
+            }
+            
+            // Show success message
+            showToastMessage(`✅ Quotation #${quotationId} deleted successfully!`, 'success');
+            
+            // Check if table is now empty
+            const remainingRows = document.querySelectorAll('#quotationsContainer tbody tr');
+            if (remainingRows.length === 0) {
+                document.getElementById('quotationsContainer').innerHTML = '<p class="text-muted text-center" style="padding: 40px;">No quotations saved yet</p>';
+            }
+        } else {
+            // Show error message
+            let errorMsg = data.error || 'Failed to delete quotation';
+            if (data.linkedProjectsCount) {
+                errorMsg = `${errorMsg}\n\nPlease remove the quotation from all projects first.`;
+            }
+            alert(`❌ ${errorMsg}`);
+            
+            // Restore button
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = originalHTML;
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        alert(`❌ Error deleting quotation: ${error.message}`);
+        
+        // Restore button
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = originalHTML;
+    });
+}
+
+// Helper function to show toast messages
+function showToastMessage(message, type = 'success') {
+    const toastHTML = `
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+            <div class="toast show" role="alert">
+                <div class="toast-header ${type === 'success' ? 'bg-success' : 'bg-danger'} text-white">
+                    <i class="bi ${type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2"></i>
+                    <strong class="me-auto">${type === 'success' ? 'Success' : 'Error'}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const container = document.createElement('div');
+    container.innerHTML = toastHTML;
+    document.body.appendChild(container.firstChild);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (container.firstChild) {
+            container.firstChild.remove();
+        }
+    }, 3000);
+}
+
 // Separate handler function for view button
 function handleViewClick(e) {
     const btn = e.currentTarget;
@@ -13418,7 +14660,65 @@ async function downloadQuotationPDFFromPortal(quotationId) {
         throw new Error('Quotation not found');
     }
     
-    // Convert API format to window.quotationData format
+    // Check if it's a kitchen quotation
+    const isKitchen = (quotation.category === 'kitchen');
+    
+    if (isKitchen) {
+        // Use kitchen PDF generator
+        await downloadKitchenQuotationPDFFromPortal(quotation);
+    } else {
+        // Use construction PDF generator
+        await downloadConstructionQuotationPDFFromPortal(quotation);
+    }
+}
+
+// New function for kitchen quotations
+async function downloadKitchenQuotationPDFFromPortal(quotation) {
+    // Convert API format to kitchen format
+    const kitchenData = {
+        clientName: quotation.clientName,
+        clientWhatsapp: quotation.clientWhatsapp || '',
+        quotationDate: quotation.quotationDate,
+        category: quotation.category,
+        totalCost: quotation.totalCost,
+        items: (quotation.items || []).map(item => ({
+            name: item.name,
+            quantity: item.quantity || 1,
+            amount: item.amount || item.unitRate || 0,  // Kitchen uses 'amount' field
+            days: item.days || 1,
+            totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || 0))
+        })),
+        schedules: (quotation.schedules || []).map(schedule => ({
+            workScope: schedule.workScope,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            days: schedule.days || 1
+        }))
+    };
+    
+    // Calculate totals
+    let recalculatedTotal = 0;
+    let recalculatedDays = 0;
+    kitchenData.items.forEach(item => {
+        recalculatedTotal += (item.quantity || 1) * (item.amount || 0);
+        recalculatedDays += (item.days || 1);
+    });
+    kitchenData.totalCost = recalculatedTotal;
+    kitchenData.totalDays = recalculatedDays;
+    
+    // Store and generate kitchen PDF
+    window.kitchenQuotationData = kitchenData;
+    
+    if (typeof window.generateKitchenPDF !== 'function') {
+        throw new Error('Kitchen PDF generator not available');
+    }
+    
+    await window.generateKitchenPDF('download');
+}
+
+// Rename existing function for construction quotations
+async function downloadConstructionQuotationPDFFromPortal(quotation) {
+    // Convert API format to window.quotationData format (construction)
     const data = {
         clientName: quotation.clientName,
         clientWhatsapp: quotation.clientWhatsapp || '',
@@ -13429,7 +14729,7 @@ async function downloadQuotationPDFFromPortal(quotationId) {
         markup: quotation.markup,
         baseCost: quotation.totalCost / (1 + (quotation.markup / 100)),
         markupAmount: quotation.totalCost - (quotation.totalCost / (1 + (quotation.markup / 100))),
-        items: quotation.items.map(item => ({
+        items: (quotation.items || []).map(item => ({
             item: item.name,
             name: item.name,
             sqm: item.quantity,
@@ -13440,7 +14740,7 @@ async function downloadQuotationPDFFromPortal(quotationId) {
     };
 
     // Convert schedules to gantt format
-    const ganttData = quotation.schedules.map(schedule => ({
+    const ganttData = (quotation.schedules || []).map(schedule => ({
         item: schedule.workScope,
         startDate: schedule.startDate,
         endDate: schedule.endDate,
@@ -13458,6 +14758,7 @@ async function downloadQuotationPDFFromPortal(quotationId) {
     
     await window.generateQuotationPDF('download');
 }
+
 
     function generatePDFFromPortal(data, ganttData) {
         // Reuse the same generator used by the quotation creation flow
@@ -13487,41 +14788,59 @@ function editQuotationFromPortal(quotationId) {
 
             // Set editing context
             window.editingQuotationId = quotationId;
+            
+            const isKitchen = (quotation.category === 'kitchen');
 
-            // Load schedules with correct days
-            window.ganttChartData = (quotation.schedules || []).map(s => ({
-                item: s.workScope,
-                startDate: s.startDate,
-                endDate: s.endDate,
-                days: s.days,  // Days from schedule
-                price: 0
-            }));
-            ganttItems = window.ganttChartData.slice();
-
-            // Load items WITH their days (from schedules)
-            window._editingPreSelectItems = (quotation.items || []).map((item, idx) => {
-                // Find matching schedule to get days
-                const matchingSchedule = quotation.schedules ? quotation.schedules[idx] : null;
-                return {
+            if (isKitchen) {
+                // Load kitchen quotation for editing
+                window.kitchenCabinetItems = (quotation.items || []).map(item => ({
                     name: item.name,
-                    sqm: item.quantity,
-                    inhouseRate: item.unitRate,
-                    clientPrice: item.totalPrice,
-                    total: item.totalPrice,
-                    // IMPORTANT: Get days from the corresponding schedule
-                    days: matchingSchedule ? matchingSchedule.days : 0
-                };
-            });
+                    quantity: item.quantity || 1,
+                    amount: item.amount || item.unitRate || 0,
+                    days: item.days || 1
+                }));
+                
+                $('#quotationClientName').val(quotation.clientName || '');
+                $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
+                $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
+                $('#quotationCategory').val('kitchen').change();
+                
+                // Render items table
+                renderKitchenItemsTable();
+                
+                openModal('quotationgeneratorModal');
+            } else {
+                // Load construction quotation for editing (existing logic)
+                window.ganttChartData = (quotation.schedules || []).map(s => ({
+                    item: s.workScope,
+                    startDate: s.startDate,
+                    endDate: s.endDate,
+                    days: s.days,
+                    price: 0
+                }));
+                ganttItems = window.ganttChartData.slice();
 
-            // Pre-fill text fields
-            $('#quotationClientName').val(quotation.clientName || '');
-            $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
-            $('#quotationMarkup').val(quotation.markup != null ? quotation.markup : 30);
-            $('#quotationSize').val(quotation.projectSize || '');
-            $('#quotationDate').prop('readonly', false).val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
-            $('#quotationCategory').val(quotation.category || '').change();
+                window._editingPreSelectItems = (quotation.items || []).map((item, idx) => {
+                    const matchingSchedule = quotation.schedules ? quotation.schedules[idx] : null;
+                    return {
+                        name: item.name,
+                        sqm: item.quantity,
+                        inhouseRate: item.unitRate,
+                        clientPrice: item.totalPrice,
+                        total: item.totalPrice,
+                        days: matchingSchedule ? matchingSchedule.days : 0
+                    };
+                });
 
-            openModal('quotationgeneratorModal');
+                $('#quotationClientName').val(quotation.clientName || '');
+                $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
+                $('#quotationMarkup').val(quotation.markup != null ? quotation.markup : 30);
+                $('#quotationSize').val(quotation.projectSize || '');
+                $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
+                $('#quotationCategory').val(quotation.category || '').change();
+
+                openModal('quotationgeneratorModal');
+            }
         })
         .catch(error => alert('Error: ' + error.message));
 }
@@ -13540,8 +14859,87 @@ async function sendQuotationFromPortal(quotationId) {
     if (!quotation.clientWhatsapp || !quotation.clientWhatsapp.toString().trim()) {
         throw new Error('No WhatsApp number saved for this quotation. Edit the quotation first to add one.');
     }
+    
+    const isKitchen = (quotation.category === 'kitchen');
+    
+    if (isKitchen) {
+        await sendKitchenQuotationFromPortal(quotation);
+    } else {
+        await sendConstructionQuotationFromPortal(quotation);
+    }
+}
 
-    // Build data objects for PDF generation
+async function sendKitchenQuotationFromPortal(quotation) {
+    // Convert to kitchen format
+    const kitchenData = {
+        clientName: quotation.clientName,
+        clientWhatsapp: quotation.clientWhatsapp || '',
+        quotationDate: quotation.quotationDate,
+        category: quotation.category,
+        totalCost: quotation.totalCost,
+        items: (quotation.items || []).map(item => ({
+            name: item.name,
+            quantity: item.quantity || 1,
+            amount: item.amount || item.unitRate || 0,
+            days: item.days || 1,
+            totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || 0))
+        })),
+        schedules: (quotation.schedules || []).map(schedule => ({
+            workScope: schedule.workScope,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            days: schedule.days || 1
+        }))
+    };
+    
+    // Recalculate totals
+    let recalculatedTotal = 0;
+    kitchenData.items.forEach(item => {
+        recalculatedTotal += (item.quantity || 1) * (item.amount || 0);
+    });
+    kitchenData.totalCost = recalculatedTotal;
+    
+    window.kitchenQuotationData = kitchenData;
+    
+    // Generate PDF
+    if (typeof window.generateKitchenPDF !== 'function') {
+        throw new Error('Kitchen PDF generator not available');
+    }
+    
+    const dataUri = await window.generateKitchenPDF('datauri');
+    const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
+    
+    if (!pdfBase64) {
+        throw new Error('Failed to generate kitchen quotation PDF for sending.');
+    }
+    
+    // Send via WhatsApp
+    const sendResponse = await fetch('/api/send-quotation-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            clientName: quotation.clientName || 'Client',
+            whatsappNumber: quotation.clientWhatsapp,
+            quotationId: quotation.id,
+            pdfBase64: pdfBase64,
+            category: 'kitchen'
+        })
+    });
+    
+    const sendResult = await sendResponse.json();
+    if (!sendResponse.ok || !sendResult.success) {
+        throw new Error((sendResult.error || 'Failed to send') + (sendResult.hint ? '\n\n' + sendResult.hint : ''));
+    }
+    
+    if (sendResult.used_template) {
+        alert('Customer is outside the 24-hour window.\nA WhatsApp template with "Download Quotation" button was sent to: ' + sendResult.whatsapp_number);
+    } else {
+        alert('Kitchen quotation PDF sent successfully to: ' + sendResult.whatsapp_number);
+    }
+}
+
+async function sendConstructionQuotationFromPortal(quotation) {
+    // Your existing construction send logic
     const data = {
         clientName: quotation.clientName,
         clientWhatsapp: quotation.clientWhatsapp || '',
@@ -13573,7 +14971,6 @@ async function sendQuotationFromPortal(quotationId) {
     window.quotationData = data;
     window.ganttChartData = ganttData;
 
-    // Generate PDF
     if (typeof window.generateQuotationPDF !== 'function') {
         throw new Error('PDF generator not available. Please refresh and try again.');
     }
@@ -13585,14 +14982,13 @@ async function sendQuotationFromPortal(quotationId) {
         throw new Error('Failed to generate quotation PDF for sending.');
     }
 
-    // Send via WhatsApp
     const sendResponse = await fetch('/api/send-quotation-whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             clientName: quotation.clientName || 'Client',
             whatsappNumber: quotation.clientWhatsapp,
-            quotationId: quotationId,
+            quotationId: quotation.id,
             pdfBase64: pdfBase64
         })
     });
@@ -13608,7 +15004,6 @@ async function sendQuotationFromPortal(quotationId) {
         alert('Quotation PDF sent successfully to: ' + sendResult.whatsapp_number);
     }
 }
-
 </script>
 
 <script>
