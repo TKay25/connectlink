@@ -4169,8 +4169,32 @@ $('#confirmAddKitchenItemBtn').click(function() {
 
 // Remove item from table
 function removeKitchenItem(index) {
-    kitchenCabinetItems.splice(index, 1);
-    renderKitchenItemsTable();
+    console.log('Removing item at index:', index);
+    console.log('Before removal:', window.kitchenCabinetItems);
+    
+    if (window.kitchenCabinetItems && window.kitchenCabinetItems[index]) {
+        window.kitchenCabinetItems.splice(index, 1);
+        console.log('After removal:', window.kitchenCabinetItems);
+        
+        // Re-render the table
+        renderKitchenItemsTable();
+        
+        // Update the kitchenQuotationData if it exists
+        if (window.kitchenQuotationData) {
+            window.kitchenQuotationData.items = window.kitchenCabinetItems;
+            // Recalculate totals
+            let newTotal = 0;
+            let newDays = 0;
+            window.kitchenCabinetItems.forEach(item => {
+                newTotal += (item.quantity || 1) * (item.amount || 0);
+                newDays += (item.days || 1);
+            });
+            window.kitchenQuotationData.totalCost = newTotal;
+            window.kitchenQuotationData.totalDays = newDays;
+        }
+    } else {
+        console.error('Invalid index or kitchenCabinetItems not defined');
+    }
 }
 
 
