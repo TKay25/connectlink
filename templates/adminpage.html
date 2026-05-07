@@ -3593,6 +3593,114 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Kitchen/Cabinets Container (NEW - replaces the need for separate modal) -->
+                <div id="kitchenCabinetContainer" style="display: none;">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold d-block mb-3">
+                            <i class="bi bi-cabinet"></i> Kitchen & Cabinet Items
+                        </label>
+
+                        <!-- Summary Box -->
+                        <div class="alert alert-light border mb-3" style="font-size: 0.9rem;">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div><strong>Items:</strong> <span id="kitchenItemCount">0</span></div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div><strong>Total Days:</strong> <span id="kitchenTotalDays">0</span></div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">Total: $<span id="kitchenTotalCost">0.00</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Item Button -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-success btn-sm" id="addKitchenItemBtn">
+                                <i class="bi bi-plus-circle"></i> Add Item
+                            </button>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered" id="kitchenItemsTable" style="font-size: 0.8rem;">
+                                <thead style="background-color: #1E2A56; color: white;">
+                                    <tr>
+                                        <th style="width: 35%;">Item Name</th>
+                                        <th style="width: 15%;">Qty</th>
+                                        <th style="width: 15%;">Amount (USD)</th>
+                                        <th style="width: 15%;">Days</th>
+                                        <th style="width: 15%;">Subtotal</th>
+                                        <th style="width: 5%;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kitchenItemsBody">
+                                    <tr id="kitchenEmptyRow">
+                                        <td colspan="6" class="text-center py-3 text-muted">
+                                            Click "Add Item" to add kitchen/cabinet items
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+<!-- Add Kitchen/Cabinet Item Modal -->
+<div id="addKitchenItemModal" class="modal-overlay">
+    <div class="modal-container small">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-plus-circle"></i> Add Kitchen/Cabinet Item</h3>
+            <button class="close-modal" onclick="closeModal('addKitchenItemModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Item Name</label>
+                <select class="form-select" id="kitchenItemSelect">
+                    <option value="">-- Select item or type new --</option>
+                    <option value="Matt Kitchen including Local Granite">Matt Kitchen including Local Granite</option>
+                    <option value="Matt Kitchen including Quartz">Matt Kitchen including Quartz</option>
+                    <option value="Gloss Kitchen including Quartz">Gloss Kitchen including Quartz</option>
+                    <option value="Main Bedroom Cabinets">Main Bedroom Cabinets</option>
+                    <option value="Other Bedroom Cabinets">Other Bedroom Cabinets</option>
+                </select>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="kitchenItemQty" value="1" min="1">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Amount (USD)</label>
+                    <input type="number" class="form-control" id="kitchenItemAmount" value="0" min="0" step="100">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Days</label>
+                    <input type="number" class="form-control" id="kitchenItemDays" value="1" min="1">
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="alert alert-info" id="otherBedroomsInfo" style="display: none;">
+                    <i class="bi bi-info-circle"></i> 
+                    <strong>Other Bedrooms:</strong> For "Other Bedroom Cabinets", the amount will be multiplied by the number of bedrooms.
+                    <br>
+                    <label class="form-label mt-2">Number of other bedrooms:</label>
+                    <input type="number" class="form-control" id="otherBedroomsNumber" value="1" min="1" max="10">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('addKitchenItemModal')">Cancel</button>
+            <button class="btn btn-primary" id="confirmAddKitchenItemBtn">Add Item</button>
+        </div>
+    </div>
+</div>
+
+
             </form>
         </div>
         <div class="modal-footer-custom">
@@ -3806,6 +3914,168 @@
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
+
+let kitchenCabinetItems = [];
+
+// Show/hide container based on category selection
+$('#quotationCategory').change(function() {
+    const category = $(this).val();
+    
+    if (category === 'construction_single' || category === 'construction_double') {
+        $('#quotationSizeContainer').show();
+        $('#constructionDetailsContainer').show();
+        $('#kitchenCabinetContainer').hide();
+    } else if (category === 'kitchen') {
+        $('#quotationSizeContainer').hide();
+        $('#constructionDetailsContainer').hide();
+        $('#kitchenCabinetContainer').show();
+    } else {
+        $('#quotationSizeContainer').hide();
+        $('#constructionDetailsContainer').hide();
+        $('#kitchenCabinetContainer').hide();
+    }
+});
+
+// Show add item modal
+$('#addKitchenItemBtn').click(function() {
+    $('#kitchenItemSelect').val('');
+    $('#kitchenItemQty').val('1');
+    $('#kitchenItemAmount').val('0');
+    $('#kitchenItemDays').val('1');
+    $('#otherBedroomsInfo').hide();
+    $('#otherBedroomsNumber').val('1');
+    openModal('addKitchenItemModal');
+});
+
+// Handle item selection change to show bedroom info
+$('#kitchenItemSelect').change(function() {
+    const selected = $(this).val();
+    if (selected === 'Other Bedroom Cabinets') {
+        $('#otherBedroomsInfo').show();
+    } else {
+        $('#otherBedroomsInfo').hide();
+    }
+});
+
+// Add item to table
+$('#confirmAddKitchenItemBtn').click(function() {
+    let itemName = $('#kitchenItemSelect').val();
+    if (!itemName) {
+        alert('Please select an item');
+        return;
+    }
+    
+    let quantity = parseInt($('#kitchenItemQty').val()) || 1;
+    let amount = parseFloat($('#kitchenItemAmount').val()) || 0;
+    let days = parseInt($('#kitchenItemDays').val()) || 1;
+    
+    // Handle Other Bedrooms special case
+    if (itemName === 'Other Bedroom Cabinets') {
+        const otherCount = parseInt($('#otherBedroomsNumber').val()) || 1;
+        quantity = otherCount;  // Set quantity to number of bedrooms
+        // Optional: You could also modify the item name to show count
+        itemName = `${otherCount} Other Bedroom Cabinets (${itemName})`;
+    }
+    
+    // Add to array
+    kitchenCabinetItems.push({
+        name: itemName,
+        quantity: quantity,
+        amount: amount,
+        days: days,
+        total: quantity * amount
+    });
+    
+    renderKitchenItemsTable();
+    closeModal('addKitchenItemModal');
+});
+
+// Remove item from table
+function removeKitchenItem(index) {
+    kitchenCabinetItems.splice(index, 1);
+    renderKitchenItemsTable();
+}
+
+// Render kitchen items table
+function renderKitchenItemsTable() {
+    const tbody = $('#kitchenItemsBody');
+    
+    if (kitchenCabinetItems.length === 0) {
+        tbody.html(`
+            <tr id="kitchenEmptyRow">
+                <td colspan="6" class="text-center py-3 text-muted">
+                    Click "Add Item" to add kitchen/cabinet items
+                </td>
+            </tr>
+        `);
+        $('#kitchenItemCount').text('0');
+        $('#kitchenTotalCost').text('0.00');
+        $('#kitchenTotalDays').text('0');
+        return;
+    }
+    
+    let totalCost = 0;
+    let totalDays = 0;
+    let html = '';
+    
+    kitchenCabinetItems.forEach((item, index) => {
+        totalCost += item.total;
+        totalDays += item.days;
+        
+        html += `
+            <tr>
+                <td>
+                    <input type="text" class="form-control form-control-sm" 
+                           value="${escapeHtml(item.name)}" 
+                           onchange="updateKitchenItem(${index}, 'name', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.quantity}" min="1"
+                           onchange="updateKitchenItem(${index}, 'quantity', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.amount}" min="0" step="100"
+                           onchange="updateKitchenItem(${index}, 'amount', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.days}" min="1"
+                           onchange="updateKitchenItem(${index}, 'days', this.value)">
+                </td>
+                <td><strong>$${item.total.toLocaleString()}</strong></td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.html(html);
+    $('#kitchenItemCount').text(kitchenCabinetItems.length);
+    $('#kitchenTotalCost').text(totalCost.toLocaleString());
+    $('#kitchenTotalDays').text(totalDays);
+}
+
+// Update item field
+function updateKitchenItem(index, field, value) {
+    if (field === 'quantity') {
+        kitchenCabinetItems[index].quantity = parseInt(value) || 1;
+    } else if (field === 'amount') {
+        kitchenCabinetItems[index].amount = parseFloat(value) || 0;
+    } else if (field === 'days') {
+        kitchenCabinetItems[index].days = parseInt(value) || 1;
+    } else if (field === 'name') {
+        kitchenCabinetItems[index].name = value;
+    }
+    
+    kitchenCabinetItems[index].total = kitchenCabinetItems[index].quantity * kitchenCabinetItems[index].amount;
+    renderKitchenItemsTable();
+}
+
 
 // ==================== QUOTATION SAVE FUNCTION ====================
 async function saveAndDownloadQuotation() {
@@ -11346,6 +11616,65 @@ $('#generateQuotationBtn').click(function() {
     // Check if construction category (either single or double storey)
     const isConstruction = (category === 'construction_single' || category === 'construction_double');
     const isSingleStorey = (category === 'construction_single');
+
+    if (category === 'kitchen') {
+        if (kitchenCabinetItems.length === 0) {
+            alert('Please add at least one kitchen/cabinet item.');
+            return;
+        }
+        
+        // Calculate total
+        const totalCost = kitchenCabinetItems.reduce((sum, item) => sum + item.total, 0);
+        
+        // Generate work schedule from items
+        let currentStartDate = new Date(quotationDate);
+        const schedules = [];
+        
+        kitchenCabinetItems.forEach((item, idx) => {
+            const endDate = new Date(currentStartDate);
+            endDate.setDate(endDate.getDate() + item.days - 1);
+            
+            schedules.push({
+                workScope: item.name,
+                startDate: currentStartDate.toISOString().split('T')[0],
+                endDate: endDate.toISOString().split('T')[0],
+                days: item.days
+            });
+            
+            currentStartDate = new Date(endDate);
+            currentStartDate.setDate(currentStartDate.getDate() + 1);
+        });
+        
+        // Prepare items for saving
+        const items = kitchenCabinetItems.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            amount: item.amount,
+            days: item.days,
+            totalPrice: item.total
+        }));
+        
+        // Store data
+        window.quotationData = {
+            category: category,
+            clientName: clientName,
+            clientWhatsapp: clientWhatsapp,
+            quotationDate: quotationDate,
+            items: items,
+            schedules: schedules,
+            totalCost: totalCost
+        };
+        
+        window.ganttChartData = schedules;
+        
+        // Close and show preview
+        closeModal('quotationgeneratorModal');
+        setTimeout(() => {
+            openModal('quotationPreviewModal');
+            displayGanttChartInPreview();
+        }, 300);
+        
+    } 
     
     // If construction is selected, validate additional fields
     if (isConstruction) {

@@ -18836,242 +18836,295 @@ def fmt_currency(value):
         return "0.00"
     
 def build_quotation_pdf_document(quotation_id):
-    """Build the PDF payload for a saved quotation."""
-    with get_db() as (cursor, _):
-        cursor.execute("""
-            SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
-            FROM quotations
-            WHERE id = %s
-        """, (quotation_id,))
-        quotation = cursor.fetchone()
+    """Build the PDF payload for a saved quotation - Handles both construction and kitchen"""
+    try:
+        with get_db() as (cursor, _):
+            cursor.execute("""
+                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
+                FROM quotations
+                WHERE id = %s
+            """, (quotation_id,))
+            quotation = cursor.fetchone()
 
-        if not quotation:
-            raise LookupError(f"Quotation {quotation_id} not found")
+            if not quotation:
+                raise LookupError(f"Quotation {quotation_id} not found")
 
-        # Get items WITH their order
-        cursor.execute("""
-            SELECT item_name, quantity, unit_rate, total_price, item_order
-            FROM quotation_items
-            WHERE quotation_id = %s
-            ORDER BY item_order
-        """, (quotation_id,))
-        items = cursor.fetchall()
+            quotation_id = quotation[0]
+            client_name = quotation[1] or 'Client'
+            quotation_date = quotation[2].strftime('%d %B %Y') if quotation[2] else ''
+            category = quotation[3] or ''
+            is_kitchen = (category == 'kitchen')
+            total_cost = float(quotation[5]) if quotation[5] else 0
 
-        # Get schedules WITH their order
-        cursor.execute("""
-            SELECT work_scope, start_date, end_date, days, task_order
-            FROM quotation_schedules
-            WHERE quotation_id = %s
-            ORDER BY task_order
-        """, (quotation_id,))
-        schedules = cursor.fetchall()
+            # Get schedules
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days, task_order
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order
+            """, (quotation_id,))
+            schedules = cursor.fetchall()
 
-        # Get markup percentage
-        markup_percentage = float(quotation[6]) if quotation[6] else 30
+            if is_kitchen:
+                # Get kitchen items
+                cursor.execute("""
+                    SELECT item_name, quantity, amount, days, item_order
+                    FROM quotation_kitchen_items
+                    WHERE quotation_id = %s
+                    ORDER BY item_order
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                
+                # Build items rows for PDF
+                items_rows = ''
+                total_days_sum = 0
+                total_cost_sum = 0
+                
+                for idx, item in enumerate(items, 1):
+                    item_name = item[0] or 'Item'
+                    quantity = int(item[1]) if item[1] else 1
+                    amount = float(item[2]) if item[2] else 0
+                    days = int(item[3]) if item[3] else 1
+                    item_total = quantity * amount
+                    
+                    total_days_sum += days
+                    total_cost_sum += item_total
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    
+                    items_rows += f"""
+                    <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{html.escape(item_name)}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{quantity}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {amount:,.2f}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {item_total:,.2f}</td>
+                    </tr>"""
+                
+                # Total row
+                items_total_row = f"""
+                    <tr style="background:#1E2A56; color:white; font-weight:bold;">
+                        <td colspan="4" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
+                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
+                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
+                    </tr>"""
+            else:
+                # Construction items (existing logic)
+                cursor.execute("""
+                    SELECT item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items
+                    WHERE quotation_id = %s
+                    ORDER BY item_order
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                
+                markup = float(quotation[6]) if quotation[6] else 30
+                markup_multiplier = 1 + (markup / 100)
+                items_rows = ''
+                total_days_sum = 0
+                total_cost_sum = 0
+                
+                # Build days by order map from schedules
+                days_by_order = {}
+                for schedule in schedules:
+                    order = schedule[4]
+                    days = int(schedule[3]) if schedule[3] else 0
+                    days_by_order[order] = days
+                
+                for idx, item in enumerate(items, 1):
+                    item_name = item[0] or 'Item'
+                    qty = float(item[1]) if item[1] else 0
+                    inhouse_rate = float(item[2]) if item[2] else 0
+                    total = float(item[3]) if item[3] else 0
+                    client_unit_rate = inhouse_rate * markup_multiplier
+                    days = days_by_order.get(idx, 0)
+                    
+                    total_days_sum += days
+                    total_cost_sum += total
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    
+                    items_rows += f"""
+                    <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{html.escape(item_name)}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{qty:,.2f}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {client_unit_rate:,.2f}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {total:,.2f}</td>
+                    </tr>"""
+                
+                items_total_row = f"""
+                    <tr style="background:#1E2A56; color:white; font-weight:bold;">
+                        <td colspan="4" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
+                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
+                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
+                    </tr>"""
 
-    client_name = quotation[1] or 'Client'
-    quotation_date = quotation[2].strftime('%d %B %Y') if quotation[2] else ''
-    category = quotation[3] or ''
-    project_size = float(quotation[4]) if quotation[4] else 0
-    total_cost = float(quotation[5]) if quotation[5] else 0
+            # Build schedule rows
+            schedule_rows = ''
+            for idx, schedule in enumerate(schedules, 1):
+                work_scope = schedule[0] or 'Task'
+                start_date = schedule[1].strftime('%d/%m/%Y') if schedule[1] else ''
+                end_date = schedule[2].strftime('%d/%m/%Y') if schedule[2] else ''
+                days = int(schedule[3]) if schedule[3] else 0
+                schedule_rows += f"""
+                    <tr style="border-bottom:1px solid #ddd; background-color:{'#f9f9f9' if idx % 2 else '#fff'};">
+                        <td style="padding:6px; text-align:center;">{idx}</td>
+                        <td style="padding:6px; text-align:left;">{html.escape(work_scope)}</td>
+                        <td style="padding:6px; text-align:center;">{start_date}</td>
+                        <td style="padding:6px; text-align:center;">{end_date}</td>
+                        <td style="padding:6px; text-align:center; font-weight:bold; color:#2196F3;">{days}</td>
+                    </tr>"""
+
+            # Logo and final PDF generation (same as existing)
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+            with open(logo_path, 'rb') as img_f:
+                logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
+
+            # Generate HTML and PDF
+            html = generate_quotation_html(
+                client_name, quotation_date, category, total_cost,
+                items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen
+            )
+            
+            pdf_bytes = HTML(string=html).write_pdf()
+            safe_name = ''.join(char for char in client_name if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+            filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
+            caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
+            
+            return pdf_bytes, filename, caption
+            
+    except Exception as e:
+        logging.error(f'Error building quotation PDF: {str(e)}')
+        raise
+
+
+def generate_quotation_html(client_name, quotation_date, category, total_cost, items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen=False):
+    """Generate HTML for quotation PDF"""
     deposit = total_cost * 0.30
     balance = total_cost - deposit
     monthly = balance / 5 if balance else 0
-
-    # Calculate total construction duration in days from schedules
-    total_construction_days = sum(int(schedule[3]) if schedule[3] else 0 for schedule in schedules)
-
-    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
-    with open(logo_path, 'rb') as img_f:
-        logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
-
-        def fmt_pdf_date(value):
-            if hasattr(value, 'strftime'):
-                return value.strftime('%d %B %Y')
-            return html.escape(str(value or ''))
-
-        def fmt_currency(value):
-            try:
-                return f"{float(value):,.2f}"
-            except Exception:
-                return "0.00"
-
-        # Build a dictionary to map day values by item_order for quick lookup
-        days_by_order = {}
-        for schedule in schedules:
-            order = schedule[4]  # task_order
-            days = int(schedule[3]) if schedule[3] else 0
-            days_by_order[order] = days
-
-        # Build items table rows - CORRECTED with client unit rate
-        items_rows = ''
-        total_items_cost = 0
-        total_days_sum = 0
-        
-        # Calculate markup multiplier
-        markup_multiplier = 1 + (markup_percentage / 100)
-        
-        for idx, item in enumerate(items, start=1):
-            item_name = html.escape(str(item[0] or ''))
-            qty = float(item[1]) if item[1] else 0
-            inhouse_rate = float(item[2]) if item[2] else 0
-            total = float(item[3]) if item[3] else 0
-            item_order = int(item[4]) if len(item) > 4 and item[4] else idx
+    
+    category_display = "Kitchen & Cabinets" if is_kitchen else category.replace('_', ' ').title()
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='utf-8'>
+        <style>
+            @page {{ size:A4; margin:6mm; }}
+            body {{ font-family: Arial, sans-serif; background:#ffffff; color:#1E2A56; margin:0; padding:0; }}
+            table {{ width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }}
+            th {{ padding: 8px 10px; border: 1px solid #2a3a78; background: #1E2A56; color: white; }}
+            td {{ padding: 8px 10px; border: 1px solid #d8deef; }}
+        </style>
+    </head>
+    <body>
+        <div style='background:#ffffff; width:100%; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px; box-sizing:border-box;'>
+            <img src='data:image/png;base64,{logo_b64}' alt='ConnectLink Logo' style='display:block; margin:0 auto 10px auto; width:130px; max-width:100%;'>
+            <h1 style='margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56; text-transform:uppercase; letter-spacing:1px;'>Project Quotation</h1>
+            <div style='width:100px; height:2px; background:#1E2A56; margin:0 auto 14px auto; border-radius:10px;'></div>
             
-            # Calculate client unit rate (inhouse rate + markup)
-            client_unit_rate = inhouse_rate * markup_multiplier
+            <p style='font-size:12px; margin:0 0 12px 0; line-height:1.5;'>This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{html.escape(client_name)}</strong>.</p>
             
-            # Get days using item_order
-            days = days_by_order.get(item_order, 0)
-            total_days_sum += days
-            
-            # Alternate background colors
-            bg = '#ffffff' if idx % 2 else '#fafbff'
-            
-            items_rows += f"""
-            <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{item_name}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{qty:,.2f}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {client_unit_rate:,.2f}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {total:,.2f}</td>
-            </tr>"""
-            total_items_cost += total
-
-        # Total row for items table
-        items_total_row = f"""
-            <tr style="background:#1E2A56; color:white; font-weight:bold;">
-                <td colspan="4" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
-                <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
-                <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_items_cost:,.2f}</strong></td>
-            </tr>"""
-
-        quot_html = f"""
-        <!doctype html>
-        <html>
-        <head>
-            <meta charset='utf-8'>
-            <style>
-                @page {{ size:A4; margin:6mm; }}
-                body {{ font-family: Arial, sans-serif; background:#ffffff; color:#1E2A56; margin:0; padding:0; }}
-                table {{ width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }}
-                th {{ padding: 8px 10px; border: 1px solid #2a3a78; background: #1E2A56; color: white; }}
-                td {{ padding: 8px 10px; border: 1px solid #d8deef; }}
-            </style>
-        </head>
-        <body>
-            <div style='background:#ffffff; width:100%; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px; box-sizing:border-box;'>
-                <img src='data:image/png;base64,{logo_b64}' alt='ConnectLink Logo' style='display:block; margin:0 auto 10px auto; width:130px; max-width:100%;'>
-                <h1 style='margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56; text-transform:uppercase; letter-spacing:1px;'>Project Quotation</h1>
-                <div style='width:100px; height:2px; background:#1E2A56; margin:0 auto 14px auto; border-radius:10px;'></div>
-
-                <p style='font-size:12px; margin:0 0 12px 0; line-height:1.5;'>This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{html.escape(client_name)}</strong>.</p>
-
-                <!-- PROJECT DETAILS -->
-                <div style='page-break-inside:avoid; break-inside:avoid;'>
-                    <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>PROJECT DETAILS</h4>
-                    <div style='display:table; width:100%; table-layout:fixed; margin-bottom:20px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; box-sizing:border-box;'>
-                        <div style='display:table-cell; width:50%; vertical-align:top; padding-right:10px; box-sizing:border-box;'>
-                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Client Name:</strong> <span>{html.escape(client_name)}</span></div>
-                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Project Size:</strong> <span>{project_size:,.2f} Sq. Meters</span></div>
-                        </div>
-                        <div style='display:table-cell; width:50%; vertical-align:top; padding-left:10px; box-sizing:border-box;'>
-                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Category:</strong> <span>{html.escape(category)}</span></div>
-                            <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Date:</strong> <span>{quotation_date}</span></div>
-                        </div>
+            <!-- PROJECT DETAILS -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>PROJECT DETAILS</h4>
+                <div style='display:table; width:100%; table-layout:fixed; margin-bottom:20px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; box-sizing:border-box;'>
+                    <div style='display:table-cell; width:50%; vertical-align:top; padding-right:10px; box-sizing:border-box;'>
+                        <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Client Name:</strong> <span>{html.escape(client_name)}</span></div>
+                        <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Category:</strong> <span>{category_display}</span></div>
+                    </div>
+                    <div style='display:table-cell; width:50%; vertical-align:top; padding-left:10px; box-sizing:border-box;'>
+                        <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Date:</strong> <span>{quotation_date}</span></div>
                     </div>
                 </div>
-
-                <!-- QUOTATION SUMMARY -->
-                <div style='page-break-inside:avoid; break-inside:avoid;'>
-                    <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
-                    <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
-                        <div style='display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;'>
-                            <div style='padding: 0 5px;'>
-                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Total Amount</div>
-                                <div style='font-size: 13px; font-weight: 900; color: #1E2A56;'>USD {fmt_currency(total_cost)}</div>
-                            </div>
-                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
-                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Deposit (30%)</div>
-                                <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {fmt_currency(deposit)}</div>
-                            </div>
-                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
-                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Balance</div>
-                                <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {fmt_currency(balance)}</div>
-                            </div>
-                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
-                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over 5 months)</div>
-                                <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {fmt_currency(monthly)}</div>
-                            </div>
-                            <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
-                                <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Duration</div>
-                                <div style='font-size: 13px; font-weight: 700; color: #2196F3;'>{total_construction_days} Days</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- IMPORTANT NOTE & BANKING DETAILS -->
-                <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
-                    <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;'>
-                        <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
-                        <div style='margin-top: 8px;'><strong>Notes:</strong> BOQ available on engagement.</div>
-                    </div>
-                    <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;'>
-                        <strong style='display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;'>Banking Details</strong>
-                        <div><strong>Bank:</strong> ZB BANK</div>
-                        <div><strong>Branch:</strong> Msasa</div>
-                        <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
-                        <div><strong>Account No:</strong> 450600586638405</div>
-                        <div><strong>Account Type:</strong> USD Account</div>
-                    </div>
-                </div>
-
-                <!-- INFO MESSAGE -->
-                <div style='margin-bottom: 22px; text-align: center;'>
-                    <span style='display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;'>
-                        <i class='bi bi-info-circle-fill' style='margin-right: 6px;'></i>
-                        For a full breakdown of your quotation, <span style='color: #d32f2f;'>see the detailed quotation table below</span>.
-                    </span>
-                </div>
-
-                <!-- CONSTRUCTION ITEMS TABLE -->
-                <div style='page-break-inside:avoid; break-inside:avoid;'>
-                    <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>CONSTRUCTION ITEMS</h4>
-                    <table style='width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px;'>
-                        <thead>
-                            <tr>
-                                <th style='text-align:center; width:6%;'>#</th>
-                                <th style='text-align:left; width:38%;'>Item Description</th>
-                                <th style='text-align:center; width:13%;'>Qty (Sq.M)</th>
-                                <th style='text-align:right; width:15%;'>Unit Rate</th>
-                                <th style='text-align:center; width:10%;'>Days</th>
-                                <th style='text-align:right; width:18%;'>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items_rows}
-                            {items_total_row}
-                        </tbody>
-                    </table>
-                </div>
-
             </div>
-        </body>
-        </html>
-        """
+            
+            <!-- QUOTATION SUMMARY -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
+                <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
+                    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;'>
+                        <div style='padding: 0 5px;'>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Total Amount</div>
+                            <div style='font-size: 13px; font-weight: 900; color: #1E2A56;'>USD {total_cost:,.2f}</div>
+                        </div>
+                        <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Deposit (30%)</div>
+                            <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {deposit:,.2f}</div>
+                        </div>
+                        <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Balance</div>
+                            <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {balance:,.2f}</div>
+                        </div>
+                        <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over 5 months)</div>
+                            <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {monthly:,.2f}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- IMPORTANT NOTE & BANKING DETAILS -->
+            <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
+                <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;'>
+                    <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                </div>
+                <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;'>
+                    <strong style='display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;'>Banking Details</strong>
+                    <div><strong>Bank:</strong> ZB BANK</div>
+                    <div><strong>Branch:</strong> Msasa</div>
+                    <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+                    <div><strong>Account No:</strong> 450600586638405</div>
+                    <div><strong>Account Type:</strong> USD Account</div>
+                </div>
+            </div>
+            
+            <!-- ITEMS TABLE -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>ITEM DETAILS</h4>
+                <table style='width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px;'>
+                    <thead>
+                        <tr>
+                            <th style='text-align:center; width:6%;'>#</th>
+                            <th style='text-align:left; width:38%;'>Item Description</th>
+                            <th style='text-align:center; width:13%;'>Qty</th>
+                            <th style='text-align:right; width:15%;'>Unit Price</th>
+                            <th style='text-align:center; width:10%;'>Days</th>
+                            <th style='text-align:right; width:18%;'>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {items_rows}
+                        {items_total_row}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- WORK SCHEDULE -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:20px 0 12px 0; font-weight:800; letter-spacing:0.5px;'>WORK SCHEDULE</h4>
+                <table style='width:100%; border-collapse:collapse; font-size:10px; margin-bottom:10px;'>
+                    <thead>
+                        <tr>
+                            <th style='width:8%;'>#</th>
+                            <th style='width:52%; text-align:left;'>Work Scope</th>
+                            <th style='width:20%; text-align:center;'>Start Date</th>
+                            <th style='width:20%; text-align:center;'>End Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {schedule_rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
-    pdf_bytes = HTML(string=quot_html).write_pdf()
-    safe_name = ''.join(char for char in client_name if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
-    filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
-    caption = (
-        f"PROJECT QUOTATION\n\nClient: {client_name}\n"
-        f"Category: {category}\nTotal: USD {total_cost:,.2f}\n\n"
-        "Send 'Hello' for more options."
-    )
-
-    return pdf_bytes, filename, caption
 
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
     """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
@@ -19223,6 +19276,140 @@ def log_quotation_whatsapp_send(
         ))
         connection.commit()
 
+@app.route('/api/kitchen-items', methods=['GET'])
+def get_kitchen_items():
+    """Get all available kitchen/cabinet items from database"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, item_name, default_price, default_days
+                FROM kitchen_items
+                WHERE is_active = TRUE
+                ORDER BY item_name ASC
+            """)
+            items = cursor.fetchall()
+            
+            result = []
+            for item in items:
+                result.append({
+                    'id': item[0],
+                    'name': item[1],
+                    'defaultPrice': float(item[2]) if item[2] else 0,
+                    'defaultDays': int(item[3]) if item[3] else 1
+                })
+            
+            return jsonify({
+                'success': True,
+                'items': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching kitchen items: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/kitchen-items', methods=['POST'])
+def add_kitchen_item():
+    """Add a new kitchen/cabinet item to database"""
+    try:
+        data = request.json
+        item_name = data.get('itemName', '').strip()
+        default_price = float(data.get('defaultPrice', 0))
+        default_days = int(data.get('defaultDays', 1))
+        
+        if not item_name:
+            return jsonify({'success': False, 'error': 'Item name is required'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Check if item already exists
+            cursor.execute("SELECT id FROM kitchen_items WHERE item_name = %s", (item_name,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Item "{item_name}" already exists'
+                }), 400
+            
+            # Insert new item
+            cursor.execute("""
+                INSERT INTO kitchen_items (item_name, default_price, default_days)
+                VALUES (%s, %s, %s)
+                RETURNING id
+            """, (item_name, default_price, default_days))
+            
+            new_id = cursor.fetchone()[0]
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Added "{item_name}"',
+                'item': {
+                    'id': new_id, 
+                    'name': item_name,
+                    'defaultPrice': default_price,
+                    'defaultDays': default_days
+                }
+            })
+    except Exception as e:
+        logging.error(f'Error adding kitchen item: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/kitchen-items/<int:item_id>', methods=['PUT'])
+def update_kitchen_item(item_id):
+    """Update an existing kitchen/cabinet item"""
+    try:
+        data = request.json
+        item_name = data.get('itemName', '').strip()
+        default_price = float(data.get('defaultPrice', 0))
+        default_days = int(data.get('defaultDays', 1))
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE kitchen_items 
+                SET item_name = %s, default_price = %s, default_days = %s
+                WHERE id = %s
+                RETURNING id
+            """, (item_name, default_price, default_days, item_id))
+            
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'error': 'Item not found'}), 404
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Updated "{item_name}"'
+            })
+    except Exception as e:
+        logging.error(f'Error updating kitchen item: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/kitchen-items/<int:item_id>', methods=['DELETE'])
+def delete_kitchen_item(item_id):
+    """Soft delete a kitchen/cabinet item"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE kitchen_items SET is_active = FALSE WHERE id = %s
+                RETURNING item_name
+            """, (item_id,))
+            
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'error': 'Item not found'}), 404
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Deleted "{result[0]}"'
+            })
+    except Exception as e:
+        logging.error(f'Error deleting kitchen item: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/send-quotation-whatsapp', methods=['POST'])
 def send_quotation_whatsapp():
@@ -19503,27 +19690,32 @@ def update_quotation(quotation_id):
 
 @app.route('/api/save-quotation', methods=['POST'])
 def save_quotation():
-    """Create a new quotation with items and schedules."""
+    """Create a new quotation with items and schedules - Handles both construction and kitchen"""
     try:
         data = request.get_json() or {}
-        
-        # DEBUG: Print received data
-        print("\n=== SAVE QUOTATION DEBUG ===")
-        print(f"Received data: {data}")
         
         client_name = data.get('clientName', 'Unknown')
         client_whatsapp = data.get('clientWhatsapp', '')
         quotation_date = data.get('quotationDate', date.today().isoformat())
         category = data.get('category', 'General')
-        project_size = float(data.get('size', 0)) if data.get('size') else 0
-        total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
-        markup = float(data.get('markup', 0)) if data.get('markup') else 0
         items = data.get('items', [])
         schedules = data.get('schedules', [])
         
-        print(f"Items received: {len(items)}")
-        for i, item in enumerate(items):
-            print(f"  Item {i}: name={item.get('name')}, quantity={item.get('quantity')}, unitRate={item.get('unitRate')}, totalPrice={item.get('totalPrice')}")
+        is_kitchen = (category == 'kitchen')
+        
+        if is_kitchen:
+            # Kitchen: calculate total from items (quantity * amount)
+            total_cost = sum(
+                float(item.get('quantity', 1)) * float(item.get('amount', 0)) 
+                for item in items
+            )
+            project_size = 0
+            markup = 0
+        else:
+            # Construction: existing logic
+            project_size = float(data.get('size', 0)) if data.get('size') else 0
+            total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
+            markup = float(data.get('markup', 0)) if data.get('markup') else 0
         
         with get_db() as (cursor, connection):
             # Insert quotation header
@@ -19537,27 +19729,37 @@ def save_quotation():
                 project_size, total_cost, markup
             ))
             quotation_id = cursor.fetchone()[0]
-            print(f"Created quotation ID: {quotation_id}")
             
-            # Insert items - MAKE SURE VALUES ARE NOT ZERO
-            for idx, item in enumerate(items):
-                item_name = item.get('name') or item.get('item', 'Item')
-                # CRITICAL: Parse values as floats, default to 0
-                quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
-                unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
-                total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
-                
-                print(f"  Saving item {idx+1}: {item_name} - Qty:{quantity}, Rate:{unit_rate}, Total:{total_price}")
-                
-                cursor.execute("""
-                    INSERT INTO quotation_items
-                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    quotation_id, item_name, quantity, unit_rate, total_price, idx + 1
-                ))
+            if is_kitchen:
+                # Save kitchen items to kitchen items table
+                for idx, item in enumerate(items):
+                    cursor.execute("""
+                        INSERT INTO quotation_kitchen_items
+                        (quotation_id, item_name, quantity, amount, days, item_order)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (
+                        quotation_id,
+                        item.get('name', 'Item'),
+                        int(item.get('quantity', 1)),
+                        float(item.get('amount', 0)),
+                        int(item.get('days', 1)),
+                        idx + 1
+                    ))
+            else:
+                # Save construction items to items table
+                for idx, item in enumerate(items):
+                    item_name = item.get('name') or item.get('item', 'Item')
+                    quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
+                    unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
+                    total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
+                    
+                    cursor.execute("""
+                        INSERT INTO quotation_items
+                        (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
             
-            # Insert schedules (optional)
+            # Save schedules (same for both)
             for idx, schedule in enumerate(schedules):
                 work_scope = schedule.get('workScope', schedule.get('item', 'Task'))
                 start_date = schedule.get('startDate')
@@ -19567,144 +19769,119 @@ def save_quotation():
                     INSERT INTO quotation_schedules
                     (quotation_id, work_scope, start_date, end_date, days, task_order)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    quotation_id, work_scope, start_date, end_date, days, idx + 1
-                ))
+                """, (quotation_id, work_scope, start_date, end_date, days, idx + 1))
             
             connection.commit()
-            print(f"✅ Quotation {quotation_id} saved successfully!")
-            print("===============================\n")
-
-        return jsonify({
-            'success': True,
-            'message': 'Quotation saved successfully',
-            'quotation_id': quotation_id
-        })
+            
+            return jsonify({
+                'success': True,
+                'message': 'Quotation saved successfully',
+                'quotation_id': quotation_id,
+                'category': category
+            })
     except Exception as e:
         logging.error(f'Error saving quotation: {str(e)}')
         logging.error(traceback.format_exc())
         if 'connection' in locals():
             connection.rollback()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
         
 @app.route('/api/get-quotations', methods=['GET'])
 def get_quotations():
-    """Retrieve all quotations with merged items and schedules"""
+    """Retrieve all quotations - Handles both construction and kitchen types"""
     try:
         with get_db() as (cursor, connection):
-            # Check if table exists first
+            # Get quotations
             cursor.execute("""
-                SELECT EXISTS(
-                    SELECT FROM information_schema.tables 
-                    WHERE table_name = 'quotations'
-                );
-            """)
-            table_exists = cursor.fetchone()[0]
-            
-            if not table_exists:
-                return jsonify({
-                    'success': True,
-                    'data': [],
-                    'count': 0,
-                    'message': 'No quotations yet'
-                })
-
-            # Get all quotations - ORDER BY id DESC
-            cursor.execute("""
-                SELECT
-                    id,
-                    client_name,
-                    client_whatsapp,
-                    quotation_date,
-                    category,
-                    project_size,
-                    total_cost,
-                    markup_percentage
+                SELECT id, client_name, client_whatsapp, quotation_date, 
+                       category, project_size, total_cost, markup_percentage
                 FROM quotations
                 ORDER BY id DESC
             """)
             quotations = cursor.fetchall()
 
-            # Get all items with their values
+            # Get construction items
             cursor.execute("""
-                SELECT 
-                    quotation_id, 
-                    item_name, 
-                    quantity, 
-                    unit_rate, 
-                    total_price,
-                    item_order
+                SELECT quotation_id, item_name, quantity, unit_rate, total_price, item_order
                 FROM quotation_items
                 ORDER BY quotation_id, item_order
             """)
-            items_by_quotation = {}
+            construction_items = {}
             for row in cursor.fetchall():
                 q_id = row[0]
-                if q_id not in items_by_quotation:
-                    items_by_quotation[q_id] = []
-                items_by_quotation[q_id].append({
-                    'name': row[1] or 'Item',
+                if q_id not in construction_items:
+                    construction_items[q_id] = []
+                construction_items[q_id].append({
+                    'name': row[1],
                     'quantity': float(row[2]) if row[2] else 0,
                     'unitRate': float(row[3]) if row[3] else 0,
                     'totalPrice': float(row[4]) if row[4] else 0,
-                    'item_order': row[5] if row[5] else 0
+                    'item_order': row[5]
                 })
 
-            # Get all schedules
+            # Get kitchen items
+            cursor.execute("""
+                SELECT quotation_id, item_name, quantity, amount, days, item_order
+                FROM quotation_kitchen_items
+                ORDER BY quotation_id, item_order
+            """)
+            kitchen_items = {}
+            for row in cursor.fetchall():
+                q_id = row[0]
+                if q_id not in kitchen_items:
+                    kitchen_items[q_id] = []
+                kitchen_items[q_id].append({
+                    'name': row[1],
+                    'quantity': int(row[2]),
+                    'amount': float(row[3]) if row[3] else 0,
+                    'days': int(row[4]) if row[4] else 1,
+                    'totalPrice': int(row[2]) * float(row[3]) if row[3] else 0,
+                    'item_order': row[5]
+                })
+
+            # Get schedules
+            cursor.execute("""
+                SELECT quotation_id, work_scope, start_date, end_date, days, task_order
+                FROM quotation_schedules
+                ORDER BY quotation_id, task_order
+            """)
             schedules_by_quotation = {}
-            try:
-                cursor.execute("""
-                    SELECT 
-                        quotation_id, 
-                        work_scope, 
-                        start_date, 
-                        end_date, 
-                        days,
-                        task_order
-                    FROM quotation_schedules
-                    ORDER BY quotation_id, task_order
-                """)
-                for row in cursor.fetchall():
-                    q_id = row[0]
-                    if q_id not in schedules_by_quotation:
-                        schedules_by_quotation[q_id] = []
-                    schedules_by_quotation[q_id].append({
-                        'workScope': row[1] or 'Task',
-                        'startDate': row[2].isoformat() if row[2] else None,
-                        'endDate': row[3].isoformat() if row[3] else None,
-                        'days': int(row[4]) if row[4] else 0,
-                        'task_order': row[5] if row[5] else 0
-                    })
-            except Exception as e:
-                print(f"Error fetching schedules: {e}")
-                schedules_by_quotation = {}
+            for row in cursor.fetchall():
+                q_id = row[0]
+                if q_id not in schedules_by_quotation:
+                    schedules_by_quotation[q_id] = []
+                schedules_by_quotation[q_id].append({
+                    'workScope': row[1],
+                    'startDate': row[2].isoformat() if row[2] else None,
+                    'endDate': row[3].isoformat() if row[3] else None,
+                    'days': int(row[4]) if row[4] else 0,
+                    'task_order': row[5]
+                })
 
             result = []
             for quotation in quotations:
                 quotation_id = quotation[0]
+                category = quotation[4] or ''
+                is_kitchen = (category == 'kitchen')
+                
+                if is_kitchen:
+                    items = kitchen_items.get(quotation_id, [])
+                else:
+                    items = construction_items.get(quotation_id, [])
+                
                 result.append({
                     'id': quotation_id,
                     'clientName': quotation[1] or 'Client',
                     'clientWhatsapp': quotation[2] or '',
                     'quotationDate': quotation[3].isoformat() if quotation[3] else None,
-                    'category': quotation[4] or '',
+                    'category': category,
                     'projectSize': float(quotation[5]) if quotation[5] else 0,
                     'totalCost': float(quotation[6]) if quotation[6] else 0,
                     'markup': float(quotation[7]) if quotation[7] else 0,
-                    'items': items_by_quotation.get(quotation_id, []),
+                    'items': items,
                     'schedules': schedules_by_quotation.get(quotation_id, [])
                 })
-
-            # DEBUG: Print first quotation's items
-            if result:
-                print(f"First quotation ID: {result[0]['id']}")
-                print(f"Items count: {len(result[0]['items'])}")
-                if result[0]['items']:
-                    print(f"First item: {result[0]['items'][0]}")
 
             return jsonify({
                 'success': True,
@@ -19714,10 +19891,9 @@ def get_quotations():
     except Exception as e:
         logging.error(f'Error fetching quotations: {str(e)}')
         logging.error(traceback.format_exc())
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 
 @app.route('/api/get-sent-quotations', methods=['GET'])
 def get_sent_quotations():
