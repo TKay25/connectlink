@@ -7948,21 +7948,21 @@ async function saveKitchenQuotation() {
     // Use the calculated total to be safe
     const finalTotal = calculatedTotal;
     
+    // In your saveKitchenQuotation function, make sure items include amount field
     const payload = {
         clientName: data.clientName,
         clientWhatsapp: data.clientWhatsapp || '',
         quotationDate: data.quotationDate,
         category: 'kitchen',
-        size: 0,  // Kitchen has no size
-        totalCost: finalTotal,  // Use the calculated total
-        markup: 0,  // Kitchen has no markup
+        size: 0,
+        totalCost: finalTotal,  // This should be calculated in frontend
+        markup: 0,
         items: data.items.map((item, index) => ({
             name: item.name,
             quantity: item.quantity || 1,
-            unitRate: item.amount || 0,  // This is the amount per unit
-            totalPrice: (item.quantity || 1) * (item.amount || 0),
+            amount: item.amount || 0,  // CRITICAL: Send amount field (not just unitRate)
             days: item.days || 1,
-            item_order: index + 1
+            totalPrice: (item.quantity || 1) * (item.amount || 0)
         })),
         schedules: data.schedules.map((schedule, index) => ({
             workScope: schedule.workScope,

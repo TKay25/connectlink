@@ -19760,12 +19760,20 @@ def save_quotation():
             print(f"  Item {i}: name={item.get('name')}, quantity={item.get('quantity')}, amount={item.get('amount')}, unitRate={item.get('unitRate')}, totalPrice={item.get('totalPrice')}")
         
         if is_kitchen:
-            # Kitchen: calculate total from items (quantity * amount)
-            total_cost = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
-            amount = total_cost
+            # Kitchen: calculate total from items (sum of quantity * amount for ALL items)
+            total_cost = 0
+            for item in items:
+                quantity = int(item.get('quantity', 1))
+                amount = float(item.get('amount', 0))
+                item_total = quantity * amount
+                total_cost += item_total
+                print(f"  Item: {item.get('name')}, Qty:{quantity}, Amount:{amount}, ItemTotal:{item_total}")
+            
             project_size = 0
             markup = 0
-            print(f"Kitchen total cost calculated: {total_cost}")
+            print(f"Kitchen total cost calculated (sum of all items): {total_cost}")
+
+            
         else:
             # Construction: existing logic
             project_size = float(data.get('size', 0)) if data.get('size') else 0
@@ -19788,14 +19796,14 @@ def save_quotation():
             print(f"Created quotation ID: {quotation_id}")
             
             if is_kitchen:
-                # Save kitchen items to quotation_kitchen_items table
+                # Save kitchen items
                 for idx, item in enumerate(items):
-                    # Get values with proper defaults
                     item_name = item.get('name', 'Item')
                     quantity = int(item.get('quantity', 1))
-                    amount = float(item.get('amount', 0))
+                    # Get amount from either 'amount' or 'unitRate' field
+                    amount = float(item.get('amount', 0)) or float(item.get('unitRate', 0))
                     days = int(item.get('days', 1))
-                    total_price = float(item.get('totalPrice', quantity * amount))
+                    total_price = quantity * amount
                     
                     print(f"Inserting kitchen item {idx+1}: {item_name}, Qty:{quantity}, Amount:{amount}, Days:{days}, Total:{total_price}")
                     
