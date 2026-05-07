@@ -19792,6 +19792,7 @@ def save_quotation():
             # Calculate base cost (before 30% markup)
             # Since total_cost = base_cost * 1.30, then base_cost = total_cost / 1.30
             markup_percentage = 30  # Fixed 30% for kitchen
+            markup = markup_percentage
             base_cost = total_cost / 1.30
             markup_amount = total_cost - base_cost
             
