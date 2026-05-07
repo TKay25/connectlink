@@ -88,6 +88,23 @@ def initialize_database_tables():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );""")
 
+            # Add missing columns to quotation_kitchen_items table
+            try:
+                cursor.execute("""
+                    ALTER TABLE quotation_kitchen_items 
+                    ADD COLUMN IF NOT EXISTS unit_price DECIMAL(15, 2) DEFAULT 0
+                """)
+            except Exception as e:
+                print(f"Note: Could not add unit_price column: {e}")
+
+            try:
+                cursor.execute("""
+                    ALTER TABLE quotation_kitchen_items 
+                    ADD COLUMN IF NOT EXISTS total_price DECIMAL(15, 2) DEFAULT 0
+                """)
+            except Exception as e:
+                print(f"Note: Could not add total_price column: {e}")
+
             cursor.execute("""
             INSERT INTO kitchen_items (item_name, default_price, default_days) VALUES
             ('Matt Kitchen including Local Granite', 4500, 5),
@@ -19760,18 +19777,25 @@ def save_quotation():
             print(f"  Item {i}: name={item.get('name')}, quantity={item.get('quantity')}, amount={item.get('amount')}, unitRate={item.get('unitRate')}, totalPrice={item.get('totalPrice')}")
         
         if is_kitchen:
-            # Kitchen: calculate total from items (sum of quantity * amount for ALL items)
             total_cost = 0
             for item in items:
-                quantity = int(item.get('quantity', 1))
-                amount = float(item.get('amount', 0))
-                item_total = quantity * amount
+                # Get total price from item (pre-calculated in frontend as quantity * amount)
+                item_total = float(item.get('totalPrice', 0))
+                if item_total == 0:
+                    # Fallback: calculate from quantity and amount if totalPrice not provided
+                    quantity = int(item.get('quantity', 1))
+                    amount = float(item.get('amount', 0))
+                    item_total = quantity * amount
                 total_cost += item_total
-                print(f"  Item: {item.get('name')}, Qty:{quantity}, Amount:{amount}, ItemTotal:{item_total}")
+                print(f"  Kitchen item: {item.get('name')} = ${item_total:,.2f}")
+            
+            # Calculate base cost (before 30% markup)
+            # Since total_cost = base_cost * 1.30, then base_cost = total_cost / 1.30
+            markup_percentage = 30  # Fixed 30% for kitchen
+            base_cost = total_cost / 1.30
+            markup_amount = total_cost - base_cost
             
             project_size = 0
-            markup = 0
-            print(f"Kitchen total cost calculated (sum of all items): {total_cost}")
 
             
         else:
@@ -19797,15 +19821,22 @@ def save_quotation():
             
             if is_kitchen:
                 # Save kitchen items
+                # Save kitchen items with unit_rate = amount (markup already applied in total)
                 for idx, item in enumerate(items):
                     item_name = item.get('name', 'Item')
                     quantity = int(item.get('quantity', 1))
-                    # Get amount from either 'amount' or 'unitRate' field
-                    amount = float(item.get('amount', 0)) or float(item.get('unitRate', 0))
+                    # amount is the per-unit price (this already INCLUDES markup)
+                    amount = float(item.get('amount', 0))
                     days = int(item.get('days', 1))
-                    total_price = quantity * amount
+                    total_price = float(item.get('totalPrice', quantity * amount))
                     
-                    print(f"Inserting kitchen item {idx+1}: {item_name}, Qty:{quantity}, Amount:{amount}, Days:{days}, Total:{total_price}")
+                    # Calculate base unit rate (remove markup for internal tracking)
+                    base_unit_rate = amount / 1.30
+                    
+                    print(f"Inserting kitchen item {idx+1}: {item_name}")
+                    print(f"  Quantity: {quantity}, Amount (with markup): ${amount:,.2f}")
+                    print(f"  Base unit rate (without markup): ${base_unit_rate:,.2f}")
+                    print(f"  Total price (with markup): ${total_price:,.2f}")
                     
                     cursor.execute("""
                         INSERT INTO quotation_kitchen_items
@@ -19815,10 +19846,11 @@ def save_quotation():
                         quotation_id,
                         item_name,
                         quantity,
-                        amount,
+                        amount,  # This is the price WITH markup (what client pays)
                         days,
                         idx + 1
                     ))
+
             else:
                 # Save construction items to quotation_items table
                 for idx, item in enumerate(items):
