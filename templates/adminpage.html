@@ -7847,6 +7847,20 @@ function displayKitchenPreview() {
     
     const data = window.kitchenQuotationData;
     
+    // Recalculate totals to ensure accuracy
+    let recalculatedTotal = 0;
+    let recalculatedDays = 0;
+    data.items.forEach(item => {
+        recalculatedTotal += (item.quantity || 1) * (item.amount || 0);
+        recalculatedDays += (item.days || 1);
+    });
+    
+    // Update data with recalculated values
+    data.totalCost = recalculatedTotal;
+    data.totalDays = recalculatedDays;
+    
+    console.log('Display preview - Total cost:', data.totalCost);
+    
     // Update client info
     document.getElementById('kitchenPreviewClientName').textContent = data.clientName;
     document.getElementById('kitchenPreviewDate').textContent = new Date(data.quotationDate).toLocaleDateString('en-US');
@@ -7855,12 +7869,13 @@ function displayKitchenPreview() {
     // Build items table
     let itemsHTML = '';
     data.items.forEach((item) => {
+        const itemTotal = (item.quantity || 1) * (item.amount || 0);
         itemsHTML += `<tr>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(item.name)}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity || 1}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${item.days}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${(item.totalPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${item.days || 1}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
         </tr>`;
     });
     
@@ -7890,6 +7905,7 @@ function displayKitchenPreview() {
 
 
 // Save Kitchen Quotation
+// Save Kitchen Quotation
 async function saveKitchenQuotation() {
     if (!window.kitchenQuotationData) {
         alert('No quotation data available');
@@ -7898,30 +7914,49 @@ async function saveKitchenQuotation() {
     
     const data = window.kitchenQuotationData;
     
+    // DEBUG: Check what we're about to save
+    console.log('=== SAVING KITCHEN QUOTATION ===');
+    console.log('Total cost from data:', data.totalCost);
+    console.log('Items:', data.items);
+    
+    // Calculate total cost again to be SURE
+    let calculatedTotal = 0;
+    data.items.forEach(item => {
+        calculatedTotal += (item.quantity || 1) * (item.amount || 0);
+    });
+    console.log('Calculated total:', calculatedTotal);
+    
+    // Use the calculated total to be safe
+    const finalTotal = calculatedTotal;
+    
     const payload = {
         clientName: data.clientName,
         clientWhatsapp: data.clientWhatsapp || '',
         quotationDate: data.quotationDate,
         category: 'kitchen',
-        size: 0,
-        totalCost: data.totalCost,
-        markup: 0,
+        size: 0,  // Kitchen has no size
+        totalCost: finalTotal,  // Use the calculated total
+        markup: 0,  // Kitchen has no markup
         items: data.items.map((item, index) => ({
             name: item.name,
-            quantity: item.quantity,
-            unitRate: item.amount,
-            totalPrice: item.totalPrice,
-            days: item.days,
+            quantity: item.quantity || 1,
+            unitRate: item.amount || 0,  // This is the amount per unit
+            totalPrice: (item.quantity || 1) * (item.amount || 0),
+            days: item.days || 1,
             item_order: index + 1
         })),
         schedules: data.schedules.map((schedule, index) => ({
             workScope: schedule.workScope,
             startDate: schedule.startDate,
             endDate: schedule.endDate,
-            days: schedule.days,
+            days: schedule.days || 1,
             task_order: index + 1
         }))
     };
+    
+    console.log('Payload being sent:', payload);
+    console.log('Payload totalCost:', payload.totalCost);
+    console.log('Payload items totalPrice sum:', payload.items.reduce((sum, i) => sum + i.totalPrice, 0));
     
     const saveBtn = document.getElementById('kitchenDownloadQuotationBtn');
     const originalText = saveBtn.innerHTML;
@@ -7938,11 +7973,13 @@ async function saveKitchenQuotation() {
         
         const result = await response.json();
         
+        console.log('Save response:', result);
+        
         if (!result.success) {
             throw new Error(result.error || 'Failed to save quotation');
         }
         
-        alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id})`);
+        alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id}) with total: $${finalTotal.toFixed(2)}`);
         
         // Generate PDF
         saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
@@ -7963,6 +8000,7 @@ async function saveKitchenQuotation() {
 }
 
 // Send Kitchen Quotation
+// Send Kitchen Quotation
 async function sendKitchenQuotation() {
     if (!window.kitchenQuotationData) {
         alert('No quotation data available');
@@ -7977,6 +8015,15 @@ async function sendKitchenQuotation() {
         return;
     }
     
+    // Calculate total cost again
+    let calculatedTotal = 0;
+    data.items.forEach(item => {
+        calculatedTotal += (item.quantity || 1) * (item.amount || 0);
+    });
+    const finalTotal = calculatedTotal;
+    
+    console.log('Sending kitchen quotation with total:', finalTotal);
+    
     const btn = document.getElementById('kitchenSendQuotationBtn');
     const originalText = btn.innerHTML;
     btn.disabled = true;
@@ -7988,21 +8035,21 @@ async function sendKitchenQuotation() {
             quotationDate: data.quotationDate,
             category: 'kitchen',
             size: 0,
-            totalCost: data.totalCost,
+            totalCost: finalTotal,
             markup: 0,
             items: data.items.map((item, index) => ({
                 name: item.name,
-                quantity: item.quantity,
-                unitRate: item.amount,
-                totalPrice: item.totalPrice,
-                days: item.days,
+                quantity: item.quantity || 1,
+                unitRate: item.amount || 0,
+                totalPrice: (item.quantity || 1) * (item.amount || 0),
+                days: item.days || 1,
                 item_order: index + 1
             })),
             schedules: data.schedules.map((schedule, index) => ({
                 workScope: schedule.workScope,
                 startDate: schedule.startDate,
                 endDate: schedule.endDate,
-                days: schedule.days,
+                days: schedule.days || 1,
                 task_order: index + 1
             }))
         };
@@ -8016,6 +8063,8 @@ async function sendKitchenQuotation() {
         });
         
         const saveResult = await saveResponse.json();
+        console.log('Save result:', saveResult);
+        
         if (!saveResult.success) {
             throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
         }
@@ -8055,6 +8104,7 @@ async function sendKitchenQuotation() {
         btn.innerHTML = originalText;
     }
 }
+
 
 // Generate Kitchen PDF
 async function generateKitchenPDF(outputMode = 'download') {
@@ -12075,28 +12125,30 @@ $('#generateQuotationBtn').click(function() {
             return;
         }
         
-        console.log('Kitchen items to save:', window.kitchenCabinetItems);
-        
-        // Calculate total cost and total days
+        // Calculate total cost and total days - MAKE SURE THIS IS CORRECT
         let totalCost = 0;
         let totalDays = 0;
         
         const itemsForQuotation = window.kitchenCabinetItems.map(item => {
-            const itemTotal = (item.quantity || 1) * (item.amount || 0);
+            const quantity = item.quantity || 1;
+            const amount = item.amount || 0;
+            const itemTotal = quantity * amount;
             totalCost += itemTotal;
             totalDays += (item.days || 1);
             
+            console.log(`Item: ${item.name}, Qty: ${quantity}, Amount: ${amount}, Total: ${itemTotal}`);
+            
             return {
                 name: item.name,
-                quantity: item.quantity || 1,
-                amount: item.amount || 0,
+                quantity: quantity,
+                amount: amount,
                 days: item.days || 1,
                 totalPrice: itemTotal
             };
         });
         
-        console.log('Total cost:', totalCost);
-        console.log('Total days:', totalDays);
+        console.log('FINAL TOTAL COST:', totalCost);
+        console.log('FINAL TOTAL DAYS:', totalDays);
         
         // Generate work schedule
         let currentStartDate = new Date(quotationDate);
