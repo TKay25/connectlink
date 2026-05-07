@@ -19761,10 +19761,8 @@ def save_quotation():
         
         if is_kitchen:
             # Kitchen: calculate total from items (quantity * amount)
-            total_cost = sum(
-                float(item.get('quantity', 1)) * float(item.get('amount', 0)) 
-                for item in items
-            )
+            total_cost = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
+            amount = total_cost
             project_size = 0
             markup = 0
             print(f"Kitchen total cost calculated: {total_cost}")
