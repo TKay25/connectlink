@@ -4043,15 +4043,19 @@ $('#quotationCategory').change(function() {
 });
 
 // Show add item modal
-$('#addKitchenItemBtn').click(function() {
-    $('#kitchenItemSelect').val('');
-    $('#kitchenItemQty').val('1');
-    $('#kitchenItemAmount').val('0');
-    $('#kitchenItemDays').val('1');
-    $('#otherBedroomsInfo').hide();
-    $('#otherBedroomsNumber').val('1');
-    openModal('addKitchenItemModal');
-});
+    $('#addKitchenItemBtn').off('click').on('click', function() {
+        // Store current form data in session before opening modal
+        const currentData = {
+            clientName: $('#quotationClientName').val(),
+            clientWhatsapp: $('#quotationClientWhatsapp').val(),
+            quotationDate: $('#quotationDate').val(),
+            items: window.kitchenCabinetItems || []
+        };
+        sessionStorage.setItem('kitchenQuotationBackup', JSON.stringify(currentData));
+        
+        // Open the add item modal
+        openModal('addKitchenItemModal');
+    });
 
 // Handle item selection change to show bedroom info
 $('#kitchenItemSelect').change(function() {
@@ -4060,6 +4064,21 @@ $('#kitchenItemSelect').change(function() {
         $('#otherBedroomsInfo').show();
     } else {
         $('#otherBedroomsInfo').hide();
+    }
+});
+
+$('#addKitchenItemModal').on('hidden.bs.modal', function() {
+    const backup = sessionStorage.getItem('kitchenQuotationBackup');
+    if (backup) {
+        const data = JSON.parse(backup);
+        $('#quotationClientName').val(data.clientName);
+        $('#quotationClientWhatsapp').val(data.clientWhatsapp);
+        $('#quotationDate').val(data.quotationDate);
+        if (data.items && data.items.length) {
+            window.kitchenCabinetItems = data.items;
+            renderKitchenItemsTable();
+        }
+        sessionStorage.removeItem('kitchenQuotationBackup');
     }
 });
 
@@ -8280,6 +8299,24 @@ function loadEnquiriesData() {
         .finally(() => {
             showLoading(false);
         });
+}
+
+function addKitchenItemAndStay() {
+    // Get current form values WITHOUT navigating away
+    const clientName = document.getElementById('quotationClientName')?.value || '';
+    const clientWhatsapp = document.getElementById('quotationClientWhatsapp')?.value || '';
+    const quotationDate = document.getElementById('quotationDate')?.value || new Date().toISOString().split('T')[0];
+    
+    // Store in sessionStorage temporarily
+    sessionStorage.setItem('pendingKitchenQuotation', JSON.stringify({
+        clientName: clientName,
+        clientWhatsapp: clientWhatsapp,
+        quotationDate: quotationDate,
+        category: 'kitchen'
+    }));
+    
+    // Open the add item modal (already exists in your code)
+    openModal('addKitchenItemModal');
 }
 
 // Show/hide loading - FIXED with null checks
