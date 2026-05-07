@@ -3972,35 +3972,23 @@ $('#kitchenItemSelect').change(function() {
 
 window.kitchenCabinetItems = window.kitchenCabinetItems || [];
 
-// Render kitchen items table - GLOBAL VERSION
 function renderKitchenItemsTable() {
     const tbody = document.getElementById('kitchenItemsBody');
-    if (!tbody) {
-        console.log('kitchenItemsBody not found yet');
-        return;
-    }
+    if (!tbody) return;
     
-    if (!window.kitchenCabinetItems || window.kitchenCabinetItems.length === 0) {
-        tbody.innerHTML = `
-            <tr id="kitchenEmptyRow">
-                <td colspan="6" class="text-center py-3 text-muted">
-                    Click "Add Item" to add kitchen/cabinet items
-                </td>
-            </table>
-        `;
-        const itemCount = document.getElementById('kitchenItemCount');
-        const totalCost = document.getElementById('kitchenTotalCost');
-        const totalDays = document.getElementById('kitchenTotalDays');
-        if (itemCount) itemCount.textContent = '0';
-        if (totalCost) totalCost.textContent = '0.00';
-        if (totalDays) totalDays.textContent = '0';
-        return;
-    }
-    
+    // Update totals display
     let totalCostValue = 0;
     let totalDaysValue = 0;
-    let html = '';
     
+    if (!window.kitchenCabinetItems || window.kitchenCabinetItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-3 text-muted">Click "Add Item" to add kitchen/cabinet items</td></tr>`;
+        document.getElementById('kitchenItemCount').textContent = '0';
+        document.getElementById('kitchenTotalCost').textContent = '0.00';
+        document.getElementById('kitchenTotalDays').textContent = '0';
+        return;
+    }
+    
+    let html = '';
     window.kitchenCabinetItems.forEach((item, index) => {
         const itemTotal = (item.quantity || 1) * (item.amount || 0);
         totalCostValue += itemTotal;
@@ -4008,49 +3996,20 @@ function renderKitchenItemsTable() {
         
         html += `
             <tr>
-                <td>
-                    <input type="text" class="form-control form-control-sm" 
-                           value="${escapeHtml(item.name || '')}" 
-                           data-index="${index}" data-field="name"
-                           onchange="updateKitchenItemField(${index}, 'name', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.quantity || 1}" min="1"
-                           data-index="${index}" data-field="quantity"
-                           onchange="updateKitchenItemField(${index}, 'quantity', parseInt(this.value) || 1)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.amount || 0}" min="0" step="100"
-                           data-index="${index}" data-field="amount"
-                           onchange="updateKitchenItemField(${index}, 'amount', parseFloat(this.value) || 0)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.days || 1}" min="1"
-                           data-index="${index}" data-field="days"
-                           onchange="updateKitchenItemField(${index}, 'days', parseInt(this.value) || 1)">
-                </td>
+                <td><input type="text" class="form-control form-control-sm" value="${escapeHtml(item.name || '')}" onchange="updateKitchenItem(${index}, 'name', this.value)"></td>
+                <td><input type="number" class="form-control form-control-sm" value="${item.quantity || 1}" min="1" onchange="updateKitchenItem(${index}, 'quantity', this.value)"></td>
+                <td><input type="number" class="form-control form-control-sm" value="${item.amount || 0}" min="0" step="100" onchange="updateKitchenItem(${index}, 'amount', this.value)"></td>
+                <td><input type="number" class="form-control form-control-sm" value="${item.days || 1}" min="1" onchange="updateKitchenItem(${index}, 'days', this.value)"></td>
                 <td><strong>$${itemTotal.toLocaleString()}</strong></td>
-                <td>
-                    <button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
+                <td><button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})"><i class="bi bi-trash"></i></button></td>
             </tr>
         `;
     });
     
     tbody.innerHTML = html;
-    
-    const itemCountEl = document.getElementById('kitchenItemCount');
-    const totalCostEl = document.getElementById('kitchenTotalCost');
-    const totalDaysEl = document.getElementById('kitchenTotalDays');
-    
-    if (itemCountEl) itemCountEl.textContent = window.kitchenCabinetItems.length;
-    if (totalCostEl) totalCostEl.textContent = totalCostValue.toLocaleString();
-    if (totalDaysEl) totalDaysEl.textContent = totalDaysValue;
+    document.getElementById('kitchenItemCount').textContent = window.kitchenCabinetItems.length;
+    document.getElementById('kitchenTotalCost').textContent = totalCostValue.toLocaleString();
+    document.getElementById('kitchenTotalDays').textContent = totalDaysValue;
 }
 
 
@@ -4102,20 +4061,20 @@ function removeKitchenItem(index) {
     renderKitchenItemsTable();
 }
 
-// 
-// Update item field
+
 function updateKitchenItem(index, field, value) {
+    if (!window.kitchenCabinetItems[index]) return;
+    
     if (field === 'quantity') {
-        kitchenCabinetItems[index].quantity = parseInt(value) || 1;
+        window.kitchenCabinetItems[index].quantity = parseInt(value) || 1;
     } else if (field === 'amount') {
-        kitchenCabinetItems[index].amount = parseFloat(value) || 0;
+        window.kitchenCabinetItems[index].amount = parseFloat(value) || 0;
     } else if (field === 'days') {
-        kitchenCabinetItems[index].days = parseInt(value) || 1;
+        window.kitchenCabinetItems[index].days = parseInt(value) || 1;
     } else if (field === 'name') {
-        kitchenCabinetItems[index].name = value;
+        window.kitchenCabinetItems[index].name = value;
     }
     
-    kitchenCabinetItems[index].total = kitchenCabinetItems[index].quantity * kitchenCabinetItems[index].amount;
     renderKitchenItemsTable();
 }
 
@@ -12084,7 +12043,8 @@ function updateKitchenPreviewDisplay() {
     
     const data = window.quotationData;
     
-    console.log('Updating kitchen preview with data:', data);
+    console.log('=== KITCHEN PREVIEW DEBUG ===');
+    console.log('Data items:', data.items);
     
     // Update the preview modal with kitchen-specific display
     const previewClientName = document.getElementById('previewClientName');
@@ -12099,11 +12059,13 @@ function updateKitchenPreviewDisplay() {
     if (previewCategory) previewCategory.textContent = 'KITCHEN & CABINETS';
     if (previewDate) previewDate.textContent = new Date(data.quotationDate).toLocaleDateString('en-US');
     if (previewSize) previewSize.textContent = '-';
-    if (quotationTotalCost) quotationTotalCost.textContent = data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 });
     
-    // Build items table for kitchen items - Using correct column headers
+    // Calculate total if not already calculated
+    let totalCost = data.totalCost;
+    let totalDays = 0;
+    
+    // Build items table for kitchen items
     let tableHTML = '';
-    let totalDaysSum = 0;
     
     if (data.items && data.items.length > 0) {
         // Create thead with kitchen-specific headers
@@ -12121,21 +12083,24 @@ function updateKitchenPreviewDisplay() {
         `;
         
         data.items.forEach((item) => {
-            totalDaysSum += (item.days || 0);
+            const itemTotal = (item.quantity || 1) * (item.amount || 0);
+            const itemDays = item.days || 1;
+            totalDays += itemDays;
+            
             tableHTML += `<tr>
                 <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(item.name || '')}</td>
                 <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity || 1}</td>
                 <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${item.days || 0}</td>
-                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${(item.totalPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${itemDays}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             </tr>`;
         });
         
         // Add total row
-        tableHTML += `<tr>
+        tableHTML += `<table>
             <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
-            <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDaysSum}</strong></td>
-            <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>USD ${data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
+            <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDays}</strong></td>
+            <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
         </table>`;
         
         tableHTML += `</tbody>`;
@@ -12148,7 +12113,8 @@ function updateKitchenPreviewDisplay() {
     }
     
     if (quotationItemsTable) quotationItemsTable.innerHTML = tableHTML;
-    if (totalDurationDays) totalDurationDays.textContent = totalDaysSum;
+    if (totalDurationDays) totalDurationDays.textContent = totalDays;
+    if (quotationTotalCost) quotationTotalCost.textContent = totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 });
     
     // Also update the table headers in the preview modal
     const tableHeaders = document.querySelectorAll('#quotationPreviewModal .table thead th');
@@ -12159,6 +12125,8 @@ function updateKitchenPreviewDisplay() {
         tableHeaders[3].textContent = 'Days';
         tableHeaders[4].textContent = 'Total Price';
     }
+    
+    console.log('Kitchen preview updated - Total cost:', totalCost, 'Total days:', totalDays);
 }
 
 // Function to load existing quotation for editing
