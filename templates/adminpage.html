@@ -14400,7 +14400,65 @@ async function downloadQuotationPDFFromPortal(quotationId) {
         throw new Error('Quotation not found');
     }
     
-    // Convert API format to window.quotationData format
+    // Check if it's a kitchen quotation
+    const isKitchen = (quotation.category === 'kitchen');
+    
+    if (isKitchen) {
+        // Use kitchen PDF generator
+        await downloadKitchenQuotationPDFFromPortal(quotation);
+    } else {
+        // Use construction PDF generator
+        await downloadConstructionQuotationPDFFromPortal(quotation);
+    }
+}
+
+// New function for kitchen quotations
+async function downloadKitchenQuotationPDFFromPortal(quotation) {
+    // Convert API format to kitchen format
+    const kitchenData = {
+        clientName: quotation.clientName,
+        clientWhatsapp: quotation.clientWhatsapp || '',
+        quotationDate: quotation.quotationDate,
+        category: quotation.category,
+        totalCost: quotation.totalCost,
+        items: (quotation.items || []).map(item => ({
+            name: item.name,
+            quantity: item.quantity || 1,
+            amount: item.amount || item.unitRate || 0,  // Kitchen uses 'amount' field
+            days: item.days || 1,
+            totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || 0))
+        })),
+        schedules: (quotation.schedules || []).map(schedule => ({
+            workScope: schedule.workScope,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            days: schedule.days || 1
+        }))
+    };
+    
+    // Calculate totals
+    let recalculatedTotal = 0;
+    let recalculatedDays = 0;
+    kitchenData.items.forEach(item => {
+        recalculatedTotal += (item.quantity || 1) * (item.amount || 0);
+        recalculatedDays += (item.days || 1);
+    });
+    kitchenData.totalCost = recalculatedTotal;
+    kitchenData.totalDays = recalculatedDays;
+    
+    // Store and generate kitchen PDF
+    window.kitchenQuotationData = kitchenData;
+    
+    if (typeof window.generateKitchenPDF !== 'function') {
+        throw new Error('Kitchen PDF generator not available');
+    }
+    
+    await window.generateKitchenPDF('download');
+}
+
+// Rename existing function for construction quotations
+async function downloadConstructionQuotationPDFFromPortal(quotation) {
+    // Convert API format to window.quotationData format (construction)
     const data = {
         clientName: quotation.clientName,
         clientWhatsapp: quotation.clientWhatsapp || '',
@@ -14411,7 +14469,7 @@ async function downloadQuotationPDFFromPortal(quotationId) {
         markup: quotation.markup,
         baseCost: quotation.totalCost / (1 + (quotation.markup / 100)),
         markupAmount: quotation.totalCost - (quotation.totalCost / (1 + (quotation.markup / 100))),
-        items: quotation.items.map(item => ({
+        items: (quotation.items || []).map(item => ({
             item: item.name,
             name: item.name,
             sqm: item.quantity,
@@ -14422,7 +14480,7 @@ async function downloadQuotationPDFFromPortal(quotationId) {
     };
 
     // Convert schedules to gantt format
-    const ganttData = quotation.schedules.map(schedule => ({
+    const ganttData = (quotation.schedules || []).map(schedule => ({
         item: schedule.workScope,
         startDate: schedule.startDate,
         endDate: schedule.endDate,
@@ -14440,6 +14498,7 @@ async function downloadQuotationPDFFromPortal(quotationId) {
     
     await window.generateQuotationPDF('download');
 }
+
 
     function generatePDFFromPortal(data, ganttData) {
         // Reuse the same generator used by the quotation creation flow
@@ -14469,41 +14528,59 @@ function editQuotationFromPortal(quotationId) {
 
             // Set editing context
             window.editingQuotationId = quotationId;
+            
+            const isKitchen = (quotation.category === 'kitchen');
 
-            // Load schedules with correct days
-            window.ganttChartData = (quotation.schedules || []).map(s => ({
-                item: s.workScope,
-                startDate: s.startDate,
-                endDate: s.endDate,
-                days: s.days,  // Days from schedule
-                price: 0
-            }));
-            ganttItems = window.ganttChartData.slice();
-
-            // Load items WITH their days (from schedules)
-            window._editingPreSelectItems = (quotation.items || []).map((item, idx) => {
-                // Find matching schedule to get days
-                const matchingSchedule = quotation.schedules ? quotation.schedules[idx] : null;
-                return {
+            if (isKitchen) {
+                // Load kitchen quotation for editing
+                window.kitchenCabinetItems = (quotation.items || []).map(item => ({
                     name: item.name,
-                    sqm: item.quantity,
-                    inhouseRate: item.unitRate,
-                    clientPrice: item.totalPrice,
-                    total: item.totalPrice,
-                    // IMPORTANT: Get days from the corresponding schedule
-                    days: matchingSchedule ? matchingSchedule.days : 0
-                };
-            });
+                    quantity: item.quantity || 1,
+                    amount: item.amount || item.unitRate || 0,
+                    days: item.days || 1
+                }));
+                
+                $('#quotationClientName').val(quotation.clientName || '');
+                $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
+                $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
+                $('#quotationCategory').val('kitchen').change();
+                
+                // Render items table
+                renderKitchenItemsTable();
+                
+                openModal('quotationgeneratorModal');
+            } else {
+                // Load construction quotation for editing (existing logic)
+                window.ganttChartData = (quotation.schedules || []).map(s => ({
+                    item: s.workScope,
+                    startDate: s.startDate,
+                    endDate: s.endDate,
+                    days: s.days,
+                    price: 0
+                }));
+                ganttItems = window.ganttChartData.slice();
 
-            // Pre-fill text fields
-            $('#quotationClientName').val(quotation.clientName || '');
-            $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
-            $('#quotationMarkup').val(quotation.markup != null ? quotation.markup : 30);
-            $('#quotationSize').val(quotation.projectSize || '');
-            $('#quotationDate').prop('readonly', false).val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
-            $('#quotationCategory').val(quotation.category || '').change();
+                window._editingPreSelectItems = (quotation.items || []).map((item, idx) => {
+                    const matchingSchedule = quotation.schedules ? quotation.schedules[idx] : null;
+                    return {
+                        name: item.name,
+                        sqm: item.quantity,
+                        inhouseRate: item.unitRate,
+                        clientPrice: item.totalPrice,
+                        total: item.totalPrice,
+                        days: matchingSchedule ? matchingSchedule.days : 0
+                    };
+                });
 
-            openModal('quotationgeneratorModal');
+                $('#quotationClientName').val(quotation.clientName || '');
+                $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
+                $('#quotationMarkup').val(quotation.markup != null ? quotation.markup : 30);
+                $('#quotationSize').val(quotation.projectSize || '');
+                $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
+                $('#quotationCategory').val(quotation.category || '').change();
+
+                openModal('quotationgeneratorModal');
+            }
         })
         .catch(error => alert('Error: ' + error.message));
 }
@@ -14522,8 +14599,87 @@ async function sendQuotationFromPortal(quotationId) {
     if (!quotation.clientWhatsapp || !quotation.clientWhatsapp.toString().trim()) {
         throw new Error('No WhatsApp number saved for this quotation. Edit the quotation first to add one.');
     }
+    
+    const isKitchen = (quotation.category === 'kitchen');
+    
+    if (isKitchen) {
+        await sendKitchenQuotationFromPortal(quotation);
+    } else {
+        await sendConstructionQuotationFromPortal(quotation);
+    }
+}
 
-    // Build data objects for PDF generation
+async function sendKitchenQuotationFromPortal(quotation) {
+    // Convert to kitchen format
+    const kitchenData = {
+        clientName: quotation.clientName,
+        clientWhatsapp: quotation.clientWhatsapp || '',
+        quotationDate: quotation.quotationDate,
+        category: quotation.category,
+        totalCost: quotation.totalCost,
+        items: (quotation.items || []).map(item => ({
+            name: item.name,
+            quantity: item.quantity || 1,
+            amount: item.amount || item.unitRate || 0,
+            days: item.days || 1,
+            totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || 0))
+        })),
+        schedules: (quotation.schedules || []).map(schedule => ({
+            workScope: schedule.workScope,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            days: schedule.days || 1
+        }))
+    };
+    
+    // Recalculate totals
+    let recalculatedTotal = 0;
+    kitchenData.items.forEach(item => {
+        recalculatedTotal += (item.quantity || 1) * (item.amount || 0);
+    });
+    kitchenData.totalCost = recalculatedTotal;
+    
+    window.kitchenQuotationData = kitchenData;
+    
+    // Generate PDF
+    if (typeof window.generateKitchenPDF !== 'function') {
+        throw new Error('Kitchen PDF generator not available');
+    }
+    
+    const dataUri = await window.generateKitchenPDF('datauri');
+    const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
+    
+    if (!pdfBase64) {
+        throw new Error('Failed to generate kitchen quotation PDF for sending.');
+    }
+    
+    // Send via WhatsApp
+    const sendResponse = await fetch('/api/send-quotation-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            clientName: quotation.clientName || 'Client',
+            whatsappNumber: quotation.clientWhatsapp,
+            quotationId: quotation.id,
+            pdfBase64: pdfBase64,
+            category: 'kitchen'
+        })
+    });
+    
+    const sendResult = await sendResponse.json();
+    if (!sendResponse.ok || !sendResult.success) {
+        throw new Error((sendResult.error || 'Failed to send') + (sendResult.hint ? '\n\n' + sendResult.hint : ''));
+    }
+    
+    if (sendResult.used_template) {
+        alert('Customer is outside the 24-hour window.\nA WhatsApp template with "Download Quotation" button was sent to: ' + sendResult.whatsapp_number);
+    } else {
+        alert('Kitchen quotation PDF sent successfully to: ' + sendResult.whatsapp_number);
+    }
+}
+
+async function sendConstructionQuotationFromPortal(quotation) {
+    // Your existing construction send logic
     const data = {
         clientName: quotation.clientName,
         clientWhatsapp: quotation.clientWhatsapp || '',
@@ -14555,7 +14711,6 @@ async function sendQuotationFromPortal(quotationId) {
     window.quotationData = data;
     window.ganttChartData = ganttData;
 
-    // Generate PDF
     if (typeof window.generateQuotationPDF !== 'function') {
         throw new Error('PDF generator not available. Please refresh and try again.');
     }
@@ -14567,14 +14722,13 @@ async function sendQuotationFromPortal(quotationId) {
         throw new Error('Failed to generate quotation PDF for sending.');
     }
 
-    // Send via WhatsApp
     const sendResponse = await fetch('/api/send-quotation-whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             clientName: quotation.clientName || 'Client',
             whatsappNumber: quotation.clientWhatsapp,
-            quotationId: quotationId,
+            quotationId: quotation.id,
             pdfBase64: pdfBase64
         })
     });
@@ -14590,7 +14744,6 @@ async function sendQuotationFromPortal(quotationId) {
         alert('Quotation PDF sent successfully to: ' + sendResult.whatsapp_number);
     }
 }
-
 </script>
 
 <script>
