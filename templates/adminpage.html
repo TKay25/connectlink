@@ -591,6 +591,19 @@
         ::-webkit-scrollbar-thumb { background: var(--crimson-sidebar); border-radius: 10px; }
         .text-crimson { color: var(--crimson-bright); }
         hr { border-color: var(--dark-blue-deep); }
+
+        /* Kitchen preview table styling */
+        #quotationPreviewModal .table thead th {
+            background-color: #9B1D2C !important;
+            color: white !important;
+            font-size: 0.7rem !important;
+            padding: 4px 6px !important;
+        }
+
+        #quotationPreviewModal .table td {
+            font-size: 0.7rem !important;
+            padding: 4px 6px !important;
+        }
     </style>
 </head>
 
@@ -11686,6 +11699,8 @@ $('#generateQuotationBtn').click(function() {
             };
         });
         
+
+        console.log('Kitchen items being sent to preview:', itemsForQuotation);
         console.log('Total cost calculated:', totalCost);
         console.log('Total days calculated:', totalDays);
         
@@ -12069,42 +12084,82 @@ function updateKitchenPreviewDisplay() {
     
     const data = window.quotationData;
     
-    // Update the preview modal with kitchen-specific display
-    $('#previewClientName').text(data.clientName);
-    $('#previewCategory').text('KITCHEN & CABINETS');
-    $('#previewDate').text(new Date(data.quotationDate).toLocaleDateString('en-US'));
-    $('#previewSize').text('-');
-    $('#quotationTotalCost').text(data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    console.log('Updating kitchen preview with data:', data);
     
-    // Build items table for kitchen items
+    // Update the preview modal with kitchen-specific display
+    const previewClientName = document.getElementById('previewClientName');
+    const previewCategory = document.getElementById('previewCategory');
+    const previewDate = document.getElementById('previewDate');
+    const previewSize = document.getElementById('previewSize');
+    const quotationTotalCost = document.getElementById('quotationTotalCost');
+    const totalDurationDays = document.getElementById('totalDurationDays');
+    const quotationItemsTable = document.getElementById('quotationItemsTable');
+    
+    if (previewClientName) previewClientName.textContent = data.clientName;
+    if (previewCategory) previewCategory.textContent = 'KITCHEN & CABINETS';
+    if (previewDate) previewDate.textContent = new Date(data.quotationDate).toLocaleDateString('en-US');
+    if (previewSize) previewSize.textContent = '-';
+    if (quotationTotalCost) quotationTotalCost.textContent = data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    
+    // Build items table for kitchen items - Using correct column headers
     let tableHTML = '';
     let totalDaysSum = 0;
     
-    data.items.forEach((item, index) => {
-        totalDaysSum += item.days;
+    if (data.items && data.items.length > 0) {
+        // Create thead with kitchen-specific headers
+        tableHTML = `
+            <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
+                <tr>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty</th>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Amount (USD)</th>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Days</th>
+                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Total Price</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
         
-        tableHTML += `<tr>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(item.name)}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${item.days}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${item.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-        </tr>`;
-    });
-    
-    // Add total row
-    if (data.items.length > 0) {
+        data.items.forEach((item) => {
+            totalDaysSum += (item.days || 0);
+            tableHTML += `<tr>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(item.name || '')}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity || 1}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${item.days || 0}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${(item.totalPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            </tr>`;
+        });
+        
+        // Add total row
         tableHTML += `<tr>
             <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
             <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDaysSum}</strong></td>
             <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>USD ${data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
-        </tr>`;
+        </table>`;
+        
+        tableHTML += `</tbody>`;
+    } else {
+        tableHTML = `
+            <tbody>
+                <tr><td colspan="5" class="text-center py-3">No items in this quotation</td></tr>
+            </tbody>
+        `;
     }
     
-    $('#quotationItemsTable').html(tableHTML);
-    $('#totalDurationDays').text(totalDaysSum);
+    if (quotationItemsTable) quotationItemsTable.innerHTML = tableHTML;
+    if (totalDurationDays) totalDurationDays.textContent = totalDaysSum;
+    
+    // Also update the table headers in the preview modal
+    const tableHeaders = document.querySelectorAll('#quotationPreviewModal .table thead th');
+    if (tableHeaders.length >= 5) {
+        tableHeaders[0].textContent = 'Item';
+        tableHeaders[1].textContent = 'Qty';
+        tableHeaders[2].textContent = 'Amount (USD)';
+        tableHeaders[3].textContent = 'Days';
+        tableHeaders[4].textContent = 'Total Price';
+    }
 }
-
 
 // Function to load existing quotation for editing
 function loadExistingQuotationForEdit(quotationId) {
@@ -12376,6 +12431,12 @@ async function generateQuotationPDF(outputMode = 'download') {
 // Helper function to escape HTML
 
 function renderPreviewItemsTable(data) {
+
+    if (data && data.category === 'kitchen') {
+        updateKitchenPreviewDisplay();
+        return;
+    }
+
     const previewItems = getItemsForQuotationOutput(data);
     let tableHTML = '';
     let totalCostPreview = 0;
