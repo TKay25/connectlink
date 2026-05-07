@@ -3957,7 +3957,6 @@ $('#kitchenItemSelect').change(function() {
     }
 });
 
-// Add item to table
 $('#confirmAddKitchenItemBtn').click(function() {
     let itemName = $('#kitchenItemSelect').val();
     if (!itemName) {
@@ -3972,13 +3971,12 @@ $('#confirmAddKitchenItemBtn').click(function() {
     // Handle Other Bedrooms special case
     if (itemName === 'Other Bedroom Cabinets') {
         const otherCount = parseInt($('#otherBedroomsNumber').val()) || 1;
-        quantity = otherCount;  // Set quantity to number of bedrooms
-        // Optional: You could also modify the item name to show count
-        itemName = `${otherCount} Other Bedroom Cabinets (${itemName})`;
+        quantity = otherCount;
+        itemName = `${otherCount}x ${itemName}`;
     }
     
-    // Add to array
-    kitchenCabinetItems.push({
+    // Add to global array
+    window.kitchenCabinetItems.push({
         name: itemName,
         quantity: quantity,
         amount: amount,
@@ -3986,8 +3984,19 @@ $('#confirmAddKitchenItemBtn').click(function() {
         total: quantity * amount
     });
     
+    console.log('Added item:', window.kitchenCabinetItems[window.kitchenCabinetItems.length - 1]);
+    console.log('All kitchen items:', window.kitchenCabinetItems);
+    
     renderKitchenItemsTable();
     closeModal('addKitchenItemModal');
+    
+    // Reset form
+    $('#kitchenItemSelect').val('');
+    $('#kitchenItemQty').val('1');
+    $('#kitchenItemAmount').val('0');
+    $('#kitchenItemDays').val('1');
+    $('#otherBedroomsNumber').val('1');
+    $('#otherBedroomsInfo').hide();
 });
 
 // Remove item from table
@@ -3996,70 +4005,7 @@ function removeKitchenItem(index) {
     renderKitchenItemsTable();
 }
 
-// Render kitchen items table
-function renderKitchenItemsTable() {
-    const tbody = $('#kitchenItemsBody');
-    
-    if (kitchenCabinetItems.length === 0) {
-        tbody.html(`
-            <tr id="kitchenEmptyRow">
-                <td colspan="6" class="text-center py-3 text-muted">
-                    Click "Add Item" to add kitchen/cabinet items
-                </td>
-            </tr>
-        `);
-        $('#kitchenItemCount').text('0');
-        $('#kitchenTotalCost').text('0.00');
-        $('#kitchenTotalDays').text('0');
-        return;
-    }
-    
-    let totalCost = 0;
-    let totalDays = 0;
-    let html = '';
-    
-    kitchenCabinetItems.forEach((item, index) => {
-        totalCost += item.total;
-        totalDays += item.days;
-        
-        html += `
-            <tr>
-                <td>
-                    <input type="text" class="form-control form-control-sm" 
-                           value="${escapeHtml(item.name)}" 
-                           onchange="updateKitchenItem(${index}, 'name', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.quantity}" min="1"
-                           onchange="updateKitchenItem(${index}, 'quantity', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.amount}" min="0" step="100"
-                           onchange="updateKitchenItem(${index}, 'amount', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm" 
-                           value="${item.days}" min="1"
-                           onchange="updateKitchenItem(${index}, 'days', this.value)">
-                </td>
-                <td><strong>$${item.total.toLocaleString()}</strong></td>
-                <td>
-                    <button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-    
-    tbody.html(html);
-    $('#kitchenItemCount').text(kitchenCabinetItems.length);
-    $('#kitchenTotalCost').text(totalCost.toLocaleString());
-    $('#kitchenTotalDays').text(totalDays);
-}
-
+// 
 // Update item field
 function updateKitchenItem(index, field, value) {
     if (field === 'quantity') {
@@ -11416,7 +11362,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Load and display items from database
                 loadConstructionItemsFromDatabase();
-            } else {
+            } 
+            else if (selectedCategory === 'kitchen') {
+                    $('#quotationSizeContainer').hide();
+                    $('#constructionDetailsContainer').hide();
+                    $('#kitchenCabinetContainer').show();
+                    
+                    // Initialize kitchen items array if not exists
+                    if (!window.kitchenCabinetItems) {
+                        window.kitchenCabinetItems = [];
+                    }
+                    renderKitchenItemsTable();
+            } 
+            else {
                 $('#quotationSizeContainer').hide();
                 $('#constructionDetailsContainer').hide();
                 $('#quotationSize').prop('required', false);
@@ -11617,20 +11575,41 @@ $('#generateQuotationBtn').click(function() {
     const isConstruction = (category === 'construction_single' || category === 'construction_double');
     const isSingleStorey = (category === 'construction_single');
 
-    if (category === 'kitchen') {
-        if (kitchenCabinetItems.length === 0) {
+  if (category === 'kitchen') {
+        // Check if we have kitchen items
+        if (!window.kitchenCabinetItems || window.kitchenCabinetItems.length === 0) {
             alert('Please add at least one kitchen/cabinet item.');
             return;
         }
         
-        // Calculate total
-        const totalCost = kitchenCabinetItems.reduce((sum, item) => sum + item.total, 0);
+        console.log('Kitchen items to save:', window.kitchenCabinetItems);
         
-        // Generate work schedule from items
+        // Calculate total cost and total days
+        let totalCost = 0;
+        let totalDays = 0;
+        
+        const itemsForQuotation = window.kitchenCabinetItems.map(item => {
+            const itemTotal = item.quantity * item.amount;
+            totalCost += itemTotal;
+            totalDays += item.days;
+            
+            return {
+                name: item.name,
+                quantity: item.quantity,
+                amount: item.amount,
+                days: item.days,
+                totalPrice: itemTotal
+            };
+        });
+        
+        console.log('Total cost calculated:', totalCost);
+        console.log('Total days calculated:', totalDays);
+        
+        // Generate work schedule based on items
         let currentStartDate = new Date(quotationDate);
         const schedules = [];
         
-        kitchenCabinetItems.forEach((item, idx) => {
+        window.kitchenCabinetItems.forEach((item, idx) => {
             const endDate = new Date(currentStartDate);
             endDate.setDate(endDate.getDate() + item.days - 1);
             
@@ -11641,43 +11620,40 @@ $('#generateQuotationBtn').click(function() {
                 days: item.days
             });
             
+            // Move start date to next day after this item ends
             currentStartDate = new Date(endDate);
             currentStartDate.setDate(currentStartDate.getDate() + 1);
         });
         
-        // Prepare items for saving
-        const items = kitchenCabinetItems.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            amount: item.amount,
-            days: item.days,
-            totalPrice: item.total
-        }));
-        
-        // Store data
+        // Store quotation data for preview
         window.quotationData = {
             category: category,
             clientName: clientName,
             clientWhatsapp: clientWhatsapp,
             quotationDate: quotationDate,
-            items: items,
+            items: itemsForQuotation,
             schedules: schedules,
-            totalCost: totalCost
+            totalCost: totalCost,
+            isKitchen: true
         };
         
         window.ganttChartData = schedules;
         
-        // Close and show preview
+        console.log('Quotation data saved:', window.quotationData);
+        
+        // Close generator modal and show preview
         closeModal('quotationgeneratorModal');
         setTimeout(() => {
             openModal('quotationPreviewModal');
+            // Update preview with kitchen items
+            updateKitchenPreviewDisplay();
             displayGanttChartInPreview();
         }, 300);
         
     } 
-    
+
     // If construction is selected, validate additional fields
-    if (isConstruction) {
+    else if (isConstruction) {
         const size = $('#quotationSize').val();
         const markup = $('#quotationMarkup').val();
         if (!size || !markup) {
@@ -11999,6 +11975,121 @@ $('#generateQuotationBtn').click(function() {
     console.log('Items count:', window.quotationData.items.length);
     console.log('First item:', window.quotationData.items[0]);
 });
+
+function updateKitchenPreviewDisplay() {
+    if (!window.quotationData || window.quotationData.category !== 'kitchen') {
+        return;
+    }
+    
+    const data = window.quotationData;
+    
+    // Update the preview modal with kitchen-specific display
+    $('#previewClientName').text(data.clientName);
+    $('#previewCategory').text('KITCHEN & CABINETS');
+    $('#previewDate').text(new Date(data.quotationDate).toLocaleDateString('en-US'));
+    $('#previewSize').text('-');
+    $('#quotationTotalCost').text(data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    
+    // Build items table for kitchen items
+    let tableHTML = '';
+    let totalDaysSum = 0;
+    
+    data.items.forEach((item, index) => {
+        totalDaysSum += item.days;
+        
+        tableHTML += `<tr>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(item.name)}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${item.days}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${item.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+        </tr>`;
+    });
+    
+    // Add total row
+    if (data.items.length > 0) {
+        tableHTML += `<tr>
+            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
+            <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDaysSum}</strong></td>
+            <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>USD ${data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
+        </tr>`;
+    }
+    
+    $('#quotationItemsTable').html(tableHTML);
+    $('#totalDurationDays').text(totalDaysSum);
+}
+
+// Also update the renderKitchenItemsTable function to ensure data is stored globally
+function renderKitchenItemsTable() {
+    const tbody = $('#kitchenItemsBody');
+    
+    if (!window.kitchenCabinetItems) {
+        window.kitchenCabinetItems = [];
+    }
+    
+    if (window.kitchenCabinetItems.length === 0) {
+        tbody.html(`
+            <tr id="kitchenEmptyRow">
+                <td colspan="6" class="text-center py-3 text-muted">
+                    Click "Add Item" to add kitchen/cabinet items
+                </td>
+            </tr>
+        `);
+        $('#kitchenItemCount').text('0');
+        $('#kitchenTotalCost').text('0.00');
+        $('#kitchenTotalDays').text('0');
+        return;
+    }
+    
+    let totalCost = 0;
+    let totalDays = 0;
+    let html = '';
+    
+    window.kitchenCabinetItems.forEach((item, index) => {
+        totalCost += item.total;
+        totalDays += item.days;
+        
+        html += `
+            <tr>
+                <td>
+                    <input type="text" class="form-control form-control-sm" 
+                           value="${escapeHtml(item.name)}" 
+                           onchange="updateKitchenItem(${index}, 'name', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.quantity}" min="1"
+                           onchange="updateKitchenItem(${index}, 'quantity', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.amount}" min="0" step="100"
+                           onchange="updateKitchenItem(${index}, 'amount', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" 
+                           value="${item.days}" min="1"
+                           onchange="updateKitchenItem(${index}, 'days', this.value)">
+                </td>
+                <td><strong>$${item.total.toLocaleString()}</strong></td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.html(html);
+    $('#kitchenItemCount').text(window.kitchenCabinetItems.length);
+    $('#kitchenTotalCost').text(totalCost.toLocaleString());
+    $('#kitchenTotalDays').text(totalDays);
+}
+
+// Make sure kitchenCabinetItems is initialized globally
+window.kitchenCabinetItems = window.kitchenCabinetItems || [];
+
 
 
 // Function to load existing quotation for editing
