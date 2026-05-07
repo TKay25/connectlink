@@ -13900,7 +13900,7 @@ function displayQuotations(quotations) {
                         <th style="padding: 5px 4px; text-align: center; width: 75px; border: 1px solid #1E2A56;">Date</th>
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Items</th>
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Tasks</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 70px; border: 1px solid #1E2A56;">Actions</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 110px; border: 1px solid #1E2A56;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -13931,7 +13931,7 @@ function displayQuotations(quotations) {
         displayCategory = categoryMap[displayCategory] || displayCategory;
         
         html += `
-            <tr style="border-bottom: 1px solid #e8e8e8;">
+            <tr style="border-bottom: 1px solid #e8e8e8;" id="quotation-row-${quotation.id}">
                 <td style="padding: 4px 4px; text-align: center; font-weight: 600;">${quotation.id}</td>
                 <td style="padding: 4px 4px; text-align: left;">${escapeHtml(quotation.clientName || 'N/A')}</td>
                 <td style="padding: 4px 4px; text-align: left;">${escapeHtml(displayCategory)}</td>
@@ -13942,8 +13942,11 @@ function displayQuotations(quotations) {
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${itemCount}</span></td>
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${taskCount}</span></td>
                 <td style="padding: 4px 4px; text-align: center;">
-                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px;">
+                    <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px; margin-right: 4px;">
                         <i class="bi bi-eye"></i> View
+                    </button>
+                    <button class="btn btn-sm btn-danger delete-quotation-btn" data-id="${quotation.id}" data-name="${escapeHtml(quotation.clientName || 'Client')}" style="padding: 2px 6px;">
+                        <i class="bi bi-trash"></i> Delete
                     </button>
                 </td>
             </tr>
@@ -13965,7 +13968,8 @@ function displayQuotations(quotations) {
             const term = this.value.toLowerCase();
             const rows = document.querySelectorAll('#quotationsContainer tbody tr');
             rows.forEach(row => {
-                row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(term) ? '' : 'none';
             });
         };
     }
@@ -13976,7 +13980,105 @@ function displayQuotations(quotations) {
             viewQuotationDetails(parseInt(this.dataset.id));
         };
     });
+    
+    // Attach delete button handlers
+    document.querySelectorAll('.delete-quotation-btn').forEach(btn => {
+        btn.onclick = function() {
+            const quotationId = parseInt(this.dataset.id);
+            const clientName = this.dataset.name;
+            deleteQuotation(quotationId, clientName);
+        };
+    });
 }
+
+function deleteQuotation(quotationId, clientName) {
+    // Ask for confirmation
+    if (!confirm(`⚠️ Delete Quotation #${quotationId} for "${clientName}"?\n\nThis action cannot be undone.`)) {
+        return;
+    }
+    
+    // Show loading state on the button
+    const deleteBtn = event.target.closest('.delete-quotation-btn');
+    const originalHTML = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    
+    // Make API call to delete
+    fetch(`/api/quotations/${quotationId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the row from the table
+            const row = document.getElementById(`quotation-row-${quotationId}`);
+            if (row) {
+                row.remove();
+            }
+            
+            // Show success message
+            showToastMessage(`✅ Quotation #${quotationId} deleted successfully!`, 'success');
+            
+            // Check if table is now empty
+            const remainingRows = document.querySelectorAll('#quotationsContainer tbody tr');
+            if (remainingRows.length === 0) {
+                document.getElementById('quotationsContainer').innerHTML = '<p class="text-muted text-center" style="padding: 40px;">No quotations saved yet</p>';
+            }
+        } else {
+            // Show error message
+            let errorMsg = data.error || 'Failed to delete quotation';
+            if (data.linkedProjectsCount) {
+                errorMsg = `${errorMsg}\n\nPlease remove the quotation from all projects first.`;
+            }
+            alert(`❌ ${errorMsg}`);
+            
+            // Restore button
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = originalHTML;
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        alert(`❌ Error deleting quotation: ${error.message}`);
+        
+        // Restore button
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = originalHTML;
+    });
+}
+
+// Helper function to show toast messages
+function showToastMessage(message, type = 'success') {
+    const toastHTML = `
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+            <div class="toast show" role="alert">
+                <div class="toast-header ${type === 'success' ? 'bg-success' : 'bg-danger'} text-white">
+                    <i class="bi ${type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle'} me-2"></i>
+                    <strong class="me-auto">${type === 'success' ? 'Success' : 'Error'}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const container = document.createElement('div');
+    container.innerHTML = toastHTML;
+    document.body.appendChild(container.firstChild);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (container.firstChild) {
+            container.firstChild.remove();
+        }
+    }, 3000);
+}
+
 // Separate handler function for view button
 function handleViewClick(e) {
     const btn = e.currentTarget;

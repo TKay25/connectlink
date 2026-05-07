@@ -12949,6 +12949,83 @@ def api_payment_reminders():
             'all_payments': []
         }), 500
 
+@app.route('/api/quotations/<int:quotation_id>', methods=['DELETE'])
+def delete_quotation(quotation_id):
+    """Delete a quotation only if it's not linked to any project"""
+    try:
+        with get_db() as (cursor, connection):
+            # Step 1: Check if quotation exists
+            cursor.execute("SELECT id, client_name FROM quotations WHERE id = %s", (quotation_id,))
+            quotation = cursor.fetchone()
+            
+            if not quotation:
+                return jsonify({
+                    'success': False,
+                    'error': 'Quotation not found'
+                }), 404
+            
+            # Step 2: Check if quotation is linked to any projects
+            cursor.execute(
+                "SELECT COUNT(*) FROM connectlinkdatabase WHERE quotation_id = %s",
+                (quotation_id,)
+            )
+            linked_projects_count = cursor.fetchone()[0]
+            
+            if linked_projects_count > 0:
+                return jsonify({
+                    'success': False,
+                    'error': f'Cannot delete quotation: It is linked to {linked_projects_count} project(s). Please unlink it from all projects before deletion.',
+                    'linkedProjectsCount': linked_projects_count
+                }), 409
+            
+            # Step 3: Delete quotation items (construction)
+            cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
+            
+            # Step 4: Delete kitchen items
+            try:
+                cursor.execute("DELETE FROM quotation_kitchen_items WHERE quotation_id = %s", (quotation_id,))
+            except:
+                pass
+            
+            # Step 5: Delete quotation schedules
+            try:
+                cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
+            except:
+                pass
+            
+            # Step 6: Delete share links
+            try:
+                cursor.execute("DELETE FROM quotation_share_links WHERE quotation_id = %s", (quotation_id,))
+            except:
+                pass
+            
+            # Step 7: Delete send logs
+            try:
+                cursor.execute("DELETE FROM quotation_whatsapp_send_logs WHERE quotation_id = %s", (quotation_id,))
+            except:
+                pass
+            
+            # Step 8: Delete the quotation
+            cursor.execute("DELETE FROM quotations WHERE id = %s", (quotation_id,))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Quotation for {quotation[1]} deleted successfully',
+                'quotationId': quotation_id
+            }), 200
+            
+    except Exception as e:
+        logging.error(f'Error deleting quotation {quotation_id}: {str(e)}')
+        logging.error(traceback.format_exc())
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/send-meta-template', methods=['POST'])
 def send_meta_template():
     """Send WhatsApp message using Meta Business Platform template"""
