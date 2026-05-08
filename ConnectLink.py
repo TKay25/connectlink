@@ -19144,7 +19144,15 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
     """Generate HTML for quotation PDF"""
     deposit = total_cost * 0.30
     balance = total_cost - deposit
-    monthly = balance / 5 if balance else 0
+
+    if is_kitchen:
+        payment_months = 3
+        monthly = balance / 3 if balance else 0
+        payment_period_text = "3 months"
+    else:
+        payment_months = 5
+        monthly = balance / 5 if balance else 0
+        payment_period_text = "5 months"
     
     category_display = "Kitchen & Cabinets" if is_kitchen else category.replace('_', ' ').title()
     
@@ -19201,7 +19209,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                             <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {balance:,.2f}</div>
                         </div>
                         <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
-                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over 5 months)</div>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over {payment_period_text})</div>
                             <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {monthly:,.2f}</div>
                         </div>
                     </div>
