@@ -18691,7 +18691,7 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
     # MOBILE FIX: If file > 2MB, send as link instead of PDF
     if file_size_mb > 2:
         print(f"⚠️ File too large ({file_size_mb:.2f}MB) for mobile, sending link instead")
-        download_link = f"https://your-domain.com/api/enquiries/{enquiry_id}/plan"
+        download_link = f"https://connectlink-wbax.onrender.com/api/enquiries/{enquiry_id}/plan"
         link_message = f"""📎 *Enquiry Attachment Available*
 
 Reference: #{enquiry_id}
@@ -18723,7 +18723,7 @@ File size: {file_size_mb:.1f} MB
         logging.exception(f"Mobile PDF send failed: {exc}")
         
         # Fallback: Send download link
-        download_link = f"https://your-domain.com/api/enquiries/{enquiry_id}/plan"
+        download_link = f"https://connectlink-wbax.onrender.com/api/enquiries/{enquiry_id}/plan"
         link_message = f"📎 *Enquiry Attachment*\n\nClick this link to download:\n{download_link}\n\nReference: #{enquiry_id}"
         
         if send_text_message:
