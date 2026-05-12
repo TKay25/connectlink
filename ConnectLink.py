@@ -19771,11 +19771,42 @@ def update_quotation(quotation_id):
         client_whatsapp = data.get('clientWhatsapp', '')
         quotation_date = data.get('quotationDate', date.today().isoformat())
         category = data.get('category', 'General')
-        project_size = float(data.get('size', 0)) if data.get('size') else 0
-        total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
-        markup = float(data.get('markup', 0)) if data.get('markup') else 0
         items = data.get('items', [])
         schedules = data.get('schedules', [])
+
+        is_kitchen = (category == 'kitchen')
+
+        def _to_float(value, default=0.0):
+            try:
+                if value is None or value == '':
+                    return default
+                return float(value)
+            except Exception:
+                return default
+
+        def _to_int(value, default=0):
+            try:
+                if value is None or value == '':
+                    return default
+                return int(float(value))
+            except Exception:
+                return default
+
+        if is_kitchen:
+            project_size = 0
+            markup = _to_float(data.get('markup'), 30.0)
+            total_cost = 0.0
+            for item in items:
+                quantity = _to_int(item.get('quantity', item.get('sqm', 1)), 1)
+                amount = _to_float(item.get('amount', item.get('unitRate', item.get('unit_price', 0))), 0.0)
+                line_total = _to_float(item.get('totalPrice', item.get('total', quantity * amount)), quantity * amount)
+                if line_total == 0 and quantity > 0 and amount > 0:
+                    line_total = quantity * amount
+                total_cost += line_total
+        else:
+            project_size = _to_float(data.get('size'), 0.0)
+            total_cost = _to_float(data.get('totalCost'), 0.0)
+            markup = _to_float(data.get('markup'), 0.0)
 
         with get_db() as (cursor, connection):
             # Verify quotation exists
@@ -19799,24 +19830,41 @@ def update_quotation(quotation_id):
 
             # Replace items
             cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
-            for idx, item in enumerate(items):
-                item_name = item.get('name') or item.get('item', 'Item')
-                quantity = float(item.get('sqm', 0)) if item.get('sqm') else 0
-                unit_rate = float(item.get('inhouseRate', 0)) if item.get('inhouseRate') else 0
-                total_price = float(item.get('total', 0)) if item.get('total') else 0
-                cursor.execute("""
-                    INSERT INTO quotation_items
-                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
+            try:
+                cursor.execute("DELETE FROM quotation_kitchen_items WHERE quotation_id = %s", (quotation_id,))
+            except Exception:
+                pass
+
+            if is_kitchen:
+                for idx, item in enumerate(items):
+                    item_name = item.get('name') or item.get('item', 'Item')
+                    quantity = _to_int(item.get('quantity', item.get('sqm', 1)), 1)
+                    amount = _to_float(item.get('amount', item.get('unitRate', item.get('unit_price', 0))), 0.0)
+                    days = _to_int(item.get('days'), 1)
+                    cursor.execute("""
+                        INSERT INTO quotation_kitchen_items
+                        (quotation_id, item_name, quantity, amount, days, item_order)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (quotation_id, item_name, quantity, amount, days, idx + 1))
+            else:
+                for idx, item in enumerate(items):
+                    item_name = item.get('name') or item.get('item', 'Item')
+                    quantity = _to_float(item.get('quantity', item.get('sqm', 0)), 0.0)
+                    unit_rate = _to_float(item.get('unitRate', item.get('inhouseRate', 0)), 0.0)
+                    total_price = _to_float(item.get('totalPrice', item.get('total', item.get('clientPrice', 0))), 0.0)
+                    cursor.execute("""
+                        INSERT INTO quotation_items
+                        (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
 
             # Replace schedules
             cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
             for idx, schedule in enumerate(schedules):
-                work_scope = schedule.get('item', 'Task')
+                work_scope = schedule.get('workScope', schedule.get('item', 'Task'))
                 start_date = schedule.get('startDate')
                 end_date = schedule.get('endDate')
-                days = int(schedule.get('days', 0)) if schedule.get('days') else 0
+                days = _to_int(schedule.get('days'), 0)
                 cursor.execute("""
                     INSERT INTO quotation_schedules
                     (quotation_id, work_scope, start_date, end_date, days, task_order)
@@ -19861,15 +19909,31 @@ def save_quotation():
         for i, item in enumerate(items):
             print(f"  Item {i}: name={item.get('name')}, quantity={item.get('quantity')}, amount={item.get('amount')}, unitRate={item.get('unitRate')}, totalPrice={item.get('totalPrice')}")
         
+        def _to_float(value, default=0.0):
+            try:
+                if value is None or value == '':
+                    return default
+                return float(value)
+            except Exception:
+                return default
+
+        def _to_int(value, default=0):
+            try:
+                if value is None or value == '':
+                    return default
+                return int(float(value))
+            except Exception:
+                return default
+
         if is_kitchen:
             total_cost = 0
             for item in items:
                 # Get total price from item (pre-calculated in frontend as quantity * amount)
-                item_total = float(item.get('totalPrice', 0))
+                quantity = _to_int(item.get('quantity', 1), 1)
+                amount = _to_float(item.get('amount', item.get('unitRate', item.get('unit_price', 0))), 0.0)
+                item_total = _to_float(item.get('totalPrice', item.get('total', quantity * amount)), 0.0)
                 if item_total == 0:
                     # Fallback: calculate from quantity and amount if totalPrice not provided
-                    quantity = int(item.get('quantity', 1))
-                    amount = float(item.get('amount', 0))
                     item_total = quantity * amount
                 total_cost += item_total
                 print(f"  Kitchen item: {item.get('name')} = ${item_total:,.2f}")
@@ -19910,11 +19974,11 @@ def save_quotation():
                 # Save kitchen items with unit_rate = amount (markup already applied in total)
                 for idx, item in enumerate(items):
                     item_name = item.get('name', 'Item')
-                    quantity = int(item.get('quantity', 1))
+                    quantity = _to_int(item.get('quantity', 1), 1)
                     # amount is the per-unit price (this already INCLUDES markup)
-                    amount = float(item.get('amount', 0))
-                    days = int(item.get('days', 1))
-                    total_price = float(item.get('totalPrice', quantity * amount))
+                    amount = _to_float(item.get('amount', item.get('unitRate', item.get('unit_price', 0))), 0.0)
+                    days = _to_int(item.get('days', 1), 1)
+                    total_price = _to_float(item.get('totalPrice', item.get('total', quantity * amount)), quantity * amount)
                     
                     # Calculate base unit rate (remove markup for internal tracking)
                     base_unit_rate = amount / 1.30

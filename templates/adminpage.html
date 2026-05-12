@@ -8084,6 +8084,7 @@ async function sendKitchenQuotation() {
             items: data.items.map((item, index) => ({
                 name: item.name,
                 quantity: item.quantity || 1,
+                amount: item.amount || item.unitRate || 0,
                 unitRate: item.amount || 0,
                 totalPrice: (item.quantity || 1) * (item.amount || 0),
                 days: item.days || 1,
