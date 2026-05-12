@@ -19009,7 +19009,13 @@ def build_quotation_pdf_document(quotation_id):
             if is_kitchen:
                 # Get kitchen items
                 cursor.execute("""
-                    SELECT item_name, quantity, amount, days, item_order
+                    SELECT
+                        item_name,
+                        quantity,
+                        COALESCE(NULLIF(amount, 0), unit_price, 0) AS effective_amount,
+                        days,
+                        item_order,
+                        COALESCE(NULLIF(total_price, 0), quantity * COALESCE(NULLIF(amount, 0), unit_price, 0), 0) AS effective_total
                     FROM quotation_kitchen_items
                     WHERE quotation_id = %s
                     ORDER BY item_order
@@ -19026,7 +19032,7 @@ def build_quotation_pdf_document(quotation_id):
                     quantity = int(item[1]) if item[1] else 1
                     amount = float(item[2]) if item[2] else 0
                     days = int(item[3]) if item[3] else 1
-                    item_total = quantity * amount
+                    item_total = float(item[5]) if len(item) > 5 and item[5] else (quantity * amount)
                     
                     total_days_sum += days
                     total_cost_sum += item_total
@@ -20095,7 +20101,14 @@ def get_quotations():
                 
                 if kitchen_table_exists:
                     cursor.execute("""
-                        SELECT quotation_id, item_name, quantity, amount, days, item_order
+                        SELECT
+                            quotation_id,
+                            item_name,
+                            quantity,
+                            COALESCE(NULLIF(amount, 0), unit_price, 0) AS effective_amount,
+                            days,
+                            item_order,
+                            COALESCE(NULLIF(total_price, 0), quantity * COALESCE(NULLIF(amount, 0), unit_price, 0), 0) AS effective_total
                         FROM quotation_kitchen_items
                         ORDER BY quotation_id, item_order
                     """)
@@ -20108,7 +20121,7 @@ def get_quotations():
                             'quantity': int(row[2]),
                             'amount': float(row[3]) if row[3] else 0,
                             'days': int(row[4]) if row[4] else 1,
-                            'totalPrice': int(row[2]) * float(row[3]) if row[3] else 0,
+                            'totalPrice': float(row[6]) if len(row) > 6 and row[6] else (int(row[2]) * float(row[3]) if row[3] else 0),
                         })
             except Exception as e:
                 print(f"Note: quotation_kitchen_items table may not exist: {e}")

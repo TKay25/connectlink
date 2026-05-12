@@ -14325,10 +14325,11 @@ async function viewQuotationDetails(quotationId) {
 
 function displayQuotationDetailsInModal(quotation) {
     const contentDiv = document.getElementById('quotationDetailsContent');
+    const isKitchen = (String(quotation.category || '').toLowerCase() === 'kitchen');
     
     // Calculate totals
     const totalCost = quotation.totalCost || 0;
-    const markup = quotation.markup || 0;
+    const markup = isKitchen ? (quotation.markup || 30) : (quotation.markup || 0);
     const markupMultiplier = 1 + (markup / 100);
     const baseCost = totalCost / markupMultiplier;
     const markupAmount = totalCost - baseCost;
@@ -14355,8 +14356,8 @@ function displayQuotationDetailsInModal(quotation) {
                 <div class="row">
                     <div class="col-md-6"><strong>Name:</strong> ${escapeHtml(quotation.clientName || 'N/A')}</div>
                     <div class="col-md-6"><strong>WhatsApp:</strong> ${quotation.clientWhatsapp || 'N/A'}</div>
-                    <div class="col-md-6"><strong>Category:</strong> ${escapeHtml(quotation.category || 'N/A')}</div>
-                    <div class="col-md-6"><strong>Project Size:</strong> ${quotation.projectSize || '0'} sq.m</div>
+                    <div class="col-md-6"><strong>Category:</strong> ${isKitchen ? 'Kitchen & Cabinets' : escapeHtml(quotation.category || 'N/A')}</div>
+                    <div class="col-md-6"><strong>Project Size:</strong> ${isKitchen ? '-' : `${quotation.projectSize || '0'} sq.m`}</div>
                 </div>
             </div>
         </div>
@@ -14381,43 +14382,88 @@ function displayQuotationDetailsInModal(quotation) {
     
     // Construction Items Table
     if (quotation.items && quotation.items.length > 0) {
-        html += `
-            <div class="card mb-3">
-                <div class="card-header" style="background: #0A1A3A; color: white;font-weight: bold;font-size: 0.7rem;">CONSTRUCTION ITEMS (${quotation.items.length})</div>
-                <div class="card-body p-0" style="color: #0E1F42;">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered mb-0" style="font-size: 0.7rem;">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th style="width: 40px;">#</th>
-                                    <th>Item Description</th>
-                                    <th style="width: 70px; text-align: center;">Qty</th>
-                                    <th style="width: 90px; text-align: right;">Inhouse Rate</th>
-                                    <th style="width: 90px; text-align: right;">Client Rate</th>
-                                    <th style="width: 90px; text-align: right;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-        `;
-        
-        quotation.items.forEach((item, idx) => {
-            const qty = item.quantity || 0;
-            const inhouseRate = item.unitRate || 0;
-            const clientRate = inhouseRate * markupMultiplier;
-            const totalPrice = item.totalPrice || 0;
+        if (isKitchen) {
             html += `
-                <tr>
-                    <td class="text-center fw-bold">${idx + 1}</td>
-                    <td>${escapeHtml(item.name || 'Item')}</td>
-                    <td class="text-center">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
-                    <td class="text-end">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end fw-bold">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end fw-bold text-primary">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                </tr>
+                <div class="card mb-3">
+                    <div class="card-header" style="background: #0A1A3A; color: white;font-weight: bold;font-size: 0.7rem;">KITCHEN & CABINET ITEMS (${quotation.items.length})</div>
+                    <div class="card-body p-0" style="color: #0E1F42;">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered mb-0" style="font-size: 0.7rem;">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="width: 40px;">#</th>
+                                        <th>Item Description</th>
+                                        <th style="width: 70px; text-align: center;">Qty</th>
+                                        <th style="width: 110px; text-align: right;">Unit Price</th>
+                                        <th style="width: 70px; text-align: center;">Days</th>
+                                        <th style="width: 110px; text-align: right;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
             `;
-        });
-        
-        html += `</tbody></table></div></div></div>`;
+
+            quotation.items.forEach((item, idx) => {
+                const qty = Number(item.quantity) || 1;
+                const savedTotal = Number(item.totalPrice) || 0;
+                let unitPrice = Number(item.amount ?? item.unitRate ?? 0) || 0;
+                if (!unitPrice && savedTotal > 0 && qty > 0) {
+                    unitPrice = savedTotal / qty;
+                }
+                const totalPrice = savedTotal || (qty * unitPrice);
+                const days = Number(item.days) || 1;
+
+                html += `
+                    <tr>
+                        <td class="text-center fw-bold">${idx + 1}</td>
+                        <td>${escapeHtml(item.name || 'Item')}</td>
+                        <td class="text-center">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
+                        <td class="text-end fw-bold">USD ${unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td class="text-center">${days}</td>
+                        <td class="text-end fw-bold text-primary">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div></div></div>`;
+        } else {
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header" style="background: #0A1A3A; color: white;font-weight: bold;font-size: 0.7rem;">CONSTRUCTION ITEMS (${quotation.items.length})</div>
+                    <div class="card-body p-0" style="color: #0E1F42;">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered mb-0" style="font-size: 0.7rem;">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th style="width: 40px;">#</th>
+                                        <th>Item Description</th>
+                                        <th style="width: 70px; text-align: center;">Qty</th>
+                                        <th style="width: 90px; text-align: right;">Inhouse Rate</th>
+                                        <th style="width: 90px; text-align: right;">Client Rate</th>
+                                        <th style="width: 90px; text-align: right;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+
+            quotation.items.forEach((item, idx) => {
+                const qty = item.quantity || 0;
+                const inhouseRate = item.unitRate || 0;
+                const clientRate = inhouseRate * markupMultiplier;
+                const totalPrice = item.totalPrice || 0;
+                html += `
+                    <tr>
+                        <td class="text-center fw-bold">${idx + 1}</td>
+                        <td>${escapeHtml(item.name || 'Item')}</td>
+                        <td class="text-center">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
+                        <td class="text-end">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td class="text-end fw-bold">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td class="text-end fw-bold text-primary">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div></div></div>`;
+        }
     }
     
     // Work Schedule Table
