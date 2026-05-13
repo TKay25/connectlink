@@ -2587,7 +2587,7 @@
                                 <label class="form-label small text-muted mb-1">Enquiry Type</label>
                                 <select class="form-select form-select-sm" id="enquiryTypeFilter" onchange="applyFilters()">
                                     <option value="all">All Types</option>
-                                    <option value="kitchen_cabinets">Kitchen & Cabinets</option>
+                                    <option value="kitchen_cabinets">Kitchen, Cabinets & TV Units</option>
                                     <option value="building">Building</option>
                                     <option value="renovation">Renovation</option>
                                     <option value="otherenq">Other</option>
@@ -3100,7 +3100,7 @@
                                     </span>
                                     <select id="categoryFilter" class="form-select" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.65rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
                                         <option value="">All Categories</option>
-                                        <option value="Kitchen & Cabinets">Kitchen & Cabinets</option>
+                                        <option value="Kitchen, Cabinets & TV Units">Kitchen, Cabinets & TV Units</option>
                                         <option value="Building">Building</option>
                                         <option value="Renovation">Renovation</option>
                                         <option value="Other">Other</option>
@@ -3306,11 +3306,11 @@
         </div>
     </main>
 
-<!-- Kitchen & Cabinets Preview Modal - SEPARATE -->
+<!-- Kitchen, Cabinets & TV Units Preview Modal - SEPARATE -->
 <div id="kitchenPreviewModal" class="modal-overlay">
     <div class="modal-container large" style="color: var(--dark-blue-deep); font-size: 0.78rem;">
         <div class="modal-header-custom" style="padding: 10px 16px;">
-            <h3 style="font-size: 1rem;"><i class="bi bi-cabinet"></i> Kitchen & Cabinets Quotation</h3>
+            <h3 style="font-size: 1rem;"><i class="bi bi-cabinet"></i> Kitchen, Cabinets & TV Units Quotation</h3>
             <button class="close-modal" style="font-size: 1rem; padding: 2px 8px;" onclick="closeModal('kitchenPreviewModal')">
                 <i class="bi bi-x-lg"></i>
             </button>
@@ -3321,7 +3321,7 @@
                 <div class="row">
                     <div class="col-md-6">
                         <p class="mb-1" style="font-size: 0.95em;"><strong>Client Name:</strong> <span id="kitchenPreviewClientName"></span></p>
-                        <p class="mb-0" style="font-size: 0.95em;"><strong>Category:</strong> <span id="kitchenPreviewCategory">KITCHEN & CABINETS</span></p>
+                        <p class="mb-0" style="font-size: 0.95em;"><strong>Category:</strong> <span id="kitchenPreviewCategory">KITCHEN, CABINETS & TV UNITS</span></p>
                     </div>
                     <div class="col-md-6">
                         <p class="mb-1" style="font-size: 0.95em;"><strong>Date:</strong> <span id="kitchenPreviewDate"></span></p>
@@ -3332,7 +3332,7 @@
 
             <!-- Items Table -->
             <div class="mb-3">
-                <h6 class="fw-bold mb-2" style="font-size: 0.95em;">Kitchen & Cabinet Items</h6>
+                <h6 class="fw-bold mb-2" style="font-size: 0.95em;">Kitchen, Cabinet & TV Unit Items</h6>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered" style="font-size: 0.7em;">
                         <thead style="background-color: #9B1D2C; color: white;">
@@ -3602,7 +3602,7 @@
                         <option value="">-- Select Category --</option>
                         <option value="construction_single">Single Storey Construction</option>
                         <option value="construction_double">Double Storey Construction</option>
-                        <option value="kitchen">Kitchen and Cabinets</option>
+                        <option value="kitchen">Kitchen, Cabinets & TV Units</option>
                         <option value="tv_units">TV Units</option>
                         <option value="doors">Doors</option>
                         <option value="windows">Windows</option>
@@ -3704,7 +3704,7 @@
                 <div id="kitchenCabinetContainer" style="display: none;">
                     <div class="mb-3">
                         <label class="form-label fw-bold d-block mb-3">
-                            <i class="bi bi-cabinet"></i> Kitchen & Cabinet Items
+                            <i class="bi bi-cabinet"></i> Kitchen, Cabinet & TV Unit Items
                         </label>
 
                         <!-- Summary Box -->
@@ -3758,7 +3758,7 @@
 <div id="addKitchenItemModal" class="modal-overlay">
     <div class="modal-container small">
         <div class="modal-header-custom">
-            <h3><i class="bi bi-plus-circle"></i> Add Kitchen/Cabinet Item</h3>
+            <h3><i class="bi bi-plus-circle"></i> Add Kitchen/Cabinet/TV Unit Item</h3>
             <button class="close-modal" onclick="closeModal('addKitchenItemModal')">
                 <i class="bi bi-x-lg"></i>
             </button>
@@ -3773,6 +3773,7 @@
                     <option value="Gloss Kitchen including Quartz">Gloss Kitchen including Quartz</option>
                     <option value="Main Bedroom Cabinets">Main Bedroom Cabinets</option>
                     <option value="Other Bedroom Cabinets">Other Bedroom Cabinets</option>
+                    <option value="TV Unit">TV Unit</option>
                 </select>
             </div>
             <div class="row">
@@ -7863,7 +7864,7 @@ let selectedEnquiries = new Set();
 // Enquiry type configuration
 const enquiryTypeConfig = {
     'kitchen_cabinets': {
-        label: 'Kitchen & Cabinets',
+        label: 'Kitchen, Cabinets & TV Units',
         color: '#28a745',
         icon: 'bi-cup-straw'
     },
@@ -8193,7 +8194,7 @@ async function generateKitchenPDF(outputMode = 'download') {
         <div style="font-family: 'Roboto', Arial, sans-serif; background:#ffffff; color:#1E2A56; padding:0;">
             <div style="background:#ffffff; width:100%; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px;">
                 <img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display:block; margin:0 auto 10px auto; width:130px;">
-                <h1 style="margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56;">Kitchen & Cabinets Quotation</h1>
+                <h1 style="margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56;">Kitchen, Cabinets & TV Units Quotation</h1>
                 <div style="width:100px; height:2px; background:#1E2A56; margin:0 auto 14px auto;"></div>
                 
                 <p style="font-size:12px; margin:0 0 12px 0;">This quotation outlines the proposed kitchen/cabinet items for <strong>${escapeHtml(clientName)}</strong>.</p>
@@ -8201,7 +8202,7 @@ async function generateKitchenPDF(outputMode = 'download') {
                 <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; margin-bottom:20px;">
                     <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
                         <div><strong>Client:</strong> ${escapeHtml(clientName)}</div>
-                        <div><strong>Category:</strong> Kitchen & Cabinets</div>
+                        <div><strong>Category:</strong> Kitchen, Cabinets & TV Units</div>
                         <div><strong>Date:</strong> ${new Date(quotationDate).toLocaleDateString('en-GB')}</div>
                     </div>
                 </div>
@@ -12601,7 +12602,7 @@ function updateKitchenPreviewDisplay() {
     const quotationItemsTable = document.getElementById('quotationItemsTable');
     
     if (previewClientName) previewClientName.textContent = data.clientName;
-    if (previewCategory) previewCategory.textContent = 'KITCHEN & CABINETS';
+    if (previewCategory) previewCategory.textContent = 'KITCHEN, CABINETS & TV UNITS';
     if (previewDate) previewDate.textContent = new Date(data.quotationDate).toLocaleDateString('en-US');
     if (previewSize) previewSize.textContent = '-';
     
@@ -14356,7 +14357,7 @@ function displayQuotationDetailsInModal(quotation) {
                 <div class="row">
                     <div class="col-md-6"><strong>Name:</strong> ${escapeHtml(quotation.clientName || 'N/A')}</div>
                     <div class="col-md-6"><strong>WhatsApp:</strong> ${quotation.clientWhatsapp || 'N/A'}</div>
-                    <div class="col-md-6"><strong>Category:</strong> ${isKitchen ? 'Kitchen & Cabinets' : escapeHtml(quotation.category || 'N/A')}</div>
+                    <div class="col-md-6"><strong>Category:</strong> ${isKitchen ? 'Kitchen, Cabinets & TV Units' : escapeHtml(quotation.category || 'N/A')}</div>
                     <div class="col-md-6"><strong>Project Size:</strong> ${isKitchen ? '-' : `${quotation.projectSize || '0'} sq.m`}</div>
                 </div>
             </div>

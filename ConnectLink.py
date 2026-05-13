@@ -125,7 +125,8 @@ def initialize_database_tables():
             ('Island Countertop', 800, 2),
             ('Wine Rack', 120, 1),
             ('Corner Cabinet Carousel', 300, 1),
-            ('Pull-out Pantry', 250, 1)
+            ('Pull-out Pantry', 250, 1),
+            ('TV Unit', 1200, 2)
             ON CONFLICT (item_name) DO NOTHING;""")
 
             def get_table_columns(table_name):
@@ -5117,7 +5118,7 @@ def webhook():
 
                                                                 # Map enquiry type IDs to display names
                                                                 enquiry_type_map = {
-                                                                    'kitchen_cabinets': 'Kitchen & Cabinets',
+                                                                    'kitchen_cabinets': 'Kitchen, Cabinets & TV Units',
                                                                     'building': 'Building',
                                                                     'renovation': 'Renovation',
                                                                     'otherenq': 'Other'
@@ -5460,8 +5461,8 @@ def webhook():
                                                                         "rows": [
                                                                             {
                                                                                 "id": "kitchen_cabinets",
-                                                                                "title": "Kitchen & Cabinets",
-                                                                                "description": "Kitchen and Cabinets enquiries"
+                                                                                "title": "Kitchen, Cabinets & TV Units",
+                                                                                "description": "Kitchen, Cabinets & TV Units enquiries"
                                                                             },
                                                                             {
                                                                                 "id": "building",
@@ -6650,7 +6651,7 @@ def webhook():
 
                                                                                 <div class="section-header">ACCOMMODATION PROVISION</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
+                                                                                    <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen, cabinets & TV units projects.</p>
                                                                                 </div>
 
                                                                                 <!-- Page break -->
@@ -7796,7 +7797,7 @@ def webhook():
 
                                                                 # Map enquiry type IDs to display names
                                                                 enquiry_type_map = {
-                                                                    'kitchen_cabinets': 'Kitchen & Cabinets',
+                                                                    'kitchen_cabinets': 'Kitchen, Cabinets & TV Units',
                                                                     'building': 'Building',
                                                                     'renovation': 'Renovation',
                                                                     'otherenq': 'Other'
@@ -8140,8 +8141,8 @@ def webhook():
                                                                         "rows": [
                                                                             {
                                                                                 "id": "kitchen_cabinets",
-                                                                                "title": "Kitchen & Cabinets",
-                                                                                "description": "Kitchen and Cabinets enquiries"
+                                                                                "title": "Kitchen, Cabinets & TV Units",
+                                                                                "description": "Kitchen, Cabinets & TV Units enquiries"
                                                                             },
                                                                             {
                                                                                 "id": "building",
@@ -11620,7 +11621,7 @@ def download_contract(project_id):
 
                     <div class="section-header">ACCOMMODATION PROVISION</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
+                        <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen, cabinets & TV units projects.</p>
                     </div>
 
                     <!-- Page break -->
@@ -19003,7 +19004,7 @@ def build_quotation_pdf_document(quotation_id):
             client_name = quotation[1] or 'Client'
             quotation_date = quotation[2].strftime('%d %B %Y') if quotation[2] else ''
             category = quotation[3] or ''
-            is_kitchen = (category == 'kitchen')
+            is_kitchen = (category == 'kitchen' or category.lower().startswith('kitchen'))
             total_cost = float(quotation[5]) if quotation[5] else 0
 
             # Get schedules
@@ -19164,13 +19165,13 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
         payment_months = 3
         monthly = balance / 3 if balance else 0
         payment_period_text = "3 months"
+        category_display = "Kitchen, Cabinets & TV Units"
     else:
         payment_months = 5
         monthly = balance / 5 if balance else 0
         payment_period_text = "5 months"
-    
-    category_display = "Kitchen & Cabinets" if is_kitchen else category.replace('_', ' ').title()
-    
+        category_display = category.replace('_', ' ').title()
+
     return f"""
     <!DOCTYPE html>
     <html>
