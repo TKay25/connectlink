@@ -5838,7 +5838,7 @@ def webhook():
                                                                             with open(logo_path, 'rb') as img:
                                                                                 logo_base64 = base64.b64encode(img.read()).decode('utf-8')
                                                                         
-                                                                        # Prepare payment data
+                                                                        # Prepare payment data - ALL 10 INSTALLMENTS (same as web download)
                                                                         payments = [
                                                                             {
                                                                                 "name": "Installment 1",
@@ -5875,6 +5875,30 @@ def webhook():
                                                                                 "amount": row[41] if len(row) > 41 else 0,
                                                                                 "due": row[42].strftime("%d %B %Y") if len(row) > 42 and row[42] else "-",
                                                                                 "paid": row[43].strftime("%d %B %Y") if len(row) > 43 and row[43] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 7",
+                                                                                "amount": row[47] if len(row) > 47 else 0,
+                                                                                "due": row[48].strftime("%d %B %Y") if len(row) > 48 and row[48] else "-",
+                                                                                "paid": row[49].strftime("%d %B %Y") if len(row) > 49 and row[49] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 8",
+                                                                                "amount": row[50] if len(row) > 50 else 0,
+                                                                                "due": row[51].strftime("%d %B %Y") if len(row) > 51 and row[51] else "-",
+                                                                                "paid": row[52].strftime("%d %B %Y") if len(row) > 52 and row[52] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 9",
+                                                                                "amount": row[53] if len(row) > 53 else 0,
+                                                                                "due": row[54].strftime("%d %B %Y") if len(row) > 54 and row[54] else "-",
+                                                                                "paid": row[55].strftime("%d %B %Y") if len(row) > 55 and row[55] else "Not Paid",
+                                                                            },
+                                                                            {
+                                                                                "name": "Installment 10",
+                                                                                "amount": row[56] if len(row) > 56 else 0,
+                                                                                "due": row[57].strftime("%d %B %Y") if len(row) > 57 and row[57] else "-",
+                                                                                "paid": row[58].strftime("%d %B %Y") if len(row) > 58 and row[58] else "Not Paid",
                                                                             }
                                                                         ]
                                                                         
