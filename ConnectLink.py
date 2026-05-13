@@ -12,7 +12,6 @@ import calendar
 import pandas as pd
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import seaborn as sns
 import psycopg2
 from psycopg2 import sql
 from db_helper import get_db, execute_query
@@ -53,8 +52,7 @@ from ai_classifier import classify_product, get_category_suggestions
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  
 app.secret_key = '011235'
-app.permanent_session_lifetime = timedelta(minutes=3600000)
-user_sessions = {}
+app.permanent_session_lifetime = timedelta(minutes=int(os.getenv('SESSION_TIMEOUT_MINUTES', '60')))
 
 database = 'connectlinkdata'
 
@@ -1175,8 +1173,21 @@ def migrate_product_categories():
     except Exception as e:
         print(f"⚠️ Category migration error: {e}")
 
-initialize_database_tables()
-migrate_product_categories()
+_BOOTSTRAP_DONE = False
+
+
+def bootstrap_startup_tasks():
+    """Run startup DB tasks once per process to avoid duplicate initialization cost."""
+    global _BOOTSTRAP_DONE
+
+    if _BOOTSTRAP_DONE:
+        return
+
+    _BOOTSTRAP_DONE = True
+    initialize_database_tables()
+
+    if os.getenv('RUN_PRODUCT_CATEGORY_MIGRATION', '1') == '1':
+        migrate_product_categories()
 
 
 
@@ -10157,7 +10168,7 @@ def get_dashboard_stats():
 # ==================== INITIALIZE DATABASE ====================
 
 with app.app_context():
-    initialize_database_tables()    
+    bootstrap_startup_tasks()
 
 
 
@@ -10642,7 +10653,6 @@ def login():
                             user_uuid = uuid.uuid4()
                             session['user_uuid'] = str(user_uuid)
                             session.permanent = True
-                            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
                             
                             # Set session for hardware user with role
                             session['user_id'] = int(hw_user[0])
@@ -10678,7 +10688,6 @@ def login():
                         user_uuid = uuid.uuid4()
                         session['user_uuid'] = str(user_uuid)
                         session.permanent = True
-                        user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
 
                         userid = table_df.iat[0, 0]
                         user_name = table_df.iat[0,2]

@@ -1,8 +1,6 @@
 Flask
 mysql-connector-python
 pandas
-matplotlib
-seaborn
 xlsxwriter
 gunicorn
 psycopg2
@@ -19,12 +17,7 @@ google-api-core>=2.19.0
 Flask-CORS
 psycopg2-binary
 pytz
-Flask-SocketIO
-Flask-Caching
-scikit-learn
-statsmodels
 numpy
-python-socketio
 fuzzywuzzy
 python-Levenshtein
 PyPDF2
