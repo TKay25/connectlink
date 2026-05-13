@@ -19145,9 +19145,16 @@ def build_quotation_pdf_document(quotation_id):
             )
             
             pdf_bytes = HTML(string=html).write_pdf()
+            # Use display category for filename
+            if is_kitchen:
+                category_display = "Kitchen, Cabinets & TV Units"
+            else:
+                category_display = category.replace('_', ' ').title()
+
             safe_name = ''.join(char for char in client_name if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
-            filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
-            caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
+            safe_category = ''.join(char for char in category_display if char.isalnum() or char == ' ').replace(' ', '_') or 'Category'
+            filename = f"Quotation_{safe_name}_{safe_category}_{quotation_id}.pdf"
+            caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {category_display}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
             
             return pdf_bytes, filename, caption
             
