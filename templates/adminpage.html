@@ -1376,6 +1376,11 @@
                         <label for="updateClientEmail" class="form-label fw-bold">Email Address</label>
                         <input type="email" class="form-control" id="updateClientEmail" name="client_email">
                     </div>
+                    <!-- Contract Agreement Date -->
+                    <div class="col-md-6">
+                        <label for="agreement_date_other" class="form-label fw-bold">Contract Agreement Date</label>
+                        <input type="date" class="form-control" id="agreement_date_other" name="agreement_date_other">
+                    </div>
                     
                     <div class="col-md-6">
                         <label for="updateClientWhatsAppNumber" class="form-label fw-bold">WhatsApp Number</label>
@@ -10642,6 +10647,11 @@ $(document).on('click', '.update-project-btn', function () {
     // Set values in the modal - FIXED duplicate assignment
     $('#updateProjectId').val(id);
     $('#updateProjectIdother').val(id);
+
+    // Set agreement_date_other in the Other Details modal
+    // Find the correct index for agreement_date in rowData (commonly 16 or similar, adjust if needed)
+    const agreementDateOtherRaw = getData(16); // Adjust index if needed
+    $('#agreement_date_other').val(formatForDateInput(agreementDateOtherRaw));
     
     if (quotationId) {
         $('#updateProjectQuotationId').val(quotationId);

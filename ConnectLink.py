@@ -16005,6 +16005,138 @@ def pos_system():
     return send_from_directory('templates', 'pos-system.html')
 
 
+@app.route('/system-overview')
+@login_required
+def system_overview():
+    """Comprehensive system overview dashboard."""
+    generated_on = datetime.now().strftime('%d %B %Y %H:%M:%S')
+
+    with get_db() as (cursor, connection):
+        def safe_scalar(query, params=None, default=0):
+            try:
+                cursor.execute(query, params or ())
+                row = cursor.fetchone()
+                return row[0] if row and row[0] is not None else default
+            except Exception:
+                return default
+
+        def safe_rows(query, params=None):
+            try:
+                cursor.execute(query, params or ())
+                return cursor.fetchall()
+            except Exception:
+                return []
+
+        metrics = {
+            'projects_total': safe_scalar("SELECT COUNT(*) FROM connectlinkdatabase"),
+            'quotations_total': safe_scalar("SELECT COUNT(*) FROM quotations"),
+            'products_total': safe_scalar("SELECT COUNT(*) FROM products"),
+            'pos_transactions_total': safe_scalar("SELECT COUNT(*) FROM transactions"),
+            'clients_total': safe_scalar("SELECT COUNT(DISTINCT clientname) FROM connectlinkdatabase"),
+            'users_total': safe_scalar("SELECT COUNT(*) FROM users"),
+            'legacy_users_total': safe_scalar("SELECT COUNT(*) FROM connectlinkusers"),
+            'pending_enquiries_total': safe_scalar("SELECT COUNT(*) FROM connectlinkenquiries")
+        }
+
+        quotations_by_category_rows = safe_rows("""
+            SELECT COALESCE(category, 'uncategorized') AS category, COUNT(*) AS count
+            FROM quotations
+            GROUP BY COALESCE(category, 'uncategorized')
+            ORDER BY count DESC
+            LIMIT 20
+        """)
+        quotations_by_category = [
+            {'category': row[0], 'count': row[1]} for row in quotations_by_category_rows
+        ]
+
+        table_name_rows = safe_rows("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+            ORDER BY table_name
+        """)
+
+        table_stats = []
+        for row in table_name_rows:
+            table_name = row[0]
+            row_count = safe_scalar(f'SELECT COUNT(*) FROM "{table_name}"')
+            table_stats.append({
+                'table_name': table_name,
+                'row_count': int(row_count) if row_count is not None else 0
+            })
+
+        recent_projects_rows = safe_rows("""
+            SELECT id, clientname, projectname, totalcontractprice, depositedamount, projectstartdate
+            FROM connectlinkdatabase
+            ORDER BY id DESC
+            LIMIT 20
+        """)
+        recent_projects = []
+        for row in recent_projects_rows:
+            recent_projects.append({
+                'id': row[0],
+                'client_name': row[1] or '',
+                'project_name': row[2] or '',
+                'contract_total': float(row[3]) if row[3] is not None else 0,
+                'deposit': float(row[4]) if row[4] is not None else 0,
+                'start_date': row[5].strftime('%d %b %Y') if row[5] else ''
+            })
+
+        recent_quotations_rows = safe_rows("""
+            SELECT id, client_name, category, total_cost, quotation_date
+            FROM quotations
+            ORDER BY id DESC
+            LIMIT 20
+        """)
+        recent_quotations = []
+        for row in recent_quotations_rows:
+            recent_quotations.append({
+                'id': row[0],
+                'client_name': row[1] or '',
+                'category': row[2] or '',
+                'total_cost': float(row[3]) if row[3] is not None else 0,
+                'quotation_date': row[4].strftime('%d %b %Y') if row[4] else ''
+            })
+
+        recent_whatsapp_rows = safe_rows("""
+            SELECT quotation_id, whatsapp_number, client_name, send_type, send_status, created_at
+            FROM quotation_whatsapp_send_logs
+            ORDER BY id DESC
+            LIMIT 20
+        """)
+        recent_whatsapp = []
+        for row in recent_whatsapp_rows:
+            recent_whatsapp.append({
+                'quotation_id': row[0],
+                'whatsapp_number': row[1] or '',
+                'client_name': row[2] or '',
+                'send_type': row[3] or '',
+                'send_status': row[4] or '',
+                'created_at': row[5].strftime('%d %b %Y %H:%M') if row[5] else ''
+            })
+
+        env_summary = {
+            'session_timeout_minutes': int(os.getenv('SESSION_TIMEOUT_MINUTES', '60')),
+            'database_name': database,
+            'environment': os.getenv('FLASK_ENV', 'production'),
+            'gemini_configured': bool(GEMINI_API_KEY),
+            'whatsapp_phone_id_configured': bool(os.getenv('PHONE_NUMBER_ID')),
+            'whatsapp_token_configured': bool(os.getenv('ACCESS_TOKEN'))
+        }
+
+        return render_template(
+            'system_overview.html',
+            generated_on=generated_on,
+            metrics=metrics,
+            env_summary=env_summary,
+            quotations_by_category=quotations_by_category,
+            table_stats=table_stats,
+            recent_projects=recent_projects,
+            recent_quotations=recent_quotations,
+            recent_whatsapp=recent_whatsapp
+        )
+
+
 # If you want to serve the landing page as index
 # Make sure your login page is at /login
 
@@ -16134,6 +16266,12 @@ def update_other_details():
                 except (ValueError, TypeError):
                     print(f"Warning: Invalid quotation ID: {quotation_id}")
             
+            # Handle agreement_date_other (date field)
+            agreement_date_other = request.form.get('agreement_date_other')
+            if agreement_date_other:
+                updates.append("agreement_date = %s")
+                values.append(agreement_date_other)
+
             # Add project_id to values for WHERE clause
             values.append(int(project_id))
             

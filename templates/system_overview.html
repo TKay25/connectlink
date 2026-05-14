@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConnectLink System Overview</title>
+    <style>
+        :root {
+            --ink: #10203a;
+            --bg: #f3f6fb;
+            --panel: #ffffff;
+            --line: #d6deec;
+            --accent: #0f6cbf;
+            --accent-2: #cf3a2e;
+            --ok: #1f8f59;
+            --warn: #b87518;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle at 8% 10%, #ffffff 0%, #f3f6fb 40%, #eaf0fb 100%);
+            color: var(--ink);
+        }
+
+        .shell {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .hero {
+            background: linear-gradient(120deg, #10203a 0%, #1b3f74 75%);
+            color: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(16, 32, 58, 0.25);
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 0.6px;
+        }
+
+        .hero p {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.92;
+        }
+
+        .grid {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 14px 16px;
+            box-shadow: 0 3px 10px rgba(16, 32, 58, 0.08);
+        }
+
+        .label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: #627293;
+            margin-bottom: 6px;
+        }
+
+        .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .sections {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: 1fr;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 16px;
+        }
+
+        .panel h2 {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+            color: #12335d;
+        }
+
+        .meta {
+            display: grid;
+            gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+
+        .meta-item {
+            border: 1px dashed #cad4e6;
+            border-radius: 10px;
+            padding: 8px 10px;
+            background: #f8fbff;
+            font-size: 13px;
+        }
+
+        .meta-item strong {
+            color: #1f3a66;
+        }
+
+        .tables-grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .table-wrap {
+            max-height: 420px;
+            overflow: auto;
+            border: 1px solid #d8e0ee;
+            border-radius: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: #173862;
+            color: #fff;
+            text-align: left;
+            padding: 8px;
+            z-index: 1;
+        }
+
+        td {
+            border-bottom: 1px solid #e4eaf6;
+            padding: 8px;
+            background: #fff;
+        }
+
+        tr:nth-child(even) td {
+            background: #f8fbff;
+        }
+
+        .status-success {
+            color: var(--ok);
+            font-weight: 600;
+        }
+
+        .status-error {
+            color: var(--accent-2);
+            font-weight: 600;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            border: 1px solid #c7d4ec;
+            background: #eef4ff;
+            color: #1b3f74;
+        }
+
+        @media (max-width: 1000px) {
+            .tables-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="hero">
+            <h1>ConnectLink Full System Overview</h1>
+            <p>Generated: {{ generated_on }} | Authenticated operational dashboard</p>
+        </div>
+
+        <div class="grid">
+            <div class="card"><div class="label">Projects</div><div class="value">{{ metrics.projects_total }}</div></div>
+            <div class="card"><div class="label">Quotations</div><div class="value">{{ metrics.quotations_total }}</div></div>
+            <div class="card"><div class="label">Products</div><div class="value">{{ metrics.products_total }}</div></div>
+            <div class="card"><div class="label">Transactions</div><div class="value">{{ metrics.pos_transactions_total }}</div></div>
+            <div class="card"><div class="label">Clients</div><div class="value">{{ metrics.clients_total }}</div></div>
+            <div class="card"><div class="label">Users</div><div class="value">{{ metrics.users_total + metrics.legacy_users_total }}</div></div>
+            <div class="card"><div class="label">Pending Enquiries</div><div class="value">{{ metrics.pending_enquiries_total }}</div></div>
+        </div>
+
+        <div class="sections">
+            <div class="panel">
+                <h2>Runtime & Configuration</h2>
+                <div class="meta">
+                    <div class="meta-item"><strong>Environment:</strong> {{ env_summary.environment }}</div>
+                    <div class="meta-item"><strong>Database:</strong> {{ env_summary.database_name }}</div>
+                    <div class="meta-item"><strong>Session Timeout (min):</strong> {{ env_summary.session_timeout_minutes }}</div>
+                    <div class="meta-item"><strong>Gemini API:</strong> <span class="pill">{{ 'Configured' if env_summary.gemini_configured else 'Missing' }}</span></div>
+                    <div class="meta-item"><strong>WhatsApp Phone ID:</strong> <span class="pill">{{ 'Configured' if env_summary.whatsapp_phone_id_configured else 'Missing' }}</span></div>
+                    <div class="meta-item"><strong>WhatsApp Access Token:</strong> <span class="pill">{{ 'Configured' if env_summary.whatsapp_token_configured else 'Missing' }}</span></div>
+                </div>
+            </div>
+
+            <div class="tables-grid">
+                <div class="panel">
+                    <h2>Database Tables & Row Counts</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Table</th><th>Rows</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for t in table_stats %}
+                                <tr>
+                                    <td>{{ t.table_name }}</td>
+                                    <td>{{ t.row_count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Quotations by Category</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Category</th><th>Count</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for c in quotations_by_category %}
+                                <tr>
+                                    <td>{{ c.category }}</td>
+                                    <td>{{ c.count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Recent Projects</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Client</th>
+                                <th>Project</th>
+                                <th>Contract Total</th>
+                                <th>Deposit</th>
+                                <th>Start Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in recent_projects %}
+                            <tr>
+                                <td>{{ p.id }}</td>
+                                <td>{{ p.client_name }}</td>
+                                <td>{{ p.project_name }}</td>
+                                <td>USD {{ '%.2f'|format(p.contract_total) }}</td>
+                                <td>USD {{ '%.2f'|format(p.deposit) }}</td>
+                                <td>{{ p.start_date }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tables-grid">
+                <div class="panel">
+                    <h2>Recent Quotations</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Client</th>
+                                    <th>Category</th>
+                                    <th>Total</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for q in recent_quotations %}
+                                <tr>
+                                    <td>{{ q.id }}</td>
+                                    <td>{{ q.client_name }}</td>
+                                    <td>{{ q.category }}</td>
+                                    <td>USD {{ '%.2f'|format(q.total_cost) }}</td>
+                                    <td>{{ q.quotation_date }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Recent WhatsApp Sends</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Quotation ID</th>
+                                    <th>Client</th>
+                                    <th>Number</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for w in recent_whatsapp %}
+                                <tr>
+                                    <td>{{ w.quotation_id }}</td>
+                                    <td>{{ w.client_name }}</td>
+                                    <td>{{ w.whatsapp_number }}</td>
+                                    <td>{{ w.send_type }}</td>
+                                    <td class="{{ 'status-success' if w.send_status == 'success' else 'status-error' }}">{{ w.send_status }}</td>
+                                    <td>{{ w.created_at }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
