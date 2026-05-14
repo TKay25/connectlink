@@ -16269,7 +16269,7 @@ def update_other_details():
             # Handle agreement_date_other (date field)
             agreement_date_other = request.form.get('agreement_date_other')
             if agreement_date_other:
-                updates.append("agreement_date = %s")
+                updates.append("contractagreementdate = %s")
                 values.append(agreement_date_other)
 
             # Add project_id to values for WHERE clause
