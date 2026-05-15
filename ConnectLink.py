@@ -4,7 +4,6 @@ import html
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/.matplotlib")
 import bleach
 from db_helper import get_db, execute_query
-import numpy as np
 from mysql.connector import Error
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_file,flash, make_response, after_this_request, Response, send_from_directory
 from datetime import datetime, timedelta, date
@@ -33,7 +32,6 @@ import time
 import random
 import logging
 from decimal import Decimal
-import google.generativeai as genai
 from flask_cors import CORS
 import secrets
 import hashlib
@@ -57,7 +55,6 @@ app.permanent_session_lifetime = timedelta(minutes=int(os.getenv('SESSION_TIMEOU
 database = 'connectlinkdata'
 
 GEMINI_API_KEY = "AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g"  # Replace with your actual key
-genai.configure(api_key=GEMINI_API_KEY)
 
 def initialize_database_tables():
     """Initialize all required database tables on startup"""
@@ -1187,7 +1184,7 @@ def bootstrap_startup_tasks():
     _BOOTSTRAP_DONE = True
     initialize_database_tables()
 
-    if os.getenv('RUN_PRODUCT_CATEGORY_MIGRATION', '1') == '1':
+    if os.getenv('RUN_PRODUCT_CATEGORY_MIGRATION', '0') == '1':
         migrate_product_categories()
 
 
@@ -10192,8 +10189,9 @@ def get_dashboard_stats():
 
 # ==================== INITIALIZE DATABASE ====================
 
-with app.app_context():
-    bootstrap_startup_tasks()
+if os.getenv('RUN_STARTUP_BOOTSTRAP', '0') == '1':
+    with app.app_context():
+        bootstrap_startup_tasks()
 
 
 
@@ -10290,6 +10288,15 @@ def get_all_database_data():
 def call_gemini_ai(question, database_data):
     """Call Google Gemini AI with our database data"""
     try:
+        try:
+            import google.generativeai as genai
+            api_key = os.getenv('GEMINI_API_KEY', GEMINI_API_KEY)
+            if api_key:
+                genai.configure(api_key=api_key)
+        except Exception as import_error:
+            print(f"Gemini import/config error: {str(import_error)}")
+            return get_direct_answer(question)
+
         # Initialize the CORRECT model name
         # Try different available models in order
         available_models = ['gemini-1.0-pro', 'gemini-pro', 'models/gemini-pro']
@@ -10717,7 +10724,7 @@ def login():
                         userid = table_df.iat[0, 0]
                         user_name = table_df.iat[0,2]
                         
-                        session['userid'] = int(np.int64(userid))
+                        session['userid'] = int(userid)
                         session['user_name'] = user_name
 
                         # Return JSON response instead of redirect
