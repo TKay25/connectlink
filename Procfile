@@ -1,1 +1,1 @@
-web: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --worker-class gthread --timeout 120 --max-requests 200 --max-requests-jitter 50 ConnectLink:app
+web: gunicorn --bind 0.0.0.0:$PORT --workers 1 --worker-class sync --timeout 120 --max-requests 50 --max-requests-jitter 10 ConnectLink:app
