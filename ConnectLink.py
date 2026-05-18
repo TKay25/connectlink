@@ -13534,43 +13534,68 @@ def run1(userid):
 
         admin_options = adminsdatamain.apply(lambda row: f"{row['name']}", axis=1).tolist()
 
+        page = max(request.args.get('page', 1, type=int), 1)
+        per_page = request.args.get('per_page', 50, type=int)
+        if per_page is None:
+            per_page = 50
+        per_page = min(max(per_page, 1), 200)
+        offset = (page - 1) * per_page
+
 
         ######### maindata
         # quotation_id column is already added during initialize_database_tables()
         # No need to check/add it again here
-        
-        maindataquery = f"SELECT * FROM connectlinkdatabase;"
-        cursor.execute(maindataquery)
+
+        cursor.execute("SELECT COUNT(*) FROM connectlinkdatabase")
+        num_projects = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT
+                COUNT(*) FILTER (WHERE projectcompletionstatus = 'Ongoing') AS count_ongoing,
+                COUNT(*) FILTER (WHERE projectcompletionstatus = 'Completed') AS count_completed,
+                COUNT(*) FILTER (
+                    WHERE projectcompletionstatus IS DISTINCT FROM 'Ongoing'
+                    AND projectcompletionstatus IS DISTINCT FROM 'Completed'
+                ) AS count_other,
+                AVG(
+                    CASE
+                        WHEN projectduration IS NOT NULL
+                        AND TRIM(projectduration::text) ~ '^[0-9]+(\\.[0-9]+)?$'
+                        THEN TRIM(projectduration::text)::numeric
+                        ELSE NULL
+                    END
+                ) AS avg_duration
+            FROM connectlinkdatabase
+        """)
+        stats_row = cursor.fetchone()
+        count_ongoing = stats_row[0] or 0
+        count_completed = stats_row[1] or 0
+        count_other = stats_row[2] or 0
+        average_duration = round(float(stats_row[3]), 0) if stats_row[3] is not None else 0
+
+        cursor.execute("""
+            SELECT TRIM(projectlocation::text) AS projectlocation, COUNT(*)
+            FROM connectlinkdatabase
+            WHERE projectlocation IS NOT NULL
+            AND TRIM(projectlocation::text) <> ''
+            GROUP BY TRIM(projectlocation::text)
+            ORDER BY COUNT(*) DESC
+        """)
+        location_rows = cursor.fetchall()
+        locations_list = [row[0] for row in location_rows]
+        frequencies_list = [row[1] for row in location_rows]
+        most_frequent_location = locations_list[0] if locations_list else "N/A"
+
+        maindataquery = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT %s OFFSET %s"
+        cursor.execute(maindataquery, (per_page, offset))
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
         print("Database columns from cursor.description:", column_names)
         print(f"Total columns from database: {len(column_names)}")
 
-        print("maaaaiiiiin DATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        print(maindata)
-        num_projects = len(maindata)
-        print(f"Number of projects: {num_projects}")
-
 
         # Use the actual column names from the database
         datamain = pd.DataFrame(maindata, columns=column_names)
-
-        # Get just the column statistics
-        count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
-        count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
-        count_other = datamain[(datamain["projectcompletionstatus"] != "Ongoing") & (datamain["projectcompletionstatus"] != "Completed")].shape[0]
-        average_duration = round(pd.to_numeric(datamain["projectduration"], errors="coerce").mean(),0)
-        locations = datamain['projectlocation'].replace('', pd.NA)
-
-        locations2 = datamain['projectlocation'].dropna().astype(str)  # remove None/NaN, ensure string
-        location_counts = Counter(locations2)
-
-        # Convert to lists for Jinja
-        locations_list = list(location_counts.keys())
-        frequencies_list = list(location_counts.values())
-
-        # Get the most frequent location
-        most_frequent_location = locations.value_counts(dropna=True).idxmax()
 
         # ===== CRITICAL: Process columns in correct order =====
         # Step 1: Process dates first
@@ -13965,7 +13990,13 @@ def run1(userid):
             'frequencies': frequencies_list,
             'admin_options': admin_options,
             "enquiriesdatamain_html" : enquiriesdatamain_html,
-            "enquiries_data": enquiries_data  # Pure Python list, NO HTML
+            "enquiries_data": enquiries_data,  # Pure Python list, NO HTML
+            'projects_page': page,
+            'projects_per_page': per_page,
+            'projects_total_count': num_projects,
+            'projects_total_pages': ((num_projects + per_page - 1) // per_page) if num_projects else 0,
+            'projects_has_next': (offset + len(maindata)) < num_projects,
+            'projects_has_prev': page > 1
             }
 
 def get_installment_audit_data():
