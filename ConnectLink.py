@@ -12793,6 +12793,106 @@ def get_payment_reminders_data(df):
         'all_payments': due_soon + overdue + underpaid
     }
 
+
+def calculate_payment_stats_summary():
+    """Calculate global payment stats from minimal project fields only."""
+    current_date = datetime.now().date()
+    start_of_week = current_date - timedelta(days=current_date.weekday())
+    start_of_month = current_date.replace(day=1)
+    start_of_year = current_date.replace(month=1, day=1)
+
+    stats = {
+        'today_paid': 0.0,
+        'today_overdue': 0.0,
+        'week_paid': 0.0,
+        'week_overdue': 0.0,
+        'month_paid': 0.0,
+        'month_overdue': 0.0,
+        'year_paid': 0.0,
+        'year_overdue': 0.0,
+        'total_overdue': 0.0,
+        'total_due': 0.0,
+    }
+
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            SELECT
+                installment1amount, installment1duedate, installment1date,
+                installment2amount, installment2duedate, installment2date,
+                installment3amount, installment3duedate, installment3date,
+                installment4amount, installment4duedate, installment4date,
+                installment5amount, installment5duedate, installment5date,
+                installment6amount, installment6duedate, installment6date,
+                installment7amount, installment7duedate, installment7date,
+                installment8amount, installment8duedate, installment8date,
+                installment9amount, installment9duedate, installment9date,
+                installment10amount, installment10duedate, installment10date
+            FROM connectlinkdatabase
+        """)
+        projects = cursor.fetchall()
+
+    for row in projects:
+        for i in range(10):
+            base_idx = i * 3
+            amount_raw = row[base_idx]
+            due_date_raw = row[base_idx + 1]
+            paid_date_raw = row[base_idx + 2]
+
+            amount = float(amount_raw) if amount_raw else 0.0
+            if amount <= 0 or not due_date_raw:
+                continue
+
+            due_date = due_date_raw.date() if hasattr(due_date_raw, 'date') else pd.to_datetime(due_date_raw).date()
+
+            if due_date <= current_date:
+                stats['total_due'] += amount
+
+            if paid_date_raw:
+                paid_date = paid_date_raw.date() if hasattr(paid_date_raw, 'date') else pd.to_datetime(paid_date_raw).date()
+
+                if paid_date == current_date:
+                    stats['today_paid'] += amount
+                if paid_date >= start_of_week:
+                    stats['week_paid'] += amount
+                if paid_date >= start_of_month:
+                    stats['month_paid'] += amount
+                if paid_date >= start_of_year:
+                    stats['year_paid'] += amount
+            elif due_date < current_date:
+                stats['total_overdue'] += amount
+
+                # Keep parity with existing run1 logic.
+                if due_date == current_date:
+                    stats['today_overdue'] += amount
+                if due_date >= start_of_week:
+                    stats['week_overdue'] += amount
+                if due_date >= start_of_month:
+                    stats['month_overdue'] += amount
+                if due_date >= start_of_year:
+                    stats['year_overdue'] += amount
+
+    return {
+        'payment_stats': stats,
+        'start_of_week': start_of_week.strftime('%Y-%m-%d'),
+        'start_of_month': start_of_month.strftime('%Y-%m-%d'),
+        'start_of_year': start_of_year.strftime('%Y-%m-%d'),
+        'today': current_date.strftime('%Y-%m-%d')
+    }
+
+
+@app.route('/api/payment-stats-summary', methods=['GET'])
+def api_payment_stats_summary():
+    """Global payment card stats independent from paged project table data."""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        return jsonify(calculate_payment_stats_summary())
+    except Exception as e:
+        print(f"Payment stats summary API error: {str(e)}")
+        return jsonify({'error': 'Server error'}), 500
+
 @app.route('/api/payment-reminders', methods=['GET'])
 def api_payment_reminders():
     """API endpoint to get payment reminders data - FINAL VERSION"""

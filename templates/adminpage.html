@@ -2851,11 +2851,11 @@
                                 <div class="payment-amounts">
                                     <div class="paid-amount">
                                         <span class="badge bg-success">PAID</span>
-                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['today_paid']) }}</span>
+                                        <span class="amount text-success" id="todayPaidAmount">${{ "{:,.2f}".format(payment_stats['today_paid']) }}</span>
                                     </div>
                                     <div class="overdue-amount">
                                         <span class="badge bg-danger">OVERDUE</span>
-                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['today_overdue']) }}</span>
+                                        <span class="amount text-danger" id="todayOverdueAmount">${{ "{:,.2f}".format(payment_stats['today_overdue']) }}</span>
                                     </div>
                                 </div>
                                 <small class="text-muted">Payments today</small>
@@ -2870,11 +2870,11 @@
                                 <div class="payment-amounts">
                                     <div class="paid-amount">
                                         <span class="badge bg-success">PAID</span>
-                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['week_paid']) }}</span>
+                                        <span class="amount text-success" id="weekPaidAmount">${{ "{:,.2f}".format(payment_stats['week_paid']) }}</span>
                                     </div>
                                     <div class="overdue-amount">
                                         <span class="badge bg-danger">OVERDUE</span>
-                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['week_overdue']) }}</span>
+                                        <span class="amount text-danger" id="weekOverdueAmount">${{ "{:,.2f}".format(payment_stats['week_overdue']) }}</span>
                                     </div>
                                 </div>
                                 <small class="text-muted">Since {{ start_of_week.strftime('%b %d') }}</small>
@@ -2889,11 +2889,11 @@
                                 <div class="payment-amounts">
                                     <div class="paid-amount">
                                         <span class="badge bg-success">PAID</span>
-                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['month_paid']) }}</span>
+                                        <span class="amount text-success" id="monthPaidAmount">${{ "{:,.2f}".format(payment_stats['month_paid']) }}</span>
                                     </div>
                                     <div class="overdue-amount">
                                         <span class="badge bg-danger">OVERDUE</span>
-                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['month_overdue']) }}</span>
+                                        <span class="amount text-danger" id="monthOverdueAmount">${{ "{:,.2f}".format(payment_stats['month_overdue']) }}</span>
                                     </div>
                                 </div>
                                 <small class="text-muted">Since {{ start_of_month.strftime('%b %d') }}</small>
@@ -2908,11 +2908,11 @@
                                 <div class="payment-amounts">
                                     <div class="paid-amount">
                                         <span class="badge bg-success">PAID</span>
-                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['year_paid']) }}</span>
+                                        <span class="amount text-success" id="yearPaidAmount">${{ "{:,.2f}".format(payment_stats['year_paid']) }}</span>
                                     </div>
                                     <div class="overdue-amount">
                                         <span class="badge bg-danger">OVERDUE</span>
-                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['year_overdue']) }}</span>
+                                        <span class="amount text-danger" id="yearOverdueAmount">${{ "{:,.2f}".format(payment_stats['year_overdue']) }}</span>
                                     </div>
                                 </div>
                                 <small class="text-muted">Since {{ start_of_year.strftime('%Y') }}</small>
@@ -2924,7 +2924,7 @@
                             <div class="icon"><i class="bi bi-exclamation-triangle-fill fs-3" style="color: #dc3545;"></i></div>
                             <div class="details">
                                 <h5 style="font-weight: bolder; color: #dc3545;">Total Overdue</h5>
-                                <p class="count text-danger">${{ "{:,.2f}".format(payment_stats['total_overdue']) }}</p>
+                                <p class="count text-danger" id="totalOverdueAmount">${{ "{:,.2f}".format(payment_stats['total_overdue']) }}</p>
                                 <small class="text-danger">
                                     <i class="bi bi-clock-history"></i> All unpaid past due amounts
                                 </small>
@@ -6121,6 +6121,51 @@ function Pushpaymentreminders() {
     
     // Load data
     loadPaymentReminders();
+}
+
+function formatCurrencyAmount(value) {
+    const numeric = Number(value) || 0;
+    return `$${numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function setPaymentSummaryValue(elementId, value) {
+    const el = document.getElementById(elementId);
+    if (el) {
+        el.textContent = formatCurrencyAmount(value);
+    }
+}
+
+async function loadPaymentStatsSummary() {
+    try {
+        const response = await fetch('/api/payment-stats-summary');
+        if (!response.ok) {
+            throw new Error(`Payment stats API returned ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (!payload || !payload.payment_stats) {
+            return;
+        }
+
+        const stats = payload.payment_stats;
+        setPaymentSummaryValue('todayPaidAmount', stats.today_paid);
+        setPaymentSummaryValue('todayOverdueAmount', stats.today_overdue);
+        setPaymentSummaryValue('weekPaidAmount', stats.week_paid);
+        setPaymentSummaryValue('weekOverdueAmount', stats.week_overdue);
+        setPaymentSummaryValue('monthPaidAmount', stats.month_paid);
+        setPaymentSummaryValue('monthOverdueAmount', stats.month_overdue);
+        setPaymentSummaryValue('yearPaidAmount', stats.year_paid);
+        setPaymentSummaryValue('yearOverdueAmount', stats.year_overdue);
+        setPaymentSummaryValue('totalOverdueAmount', stats.total_overdue);
+    } catch (error) {
+        console.error('Failed to load payment stats summary:', error);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadPaymentStatsSummary);
+} else {
+    loadPaymentStatsSummary();
 }
 
 
