@@ -12432,6 +12432,13 @@ def add_note():
 def get_filtered_projects(month_filter):
     with get_db() as (cursor, connection):
         try:
+            page = max(request.args.get('page', 1, type=int), 1)
+            per_page = request.args.get('per_page', 50, type=int)
+            if per_page is None:
+                per_page = 50
+            per_page = min(max(per_page, 1), 200)
+            offset = (page - 1) * per_page
+
             # Get column names dynamically
             cursor.execute("""
                 SELECT column_name 
@@ -12444,16 +12451,28 @@ def get_filtered_projects(month_filter):
             print(f"DEBUG: Found {len(columns)} columns: {columns}")
             
             if month_filter == 'all' or not month_filter:
-                query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC"
-                cursor.execute(query)
+                cursor.execute("SELECT COUNT(*) FROM connectlinkdatabase")
+                total_count = cursor.fetchone()[0]
+                query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT %s OFFSET %s"
+                cursor.execute(query, (per_page, offset))
             else:
                 # Filter by month/year
+                cursor.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM connectlinkdatabase
+                    WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s
+                    """,
+                    (month_filter,)
+                )
+                total_count = cursor.fetchone()[0]
                 query = """
                     SELECT * FROM connectlinkdatabase 
                     WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s
                     ORDER BY id ASC
+                    LIMIT %s OFFSET %s
                 """
-                cursor.execute(query, (month_filter,))
+                cursor.execute(query, (month_filter, per_page, offset))
             
             projects = cursor.fetchall()
             print(f"DEBUG: Retrieved {len(projects)} rows")
@@ -12467,7 +12486,13 @@ def get_filtered_projects(month_filter):
                 return jsonify({
                     'status': 'success',
                     'html': empty_html,
-                    'count': 0
+                    'count': 0,
+                    'page': page,
+                    'per_page': per_page,
+                    'total_count': total_count,
+                    'total_pages': 0,
+                    'has_next': False,
+                    'has_prev': page > 1
                 })
             
             # Convert to DataFrame with ALL columns
@@ -12502,7 +12527,13 @@ def get_filtered_projects(month_filter):
             return jsonify({
                 'status': 'success',
                 'html': html_table,
-                'count': len(projects)
+                'count': len(projects),
+                'page': page,
+                'per_page': per_page,
+                'total_count': total_count,
+                'total_pages': ((total_count + per_page - 1) // per_page) if total_count else 0,
+                'has_next': (offset + len(projects)) < total_count,
+                'has_prev': page > 1
             })
             
         except Exception as e:
@@ -20371,23 +20402,50 @@ def get_quotations():
     """Retrieve all quotations - Handles both construction and kitchen types"""
     try:
         with get_db() as (cursor, connection):
+            page = max(request.args.get('page', 1, type=int), 1)
+            per_page = request.args.get('per_page', 25, type=int)
+            if per_page is None:
+                per_page = 25
+            per_page = min(max(per_page, 1), 100)
+            offset = (page - 1) * per_page
+
+            cursor.execute("SELECT COUNT(*) FROM quotations")
+            total_count = cursor.fetchone()[0]
+
             # Get quotations
             cursor.execute("""
                 SELECT id, client_name, client_whatsapp, quotation_date, 
                        category, project_size, total_cost, markup_percentage
                 FROM quotations
                 ORDER BY id DESC
-            """)
+                LIMIT %s OFFSET %s
+            """, (per_page, offset))
             quotations = cursor.fetchall()
+
+            quotation_ids = [row[0] for row in quotations]
+            if not quotation_ids:
+                return jsonify({
+                    'success': True,
+                    'data': [],
+                    'count': 0,
+                    'page': page,
+                    'per_page': per_page,
+                    'total_count': total_count,
+                    'total_pages': ((total_count + per_page - 1) // per_page) if total_count else 0,
+                    'has_next': False,
+                    'has_prev': page > 1
+                })
 
             # Get construction items
             construction_items = {}
             try:
+                placeholders = ','.join(['%s'] * len(quotation_ids))
                 cursor.execute("""
                     SELECT quotation_id, item_name, quantity, unit_rate, total_price, item_order
                     FROM quotation_items
+                    WHERE quotation_id IN (""" + placeholders + """)
                     ORDER BY quotation_id, item_order
-                """)
+                """, tuple(quotation_ids))
                 for row in cursor.fetchall():
                     q_id = row[0]
                     if q_id not in construction_items:
@@ -20413,6 +20471,7 @@ def get_quotations():
                 kitchen_table_exists = cursor.fetchone()[0]
                 
                 if kitchen_table_exists:
+                    placeholders = ','.join(['%s'] * len(quotation_ids))
                     cursor.execute("""
                         SELECT
                             quotation_id,
@@ -20423,8 +20482,9 @@ def get_quotations():
                             item_order,
                             COALESCE(NULLIF(total_price, 0), quantity * COALESCE(NULLIF(amount, 0), unit_price, 0), 0) AS effective_total
                         FROM quotation_kitchen_items
+                        WHERE quotation_id IN (""" + placeholders + """)
                         ORDER BY quotation_id, item_order
-                    """)
+                    """, tuple(quotation_ids))
                     for row in cursor.fetchall():
                         q_id = row[0]
                         if q_id not in kitchen_items:
@@ -20442,11 +20502,13 @@ def get_quotations():
             # Get schedules
             schedules_by_quotation = {}
             try:
+                placeholders = ','.join(['%s'] * len(quotation_ids))
                 cursor.execute("""
                     SELECT quotation_id, work_scope, start_date, end_date, days, task_order
                     FROM quotation_schedules
+                    WHERE quotation_id IN (""" + placeholders + """)
                     ORDER BY quotation_id, task_order
-                """)
+                """, tuple(quotation_ids))
                 for row in cursor.fetchall():
                     q_id = row[0]
                     if q_id not in schedules_by_quotation:
@@ -20484,7 +20546,17 @@ def get_quotations():
                     'schedules': schedules_by_quotation.get(quotation_id, [])
                 })
 
-            return jsonify({'success': True, 'data': result, 'count': len(result)})
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result),
+                'page': page,
+                'per_page': per_page,
+                'total_count': total_count,
+                'total_pages': ((total_count + per_page - 1) // per_page) if total_count else 0,
+                'has_next': (offset + len(result)) < total_count,
+                'has_prev': page > 1
+            })
     except Exception as e:
         print(f"Error fetching quotations: {str(e)}")
         import traceback
@@ -20497,6 +20569,16 @@ def get_sent_quotations():
     """Retrieve quotation send outcomes to WhatsApp for Quotations Portal modal."""
     try:
         with get_db() as (cursor, connection):
+            page = max(request.args.get('page', 1, type=int), 1)
+            per_page = request.args.get('per_page', 25, type=int)
+            if per_page is None:
+                per_page = 25
+            per_page = min(max(per_page, 1), 100)
+            offset = (page - 1) * per_page
+
+            cursor.execute("SELECT COUNT(*) FROM quotation_whatsapp_send_logs")
+            total_count = cursor.fetchone()[0]
+
             cursor.execute("""
                 SELECT
                     ql.id,
@@ -20529,7 +20611,8 @@ def get_sent_quotations():
                     GROUP BY quotation_id
                 ) qsa ON qsa.quotation_id = ql.quotation_id
                 ORDER BY ql.created_at DESC
-            """)
+                LIMIT %s OFFSET %s
+            """, (per_page, offset))
             rows = cursor.fetchall()
 
             data = [
@@ -20559,7 +20642,13 @@ def get_sent_quotations():
             return jsonify({
                 'success': True,
                 'count': len(data),
-                'data': data
+                'data': data,
+                'page': page,
+                'per_page': per_page,
+                'total_count': total_count,
+                'total_pages': ((total_count + per_page - 1) // per_page) if total_count else 0,
+                'has_next': (offset + len(data)) < total_count,
+                'has_prev': page > 1
             })
     except Exception as e:
         logging.error(f'Error fetching sent quotations: {str(e)}')
