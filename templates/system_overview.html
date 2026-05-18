@@ -194,138 +194,19 @@
             <p>Generated: {{ generated_on }} | Authenticated operational dashboard</p>
         </div>
 
+        <div class="grid">
+            <div class="card"><div class="label">Projects</div><div class="value">{{ metrics.projects_total }}</div></div>
+            <div class="card"><div class="label">Quotations</div><div class="value">{{ metrics.quotations_total }}</div></div>
+            <div class="card"><div class="label">Products</div><div class="value">{{ metrics.products_total }}</div></div>
+            <div class="card"><div class="label">Transactions</div><div class="value">{{ metrics.pos_transactions_total }}</div></div>
+            <div class="card"><div class="label">Clients</div><div class="value">{{ metrics.clients_total }}</div></div>
+            <div class="card"><div class="label">Users</div><div class="value">{{ metrics.users_total + metrics.legacy_users_total }}</div></div>
+            <div class="card"><div class="label">Pending Enquiries</div><div class="value">{{ metrics.pending_enquiries_total }}</div></div>
+        </div>
+
         <div class="sections">
-            <!-- BLUEPRINT SECTION -->
             <div class="panel">
-                <h2>🎯 What ConnectLink Is</h2>
-                <p style="font-size: 14px; line-height: 1.6; color: #2d3e50; margin: 0 0 12px 0;">
-                    ConnectLink is a <strong>comprehensive business management platform</strong> designed for construction/building companies and hardware retailers. 
-                    It integrates project management, financial tracking, AI-powered inventory, and WhatsApp communication into one unified system.
-                </p>
-            </div>
-
-            <!-- CORE MODULES -->
-            <div class="panel">
-                <h2>📦 Core Modules & Features</h2>
-                <div class="meta" style="grid-template-columns: 1fr;">
-                    <div class="meta-item" style="background: #f0f7ff; border-color: #0f6cbf;">
-                        <strong style="color: #0f6cbf;">1. Building Projects Module</strong><br>
-                        ✅ Project creation & management | ✅ Quotation generation | ✅ Automatic contract generation | 
-                        ✅ Payment plans (deposits + 10 installments) | ✅ Work schedule planning with Gantt charts
-                    </div>
-                    <div class="meta-item" style="background: #f0fff4; border-color: #1f8f59;">
-                        <strong style="color: #1f8f59;">2. Hardware & POS Module</strong><br>
-                        ✅ 25+ product categories | ✅ AI-powered classification (98% accurate) | ✅ Real-time inventory tracking | 
-                        ✅ Sales analytics | ✅ Stock level alerts
-                    </div>
-                    <div class="meta-item" style="background: #fff7f0; border-color: #cf3a2e;">
-                        <strong style="color: #cf3a2e;">3. Financial Management</strong><br>
-                        ✅ Payment tracking (deposits & installments) | ✅ Late fee calculation | ✅ Profitability analysis | 
-                        ✅ Payment reminders | ✅ Financial reports
-                    </div>
-                    <div class="meta-item" style="background: #f9f0ff; border-color: #7c3aed;">
-                        <strong style="color: #7c3aed;">4. Client Management</strong><br>
-                        ✅ Client profiles with contact info | ✅ Project portfolio per client | ✅ Payment history | 
-                        ✅ Enquiry management | ✅ Document portal
-                    </div>
-                    <div class="meta-item" style="background: #f0f9ff; border-color: #0284c7;">
-                        <strong style="color: #0284c7;">5. Communication Module</strong><br>
-                        ✅ WhatsApp integration | ✅ PDF generation | ✅ Automated payment reminders | 
-                        ✅ AI-powered chat (Gemini) | ✅ Real-time notifications
-                    </div>
-                    <div class="meta-item" style="background: #f5f3ff; border-color: #6366f1;">
-                        <strong style="color: #6366f1;">6. Admin Dashboard</strong><br>
-                        ✅ Real-time statistics | ✅ User management | ✅ Audit logging | 
-                        ✅ System health monitoring | ✅ Business analytics
-                    </div>
-                </div>
-            </div>
-
-            <!-- DATA STORAGE -->
-            <div class="panel">
-                <h2>💾 How Data Is Saved</h2>
-                <div class="meta" style="grid-template-columns: 1fr;">
-                    <div class="meta-item">
-                        <strong style="color: #1f3a66;">Database Technology:</strong> PostgreSQL (Relational Database)<br><br>
-                        <strong style="color: #1f3a66;">Core Tables:</strong><br>
-                        • <strong>connectlinkdatabase</strong> - Projects, clients, contracts, payments<br>
-                        • <strong>quotations</strong> - Project cost estimates & line items<br>
-                        • <strong>project_schedules</strong> - Work timelines & Gantt chart data<br>
-                        • <strong>inventory</strong> - Hardware products & stock levels<br>
-                        • <strong>pos_transactions</strong> - Sales records<br>
-                        • <strong>installments</strong> - Monthly payment tracking<br>
-                        • <strong>users</strong> - Admin & staff accounts<br>
-                        • <strong>payments_outbox</strong> - WhatsApp message queue<br>
-                        • <strong>enquiries</strong> - Client inquiries & leads
-                    </div>
-                </div>
-            </div>
-
-            <!-- DATA FLOW -->
-            <div class="panel">
-                <h2>🔄 Data Flow Architecture</h2>
-                <div style="background: #f8fbff; border-left: 4px solid #0f6cbf; padding: 12px; border-radius: 6px; font-size: 13px; line-height: 1.8;">
-                    <strong style="color: #0f6cbf;">Client Input (Web Form)</strong> ↓<br>
-                    <strong style="color: #0f6cbf;">Flask Backend</strong> (Validation & Processing) ↓<br>
-                    <strong style="color: #0f6cbf;">PostgreSQL Database</strong> (Persistent Storage) ↓<br>
-                    <strong style="color: #0f6cbf;">Retrieved & Displayed</strong> (Back to UI) ↓<br>
-                    <strong style="color: #0f6cbf;">External Services</strong> (WhatsApp, Gemini AI, PDF Generation)
-                </div>
-            </div>
-
-            <!-- TECHNOLOGY STACK -->
-            <div class="panel">
-                <h2>🔧 Technology Stack</h2>
-                <div class="meta">
-                    <div class="meta-item">
-                        <strong>Frontend</strong><br>
-                        • HTML5, CSS3, JavaScript<br>
-                        • Bootstrap 5.3 (Responsive)<br>
-                        • Chart.js (Analytics)<br>
-                        • html2pdf (PDF Export)
-                    </div>
-                    <div class="meta-item">
-                        <strong>Backend</strong><br>
-                        • Python 3.8+<br>
-                        • Flask 2.3 Web Framework<br>
-                        • PostgreSQL 12+ Database<br>
-                        • psycopg2 (DB Driver)
-                    </div>
-                    <div class="meta-item">
-                        <strong>External Services</strong><br>
-                        • WhatsApp Business API (Meta)<br>
-                        • Google Gemini AI<br>
-                        • fuzzywuzzy (AI Matching)<br>
-                        • weasyprint (Advanced PDF)
-                    </div>
-                </div>
-            </div>
-
-            <!-- USER WORKFLOWS -->
-            <div class="panel">
-                <h2>🚀 Key User Workflows</h2>
-                <div class="meta" style="grid-template-columns: 1fr;">
-                    <div class="meta-item" style="background: #eef4ff; border-left: 4px solid #0f6cbf;">
-                        <strong style="color: #0f6cbf;">Workflow 1: New Building Project</strong><br>
-                        Admin → Create Project → Link Quotation → Approve Contract → Schedule Payments 
-                        → Send via WhatsApp → Track via Dashboard
-                    </div>
-                    <div class="meta-item" style="background: #f0fff4; border-left: 4px solid #1f8f59;">
-                        <strong style="color: #1f8f59;">Workflow 2: Inventory Sale</strong><br>
-                        Staff → Enter Product → AI Classifies Category → Set Price → Process Transaction 
-                        → Generate Receipt → Update Stock
-                    </div>
-                    <div class="meta-item" style="background: #fff7f0; border-left: 4px solid #cf3a2e;">
-                        <strong style="color: #cf3a2e;">Workflow 3: Payment Tracking</strong><br>
-                        Project Created → Installment Due → Send Reminder → Receive Payment 
-                        → Mark Paid → Calculate Late Fees if Needed
-                    </div>
-                </div>
-            </div>
-
-            <!-- RUNTIME CONFIG -->
-            <div class="panel">
-                <h2>⚙️ Runtime & Configuration</h2>
+                <h2>Runtime & Configuration</h2>
                 <div class="meta">
                     <div class="meta-item"><strong>Environment:</strong> {{ env_summary.environment }}</div>
                     <div class="meta-item"><strong>Database:</strong> {{ env_summary.database_name }}</div>
@@ -333,6 +214,136 @@
                     <div class="meta-item"><strong>Gemini API:</strong> <span class="pill">{{ 'Configured' if env_summary.gemini_configured else 'Missing' }}</span></div>
                     <div class="meta-item"><strong>WhatsApp Phone ID:</strong> <span class="pill">{{ 'Configured' if env_summary.whatsapp_phone_id_configured else 'Missing' }}</span></div>
                     <div class="meta-item"><strong>WhatsApp Access Token:</strong> <span class="pill">{{ 'Configured' if env_summary.whatsapp_token_configured else 'Missing' }}</span></div>
+                </div>
+            </div>
+
+            <div class="tables-grid">
+                <div class="panel">
+                    <h2>Database Tables & Row Counts</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Table</th><th>Rows</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for t in table_stats %}
+                                <tr>
+                                    <td>{{ t.table_name }}</td>
+                                    <td>{{ t.row_count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Quotations by Category</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>Category</th><th>Count</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for c in quotations_by_category %}
+                                <tr>
+                                    <td>{{ c.category }}</td>
+                                    <td>{{ c.count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Recent Projects</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Client</th>
+                                <th>Project</th>
+                                <th>Contract Total</th>
+                                <th>Deposit</th>
+                                <th>Start Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in recent_projects %}
+                            <tr>
+                                <td>{{ p.id }}</td>
+                                <td>{{ p.client_name }}</td>
+                                <td>{{ p.project_name }}</td>
+                                <td>USD {{ '%.2f'|format(p.contract_total) }}</td>
+                                <td>USD {{ '%.2f'|format(p.deposit) }}</td>
+                                <td>{{ p.start_date }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tables-grid">
+                <div class="panel">
+                    <h2>Recent Quotations</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Client</th>
+                                    <th>Category</th>
+                                    <th>Total</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for q in recent_quotations %}
+                                <tr>
+                                    <td>{{ q.id }}</td>
+                                    <td>{{ q.client_name }}</td>
+                                    <td>{{ q.category }}</td>
+                                    <td>USD {{ '%.2f'|format(q.total_cost) }}</td>
+                                    <td>{{ q.quotation_date }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Recent WhatsApp Sends</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Quotation ID</th>
+                                    <th>Client</th>
+                                    <th>Number</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for w in recent_whatsapp %}
+                                <tr>
+                                    <td>{{ w.quotation_id }}</td>
+                                    <td>{{ w.client_name }}</td>
+                                    <td>{{ w.whatsapp_number }}</td>
+                                    <td>{{ w.send_type }}</td>
+                                    <td class="{{ 'status-success' if w.send_status == 'success' else 'status-error' }}">{{ w.send_status }}</td>
+                                    <td>{{ w.created_at }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

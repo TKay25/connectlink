@@ -4,6 +4,7 @@ import html
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/.matplotlib")
 import bleach
 from db_helper import get_db, execute_query
+import numpy as np
 from mysql.connector import Error
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_file,flash, make_response, after_this_request, Response, send_from_directory
 from datetime import datetime, timedelta, date
@@ -32,6 +33,7 @@ import time
 import random
 import logging
 from decimal import Decimal
+import google.generativeai as genai
 from flask_cors import CORS
 import secrets
 import hashlib
@@ -55,6 +57,7 @@ app.permanent_session_lifetime = timedelta(minutes=int(os.getenv('SESSION_TIMEOU
 database = 'connectlinkdata'
 
 GEMINI_API_KEY = "AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g"  # Replace with your actual key
+genai.configure(api_key=GEMINI_API_KEY)
 
 def initialize_database_tables():
     """Initialize all required database tables on startup"""
@@ -1184,7 +1187,7 @@ def bootstrap_startup_tasks():
     _BOOTSTRAP_DONE = True
     initialize_database_tables()
 
-    if os.getenv('RUN_PRODUCT_CATEGORY_MIGRATION', '0') == '1':
+    if os.getenv('RUN_PRODUCT_CATEGORY_MIGRATION', '1') == '1':
         migrate_product_categories()
 
 
@@ -1367,27 +1370,57 @@ def webhook():
                 def send_whatsapp_list_message(recipient, text, header_text, sections, footer_text=None):
                     """Send WhatsApp interactive list message"""
                     try:
+                        def clamp(value, limit):
+                            value = '' if value is None else str(value)
+                            return value[:limit]
+
+                        # WhatsApp list limits (defensive clamping)
+                        # - button text: 20
+                        # - header/footer text: 60
+                        # - body text: 1024
+                        # - section title: 24
+                        # - row title: 24
+                        # - row description: 72
+                        # - row id: 200
+                        sanitized_sections = []
+                        total_rows = 0
+                        for section in (sections or []):
+                            if total_rows >= 10:
+                                break
+
+                            safe_rows = []
+                            for row in (section.get('rows') or []):
+                                if total_rows >= 10:
+                                    break
+                                row_id = clamp(row.get('id', ''), 200)
+                                row_title = clamp(row.get('title', ''), 24)
+                                row_description = clamp(row.get('description', ''), 72)
+
+                                # Skip invalid rows with no id/title after sanitization
+                                if not row_id or not row_title:
+                                    continue
+
+                                safe_rows.append({
+                                    'id': row_id,
+                                    'title': row_title,
+                                    'description': row_description
+                                })
+                                total_rows += 1
+
+                            if safe_rows:
+                                sanitized_sections.append({
+                                    'title': clamp(section.get('title', ''), 24),
+                                    'rows': safe_rows
+                                })
+
+                        if not sanitized_sections:
+                            print('❌ No valid sections/rows to send in list message.')
+                            return None
+
                         headers = {
                             "Authorization": f"Bearer {ACCESS_TOKEN}",
                             "Content-Type": "application/json"
                         }
-
-                        def clamp(value, limit):
-                            return str(value)[:limit] if value is not None else ""
-
-                        sanitized_sections = []
-                        for section in sections or []:
-                            sanitized_sections.append({
-                                "title": clamp(section.get("title", ""), 24),
-                                "rows": [
-                                    {
-                                        "id": row.get("id", ""),
-                                        "title": clamp(row.get("title", ""), 24),
-                                        "description": clamp(row.get("description", ""), 72)
-                                    }
-                                    for row in section.get("rows", [])
-                                ]
-                            })
                         
                         payload = {
                             "messaging_product": "whatsapp",
@@ -1404,7 +1437,7 @@ def webhook():
                                     "text": clamp(text, 1024)
                                 },
                                 "action": {
-                                    "button": "Select Option"[:20],
+                                    "button": clamp("Select Option", 20),
                                     "sections": sanitized_sections
                                 }
                             }
@@ -1417,9 +1450,14 @@ def webhook():
                         response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
                         
                         print("✅ Sending list message to:", recipient)
-                        print("📩 Message body:", text)
-                        print("📌 Footer:", footer_text)
+                        print("📩 Message body:", clamp(text, 1024))
+                        print("📌 Footer:", clamp(footer_text, 60) if footer_text else None)
                         print("📡 WhatsApp API Response Status:", response.status_code)
+                        if response.status_code != 200:
+                            try:
+                                print("❌ WhatsApp API Error:", response.json())
+                            except Exception:
+                                print("❌ WhatsApp API Error (raw):", response.text)
                         
                         return response
                         
@@ -4954,7 +4992,11 @@ def webhook():
                                                         elif payload and payload.lower().startswith('quotation_'):
                                                             # Template quick-reply: "Download Quotation" button
                                                             # Payload format: quotation_{id}_{random} or just quotation_{id}
-                                                            qid = resolve_quotation_id_from_token(payload)
+                                                            try:
+                                                                parts = payload.split('_')
+                                                                qid = int(parts[1])
+                                                            except (IndexError, ValueError):
+                                                                qid = None
 
                                                             if qid:
                                                                 mark_quotation_download_clicked(payload, sender_id)
@@ -7666,7 +7708,11 @@ def webhook():
                                                                     continue
 
                                                             elif payload and payload.lower().startswith('quotation_'):
-                                                                qid = resolve_quotation_id_from_token(payload)
+                                                                try:
+                                                                    parts = payload.split('_')
+                                                                    qid = int(parts[1])
+                                                                except (IndexError, ValueError):
+                                                                    qid = None
 
                                                                 if qid:
                                                                     mark_quotation_download_clicked(payload, sender_id)
@@ -8983,7 +9029,11 @@ def webhook():
                                                                     continue
 
                                                             elif payload and payload.lower().startswith('quotation_'):
-                                                                qid = resolve_quotation_id_from_token(payload)
+                                                                try:
+                                                                    parts = payload.split('_')
+                                                                    qid = int(parts[1])
+                                                                except (IndexError, ValueError):
+                                                                    qid = None
 
                                                                 if qid:
                                                                     mark_quotation_download_clicked(payload, sender_id)
@@ -10192,230 +10242,10 @@ def get_dashboard_stats():
         }
     })
 
-# ==================== SERVER-SIDE PAGINATION ENDPOINTS ====================
-
-@app.route('/api/projects/paginated', methods=['GET'])
-@login_required
-def get_projects_paginated():
-    """Get paginated projects with optional search/filter"""
-    try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 50, type=int)
-        search = request.args.get('search', '', type=str)
-        
-        # Clamp values
-        if page < 1: page = 1
-        if per_page > 500: per_page = 500
-        if per_page < 1: per_page = 50
-        
-        offset = (page - 1) * per_page
-        
-        with get_db() as (cursor, connection):
-            # Count total matching records
-            if search:
-                count_query = """
-                    SELECT COUNT(*) FROM connectlinkdatabase
-                    WHERE projectname ILIKE %s OR clientname ILIKE %s OR projectlocation ILIKE %s
-                """
-                cursor.execute(count_query, (f'%{search}%', f'%{search}%', f'%{search}%'))
-            else:
-                count_query = "SELECT COUNT(*) FROM connectlinkdatabase"
-                cursor.execute(count_query)
-            
-            total = cursor.fetchone()[0]
-            
-            # Get paginated data
-            if search:
-                data_query = """
-                    SELECT * FROM connectlinkdatabase
-                    WHERE projectname ILIKE %s OR clientname ILIKE %s OR projectlocation ILIKE %s
-                    ORDER BY id DESC LIMIT %s OFFSET %s
-                """
-                cursor.execute(data_query, (f'%{search}%', f'%{search}%', f'%{search}%', per_page, offset))
-            else:
-                data_query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT %s OFFSET %s"
-                cursor.execute(data_query, (per_page, offset))
-            
-            rows = cursor.fetchall()
-            cols = [desc[0] for desc in cursor.description]
-            
-            # Convert to list of dicts
-            data = [dict(zip(cols, row)) for row in rows]
-            
-            return jsonify({
-                'status': 'success',
-                'data': data,
-                'page': page,
-                'per_page': per_page,
-                'total': total,
-                'total_pages': (total + per_page - 1) // per_page
-            })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-
-@app.route('/api/enquiries/paginated', methods=['GET'])
-@login_required
-def get_enquiries_paginated():
-    """Get paginated enquiries with optional search/filter"""
-    try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 100, type=int)
-        search = request.args.get('search', '', type=str)
-        
-        if page < 1: page = 1
-        if per_page > 500: per_page = 500
-        if per_page < 1: per_page = 100
-        
-        offset = (page - 1) * per_page
-        
-        with get_db() as (cursor, connection):
-            if search:
-                count_query = """
-                    SELECT COUNT(*) FROM connectlinkenquiries
-                    WHERE clientwhatsapp::TEXT ILIKE %s OR enq ILIKE %s OR enqcategory ILIKE %s
-                """
-                cursor.execute(count_query, (f'%{search}%', f'%{search}%', f'%{search}%'))
-            else:
-                count_query = "SELECT COUNT(*) FROM connectlinkenquiries"
-                cursor.execute(count_query)
-            
-            total = cursor.fetchone()[0]
-            
-            # Select only critical columns (no blob)
-            if search:
-                data_query = """
-                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq, 
-                           plan IS NOT NULL AS has_plan, status, username
-                    FROM connectlinkenquiries
-                    WHERE clientwhatsapp::TEXT ILIKE %s OR enq ILIKE %s OR enqcategory ILIKE %s
-                    ORDER BY id DESC LIMIT %s OFFSET %s
-                """
-                cursor.execute(data_query, (f'%{search}%', f'%{search}%', f'%{search}%', per_page, offset))
-            else:
-                data_query = """
-                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq, 
-                           plan IS NOT NULL AS has_plan, status, username
-                    FROM connectlinkenquiries
-                    ORDER BY id DESC LIMIT %s OFFSET %s
-                """
-                cursor.execute(data_query, (per_page, offset))
-            
-            rows = cursor.fetchall()
-            cols = [desc[0] for desc in cursor.description]
-            data = [dict(zip(cols, row)) for row in rows]
-            
-            return jsonify({
-                'status': 'success',
-                'data': data,
-                'page': page,
-                'per_page': per_page,
-                'total': total,
-                'total_pages': (total + per_page - 1) // per_page
-            })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-
-@app.route('/api/users/paginated', methods=['GET'])
-@login_required
-def get_users_paginated():
-    """Get paginated users"""
-    try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 50, type=int)
-        search = request.args.get('search', '', type=str)
-        
-        if page < 1: page = 1
-        if per_page > 500: per_page = 500
-        if per_page < 1: per_page = 50
-        
-        offset = (page - 1) * per_page
-        
-        with get_db() as (cursor, connection):
-            if search:
-                count_query = "SELECT COUNT(*) FROM connectlinkusers WHERE name ILIKE %s OR email ILIKE %s"
-                cursor.execute(count_query, (f'%{search}%', f'%{search}%'))
-            else:
-                count_query = "SELECT COUNT(*) FROM connectlinkusers"
-                cursor.execute(count_query)
-            
-            total = cursor.fetchone()[0]
-            
-            if search:
-                data_query = """
-                    SELECT id, datecreated, name, password, email, whatsapp
-                    FROM connectlinkusers
-                    WHERE name ILIKE %s OR email ILIKE %s
-                    ORDER BY id DESC LIMIT %s OFFSET %s
-                """
-                cursor.execute(data_query, (f'%{search}%', f'%{search}%', per_page, offset))
-            else:
-                data_query = """
-                    SELECT id, datecreated, name, password, email, whatsapp
-                    FROM connectlinkusers
-                    ORDER BY id DESC LIMIT %s OFFSET %s
-                """
-                cursor.execute(data_query, (per_page, offset))
-            
-            rows = cursor.fetchall()
-            cols = [desc[0] for desc in cursor.description]
-            data = [dict(zip(cols, row)) for row in rows]
-            
-            return jsonify({
-                'status': 'success',
-                'data': data,
-                'page': page,
-                'per_page': per_page,
-                'total': total,
-                'total_pages': (total + per_page - 1) // per_page
-            })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-
-@app.route('/api/admins/paginated', methods=['GET'])
-@login_required
-def get_admins_paginated():
-    """Get paginated admins"""
-    try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
-        
-        if page < 1: page = 1
-        if per_page > 500: per_page = 500
-        if per_page < 1: per_page = 20
-        
-        offset = (page - 1) * per_page
-        
-        with get_db() as (cursor, connection):
-            count_query = "SELECT COUNT(*) FROM connectlinkadmin"
-            cursor.execute(count_query)
-            total = cursor.fetchone()[0]
-            
-            data_query = "SELECT id, name, contact FROM connectlinkadmin ORDER BY id DESC LIMIT %s OFFSET %s"
-            cursor.execute(data_query, (per_page, offset))
-            
-            rows = cursor.fetchall()
-            cols = [desc[0] for desc in cursor.description]
-            data = [dict(zip(cols, row)) for row in rows]
-            
-            return jsonify({
-                'status': 'success',
-                'data': data,
-                'page': page,
-                'per_page': per_page,
-                'total': total,
-                'total_pages': (total + per_page - 1) // per_page
-            })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
 # ==================== INITIALIZE DATABASE ====================
 
-if os.getenv('RUN_STARTUP_BOOTSTRAP', '0') == '1':
-    with app.app_context():
-        bootstrap_startup_tasks()
+with app.app_context():
+    bootstrap_startup_tasks()
 
 
 
@@ -10512,15 +10342,6 @@ def get_all_database_data():
 def call_gemini_ai(question, database_data):
     """Call Google Gemini AI with our database data"""
     try:
-        try:
-            import google.generativeai as genai
-            api_key = os.getenv('GEMINI_API_KEY', GEMINI_API_KEY)
-            if api_key:
-                genai.configure(api_key=api_key)
-        except Exception as import_error:
-            print(f"Gemini import/config error: {str(import_error)}")
-            return get_direct_answer(question)
-
         # Initialize the CORRECT model name
         # Try different available models in order
         available_models = ['gemini-1.0-pro', 'gemini-pro', 'models/gemini-pro']
@@ -10948,7 +10769,7 @@ def login():
                         userid = table_df.iat[0, 0]
                         user_name = table_df.iat[0,2]
                         
-                        session['userid'] = int(userid)
+                        session['userid'] = int(np.int64(userid))
                         session['user_name'] = user_name
 
                         # Return JSON response instead of redirect
@@ -16497,12 +16318,6 @@ def update_other_details():
                 except (ValueError, TypeError):
                     print(f"Warning: Invalid quotation ID: {quotation_id}")
             
-            # Handle agreement_date_other (date field)
-            agreement_date_other = request.form.get('agreement_date_other')
-            if agreement_date_other:
-                updates.append("contractagreementdate = %s")
-                values.append(agreement_date_other)
-
             # Add project_id to values for WHERE clause
             values.append(int(project_id))
             
@@ -19347,39 +19162,6 @@ def mark_quotation_download_send_result(share_token, sent_success, whatsapp_numb
         connection.commit()
 
 
-def resolve_quotation_id_from_token(token):
-    """Resolve quotation ID from token via DB lookup first, then parser fallback."""
-    token_str = str(token or '').strip()
-    if not token_str:
-        return None
-
-    try:
-        with get_db() as (cursor, _):
-            cursor.execute(
-                """
-                SELECT quotation_id
-                FROM quotation_share_links
-                WHERE share_token = %s
-                ORDER BY id DESC
-                LIMIT 1
-                """,
-                (token_str,)
-            )
-            row = cursor.fetchone()
-            if row and row[0]:
-                return int(row[0])
-    except Exception as exc:
-        logging.warning(f"Could not resolve quotation token from DB: {exc}")
-
-    if token_str.lower().startswith('quotation_'):
-        try:
-            return int(token_str.split('_')[1])
-        except (IndexError, ValueError):
-            return None
-
-    return None
-
-
 def get_quotation_share_url(share_token):
     """Build the public share URL for a quotation token when a public base URL is available."""
     public_base = PUBLIC_BASE_URL
@@ -19393,58 +19175,6 @@ def get_quotation_share_url(share_token):
         return ''
 
     return f"{public_base}/quotation/share/{share_token}"
-
-
-@app.route('/quotation/share/<share_token>', methods=['GET'])
-def quotation_share_download(share_token):
-    """Resolve a share token and return the generated quotation PDF."""
-    try:
-        with get_db() as (cursor, _):
-            cursor.execute(
-                """
-                SELECT quotation_id, expires_at
-                FROM quotation_share_links
-                WHERE share_token = %s
-                ORDER BY id DESC
-                LIMIT 1
-                """,
-                (share_token,)
-            )
-            row = cursor.fetchone()
-
-        if not row:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid quotation link. Please request a new one.'
-            }), 404
-
-        quotation_id, expires_at = row[0], row[1]
-        if expires_at and datetime.now() > expires_at:
-            return jsonify({
-                'success': False,
-                'message': 'This quotation link has expired. Please request a new one.'
-            }), 410
-
-        click_whatsapp = normalize_whatsapp_number(request.args.get('wa', ''))
-        mark_quotation_download_clicked(share_token, click_whatsapp)
-
-        pdf_bytes, filename, _ = build_quotation_pdf_document(int(quotation_id))
-
-        response = make_response(pdf_bytes)
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'inline; filename={filename}'
-        return response
-    except LookupError:
-        return jsonify({
-            'success': False,
-            'message': 'Quotation not found. Please request a new link.'
-        }), 404
-    except Exception as exc:
-        logging.exception('Error serving quotation share link %s', share_token)
-        return jsonify({
-            'success': False,
-            'message': f'Failed to open quotation link: {str(exc)}'
-        }), 500
 
 def fmt_currency(value):
     """Convert Indian format string to Western format"""
@@ -19778,12 +19508,6 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
 
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
     """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
-    def _short_error(exc):
-        msg = str(exc or '').replace('\n', ' ').strip()
-        if not msg:
-            return 'Unknown error'
-        return msg[:180]
-
     try:
         pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
     except LookupError:
@@ -19794,17 +19518,13 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         logging.exception("Error generating quotation PDF %s", quotation_id)
         mark_quotation_download_send_result(share_token, False, recipient_number)
         share_url = get_quotation_share_url(share_token)
-        reason = _short_error(exc)
         if send_text_message and share_url:
             send_text_message(
                 recipient_number,
-                f"⚠️ We couldn't generate the PDF just now. Reason: {reason}\nYou can still open your quotation here:\n{share_url}"
+                f"⚠️ We couldn't generate the PDF just now. You can still open your quotation here:\n{share_url}"
             )
         elif send_text_message:
-            send_text_message(
-                recipient_number,
-                f"❌ Failed to generate your quotation. Reason: {reason}. Please contact us directly."
-            )
+            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
         print(f"❌ Error generating quotation PDF {quotation_id}: {exc}")
         return False
 
@@ -19817,17 +19537,13 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         logging.exception("Error sending quotation PDF %s", quotation_id)
         mark_quotation_download_send_result(share_token, False, recipient_number)
         share_url = get_quotation_share_url(share_token)
-        reason = _short_error(exc)
         if send_text_message and share_url:
             send_text_message(
                 recipient_number,
-                f"⚠️ We couldn't send the PDF on WhatsApp just now. Reason: {reason}\nYou can still open your quotation here:\n{share_url}"
+                f"⚠️ We couldn't send the PDF on WhatsApp just now. You can still open your quotation here:\n{share_url}"
             )
         elif send_text_message:
-            send_text_message(
-                recipient_number,
-                f"❌ Failed to send your quotation PDF. Reason: {reason}. Please contact us directly."
-            )
+            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
         print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
         return False
 
@@ -20124,51 +19840,6 @@ def send_quotation_whatsapp():
         except Exception as snapshot_err:
             logging.warning(f"Could not fetch quotation snapshot from DB: {snapshot_err}")
 
-        # Optional explicit behavior controls for consistent delivery strategy.
-        # Priority:
-        # 1) Request payload forceTemplate=true
-        # 2) Environment variable WHATSAPP_FORCE_QUOTATION_TEMPLATE=1
-        force_template_payload = str(data.get('forceTemplate', '')).strip().lower() in ('1', 'true', 'yes', 'on')
-        force_template_env = str(os.getenv('WHATSAPP_FORCE_QUOTATION_TEMPLATE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
-        force_template = force_template_payload or force_template_env
-
-        if force_template:
-            share_token = create_quotation_share_token(safe_qid)
-            template_response = send_quotation_download_template(
-                whatsapp_number,
-                share_token,
-                client_name=client_name,
-                category=snapshot_category,
-                project_size=snapshot_project_size
-            )
-
-            template_message_id = template_response.get('messages', [{}])[0].get('id', '')
-            log_quotation_whatsapp_send(
-                safe_qid,
-                whatsapp_number,
-                client_name,
-                'template_forced',
-                template_message_id,
-                'portal_force_template',
-                snapshot_category=snapshot_category,
-                snapshot_project_size=snapshot_project_size,
-                snapshot_total_cost=snapshot_total_cost,
-                snapshot_markup=snapshot_markup,
-                snapshot_quotation_date=snapshot_quotation_date
-            )
-
-            public_base = PUBLIC_BASE_URL or request.url_root.rstrip('/')
-            share_url = f"{public_base}/quotation/share/{share_token}"
-            return jsonify({
-                'success': True,
-                'used_template': True,
-                'send_path': 'template_forced',
-                'message': 'Template mode enabled. Sent download-button template.',
-                'whatsapp_number': whatsapp_number,
-                'share_url': share_url,
-                'template_message_id': template_message_id
-            })
-
         safe_name = ''.join(char for char in str(client_name) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
         filename = f"Quotation_{safe_name}_{safe_qid}.pdf"
         caption = (
@@ -20219,7 +19890,6 @@ def send_quotation_whatsapp():
             'message': f'Quotation accepted by WhatsApp API for {whatsapp_number} (delivery pending recipient status)',
             'whatsapp_number': whatsapp_number,
             'used_template': False,
-            'send_path': 'document_direct',
             'message_id': outbound_message_id
         })
     except Exception as e:
@@ -20286,7 +19956,6 @@ def send_quotation_whatsapp():
                 return jsonify({
                     'success': True,
                     'used_template': True,
-                    'send_path': 'template_fallback',
                     'message': 'Outside 24-hour window. Sent template with download button instead.',
                     'whatsapp_number': whatsapp_number,
                     'share_url': share_url,
@@ -20299,7 +19968,6 @@ def send_quotation_whatsapp():
                     'success': False,
                     'error': error_text,
                     'requires_template': True,
-                    'send_path': 'template_fallback_failed',
                     'hint': (
                         '24-hour window restriction detected, but template fallback failed. '
                         'Ensure your template is approved and WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE matches the approved name.'
@@ -20321,7 +19989,6 @@ def send_quotation_whatsapp():
             'success': False,
             'error': error_text,
             'requires_template': requires_template,
-            'send_path': 'document_direct_failed',
             'hint': hint
         }), status_code
 
@@ -20808,97 +20475,6 @@ def get_sent_quotations():
             })
     except Exception as e:
         logging.error(f'Error fetching sent quotations: {str(e)}')
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/debug/quotation-failures', methods=['GET'])
-@login_required
-def debug_quotation_failures():
-    """Return recent quotation WhatsApp/PDF failures with compact diagnostics."""
-    try:
-        limit = request.args.get('limit', 20, type=int)
-        if limit < 1:
-            limit = 20
-        if limit > 100:
-            limit = 100
-
-        def classify_failure(error_text, send_type):
-            text = str(error_text or '').lower()
-            if '131047' in text or 'outside the allowed window' in text or '24 hour' in text:
-                return 'outside_24h_window'
-            if 'template' in text and 'failed' in text:
-                return 'template_send_failed'
-            if 'quotation not found' in text:
-                return 'quotation_not_found'
-            if 'no such file' in text or 'web-logo.png' in text:
-                return 'logo_file_missing'
-            if 'weasyprint' in text or 'write_pdf' in text:
-                return 'pdf_render_failed'
-            if 'media upload failed' in text or 'upload failed' in text:
-                return 'whatsapp_media_upload_failed'
-            if 'whatsapp send failed' in text or 'send failed' in text:
-                return 'whatsapp_message_send_failed'
-            if send_type == 'template_fallback':
-                return 'template_fallback_path_failed'
-            if send_type == 'document':
-                return 'document_send_path_failed'
-            return 'unknown_failure'
-
-        with get_db() as (cursor, _):
-            cursor.execute(
-                """
-                SELECT
-                    ql.id,
-                    ql.quotation_id,
-                    COALESCE(NULLIF(ql.client_name, ''), q.client_name, 'Client') AS client_name,
-                    COALESCE(NULLIF(ql.whatsapp_number, ''), q.client_whatsapp, '') AS whatsapp_number,
-                    ql.send_type,
-                    ql.send_status,
-                    ql.error_details,
-                    ql.source_channel,
-                    ql.whatsapp_message_id,
-                    ql.created_at
-                FROM quotation_whatsapp_send_logs ql
-                LEFT JOIN quotations q ON q.id = ql.quotation_id
-                WHERE ql.send_status = 'failed'
-                   OR COALESCE(NULLIF(ql.error_details, ''), '') <> ''
-                ORDER BY ql.created_at DESC
-                LIMIT %s
-                """,
-                (limit,)
-            )
-            rows = cursor.fetchall()
-
-        data = []
-        for row in rows:
-            error_details = row[6] or ''
-            compact_error = ' '.join(str(error_details).split())[:300]
-            data.append({
-                'logId': row[0],
-                'quotationId': row[1],
-                'clientName': row[2] or 'Client',
-                'whatsappNumber': row[3] or '',
-                'sendType': row[4] or 'document',
-                'sendStatus': row[5] or 'failed',
-                'sourceChannel': row[7] or 'unknown',
-                'messageId': row[8] or '',
-                'failedAt': row[9].isoformat() if row[9] else None,
-                'errorDetails': error_details,
-                'errorSummary': compact_error,
-                'failureClass': classify_failure(error_details, row[4] or '')
-            })
-
-        return jsonify({
-            'success': True,
-            'count': len(data),
-            'limit': limit,
-            'data': data
-        })
-    except Exception as e:
-        logging.exception('Error fetching quotation failures')
         return jsonify({
             'success': False,
             'error': str(e)
@@ -21435,4 +21011,4 @@ def get_work_plans():
         }), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port = 55, debug = False, use_reloader = False)
+    app.run(host="0.0.0.0", port = 55, debug = True)
