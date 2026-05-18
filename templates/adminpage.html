@@ -4526,53 +4526,9 @@ function saveOtherDetails(event) {
 // Refresh projects table in real-time without page reload
 function refreshProjectsTableInRealTime() {
     console.log('Refreshing projects table in real-time...');
-    
-    // Fetch fresh admin page content
-    fetch(window.location.pathname + window.location.search)
-        .then(response => response.text())
-        .then(html => {
-            // Parse the HTML response
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            
-            // Extract the new table
-            const newTable = doc.getElementById('allprojectsTable');
-            if (!newTable) {
-                console.error('Could not find projects table in response');
-                return;
-            }
-            
-            // Destroy existing DataTable
-            if (window.dataTable) {
-                try {
-                    window.dataTable.destroy();
-                } catch (e) {
-                    console.log('DataTable destroy info:', e.message);
-                }
-            }
-            
-            // Replace old table with new table in the DOM
-            const oldTable = document.getElementById('allprojectsTable');
-            if (oldTable && oldTable.parentNode) {
-                oldTable.parentNode.replaceChild(newTable, oldTable);
-            }
-            
-            // Reinitialize DataTables on the new table
-            initializeDataTableForProjects();
-            
-            console.log('Table refreshed successfully');
-        })
-        .catch(error => {
-            console.error('Error refreshing table:', error);
-            // Fallback: simple draw if available
-            if (window.dataTable) {
-                try {
-                    window.dataTable.draw(false);
-                } catch (e) {
-                    console.log('Fallback draw failed');
-                }
-            }
-        });
+    if (typeof loadServerProjectsPage === 'function') {
+        loadServerProjectsPage(window.projectsPager?.page || 1);
+    }
 }
 
 // Initialize DataTable for projects
@@ -4582,11 +4538,11 @@ function initializeDataTableForProjects() {
     
     // Initialize DataTables with columnDefs (matching backend output)
     window.dataTable = $('#allprojectsTable').DataTable({
-        paging: true,
-        searching: true,
+        paging: false,
+        searching: false,
         ordering: false,
-        info: true,
-        pageLength: 7,
+        info: false,
+        pageLength: 200,
         lengthChange: false,
         columnDefs: [
             // Hide all detail columns, show only: momid(0), clientname(1), projectname(10), projectadmin(13), date(24), id(58), QREF(59), Action(60)
@@ -4600,6 +4556,108 @@ function initializeDataTableForProjects() {
     });
     
     console.log('DataTable reinitialized with', table.rows.length, 'rows');
+}
+
+window.projectsPager = {
+    page: 1,
+    perPage: 50,
+    totalPages: 1,
+    totalCount: 0,
+    search: '',
+    month: 'all'
+};
+
+function getProjectsMonthFilterValue() {
+    const monthFilter = document.getElementById('monthFilter');
+    if (!monthFilter) {
+        return 'all';
+    }
+    return monthFilter.value || 'all';
+}
+
+function renderProjectsPaginationControls() {
+    const controls = document.getElementById('projectsPaginationControls');
+    if (!controls) {
+        return;
+    }
+
+    const pager = window.projectsPager;
+    const totalPages = pager.totalPages || 1;
+    const currentPage = pager.page || 1;
+    const totalCount = pager.totalCount || 0;
+
+    controls.innerHTML = `
+        <div style="font-size: 0.75rem; color: #1E2A56; font-weight: 600;">
+            Page ${currentPage} of ${totalPages} | Total Projects: ${totalCount}
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-primary" id="projectsPrevBtn" ${currentPage <= 1 ? 'disabled' : ''}>Prev</button>
+            <button class="btn btn-sm btn-primary" id="projectsNextBtn" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>
+        </div>
+    `;
+
+    const prevBtn = document.getElementById('projectsPrevBtn');
+    const nextBtn = document.getElementById('projectsNextBtn');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (window.projectsPager.page > 1) {
+                loadServerProjectsPage(window.projectsPager.page - 1);
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (window.projectsPager.page < window.projectsPager.totalPages) {
+                loadServerProjectsPage(window.projectsPager.page + 1);
+            }
+        });
+    }
+}
+
+async function loadServerProjectsPage(page = 1) {
+    const month = getProjectsMonthFilterValue();
+    const pager = window.projectsPager;
+    pager.page = Math.max(page, 1);
+    pager.month = month;
+
+    const tableContainer = document.querySelector('.mainalldata');
+    if (!tableContainer) {
+        return;
+    }
+
+    try {
+        const endpoint = `/get_filtered_projects/${encodeURIComponent(month)}?page=${pager.page}&per_page=${pager.perPage}&search=${encodeURIComponent(pager.search || '')}`;
+        const response = await fetch(endpoint);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (result.status !== 'success') {
+            throw new Error(result.message || 'Failed to load projects');
+        }
+
+        if (window.dataTable) {
+            try {
+                window.dataTable.destroy();
+            } catch (e) {
+                console.log('DataTable destroy info:', e.message);
+            }
+        }
+
+        tableContainer.innerHTML = result.html || '';
+
+        pager.page = Number(result.page || pager.page || 1);
+        pager.totalPages = Number(result.total_pages || 1);
+        pager.totalCount = Number(result.total_count || 0);
+
+        initializeDataTableForProjects();
+        renderProjectsPaginationControls();
+    } catch (error) {
+        console.error('Failed to load paged projects:', error);
+    }
 }
 
 // Initialize existing clients dropdown with search capability
@@ -9362,93 +9420,15 @@ document.head.appendChild(style);
 <script>
     // Apply filter button (AJAX version)
 document.addEventListener('DOMContentLoaded', function() {
-    // FIRST, check the actual table structure
-    const table = document.getElementById('allprojectsTable');
-    if (table) {
-        const headerRow = table.querySelector('thead tr');
-        const columns = headerRow ? headerRow.querySelectorAll('th').length : 0;
-        console.log('Actual number of columns in table:', columns);
-        
-        // List all column headers
-        if (headerRow) {
-            headerRow.querySelectorAll('th').forEach((th, index) => {
-                console.log(`Column ${index}:`, th.textContent.trim());
-            });
+    const monthFilterElement = document.getElementById('monthFilter');
+    if (monthFilterElement) {
+        const firstMonth = monthFilterElement.querySelector('option:not([value="all"])');
+        if (firstMonth) {
+            monthFilterElement.value = firstMonth.value;
         }
     }
-    
-    // Column Configuration: Display only essential project information
-    // Column Mapping (61 total columns):
-    // [0]=momid, [1]=clientname, [10]=projectname, [13]=projectadministratorname, [14]=projectstartdate, [58]=id, [59]=QREF (Quotation Ref), [60]=Action
-    // All other columns (2-9, 11-12, 15-57) are hidden for cleaner display
 
-    // Initialize month filter variable
-    window.currentMonthFilter = '';
-
-    // Add custom DataTable filter function for month filter
-    $.fn.dataTable.ext.search.push(function(settings, data, index) {
-        // If no month filter is set, show all rows
-        if (!window.currentMonthFilter || window.currentMonthFilter === '' || window.currentMonthFilter === 'all') {
-            return true;
-        }
-        
-        // Column 24 is datedepositorbullet (deposit date)
-        const depositDate = data[24];
-        if (!depositDate) return true;
-        
-        // Extract year-month from date
-        let yearMonth = '';
-        
-        // Try YYYY-MM-DD format first
-        const dateMatch = depositDate.match(/(\d{4})-(\d{2})-(\d{2})/);
-        if (dateMatch) {
-            yearMonth = dateMatch[1] + '-' + dateMatch[2];
-        } else {
-            // Try "DD Month YYYY" format
-            const monthNames = ['january', 'february', 'march', 'april', 'may', 'june',
-                              'july', 'august', 'september', 'october', 'november', 'december'];
-            const parts = depositDate.toLowerCase().split(' ');
-            if (parts.length >= 3) {
-                const year = parts[2];
-                const monthIndex = monthNames.indexOf(parts[1]);
-                if (monthIndex !== -1) {
-                    yearMonth = year + '-' + String(monthIndex + 1).padStart(2, '0');
-                }
-            }
-        }
-        
-        return yearMonth === window.currentMonthFilter;
-    });
-
-    if ($('#allprojectsTable').length) {
-        try {
-            window.dataTable = $('#allprojectsTable').DataTable({
-                order: [[0, 'desc']],
-                paging: false,
-                searching: true,
-                ordering: true,
-                info: true,
-                pageLength: 7,
-                lengthChange: false,
-                columnDefs: [
-                    // Hide columns 2-9, 11-12, 14, 15-57 (client details, addresses, projectstartdate, installment details)
-                    { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
-                    // Explicitly show: momid(0), clientname(1), projectname(10), projectadministratorname(13), datedepositorbullet(24), id(58), QREF(59), Action(60)
-                    { targets: [0,1,10,13,24,58,59,60], visible: true, searchable: true }
-                ],
-                language: {
-                    emptyTable: 'No projects found'
-                }
-            });
-            
-            // Set QREF column styling
-            window.dataTable.column(59).nodes().to$().addClass('text-center');
-        } catch (error) {
-            console.warn('DataTable initialization failed for allprojectsTable:', error);
-        }
-    }
-    
-    console.log('DataTable initialized with column visibility settings');
+    loadServerProjectsPage(1);
 
     // Initialize DataTable for Enquiries
 // In your document ready function, initialize DataTable on enquiriesDetailTable
@@ -9477,40 +9457,19 @@ $(document).ready(function() {
         console.log('✅ Enquiries table initialized with sorting by ID DESC');
     }
 });
-    
-    // Auto-filter to latest month on page load
-    const monthFilterElement = document.getElementById('monthFilter');
-    if (monthFilterElement && window.dataTable) {
-        const firstMonth = monthFilterElement.querySelector('option:not([value="all"])');
-        if (firstMonth) {
-            const selectedMonth = firstMonth.value;
-            console.log('Auto-filtering to latest month on page load:', selectedMonth);
-            window.currentMonthFilter = selectedMonth;
-            window.dataTable.draw();
-        }
-    }
-    
-    // Auto-filter when month selection changes
+
     document.getElementById('monthFilter')?.addEventListener('change', function() {
-        const selectedMonth = this.value;
-        console.log('Month filter changed to:', selectedMonth);
-        
-        if (window.dataTable) {
-            window.dataTable.search('').draw();
-            window.currentMonthFilter = selectedMonth;
-            window.dataTable.draw();
-        }
+        window.projectsPager.page = 1;
+        loadServerProjectsPage(1);
     });
 
-    // Add search functionality - search entire table including all columns
+    let searchDebounceTimer;
     document.getElementById('tableSearch')?.addEventListener('keyup', function() {
-        const searchTerm = this.value;
-        
-        if (window.dataTable) {
-            // Use DataTables built-in search which searches ALL data rows and columns
-            // This searches the entire dataset, not just filtered/visible rows
-            window.dataTable.search(searchTerm).draw();
-        }
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            window.projectsPager.search = this.value.trim();
+            loadServerProjectsPage(1);
+        }, 350);
     });
 });
 
@@ -15181,6 +15140,10 @@ const paginationState = {
 
 // ===== LOAD PAGINATED DATA =====
 async function loadPaginatedData(dataType, page = 1, search = '') {
+    if (dataType === 'projects') {
+        return;
+    }
+
     const state = paginationState[dataType];
     if (!state) return;
 
@@ -15207,8 +15170,7 @@ async function loadPaginatedData(dataType, page = 1, search = '') {
 
 // ===== RENDER TABLE DATA =====
 function renderTable(dataType, data, totalPages) {
-    if (dataType === 'projects') renderProjectsTable(data);
-    else if (dataType === 'enquiries') renderEnquiriesTable(data);
+    if (dataType === 'enquiries') renderEnquiriesTable(data);
     else if (dataType === 'users') renderUsersTable(data);
     else if (dataType === 'admins') renderAdminsTable(data);
 }
@@ -15358,7 +15320,6 @@ function renderPaginationControls(dataType, currentPage, totalPages) {
 // ===== INIT SEARCH BOXES =====
 function initSearchBoxes() {
     const searchBoxes = {
-        'tableSearch': { type: 'projects', delay: 500 },
         'enquiriesSearch': { type: 'enquiries', delay: 500 },
         'usersSearch': { type: 'users', delay: 500 },
         'adminsSearch': { type: 'admins', delay: 500 }
@@ -15383,7 +15344,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Small delay to ensure DOM is fully ready
     setTimeout(() => {
         console.log('🔄 Loading paginated data...');
-        loadPaginatedData('projects', 1, '');
         loadPaginatedData('enquiries', 1, '');
         loadPaginatedData('users', 1, '');
         loadPaginatedData('admins', 1, '');
