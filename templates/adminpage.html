@@ -13442,6 +13442,12 @@ $('#sendQuotationBtn').click(async function() {
                 return;
             }
 
+            const sign = factorPercent >= 0 ? '+' : '';
+            const confirmApply = confirm(`Apply ${sign}${factorPercent}% to all Days per Sq Meter values?`);
+            if (!confirmApply) {
+                return;
+            }
+
             const multiplier = 1 + (factorPercent / 100);
             if (multiplier < 0) {
                 alert('Percentage factor is too low. Resulting days cannot be negative.');
@@ -13461,7 +13467,6 @@ $('#sendQuotationBtn').click(async function() {
                 input.value = updated.toFixed(8);
             });
 
-            const sign = factorPercent >= 0 ? '+' : '';
             alert(`Applied ${sign}${factorPercent}% to all Days per Sq Meter values.`);
         }
 
