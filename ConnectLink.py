@@ -12504,10 +12504,25 @@ def get_filtered_projects(month_filter):
             
             projects = cursor.fetchall()
             print(f"DEBUG: Retrieved {len(projects)} rows")
+
+            expected_table_columns = [
+                'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
+                'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate',
+                'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay',
+                'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment',
+                'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate',
+                'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
+                'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date',
+                'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate',
+                'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount',
+                'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date',
+                'projectcompletionstatus', 'latepaymentinterest', 'id', 'QREF', 'Action'
+            ]
             
             if not projects:
                 # Return empty table HTML
-                empty_df = pd.DataFrame(columns=columns)
+                empty_df = pd.DataFrame(columns=expected_table_columns)
                 empty_html = empty_df.to_html(classes="table table-bordered table-theme", 
                                               table_id="allprojectsTable", 
                                               index=False)
@@ -12534,6 +12549,15 @@ def get_filtered_projects(month_filter):
                 datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
             if 'datedepositorbullet' in datamain.columns:
                 datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
+
+            if 'quotation_id' in datamain.columns:
+                datamain = datamain.rename(columns={'quotation_id': 'QREF'})
+                datamain['QREF'] = datamain['QREF'].apply(
+                    lambda x: '<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == ''
+                    else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
+                )
+            else:
+                datamain['QREF'] = '<span class="badge bg-secondary">N/A</span>'
             
             # Add Action column (same as in your run1 function)
             datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a><button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View Project</button><button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button></div>''', axis=1)
@@ -12542,7 +12566,7 @@ def get_filtered_projects(month_filter):
             # Put Action column at the end
             cols_order = [col for col in datamain.columns if col != 'Action'] + ['Action']
             datamain = datamain[cols_order]
-            datamain = datamain[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date','projectcompletionstatus', 'latepaymentinterest', 'id', 'Action']]
+            datamain = datamain[expected_table_columns]
             
             # Convert to HTML
             html_table = datamain.to_html(
