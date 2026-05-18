@@ -3254,6 +3254,10 @@
                         <div class="container2 mainalldata" style="max-height: 400px; overflow-y: auto;">
                             {{ table_datamain_html |safe }}
                         </div>
+                        <div id="projectsTableLoading" class="d-none mt-2" style="font-size: 0.75rem; color: #1E2A56; font-weight: 600;">
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span class="ms-2">Loading projects...</span>
+                        </div>
                         <div id="projectsPaginationControls" class="d-flex justify-content-between align-items-center mt-2"></div>
                     </div>
                 </div>
@@ -4575,6 +4579,18 @@ function getProjectsMonthFilterValue() {
     return monthFilter.value || 'all';
 }
 
+function setProjectsTableLoading(isLoading) {
+    const loadingEl = document.getElementById('projectsTableLoading');
+    if (!loadingEl) {
+        return;
+    }
+    if (isLoading) {
+        loadingEl.classList.remove('d-none');
+    } else {
+        loadingEl.classList.add('d-none');
+    }
+}
+
 function renderProjectsPaginationControls() {
     const controls = document.getElementById('projectsPaginationControls');
     if (!controls) {
@@ -4586,12 +4602,39 @@ function renderProjectsPaginationControls() {
     const currentPage = pager.page || 1;
     const totalCount = pager.totalCount || 0;
 
+    const pageStart = Math.max(1, currentPage - 2);
+    const pageEnd = Math.min(totalPages, currentPage + 2);
+    const pageButtons = [];
+
+    if (pageStart > 1) {
+        pageButtons.push('<button class="btn btn-sm btn-outline-primary projects-page-btn" data-page="1">1</button>');
+        if (pageStart > 2) {
+            pageButtons.push('<span style="padding: 0 4px; color: #1E2A56;">...</span>');
+        }
+    }
+
+    for (let p = pageStart; p <= pageEnd; p++) {
+        if (p === currentPage) {
+            pageButtons.push(`<button class="btn btn-sm btn-primary projects-page-btn" data-page="${p}" disabled>${p}</button>`);
+        } else {
+            pageButtons.push(`<button class="btn btn-sm btn-outline-primary projects-page-btn" data-page="${p}">${p}</button>`);
+        }
+    }
+
+    if (pageEnd < totalPages) {
+        if (pageEnd < totalPages - 1) {
+            pageButtons.push('<span style="padding: 0 4px; color: #1E2A56;">...</span>');
+        }
+        pageButtons.push(`<button class="btn btn-sm btn-outline-primary projects-page-btn" data-page="${totalPages}">${totalPages}</button>`);
+    }
+
     controls.innerHTML = `
         <div style="font-size: 0.75rem; color: #1E2A56; font-weight: 600;">
             Page ${currentPage} of ${totalPages} | Total Projects: ${totalCount}
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-1 flex-wrap justify-content-end">
             <button class="btn btn-sm btn-primary" id="projectsPrevBtn" ${currentPage <= 1 ? 'disabled' : ''}>Prev</button>
+            ${pageButtons.join('')}
             <button class="btn btn-sm btn-primary" id="projectsNextBtn" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>
         </div>
     `;
@@ -4614,6 +4657,15 @@ function renderProjectsPaginationControls() {
             }
         });
     }
+
+    controls.querySelectorAll('.projects-page-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const targetPage = Number(btn.getAttribute('data-page') || 1);
+            if (targetPage >= 1 && targetPage !== window.projectsPager.page) {
+                loadServerProjectsPage(targetPage);
+            }
+        });
+    });
 }
 
 async function loadServerProjectsPage(page = 1) {
@@ -4628,6 +4680,7 @@ async function loadServerProjectsPage(page = 1) {
     }
 
     try {
+        setProjectsTableLoading(true);
         const endpoint = `/get_filtered_projects/${encodeURIComponent(month)}?page=${pager.page}&per_page=${pager.perPage}&search=${encodeURIComponent(pager.search || '')}`;
         const response = await fetch(endpoint);
         if (!response.ok) {
@@ -4657,6 +4710,8 @@ async function loadServerProjectsPage(page = 1) {
         renderProjectsPaginationControls();
     } catch (error) {
         console.error('Failed to load paged projects:', error);
+    } finally {
+        setProjectsTableLoading(false);
     }
 }
 
