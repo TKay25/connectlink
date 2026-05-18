@@ -19373,6 +19373,58 @@ def get_quotation_share_url(share_token):
 
     return f"{public_base}/quotation/share/{share_token}"
 
+
+@app.route('/quotation/share/<share_token>', methods=['GET'])
+def quotation_share_download(share_token):
+    """Resolve a share token and return the generated quotation PDF."""
+    try:
+        with get_db() as (cursor, _):
+            cursor.execute(
+                """
+                SELECT quotation_id, expires_at
+                FROM quotation_share_links
+                WHERE share_token = %s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (share_token,)
+            )
+            row = cursor.fetchone()
+
+        if not row:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid quotation link. Please request a new one.'
+            }), 404
+
+        quotation_id, expires_at = row[0], row[1]
+        if expires_at and datetime.now() > expires_at:
+            return jsonify({
+                'success': False,
+                'message': 'This quotation link has expired. Please request a new one.'
+            }), 410
+
+        click_whatsapp = normalize_whatsapp_number(request.args.get('wa', ''))
+        mark_quotation_download_clicked(share_token, click_whatsapp)
+
+        pdf_bytes, filename, _ = build_quotation_pdf_document(int(quotation_id))
+
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename={filename}'
+        return response
+    except LookupError:
+        return jsonify({
+            'success': False,
+            'message': 'Quotation not found. Please request a new link.'
+        }), 404
+    except Exception as exc:
+        logging.exception('Error serving quotation share link %s', share_token)
+        return jsonify({
+            'success': False,
+            'message': f'Failed to open quotation link: {str(exc)}'
+        }), 500
+
 def fmt_currency(value):
     """Convert Indian format string to Western format"""
     try:
