@@ -13534,20 +13534,21 @@ def run1(userid):
 
         admin_options = adminsdatamain.apply(lambda row: f"{row['name']}", axis=1).tolist()
 
-        page = max(request.args.get('page', 1, type=int), 1)
-        per_page = request.args.get('per_page', 50, type=int)
-        if per_page is None:
-            per_page = 50
-        per_page = min(max(per_page, 1), 200)
-        offset = (page - 1) * per_page
-
-
         ######### maindata
         # quotation_id column is already added during initialize_database_tables()
         # No need to check/add it again here
 
         cursor.execute("SELECT COUNT(*) FROM connectlinkdatabase")
         num_projects = cursor.fetchone()[0]
+
+        page = max(request.args.get('page', 1, type=int), 1)
+        requested_per_page = request.args.get('per_page', type=int)
+        if requested_per_page is None:
+            # Default to full dataset to preserve existing dashboard/payment portal behavior.
+            per_page = max(num_projects, 1)
+        else:
+            per_page = min(max(requested_per_page, 1), 200)
+        offset = (page - 1) * per_page
 
         cursor.execute("""
             SELECT

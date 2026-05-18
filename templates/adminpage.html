@@ -4687,6 +4687,64 @@ function autofillClientDetails(clientData) {
     console.log('Client details auto-filled:', clientData.clientName);
 }
 
+async function fetchAllQuotationsFromApi(perPage = 100) {
+    let page = 1;
+    let totalPages = 1;
+    const allRows = [];
+
+    while (page <= totalPages) {
+        const response = await fetch(`/api/get-quotations?page=${page}&per_page=${perPage}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error, status = ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to load quotations');
+        }
+
+        const rows = Array.isArray(result.data) ? result.data : [];
+        allRows.push(...rows);
+
+        totalPages = Number(result.total_pages || 1);
+        if (!result.has_next) {
+            break;
+        }
+        page += 1;
+    }
+
+    return { success: true, data: allRows };
+}
+
+async function fetchAllSentQuotationsFromApi(perPage = 100) {
+    let page = 1;
+    let totalPages = 1;
+    const allRows = [];
+
+    while (page <= totalPages) {
+        const response = await fetch(`/api/get-sent-quotations?page=${page}&per_page=${perPage}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error, status = ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'Failed to load sent quotations');
+        }
+
+        const rows = Array.isArray(result.data) ? result.data : [];
+        allRows.push(...rows);
+
+        totalPages = Number(result.total_pages || 1);
+        if (!result.has_next) {
+            break;
+        }
+        page += 1;
+    }
+
+    return { success: true, data: allRows };
+}
+
 // Initialize project quotations dropdown with search capability
 function initializeProjectQuotationsDropdown() {
     const selectElement = document.getElementById('project_quotation_select');
@@ -4697,13 +4755,7 @@ function initializeProjectQuotationsDropdown() {
     }
     
     // Fetch all quotations
-    fetch('/api/get-quotations')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`API error: ${response.statusText}`);
-            }
-            return response.json();
-        })
+    fetchAllQuotationsFromApi()
         .then(data => {
             if (data.success && data.data && data.data.length > 0) {
                 // Clear existing options except the placeholder
@@ -4897,13 +4949,7 @@ function initializeOtherDetailsQuotationDropdown(currentQuotationRef) {
     }
     
     // Fetch all quotations
-    fetch('/api/get-quotations')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`API error: ${response.statusText}`);
-            }
-            return response.json();
-        })
+    fetchAllQuotationsFromApi()
         .then(data => {
             if (data.success && data.data && data.data.length > 0) {
                 // Clear existing options except the placeholder
@@ -12686,8 +12732,7 @@ function updateKitchenPreviewDisplay() {
 
 // Function to load existing quotation for editing
 function loadExistingQuotationForEdit(quotationId) {
-    fetch('/api/get-quotations')
-        .then(r => r.json())
+    fetchAllQuotationsFromApi()
         .then(result => {
             if (!result.success || !result.data) {
                 alert('Error loading existing quotation.');
@@ -13829,13 +13874,7 @@ function renderGanttItemsList() {
         summary.textContent = 'Loading send history...';
         container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">Loading sent quotations...</p>';
 
-        fetch('/api/get-sent-quotations')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('HTTP error, status = ' + response.status);
-                }
-                return response.json();
-            })
+        fetchAllSentQuotationsFromApi()
             .then(result => {
                 if (!result.success) {
                     throw new Error(result.error || 'Failed to load sent quotations');
@@ -13863,15 +13902,7 @@ function renderGanttItemsList() {
         
         console.log('Starting fetch to /api/get-quotations');
         
-        fetch('/api/get-quotations')
-            .then(response => {
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
-                if (!response.ok) {
-                    throw new Error('HTTP error, status = ' + response.status);
-                }
-                return response.json();
-            })
+        fetchAllQuotationsFromApi()
             .then(result => {
                 console.log('API Response:', result);
                 if (result.success) {
@@ -14233,8 +14264,7 @@ function handleViewClick(e) {
 // Add this function before your saveAndDownloadQuotation function
 async function checkDuplicateQuotation(quotationData) {
     try {
-        const response = await fetch('/api/get-quotations');
-        const result = await response.json();
+        const result = await fetchAllQuotationsFromApi();
         
         if (!result.success || !result.data) {
             return { isDuplicate: false };
@@ -14315,8 +14345,7 @@ async function viewQuotationDetails(quotationId) {
     contentDiv.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3">Loading...</p></div>`;
     
     try {
-        const response = await fetch('/api/get-quotations');
-        const result = await response.json();
+        const result = await fetchAllQuotationsFromApi();
         
         if (result.success && result.data) {
             const quotation = result.data.find(q => q.id === quotationId);
@@ -14705,8 +14734,7 @@ function escapeHtml(text) {
 
 async function downloadQuotationPDFFromPortal(quotationId) {
     // Fetch the quotation data from API
-    const response = await fetch('/api/get-quotations');
-    const result = await response.json();
+    const result = await fetchAllQuotationsFromApi();
     
     if (!result.success || !result.data) {
         throw new Error('Error fetching quotation data');
@@ -14830,8 +14858,7 @@ async function downloadConstructionQuotationPDFFromPortal(quotation) {
     }
 
 function editQuotationFromPortal(quotationId) {
-    fetch('/api/get-quotations')
-        .then(r => r.json())
+    fetchAllQuotationsFromApi()
         .then(result => {
             if (!result.success || !result.data) { 
                 alert('Error fetching quotation data.'); 
@@ -14903,7 +14930,7 @@ function editQuotationFromPortal(quotationId) {
 }
 
 async function sendQuotationFromPortal(quotationId) {
-    const result = await fetch('/api/get-quotations').then(r => r.json());
+    const result = await fetchAllQuotationsFromApi();
     if (!result.success || !result.data) {
         throw new Error('Failed to fetch quotation data.');
     }
