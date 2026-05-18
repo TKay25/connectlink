@@ -13433,6 +13433,79 @@ $('#sendQuotationBtn').click(async function() {
             row.querySelector('.quotation-item-input').focus();
         });
 
+        function collectQuotationRatesFromTable() {
+            const rates = [];
+
+            document.querySelectorAll('#quotationRatesBody tr').forEach(row => {
+                const item = row.querySelector('.quotation-item-input').value.trim();
+                const days = parseFloat(row.querySelector('.quotation-days-input').value) || 0;
+                const rateStr = row.querySelector('.quotation-rate-input').value.trim();
+
+                if (item && rateStr !== '') {
+                    // Send as string to preserve full decimal precision (avoid float64 rounding)
+                    rates.push({ item, daysPerSqMeter: days, inhouseRate: rateStr });
+                }
+            });
+
+            return rates;
+        }
+
+        function saveQuotationRatesToBackend(rates, options = {}) {
+            const button = options.button || null;
+            const originalText = button ? button.innerHTML : '';
+            const closeOnSuccess = options.closeOnSuccess !== false;
+            const successMessage = options.successMessage || `✓ Successfully saved ${rates.length} quotation rates!`;
+
+            if (!rates.length) {
+                alert('Please add at least one quotation item.');
+                return Promise.resolve(false);
+            }
+
+            if (button) {
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+            }
+
+            return fetch('/api/save-quotation-rates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ rates: rates })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showToastMessage(successMessage, 'success');
+                    if (closeOnSuccess) {
+                        closeModal('quotationRatesModal');
+                    }
+                    // Refresh the available items list so newly added items appear immediately
+                    loadConstructionItemsFromDatabase();
+                    return true;
+                }
+
+                alert('Error: ' + (data.message || 'Unknown error'));
+                return false;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to save quotation rates: ' + error.message);
+                return false;
+            })
+            .finally(() => {
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                }
+            });
+        }
+
         function applyDaysFactorToQuotationRates() {
             const factorInput = document.getElementById('quotationDaysFactorInput');
             const factorPercent = Number(factorInput?.value);
@@ -13467,7 +13540,11 @@ $('#sendQuotationBtn').click(async function() {
                 input.value = updated.toFixed(8);
             });
 
-            alert(`Applied ${sign}${factorPercent}% to all Days per Sq Meter values.`);
+            const rates = collectQuotationRatesFromTable();
+            saveQuotationRatesToBackend(rates, {
+                closeOnSuccess: false,
+                successMessage: `✓ Applied ${sign}${factorPercent}% and saved ${rates.length} quotation rates to the backend!`
+            });
         }
 
         document.getElementById('applyDaysFactorBtn')?.addEventListener('click', applyDaysFactorToQuotationRates);
@@ -13484,60 +13561,11 @@ $('#sendQuotationBtn').click(async function() {
 
         // Save quotation rates
         document.getElementById('saveQuotationRatesBtn')?.addEventListener('click', function() {
-            const rates = [];
-            document.querySelectorAll('#quotationRatesBody tr').forEach(row => {
-                const item = row.querySelector('.quotation-item-input').value.trim();
-                const days = parseFloat(row.querySelector('.quotation-days-input').value) || 0;
-                const rateStr = row.querySelector('.quotation-rate-input').value.trim();
-
-                if (item && rateStr !== '') {
-                    // Send as string to preserve full decimal precision (avoid float64 rounding)
-                    rates.push({ item, daysPerSqMeter: days, inhouseRate: rateStr });
-                }
-            });
-
-            if (rates.length === 0) {
-                alert('Please add at least one quotation item.');
-                return;
-            }
-
-            // Show loading state
-            const btn = this;
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
-
-            // Send to backend
-            fetch('/api/save-quotation-rates', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ rates: rates })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    alert(`✓ Successfully saved ${data.count} quotation rates!`);
-                    closeModal('quotationRatesModal');
-                    // Refresh the available items list so newly added items appear immediately
-                    loadConstructionItemsFromDatabase();
-                } else {
-                    alert('Error: ' + (data.message || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to save quotation rates: ' + error.message);
-            })
-            .finally(() => {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
+            const rates = collectQuotationRatesFromTable();
+            saveQuotationRatesToBackend(rates, {
+                button: this,
+                closeOnSuccess: true,
+                successMessage: `✓ Successfully saved ${rates.length} quotation rates!`
             });
         });
 
