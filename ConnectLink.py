@@ -4954,11 +4954,7 @@ def webhook():
                                                         elif payload and payload.lower().startswith('quotation_'):
                                                             # Template quick-reply: "Download Quotation" button
                                                             # Payload format: quotation_{id}_{random} or just quotation_{id}
-                                                            try:
-                                                                parts = payload.split('_')
-                                                                qid = int(parts[1])
-                                                            except (IndexError, ValueError):
-                                                                qid = None
+                                                            qid = resolve_quotation_id_from_token(payload)
 
                                                             if qid:
                                                                 mark_quotation_download_clicked(payload, sender_id)
@@ -7670,11 +7666,7 @@ def webhook():
                                                                     continue
 
                                                             elif payload and payload.lower().startswith('quotation_'):
-                                                                try:
-                                                                    parts = payload.split('_')
-                                                                    qid = int(parts[1])
-                                                                except (IndexError, ValueError):
-                                                                    qid = None
+                                                                qid = resolve_quotation_id_from_token(payload)
 
                                                                 if qid:
                                                                     mark_quotation_download_clicked(payload, sender_id)
@@ -8991,11 +8983,7 @@ def webhook():
                                                                     continue
 
                                                             elif payload and payload.lower().startswith('quotation_'):
-                                                                try:
-                                                                    parts = payload.split('_')
-                                                                    qid = int(parts[1])
-                                                                except (IndexError, ValueError):
-                                                                    qid = None
+                                                                qid = resolve_quotation_id_from_token(payload)
 
                                                                 if qid:
                                                                     mark_quotation_download_clicked(payload, sender_id)
@@ -19359,6 +19347,39 @@ def mark_quotation_download_send_result(share_token, sent_success, whatsapp_numb
         connection.commit()
 
 
+def resolve_quotation_id_from_token(token):
+    """Resolve quotation ID from token via DB lookup first, then parser fallback."""
+    token_str = str(token or '').strip()
+    if not token_str:
+        return None
+
+    try:
+        with get_db() as (cursor, _):
+            cursor.execute(
+                """
+                SELECT quotation_id
+                FROM quotation_share_links
+                WHERE share_token = %s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (token_str,)
+            )
+            row = cursor.fetchone()
+            if row and row[0]:
+                return int(row[0])
+    except Exception as exc:
+        logging.warning(f"Could not resolve quotation token from DB: {exc}")
+
+    if token_str.lower().startswith('quotation_'):
+        try:
+            return int(token_str.split('_')[1])
+        except (IndexError, ValueError):
+            return None
+
+    return None
+
+
 def get_quotation_share_url(share_token):
     """Build the public share URL for a quotation token when a public base URL is available."""
     public_base = PUBLIC_BASE_URL
@@ -19757,6 +19778,12 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
 
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
     """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
+    def _short_error(exc):
+        msg = str(exc or '').replace('\n', ' ').strip()
+        if not msg:
+            return 'Unknown error'
+        return msg[:180]
+
     try:
         pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
     except LookupError:
@@ -19767,13 +19794,17 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         logging.exception("Error generating quotation PDF %s", quotation_id)
         mark_quotation_download_send_result(share_token, False, recipient_number)
         share_url = get_quotation_share_url(share_token)
+        reason = _short_error(exc)
         if send_text_message and share_url:
             send_text_message(
                 recipient_number,
-                f"⚠️ We couldn't generate the PDF just now. You can still open your quotation here:\n{share_url}"
+                f"⚠️ We couldn't generate the PDF just now. Reason: {reason}\nYou can still open your quotation here:\n{share_url}"
             )
         elif send_text_message:
-            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+            send_text_message(
+                recipient_number,
+                f"❌ Failed to generate your quotation. Reason: {reason}. Please contact us directly."
+            )
         print(f"❌ Error generating quotation PDF {quotation_id}: {exc}")
         return False
 
@@ -19786,13 +19817,17 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         logging.exception("Error sending quotation PDF %s", quotation_id)
         mark_quotation_download_send_result(share_token, False, recipient_number)
         share_url = get_quotation_share_url(share_token)
+        reason = _short_error(exc)
         if send_text_message and share_url:
             send_text_message(
                 recipient_number,
-                f"⚠️ We couldn't send the PDF on WhatsApp just now. You can still open your quotation here:\n{share_url}"
+                f"⚠️ We couldn't send the PDF on WhatsApp just now. Reason: {reason}\nYou can still open your quotation here:\n{share_url}"
             )
         elif send_text_message:
-            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+            send_text_message(
+                recipient_number,
+                f"❌ Failed to send your quotation PDF. Reason: {reason}. Please contact us directly."
+            )
         print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
         return False
 
@@ -20089,6 +20124,51 @@ def send_quotation_whatsapp():
         except Exception as snapshot_err:
             logging.warning(f"Could not fetch quotation snapshot from DB: {snapshot_err}")
 
+        # Optional explicit behavior controls for consistent delivery strategy.
+        # Priority:
+        # 1) Request payload forceTemplate=true
+        # 2) Environment variable WHATSAPP_FORCE_QUOTATION_TEMPLATE=1
+        force_template_payload = str(data.get('forceTemplate', '')).strip().lower() in ('1', 'true', 'yes', 'on')
+        force_template_env = str(os.getenv('WHATSAPP_FORCE_QUOTATION_TEMPLATE', '0')).strip().lower() in ('1', 'true', 'yes', 'on')
+        force_template = force_template_payload or force_template_env
+
+        if force_template:
+            share_token = create_quotation_share_token(safe_qid)
+            template_response = send_quotation_download_template(
+                whatsapp_number,
+                share_token,
+                client_name=client_name,
+                category=snapshot_category,
+                project_size=snapshot_project_size
+            )
+
+            template_message_id = template_response.get('messages', [{}])[0].get('id', '')
+            log_quotation_whatsapp_send(
+                safe_qid,
+                whatsapp_number,
+                client_name,
+                'template_forced',
+                template_message_id,
+                'portal_force_template',
+                snapshot_category=snapshot_category,
+                snapshot_project_size=snapshot_project_size,
+                snapshot_total_cost=snapshot_total_cost,
+                snapshot_markup=snapshot_markup,
+                snapshot_quotation_date=snapshot_quotation_date
+            )
+
+            public_base = PUBLIC_BASE_URL or request.url_root.rstrip('/')
+            share_url = f"{public_base}/quotation/share/{share_token}"
+            return jsonify({
+                'success': True,
+                'used_template': True,
+                'send_path': 'template_forced',
+                'message': 'Template mode enabled. Sent download-button template.',
+                'whatsapp_number': whatsapp_number,
+                'share_url': share_url,
+                'template_message_id': template_message_id
+            })
+
         safe_name = ''.join(char for char in str(client_name) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
         filename = f"Quotation_{safe_name}_{safe_qid}.pdf"
         caption = (
@@ -20139,6 +20219,7 @@ def send_quotation_whatsapp():
             'message': f'Quotation accepted by WhatsApp API for {whatsapp_number} (delivery pending recipient status)',
             'whatsapp_number': whatsapp_number,
             'used_template': False,
+            'send_path': 'document_direct',
             'message_id': outbound_message_id
         })
     except Exception as e:
@@ -20205,6 +20286,7 @@ def send_quotation_whatsapp():
                 return jsonify({
                     'success': True,
                     'used_template': True,
+                    'send_path': 'template_fallback',
                     'message': 'Outside 24-hour window. Sent template with download button instead.',
                     'whatsapp_number': whatsapp_number,
                     'share_url': share_url,
@@ -20217,6 +20299,7 @@ def send_quotation_whatsapp():
                     'success': False,
                     'error': error_text,
                     'requires_template': True,
+                    'send_path': 'template_fallback_failed',
                     'hint': (
                         '24-hour window restriction detected, but template fallback failed. '
                         'Ensure your template is approved and WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE matches the approved name.'
@@ -20238,6 +20321,7 @@ def send_quotation_whatsapp():
             'success': False,
             'error': error_text,
             'requires_template': requires_template,
+            'send_path': 'document_direct_failed',
             'hint': hint
         }), status_code
 
@@ -20724,6 +20808,97 @@ def get_sent_quotations():
             })
     except Exception as e:
         logging.error(f'Error fetching sent quotations: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/debug/quotation-failures', methods=['GET'])
+@login_required
+def debug_quotation_failures():
+    """Return recent quotation WhatsApp/PDF failures with compact diagnostics."""
+    try:
+        limit = request.args.get('limit', 20, type=int)
+        if limit < 1:
+            limit = 20
+        if limit > 100:
+            limit = 100
+
+        def classify_failure(error_text, send_type):
+            text = str(error_text or '').lower()
+            if '131047' in text or 'outside the allowed window' in text or '24 hour' in text:
+                return 'outside_24h_window'
+            if 'template' in text and 'failed' in text:
+                return 'template_send_failed'
+            if 'quotation not found' in text:
+                return 'quotation_not_found'
+            if 'no such file' in text or 'web-logo.png' in text:
+                return 'logo_file_missing'
+            if 'weasyprint' in text or 'write_pdf' in text:
+                return 'pdf_render_failed'
+            if 'media upload failed' in text or 'upload failed' in text:
+                return 'whatsapp_media_upload_failed'
+            if 'whatsapp send failed' in text or 'send failed' in text:
+                return 'whatsapp_message_send_failed'
+            if send_type == 'template_fallback':
+                return 'template_fallback_path_failed'
+            if send_type == 'document':
+                return 'document_send_path_failed'
+            return 'unknown_failure'
+
+        with get_db() as (cursor, _):
+            cursor.execute(
+                """
+                SELECT
+                    ql.id,
+                    ql.quotation_id,
+                    COALESCE(NULLIF(ql.client_name, ''), q.client_name, 'Client') AS client_name,
+                    COALESCE(NULLIF(ql.whatsapp_number, ''), q.client_whatsapp, '') AS whatsapp_number,
+                    ql.send_type,
+                    ql.send_status,
+                    ql.error_details,
+                    ql.source_channel,
+                    ql.whatsapp_message_id,
+                    ql.created_at
+                FROM quotation_whatsapp_send_logs ql
+                LEFT JOIN quotations q ON q.id = ql.quotation_id
+                WHERE ql.send_status = 'failed'
+                   OR COALESCE(NULLIF(ql.error_details, ''), '') <> ''
+                ORDER BY ql.created_at DESC
+                LIMIT %s
+                """,
+                (limit,)
+            )
+            rows = cursor.fetchall()
+
+        data = []
+        for row in rows:
+            error_details = row[6] or ''
+            compact_error = ' '.join(str(error_details).split())[:300]
+            data.append({
+                'logId': row[0],
+                'quotationId': row[1],
+                'clientName': row[2] or 'Client',
+                'whatsappNumber': row[3] or '',
+                'sendType': row[4] or 'document',
+                'sendStatus': row[5] or 'failed',
+                'sourceChannel': row[7] or 'unknown',
+                'messageId': row[8] or '',
+                'failedAt': row[9].isoformat() if row[9] else None,
+                'errorDetails': error_details,
+                'errorSummary': compact_error,
+                'failureClass': classify_failure(error_details, row[4] or '')
+            })
+
+        return jsonify({
+            'success': True,
+            'count': len(data),
+            'limit': limit,
+            'data': data
+        })
+    except Exception as e:
+        logging.exception('Error fetching quotation failures')
         return jsonify({
             'success': False,
             'error': str(e)
