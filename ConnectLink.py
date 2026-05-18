@@ -12434,6 +12434,7 @@ def get_filtered_projects(month_filter):
         try:
             page = max(request.args.get('page', 1, type=int), 1)
             per_page = request.args.get('per_page', 50, type=int)
+            search_term = (request.args.get('search', '') or '').strip()
             if per_page is None:
                 per_page = 50
             per_page = min(max(per_page, 1), 200)
@@ -12449,30 +12450,57 @@ def get_filtered_projects(month_filter):
             columns = [row[0] for row in cursor.fetchall()]
             
             print(f"DEBUG: Found {len(columns)} columns: {columns}")
+
+            search_where = ""
+            search_params = []
+            if search_term:
+                like_term = f"%{search_term}%"
+                search_where = """
+                    AND (
+                        COALESCE(clientname::text, '') ILIKE %s
+                        OR COALESCE(projectname::text, '') ILIKE %s
+                        OR COALESCE(projectlocation::text, '') ILIKE %s
+                        OR CAST(id AS TEXT) ILIKE %s
+                    )
+                """
+                search_params = [like_term, like_term, like_term, like_term]
             
             if month_filter == 'all' or not month_filter:
-                cursor.execute("SELECT COUNT(*) FROM connectlinkdatabase")
+                count_query = f"""
+                    SELECT COUNT(*)
+                    FROM connectlinkdatabase
+                    WHERE 1=1
+                    {search_where}
+                """
+                cursor.execute(count_query, tuple(search_params))
                 total_count = cursor.fetchone()[0]
-                query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT %s OFFSET %s"
-                cursor.execute(query, (per_page, offset))
+                query = f"""
+                    SELECT *
+                    FROM connectlinkdatabase
+                    WHERE 1=1
+                    {search_where}
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """
+                cursor.execute(query, tuple(search_params + [per_page, offset]))
             else:
                 # Filter by month/year
-                cursor.execute(
-                    """
+                count_query = f"""
                     SELECT COUNT(*)
                     FROM connectlinkdatabase
                     WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s
-                    """,
-                    (month_filter,)
-                )
+                    {search_where}
+                """
+                cursor.execute(count_query, tuple([month_filter] + search_params))
                 total_count = cursor.fetchone()[0]
-                query = """
+                query = f"""
                     SELECT * FROM connectlinkdatabase 
                     WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s
-                    ORDER BY id ASC
+                    {search_where}
+                    ORDER BY id DESC
                     LIMIT %s OFFSET %s
                 """
-                cursor.execute(query, (month_filter, per_page, offset))
+                cursor.execute(query, tuple([month_filter] + search_params + [per_page, offset]))
             
             projects = cursor.fetchall()
             print(f"DEBUG: Retrieved {len(projects)} rows")
@@ -12528,6 +12556,7 @@ def get_filtered_projects(month_filter):
                 'status': 'success',
                 'html': html_table,
                 'count': len(projects),
+                'search': search_term,
                 'page': page,
                 'per_page': per_page,
                 'total_count': total_count,
