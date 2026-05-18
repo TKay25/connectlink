@@ -19277,19 +19277,45 @@ def build_quotation_pdf_document(quotation_id):
             schedules = cursor.fetchall()
 
             if is_kitchen:
-                # Get kitchen items
+                # Get kitchen items. Some deployments may not have unit_price column yet,
+                # so choose a safe query dynamically.
                 cursor.execute("""
-                    SELECT
-                        item_name,
-                        quantity,
-                        COALESCE(NULLIF(amount, 0), unit_price, 0) AS effective_amount,
-                        days,
-                        item_order,
-                        COALESCE(NULLIF(total_price, 0), quantity * COALESCE(NULLIF(amount, 0), unit_price, 0), 0) AS effective_total
-                    FROM quotation_kitchen_items
-                    WHERE quotation_id = %s
-                    ORDER BY item_order
-                """, (quotation_id,))
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'quotation_kitchen_items'
+                          AND column_name = 'unit_price'
+                    )
+                """)
+                has_unit_price = bool(cursor.fetchone()[0])
+
+                if has_unit_price:
+                    cursor.execute("""
+                        SELECT
+                            item_name,
+                            quantity,
+                            COALESCE(NULLIF(amount, 0), unit_price, 0) AS effective_amount,
+                            days,
+                            item_order,
+                            COALESCE(NULLIF(total_price, 0), quantity * COALESCE(NULLIF(amount, 0), unit_price, 0), 0) AS effective_total
+                        FROM quotation_kitchen_items
+                        WHERE quotation_id = %s
+                        ORDER BY item_order
+                    """, (quotation_id,))
+                else:
+                    cursor.execute("""
+                        SELECT
+                            item_name,
+                            quantity,
+                            COALESCE(amount, 0) AS effective_amount,
+                            days,
+                            item_order,
+                            COALESCE(NULLIF(total_price, 0), quantity * COALESCE(amount, 0), 0) AS effective_total
+                        FROM quotation_kitchen_items
+                        WHERE quotation_id = %s
+                        ORDER BY item_order
+                    """, (quotation_id,))
                 items = cursor.fetchall()
                 
                 # Build items rows for PDF
@@ -19585,19 +19611,29 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         mark_quotation_download_send_result(share_token, True, recipient_number)
         print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
         return True
-    except Exception as exc:
-        logging.exception("Error sending quotation PDF %s", quotation_id)
-        mark_quotation_download_send_result(share_token, False, recipient_number)
-        share_url = get_quotation_share_url(share_token)
-        if send_text_message and share_url:
-            send_text_message(
-                recipient_number,
-                f"⚠️ We couldn't send the PDF on WhatsApp just now. You can still open your quotation here:\n{share_url}"
-            )
-        elif send_text_message:
-            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
-        print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
-        return False
+    except Exception as primary_exc:
+        logging.exception("Error sending quotation PDF %s (primary sender)", quotation_id)
+        print(f"⚠️ Primary quotation send failed for {quotation_id}: {primary_exc}")
+
+        # Second chance using the existing mobile-optimized sender before link fallback.
+        try:
+            send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption)
+            mark_quotation_download_send_result(share_token, True, recipient_number)
+            print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number} via mobile fallback sender")
+            return True
+        except Exception as fallback_exc:
+            logging.exception("Error sending quotation PDF %s (mobile fallback sender)", quotation_id)
+            mark_quotation_download_send_result(share_token, False, recipient_number)
+            share_url = get_quotation_share_url(share_token)
+            if send_text_message and share_url:
+                send_text_message(
+                    recipient_number,
+                    f"⚠️ We couldn't send the PDF on WhatsApp just now. You can still open your quotation here:\n{share_url}"
+                )
+            elif send_text_message:
+                send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+            print(f"❌ Error sending quotation PDF {quotation_id}: primary={primary_exc} | mobile_fallback={fallback_exc}")
+            return False
 
 
 def send_quotation_download_template(recipient_number, share_token, client_name='', category='', project_size=0):
