@@ -15096,6 +15096,268 @@ async function sendConstructionQuotationFromPortal(quotation) {
     setInterval(updateDateAndTime, 1000);
 </script>
 
+<!-- ===== SERVER-SIDE PAGINATION MODULE ===== -->
+<script>
+// ===== PAGINATION CONFIG & STATE =====
+const paginationState = {
+    projects: { page: 1, per_page: 50, total: 0, search: '' },
+    enquiries: { page: 1, per_page: 100, total: 0, search: '' },
+    users: { page: 1, per_page: 50, total: 0, search: '' },
+    admins: { page: 1, per_page: 20, total: 0, search: '' }
+};
+
+// ===== LOAD PAGINATED DATA =====
+async function loadPaginatedData(dataType, page = 1, search = '') {
+    const state = paginationState[dataType];
+    if (!state) return;
+
+    state.page = page;
+    state.search = search;
+
+    const endpoint = `/api/${dataType}/paginated?page=${page}&per_page=${state.per_page}&search=${encodeURIComponent(search)}`;
+
+    try {
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const result = await response.json();
+        if (result.status !== 'success') throw new Error(result.message || 'API error');
+
+        state.total = result.total;
+        renderTable(dataType, result.data, result.total_pages);
+        renderPaginationControls(dataType, result.page, result.total_pages);
+    } catch (error) {
+        console.error(`Error loading ${dataType}:`, error);
+        showAlert(`Failed to load ${dataType}: ${error.message}`, 'danger');
+    }
+}
+
+// ===== RENDER TABLE DATA =====
+function renderTable(dataType, data, totalPages) {
+    if (dataType === 'projects') renderProjectsTable(data);
+    else if (dataType === 'enquiries') renderEnquiriesTable(data);
+    else if (dataType === 'users') renderUsersTable(data);
+    else if (dataType === 'admins') renderAdminsTable(data);
+}
+
+// Render Projects Table
+function renderProjectsTable(data) {
+    const tbody = document.querySelector('#allprojectsTable tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = data.length ? data.map(row => `
+        <tr>
+            ${Object.values(row).map(val => `<td>${val || ''}</td>`).join('')}
+        </tr>
+    `).join('') : '<tr><td colspan="100%">No projects found</td></tr>';
+}
+
+// Render Enquiries Table
+function renderEnquiriesTable(data) {
+    const tbody = document.querySelector('#allenquiriesTable tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = data.length ? data.map(row => `
+        <tr>
+            <td>${row.id}</td>
+            <td>${row.timestamp || ''}</td>
+            <td>${row.clientwhatsapp || ''}</td>
+            <td>${row.enqcategory || ''}</td>
+            <td>${row.enq || ''}</td>
+            <td>${row.has_plan ? '✅ Yes' : '❌ No'}</td>
+            <td>${row.status || ''}</td>
+            <td>${row.username || ''}</td>
+        </tr>
+    `).join('') : '<tr><td colspan="8">No enquiries found</td></tr>';
+}
+
+// Render Users Table
+function renderUsersTable(data) {
+    const tbody = document.querySelector('#allusersTable tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = data.length ? data.map(row => `
+        <tr>
+            <td>${row.id}</td>
+            <td>${row.datecreated || ''}</td>
+            <td>${row.name || ''}</td>
+            <td>${row.email || ''}</td>
+            <td>${row.whatsapp || ''}</td>
+            <td>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-primary btn-sm system-user-edit-btn" data-user-id="${row.id}">Edit</button>
+                    <button class="btn btn-danger btn-sm system-user-remove-btn">Remove</button>
+                </div>
+            </td>
+        </tr>
+    `).join('') : '<tr><td colspan="6">No users found</td></tr>';
+}
+
+// Render Admins Table
+function renderAdminsTable(data) {
+    const tbody = document.querySelector('#alladminsTable tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = data.length ? data.map(row => `
+        <tr>
+            <td>${row.id}</td>
+            <td>${row.name || ''}</td>
+            <td>${row.contact || ''}</td>
+            <td>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary btn-sm edit-admin-details-btn" data-id="${row.id}">Edit</button>
+                    <button class="btn btn-danger btn-sm remove-admin-btn" data-id="${row.id}">Remove</button>
+                </div>
+            </td>
+        </tr>
+    `).join('') : '<tr><td colspan="4">No admins found</td></tr>';
+}
+
+// ===== RENDER PAGINATION CONTROLS =====
+function renderPaginationControls(dataType, currentPage, totalPages) {
+    const containerSelector = {
+        'projects': '#allprojectsTableContainer',
+        'enquiries': '#allenquiriesTableContainer',
+        'users': '#allusersTableContainer',
+        'admins': '#alladminsTableContainer'
+    }[dataType];
+
+    // Find or create pagination container
+    let paginationDiv = document.querySelector(`${containerSelector} .pagination-controls`);
+    
+    if (!paginationDiv) {
+        const table = document.querySelector(containerSelector);
+        if (!table) return;
+        
+        paginationDiv = document.createElement('div');
+        paginationDiv.className = 'pagination-controls mt-2';
+        table.appendChild(paginationDiv);
+    }
+
+    if (totalPages <= 1) {
+        paginationDiv.innerHTML = '';
+        return;
+    }
+
+    let html = '<nav><ul class="pagination mb-0" style="font-size: 0.75rem;">';
+    
+    // Previous button
+    if (currentPage > 1) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="loadPaginatedData('${dataType}', ${currentPage - 1}, '${paginationState[dataType].search}'); return false;">← Prev</a></li>`;
+    } else {
+        html += '<li class="page-item disabled"><span class="page-link">← Prev</span></li>';
+    }
+
+    // Page numbers
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, currentPage + 2);
+
+    if (start > 1) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="loadPaginatedData('${dataType}', 1, '${paginationState[dataType].search}'); return false;">1</a></li>`;
+        if (start > 2) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+    }
+
+    for (let i = start; i <= end; i++) {
+        if (i === currentPage) {
+            html += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+        } else {
+            html += `<li class="page-item"><a class="page-link" href="#" onclick="loadPaginatedData('${dataType}', ${i}, '${paginationState[dataType].search}'); return false;">${i}</a></li>`;
+        }
+    }
+
+    if (end < totalPages) {
+        if (end < totalPages - 1) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="loadPaginatedData('${dataType}', ${totalPages}, '${paginationState[dataType].search}'); return false;">${totalPages}</a></li>`;
+    }
+
+    // Next button
+    if (currentPage < totalPages) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="loadPaginatedData('${dataType}', ${currentPage + 1}, '${paginationState[dataType].search}'); return false;">Next →</a></li>`;
+    } else {
+        html += '<li class="page-item disabled"><span class="page-link">Next →</span></li>';
+    }
+
+    html += `</ul></nav><p style="font-size: 0.7rem; margin-top: 5px; color: #666;">Page ${currentPage} of ${totalPages} | Total: ${paginationState[dataType].total} records</p>`;
+    
+    paginationDiv.innerHTML = html;
+}
+
+// ===== INIT SEARCH BOXES =====
+function initSearchBoxes() {
+    const searchBoxes = {
+        'tableSearch': { type: 'projects', delay: 500 },
+        'enquiriesSearch': { type: 'enquiries', delay: 500 },
+        'usersSearch': { type: 'users', delay: 500 },
+        'adminsSearch': { type: 'admins', delay: 500 }
+    };
+
+    Object.entries(searchBoxes).forEach(([elementId, config]) => {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+
+        let timeout;
+        element.addEventListener('keyup', () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                loadPaginatedData(config.type, 1, element.value.trim());
+            }, config.delay);
+        });
+    });
+}
+
+// ===== LOAD ALL DATA ON PAGE LOAD =====
+document.addEventListener('DOMContentLoaded', function() {
+    // Small delay to ensure DOM is fully ready
+    setTimeout(() => {
+        console.log('🔄 Loading paginated data...');
+        loadPaginatedData('projects', 1, '');
+        loadPaginatedData('enquiries', 1, '');
+        loadPaginatedData('users', 1, '');
+        loadPaginatedData('admins', 1, '');
+        initSearchBoxes();
+        console.log('✅ Pagination initialized');
+    }, 300);
+});
+
+// Helper: Show alert message
+function showAlert(message, type = 'info') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.role = 'alert';
+    alertDiv.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+    document.querySelector('.container-fluid') && document.querySelector('.container-fluid').insertBefore(alertDiv, document.querySelector('.container-fluid').firstChild);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
+</script>
+
+<!-- ===== WRAP TABLES IN CONTAINERS FOR PAGINATION CONTROLS ===== -->
+<script>
+// Wrap each table in a container div (if not already wrapped) to add pagination controls
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        const tables = [
+            { id: 'allprojectsTable', containerId: 'allprojectsTableContainer' },
+            { id: 'allenquiriesTable', containerId: 'allenquiriesTableContainer' },
+            { id: 'allusersTable', containerId: 'allusersTableContainer' },
+            { id: 'alladminsTable', containerId: 'alladminsTableContainer' }
+        ];
+
+        tables.forEach(({ id, containerId }) => {
+            const table = document.getElementById(id);
+            if (!table) return;
+
+            let container = document.getElementById(containerId);
+            if (!container) {
+                container = document.createElement('div');
+                container.id = containerId;
+                table.parentNode.insertBefore(container, table);
+                container.appendChild(table);
+            }
+        });
+    }, 100);
+});
+</script>
+
 
 </body>
 </html>

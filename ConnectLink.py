@@ -10204,6 +10204,225 @@ def get_dashboard_stats():
         }
     })
 
+# ==================== SERVER-SIDE PAGINATION ENDPOINTS ====================
+
+@app.route('/api/projects/paginated', methods=['GET'])
+@login_required
+def get_projects_paginated():
+    """Get paginated projects with optional search/filter"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '', type=str)
+        
+        # Clamp values
+        if page < 1: page = 1
+        if per_page > 500: per_page = 500
+        if per_page < 1: per_page = 50
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Count total matching records
+            if search:
+                count_query = """
+                    SELECT COUNT(*) FROM connectlinkdatabase
+                    WHERE projectname ILIKE %s OR clientname ILIKE %s OR projectlocation ILIKE %s
+                """
+                cursor.execute(count_query, (f'%{search}%', f'%{search}%', f'%{search}%'))
+            else:
+                count_query = "SELECT COUNT(*) FROM connectlinkdatabase"
+                cursor.execute(count_query)
+            
+            total = cursor.fetchone()[0]
+            
+            # Get paginated data
+            if search:
+                data_query = """
+                    SELECT * FROM connectlinkdatabase
+                    WHERE projectname ILIKE %s OR clientname ILIKE %s OR projectlocation ILIKE %s
+                    ORDER BY id DESC LIMIT %s OFFSET %s
+                """
+                cursor.execute(data_query, (f'%{search}%', f'%{search}%', f'%{search}%', per_page, offset))
+            else:
+                data_query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT %s OFFSET %s"
+                cursor.execute(data_query, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            cols = [desc[0] for desc in cursor.description]
+            
+            # Convert to list of dicts
+            data = [dict(zip(cols, row)) for row in rows]
+            
+            return jsonify({
+                'status': 'success',
+                'data': data,
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': (total + per_page - 1) // per_page
+            })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/enquiries/paginated', methods=['GET'])
+@login_required
+def get_enquiries_paginated():
+    """Get paginated enquiries with optional search/filter"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 100, type=int)
+        search = request.args.get('search', '', type=str)
+        
+        if page < 1: page = 1
+        if per_page > 500: per_page = 500
+        if per_page < 1: per_page = 100
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            if search:
+                count_query = """
+                    SELECT COUNT(*) FROM connectlinkenquiries
+                    WHERE clientwhatsapp::TEXT ILIKE %s OR enq ILIKE %s OR enqcategory ILIKE %s
+                """
+                cursor.execute(count_query, (f'%{search}%', f'%{search}%', f'%{search}%'))
+            else:
+                count_query = "SELECT COUNT(*) FROM connectlinkenquiries"
+                cursor.execute(count_query)
+            
+            total = cursor.fetchone()[0]
+            
+            # Select only critical columns (no blob)
+            if search:
+                data_query = """
+                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq, 
+                           plan IS NOT NULL AS has_plan, status, username
+                    FROM connectlinkenquiries
+                    WHERE clientwhatsapp::TEXT ILIKE %s OR enq ILIKE %s OR enqcategory ILIKE %s
+                    ORDER BY id DESC LIMIT %s OFFSET %s
+                """
+                cursor.execute(data_query, (f'%{search}%', f'%{search}%', f'%{search}%', per_page, offset))
+            else:
+                data_query = """
+                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq, 
+                           plan IS NOT NULL AS has_plan, status, username
+                    FROM connectlinkenquiries
+                    ORDER BY id DESC LIMIT %s OFFSET %s
+                """
+                cursor.execute(data_query, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            cols = [desc[0] for desc in cursor.description]
+            data = [dict(zip(cols, row)) for row in rows]
+            
+            return jsonify({
+                'status': 'success',
+                'data': data,
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': (total + per_page - 1) // per_page
+            })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/users/paginated', methods=['GET'])
+@login_required
+def get_users_paginated():
+    """Get paginated users"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '', type=str)
+        
+        if page < 1: page = 1
+        if per_page > 500: per_page = 500
+        if per_page < 1: per_page = 50
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            if search:
+                count_query = "SELECT COUNT(*) FROM connectlinkusers WHERE name ILIKE %s OR email ILIKE %s"
+                cursor.execute(count_query, (f'%{search}%', f'%{search}%'))
+            else:
+                count_query = "SELECT COUNT(*) FROM connectlinkusers"
+                cursor.execute(count_query)
+            
+            total = cursor.fetchone()[0]
+            
+            if search:
+                data_query = """
+                    SELECT id, datecreated, name, password, email, whatsapp
+                    FROM connectlinkusers
+                    WHERE name ILIKE %s OR email ILIKE %s
+                    ORDER BY id DESC LIMIT %s OFFSET %s
+                """
+                cursor.execute(data_query, (f'%{search}%', f'%{search}%', per_page, offset))
+            else:
+                data_query = """
+                    SELECT id, datecreated, name, password, email, whatsapp
+                    FROM connectlinkusers
+                    ORDER BY id DESC LIMIT %s OFFSET %s
+                """
+                cursor.execute(data_query, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            cols = [desc[0] for desc in cursor.description]
+            data = [dict(zip(cols, row)) for row in rows]
+            
+            return jsonify({
+                'status': 'success',
+                'data': data,
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': (total + per_page - 1) // per_page
+            })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/admins/paginated', methods=['GET'])
+@login_required
+def get_admins_paginated():
+    """Get paginated admins"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        if page < 1: page = 1
+        if per_page > 500: per_page = 500
+        if per_page < 1: per_page = 20
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            count_query = "SELECT COUNT(*) FROM connectlinkadmin"
+            cursor.execute(count_query)
+            total = cursor.fetchone()[0]
+            
+            data_query = "SELECT id, name, contact FROM connectlinkadmin ORDER BY id DESC LIMIT %s OFFSET %s"
+            cursor.execute(data_query, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            cols = [desc[0] for desc in cursor.description]
+            data = [dict(zip(cols, row)) for row in rows]
+            
+            return jsonify({
+                'status': 'success',
+                'data': data,
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': (total + per_page - 1) // per_page
+            })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 # ==================== INITIALIZE DATABASE ====================
 
 if os.getenv('RUN_STARTUP_BOOTSTRAP', '0') == '1':
