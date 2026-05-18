@@ -3868,6 +3868,13 @@
             </div>
         </div>
         <div class="modal-footer-custom">
+            <div style="display: flex; align-items: center; gap: 8px; margin-right: auto;">
+                <label for="quotationDaysFactorInput" style="margin: 0; font-size: 0.85rem; white-space: nowrap;">Days % Factor</label>
+                <input type="number" id="quotationDaysFactorInput" class="form-control form-control-sm" style="width: 110px;" step="0.01" value="0" placeholder="e.g. 10">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="applyDaysFactorBtn" title="Apply factor to all Days per Sq Meter values">
+                    Apply
+                </button>
+            </div>
             <button type="button" class="btn btn-primary" id="addQuotationItemBtn">
                 <i class="bi bi-plus-circle"></i> Add Quotation Item
             </button>
@@ -13425,6 +13432,40 @@ $('#sendQuotationBtn').click(async function() {
             tbody.appendChild(row);
             row.querySelector('.quotation-item-input').focus();
         });
+
+        function applyDaysFactorToQuotationRates() {
+            const factorInput = document.getElementById('quotationDaysFactorInput');
+            const factorPercent = Number(factorInput?.value);
+
+            if (!Number.isFinite(factorPercent)) {
+                alert('Please enter a valid percentage factor for days.');
+                return;
+            }
+
+            const multiplier = 1 + (factorPercent / 100);
+            if (multiplier < 0) {
+                alert('Percentage factor is too low. Resulting days cannot be negative.');
+                return;
+            }
+
+            const dayInputs = document.querySelectorAll('#quotationRatesBody .quotation-days-input');
+            if (!dayInputs.length) {
+                alert('No quotation rates found to update.');
+                return;
+            }
+
+            dayInputs.forEach((input) => {
+                const currentVal = Number(input.value);
+                const safeCurrent = Number.isFinite(currentVal) ? currentVal : 0;
+                const updated = Math.max(safeCurrent * multiplier, 0);
+                input.value = updated.toFixed(8);
+            });
+
+            const sign = factorPercent >= 0 ? '+' : '';
+            alert(`Applied ${sign}${factorPercent}% to all Days per Sq Meter values.`);
+        }
+
+        document.getElementById('applyDaysFactorBtn')?.addEventListener('click', applyDaysFactorToQuotationRates);
 
         // Delete row handler with event delegation
         document.getElementById('quotationRatesBody')?.addEventListener('click', function(e) {
