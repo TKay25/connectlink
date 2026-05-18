@@ -1371,6 +1371,23 @@ def webhook():
                             "Authorization": f"Bearer {ACCESS_TOKEN}",
                             "Content-Type": "application/json"
                         }
+
+                        def clamp(value, limit):
+                            return str(value)[:limit] if value is not None else ""
+
+                        sanitized_sections = []
+                        for section in sections or []:
+                            sanitized_sections.append({
+                                "title": clamp(section.get("title", ""), 24),
+                                "rows": [
+                                    {
+                                        "id": row.get("id", ""),
+                                        "title": clamp(row.get("title", ""), 24),
+                                        "description": clamp(row.get("description", ""), 72)
+                                    }
+                                    for row in section.get("rows", [])
+                                ]
+                            })
                         
                         payload = {
                             "messaging_product": "whatsapp",
@@ -1381,21 +1398,21 @@ def webhook():
                                 "type": "list",
                                 "header": {
                                     "type": "text",
-                                    "text": header_text[:60]  # Max 60 chars
+                                    "text": clamp(header_text, 60)
                                 },
                                 "body": {
-                                    "text": text[:1024]  # Max 1024 chars
+                                    "text": clamp(text, 1024)
                                 },
                                 "action": {
-                                    "button": "Select Option",
-                                    "sections": sections
+                                    "button": "Select Option"[:20],
+                                    "sections": sanitized_sections
                                 }
                             }
                         }
                         
                         # Add footer text if provided
                         if footer_text:
-                            payload["interactive"]["footer"] = {"text": footer_text[:60]}  # Max 60 chars
+                            payload["interactive"]["footer"] = {"text": clamp(footer_text, 60)}
                         
                         response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
                         
