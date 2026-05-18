@@ -4585,6 +4585,8 @@ window.projectsPager = {
     month: 'all'
 };
 
+const PROJECTS_PER_PAGE_STORAGE_KEY = 'connectlink.projects.perPage';
+
 function getProjectsMonthFilterValue() {
     const monthFilter = document.getElementById('monthFilter');
     if (!monthFilter) {
@@ -9498,6 +9500,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    try {
+        const savedPerPage = Number(localStorage.getItem(PROJECTS_PER_PAGE_STORAGE_KEY));
+        if (savedPerPage && savedPerPage >= 1 && savedPerPage <= 200) {
+            window.projectsPager.perPage = savedPerPage;
+        }
+    } catch (error) {
+        console.warn('Could not read saved projects per-page preference:', error);
+    }
+
     if (perPageElement) {
         perPageElement.value = String(window.projectsPager.perPage || 50);
     }
@@ -9540,6 +9551,11 @@ $(document).ready(function() {
     document.getElementById('projectsPerPage')?.addEventListener('change', function() {
         const nextPerPage = Math.min(Math.max(Number(this.value) || 50, 1), 200);
         window.projectsPager.perPage = nextPerPage;
+        try {
+            localStorage.setItem(PROJECTS_PER_PAGE_STORAGE_KEY, String(nextPerPage));
+        } catch (error) {
+            console.warn('Could not persist projects per-page preference:', error);
+        }
         window.projectsPager.page = 1;
         loadServerProjectsPage(1);
     });
