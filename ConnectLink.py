@@ -10480,6 +10480,7 @@ WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages
 power = "Echelon Equipment Pvt Ltd"
 bot = "ConnectLink Properties"
 QUOTATION_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE', 'quotationdownload')
+KITCHEN_QUOTATION_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_KITCHEN_QUOTATION_DOWNLOAD_TEMPLATE', 'kitchenquotationdownload')
 PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
 QUOTATION_SHARE_TOKEN_HOURS = int(os.getenv('QUOTATION_SHARE_TOKEN_HOURS', '168'))
 
@@ -19894,23 +19895,39 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
         "Content-Type": "application/json"
     }
 
+    normalized_category = (category or '').strip().lower()
+    is_kitchen_category = (
+        normalized_category == 'kitchen'
+        or 'kitchen' in normalized_category
+        or 'cabinet' in normalized_category
+        or 'tv unit' in normalized_category
+    )
+
+    template_name = KITCHEN_QUOTATION_DOWNLOAD_TEMPLATE_NAME if is_kitchen_category else QUOTATION_DOWNLOAD_TEMPLATE_NAME
     size_str = str(int(float(project_size))) if project_size else '0'
+
+    if is_kitchen_category:
+        body_parameters = [
+            {"type": "text", "text": client_name or "Valued Client"}
+        ]
+    else:
+        body_parameters = [
+            {"type": "text", "text": client_name or "Valued Client"},
+            {"type": "text", "text": category or "Construction"},
+            {"type": "text", "text": size_str}
+        ]
 
     payload = {
         "messaging_product": "whatsapp",
         "to": recipient_number,
         "type": "template",
         "template": {
-            "name": QUOTATION_DOWNLOAD_TEMPLATE_NAME,
+            "name": template_name,
             "language": {"code": "en"},
             "components": [
                 {
                     "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": client_name or "Valued Client"},
-                        {"type": "text", "text": category or "Construction"},
-                        {"type": "text", "text": size_str}
-                    ]
+                    "parameters": body_parameters
                 },
                 {
                     "type": "button",
@@ -19929,12 +19946,13 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
 
     response = requests.post(url, headers=headers, json=payload, timeout=45)
     response_data = response.json()
-    print(f"📨 Quotation template response [{response.status_code}]: {response_data}")
+    print(f"📨 Quotation template response [{response.status_code}] ({template_name}): {response_data}")
 
     if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
         error_payload = response_data.get('error', response_data)
         raise ValueError(f"Template send failed: {error_payload}")
 
+    response_data['template_name'] = template_name
     return response_data
 
 
@@ -20291,7 +20309,7 @@ def send_quotation_whatsapp():
                     'message': 'Outside 24-hour window. Sent template with download button instead.',
                     'whatsapp_number': whatsapp_number,
                     'share_url': share_url,
-                    'template_name': QUOTATION_DOWNLOAD_TEMPLATE_NAME,
+                    'template_name': template_response.get('template_name', QUOTATION_DOWNLOAD_TEMPLATE_NAME),
                     'message_id': template_message_id
                 })
             except Exception as template_error:
