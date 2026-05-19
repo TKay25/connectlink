@@ -5371,8 +5371,18 @@ def webhook():
                                                                         }
 
                                                                         # Send enqauto2
-                                                                        response = requests.post(url, headers=headers, json=payload)
-                                                                        response_data = response.json()
+                                                                        response = requests.post(url, headers=headers, json=payload, timeout=30)
+                                                                        try:
+                                                                            response_data = response.json()
+                                                                        except Exception:
+                                                                            response_data = {
+                                                                                "error": {
+                                                                                    "message": f"Non-JSON enqauto2 response: {response.text}"
+                                                                                }
+                                                                            }
+                                                                        print(f"📨 enqauto2 response [{response.status_code}] for {admin_number}: {response_data}")
+
+                                                                        attachment_response_data = None
 
                                                                         # If there's an attachment, ALSO send enquiryattachment (even without variables)
                                                                         if use_attachment_template:
@@ -5388,15 +5398,85 @@ def webhook():
                                                                                 }
                                                                             }
                                                                             
-                                                                            attachment_response = requests.post(url, headers=headers, json=attachment_payload)
-                                                                            print(f"✅ enquiryattachment sent: {attachment_response.status_code}")
+                                                                            attachment_response = requests.post(url, headers=headers, json=attachment_payload, timeout=30)
+                                                                            try:
+                                                                                attachment_response_data = attachment_response.json()
+                                                                            except Exception:
+                                                                                attachment_response_data = {
+                                                                                    "error": {
+                                                                                        "message": f"Non-JSON enquiryattachment response: {attachment_response.text}"
+                                                                                    }
+                                                                                }
+
+                                                                            if attachment_response.status_code == 200 and not attachment_response_data.get('error'):
+                                                                                print(f"✅ enquiryattachment sent to {admin_number}: {attachment_response_data}")
+                                                                            else:
+                                                                                print(f"❌ enquiryattachment failed for {admin_number} [{attachment_response.status_code}]: {attachment_response_data}")
 
                                                                         if isinstance(response_data, dict) and response_data.get('error'):
                                                                             error_data = response_data.get('error', {})
                                                                             error_details = str((error_data.get('error_data') or {}).get('details', '')).lower()
 
-                                                                            if use_attachment_template:
-                                                                                print(f"❌ enquiryattachment template failed for admin {admin_number}: {response_data}")
+                                                                            # Some approved versions of enqauto2 include a button component.
+                                                                            # Retry with common button variants when Meta reports component mismatch.
+                                                                            if error_data.get('code') == 132000 or 'button' in error_details:
+                                                                                fallback_component_sets = [
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "quick_reply",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "payload", "payload": f"contact_client_{enquiry_data.get('enquiry_id')}"}
+                                                                                        ]
+                                                                                    }],
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "url",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "text", "text": wa_link}
+                                                                                        ]
+                                                                                    }],
+                                                                                    components + [{
+                                                                                        "type": "button",
+                                                                                        "sub_type": "quick_reply",
+                                                                                        "index": 0,
+                                                                                        "parameters": [
+                                                                                            {"type": "text", "text": wa_link}
+                                                                                        ]
+                                                                                    }]
+                                                                                ]
+
+                                                                                for fallback_components in fallback_component_sets:
+                                                                                    fallback_payload = {
+                                                                                        "messaging_product": "whatsapp",
+                                                                                        "recipient_type": "individual",
+                                                                                        "to": admin_number,
+                                                                                        "type": "template",
+                                                                                        "template": {
+                                                                                            "name": template_name,
+                                                                                            "language": {"code": "en"},
+                                                                                            "components": fallback_components
+                                                                                        }
+                                                                                    }
+                                                                                    fallback_response = requests.post(url, headers=headers, json=fallback_payload, timeout=30)
+                                                                                    try:
+                                                                                        fallback_data = fallback_response.json()
+                                                                                    except Exception:
+                                                                                        fallback_data = {
+                                                                                            "error": {
+                                                                                                "message": f"Non-JSON fallback response: {fallback_response.text}"
+                                                                                            }
+                                                                                        }
+
+                                                                                    if isinstance(fallback_data, dict) and not fallback_data.get('error'):
+                                                                                        print(f"✅ enqauto2 sent after fallback with button component for {admin_number}")
+                                                                                        response_data = fallback_data
+                                                                                        break
+
+                                                                            # If attachment is expected and enqauto2 still failed, attempt direct attachment PDF fallback.
+                                                                            if use_attachment_template and isinstance(response_data, dict) and response_data.get('error'):
+                                                                                print(f"❌ enqauto2 failed for attachment flow on {admin_number}: {response_data}")
                                                                                 try:
                                                                                     fallback_sent = deliver_enquiry_attachment_pdf(
                                                                                         enquiry_data.get('enquiry_id'),
@@ -5404,65 +5484,13 @@ def webhook():
                                                                                         send_text_message=None
                                                                                     )
                                                                                     if fallback_sent:
-                                                                                        response_data = {
-                                                                                            "messages": [{"id": f"attachment_fallback_{enquiry_data.get('enquiry_id')}"}],
-                                                                                            "fallback": "direct_attachment_pdf"
-                                                                                        }
-                                                                                        print("✅ Attachment sent via direct PDF fallback")
+                                                                                        print(f"✅ Attachment sent via direct PDF fallback to {admin_number}")
                                                                                 except Exception as fallback_exc:
-                                                                                    print(f"❌ Direct attachment fallback failed: {fallback_exc}")
-                                                                            else:
-                                                                                # Some approved versions of enqauto2 include a button component.
-                                                                                # Retry with common button variants when Meta reports component mismatch.
-                                                                                if error_data.get('code') == 132000 or 'button' in error_details:
-                                                                                    fallback_component_sets = [
-                                                                                        components + [{
-                                                                                            "type": "button",
-                                                                                            "sub_type": "quick_reply",
-                                                                                            "index": 0,
-                                                                                            "parameters": [
-                                                                                                {"type": "payload", "payload": f"contact_client_{enquiry_data.get('enquiry_id')}"}
-                                                                                            ]
-                                                                                        }],
-                                                                                        components + [{
-                                                                                            "type": "button",
-                                                                                            "sub_type": "url",
-                                                                                            "index": 0,
-                                                                                            "parameters": [
-                                                                                                {"type": "text", "text": wa_link}
-                                                                                            ]
-                                                                                        }],
-                                                                                        components + [{
-                                                                                            "type": "button",
-                                                                                            "sub_type": "quick_reply",
-                                                                                            "index": 0,
-                                                                                            "parameters": [
-                                                                                                {"type": "text", "text": wa_link}
-                                                                                            ]
-                                                                                        }]
-                                                                                    ]
-
-                                                                                    for fallback_components in fallback_component_sets:
-                                                                                        fallback_payload = {
-                                                                                            "messaging_product": "whatsapp",
-                                                                                            "recipient_type": "individual",
-                                                                                            "to": admin_number,
-                                                                                            "type": "template",
-                                                                                            "template": {
-                                                                                                "name": template_name,
-                                                                                                "language": {"code": "en"},
-                                                                                                "components": fallback_components
-                                                                                            }
-                                                                                        }
-                                                                                        fallback_response = requests.post(url, headers=headers, json=fallback_payload)
-                                                                                        fallback_data = fallback_response.json()
-                                                                                        if isinstance(fallback_data, dict) and not fallback_data.get('error'):
-                                                                                            print("✅ enqauto2 sent after fallback with button component")
-                                                                                            response_data = fallback_data
-                                                                                            break
+                                                                                    print(f"❌ Direct attachment fallback failed for {admin_number}: {fallback_exc}")
 
                                                                         if use_attachment_template:
-                                                                            message_id = ((response_data.get('messages') or [{}])[0]).get('id') if isinstance(response_data, dict) else None
+                                                                            source_data = attachment_response_data if isinstance(attachment_response_data, dict) and not attachment_response_data.get('error') else response_data
+                                                                            message_id = ((source_data.get('messages') or [{}])[0]).get('id') if isinstance(source_data, dict) else None
                                                                             if message_id:
                                                                                 log_enquiry_attachment_button_message(
                                                                                     message_id,
