@@ -19641,12 +19641,12 @@ def build_quotation_pdf_document(quotation_id):
                 logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
 
             # Generate HTML and PDF
-            html = generate_quotation_html(
+            quotation_html = generate_quotation_html(
                 client_name, quotation_date, category, total_cost,
                 items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen
             )
             
-            pdf_bytes = HTML(string=html).write_pdf()
+            pdf_bytes = HTML(string=quotation_html).write_pdf()
             # Use display category for filename
             if is_kitchen:
                 category_display = "Kitchen, Cabinets & TV Units"
