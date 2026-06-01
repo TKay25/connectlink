@@ -64,6 +64,170 @@ def initialize_database_tables():
     try:
         with get_db() as (cursor, connection):
 
+            # Find and print the record with bad date
+            cursor.execute("""
+                SELECT 
+                    id, 
+                    clientname, 
+                    projectname, 
+                    projectstartdate, 
+                    contractagreementdate, 
+                    datedepositorbullet,
+                    installment1duedate,
+                    installment2duedate,
+                    installment3duedate,
+                    installment4duedate,
+                    installment5duedate,
+                    installment6duedate,
+                    installment7duedate,
+                    installment8duedate,
+                    installment9duedate,
+                    installment10duedate
+                FROM connectlinkdatabase 
+                WHERE EXTRACT(YEAR FROM projectstartdate) = 52026
+                OR EXTRACT(YEAR FROM contractagreementdate) = 52026
+                OR EXTRACT(YEAR FROM datedepositorbullet) = 52026
+                OR EXTRACT(YEAR FROM installment1duedate) = 52026
+                OR EXTRACT(YEAR FROM installment2duedate) = 52026
+                OR EXTRACT(YEAR FROM installment3duedate) = 52026
+                OR EXTRACT(YEAR FROM installment4duedate) = 52026
+                OR EXTRACT(YEAR FROM installment5duedate) = 52026
+                OR EXTRACT(YEAR FROM installment6duedate) = 52026
+                OR EXTRACT(YEAR FROM installment7duedate) = 52026
+                OR EXTRACT(YEAR FROM installment8duedate) = 52026
+                OR EXTRACT(YEAR FROM installment9duedate) = 52026
+                OR EXTRACT(YEAR FROM installment10duedate) = 52026;
+            """)
+
+            bad_records = cursor.fetchall()
+
+            if bad_records:
+                print(f"\n{'='*80}")
+                print(f"FOUND {len(bad_records)} RECORD(S) WITH BAD DATE (YEAR 52026)")
+                print(f"{'='*80}")
+                
+                for record in bad_records:
+                    print(f"\n📋 RECORD ID: {record[0]}")
+                    print(f"   Client Name: {record[1]}")
+                    print(f"   Project Name: {record[2]}")
+                    print(f"   Project Start Date: {record[3]}")
+                    print(f"   Contract Agreement Date: {record[4]}")
+                    print(f"   Deposit/Bullet Date: {record[5]}")
+                    print(f"   Installment 1 Due: {record[6]}")
+                    print(f"   Installment 2 Due: {record[7]}")
+                    print(f"   Installment 3 Due: {record[8]}")
+                    print(f"   Installment 4 Due: {record[9]}")
+                    print(f"   Installment 5 Due: {record[10]}")
+                    print(f"   Installment 6 Due: {record[11]}")
+                    print(f"   Installment 7 Due: {record[12]}")
+                    print(f"   Installment 8 Due: {record[13]}")
+                    print(f"   Installment 9 Due: {record[14]}")
+                    print(f"   Installment 10 Due: {record[15]}")
+                    print("-" * 80)
+            else:
+                print("✅ No records found with year 52026")
+
+
+            # Find which record has the bad date first
+            cursor.execute("""
+                SELECT id, clientname, projectname, projectstartdate, contractagreementdate, datedepositorbullet
+                FROM connectlinkdatabase 
+                WHERE EXTRACT(YEAR FROM projectstartdate) = 52026
+                OR EXTRACT(YEAR FROM contractagreementdate) = 52026
+                OR EXTRACT(YEAR FROM datedepositorbullet) = 52026
+                OR EXTRACT(YEAR FROM installment1duedate) = 52026
+                OR EXTRACT(YEAR FROM installment2duedate) = 52026
+                OR EXTRACT(YEAR FROM installment3duedate) = 52026
+                OR EXTRACT(YEAR FROM installment4duedate) = 52026
+                OR EXTRACT(YEAR FROM installment5duedate) = 52026
+                OR EXTRACT(YEAR FROM installment6duedate) = 52026
+                OR EXTRACT(YEAR FROM installment7duedate) = 52026
+                OR EXTRACT(YEAR FROM installment8duedate) = 52026
+                OR EXTRACT(YEAR FROM installment9duedate) = 52026
+                OR EXTRACT(YEAR FROM installment10duedate) = 52026;
+            """)
+
+            # Then update all dates with year 52026 to 2026
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET projectstartdate = projectstartdate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM projectstartdate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET contractagreementdate = contractagreementdate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM contractagreementdate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET datedepositorbullet = datedepositorbullet - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM datedepositorbullet) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment1duedate = installment1duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment1duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment2duedate = installment2duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment2duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment3duedate = installment3duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment3duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment4duedate = installment4duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment4duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment5duedate = installment5duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment5duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment6duedate = installment6duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment6duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment7duedate = installment7duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment7duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment8duedate = installment8duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment8duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment9duedate = installment9duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment9duedate) = 52026;
+            """)
+
+            cursor.execute("""
+                UPDATE connectlinkdatabase 
+                SET installment10duedate = installment10duedate - INTERVAL '50000 years'
+                WHERE EXTRACT(YEAR FROM installment10duedate) = 52026;
+            """)
+
+
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS kitchen_items (
                     id SERIAL PRIMARY KEY,
@@ -13791,28 +13955,6 @@ def run1(userid):
 
         # Use the actual column names from the database
         datamain = pd.DataFrame(maindata, columns=column_names)
-
-        date_columns = ['projectstartdate', 'contractagreementdate', 'datedepositorbullet',
-                        'installment1duedate', 'installment2duedate', 'installment3duedate',
-                        'installment4duedate', 'installment5duedate', 'installment6duedate',
-                        'installment7duedate', 'installment8duedate', 'installment9duedate', 'installment10duedate',
-                        'installment1date', 'installment2date', 'installment3date',
-                        'installment4date', 'installment5date', 'installment6date',
-                        'installment7date', 'installment8date', 'installment9date', 'installment10date']
-
-        for col in date_columns:
-            if col in datamain.columns:
-                # Convert to datetime, coerce errors
-                datamain[col] = pd.to_datetime(datamain[col], errors='coerce')
-                
-                # Specifically fix year 52026 to 2026
-                def fix_year(date_val):
-                    if pd.notna(date_val) and hasattr(date_val, 'year'):
-                        if date_val.year == 52026:
-                            return date_val.replace(year=2026)
-                    return date_val
-                
-                datamain[col] = datamain[col].apply(fix_year)
 
 
         # ===== CRITICAL: Process columns in correct order =====
