@@ -92,6 +92,28 @@ def initialize_database_tables():
                         THEN installment8duedate - INTERVAL '50000 years' ELSE installment8duedate END,
                     installment9duedate = CASE WHEN EXTRACT(YEAR FROM installment9duedate) = 52026 
                         THEN installment9duedate - INTERVAL '50000 years' ELSE installment9duedate END,
+
+                   installment1date = CASE WHEN EXTRACT(YEAR FROM installment1date) = 52026 
+                        THEN installment1date - INTERVAL '50000 years' ELSE installment1date END,
+                    installment2date = CASE WHEN EXTRACT(YEAR FROM installment2date) = 52026 
+                        THEN installment2date - INTERVAL '50000 years' ELSE installment2date END,
+                    installment3date = CASE WHEN EXTRACT(YEAR FROM installment3date) = 52026 
+                        THEN installment3date - INTERVAL '50000 years' ELSE installment3date END,
+                    installment4date = CASE WHEN EXTRACT(YEAR FROM installment4date) = 52026 
+                        THEN installment4date - INTERVAL '50000 years' ELSE installment4date END,
+                    installment5date = CASE WHEN EXTRACT(YEAR FROM installment5date) = 52026 
+                        THEN installment5date - INTERVAL '50000 years' ELSE installment5date END,
+                    installment6date = CASE WHEN EXTRACT(YEAR FROM installment6date) = 52026 
+                        THEN installment6date - INTERVAL '50000 years' ELSE installment6date END,
+                    installment7date = CASE WHEN EXTRACT(YEAR FROM installment7date) = 52026 
+                        THEN installment7date - INTERVAL '50000 years' ELSE installment7date END,
+                    installment8date = CASE WHEN EXTRACT(YEAR FROM installment8date) = 52026 
+                        THEN installment8date - INTERVAL '50000 years' ELSE installment8date END,
+                    installment9date = CASE WHEN EXTRACT(YEAR FROM installment9date) = 52026 
+                        THEN installment9date - INTERVAL '50000 years' ELSE installment9date END,
+                    installment10date = CASE WHEN EXTRACT(YEAR FROM installment10date) = 52026 
+                        THEN installment10date - INTERVAL '50000 years' ELSE installment10date END
+                                                  
                     installment10duedate = CASE WHEN EXTRACT(YEAR FROM installment10duedate) = 52026 
                         THEN installment10duedate - INTERVAL '50000 years' ELSE installment10duedate END;
             """, commit=True)
