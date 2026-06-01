@@ -13647,6 +13647,18 @@ def get_sent_reminders():
             'reminders': []
         }), 500
 
+def safe_parse_date(date_value):
+    """Safely parse date, return None if invalid year"""
+    if date_value is None:
+        return None
+    try:
+        if hasattr(date_value, 'year'):
+            if date_value.year > 9999 or date_value.year < 1:
+                return None
+        return date_value
+    except (ValueError, OverflowError, TypeError):
+        return None
+
 def run1(userid):
 
     update_project_completion_status()
@@ -13779,6 +13791,29 @@ def run1(userid):
 
         # Use the actual column names from the database
         datamain = pd.DataFrame(maindata, columns=column_names)
+
+        date_columns = ['projectstartdate', 'contractagreementdate', 'datedepositorbullet',
+                        'installment1duedate', 'installment2duedate', 'installment3duedate',
+                        'installment4duedate', 'installment5duedate', 'installment6duedate',
+                        'installment7duedate', 'installment8duedate', 'installment9duedate', 'installment10duedate',
+                        'installment1date', 'installment2date', 'installment3date',
+                        'installment4date', 'installment5date', 'installment6date',
+                        'installment7date', 'installment8date', 'installment9date', 'installment10date']
+
+        for col in date_columns:
+            if col in datamain.columns:
+                # Convert to datetime, coerce errors
+                datamain[col] = pd.to_datetime(datamain[col], errors='coerce')
+                
+                # Specifically fix year 52026 to 2026
+                def fix_year(date_val):
+                    if pd.notna(date_val) and hasattr(date_val, 'year'):
+                        if date_val.year == 52026:
+                            return date_val.replace(year=2026)
+                    return date_val
+                
+                datamain[col] = datamain[col].apply(fix_year)
+
 
         # ===== CRITICAL: Process columns in correct order =====
         # Step 1: Process dates first
