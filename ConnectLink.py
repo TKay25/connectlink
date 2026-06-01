@@ -112,7 +112,7 @@ def initialize_database_tables():
                     installment9date = CASE WHEN EXTRACT(YEAR FROM installment9date) = 52026 
                         THEN installment9date - INTERVAL '50000 years' ELSE installment9date END,
                     installment10date = CASE WHEN EXTRACT(YEAR FROM installment10date) = 52026 
-                        THEN installment10date - INTERVAL '50000 years' ELSE installment10date END
+                        THEN installment10date - INTERVAL '50000 years' ELSE installment10date END,
                                                   
                     installment10duedate = CASE WHEN EXTRACT(YEAR FROM installment10duedate) = 52026 
                         THEN installment10duedate - INTERVAL '50000 years' ELSE installment10duedate END;
