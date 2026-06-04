@@ -3934,8 +3934,6 @@
                         <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
                             <tr>
                                 <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
-                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty (Sq.M)</th>
-                                <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Unit Rate</th>
                                 <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Days</th>
                                 <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Total Price</th>
                             </tr>
@@ -3953,6 +3951,9 @@
                     <span class="fw-bold" style="font-size: 0.95em;">Total Cost:</span>
                     <span class="fw-bold" style="color: var(--crimson-sidebar, #9B1D2C); font-size: 1.1em;">USD <span id="quotationTotalCost">0.00</span></span>
                 </div>
+            </div>
+            <div id="quotationConstructionNote" class="mb-3 p-2 border rounded" style="display: none; background-color: #fff8e1; border-left: 3px solid #ff9800; font-size: 0.92em; color: #0E1F42;">
+                Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.
             </div>
 
             <!-- Total Duration Summary (instead of full schedule table) -->
@@ -8408,16 +8409,13 @@ async function generateKitchenPDF(outputMode = 'download') {
             <tr style="background:${bg};">
                 <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center;">${index + 1}</td>
                 <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left;">${escapeHtml(item.name)}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center;">${item.quantity}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; color:#2196F3;">${item.days}</td>
+                <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; color:#2196F3; font-weight:600;">${item.days}</td>
                 <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; font-weight:700;">USD ${(item.totalPrice || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             </tr>`;
-    });
-    
+    });    
     const itemsTotalRow = `
         <tr style="background:#1E2A56; color:white;">
-            <td colspan="4" style="padding:8px 10px; text-align:right;"><strong>TOTAL</strong></td>
+            <td colspan="2" style="padding:8px 10px; text-align:right;"><strong>TOTAL</strong></td>
             <td style="padding:8px 10px; text-align:center;"><strong>${totalDays}</strong></td>
             <td style="padding:8px 10px; text-align:right;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
         </tr>`;
@@ -8458,8 +8456,6 @@ async function generateKitchenPDF(outputMode = 'download') {
                     <thead>
                         <tr><th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">#</th>
                             <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Item</th>
-                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Qty</th>
-                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Unit Price</th>
                             <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Days</th>
                             <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Total</th>
                         </tr>
@@ -12781,62 +12777,53 @@ function updateKitchenPreviewDisplay() {
     let tableHTML = '';
     
     if (data.items && data.items.length > 0) {
-        // Create thead with kitchen-specific headers
-        tableHTML = `
-            <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
-                <tr>
-                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
-                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty</th>
-                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Amount (USD)</th>
-                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Days</th>
-                    <th style="font-size: 0.85em; padding: 4px 6px; text-align: right;">Total Price</th>
-                </tr>
-            </thead>
-            <tbody>
-        `;
-        
         data.items.forEach((item) => {
-            const itemTotal = (item.quantity || 1) * (item.amount || 0);
-            const itemDays = item.days || 1;
+            const itemTotal = Number(item.totalPrice ?? item.total ?? item.clientPrice ?? ((item.quantity || 1) * (item.amount || 0))) || 0;
+            const itemDays = Number(item.days) || 0;
             totalDays += itemDays;
-            
+            const itemName = item.name || item.item || '';
+
             tableHTML += `<tr>
-                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(item.name || '')}</td>
-                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity || 1}</td>
-                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${escapeHtml(itemName)}</td>
                 <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${itemDays}</td>
                 <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             </tr>`;
         });
         
         // Add total row
-        tableHTML += `<table>
-            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
+        tableHTML += `<tr>
+            <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
             <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDays}</strong></td>
             <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
-        </table>`;
-        
-        tableHTML += `</tbody>`;
+        </tr>`;
     } else {
         tableHTML = `
-            <tbody>
-                <tr><td colspan="5" class="text-center py-3">No items in this quotation</td></tr>
-            </tbody>
+            <tr><td colspan="3" class="text-center py-3">No items in this quotation</td></tr>
         `;
     }
     
     if (quotationItemsTable) quotationItemsTable.innerHTML = tableHTML;
     if (totalDurationDays) totalDurationDays.textContent = totalDays;
     if (quotationTotalCost) quotationTotalCost.textContent = totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+    const constructionNoteEl = document.getElementById('quotationConstructionNote');
+    const isConstructionQuote = data && String(data.category || '').toLowerCase().includes('construction');
+    if (constructionNoteEl) {
+        if (isConstructionQuote) {
+            constructionNoteEl.style.display = 'block';
+            constructionNoteEl.textContent = 'Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.';
+        } else {
+            constructionNoteEl.style.display = 'none';
+            constructionNoteEl.textContent = '';
+        }
+    }
     
     // Also update the table headers in the preview modal
     const tableHeaders = document.querySelectorAll('#quotationPreviewModal .table thead th');
-    if (tableHeaders.length >= 5) {
+    if (tableHeaders.length >= 3) {
         tableHeaders[0].textContent = 'Item';
-        tableHeaders[1].textContent = 'Qty';
-        tableHeaders[2].textContent = 'Amount (USD)';
-        tableHeaders[3].textContent = 'Days';
-        tableHeaders[4].textContent = 'Total Price';
+        tableHeaders[1].textContent = 'Days';
+        tableHeaders[2].textContent = 'Total Price';
     }
     
     console.log('Kitchen preview updated - Total cost:', totalCost, 'Total days:', totalDays);
@@ -12916,10 +12903,16 @@ async function generateQuotationPDF(outputMode = 'download') {
     };
 
 
-    // Build a map of days by item index from schedules
+    // Build a map of days by item index and work scope from schedules
     const daysByIndex = {};
+    const daysByWorkScope = {};
     schedules.forEach((schedule, idx) => {
-        daysByIndex[idx] = schedule.days || 0;
+        const daysValue = Number(schedule.days) || 0;
+        daysByIndex[idx] = daysValue;
+        const scheduleKey = (schedule.workScope || schedule.item || '').toString().trim().toLowerCase();
+        if (scheduleKey) {
+            daysByWorkScope[scheduleKey] = daysValue;
+        }
     });
 
     // Calculate total construction duration
@@ -12932,21 +12925,11 @@ async function generateQuotationPDF(outputMode = 'download') {
     let itemRows = '';
     let totalDisplayCost = 0;
     let totalDaysSum = 0;
-    
-    // In your generateQuotationPDF function, update the unit rate calculation:
 
-    // Get markup percentage from data
-    const markupPercentage = data.markup || 30;
-    const markupMultiplier = 1 + (markupPercentage / 100);
-
-    // Then when building each item row, calculate client unit rate:
     items.forEach((item, index) => {
         const itemName = item.item || item.name || 'Item';
-        const qty = Number(item.sqm) || 0;
-        const inhouseRate = Number(item.inhouseRate) || Number(item.unitRate) || 0;
-        // Calculate client unit rate (inhouse + markup)
-        const clientUnitRate = inhouseRate * markupMultiplier;
-        const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
+        const itemKey = (item.item || item.name || '').toString().trim().toLowerCase();
+        const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (itemKey && daysByWorkScope[itemKey] !== undefined ? daysByWorkScope[itemKey] : (Number(item.days) || 0));
         const itemTotal = Number(item.clientPrice || item.total || 0);
         
         totalDisplayCost += itemTotal;
@@ -12956,18 +12939,16 @@ async function generateQuotationPDF(outputMode = 'download') {
         itemRows += `
             <tr style="background: ${bg}; page-break-inside: avoid; break-inside: avoid;">
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 6%;">${index + 1}</td>
-                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: left; width: 38%;">${escapeHtml(itemName)}</td>
-                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 13%;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 15%;">${formatCurrency(clientUnitRate)}</td>
-                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 10%; font-weight: 600; color: #2196F3;">${days}</td>
-                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 18%; font-weight: 700; color: #1E2A56;">${formatCurrency(itemTotal)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: left; width: 62%;">${escapeHtml(itemName)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 12%; font-weight: 600; color: #2196F3;">${days}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 20%; font-weight: 700; color: #1E2A56;">${formatCurrency(itemTotal)}</td>
             </tr>`;
     });
 
     if (!itemRows) {
         itemRows = `
             <tr>
-                <td colspan="6" style="padding: 14px 10px; border: 1px solid #d8deef; text-align: center; color: #5a678a;">
+                <td colspan="4" style="padding: 14px 10px; border: 1px solid #d8deef; text-align: center; color: #5a678a;">
                     No quotation items available.
                 </td>
             </tr>`;
@@ -12976,7 +12957,7 @@ async function generateQuotationPDF(outputMode = 'download') {
     // Total row with Days summary
     const itemsTotalRow = `
         <tr style="background: #1E2A56; color: white; font-weight: bold;">
-            <td colspan="4" style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>TOTAL</strong></td>
+            <td colspan="2" style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>TOTAL</strong></td>
             <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; font-weight: bold; font-size: 13px;"><strong>${totalDaysSum}</strong></td>
             <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>${formatCurrency(totalDisplayCost)}</strong></td>
         </tr>`;
@@ -12985,6 +12966,8 @@ async function generateQuotationPDF(outputMode = 'download') {
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
     const monthlyInstallment = balanceAmount / 5;
+    const isConstructionQuote = String(category || '').toLowerCase().includes('construction');
+    const constructionNoteHtml = isConstructionQuote ? `<div style="margin-top: 8px; font-size: 12px; line-height: 1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>` : '';
 
     // HTML template for PDF - FULL HTML CONTENT
     const htmlContent = `
@@ -13044,7 +13027,7 @@ async function generateQuotationPDF(outputMode = 'download') {
                 <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
                     <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;">
                         <strong style="color: #d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
-                        <div style="margin-top: 8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
+                        <div style="margin-top: 8px;"><strong>Notes:</strong> BOQ available on engagement.${constructionNoteHtml}</div>
                     </div>
                     <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;">
                         <strong style="display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;">Banking Details</strong>
@@ -13071,11 +13054,9 @@ async function generateQuotationPDF(outputMode = 'download') {
                         <thead>
                             <tr>
                                 <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 38%;">Item Description</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 13%;">Qty (Sq.M)</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 15%;">Unit Rate</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 10%;">Days</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 18%;">Total</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 70%;">Item Description</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Days</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 12%;">Total</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -13125,17 +13106,21 @@ function renderPreviewItemsTable(data) {
     // Get schedules (gantt data) which contains the days
     const schedules = window.ganttChartData || [];
     
-    // Build a map of days by index
+    // Build a map of days by index and work scope
     const daysByIndex = {};
+    const daysByWorkScope = {};
     schedules.forEach((schedule, idx) => {
-        daysByIndex[idx] = schedule.days || 0;
+        const daysValue = Number(schedule.days) || 0;
+        daysByIndex[idx] = daysValue;
+        const scheduleKey = (schedule.workScope || schedule.item || '').toString().trim().toLowerCase();
+        if (scheduleKey) {
+            daysByWorkScope[scheduleKey] = daysValue;
+        }
     });
 
     previewItems.forEach((item, index) => {
-        const qty = Number(item.sqm) || 0;
-        const rate = Number(item.inhouseRate) || 0;
-        // Get days from schedules by index
-        const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
+        const itemKey = (item.item || item.name || '').toString().trim().toLowerCase();
+        const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (itemKey && daysByWorkScope[itemKey] !== undefined ? daysByWorkScope[itemKey] : (Number(item.days) || 0));
         const total = Number(item.clientPrice || item.total || 0);
         
         totalDaysSum += days;
@@ -13143,8 +13128,6 @@ function renderPreviewItemsTable(data) {
         
         tableHTML += `<tr>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: left;">${item.item || item.name || 'Item'}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">${formatCurrency(rate)}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${days}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">${formatCurrency(total)}</td>
         </tr>`;
@@ -13153,10 +13136,10 @@ function renderPreviewItemsTable(data) {
     // Add total row
     if (previewItems.length > 0) {
         tableHTML += `<tr>
-            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
+            <td colspan="1" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
             <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDaysSum}</strong></td>
             <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>${formatCurrency(totalCostPreview)}</strong></td>
-        </table>`;
+        </tr>`;
     }
 
     $('#quotationItemsTable').html(tableHTML);
@@ -14599,6 +14582,29 @@ function displayQuotationDetailsInModal(quotation) {
     `;
     
     // Construction Items Table
+    let daysByIndex = {};
+    let daysByWorkScope = {};
+    if (quotation.schedules && quotation.schedules.length > 0) {
+        quotation.schedules.forEach((schedule, idx) => {
+            const daysValue = Number(schedule.days) || 0;
+            daysByIndex[idx] = daysValue;
+            const scheduleKey = (schedule.workScope || schedule.item || '').toString().trim().toLowerCase();
+            if (scheduleKey) {
+                daysByWorkScope[scheduleKey] = daysValue;
+            }
+        });
+    }
+
+    if (!isKitchen && String(quotation.category || '').toLowerCase().includes('construction')) {
+        html += `
+            <div class="card mb-3">
+                <div class="card-body" style="background:#fff8e1; border-left: 4px solid #ff9800; color:#0E1F42; font-size:0.9rem;">
+                    <strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.
+                </div>
+            </div>
+        `;
+    }
+
     if (quotation.items && quotation.items.length > 0) {
         if (isKitchen) {
             html += `
@@ -14628,7 +14634,8 @@ function displayQuotationDetailsInModal(quotation) {
                     unitPrice = savedTotal / qty;
                 }
                 const totalPrice = savedTotal || (qty * unitPrice);
-                const days = Number(item.days) || 1;
+                const itemKey = (item.name || item.item || '').toString().trim().toLowerCase();
+                const days = Number(item.days) || daysByIndex[idx] || (itemKey && daysByWorkScope[itemKey] !== undefined ? daysByWorkScope[itemKey] : 1);
 
                 html += `
                     <tr>
@@ -14662,8 +14669,9 @@ function displayQuotationDetailsInModal(quotation) {
             `;
 
             quotation.items.forEach((item, idx) => {
-                const days = item.days || 0;
-                const totalPrice = item.totalPrice || 0;
+                const itemKey = (item.name || item.item || '').toString().trim().toLowerCase();
+                const days = item.days !== undefined ? item.days : (daysByIndex[idx] !== undefined ? daysByIndex[idx] : (itemKey && daysByWorkScope[itemKey] !== undefined ? daysByWorkScope[itemKey] : 0));
+                const totalPrice = Number(item.totalPrice ?? item.total ?? item.clientPrice ?? 0) || 0;
                 html += `
                     <tr>
                         <td class="text-center fw-bold">${idx + 1}</td>
@@ -14857,17 +14865,32 @@ function escapeHtml(text) {
         
         // Items section
         if (quotation.items && quotation.items.length > 0) {
+            const daysByIndex = {};
+            const daysByWorkScope = {};
+            if (quotation.schedules && quotation.schedules.length > 0) {
+                quotation.schedules.forEach((schedule, idx) => {
+                    const daysValue = Number(schedule.days) || 0;
+                    daysByIndex[idx] = daysValue;
+                    const scheduleKey = (schedule.workScope || schedule.item || '').toString().trim().toLowerCase();
+                    if (scheduleKey) {
+                        daysByWorkScope[scheduleKey] = daysValue;
+                    }
+                });
+            }
+
             html += '<h5 style="color: #0A1A3A; margin-top: 6px; margin-bottom: 6px; font-size: 0.65rem;"><i class="bi bi-list-check"></i> Construction Items</h5>';
             html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.65rem;">';
             html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 4px; text-align: left;">Item</th><th style="padding: 4px; text-align: center;">Days</th><th style="padding: 4px; text-align: right;">Total</th></tr></thead>';
             html += '<tbody>';
             
-            quotation.items.forEach(item => {
-                const totalPrice = item.totalPrice || (item.quantity * item.unitRate);
+            quotation.items.forEach((item, idx) => {
+                const totalPrice = Number(item.totalPrice ?? item.total ?? item.clientPrice ?? ((item.quantity || 1) * (item.unitRate || 0))) || 0;
+                const itemKey = (item.name || item.item || '').toString().trim().toLowerCase();
+                const days = daysByIndex[idx] !== undefined ? daysByIndex[idx] : (itemKey && daysByWorkScope[itemKey] !== undefined ? daysByWorkScope[itemKey] : (Number(item.days) || 0));
                 html += `
                     <tr style="border-bottom: 1px solid #ddd; font-size: 0.65rem;">
-                        <td style="padding: 4px; text-align: left;">${item.name || 'N/A'}</td>
-                        <td style="padding: 4px; text-align: center;">${item.days || 0}</td>
+                        <td style="padding: 4px; text-align: left;">${item.name || item.item || 'N/A'}</td>
+                        <td style="padding: 4px; text-align: center;">${days}</td>
                         <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                 `;
@@ -14986,13 +15009,14 @@ async function downloadConstructionQuotationPDFFromPortal(quotation) {
         markup: quotation.markup,
         baseCost: quotation.totalCost / (1 + (quotation.markup / 100)),
         markupAmount: quotation.totalCost - (quotation.totalCost / (1 + (quotation.markup / 100))),
-        items: (quotation.items || []).map(item => ({
+        items: (quotation.items || []).map((item, idx) => ({
             item: item.name,
             name: item.name,
             sqm: item.quantity,
             inhouseRate: item.unitRate,
             clientPrice: item.totalPrice,
-            total: item.totalPrice
+            total: item.totalPrice,
+            days: item.days || quotation.schedules?.[idx]?.days || 0
         }))
     };
 
@@ -15206,13 +15230,14 @@ async function sendConstructionQuotationFromPortal(quotation) {
         markup: quotation.markup,
         baseCost: quotation.totalCost / (1 + (quotation.markup / 100)),
         markupAmount: quotation.totalCost - (quotation.totalCost / (1 + (quotation.markup / 100))),
-        items: (quotation.items || []).map(item => ({
+        items: (quotation.items || []).map((item, idx) => ({
             item: item.name,
             name: item.name,
             sqm: item.quantity,
             inhouseRate: item.unitRate,
             clientPrice: item.totalPrice,
-            total: item.totalPrice
+            total: item.totalPrice,
+            days: item.days || quotation.schedules?.[idx]?.days || 0
         }))
     };
     
