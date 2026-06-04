@@ -12941,7 +12941,7 @@ async function generateQuotationPDF(outputMode = 'download') {
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 6%;">${index + 1}</td>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: left; width: 62%;">${escapeHtml(itemName)}</td>
                 <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: center; width: 12%; font-weight: 600; color: #2196F3;">${days}</td>
-                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 20%; font-weight: 700; color: #1E2A56;">${formatCurrency(itemTotal)}</td>
+                <td style="padding: 8px 10px; border: 1px solid #d8deef; text-align: right; width: 20%; font-weight: 700; color: #1E2A56;">${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             </tr>`;
     });
 
@@ -12959,7 +12959,7 @@ async function generateQuotationPDF(outputMode = 'download') {
         <tr style="background: #1E2A56; color: white; font-weight: bold;">
             <td colspan="2" style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>TOTAL</strong></td>
             <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; font-weight: bold; font-size: 13px;"><strong>${totalDaysSum}</strong></td>
-            <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>${formatCurrency(totalDisplayCost)}</strong></td>
+            <td style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right;"><strong>${totalDisplayCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
         </tr>`;
 
     // Calculate deposit and monthly installments
@@ -13056,7 +13056,7 @@ async function generateQuotationPDF(outputMode = 'download') {
                                 <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
                                 <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 70%;">Item Description</th>
                                 <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Days</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 12%;">Total</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 12%;">Total (USD)</th>
                             </tr>
                         </thead>
                         <tbody>
