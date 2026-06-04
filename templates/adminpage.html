@@ -3695,7 +3695,6 @@
                         <div class="mb-3">
                             <div class="d-flex gap-2">
                                 <input type="text" class="form-control" id="constructionItemsSearch" placeholder="🔍 Search construction items..." style="font-size: 0.9rem;">
-                                <button type="button" class="btn btn-sm btn-primary" id="selectAllVisibleBtn">Select All</button>
                             </div>
                         </div>
 
@@ -12183,33 +12182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Select All visible items button
-        $('#selectAllVisibleBtn').click(function() {
-            let visibleCount = 0;
-            let checkedCount = 0;
 
-            // Count visible and checked items
-            $('.construction-item-row').each(function() {
-                if ($(this).is(':visible')) {
-                    visibleCount++;
-                    if ($(this).find('.construction-item-checkbox').is(':checked')) {
-                        checkedCount++;
-                    }
-                }
-            });
-
-            // If all visible items are already checked, uncheck them; otherwise check all visible
-            const shouldCheck = checkedCount < visibleCount;
-            
-            $('.construction-item-row').each(function() {
-                if ($(this).is(':visible')) {
-                    $(this).find('.construction-item-checkbox').prop('checked', shouldCheck);
-                }
-            });
-
-            updateSelectedItemsList();
-            calculateConstructionTotal();
-        });
 
         // Handle Generate Quotation button click
         function getSelectedFullHouseDisplayMode() {
