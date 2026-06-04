@@ -19651,17 +19651,15 @@ def build_quotation_pdf_document(quotation_id):
                     items_rows += f"""
                     <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{html.escape(item_name)}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{quantity}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {amount:,.2f}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {item_total:,.2f}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:60%;">{html.escape(item_name)}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:12%; font-weight:600; color:#2196F3;">{days}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:22%; font-weight:700; color:#1E2A56;">USD {item_total:,.2f}</td>
                     </tr>"""
                 
                 # Total row
                 items_total_row = f"""
                     <tr style="background:#1E2A56; color:white; font-weight:bold;">
-                        <td colspan="4" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
+                        <td colspan="2" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
                         <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
                         <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
                     </tr>"""
@@ -19703,16 +19701,14 @@ def build_quotation_pdf_document(quotation_id):
                     items_rows += f"""
                     <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{html.escape(item_name)}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{qty:,.2f}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {client_unit_rate:,.2f}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {total:,.2f}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:60%;">{html.escape(item_name)}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:12%; font-weight:600; color:#2196F3;">{days}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:22%; font-weight:700; color:#1E2A56;">USD {total:,.2f}</td>
                     </tr>"""
                 
                 items_total_row = f"""
                     <tr style="background:#1E2A56; color:white; font-weight:bold;">
-                        <td colspan="4" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
+                        <td colspan="2" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
                         <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
                         <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
                     </tr>"""
@@ -19779,6 +19775,12 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
         payment_period_text = "5 months"
         category_display = category.replace('_', ' ').title()
 
+    # Show exclusion note for single-storey / double-storey construction quotations
+    is_storey = (not is_kitchen) and (('storey' in (category or '').lower()) or ('story' in (category or '').lower()))
+    exclusion_note_html = ""
+    if is_storey:
+        exclusion_note_html = "<div style='margin-top:10px; font-size:12px; color:#1E2A56;'><strong>Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>"
+
     return f"""
     <!DOCTYPE html>
     <html>
@@ -19840,9 +19842,10 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
             </div>
             
             <!-- IMPORTANT NOTE & BANKING DETAILS -->
-            <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
+                <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;'>
                     <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                    {exclusion_note_html}
                 </div>
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;'>
                     <strong style='display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;'>Banking Details</strong>
@@ -19861,11 +19864,9 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                     <thead>
                         <tr>
                             <th style='text-align:center; width:6%;'>#</th>
-                            <th style='text-align:left; width:38%;'>Item Description</th>
-                            <th style='text-align:center; width:13%;'>Qty</th>
-                            <th style='text-align:right; width:15%;'>Unit Price</th>
-                            <th style='text-align:center; width:10%;'>Days</th>
-                            <th style='text-align:right; width:18%;'>Total</th>
+                            <th style='text-align:left; width:62%;'>Item Description</th>
+                            <th style='text-align:center; width:12%;'>Days</th>
+                            <th style='text-align:right; width:20%;'>Total</th>
                         </tr>
                     </thead>
                     <tbody>
