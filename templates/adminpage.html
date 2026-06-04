@@ -14654,28 +14654,22 @@ function displayQuotationDetailsInModal(quotation) {
                                     <tr>
                                         <th style="width: 40px;">#</th>
                                         <th>Item Description</th>
-                                        <th style="width: 70px; text-align: center;">Qty</th>
-                                        <th style="width: 90px; text-align: right;">Inhouse Rate</th>
-                                        <th style="width: 90px; text-align: right;">Client Rate</th>
-                                        <th style="width: 90px; text-align: right;">Total</th>
+                                        <th style="width: 70px; text-align: center;">Days</th>
+                                        <th style="width: 110px; text-align: right;">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
             `;
 
             quotation.items.forEach((item, idx) => {
-                const qty = item.quantity || 0;
-                const inhouseRate = item.unitRate || 0;
-                const clientRate = inhouseRate * markupMultiplier;
+                const days = item.days || 0;
                 const totalPrice = item.totalPrice || 0;
                 html += `
                     <tr>
                         <td class="text-center fw-bold">${idx + 1}</td>
                         <td>${escapeHtml(item.name || 'Item')}</td>
-                        <td class="text-center">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
-                        <td class="text-end">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                        <td class="text-end fw-bold">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                        <td class="text-end fw-bold text-primary">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td class="text-center">${days}</td>
+                        <td class="text-end fw-bold text-primary">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     </tr>
                 `;
             });
@@ -14865,7 +14859,7 @@ function escapeHtml(text) {
         if (quotation.items && quotation.items.length > 0) {
             html += '<h5 style="color: #0A1A3A; margin-top: 6px; margin-bottom: 6px; font-size: 0.65rem;"><i class="bi bi-list-check"></i> Construction Items</h5>';
             html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.65rem;">';
-            html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 4px; text-align: left;">Item</th><th style="padding: 4px; text-align: center;">Qty</th><th style="padding: 4px; text-align: right;">Unit Rate</th><th style="padding: 4px; text-align: right;">Total</th></tr></thead>';
+            html += '<thead><tr style="background-color: #e0e0e0;"><th style="padding: 4px; text-align: left;">Item</th><th style="padding: 4px; text-align: center;">Days</th><th style="padding: 4px; text-align: right;">Total</th></tr></thead>';
             html += '<tbody>';
             
             quotation.items.forEach(item => {
@@ -14873,8 +14867,7 @@ function escapeHtml(text) {
                 html += `
                     <tr style="border-bottom: 1px solid #ddd; font-size: 0.65rem;">
                         <td style="padding: 4px; text-align: left;">${item.name || 'N/A'}</td>
-                        <td style="padding: 4px; text-align: center;">${item.quantity || 0}</td>
-                        <td style="padding: 4px; text-align: right;">USD ${(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 4px; text-align: center;">${item.days || 0}</td>
                         <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                 `;
