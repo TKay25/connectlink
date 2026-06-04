@@ -21488,5 +21488,231 @@ def get_work_plans():
             'error': str(e)
         }), 500
 
+
+# ===== PAGINATED API ENDPOINTS =====
+
+@app.route('/api/users/paginated', methods=['GET'])
+def get_users_paginated():
+    """Get paginated list of users with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 50
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM users 
+                    WHERE LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM users")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            users = []
+            for row in rows:
+                users.append({
+                    'id': row[0],
+                    'username': row[1] or '',
+                    'email': row[2] or '',
+                    'full_name': row[3] or '',
+                    'role': row[4] or '',
+                    'created_at': row[5].strftime('%d/%m/%Y %H:%M') if row[5] else ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': users,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated users: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/admins/paginated', methods=['GET'])
+def get_admins_paginated():
+    """Get paginated list of admins with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 20
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM users 
+                    WHERE role = 'admin' AND (LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s)
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE role = 'admin' AND (LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s)
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE role = 'admin'
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            admins = []
+            for row in rows:
+                admins.append({
+                    'id': row[0],
+                    'username': row[1] or '',
+                    'email': row[2] or '',
+                    'full_name': row[3] or '',
+                    'role': row[4] or '',
+                    'created_at': row[5].strftime('%d/%m/%Y %H:%M') if row[5] else ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': admins,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated admins: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/enquiries/paginated', methods=['GET'])
+def get_enquiries_paginated():
+    """Get paginated list of enquiries with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 100))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 100
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM connectlinkenquiries 
+                    WHERE LOWER(clientwhatsapp) LIKE %s OR LOWER(enqcategory) LIKE %s OR LOWER(enq) LIKE %s OR LOWER(username) LIKE %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM connectlinkenquiries")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                           plan IS NOT NULL as has_plan, status, username
+                    FROM connectlinkenquiries 
+                    WHERE LOWER(clientwhatsapp) LIKE %s OR LOWER(enqcategory) LIKE %s OR LOWER(enq) LIKE %s OR LOWER(username) LIKE %s
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                           plan IS NOT NULL as has_plan, status, username
+                    FROM connectlinkenquiries 
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            enquiries = []
+            for row in rows:
+                enquiries.append({
+                    'id': row[0],
+                    'timestamp': row[1].strftime('%d/%m/%Y %H:%M') if row[1] else '',
+                    'clientwhatsapp': row[2] or '',
+                    'enqcategory': row[3] or '',
+                    'enq': row[4] or '',
+                    'has_plan': row[5],
+                    'status': row[6] or '',
+                    'username': row[7] or ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': enquiries,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated enquiries: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port = 55, debug = True)
