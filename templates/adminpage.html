@@ -4551,9 +4551,11 @@ function openModal(modalId) {
 
         // Load interim enquiries on first open for this custom modal system
         if (modalId === 'viewEnquiriesModal') {
+            console.log('viewEnquiriesModal opened - scheduling loadEnquiriesData');
             setTimeout(() => {
+                console.log('Calling loadEnquiriesData from openModal');
                 loadEnquiriesData();
-            }, 50);
+            }, 200);  // Increased from 50ms to 200ms to ensure DOM is ready
         }
 
         // Initialize quotation dropdown when other details modal opens
@@ -8583,7 +8585,11 @@ $(document).ready(function() {
 
 // Load enquiries data
 function loadEnquiriesData() {
-    console.log('Loading enquiries data...');
+    console.log('=== loadEnquiriesData START ===');
+    console.log('Modal exists?', !!document.getElementById('viewEnquiriesModal'));
+    console.log('enquiriesTableBody exists?', !!document.getElementById('enquiriesTableBody'));
+    console.log('enquiryTypeFilter exists?', !!document.getElementById('enquiryTypeFilter'));
+    
     showLoading(true);
     selectedEnquiries.clear();
     updateSelectionInfo();
@@ -8594,10 +8600,15 @@ function loadEnquiriesData() {
     fetch('/get_temp_enquiries', { signal: enquiriesAbortController.signal })
         .then(response => {
             clearTimeout(enquiriesTimeout);
+            console.log('Fetch response received, status:', response.status);
             if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
             return response.json();
         })
         .then(data => {
+            console.log('Raw data received:', data);
+            console.log('Data is array?', Array.isArray(data));
+            console.log('Data length:', Array.isArray(data) ? data.length : 'N/A');
+            
             if (!Array.isArray(data)) throw new Error('Data is not an array');
 
             allEnquiriesData = data.map(enquiry => ({
@@ -8606,30 +8617,58 @@ function loadEnquiriesData() {
                 enqtype: enquiry.enqtype || 'otherenq',
                 createdAt: enquiry.created_at || null
             }));
+            
+            console.log('allEnquiriesData after mapping:', allEnquiriesData.length, 'items');
+            console.log('First item:', allEnquiriesData[0]);
 
             // Ensure filter dropdown is reset to "all" before filtering
             const enquiryTypeFilter = document.getElementById('enquiryTypeFilter');
             if (enquiryTypeFilter) {
                 enquiryTypeFilter.value = 'all';
+                console.log('Filter dropdown reset to "all"');
+            } else {
+                console.warn('enquiryTypeFilter not found!');
             }
             
             updateStatistics(allEnquiriesData);
-            filteredEnquiriesData = [...allEnquiriesData]; // Initialize with all data first
-            try { applyFilters(); } catch(e) { console.error('applyFilters error:', e); renderTable(); }
+            console.log('Statistics updated');
+            
+            filteredEnquiriesData = [...allEnquiriesData];
+            console.log('filteredEnquiriesData initialized with', filteredEnquiriesData.length, 'items');
+            
+            try {
+                applyFilters();
+                console.log('applyFilters completed successfully');
+            } catch(e) {
+                console.error('applyFilters error:', e);
+                console.log('Calling renderTable directly');
+                renderTable();
+            }
+            
+            console.log('After filters - filteredEnquiriesData length:', filteredEnquiriesData.length);
             updateLastUpdated();
+            console.log('=== loadEnquiriesData END (SUCCESS) ===');
         })
         .catch(error => {
             clearTimeout(enquiriesTimeout);
-            console.error('Fetch error:', error);
+            console.error('=== loadEnquiriesData FETCH ERROR ===', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            
             const tableBody = document.getElementById('enquiriesTableBody');
-            if (tableBody) tableBody.innerHTML = `
-                <tr><td colspan="6" class="text-center py-4 text-danger">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    Failed to load enquiries: ${error.message}
-                    <br><button class="btn btn-sm btn-primary mt-2" onclick="loadEnquiriesData()">Retry</button>
-                </td></tr>`;
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr><td colspan="6" class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Failed to load enquiries: ${error.message}
+                        <br><button class="btn btn-sm btn-primary mt-2" onclick="loadEnquiriesData()">Retry</button>
+                    </td></tr>`;
+            } else {
+                console.error('enquiriesTableBody not found!');
+            }
         })
         .finally(() => {
+            console.log('loadEnquiriesData finally block - hiding loading indicator');
             showLoading(false);
         });
 }
@@ -8655,14 +8694,12 @@ function addKitchenItemAndStay() {
 // Show/hide loading - FIXED with null checks
 function showLoading(show) {
     const loadingRow = document.getElementById('loadingRow');
-    const noDataMessage = document.getElementById('noDataMessage');
 
     if (show) {
         if (loadingRow) loadingRow.classList.remove('d-none');
-        if (noDataMessage) noDataMessage.classList.add('d-none');
     } else {
         if (loadingRow) loadingRow.classList.add('d-none');
-        if (noDataMessage) noDataMessage.classList.remove('d-none');
+        // DO NOT show noDataMessage here - let renderTable() handle that
     }
 }
 
@@ -8727,13 +8764,23 @@ function updateStatistics(data) {
 
 // Apply filters
 function applyFilters() {
-    const typeFilter = document.getElementById('enquiryTypeFilter').value;
-    const whatsappFilter = document.getElementById('whatsappFilter').value.toLowerCase();
-    const idFilter = document.getElementById('idFilter').value.toLowerCase();
+    console.log('=== applyFilters START ===');
+    console.log('allEnquiriesData.length:', allEnquiriesData.length);
+    
+    const typeFilterEl = document.getElementById('enquiryTypeFilter');
+    const whatsappFilterEl = document.getElementById('whatsappFilter');
+    const idFilterEl = document.getElementById('idFilter');
+    
+    const typeFilter = typeFilterEl ? typeFilterEl.value : 'all';
+    const whatsappFilter = (whatsappFilterEl ? whatsappFilterEl.value : '').toLowerCase();
+    const idFilter = (idFilterEl ? idFilterEl.value : '').toLowerCase();
+    
+    console.log('Filter values - Type:', typeFilter, 'WhatsApp:', whatsappFilter, 'ID:', idFilter);
     
     filteredEnquiriesData = allEnquiriesData.filter(enquiry => {
         // Type filter
         if (typeFilter !== 'all' && enquiry.enqtype !== typeFilter) {
+            console.log('Filtered out (type):', enquiry.id, enquiry.enqtype, '!==', typeFilter);
             return false;
         }
         
@@ -8752,8 +8799,12 @@ function applyFilters() {
         return true;
     });
     
+    console.log('After filtering - filteredEnquiriesData.length:', filteredEnquiriesData.length);
+    console.log('First 3 filtered items:', filteredEnquiriesData.slice(0, 3));
+    
     renderTable();
     updateFilteredCount();
+    console.log('=== applyFilters END ===');
 }
 
 // Filter by type
@@ -8911,11 +8962,15 @@ function renderTable() {
         `;
     });
     
+    console.log('Setting tableBody.innerHTML with HTML of length:', html.length);
     tableBody.innerHTML = html;
+    console.log('HTML set. Table body rows:', tableBody.querySelectorAll('tr').length);
+    
     updateShowingRecords();
     
     // Initialize or reinitialize DataTable
     setTimeout(() => {
+        console.log('Initializing DataTable');
         if ($.fn.DataTable.isDataTable('#enquiriesTable')) {
             $('#enquiriesTable').DataTable().destroy();
         }
@@ -8933,6 +8988,7 @@ function renderTable() {
                 emptyTable: 'No data available'
             }
         });
+        console.log('DataTable initialized');
     }, 100);
 }
 
