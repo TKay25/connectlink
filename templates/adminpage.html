@@ -10568,7 +10568,7 @@ $('#addNoteBtn').click(function() {
     btn.html('<span class="spinner-border spinner-border-sm me-2"></span>Adding...');
     btn.prop('disabled', true);
     
-    // Send note to server
+    // Send note to serveríí
     $.ajax({
         url: '/add_note',
         method: 'POST',
@@ -13041,32 +13041,7 @@ async function generateQuotationPDF(outputMode = 'download') {
                     </div>
                 </div>
 
-                <!-- INFO MESSAGE -->
-                <div style="margin-bottom: 22px; text-align: center;">
-                    <span style="display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;">
-                        <i class="bi bi-info-circle-fill" style="margin-right: 6px;"></i>
-                        For a full breakdown of your quotation, <span style="color: #d32f2f;">see the detailed quotation table below</span>.
-                    </span>
-                </div>
 
-                <!-- CONSTRUCTION ITEMS TABLE -->
-                <div style="page-break-inside: avoid; break-inside: avoid;">
-                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
-                        <thead>
-                            <tr>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 70%;">Item Description</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Days</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 12%;">Total (USD)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${itemRows}
-                            ${itemsTotalRow}
-                        </tbody>
-                    </table>
-                </div>
 
             </div>
         </div>
