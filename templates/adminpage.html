@@ -12553,11 +12553,13 @@ $('#generateQuotationBtn').click(function() {
                 selectedRateItems.push(itemData);
                 
                 // CRITICAL FIX: Ensure numeric values
-                const inhouseRateValue = parseFloat(itemData.inhouseRate) || 0;
+                // NOTE: inhouseRate is now the CLIENT RATE (already includes markup)
+                const clientRateValue = parseFloat(itemData.inhouseRate) || 0;
                 const daysPerSqmValue = parseFloat(itemData.daysPerSqMeter) || 0;
                 
-                const basePrice = inhouseRateValue * sqm;
-                const clientPrice = basePrice * markupMultiplier;
+                // Client price = client rate × sqm (NO additional markup multiplication)
+                const clientPrice = clientRateValue * sqm;
+                const basePrice = clientPrice / markupMultiplier;  // Calculate inhouse by discounting
                 
                 // Calculate days for this item
                 const duration = Math.max(1, Math.round(daysPerSqmValue * sqm));
@@ -12588,7 +12590,7 @@ $('#generateQuotationBtn').click(function() {
                     total: clientPrice,
                     clientPrice: clientPrice,  // Add both for compatibility
                     sqm: sqm,
-                    inhouseRate: inhouseRateValue,
+                    inhouseRate: clientRateValue,  // Store the client rate
                     days: duration
                 });
 
@@ -12599,7 +12601,7 @@ $('#generateQuotationBtn').click(function() {
                 });
 
                 baseCost += basePrice;
-                totalCost += clientPrice;
+                totalCost += clientPrice;  // totalCost is sum of client prices (no double markup)
             } else {
                 console.warn(`Item with ID ${itemId} not found in quotationRatesCache!`);
             }
