@@ -8607,7 +8607,14 @@ function loadEnquiriesData() {
                 createdAt: enquiry.created_at || null
             }));
 
+            // Ensure filter dropdown is reset to "all" before filtering
+            const enquiryTypeFilter = document.getElementById('enquiryTypeFilter');
+            if (enquiryTypeFilter) {
+                enquiryTypeFilter.value = 'all';
+            }
+            
             updateStatistics(allEnquiriesData);
+            filteredEnquiriesData = [...allEnquiriesData]; // Initialize with all data first
             try { applyFilters(); } catch(e) { console.error('applyFilters error:', e); renderTable(); }
             updateLastUpdated();
         })
@@ -8804,9 +8811,19 @@ function renderTable() {
     const tableBody = document.getElementById('enquiriesTableBody');
     const noDataMessage = document.getElementById('noDataMessage');
     
+    console.log('renderTable called - filteredEnquiriesData length:', filteredEnquiriesData.length);
+    console.log('allEnquiriesData length:', allEnquiriesData.length);
+    console.log('First 3 filtered items:', filteredEnquiriesData.slice(0, 3));
+    
+    if (!tableBody) {
+        console.error('enquiriesTableBody element not found!');
+        return;
+    }
+    
     if (filteredEnquiriesData.length === 0) {
+        console.warn('No filtered enquiries to display');
         tableBody.innerHTML = '';
-        noDataMessage.classList.remove('d-none');
+        if (noDataMessage) noDataMessage.classList.remove('d-none');
         updateShowingRecords();
         // Destroy DataTable if it exists
         if ($.fn.DataTable.isDataTable('#enquiriesTable')) {
@@ -8815,7 +8832,7 @@ function renderTable() {
         return;
     }
     
-    noDataMessage.classList.add('d-none');
+    if (noDataMessage) noDataMessage.classList.add('d-none');
     
     let html = '';
     filteredEnquiriesData.forEach((enquiry, index) => {
