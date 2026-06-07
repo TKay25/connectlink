@@ -19770,9 +19770,9 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
         payment_period_text = "3 months"
         category_display = "Kitchen, Cabinets & TV Units"
     else:
-        payment_months = 5
-        monthly = balance / 5 if balance else 0
-        payment_period_text = "5 months"
+        payment_months = 6
+        monthly = balance / 6 if balance else 0
+        payment_period_text = "6 months"
         category_display = category.replace('_', ' ').title()
 
     # Show exclusion note for single-storey / double-storey construction quotations

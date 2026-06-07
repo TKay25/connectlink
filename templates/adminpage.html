@@ -13110,7 +13110,7 @@ async function generateQuotationPDF(outputMode = 'download') {
     // Calculate deposit and monthly installments
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
-    const monthlyInstallment = balanceAmount / 5;
+    const monthlyInstallment = balanceAmount / 6;
     const isConstructionQuote = String(category || '').toLowerCase().includes('construction');
     const constructionNoteHtml = isConstructionQuote ? `<div style="margin-top: 8px; font-size: 12px; line-height: 1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>` : '';
 
@@ -13157,7 +13157,7 @@ async function generateQuotationPDF(outputMode = 'download') {
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
                             </div>
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over 5 months)</div>
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over 6 months)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
                             </div>
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
