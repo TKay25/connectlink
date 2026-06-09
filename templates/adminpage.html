@@ -13140,30 +13140,23 @@ async function generateQuotationPDF(outputMode = 'download') {
                 </div>
 
                 <!-- QUOTATION SUMMARY -->
-                <div style="page-break-inside: avoid; break-inside: avoid;">
-                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
-                    <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
-                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
-                            <div style="padding: 0 5px;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
-                                <div style="font-size: 13px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
-                            </div>
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(depositAmount)}</div>
-                            </div>
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
-                            </div>
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over 6 months)</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
-                            </div>
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Duration</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #2196F3;">${totalConstructionDays} Days</div>
-                            </div>
+                <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;">
+                    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; text-align:center;">
+                        <div style="padding:0 5px;">
+                            <div style="font-size:10px; color:#5a678a; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.3px;">Total Amount</div>
+                            <div style="font-size:13px; font-weight:900; color:#1E2A56;">${formatCurrency(totalCost)}</div>
+                        </div>
+                        <div style="padding:0 5px; border-left:1px solid #d8deef;">
+                            <div style="font-size:10px; color:#5a678a; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.3px;">Deposit (30%)</div>
+                            <div style="font-size:13px; font-weight:700; color:#1E2A56;">${formatCurrency(depositAmount)}</div>
+                        </div>
+                        <div style="padding:0 5px; border-left:1px solid #d8deef;">
+                            <div style="font-size:10px; color:#5a678a; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.3px;">Balance</div>
+                            <div style="font-size:13px; font-weight:700; color:#1E2A56;">${formatCurrency(balanceAmount)}</div>
+                        </div>
+                        <div style="padding:0 5px; border-left:1px solid #d8deef;">
+                            <div style="font-size:10px; color:#5a678a; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.3px;">Monthly (over 6 months)</div>
+                            <div style="font-size:13px; font-weight:700; color:#1E2A56;">${formatCurrency(monthlyInstallment)}</div>
                         </div>
                     </div>
                 </div>
