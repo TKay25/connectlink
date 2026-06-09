@@ -19701,17 +19701,15 @@ def build_quotation_pdf_document(quotation_id):
                     items_rows += f"""
                     <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:60%;">{html.escape(item_name)}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:12%; font-weight:600; color:#2196F3;">{days}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:72%;">{html.escape(item_name)}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:22%; font-weight:700; color:#1E2A56;">USD {total:,.2f}</td>
                     </tr>"""
-                
+                                    
                 items_total_row = f"""
-                    <tr style="background:#1E2A56; color:white; font-weight:bold;">
-                        <td colspan="2" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
-                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
-                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
-                    </tr>"""
+                <tr style="background:#1E2A56; color:white; font-weight:bold;">
+                    <td colspan="2" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
+                    <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
+                </tr>"""
 
             # Build schedule rows
             schedule_rows = ''
@@ -19841,8 +19839,8 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                 </div>
             </div>
             
-            <!-- IMPORTANT NOTE & BANKING DETAILS -->
-                <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
+            <!-- IMPORTANT NOTE & BANKING DETAILS ROW -->
+            <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;'>
                     <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
                     {exclusion_note_html}
@@ -19857,6 +19855,27 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                 </div>
             </div>
             
+            <!-- TURNAROUND TIMES BOX (Only for construction projects, not kitchen) -->
+            {"".join('''
+            <div style='margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px;'>
+                <strong style='display: block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #1E2A56; font-size: 13px;'>⏱️ Our Turnaround Times for Residential Projects</strong>
+                <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;'>
+                    <div>• Single Storey - no special foundation:</div>
+                    <div><strong>90-120 days</strong></div>
+                    <div>• Single Storey with special foundation:</div>
+                    <div><strong>110-140 days</strong></div>
+                    <div>• Double Storey:</div>
+                    <div><strong>120-180 days</strong></div>
+                    <div>• Perimeter Wall:</div>
+                    <div><strong>30-40 days</strong></div>
+                    <div>• Roofing:</div>
+                    <div><strong>10-14 days</strong></div>
+                    <div>• Finishings:</div>
+                    <div><strong>30 days</strong></div>
+                </div>
+            </div>
+            ''' if not is_kitchen else '')}
+            
             <!-- ITEMS TABLE -->
             <div style='page-break-inside:avoid; break-inside:avoid;'>
                 <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>ITEM DETAILS</h4>
@@ -19864,9 +19883,8 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                     <thead>
                         <tr>
                             <th style='text-align:center; width:6%;'>#</th>
-                            <th style='text-align:left; width:62%;'>Item Description</th>
-                            <th style='text-align:center; width:12%;'>Days</th>
-                            <th style='text-align:right; width:20%;'>Total</th>
+                            <th style='text-align:left; width:72%;'>Item Description</th>
+                            <th style='text-align:right; width:22%;'>Total</th>
                         </tr>
                     </thead>
                     <tbody>
