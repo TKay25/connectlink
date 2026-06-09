@@ -19779,6 +19779,14 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
     if is_storey:
         exclusion_note_html = "<div style='margin-top:10px; font-size:12px; color:#1E2A56;'><strong>Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>"
 
+    # CHECK IF THIS IS A CONSTRUCTION CATEGORY (Single Storey or Double Storey only)
+    # This prevents the box from showing on other non-kitchen categories (doors, windows, flooring, other)
+    category_lower = (category or '').lower()
+    is_construction = (not is_kitchen) and ('construction' in category_lower or 'storey' in category_lower or 'story' in category_lower)
+    
+    # DEBUG PRINT (remove in production)
+    print(f"DEBUG: category={category}, is_kitchen={is_kitchen}, is_construction={is_construction}")
+
     return f"""
     <!DOCTYPE html>
     <html>
@@ -19855,8 +19863,8 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                 </div>
             </div>
             
-            <!-- TURNAROUND TIMES BOX (Only for construction projects, not kitchen) -->
-            {"".join('''
+            <!-- TURNAROUND TIMES BOX (Only for construction projects - Single Storey or Double Storey) -->
+            {f'''
             <div style='margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px;'>
                 <strong style='display: block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #1E2A56; font-size: 13px;'>⏱️ Our Turnaround Times for Residential Projects</strong>
                 <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;'>
@@ -19874,7 +19882,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                     <div><strong>30 days</strong></div>
                 </div>
             </div>
-            ''' if not is_kitchen else '')}
+            ''' if is_construction else ''}
             
             <!-- ITEMS TABLE -->
             <div style='page-break-inside:avoid; break-inside:avoid;'>
@@ -19915,7 +19923,6 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
     </body>
     </html>
     """
-
 
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
     """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
