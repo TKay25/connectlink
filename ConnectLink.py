@@ -19852,27 +19852,6 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;'>
                     <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
                     {exclusion_note_html}
-                    
-                    <!-- TURNAROUND TIMES BOX (Only for construction projects, not kitchen) -->
-                    {"".join('''
-                    <div style='margin-top: 15px; padding-top: 12px; border-top: 1px solid #d8deef;'>
-                        <strong style='display: block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #1E2A56; font-size: 13px;'>⏱️ Our Turnaround Times for Residential Projects</strong>
-                        <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;'>
-                            <div>• Single Storey - no special foundation:</div>
-                            <div><strong>90-120 days</strong></div>
-                            <div>• Single Storey with special foundation:</div>
-                            <div><strong>110-140 days</strong></div>
-                            <div>• Double Storey:</div>
-                            <div><strong>120-180 days</strong></div>
-                            <div>• Perimeter Wall:</div>
-                            <div><strong>30-40 days</strong></div>
-                            <div>• Roofing:</div>
-                            <div><strong>10-14 days</strong></div>
-                            <div>• Finishings:</div>
-                            <div><strong>30 days</strong></div>
-                        </div>
-                    </div>
-                    ''' if is_construction else '')}
                 </div>
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;'>
                     <strong style='display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;'>Banking Details</strong>
@@ -19903,7 +19882,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                     <div><strong>30 days</strong></div>
                 </div>
             </div>
-            ''' if is_construction else ''}
+            ''' if is_storey else ''}
             
             <!-- ITEMS TABLE -->
             <div style='page-break-inside:avoid; break-inside:avoid;'>
