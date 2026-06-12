@@ -13339,155 +13339,84 @@ window.renderPreviewItemsTable = renderPreviewItemsTable;
 window.getItemsForQuotationOutput = getItemsForQuotationOutput;
 
 
-// Update the sendQuotationBtn click handler
-$('#sendQuotationBtn').click(async function() {
-    const data = window.quotationData;
-    if (!data) {
+// Make the preview modal "Send Quotation" button use the same function as the details modal
+$('#sendQuotationBtn').off('click').on('click', async function() {
+    if (!window.quotationData) {
         alert('No quotation data available. Please create a quotation first.');
         return;
     }
-
-    const clientWhatsapp = (data.clientWhatsapp || '').toString().trim();
-    if (!clientWhatsapp) {
-        alert('Client WhatsApp number is required before sending quotation.');
-        return;
-    }
-
+    
+    // First save the quotation if it hasn't been saved yet
     const btn = this;
     const originalText = btn.innerHTML;
-    btn.disabled = true;
-
+    
     try {
-        // Build quotation data (same as save function)
-        const ganttData = window.ganttChartData || [];
-        const quotationData = {
-            clientName: data.clientName,
-            clientWhatsapp: data.clientWhatsapp || '',
-            quotationDate: data.quotationDate,
-            category: data.category,
-            size: data.size,
-            totalCost: data.totalCost,
-            markup: data.markup,
-            items: (data.items || []).map((item, index) => ({
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+        
+        // Build payload
+        const isKitchen = (window.quotationData.category === 'kitchen');
+        const payload = {
+            clientName: window.quotationData.clientName,
+            clientWhatsapp: window.quotationData.clientWhatsapp || '',
+            quotationDate: window.quotationData.quotationDate,
+            category: window.quotationData.category,
+            size: window.quotationData.size || 0,
+            totalCost: window.quotationData.totalCost,
+            markup: window.quotationData.markup || 30,
+            items: (window.quotationData.items || []).map((item, index) => ({
                 name: item.name || item.item || 'Item',
-                quantity: item.sqm || 0,
-                unitRate: item.inhouseRate || item.unitRate || 0,
+                quantity: isKitchen ? (item.quantity || 1) : (item.sqm || 0),
+                unitRate: item.inhouseRate || 0,
                 totalPrice: item.total || item.clientPrice || 0,
-                days: item.days || (ganttData[index] ? ganttData[index].days : 0),
+                amount: item.amount || 0,
+                days: item.days || 1,
                 item_order: index + 1
             })),
-            schedules: (ganttData || []).map((schedule, index) => ({
-                workScope: schedule.item || 'Task',
+            schedules: (window.ganttChartData || []).map((schedule, index) => ({
+                workScope: schedule.item || schedule.workScope || 'Task',
                 startDate: schedule.startDate,
                 endDate: schedule.endDate,
-                days: schedule.days || 0,
+                days: schedule.days || 1,
                 task_order: index + 1
             }))
         };
         
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Checking for duplicates...';
-        
-        // Check for duplicate before sending
-        const duplicateCheck = await checkDuplicateQuotation(quotationData);
-        
-        if (duplicateCheck.isDuplicate) {
-            const userChoice = confirm(
-                `${duplicateCheck.message}\n\n` +
-                `A quotation with these exact details already exists (ID: ${duplicateCheck.existingQuotation.id}).\n\n` +
-                `Do you want to send the existing quotation instead?`
-            );
-            
-            if (userChoice && duplicateCheck.existingQuotation) {
-                // Send the existing quotation
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending existing quotation...';
-                await sendQuotationFromPortal(duplicateCheck.existingQuotation.id);
-                alert(`Existing quotation #${duplicateCheck.existingQuotation.id} sent successfully!`);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-                return;
-            } else {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-                return;
-            }
-        }
-        
-        // No duplicate found, proceed with saving and sending
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
-        
-        const isEditing = !!window.editingQuotationId;
-        const saveUrl = isEditing ? `/api/update-quotation/${window.editingQuotationId}` : '/api/save-quotation';
-        const saveMethod = isEditing ? 'PUT' : 'POST';
-
-        const saveResponse = await fetch(saveUrl, {
-            method: saveMethod,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(quotationData)
-        });
-
-        const saveResult = await saveResponse.json();
-        if (!saveResponse.ok || !saveResult.success) {
-            throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
-        }
-        
-        if (isEditing) { window.editingQuotationId = null; }
-
-        // Generate and send PDF...
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
-        
-        // Ask user about construction items table if applicable
-        const category = window.quotationData?.category || '';
-        const isConstruction = String(category || '').toLowerCase().includes('construction');
-        
-        if (isConstruction) {
-            const includeTable = await askIncludeConstructionItemsTable();
-            if (includeTable === null) {
-                // User cancelled
-                btn.innerHTML = '<i class="bi bi-send"></i> Send Quotation';
-                btn.disabled = false;
-                return;
-            }
-            window.includeConstructionItemsTable = includeTable;
-        }
-        
-        const dataUri = await generateQuotationPDF('datauri');
-        const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
-
-        if (!pdfBase64) {
-            throw new Error('Failed to generate quotation PDF for sending');
-        }
-
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
-        const sendResponse = await fetch('/api/send-quotation-whatsapp', {
+        const saveResponse = await fetch('/api/save-quotation', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                clientName: data.clientName || 'Client',
-                whatsappNumber: clientWhatsapp,
-                quotationId: saveResult.quotation_id,
-                pdfBase64: pdfBase64
-            })
+            body: JSON.stringify(payload)
         });
-
-        const sendResult = await sendResponse.json();
-        if (!sendResponse.ok || !sendResult.success) {
-            const errorMessage = sendResult.error || 'Failed to send quotation on WhatsApp';
-            const extraHint = sendResult.hint ? ('\n\n' + sendResult.hint) : '';
-            throw new Error(errorMessage + extraHint);
-        }
-
-        if (sendResult.used_template) {
-            alert('Quotation saved (ID: ' + saveResult.quotation_id + '). Customer is outside 24-hour window, so a WhatsApp template with "Download Quotation" button was sent to: ' + sendResult.whatsapp_number);
-        } else {
-            alert('Quotation saved (ID: ' + saveResult.quotation_id + ') and accepted by WhatsApp API for: ' + sendResult.whatsapp_number + '\nDelivery status depends on recipient availability and WhatsApp conversation rules.');
+        
+        const saveResult = await saveResponse.json();
+        
+        if (!saveResult.success) {
+            throw new Error(saveResult.error || 'Failed to save quotation');
         }
         
-        // Refresh quotations list
-        loadQuotations();
+        // Now call the same send function used by the details modal
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
+        
+        // Create a quotation object like the details modal uses
+        const quotation = {
+            id: saveResult.quotation_id,
+            clientName: window.quotationData.clientName,
+            clientWhatsapp: window.quotationData.clientWhatsapp || '',
+            quotationDate: window.quotationData.quotationDate,
+            category: window.quotationData.category,
+            projectSize: window.quotationData.size || 0,
+            totalCost: window.quotationData.totalCost,
+            markup: window.quotationData.markup || 30,
+            items: payload.items,
+            schedules: payload.schedules
+        };
+        
+        // Call the same send function that the details modal uses
+        await sendQuotationFromPortal(quotation.id);
         
     } catch (error) {
-        console.error('Error sending quotation:', error);
-        alert('Failed: ' + error.message);
+        console.error('Error:', error);
+        alert('❌ Error: ' + error.message);
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalText;
