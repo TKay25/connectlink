@@ -15370,11 +15370,12 @@ async function sendKitchenQuotationFromPortal(quotation) {
     
     window.kitchenQuotationData = kitchenData;
     
-    // Generate PDF
+    // Generate PDF using the full kitchen PDF generator
     if (typeof window.generateKitchenPDF !== 'function') {
         throw new Error('Kitchen PDF generator not available');
     }
     
+    // Use the full PDF generator, not preview
     const dataUri = await window.generateKitchenPDF('datauri');
     const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
     
@@ -15408,7 +15409,7 @@ async function sendKitchenQuotationFromPortal(quotation) {
 }
 
 async function sendConstructionQuotationFromPortal(quotation) {
-    // Your existing construction send logic
+    // Convert API format to window.quotationData format (construction)
     const data = {
         clientName: quotation.clientName,
         clientWhatsapp: quotation.clientWhatsapp || '',
@@ -15441,10 +15442,22 @@ async function sendConstructionQuotationFromPortal(quotation) {
     window.quotationData = data;
     window.ganttChartData = ganttData;
 
+    // ✅ ADD THIS: Ask user whether to include construction items table
+    const isConstruction = String(data.category || '').toLowerCase().includes('construction');
+    if (isConstruction) {
+        const includeTable = await askIncludeConstructionItemsTable();
+        if (includeTable === null) {
+            // User cancelled
+            return;
+        }
+        window.includeConstructionItemsTable = includeTable;
+    }
+
     if (typeof window.generateQuotationPDF !== 'function') {
         throw new Error('PDF generator not available. Please refresh and try again.');
     }
     
+    // Now generate PDF - it will use the window.includeConstructionItemsTable value
     const dataUri = await window.generateQuotationPDF('datauri');
     const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
     
@@ -15459,7 +15472,8 @@ async function sendConstructionQuotationFromPortal(quotation) {
             clientName: quotation.clientName || 'Client',
             whatsappNumber: quotation.clientWhatsapp,
             quotationId: quotation.id,
-            pdfBase64: pdfBase64
+            pdfBase64: pdfBase64,
+            category: quotation.category
         })
     });
     
@@ -15474,6 +15488,7 @@ async function sendConstructionQuotationFromPortal(quotation) {
         alert('Quotation PDF sent successfully to: ' + sendResult.whatsapp_number);
     }
 }
+
 </script>
 
 <script>
