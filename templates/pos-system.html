@@ -1718,6 +1718,13 @@
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-bold mb-0"><i class="fas fa-chart-bar me-1"></i>Audit Results</h6>
                         <div class="d-flex gap-2">
+                            <!-- ADDED SEARCH INPUT HERE -->
+                            <div class="position-relative">
+                                <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
+                                <input type="text" class="form-control ps-5" id="auditSearchInput" 
+                                       placeholder="Search products by name or category..." 
+                                       style="border-radius: 30px; width: 250px; font-size: 0.7rem; padding: 5px 10px 5px 30px;">
+                            </div>
                             <button class="btn btn-sm btn-success" onclick="exportAuditReport('excel')">
                                 <i class="fas fa-file-excel me-1"></i>Export Excel
                             </button>
@@ -2655,10 +2662,10 @@
     const API_BASE = window.location.origin;
 
 let currentAuditData = null;
+let currentFilteredResults = [];
 
 // Show Audit Report Modal
 function showAuditReportModal() {
-    // Set default dates: last 30 days to today
     const today = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
@@ -2681,27 +2688,271 @@ async function generateAuditReport() {
         return;
     }
     
-    showLoader('Generating audit report...');
+    showLoader('Loading products for physical count...');
     
     try {
-        // First, get products to collect physical counts
         const productsResponse = await fetch(`${API_BASE}/api/products`, { credentials: 'include' });
         const productsData = await productsResponse.json();
         
-        if (productsData.success && productsData.products) {
-            // Show physical count modal first
+        if (productsData.success && productsData.products && productsData.products.length > 0) {
             showPhysicalCountModal(productsData.products, startDate, endDate);
         } else {
-            showToast('Failed to load products', 'error');
+            showToast('No products found in inventory', 'error');
         }
-        
     } catch (error) {
         console.error('Error:', error);
-        showToast('Error generating report', 'error');
+        showToast('Error loading products: ' + error.message, 'error');
     } finally {
         hideLoader();
     }
 }
+
+// Filter Audit Results by Search Term
+function filterAuditResults() {
+    const searchTerm = document.getElementById('auditSearchInput').value.toLowerCase().trim();
+    
+    if (!currentAuditData || !currentAuditData.audit_results) {
+        return;
+    }
+    
+    if (searchTerm === '') {
+        currentFilteredResults = currentAuditData.audit_results;
+    } else {
+        currentFilteredResults = currentAuditData.audit_results.filter(result => {
+            return result.product_name.toLowerCase().includes(searchTerm) ||
+                   (result.category && result.category.toLowerCase().includes(searchTerm)) ||
+                   (result.unit_details && result.unit_details.toLowerCase().includes(searchTerm));
+        });
+    }
+    
+    renderAuditTable(currentFilteredResults);
+    updateAuditSummary(currentFilteredResults);
+}
+
+// Render only the table body with filtered results
+function renderAuditTable(results) {
+    const tbody = document.getElementById('auditTableBody');
+    if (!tbody) return;
+    
+    if (!results || results.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center">No products match your search</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = results.map(result => {
+        const openingStock = parseInt(result.opening_stock) || 0;
+        const additionsQty = parseInt(result.additions_qty) || 0;
+        const subtractionsQty = parseInt(result.subtractions_qty) || 0;
+        const salesQty = parseInt(result.sales_qty) || 0;
+        const expectedClosing = parseInt(result.expected_closing) || 0;
+        const actualClosing = parseInt(result.actual_closing) || 0;
+        const variance = parseInt(result.variance) || 0;
+        
+        const varianceClass = variance === 0 ? 'text-success' : (variance > 0 ? 'text-warning' : 'text-danger');
+        let statusBadge = '';
+        if (variance === 0) {
+            statusBadge = '<span class="badge bg-success">MATCH</span>';
+        } else if (variance > 0) {
+            statusBadge = '<span class="badge bg-warning">OVERAGE (+' + variance + ')</span>';
+        } else {
+            statusBadge = '<span class="badge bg-danger">SHORTAGE (' + variance + ')</span>';
+        }
+        
+        // Format product display with price if available
+        let productDisplay = `<strong>${escapeHtml(result.product_name)}</strong>`;
+        if (result.sell_price && result.sell_price > 0) {
+            productDisplay += `<br><small class="text-muted">$${result.sell_price.toFixed(2)}</small>`;
+        }
+        productDisplay += `<br><small class="text-muted">${result.unit_type || 'piece'}: ${result.unit_details || 'N/A'}</small>`;
+        
+        return `
+            <tr class="${variance !== 0 ? 'table-warning' : ''}">
+                <td>${productDisplay}</td>
+                <td><small>${result.category || 'Uncategorized'}</small></td>
+                <td class="text-center">${openingStock}</td>
+                <td class="text-center text-success">+${additionsQty}</td>
+                <td class="text-center text-danger">-${subtractionsQty}</td>
+                <td class="text-center text-primary">-${salesQty}</td>
+                <td class="text-center fw-bold">${expectedClosing}</td>
+                <td class="text-center">
+                    <input type="number" class="form-control form-control-sm physical-update" 
+                           data-product-id="${result.product_id}"
+                           value="${actualClosing}"
+                           style="width: 80px; display: inline-block;">
+                </td>
+                <td class="text-center ${varianceClass} fw-bold">${variance >= 0 ? '+' : ''}${variance}</td>
+                <td class="text-center">${statusBadge}</td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Add event listeners for physical count updates
+    document.querySelectorAll('.physical-update').forEach(input => {
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        newInput.addEventListener('change', function(e) {
+            const productId = e.target.dataset.productId;
+            const newCount = parseInt(e.target.value) || 0;
+            
+            if (currentAuditData) {
+                const productIndex = currentAuditData.audit_results.findIndex(r => r.product_id == productId);
+                if (productIndex !== -1) {
+                    currentAuditData.audit_results[productIndex].actual_closing = newCount;
+                    const variance = newCount - currentAuditData.audit_results[productIndex].expected_closing;
+                    currentAuditData.audit_results[productIndex].variance = variance;
+                    currentAuditData.audit_results[productIndex].variance_status = variance === 0 ? 'MATCH' : (variance > 0 ? 'OVERAGE' : 'SHORTAGE');
+                    
+                    recalculateAuditSummary(currentAuditData);
+                    // Re-filter and re-render
+                    filterAuditResults();
+                }
+            }
+        });
+    });
+}
+
+// Update summary cards based on filtered results
+function updateAuditSummary(results) {
+    const summaryContainer = document.getElementById('auditSummaryCards');
+    if (!summaryContainer) return;
+    
+    const totalOpening = results.reduce((sum, r) => sum + (parseInt(r.opening_stock) || 0), 0);
+    const totalAdditions = results.reduce((sum, r) => sum + (parseInt(r.additions_qty) || 0), 0);
+    const totalSubtractions = results.reduce((sum, r) => sum + (parseInt(r.subtractions_qty) || 0), 0);
+    const totalSales = results.reduce((sum, r) => sum + (parseInt(r.sales_qty) || 0), 0);
+    const totalExpected = results.reduce((sum, r) => sum + (parseInt(r.expected_closing) || 0), 0);
+    const totalActual = results.reduce((sum, r) => sum + (parseInt(r.actual_closing) || 0), 0);
+    const totalVariance = totalActual - totalExpected;
+    const discrepancies = results.filter(r => (parseInt(r.variance) || 0) !== 0).length;
+    
+    // Calculate value-based summaries if prices are available
+    let totalOpeningValue = 0;
+    let totalAdditionsValue = 0;
+    let totalSalesValue = 0;
+    let totalCogs = 0;
+    let totalProfit = 0;
+    let totalExpectedValue = 0;
+    let totalActualValue = 0;
+    let totalVarianceValue = 0;
+    
+    results.forEach(r => {
+        const buyPrice = r.buy_price || 0;
+        const sellPrice = r.sell_price || 0;
+        totalOpeningValue += (parseInt(r.opening_stock) || 0) * buyPrice;
+        totalAdditionsValue += r.additions_value || 0;
+        totalSalesValue += r.sales_value || 0;
+        totalCogs += r.cogs || 0;
+        totalProfit += r.profit || 0;
+        totalExpectedValue += (parseInt(r.expected_closing) || 0) * buyPrice;
+        totalActualValue += (parseInt(r.actual_closing) || 0) * buyPrice;
+    });
+    totalVarianceValue = totalActualValue - totalExpectedValue;
+    
+    summaryContainer.innerHTML = `
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Opening Stock Value</small>
+                <h6 class="fw-bold">$${totalOpeningValue.toFixed(2)}</h6>
+                <small class="text-muted">(${totalOpening} units)</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Additions</small>
+                <h6 class="fw-bold text-success">+$${totalAdditionsValue.toFixed(2)}</h6>
+                <small class="text-muted">(+${totalAdditions} units)</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Sales (Revenue)</small>
+                <h6 class="fw-bold text-primary">$${totalSalesValue.toFixed(2)}</h6>
+                <small class="text-muted">(-${totalSales} units)</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Gross Profit</small>
+                <h6 class="fw-bold text-success">$${totalProfit.toFixed(2)}</h6>
+                <small class="text-muted">Margin: ${totalSalesValue > 0 ? ((totalProfit/totalSalesValue)*100).toFixed(1) : 0}%</small>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Expected Closing Value</small>
+                <h6 class="fw-bold">$${totalExpectedValue.toFixed(2)}</h6>
+                <small class="text-muted">(${totalExpected} units)</small>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Physical Count Value</small>
+                <h6 class="fw-bold">$${totalActualValue.toFixed(2)}</h6>
+                <small class="text-muted">(${totalActual} units)</small>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Variance</small>
+                <h6 class="fw-bold ${totalVarianceValue >= 0 ? 'text-success' : 'text-danger'}">
+                    ${totalVarianceValue >= 0 ? '+' : ''}$${totalVarianceValue.toFixed(2)}
+                </h6>
+                <small>${totalVariance >= 0 ? '+' : ''}${totalVariance} units | ${discrepancies} products with issues</small>
+            </div>
+        </div>
+    `;
+}
+
+// Display full audit report (called after data is loaded)
+function displayAuditReport(data) {
+    if (!data || !data.summary || !data.audit_results) {
+        console.error('Invalid audit data:', data);
+        showToast('Invalid audit data received', 'error');
+        return;
+    }
+    
+    currentAuditData = data;
+    currentFilteredResults = data.audit_results;
+    
+    // Update summary cards with full data
+    updateAuditSummary(currentFilteredResults);
+    
+    // Render the table
+    renderAuditTable(currentFilteredResults);
+    
+    // Setup search input listener
+    const searchInput = document.getElementById('auditSearchInput');
+    if (searchInput) {
+        // Remove existing listener to avoid duplicates
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+        newSearchInput.addEventListener('input', filterAuditResults);
+    }
+}
+
+// Recalculate summary after physical count updates
+function recalculateAuditSummary(data) {
+    if (!data || !data.audit_results) return;
+    
+    const results = data.audit_results;
+    let total_expected_closing_value = 0;
+    let total_actual_closing_value = 0;
+    let discrepancies = 0;
+    
+    results.forEach(r => {
+        const buyPrice = r.buy_price || 0;
+        total_expected_closing_value += (r.expected_closing || 0) * buyPrice;
+        total_actual_closing_value += (r.actual_closing || 0) * buyPrice;
+        if ((r.variance || 0) !== 0) discrepancies++;
+    });
+    
+    data.summary.total_expected_closing_value = total_expected_closing_value;
+    data.summary.total_actual_closing_value = total_actual_closing_value;
+    data.summary.total_variance_value = total_actual_closing_value - total_expected_closing_value;
+    data.summary.products_with_discrepancy = discrepancies;
+    data.summary.variance_percentage = total_expected_closing_value > 0 ? (data.summary.total_variance_value / total_expected_closing_value * 100) : 0;
+}
+
 
 // Show Physical Count Modal
 function showPhysicalCountModal(products, startDate, endDate) {
@@ -2781,173 +3032,6 @@ async function submitPhysicalCounts() {
     }
 }
 
-// Display Audit Report
-function displayAuditReport(data) {
-    const summaryContainer = document.getElementById('auditSummaryCards');
-    const summary = data.summary;
-    
-    // Ensure all values are numbers
-    const totalOpeningValue = parseFloat(summary.total_opening_stock_value) || 0;
-    const totalAdditionsValue = parseFloat(summary.total_additions_value) || 0;
-    const totalSalesValue = parseFloat(summary.total_sales_value) || 0;
-    const totalCogs = parseFloat(summary.total_cogs) || 0;
-    const totalProfit = parseFloat(summary.total_profit) || 0;
-    const totalExpectedValue = parseFloat(summary.total_expected_closing_value) || 0;
-    const totalActualValue = parseFloat(summary.total_actual_closing_value) || 0;
-    const totalVarianceValue = parseFloat(summary.total_variance_value) || 0;
-    
-    // Calculate margin percentage safely
-    let marginPercent = 0;
-    if (totalSalesValue > 0) {
-        marginPercent = (totalProfit / totalSalesValue * 100);
-    }
-    
-    summaryContainer.innerHTML = `
-        <div class="col-md-3 col-sm-6">
-            <div class="stat-card">
-                <small class="text-muted">Opening Stock Value</small>
-                <h6 class="fw-bold">$${totalOpeningValue.toFixed(2)}</h6>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <div class="stat-card">
-                <small class="text-muted">Additions</small>
-                <h6 class="fw-bold text-success">+$${totalAdditionsValue.toFixed(2)}</h6>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <div class="stat-card">
-                <small class="text-muted">Sales (Revenue)</small>
-                <h6 class="fw-bold text-primary">$${totalSalesValue.toFixed(2)}</h6>
-                <small class="text-muted">COGS: $${totalCogs.toFixed(2)}</small>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <div class="stat-card">
-                <small class="text-muted">Gross Profit</small>
-                <h6 class="fw-bold text-success">$${totalProfit.toFixed(2)}</h6>
-                <small class="text-muted">Margin: ${marginPercent.toFixed(1)}%</small>
-            </div>
-        </div>
-        <div class="col-md-4 col-sm-6">
-            <div class="stat-card">
-                <small class="text-muted">Expected Closing Value</small>
-                <h6 class="fw-bold">$${totalExpectedValue.toFixed(2)}</h6>
-            </div>
-        </div>
-        <div class="col-md-4 col-sm-6">
-            <div class="stat-card">
-                <small class="text-muted">Actual Closing Value</small>
-                <h6 class="fw-bold">$${totalActualValue.toFixed(2)}</h6>
-            </div>
-        </div>
-        <div class="col-md-4 col-sm-6">
-            <div class="stat-card">
-                <small class="text-muted">Variance</small>
-                <h6 class="fw-bold ${totalVarianceValue >= 0 ? 'text-success' : 'text-danger'}">
-                    ${totalVarianceValue >= 0 ? '+' : ''}$${totalVarianceValue.toFixed(2)}
-                </h6>
-                <small>${summary.products_with_discrepancy} products with issues</small>
-            </div>
-        </div>
-    `;
-    
-    // Display the table
-    const tbody = document.getElementById('auditTableBody');
-    if (!tbody) return;
-    
-    if (!data.audit_results || data.audit_results.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center">No audit results found</td></tr>';
-        return;
-    }
-    
-    tbody.innerHTML = data.audit_results.map(result => {
-        // Ensure numeric values
-        const openingStock = parseInt(result.opening_stock) || 0;
-        const additionsQty = parseInt(result.additions_qty) || 0;
-        const subtractionsQty = parseInt(result.subtractions_qty) || 0;
-        const salesQty = parseInt(result.sales_qty) || 0;
-        const expectedClosing = parseInt(result.expected_closing) || 0;
-        const actualClosing = parseInt(result.actual_closing) || 0;
-        const variance = parseInt(result.variance) || 0;
-        
-        const varianceClass = variance === 0 ? 'text-success' : (variance > 0 ? 'text-warning' : 'text-danger');
-        let statusBadge = '';
-        if (variance === 0) {
-            statusBadge = '<span class="badge bg-success">MATCH</span>';
-        } else if (variance > 0) {
-            statusBadge = '<span class="badge bg-warning">OVERAGE (+' + variance + ')</span>';
-        } else {
-            statusBadge = '<span class="badge bg-danger">SHORTAGE (' + variance + ')</span>';
-        }
-        
-        return `
-            <tr class="${variance !== 0 ? 'table-warning' : ''}">
-                <td>
-                    <strong>${escapeHtml(result.product_name)}</strong>
-                    <br><small class="text-muted">${result.unit_type || 'piece'}: ${result.unit_details || 'N/A'}</small>
-                </td>
-                <td><small>${result.category || 'Uncategorized'}</small></td>
-                <td class="text-center">${openingStock}</td>
-                <td class="text-center text-success">+${additionsQty}</td>
-                <td class="text-center text-danger">-${subtractionsQty}</td>
-                <td class="text-center text-primary">-${salesQty}</td>
-                <td class="text-center fw-bold">${expectedClosing}</td>
-                <td class="text-center">
-                    <input type="number" class="form-control form-control-sm physical-update" 
-                           data-product-id="${result.product_id}"
-                           value="${actualClosing}"
-                           style="width: 80px; display: inline-block;">
-                </td>
-                <td class="text-center ${varianceClass} fw-bold">${variance >= 0 ? '+' : ''}${variance}</td>
-                <td class="text-center">${statusBadge}</td>
-            </tr>
-        `;
-    }).join('');
-    
-    // Add event listeners for physical count updates (remove existing to avoid duplicates)
-    document.querySelectorAll('.physical-update').forEach(input => {
-        const newInput = input.cloneNode(true);
-        input.parentNode.replaceChild(newInput, input);
-        newInput.addEventListener('change', function(e) {
-            const productId = e.target.dataset.productId;
-            const newCount = parseInt(e.target.value) || 0;
-            
-            if (currentAuditData) {
-                const productIndex = currentAuditData.audit_results.findIndex(r => r.product_id == productId);
-                if (productIndex !== -1) {
-                    currentAuditData.audit_results[productIndex].actual_closing = newCount;
-                    const variance = newCount - currentAuditData.audit_results[productIndex].expected_closing;
-                    currentAuditData.audit_results[productIndex].variance = variance;
-                    currentAuditData.audit_results[productIndex].variance_status = variance === 0 ? 'MATCH' : (variance > 0 ? 'OVERAGE' : 'SHORTAGE');
-                    
-                    recalculateAuditSummary(currentAuditData);
-                    displayAuditReport(currentAuditData);
-                }
-            }
-        });
-    });
-}
-
-// Recalculate summary after physical count updates
-function recalculateAuditSummary(data) {
-    const results = data.audit_results;
-    let total_expected_closing_value = 0;
-    let total_actual_closing_value = 0;
-    let discrepancies = 0;
-    
-    results.forEach(r => {
-        total_expected_closing_value += r.expected_closing * r.buy_price;
-        total_actual_closing_value += r.actual_closing * r.buy_price;
-        if (r.variance !== 0) discrepancies++;
-    });
-    
-    data.summary.total_expected_closing_value = total_expected_closing_value;
-    data.summary.total_actual_closing_value = total_actual_closing_value;
-    data.summary.total_variance_value = total_actual_closing_value - total_expected_closing_value;
-    data.summary.products_with_discrepancy = discrepancies;
-    data.summary.variance_percentage = (data.summary.total_variance_value / total_expected_closing_value * 100) || 0;
-}
 
 // Export Audit Report
 // Export Audit Report - Enhanced Excel Export
