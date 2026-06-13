@@ -9814,16 +9814,15 @@ def inventory_audit_report():
         data = request.json
         start_date = data.get('start_date')
         end_date = data.get('end_date')
-        # Optional: physical count data from user input
-        physical_counts = data.get('physical_counts', {})  # {product_id: actual_quantity}
+        physical_counts = data.get('physical_counts', {})
         
         if not start_date or not end_date:
             return jsonify({'success': False, 'error': 'Start date and end date are required'}), 400
         
         with get_db() as (cursor, connection):
-            # ========== 1. GET ALL PRODUCTS ==========
+            # ========== 1. GET ALL ACTIVE PRODUCTS ==========
             cursor.execute("""
-                SELECT id, name, category, unit_type, unit_details, buy_price, sell_price
+                SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock
                 FROM products
                 WHERE is_active = TRUE
                 ORDER BY name
@@ -9840,99 +9839,61 @@ def inventory_audit_report():
                 unit_details = product[4] or ''
                 buy_price = float(product[5]) if product[5] else 0
                 sell_price = float(product[6]) if product[6] else 0
+                current_stock = int(product[7]) if product[7] else 0
                 
-                # ========== 2. OPENING STOCK (as of start_date) ==========
-                # This requires knowing stock at a specific point in time
-                # We need to calculate from current stock minus all movements after start_date
-                
-                # Get current stock
-                cursor.execute("SELECT stock FROM products WHERE id = %s", (product_id,))
-                current_stock = cursor.fetchone()[0] or 0
-                
-                # Calculate total additions after start_date
+                # ========== 2. CALCULATE ADDITIONS WITHIN DATE RANGE ==========
                 cursor.execute("""
-                    SELECT COALESCE(SUM(quantity), 0)
+                    SELECT COALESCE(SUM(quantity), 0), COALESCE(SUM(total_cost), 0)
                     FROM stock_additions
-                    WHERE product_id = %s AND DATE(added_at) > %s
-                """, (product_id, end_date))
-                additions_after_end = cursor.fetchone()[0] or 0
-                
-                # Calculate total subtractions after start_date
-                cursor.execute("""
-                    SELECT COALESCE(SUM(quantity), 0)
-                    FROM stock_reductions
-                    WHERE product_id = %s AND DATE(reduced_at) > %s
-                """, (product_id, end_date))
-                subtractions_after_end = cursor.fetchone()[0] or 0
-                
-                # ========== 3. MOVEMENTS WITHIN DATE RANGE ==========
-                
-                # Additions within range
-                cursor.execute("""
-                    SELECT 
-                        sa.added_at as date,
-                        sa.quantity,
-                        sa.buy_price,
-                        sa.total_cost,
-                        sa.funding_source,
-                        COALESCE(u.full_name, 'System') as user_name
-                    FROM stock_additions sa
-                    LEFT JOIN users u ON sa.user_id = u.id
-                    WHERE sa.product_id = %s 
-                    AND DATE(sa.added_at) BETWEEN %s AND %s
-                    ORDER BY sa.added_at
+                    WHERE product_id = %s 
+                    AND DATE(added_at) >= %s 
+                    AND DATE(added_at) <= %s
                 """, (product_id, start_date, end_date))
-                additions = cursor.fetchall()
+                additions_result = cursor.fetchone()
+                total_additions_qty = int(additions_result[0]) if additions_result[0] else 0
+                total_additions_value = float(additions_result[1]) if additions_result[1] else 0
                 
-                total_additions_qty = sum(a[1] for a in additions) if additions else 0
-                total_additions_value = sum(a[3] for a in additions) if additions else 0
-                
-                # Subtractions within range
+                # ========== 3. CALCULATE SUBTRACTIONS WITHIN DATE RANGE ==========
+                # Check if stock_reductions table exists
                 cursor.execute("""
-                    SELECT 
-                        sr.reduced_at as date,
-                        sr.quantity,
-                        sr.reason,
-                        sr.notes,
-                        COALESCE(u.full_name, 'System') as user_name
-                    FROM stock_reductions sr
-                    LEFT JOIN users u ON sr.user_id = u.id
-                    WHERE sr.product_id = %s 
-                    AND DATE(sr.reduced_at) BETWEEN %s AND %s
-                    ORDER BY sr.reduced_at
-                """, (product_id, start_date, end_date))
-                subtractions = cursor.fetchall()
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'stock_reductions'
+                    )
+                """)
+                subtractions_table_exists = cursor.fetchone()[0]
                 
-                total_subtractions_qty = sum(s[1] for s in subtractions) if subtractions else 0
+                total_subtractions_qty = 0
+                if subtractions_table_exists:
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(quantity), 0)
+                        FROM stock_reductions
+                        WHERE product_id = %s 
+                        AND DATE(reduced_at) >= %s 
+                        AND DATE(reduced_at) <= %s
+                    """, (product_id, start_date, end_date))
+                    subtractions_result = cursor.fetchone()
+                    total_subtractions_qty = int(subtractions_result[0]) if subtractions_result[0] else 0
                 
-                # ========== 4. SALES WITHIN DATE RANGE ==========
+                # ========== 4. CALCULATE SALES WITHIN DATE RANGE ==========
                 cursor.execute("""
-                    SELECT 
-                        t.created_at as date,
-                        ti.quantity,
-                        ti.price_at_time as sell_price,
-                        ti.subtotal,
-                        t.transaction_number
+                    SELECT COALESCE(SUM(ti.quantity), 0), COALESCE(SUM(ti.subtotal), 0), COALESCE(SUM(ti.quantity * p.buy_price), 0)
                     FROM transaction_items ti
                     JOIN transactions t ON ti.transaction_id = t.id
+                    JOIN products p ON ti.product_id = p.id
                     WHERE ti.product_id = %s 
-                    AND DATE(t.created_at) BETWEEN %s AND %s
+                    AND DATE(t.created_at) >= %s 
+                    AND DATE(t.created_at) <= %s
                     AND t.status = 'completed'
-                    ORDER BY t.created_at
                 """, (product_id, start_date, end_date))
-                sales = cursor.fetchall()
-                
-                total_sales_qty = sum(s[1] for s in sales) if sales else 0
-                total_sales_value = sum(s[3] for s in sales) if sales else 0
-                total_cogs = sum(s[1] * (buy_price) for s in sales) if sales else 0
+                sales_result = cursor.fetchone()
+                total_sales_qty = int(sales_result[0]) if sales_result[0] else 0
+                total_sales_value = float(sales_result[1]) if sales_result[1] else 0
+                total_cogs = float(sales_result[2]) if sales_result[2] else 0
                 total_profit = total_sales_value - total_cogs
                 
                 # ========== 5. CALCULATE OPENING STOCK ==========
-                # Opening Stock = Current Stock - Additions(within range) + Subtractions(within range) + Sales(within range)
-                # Because:
-                # Current = Opening + Additions - Subtractions - Sales
-                # Therefore: Opening = Current - Additions + Subtractions + Sales
-                
+                # Opening Stock = Current Stock - Additions + Subtractions + Sales
                 opening_stock = current_stock - total_additions_qty + total_subtractions_qty + total_sales_qty
                 
                 # ========== 6. EXPECTED CLOSING STOCK ==========
@@ -9940,10 +9901,11 @@ def inventory_audit_report():
                 
                 # ========== 7. ACTUAL CLOSING STOCK ==========
                 actual_closing = physical_counts.get(str(product_id), current_stock)
+                if actual_closing is None:
+                    actual_closing = current_stock
                 
                 # ========== 8. VARIANCE ==========
-                variance = actual_closing - expected_closing
-                variance_status = 'MATCH' if variance == 0 else 'OVERAGE' if variance > 0 else 'SHORTAGE'
+                variance = int(actual_closing) - int(expected_closing)
                 
                 # Only include products with any movement or non-zero stock
                 if opening_stock != 0 or total_additions_qty != 0 or total_subtractions_qty != 0 or total_sales_qty != 0 or actual_closing != 0:
@@ -9966,12 +9928,7 @@ def inventory_audit_report():
                         'expected_closing': expected_closing,
                         'actual_closing': actual_closing,
                         'variance': variance,
-                        'variance_status': variance_status,
-                        'movements': {
-                            'additions': [{'date': a[0].isoformat(), 'quantity': a[1], 'cost': float(a[2]), 'total': float(a[3]), 'funding': a[4], 'user': a[5]} for a in additions],
-                            'subtractions': [{'date': s[0].isoformat(), 'quantity': s[1], 'reason': s[2], 'notes': s[3], 'user': s[4]} for s in subtractions],
-                            'sales': [{'date': sale[0].isoformat(), 'quantity': sale[1], 'price': float(sale[2]), 'total': float(sale[3]), 'receipt': sale[4]} for sale in sales]
-                        }
+                        'variance_status': 'MATCH' if variance == 0 else ('OVERAGE' if variance > 0 else 'SHORTAGE')
                     })
             
             # Calculate summary statistics
@@ -10015,6 +9972,204 @@ def inventory_audit_report():
         logging.error(f'Error generating inventory audit report: {str(e)}')
         logging.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/export-audit-report-excel', methods=['POST'])
+@login_required
+def export_audit_report_excel():
+    """Export audit report to Excel with detailed sheets"""
+    try:
+        data = request.json
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        physical_counts = data.get('physical_counts', {})
+        
+        if not start_date or not end_date:
+            return jsonify({'success': False, 'error': 'Start date and end date are required'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Get all active products
+            cursor.execute("""
+                SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock
+                FROM products
+                WHERE is_active = TRUE
+                ORDER BY name
+            """)
+            products = cursor.fetchall()
+            
+            audit_data = []
+            
+            for product in products:
+                product_id = product[0]
+                product_name = product[1]
+                category = product[2] or 'Uncategorized'
+                unit_type = product[3] or 'piece'
+                unit_details = product[4] or ''
+                buy_price = float(product[5]) if product[5] else 0
+                sell_price = float(product[6]) if product[6] else 0
+                current_stock = int(product[7]) if product[7] else 0
+                
+                # Get additions
+                cursor.execute("""
+                    SELECT COALESCE(SUM(quantity), 0), COALESCE(SUM(total_cost), 0)
+                    FROM stock_additions
+                    WHERE product_id = %s AND DATE(added_at) >= %s AND DATE(added_at) <= %s
+                """, (product_id, start_date, end_date))
+                additions = cursor.fetchone()
+                total_additions_qty = int(additions[0]) if additions[0] else 0
+                total_additions_value = float(additions[1]) if additions[1] else 0
+                
+                # Get subtractions
+                cursor.execute("""
+                    SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'stock_reductions')
+                """)
+                has_table = cursor.fetchone()[0]
+                total_subtractions_qty = 0
+                if has_table:
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(quantity), 0)
+                        FROM stock_reductions
+                        WHERE product_id = %s AND DATE(reduced_at) >= %s AND DATE(reduced_at) <= %s
+                    """, (product_id, start_date, end_date))
+                    subtractions = cursor.fetchone()
+                    total_subtractions_qty = int(subtractions[0]) if subtractions[0] else 0
+                
+                # Get sales
+                cursor.execute("""
+                    SELECT COALESCE(SUM(ti.quantity), 0), COALESCE(SUM(ti.subtotal), 0), COALESCE(SUM(ti.quantity * p.buy_price), 0)
+                    FROM transaction_items ti
+                    JOIN transactions t ON ti.transaction_id = t.id
+                    JOIN products p ON ti.product_id = p.id
+                    WHERE ti.product_id = %s AND DATE(t.created_at) >= %s AND DATE(t.created_at) <= %s
+                """, (product_id, start_date, end_date))
+                sales = cursor.fetchone()
+                total_sales_qty = int(sales[0]) if sales[0] else 0
+                total_sales_value = float(sales[1]) if sales[1] else 0
+                total_cogs = float(sales[2]) if sales[2] else 0
+                
+                # Calculate values
+                opening_stock = current_stock - total_additions_qty + total_subtractions_qty + total_sales_qty
+                expected_closing = opening_stock + total_additions_qty - total_subtractions_qty - total_sales_qty
+                actual_closing = physical_counts.get(str(product_id), current_stock)
+                variance = int(actual_closing) - int(expected_closing)
+                
+                if opening_stock != 0 or total_additions_qty != 0 or total_subtractions_qty != 0 or total_sales_qty != 0 or actual_closing != 0:
+                    audit_data.append({
+                        'Product ID': product_id,
+                        'Product Name': product_name,
+                        'Category': category,
+                        'Unit': f"{unit_type}: {unit_details}",
+                        'Buy Price ($)': buy_price,
+                        'Sell Price ($)': sell_price,
+                        'Opening Stock': opening_stock,
+                        'Opening Value ($)': opening_stock * buy_price,
+                        'Additions Qty': total_additions_qty,
+                        'Additions Value ($)': total_additions_value,
+                        'Subtractions Qty': total_subtractions_qty,
+                        'Sales Qty': total_sales_qty,
+                        'Sales Revenue ($)': total_sales_value,
+                        'COGS ($)': total_cogs,
+                        'Gross Profit ($)': total_sales_value - total_cogs,
+                        'Expected Closing': expected_closing,
+                        'Expected Closing Value ($)': expected_closing * buy_price,
+                        'Physical Count': actual_closing,
+                        'Physical Count Value ($)': actual_closing * buy_price,
+                        'Variance (Units)': variance,
+                        'Variance Value ($)': variance * buy_price,
+                        'Status': 'MATCH' if variance == 0 else ('OVERAGE' if variance > 0 else 'SHORTAGE')
+                    })
+            
+            # Create Excel file
+            output = io.BytesIO()
+            
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # Sheet 1: Audit Details
+                df_details = pd.DataFrame(audit_data)
+                df_details.to_excel(writer, sheet_name='Audit Details', index=False)
+                
+                # Sheet 2: Summary
+                total_opening_value = sum(d['Opening Value ($)'] for d in audit_data)
+                total_additions_value = sum(d['Additions Value ($)'] for d in audit_data)
+                total_sales_revenue = sum(d['Sales Revenue ($)'] for d in audit_data)
+                total_cogs_sum = sum(d['COGS ($)'] for d in audit_data)
+                total_profit = sum(d['Gross Profit ($)'] for d in audit_data)
+                total_expected_value = sum(d['Expected Closing Value ($)'] for d in audit_data)
+                total_actual_value = sum(d['Physical Count Value ($)'] for d in audit_data)
+                total_variance = total_actual_value - total_expected_value
+                
+                summary_data = [
+                    {'Metric': 'Audit Period', 'Value': f"{start_date} to {end_date}"},
+                    {'Metric': 'Generated On', 'Value': datetime.now().strftime('%d %B %Y %H:%M:%S')},
+                    {'Metric': '', 'Value': ''},
+                    {'Metric': 'OPENING STOCK', 'Value': ''},
+                    {'Metric': '  Total Opening Stock Value', 'Value': f"${total_opening_value:,.2f}"},
+                    {'Metric': '', 'Value': ''},
+                    {'Metric': 'MOVEMENTS', 'Value': ''},
+                    {'Metric': '  Total Additions Value', 'Value': f"${total_additions_value:,.2f}"},
+                    {'Metric': '  Total Sales Revenue', 'Value': f"${total_sales_revenue:,.2f}"},
+                    {'Metric': '  Cost of Goods Sold', 'Value': f"${total_cogs_sum:,.2f}"},
+                    {'Metric': '  Gross Profit', 'Value': f"${total_profit:,.2f}"},
+                    {'Metric': '  Gross Margin %', 'Value': f"{(total_profit/total_sales_revenue*100):.1f}%" if total_sales_revenue > 0 else '0%'},
+                    {'Metric': '', 'Value': ''},
+                    {'Metric': 'CLOSING STOCK', 'Value': ''},
+                    {'Metric': '  Expected Closing Value', 'Value': f"${total_expected_value:,.2f}"},
+                    {'Metric': '  Physical Count Value', 'Value': f"${total_actual_value:,.2f}"},
+                    {'Metric': '  Variance', 'Value': f"${total_variance:,.2f}"},
+                    {'Metric': '  Variance %', 'Value': f"{(total_variance/total_expected_value*100):.1f}%" if total_expected_value > 0 else '0%'},
+                    {'Metric': '', 'Value': ''},
+                    {'Metric': 'Products with Discrepancy', 'Value': len([d for d in audit_data if d['Variance (Units)'] != 0])},
+                    {'Metric': 'Total Products Audited', 'Value': len(audit_data)}
+                ]
+                
+                df_summary = pd.DataFrame(summary_data)
+                df_summary.to_excel(writer, sheet_name='Summary', index=False)
+                
+                # Sheet 3: Discrepancies Only
+                discrepancies = [d for d in audit_data if d['Variance (Units)'] != 0]
+                if discrepancies:
+                    df_discrepancies = pd.DataFrame(discrepancies)
+                    df_discrepancies.to_excel(writer, sheet_name='Discrepancies Only', index=False)
+                
+                # Format sheets
+                for sheet_name in writer.sheets:
+                    worksheet = writer.sheets[sheet_name]
+                    
+                    # Adjust column widths
+                    for column in worksheet.columns:
+                        max_length = 0
+                        column_letter = column[0].column_letter
+                        for cell in column:
+                            try:
+                                if cell.value:
+                                    cell_length = len(str(cell.value))
+                                    if cell_length > max_length:
+                                        max_length = cell_length
+                            except:
+                                pass
+                        adjusted_width = min(max_length + 2, 30)
+                        worksheet.column_dimensions[column_letter].width = adjusted_width
+                    
+                    # Style header row
+                    for cell in worksheet[1]:
+                        cell.font = Font(bold=True, color="FFFFFF")
+                        cell.fill = PatternFill(start_color="0A2B3E", end_color="0A2B3E", fill_type="solid")
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+            
+            output.seek(0)
+            
+            filename = f"Inventory_Audit_Report_{start_date}_to_{end_date}.xlsx"
+            
+            return send_file(
+                output,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=filename
+            )
+            
+    except Exception as e:
+        logging.error(f'Error exporting audit report: {str(e)}')
+        logging.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/products/<int:product_id>/subtract-stock', methods=['PUT'])
 @login_required
