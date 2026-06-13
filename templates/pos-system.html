@@ -1615,24 +1615,97 @@
 </div>
 
 
+<!-- Inventory Movements Export Modal (Additions & Subtractions Combined) -->
+<div class="modal fade" id="inventoryMovementsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#0a2b3e;color:white;">
+                <h5 class="modal-title"><i class="fas fa-chart-line me-1"></i>Export Inventory Movements</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Export both stock additions and subtractions within a selected date range.
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="movementsStartDate">Start Date *</label>
+                        <input type="date" class="form-control" id="movementsStartDate" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="movementsEndDate">End Date *</label>
+                        <input type="date" class="form-control" id="movementsEndDate" required>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Include:</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="includeAdditions" checked>
+                            <label class="form-check-label small" for="includeAdditions">
+                                <i class="fas fa-arrow-up text-success me-1"></i>Stock Additions
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeSubtractions" checked>
+                            <label class="form-check-label small" for="includeSubtractions">
+                                <i class="fas fa-arrow-down text-danger me-1"></i>Stock Subtractions
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6" id="fundingSourceDiv">
+                        <label class="form-label fw-bold">Funding Source (for Additions):</label>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="includeProfitFunding" checked>
+                            <label class="form-check-label small" for="includeProfitFunding">
+                                From Profits
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeCapitalFunding" checked>
+                            <label class="form-check-label small" for="includeCapitalFunding">
+                                New Capital
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary-dark btn-sm" onclick="exportInventoryMovements()">
+                    <i class="fas fa-file-excel me-1"></i>Export Excel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
             <!-- Inventory Page -->
             <div id="inventoryPage" style="display: none;">
                 <div class="section-card">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        <h5 class="fw-bold mb-0"><i class="fas fa-boxes me-1"></i>Inventory Management</h5>
-                            <div class="d-flex gap-2">
-                                <div class="position-relative" style="width: 250px;">
-                                    <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
-                                    <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
-                                    <input type="text" class="form-control ps-5" id="inventorySearch" placeholder="Search by name, category, or details..." style="border-radius: 30px; font-size: 0.7rem; padding: 5px 10px;" autocomplete="off">
-                                </div>
-                                <button class="btn btn-primary-dark" onclick="showAddInventoryModal()">
-                                    <i class="fas fa-plus me-1"></i>Add Product
-                                </button>
-                                <button class="btn btn-success" id="downloadInventoryExcelBtn">
-                                    <i class="fas fa-file-excel me-1"></i>Download Excel
-                                </button>
+                        <h5 class="fw-bold mb-0">
+                            <i class="fas fa-boxes me-1"></i>Inventory Management
+                        </h5>
+                        <div class="d-flex gap-2">
+                            <div class="position-relative" style="width: 250px;">
+                                <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
+                                <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
+                                <input type="text" class="form-control ps-5" id="inventorySearch" placeholder="Search by name, category, or details..." style="border-radius: 30px; font-size: 0.7rem; padding: 5px 10px;" autocomplete="off">
                             </div>
+                            <button class="btn btn-primary-dark" onclick="showAddInventoryModal()">
+                                <i class="fas fa-plus me-1"></i>Add Product
+                            </button>
+                            <button class="btn btn-success" id="downloadInventoryExcelBtn">
+                                <i class="fas fa-file-excel me-1"></i>Export Current Inventory in Excel
+                            </button>
+                            <button class="btn btn-info" onclick="showInventoryMovementsModal()">
+                                <i class="fas fa-chart-line me-1"></i>Stock Additions & Subtractions
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- Inventory Summary Cards -->
@@ -2476,6 +2549,157 @@
 <script>
     // API Base URL
     const API_BASE = window.location.origin;
+
+// Show Inventory Movements Modal
+function showInventoryMovementsModal() {
+    // Set default dates: last 30 days to today
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    document.getElementById('movementsStartDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+    document.getElementById('movementsEndDate').value = today.toISOString().split('T')[0];
+    
+    // Reset checkboxes
+    document.getElementById('includeAdditions').checked = true;
+    document.getElementById('includeSubtractions').checked = true;
+    document.getElementById('includeProfitFunding').checked = true;
+    document.getElementById('includeCapitalFunding').checked = true;
+    
+    new bootstrap.Modal(document.getElementById('inventoryMovementsModal')).show();
+}
+
+// Export Inventory Movements (Combined Additions & Subtractions)
+async function exportInventoryMovements() {
+    const startDate = document.getElementById('movementsStartDate').value;
+    const endDate = document.getElementById('movementsEndDate').value;
+    const includeAdditions = document.getElementById('includeAdditions').checked;
+    const includeSubtractions = document.getElementById('includeSubtractions').checked;
+    const includeProfit = document.getElementById('includeProfitFunding').checked;
+    const includeCapital = document.getElementById('includeCapitalFunding').checked;
+    
+    if (!startDate || !endDate) {
+        showToast('Please select both start and end dates', 'error');
+        return;
+    }
+    
+    if (!includeAdditions && !includeSubtractions) {
+        showToast('Please select at least one movement type (Additions or Subtractions)', 'error');
+        return;
+    }
+    
+    if (includeAdditions && !includeProfit && !includeCapital) {
+        showToast('Please select at least one funding source for additions', 'error');
+        return;
+    }
+    
+    showLoader('Fetching inventory movements...');
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/inventory-movements/export`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate,
+                include_additions: includeAdditions,
+                include_subtractions: includeSubtractions,
+                include_profit: includeProfit,
+                include_capital: includeCapital
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            showToast(data.error || 'Failed to fetch inventory movements', 'error');
+            return;
+        }
+        
+        const movements = data.movements;
+        const summary = data.summary;
+        
+        if (movements.length === 0) {
+            showToast('No inventory movements found for the selected criteria', 'info');
+            hideLoader();
+            return;
+        }
+        
+        // Prepare data for Excel - Main movements sheet
+        const excelData = movements.map(m => ({
+            'Date': m.date ? new Date(m.date).toLocaleString() : '',
+            'Type': m.movement_type === 'ADDITION' ? '📦 ADDITION' : '⚠️ SUBTRACTION',
+            'Product ID': m.product_id,
+            'Product Name': m.product_name,
+            'Quantity': m.movement_type === 'ADDITION' ? `+${m.quantity}` : `${m.quantity}`,
+            'Cost per Unit ($)': m.cost_per_unit ? m.cost_per_unit.toFixed(2) : 'N/A',
+            'Total Value ($)': m.total_value ? m.total_value.toFixed(2) : 'N/A',
+            'Funding Source': m.funding_source === 'profit' ? 'From Profits' : (m.funding_source === 'capital' ? 'New Capital' : 'N/A'),
+            'Reason': m.reason || 'N/A',
+            'Notes': m.notes || '',
+            'User': m.user
+        }));
+        
+        // Create Excel workbook
+        const wb = XLSX.utils.book_new();
+        
+        // Sheet 1: Movements Details
+        const wsMovements = XLSX.utils.json_to_sheet(excelData);
+        XLSX.utils.book_append_sheet(wb, wsMovements, 'Inventory Movements');
+        
+        // Sheet 2: Summary Statistics
+        const summaryData = [
+            { 'Metric': 'Report Period', 'Value': `${summary.start_date} to ${summary.end_date}` },
+            { 'Metric': '', 'Value': '' },
+            { 'Metric': '📦 STOCK ADDITIONS', 'Value': '' },
+            { 'Metric': '  Total Quantity Added', 'Value': summary.total_additions_quantity },
+            { 'Metric': '  Total Value Added', 'Value': `$${summary.total_additions_value.toFixed(2)}` },
+            { 'Metric': '    - From Profits', 'Value': `$${summary.profit_funded.toFixed(2)}` },
+            { 'Metric': '    - New Capital', 'Value': `$${summary.capital_funded.toFixed(2)}` },
+            { 'Metric': '', 'Value': '' },
+            { 'Metric': '⚠️ STOCK SUBTRACTIONS', 'Value': '' },
+            { 'Metric': '  Total Quantity Removed', 'Value': summary.total_subtractions_quantity },
+            { 'Metric': '', 'Value': '' },
+            { 'Metric': '📊 NET CHANGE', 'Value': summary.net_change },
+            { 'Metric': '', 'Value': '' },
+            { 'Metric': '📋 SUBTRACTION BREAKDOWN BY REASON', 'Value': '' }
+        ];
+        
+        // Add reason breakdown
+        for (const [reason, qty] of Object.entries(summary.reason_breakdown)) {
+            summaryData.push({ 'Metric': `  ${reason}`, 'Value': qty });
+        }
+        
+        const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+        
+        // Auto-adjust column widths for movements sheet
+        const colWidths = [20, 15, 10, 35, 10, 15, 15, 15, 18, 30, 18];
+        wsMovements['!cols'] = colWidths.map(w => ({ wch: w }));
+        
+        // Style the summary sheet (add some empty rows for spacing)
+        wsSummary['!cols'] = [{ wch: 35 }, { wch: 20 }];
+        
+        // Generate filename
+        const startFormatted = startDate.split('-').reverse().join('-');
+        const endFormatted = endDate.split('-').reverse().join('-');
+        const filename = `Inventory_Movements_${startFormatted}_to_${endFormatted}.xlsx`;
+        
+        XLSX.writeFile(wb, filename);
+        showToast(`Exported ${movements.length} inventory movements`, 'success');
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('inventoryMovementsModal'));
+        if (modal) modal.hide();
+        
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast('Error exporting inventory movements: ' + error.message, 'error');
+    } finally {
+        hideLoader();
+    }
+}
 
     // Category & Sub-Category Mapping
     const categoryMapping = {

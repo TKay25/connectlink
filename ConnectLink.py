@@ -20101,6 +20101,172 @@ def log_quotation_whatsapp_send(
         ))
         connection.commit()
 
+@app.route('/api/inventory-movements/export', methods=['POST'])
+@login_required
+def export_inventory_movements():
+    """Export both stock additions and subtractions within a date range"""
+    try:
+        data = request.json
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        include_additions = data.get('include_additions', True)
+        include_subtractions = data.get('include_subtractions', True)
+        include_profit = data.get('include_profit', True)
+        include_capital = data.get('include_capital', True)
+        
+        if not start_date or not end_date:
+            return jsonify({'success': False, 'error': 'Start date and end date are required'}), 400
+        
+        movements = []
+        
+        with get_db() as (cursor, connection):
+            # ========== STOCK ADDITIONS ==========
+            if include_additions:
+                # Build funding source filter
+                funding_filters = []
+                if include_profit:
+                    funding_filters.append("funding_source = 'profit'")
+                if include_capital:
+                    funding_filters.append("funding_source = 'capital'")
+                
+                if funding_filters:
+                    funding_condition = "(" + " OR ".join(funding_filters) + ")"
+                    
+                    additions_query = f"""
+                        SELECT 
+                            sa.added_at as date,
+                            sa.product_id,
+                            p.name as product_name,
+                            sa.quantity,
+                            sa.buy_price as cost_per_unit,
+                            sa.total_cost,
+                            sa.funding_source,
+                            COALESCE(u.full_name, 'System') as user_name,
+                            'ADDITION' as movement_type,
+                            NULL as reason,
+                            NULL as notes
+                        FROM stock_additions sa
+                        LEFT JOIN products p ON sa.product_id = p.id
+                        LEFT JOIN users u ON sa.user_id = u.id
+                        WHERE DATE(sa.added_at) BETWEEN %s AND %s
+                        AND {funding_condition}
+                    """
+                    
+                    cursor.execute(additions_query, (start_date, end_date))
+                    additions_rows = cursor.fetchall()
+                    
+                    for row in additions_rows:
+                        movements.append({
+                            'date': row[0],
+                            'product_id': row[1],
+                            'product_name': row[2] or f'Product ID: {row[1]}',
+                            'quantity': row[3] or 0,
+                            'cost_per_unit': float(row[4]) if row[4] else 0,
+                            'total_value': float(row[5]) if row[5] else 0,
+                            'funding_source': row[6] if row[6] else 'capital',
+                            'user': row[7] or 'System',
+                            'movement_type': 'ADDITION',
+                            'reason': row[8],
+                            'notes': row[9]
+                        })
+            
+            # ========== STOCK SUBTRACTIONS ==========
+            if include_subtractions:
+                # Check if stock_reductions table exists
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'stock_reductions'
+                    )
+                """)
+                table_exists = cursor.fetchone()[0]
+                
+                if table_exists:
+                    subtractions_query = """
+                        SELECT 
+                            sr.reduced_at as date,
+                            sr.product_id,
+                            p.name as product_name,
+                            sr.quantity,
+                            NULL as cost_per_unit,
+                            NULL as total_value,
+                            NULL as funding_source,
+                            COALESCE(u.full_name, 'System') as user_name,
+                            'SUBTRACTION' as movement_type,
+                            sr.reason,
+                            sr.notes
+                        FROM stock_reductions sr
+                        LEFT JOIN products p ON sr.product_id = p.id
+                        LEFT JOIN users u ON sr.user_id = u.id
+                        WHERE DATE(sr.reduced_at) BETWEEN %s AND %s
+                    """
+                    
+                    cursor.execute(subtractions_query, (start_date, end_date))
+                    subtractions_rows = cursor.fetchall()
+                    
+                    reason_map = {
+                        'damaged': 'Damaged/Defective',
+                        'loss': 'Loss/Theft',
+                        'return': 'Customer Return',
+                        'adjustment': 'Inventory Adjustment',
+                        'other': 'Other'
+                    }
+                    
+                    for row in subtractions_rows:
+                        reason_display = reason_map.get(row[9], row[9] or 'Other')
+                        movements.append({
+                            'date': row[0],
+                            'product_id': row[1],
+                            'product_name': row[2] or f'Product ID: {row[1]}',
+                            'quantity': -(row[3] or 0),  # Negative for subtractions
+                            'cost_per_unit': None,
+                            'total_value': None,
+                            'funding_source': None,
+                            'user': row[7] or 'System',
+                            'movement_type': 'SUBTRACTION',
+                            'reason': reason_display,
+                            'notes': row[10] or ''
+                        })
+            
+            # Sort by date (newest first)
+            movements.sort(key=lambda x: x['date'], reverse=True)
+            
+            # Calculate summary statistics
+            total_additions_qty = sum(m['quantity'] for m in movements if m['movement_type'] == 'ADDITION')
+            total_subtractions_qty = abs(sum(m['quantity'] for m in movements if m['movement_type'] == 'SUBTRACTION'))
+            net_change = total_additions_qty - total_subtractions_qty
+            
+            total_additions_value = sum(m['total_value'] for m in movements if m['total_value'] is not None)
+            profit_funded = sum(m['total_value'] for m in movements if m.get('funding_source') == 'profit')
+            capital_funded = sum(m['total_value'] for m in movements if m.get('funding_source') == 'capital')
+            
+            # Breakdown by reason for subtractions
+            reason_breakdown = {}
+            for m in movements:
+                if m['movement_type'] == 'SUBTRACTION' and m.get('reason'):
+                    reason_breakdown[m['reason']] = reason_breakdown.get(m['reason'], 0) + abs(m['quantity'])
+            
+            return jsonify({
+                'success': True,
+                'movements': movements,
+                'count': len(movements),
+                'summary': {
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'total_additions_quantity': total_additions_qty,
+                    'total_subtractions_quantity': total_subtractions_qty,
+                    'net_change': net_change,
+                    'total_additions_value': total_additions_value,
+                    'profit_funded': profit_funded,
+                    'capital_funded': capital_funded,
+                    'reason_breakdown': reason_breakdown
+                }
+            })
+            
+    except Exception as e:
+        logging.error(f'Error exporting inventory movements: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/kitchen-items', methods=['GET'])
 def get_kitchen_items():
     """Get all available kitchen/cabinet items from database"""
