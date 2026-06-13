@@ -1683,6 +1683,107 @@
     </div>
 </div>
 
+<!-- Inventory Audit Report Modal -->
+<div class="modal fade" id="auditReportModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#dc2626;color:white;">
+                <h5 class="modal-title"><i class="fas fa-clipboard-list me-1"></i>Inventory Audit Report</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small mb-3">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>Audit Report</strong> - This report tracks stock movements and compares expected vs actual inventory.
+                    You can enter physical count numbers to identify discrepancies.
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-5">
+                        <label class="form-label fw-bold" for="auditStartDate">Start Date *</label>
+                        <input type="date" class="form-control" id="auditStartDate" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-bold" for="auditEndDate">End Date *</label>
+                        <input type="date" class="form-control" id="auditEndDate" required>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-primary w-100" onclick="generateAuditReport()">
+                            <i class="fas fa-search me-1"></i>Generate
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="auditReportResults" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-chart-bar me-1"></i>Audit Results</h6>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-success" onclick="exportAuditReport('excel')">
+                                <i class="fas fa-file-excel me-1"></i>Export Excel
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="exportAuditReport('pdf')">
+                                <i class="fas fa-file-pdf me-1"></i>Export PDF
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Summary Cards -->
+                    <div class="row g-2 mb-3" id="auditSummaryCards"></div>
+                    
+                    <!-- Products Table -->
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered" id="auditTable">
+                            <thead class="table-light sticky-top" style="position: sticky; top: 0; z-index: 10;">
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Opening Stock</th>
+                                    <th>Additions</th>
+                                    <th>Subtractions</th>
+                                    <th>Sales</th>
+                                    <th>Expected Closing</th>
+                                    <th>Physical Count</th>
+                                    <th>Variance</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Physical Count Entry Modal -->
+<div class="modal fade" id="physicalCountModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#0a2b3e;color:white;">
+                <h5 class="modal-title"><i class="fas fa-calculator me-1"></i>Enter Physical Counts</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Enter the actual physical count for each product. Leave blank to use current system stock.
+                </div>
+                <div id="physicalCountFields"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-primary-dark btn-sm" onclick="submitPhysicalCounts()">
+                    <i class="fas fa-check me-1"></i>Calculate Audit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
             <!-- Inventory Page -->
             <div id="inventoryPage" style="display: none;">
                 <div class="section-card">
@@ -1704,6 +1805,9 @@
                             </button>
                             <button class="btn btn-info" onclick="showInventoryMovementsModal()">
                                 <i class="fas fa-chart-line me-1"></i>Stock Additions & Subtractions
+                            </button>
+                            <button class="btn btn-danger" onclick="showAuditReportModal()">
+                                <i class="fas fa-clipboard-list me-1"></i>Audit Report
                             </button>
                         </div>
                     </div>
@@ -2549,6 +2653,350 @@
 <script>
     // API Base URL
     const API_BASE = window.location.origin;
+
+let currentAuditData = null;
+
+// Show Audit Report Modal
+function showAuditReportModal() {
+    // Set default dates: last 30 days to today
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    document.getElementById('auditStartDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+    document.getElementById('auditEndDate').value = today.toISOString().split('T')[0];
+    
+    document.getElementById('auditReportResults').style.display = 'none';
+    
+    new bootstrap.Modal(document.getElementById('auditReportModal')).show();
+}
+
+// Generate Audit Report
+async function generateAuditReport() {
+    const startDate = document.getElementById('auditStartDate').value;
+    const endDate = document.getElementById('auditEndDate').value;
+    
+    if (!startDate || !endDate) {
+        showToast('Please select both start and end dates', 'error');
+        return;
+    }
+    
+    showLoader('Generating audit report...');
+    
+    try {
+        // First, get products to collect physical counts
+        const productsResponse = await fetch(`${API_BASE}/api/products`, { credentials: 'include' });
+        const productsData = await productsResponse.json();
+        
+        if (productsData.success && productsData.products) {
+            // Show physical count modal first
+            showPhysicalCountModal(productsData.products, startDate, endDate);
+        } else {
+            showToast('Failed to load products', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Error generating report', 'error');
+    } finally {
+        hideLoader();
+    }
+}
+
+// Show Physical Count Modal
+function showPhysicalCountModal(products, startDate, endDate) {
+    const container = document.getElementById('physicalCountFields');
+    
+    let html = '<table class="table table-sm table-bordered"><thead class="table-light"><tr><th>Product</th><th>Current Stock</th><th>Physical Count</th></tr></thead><tbody>';
+    
+    products.forEach(product => {
+        html += `
+            <tr>
+                <td><strong>${escapeHtml(product.name)}</strong><br><small class="text-muted">${product.category} | ${product.unit_type}: ${product.unit_details || 'N/A'}</small></td>
+                <td class="text-center">${product.stock}</td>
+                <td>
+                    <input type="number" class="form-control form-control-sm physical-count-input" 
+                           data-product-id="${product.id}" 
+                           data-product-name="${escapeHtml(product.name)}"
+                           value="${product.stock}"
+                           style="width: 100px;">
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+    
+    // Store products and dates for later use
+    window.auditProducts = products;
+    window.auditStartDate = startDate;
+    window.auditEndDate = endDate;
+    
+    new bootstrap.Modal(document.getElementById('physicalCountModal')).show();
+}
+
+// Submit Physical Counts and Generate Audit
+async function submitPhysicalCounts() {
+    const physicalCounts = {};
+    const inputs = document.querySelectorAll('.physical-count-input');
+    
+    inputs.forEach(input => {
+        const productId = input.dataset.productId;
+        const count = parseInt(input.value) || 0;
+        physicalCounts[productId] = count;
+    });
+    
+    // Close physical count modal
+    bootstrap.Modal.getInstance(document.getElementById('physicalCountModal')).hide();
+    
+    showLoader('Calculating audit results...');
+    
+    try {
+        const response = await fetch(`${API_BASE}/api/inventory-audit-report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                start_date: window.auditStartDate,
+                end_date: window.auditEndDate,
+                physical_counts: physicalCounts
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentAuditData = data;
+            displayAuditReport(data);
+            document.getElementById('auditReportResults').style.display = 'block';
+        } else {
+            showToast(data.error || 'Failed to generate audit report', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Error generating audit report', 'error');
+    } finally {
+        hideLoader();
+    }
+}
+
+// Display Audit Report
+function displayAuditReport(data) {
+    // Display summary cards
+    const summaryContainer = document.getElementById('auditSummaryCards');
+    const summary = data.summary;
+    
+    summaryContainer.innerHTML = `
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Opening Stock Value</small>
+                <h6 class="fw-bold">$${summary.total_opening_stock_value.toFixed(2)}</h6>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Additions</small>
+                <h6 class="fw-bold text-success">+$${summary.total_additions_value.toFixed(2)}</h6>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Sales (Revenue)</small>
+                <h6 class="fw-bold text-primary">$${summary.total_sales_value.toFixed(2)}</h6>
+                <small class="text-muted">COGS: $${summary.total_cogs.toFixed(2)}</small>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Gross Profit</small>
+                <h6 class="fw-bold text-success">$${summary.total_profit.toFixed(2)}</h6>
+                <small class="text-muted">Margin: ${summary.variance_percentage.toFixed(1)}%</small>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Expected Closing Value</small>
+                <h6 class="fw-bold">$${summary.total_expected_closing_value.toFixed(2)}</h6>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Actual Closing Value</small>
+                <h6 class="fw-bold">$${summary.total_actual_closing_value.toFixed(2)}</h6>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card">
+                <small class="text-muted">Variance</small>
+                <h6 class="fw-bold ${summary.total_variance_value >= 0 ? 'text-success' : 'text-danger'}">
+                    ${summary.total_variance_value >= 0 ? '+' : ''}$${summary.total_variance_value.toFixed(2)}
+                </h6>
+                <small>${summary.products_with_discrepancy} products with issues</small>
+            </div>
+        </div>
+    `;
+    
+    // Display table
+    const tbody = document.getElementById('auditTableBody');
+    
+    tbody.innerHTML = data.audit_results.map(result => {
+        const varianceClass = result.variance === 0 ? 'text-success' : (result.variance > 0 ? 'text-warning' : 'text-danger');
+        const statusBadge = result.variance === 0 ? 
+            '<span class="badge bg-success">MATCH</span>' : 
+            (result.variance > 0 ? 
+                '<span class="badge bg-warning">OVERAGE (+' + result.variance + ')</span>' : 
+                '<span class="badge bg-danger">SHORTAGE (' + result.variance + ')</span>');
+        
+        return `
+            <tr class="${result.variance !== 0 ? 'table-warning' : ''}">
+                <td>
+                    <strong>${escapeHtml(result.product_name)}</strong>
+                    <br><small class="text-muted">${result.unit_type}: ${result.unit_details || 'N/A'}</small>
+                </td>
+                <td><small>${result.category}</small></td>
+                <td class="text-center">${result.opening_stock}</td>
+                <td class="text-center text-success">+${result.additions_qty}</td>
+                <td class="text-center text-danger">-${result.subtractions_qty}</td>
+                <td class="text-center text-primary">-${result.sales_qty}</td>
+                <td class="text-center fw-bold">${result.expected_closing}</td>
+                <td class="text-center">
+                    <input type="number" class="form-control form-control-sm physical-update" 
+                           data-product-id="${result.product_id}"
+                           value="${result.actual_closing}"
+                           style="width: 80px; display: inline-block;">
+                </td>
+                <td class="text-center ${varianceClass} fw-bold">${result.variance >= 0 ? '+' : ''}${result.variance}</td>
+                <td class="text-center">${statusBadge}</td>
+            </tr>
+        `;
+    }).join('');
+    
+    // Add event listeners for physical count updates
+    document.querySelectorAll('.physical-update').forEach(input => {
+        input.addEventListener('change', async (e) => {
+            const productId = e.target.dataset.productId;
+            const newCount = parseInt(e.target.value) || 0;
+            
+            // Update physical counts and recalculate
+            if (currentAuditData) {
+                const productIndex = currentAuditData.audit_results.findIndex(r => r.product_id == productId);
+                if (productIndex !== -1) {
+                    currentAuditData.audit_results[productIndex].actual_closing = newCount;
+                    const variance = newCount - currentAuditData.audit_results[productIndex].expected_closing;
+                    currentAuditData.audit_results[productIndex].variance = variance;
+                    currentAuditData.audit_results[productIndex].variance_status = variance === 0 ? 'MATCH' : (variance > 0 ? 'OVERAGE' : 'SHORTAGE');
+                    
+                    // Recalculate summary
+                    recalculateAuditSummary(currentAuditData);
+                    displayAuditReport(currentAuditData);
+                }
+            }
+        });
+    });
+}
+
+// Recalculate summary after physical count updates
+function recalculateAuditSummary(data) {
+    const results = data.audit_results;
+    let total_expected_closing_value = 0;
+    let total_actual_closing_value = 0;
+    let discrepancies = 0;
+    
+    results.forEach(r => {
+        total_expected_closing_value += r.expected_closing * r.buy_price;
+        total_actual_closing_value += r.actual_closing * r.buy_price;
+        if (r.variance !== 0) discrepancies++;
+    });
+    
+    data.summary.total_expected_closing_value = total_expected_closing_value;
+    data.summary.total_actual_closing_value = total_actual_closing_value;
+    data.summary.total_variance_value = total_actual_closing_value - total_expected_closing_value;
+    data.summary.products_with_discrepancy = discrepancies;
+    data.summary.variance_percentage = (data.summary.total_variance_value / total_expected_closing_value * 100) || 0;
+}
+
+// Export Audit Report
+async function exportAuditReport(format) {
+    if (!currentAuditData) {
+        showToast('No audit data to export', 'error');
+        return;
+    }
+    
+    if (format === 'excel') {
+        // Prepare data for Excel
+        const excelData = currentAuditData.audit_results.map(r => ({
+            'Product': r.product_name,
+            'Category': r.category,
+            'Unit': `${r.unit_type}: ${r.unit_details}`,
+            'Opening Stock': r.opening_stock,
+            'Additions': r.additions_qty,
+            'Subtractions': r.subtractions_qty,
+            'Sales': r.sales_qty,
+            'Expected Closing': r.expected_closing,
+            'Physical Count': r.actual_closing,
+            'Variance': r.variance,
+            'Status': r.variance_status,
+            'Buy Price': r.buy_price,
+            'Sell Price': r.sell_price
+        }));
+        
+        // Add summary sheet
+        const summaryData = [
+            { 'Metric': 'Report Period', 'Value': `${currentAuditData.report_period.start_date} to ${currentAuditData.report_period.end_date}` },
+            { 'Metric': 'Generated On', 'Value': currentAuditData.report_period.generated_on },
+            { 'Metric': '', 'Value': '' },
+            { 'Metric': 'Opening Stock Value', 'Value': `$${currentAuditData.summary.total_opening_stock_value.toFixed(2)}` },
+            { 'Metric': 'Additions Value', 'Value': `$${currentAuditData.summary.total_additions_value.toFixed(2)}` },
+            { 'Metric': 'Sales Revenue', 'Value': `$${currentAuditData.summary.total_sales_value.toFixed(2)}` },
+            { 'Metric': 'Cost of Goods Sold', 'Value': `$${currentAuditData.summary.total_cogs.toFixed(2)}` },
+            { 'Metric': 'Gross Profit', 'Value': `$${currentAuditData.summary.total_profit.toFixed(2)}` },
+            { 'Metric': '', 'Value': '' },
+            { 'Metric': 'Expected Closing Value', 'Value': `$${currentAuditData.summary.total_expected_closing_value.toFixed(2)}` },
+            { 'Metric': 'Actual Closing Value', 'Value': `$${currentAuditData.summary.total_actual_closing_value.toFixed(2)}` },
+            { 'Metric': 'Variance', 'Value': `$${currentAuditData.summary.total_variance_value.toFixed(2)}` },
+            { 'Metric': 'Products with Discrepancy', 'Value': currentAuditData.summary.products_with_discrepancy }
+        ];
+        
+        const wb = XLSX.utils.book_new();
+        const wsData = XLSX.utils.json_to_sheet(excelData);
+        const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+        
+        XLSX.utils.book_append_sheet(wb, wsData, 'Audit Details');
+        XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+        
+        const filename = `Inventory_Audit_${currentAuditData.report_period.start_date}_to_${currentAuditData.report_period.end_date}.xlsx`;
+        XLSX.writeFile(wb, filename);
+        showToast('Audit report exported successfully', 'success');
+        
+    } else if (format === 'pdf') {
+        // PDF export (simplified - you can enhance this)
+        const printContent = document.getElementById('auditReportResults').cloneNode(true);
+        const originalDisplay = printContent.style.display;
+        printContent.style.display = 'block';
+        printContent.style.position = 'absolute';
+        printContent.style.top = '-9999px';
+        document.body.appendChild(printContent);
+        
+        const opt = {
+            margin: [0.5, 0.5, 0.5, 0.5],
+            filename: `Inventory_Audit_${currentAuditData.report_period.start_date}_to_${currentAuditData.report_period.end_date}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+        };
+        
+        html2pdf().set(opt).from(printContent).save()
+            .then(() => {
+                document.body.removeChild(printContent);
+                showToast('PDF export complete!', 'success');
+            })
+            .catch(err => {
+                document.body.removeChild(printContent);
+                showToast('Error generating PDF', 'error');
+            });
+    }
+}
 
 // Show Inventory Movements Modal
 function showInventoryMovementsModal() {

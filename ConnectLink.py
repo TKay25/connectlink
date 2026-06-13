@@ -9797,6 +9797,225 @@ def delete_product(product_id):
     
     return jsonify({'success': True, 'message': 'Product deactivated successfully'})
 
+@app.route('/api/inventory-audit-report', methods=['POST'])
+@login_required
+def inventory_audit_report():
+    """
+    Generate complete inventory audit report with:
+    - Opening stock (as of start_date)
+    - Additions (purchases/stock-ins)
+    - Subtractions (damaged/lost/returned)
+    - Sales (from transactions)
+    - Expected closing stock (calculated)
+    - Actual closing stock (physical count from inventory)
+    - Variance (discrepancy between expected and actual)
+    """
+    try:
+        data = request.json
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        # Optional: physical count data from user input
+        physical_counts = data.get('physical_counts', {})  # {product_id: actual_quantity}
+        
+        if not start_date or not end_date:
+            return jsonify({'success': False, 'error': 'Start date and end date are required'}), 400
+        
+        with get_db() as (cursor, connection):
+            # ========== 1. GET ALL PRODUCTS ==========
+            cursor.execute("""
+                SELECT id, name, category, unit_type, unit_details, buy_price, sell_price
+                FROM products
+                WHERE is_active = TRUE
+                ORDER BY name
+            """)
+            products = cursor.fetchall()
+            
+            audit_results = []
+            
+            for product in products:
+                product_id = product[0]
+                product_name = product[1]
+                category = product[2] or 'Uncategorized'
+                unit_type = product[3] or 'piece'
+                unit_details = product[4] or ''
+                buy_price = float(product[5]) if product[5] else 0
+                sell_price = float(product[6]) if product[6] else 0
+                
+                # ========== 2. OPENING STOCK (as of start_date) ==========
+                # This requires knowing stock at a specific point in time
+                # We need to calculate from current stock minus all movements after start_date
+                
+                # Get current stock
+                cursor.execute("SELECT stock FROM products WHERE id = %s", (product_id,))
+                current_stock = cursor.fetchone()[0] or 0
+                
+                # Calculate total additions after start_date
+                cursor.execute("""
+                    SELECT COALESCE(SUM(quantity), 0)
+                    FROM stock_additions
+                    WHERE product_id = %s AND DATE(added_at) > %s
+                """, (product_id, end_date))
+                additions_after_end = cursor.fetchone()[0] or 0
+                
+                # Calculate total subtractions after start_date
+                cursor.execute("""
+                    SELECT COALESCE(SUM(quantity), 0)
+                    FROM stock_reductions
+                    WHERE product_id = %s AND DATE(reduced_at) > %s
+                """, (product_id, end_date))
+                subtractions_after_end = cursor.fetchone()[0] or 0
+                
+                # ========== 3. MOVEMENTS WITHIN DATE RANGE ==========
+                
+                # Additions within range
+                cursor.execute("""
+                    SELECT 
+                        sa.added_at as date,
+                        sa.quantity,
+                        sa.buy_price,
+                        sa.total_cost,
+                        sa.funding_source,
+                        COALESCE(u.full_name, 'System') as user_name
+                    FROM stock_additions sa
+                    LEFT JOIN users u ON sa.user_id = u.id
+                    WHERE sa.product_id = %s 
+                    AND DATE(sa.added_at) BETWEEN %s AND %s
+                    ORDER BY sa.added_at
+                """, (product_id, start_date, end_date))
+                additions = cursor.fetchall()
+                
+                total_additions_qty = sum(a[1] for a in additions) if additions else 0
+                total_additions_value = sum(a[3] for a in additions) if additions else 0
+                
+                # Subtractions within range
+                cursor.execute("""
+                    SELECT 
+                        sr.reduced_at as date,
+                        sr.quantity,
+                        sr.reason,
+                        sr.notes,
+                        COALESCE(u.full_name, 'System') as user_name
+                    FROM stock_reductions sr
+                    LEFT JOIN users u ON sr.user_id = u.id
+                    WHERE sr.product_id = %s 
+                    AND DATE(sr.reduced_at) BETWEEN %s AND %s
+                    ORDER BY sr.reduced_at
+                """, (product_id, start_date, end_date))
+                subtractions = cursor.fetchall()
+                
+                total_subtractions_qty = sum(s[1] for s in subtractions) if subtractions else 0
+                
+                # ========== 4. SALES WITHIN DATE RANGE ==========
+                cursor.execute("""
+                    SELECT 
+                        t.created_at as date,
+                        ti.quantity,
+                        ti.price_at_time as sell_price,
+                        ti.subtotal,
+                        t.transaction_number
+                    FROM transaction_items ti
+                    JOIN transactions t ON ti.transaction_id = t.id
+                    WHERE ti.product_id = %s 
+                    AND DATE(t.created_at) BETWEEN %s AND %s
+                    AND t.status = 'completed'
+                    ORDER BY t.created_at
+                """, (product_id, start_date, end_date))
+                sales = cursor.fetchall()
+                
+                total_sales_qty = sum(s[1] for s in sales) if sales else 0
+                total_sales_value = sum(s[3] for s in sales) if sales else 0
+                total_cogs = sum(s[1] * (buy_price) for s in sales) if sales else 0
+                total_profit = total_sales_value - total_cogs
+                
+                # ========== 5. CALCULATE OPENING STOCK ==========
+                # Opening Stock = Current Stock - Additions(within range) + Subtractions(within range) + Sales(within range)
+                # Because:
+                # Current = Opening + Additions - Subtractions - Sales
+                # Therefore: Opening = Current - Additions + Subtractions + Sales
+                
+                opening_stock = current_stock - total_additions_qty + total_subtractions_qty + total_sales_qty
+                
+                # ========== 6. EXPECTED CLOSING STOCK ==========
+                expected_closing = opening_stock + total_additions_qty - total_subtractions_qty - total_sales_qty
+                
+                # ========== 7. ACTUAL CLOSING STOCK ==========
+                actual_closing = physical_counts.get(str(product_id), current_stock)
+                
+                # ========== 8. VARIANCE ==========
+                variance = actual_closing - expected_closing
+                variance_status = 'MATCH' if variance == 0 else 'OVERAGE' if variance > 0 else 'SHORTAGE'
+                
+                # Only include products with any movement or non-zero stock
+                if opening_stock != 0 or total_additions_qty != 0 or total_subtractions_qty != 0 or total_sales_qty != 0 or actual_closing != 0:
+                    audit_results.append({
+                        'product_id': product_id,
+                        'product_name': product_name,
+                        'category': category,
+                        'unit_type': unit_type,
+                        'unit_details': unit_details,
+                        'buy_price': buy_price,
+                        'sell_price': sell_price,
+                        'opening_stock': opening_stock,
+                        'additions_qty': total_additions_qty,
+                        'additions_value': total_additions_value,
+                        'subtractions_qty': total_subtractions_qty,
+                        'sales_qty': total_sales_qty,
+                        'sales_value': total_sales_value,
+                        'cogs': total_cogs,
+                        'profit': total_profit,
+                        'expected_closing': expected_closing,
+                        'actual_closing': actual_closing,
+                        'variance': variance,
+                        'variance_status': variance_status,
+                        'movements': {
+                            'additions': [{'date': a[0].isoformat(), 'quantity': a[1], 'cost': float(a[2]), 'total': float(a[3]), 'funding': a[4], 'user': a[5]} for a in additions],
+                            'subtractions': [{'date': s[0].isoformat(), 'quantity': s[1], 'reason': s[2], 'notes': s[3], 'user': s[4]} for s in subtractions],
+                            'sales': [{'date': sale[0].isoformat(), 'quantity': sale[1], 'price': float(sale[2]), 'total': float(sale[3]), 'receipt': sale[4]} for sale in sales]
+                        }
+                    })
+            
+            # Calculate summary statistics
+            total_opening_value = sum(r['opening_stock'] * r['buy_price'] for r in audit_results)
+            total_additions_value_sum = sum(r['additions_value'] for r in audit_results)
+            total_sales_value_sum = sum(r['sales_value'] for r in audit_results)
+            total_cogs_sum = sum(r['cogs'] for r in audit_results)
+            total_profit_sum = sum(r['profit'] for r in audit_results)
+            total_expected_closing_value = sum(r['expected_closing'] * r['buy_price'] for r in audit_results)
+            total_actual_closing_value = sum(r['actual_closing'] * r['buy_price'] for r in audit_results)
+            total_variance_value = total_actual_closing_value - total_expected_closing_value
+            
+            # Products with discrepancies
+            discrepancies = [r for r in audit_results if r['variance'] != 0]
+            
+            return jsonify({
+                'success': True,
+                'report_period': {
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'generated_on': datetime.now().isoformat()
+                },
+                'summary': {
+                    'total_products_audited': len(audit_results),
+                    'products_with_discrepancy': len(discrepancies),
+                    'total_opening_stock_value': total_opening_value,
+                    'total_additions_value': total_additions_value_sum,
+                    'total_sales_value': total_sales_value_sum,
+                    'total_cogs': total_cogs_sum,
+                    'total_profit': total_profit_sum,
+                    'total_expected_closing_value': total_expected_closing_value,
+                    'total_actual_closing_value': total_actual_closing_value,
+                    'total_variance_value': total_variance_value,
+                    'variance_percentage': (total_variance_value / total_expected_closing_value * 100) if total_expected_closing_value != 0 else 0
+                },
+                'audit_results': audit_results,
+                'discrepancies': discrepancies
+            })
+            
+    except Exception as e:
+        logging.error(f'Error generating inventory audit report: {str(e)}')
+        logging.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/products/<int:product_id>/subtract-stock', methods=['PUT'])
 @login_required
 def subtract_stock(product_id):
