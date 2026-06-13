@@ -591,6 +591,20 @@ def initialize_database_tables():
                 ADD COLUMN IF NOT EXISTS download_click_whatsapp VARCHAR(20)
             """)
 
+            # Create stock_reductions table for tracking subtractions
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS stock_reductions (
+                    id SERIAL PRIMARY KEY,
+                    product_id INTEGER NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    reason VARCHAR(100) NOT NULL,
+                    notes TEXT,
+                    user_id INTEGER,
+                    reduced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+                )
+            """)
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'
@@ -9821,15 +9835,34 @@ def subtract_stock(product_id):
             WHERE id = %s
         """, (new_stock, product_id), commit=True)
         
-        # Try to log the stock reduction (table may not exist yet)
+        # ENSURE stock_reductions table exists
+        with get_db() as (cursor, conn):
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS stock_reductions (
+                    id SERIAL PRIMARY KEY,
+                    product_id INTEGER NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    reason VARCHAR(100) NOT NULL,
+                    notes TEXT,
+                    user_id INTEGER,
+                    reduced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.commit()
+        
+        # NOW log the stock reduction - this should work
         try:
             execute_query("""
                 INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at)
                 VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
             """, (product_id, quantity, reason, notes, session['user_id']), commit=True)
+            print(f"✅ Stock reduction logged: {quantity} units of {product_name} removed. Reason: {reason}")
         except Exception as log_error:
-            # If the table doesn't exist, just log to console and continue
-            print(f"Warning: Could not log stock reduction: {str(log_error)}")
+            print(f"❌ CRITICAL: Could not log stock reduction: {str(log_error)}")
+            # Don't fail the request, but log the error
+            # The stock has already been reduced, so we need to know about this
+            import traceback
+            traceback.print_exc()
         
         return jsonify({
             'success': True,
@@ -9840,7 +9873,7 @@ def subtract_stock(product_id):
     except Exception as e:
         print(f"Error subtracting stock: {str(e)}")
         return jsonify({'error': 'Failed to subtract stock', 'details': str(e)}), 500
-
+    
 # ==================== AI PRODUCT CLASSIFICATION ====================
 
 @app.route('/api/ai/classify-product', methods=['POST'])
