@@ -9976,8 +9976,12 @@ def inventory_audit_report():
 @app.route('/api/export-audit-report-excel', methods=['POST'])
 @login_required
 def export_audit_report_excel():
-    """Export audit report to Excel with detailed sheets"""
+    """Export audit report to Excel"""
     try:
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        import io
+        import pandas as pd
+        
         data = request.json
         start_date = data.get('start_date')
         end_date = data.get('end_date')
@@ -10020,18 +10024,12 @@ def export_audit_report_excel():
                 
                 # Get subtractions
                 cursor.execute("""
-                    SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'stock_reductions')
-                """)
-                has_table = cursor.fetchone()[0]
-                total_subtractions_qty = 0
-                if has_table:
-                    cursor.execute("""
-                        SELECT COALESCE(SUM(quantity), 0)
-                        FROM stock_reductions
-                        WHERE product_id = %s AND DATE(reduced_at) >= %s AND DATE(reduced_at) <= %s
-                    """, (product_id, start_date, end_date))
-                    subtractions = cursor.fetchone()
-                    total_subtractions_qty = int(subtractions[0]) if subtractions[0] else 0
+                    SELECT COALESCE(SUM(quantity), 0)
+                    FROM stock_reductions
+                    WHERE product_id = %s AND DATE(reduced_at) >= %s AND DATE(reduced_at) <= %s
+                """, (product_id, start_date, end_date))
+                subtractions = cursor.fetchone()
+                total_subtractions_qty = int(subtractions[0]) if subtractions[0] else 0
                 
                 # Get sales
                 cursor.execute("""
@@ -10129,7 +10127,7 @@ def export_audit_report_excel():
                     df_discrepancies = pd.DataFrame(discrepancies)
                     df_discrepancies.to_excel(writer, sheet_name='Discrepancies Only', index=False)
                 
-                # Format sheets
+                # Format all sheets
                 for sheet_name in writer.sheets:
                     worksheet = writer.sheets[sheet_name]
                     
@@ -10145,7 +10143,7 @@ def export_audit_report_excel():
                                         max_length = cell_length
                             except:
                                 pass
-                        adjusted_width = min(max_length + 2, 30)
+                        adjusted_width = min(max_length + 2, 35)
                         worksheet.column_dimensions[column_letter].width = adjusted_width
                     
                     # Style header row
@@ -10153,6 +10151,17 @@ def export_audit_report_excel():
                         cell.font = Font(bold=True, color="FFFFFF")
                         cell.fill = PatternFill(start_color="0A2B3E", end_color="0A2B3E", fill_type="solid")
                         cell.alignment = Alignment(horizontal="center", vertical="center")
+                    
+                    # Add borders to all cells
+                    thin_border = Border(
+                        left=Side(style='thin'),
+                        right=Side(style='thin'),
+                        top=Side(style='thin'),
+                        bottom=Side(style='thin')
+                    )
+                    for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
+                        for cell in row:
+                            cell.border = thin_border
             
             output.seek(0)
             
@@ -10169,7 +10178,6 @@ def export_audit_report_excel():
         logging.error(f'Error exporting audit report: {str(e)}')
         logging.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
-
 
 @app.route('/api/products/<int:product_id>/subtract-stock', methods=['PUT'])
 @login_required
