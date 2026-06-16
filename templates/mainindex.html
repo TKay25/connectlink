@@ -756,14 +756,14 @@
             border-left: 4px solid #dc2626;
         }
 
-        /* Loading Overlay - Clean white/light like modal */
+        /* Loading Overlay - Dark like modal header */
         .loading-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(10, 43, 62, 0.95);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             z-index: 2000;
@@ -781,7 +781,7 @@
         .loading-spinner {
             width: 48px;
             height: 48px;
-            border: 3px solid rgba(10, 43, 62, 0.08);
+            border: 3px solid rgba(255,255,255,0.1);
             border-radius: 50%;
             border-top-color: var(--accent);
             animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
@@ -793,14 +793,25 @@
         }
 
         .loading-text {
-            color: var(--primary);
+            color: white;
             font-size: 0.9rem;
             font-weight: 500;
             letter-spacing: 0.5px;
+            text-align: center;
+            min-height: 30px;
+            transition: opacity 0.3s ease;
         }
 
         .loading-text span {
             color: var(--accent);
+        }
+
+        .loading-sub {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.65rem;
+            margin-top: 4px;
+            letter-spacing: 0.3px;
+            min-height: 20px;
         }
 
         /* Footer */
@@ -1103,10 +1114,11 @@
     </div>
 </div>
 
-<!-- Loading Overlay - Clean white/light like modal -->
+<!-- Loading Overlay - Dark background with rotating messages -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
-    <div class="loading-text">Authenticating <span>...</span></div>
+    <div class="loading-text" id="loadingMessage">Authenticating <span>...</span></div>
+    <div class="loading-sub" id="loadingSub">Verifying credentials</div>
 </div>
 
 <!-- Footer -->
@@ -1120,14 +1132,28 @@
         const state = {
             modals: { projects: false, hardware: false },
             loading: false,
-            errors: { projects: '', hardware: '' }
+            errors: { projects: '', hardware: '' },
+            loadingInterval: null,
+            loadingStep: 0
         };
+
+        // Loading messages array
+        const loadingMessages = [
+            { main: 'Authenticating <span>...</span>', sub: 'Verifying credentials' },
+            { main: 'Loading datasets <span>...</span>', sub: 'Fetching project data' },
+            { main: 'Preparing reports <span>...</span>', sub: 'Compiling analytics' },
+            { main: 'Syncing systems <span>...</span>', sub: 'Connecting to services' },
+            { main: 'Finalizing setup <span>...</span>', sub: 'Almost there' },
+            { main: 'Welcome back <span>!</span>', sub: 'Redirecting to dashboard' }
+        ];
 
         // DOM refs
         const dom = {
             projectsModal: document.getElementById('projectsLoginModal'),
             hardwareModal: document.getElementById('hardwareLoginModal'),
             loadingOverlay: document.getElementById('loadingOverlay'),
+            loadingMessage: document.getElementById('loadingMessage'),
+            loadingSub: document.getElementById('loadingSub'),
             projectsError: document.getElementById('projectsErrorMsg'),
             hardwareError: document.getElementById('hardwareErrorMsg'),
             projectsForm: document.getElementById('projectsLoginForm'),
@@ -1138,16 +1164,50 @@
             hardwarePassword: document.getElementById('hardwarePassword')
         };
 
+        // Start loading animation with rotating messages
+        function startLoadingAnimation() {
+            state.loadingStep = 0;
+            updateLoadingMessage();
+            
+            if (state.loadingInterval) {
+                clearInterval(state.loadingInterval);
+            }
+            
+            state.loadingInterval = setInterval(function() {
+                state.loadingStep = (state.loadingStep + 1) % loadingMessages.length;
+                updateLoadingMessage();
+            }, 1800);
+        }
+
+        function updateLoadingMessage() {
+            const msg = loadingMessages[state.loadingStep];
+            if (dom.loadingMessage) {
+                dom.loadingMessage.innerHTML = msg.main;
+            }
+            if (dom.loadingSub) {
+                dom.loadingSub.textContent = msg.sub;
+            }
+        }
+
+        function stopLoadingAnimation() {
+            if (state.loadingInterval) {
+                clearInterval(state.loadingInterval);
+                state.loadingInterval = null;
+            }
+        }
+
         function render() {
             dom.projectsModal.classList.toggle('active', state.modals.projects);
             dom.hardwareModal.classList.toggle('active', state.modals.hardware);
             document.body.style.overflow = (state.modals.projects || state.modals.hardware) ? 'hidden' : '';
             
-            // Loading overlay - clean white/light
+            // Loading overlay
             if (state.loading) {
                 dom.loadingOverlay.classList.add('active');
+                startLoadingAnimation();
             } else {
                 dom.loadingOverlay.classList.remove('active');
+                stopLoadingAnimation();
             }
             
             ['projects', 'hardware'].forEach(type => {
@@ -1192,6 +1252,9 @@
 
         function setLoading(active) {
             state.loading = active;
+            if (!active) {
+                stopLoadingAnimation();
+            }
             render();
         }
 
@@ -1263,7 +1326,7 @@
             }
         });
 
-        // Projects Login - Loading stays visible until redirect
+        // Projects Login
         dom.projectsForm.addEventListener('submit', function(e) {
             e.preventDefault();
             setError('projects', '');
@@ -1291,6 +1354,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    // Keep loading visible, redirect will happen
                     window.location.href = data.redirect || '/dashboard';
                 } else {
                     setLoading(false);
@@ -1304,7 +1368,7 @@
             });
         });
 
-        // Hardware Login - Loading stays visible until redirect
+        // Hardware Login
         dom.hardwareForm.addEventListener('submit', function(e) {
             e.preventDefault();
             setError('hardware', '');
