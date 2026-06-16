@@ -746,6 +746,36 @@
     </div>
 </div>
 
+<div id="quotationTableOptionsModal" class="modal-overlay">
+    <div class="modal-container" style="width: 420px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-table"></i> Quotation PDF Options</h3>
+            <button class="close-modal" onclick="cancelQuotationTableOption()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <p style="margin-bottom: 12px;">Select where the Construction Items table should appear in your PDF, or exclude it entirely.</p>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="radio" name="quotationTableOption" id="quotationTableOptionDefault" value="default" checked>
+                <label class="form-check-label" for="quotationTableOptionDefault">Include construction items table below the summary</label>
+            </div>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="radio" name="quotationTableOption" id="quotationTableOptionAfterSchedule" value="after_schedule">
+                <label class="form-check-label" for="quotationTableOptionAfterSchedule">Include construction items table after the work schedule</label>
+            </div>
+            <div class="form-check mb-0">
+                <input class="form-check-input" type="radio" name="quotationTableOption" id="quotationTableOptionExclude" value="exclude">
+                <label class="form-check-label" for="quotationTableOptionExclude">Exclude construction items table</label>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-primary" onclick="confirmQuotationTableOption()">Continue</button>
+            <button type="button" class="btn btn-danger" onclick="cancelQuotationTableOption()">Cancel</button>
+        </div>
+    </div>
+</div>
+
  <div id="createUserModal" class="modal-overlay">
     <div class="modal-container" style="width: 30%">
         <div class="modal-header-custom">
@@ -4215,6 +4245,55 @@ function updateKitchenItem(index, field, value) {
 }
 
 
+// Quotation PDF option helpers
+function getQuotationTableOptionFromModal() {
+    const selected = document.querySelector('input[name="quotationTableOption"]:checked');
+    return selected ? selected.value : 'default';
+}
+
+function openQuotationTableOptionsModal() {
+    const defaultOption = window.quotationPdfTablePlacement || 'default';
+    const optionInput = document.querySelector(`input[name="quotationTableOption"][value="${defaultOption}"]`);
+    if (optionInput) {
+        optionInput.checked = true;
+    }
+    openModal('quotationTableOptionsModal');
+}
+
+function confirmQuotationTableOption() {
+    const selectedValue = getQuotationTableOptionFromModal();
+    window.quotationPdfTablePlacement = selectedValue;
+    closeModal('quotationTableOptionsModal');
+    if (window._quotationTableOptionResolver) {
+        window._quotationTableOptionResolver(selectedValue);
+        window._quotationTableOptionResolver = null;
+        window._quotationTableOptionRejecter = null;
+    }
+}
+
+function cancelQuotationTableOption() {
+    closeModal('quotationTableOptionsModal');
+    if (window._quotationTableOptionResolver) {
+        window._quotationTableOptionResolver(null);
+        window._quotationTableOptionResolver = null;
+        window._quotationTableOptionRejecter = null;
+    }
+}
+
+async function promptQuotationTablePlacementIfNeeded(category) {
+    const lowerCategory = String(category || '').toLowerCase();
+    const isStoreyQuote = /(?:single|double)\s+(?:storey|story)/.test(lowerCategory) || /(?:storey|story)/.test(lowerCategory);
+    if (!isStoreyQuote) {
+        return 'default';
+    }
+
+    openQuotationTableOptionsModal();
+    return new Promise((resolve) => {
+        window._quotationTableOptionResolver = resolve;
+        window._quotationTableOptionRejecter = resolve;
+    });
+}
+
 // ==================== QUOTATION SAVE FUNCTION ====================
 async function saveAndDownloadQuotation() {
     console.log('=== saveAndDownloadQuotation CALLED ===');
@@ -4234,6 +4313,13 @@ async function saveAndDownloadQuotation() {
 
     console.log('Saving quotation with items:', data.items.length);
     console.log('First item:', data.items[0]);
+
+    const tablePlacement = await promptQuotationTablePlacementIfNeeded(data.category);
+    if (tablePlacement === null) {
+        console.log('Quotation PDF download cancelled by user');
+        return;
+    }
+    window.quotationPdfTablePlacement = tablePlacement;
 
     // Build payload for backend
     const payload = {
@@ -4294,7 +4380,7 @@ async function saveAndDownloadQuotation() {
         
         // Generate PDF
         if (typeof generateQuotationPDF === 'function') {
-            await generateQuotationPDF('download');
+            await generateQuotationPDF('download', window.quotationPdfTablePlacement || 'default');
         } else {
             console.warn('generateQuotationPDF not defined');
         }
@@ -12714,7 +12800,7 @@ function debugQuotationRates() {
     });
 }
 
-async function generateQuotationPDF(outputMode = 'download') {
+async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'default') {
     const data = window.quotationData;
     const ganttData = window.ganttChartData || [];
 
@@ -12817,6 +12903,30 @@ async function generateQuotationPDF(outputMode = 'download') {
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
     const monthlyInstallment = balanceAmount / 5;
+    const normalizedPlacement = ['default', 'after_schedule', 'exclude'].includes(tablePlacement) ? tablePlacement : 'default';
+    const showConstructionItemsTable = normalizedPlacement !== 'exclude';
+
+    const constructionItemsTableHtml = showConstructionItemsTable ? `
+                <div style="page-break-inside: avoid; break-inside: avoid;">
+                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 70%;">Item Description</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Days</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 12%;">Total (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemRows}
+                            ${itemsTotalRow}
+                        </tbody>
+                    </table>
+                </div>` : '';
+    const constructionItemsPlacementBefore = normalizedPlacement === 'after_schedule' ? '' : constructionItemsTableHtml;
+    const constructionItemsPlacementAfter = normalizedPlacement === 'after_schedule' ? constructionItemsTableHtml : '';
+    const excludeTableMessageHtml = !showConstructionItemsTable ? `<div style="margin-top: 14px; margin-bottom: 20px; font-size: 12px; color: #5a678a; background: #f5f7ff; border: 1px dashed #c5d4f1; border-radius: 8px; padding: 12px;"><strong>Note:</strong> The construction items table has been excluded from this PDF download by selection.</div>` : '';
 
     // HTML template for PDF - FULL HTML CONTENT
     const htmlContent = `
@@ -12888,6 +12998,7 @@ async function generateQuotationPDF(outputMode = 'download') {
                     </div>
                 </div>
 
+                ${excludeTableMessageHtml}
                 <!-- INFO MESSAGE -->
                 <div style="margin-bottom: 22px; text-align: center;">
                     <span style="display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;">
@@ -12896,27 +13007,39 @@ async function generateQuotationPDF(outputMode = 'download') {
                     </span>
                 </div>
 
-                <!-- CONSTRUCTION ITEMS TABLE -->
-                <div style="page-break-inside: avoid; break-inside: avoid;">
-                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
+                ${constructionItemsPlacementBefore}
+                <!-- WORK SCHEDULE -->
+                <div style="page-break-inside:avoid; break-inside:avoid;">
+                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">WORK SCHEDULE</h4>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px;">
                         <thead>
                             <tr>
                                 <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 38%;">Item Description</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 13%;">Qty (Sq.M)</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 15%;">Unit Rate</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 10%;">Days</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 18%;">Total</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 70%;">Item Description</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Days</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 12%;">Total (USD)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${itemRows}
-                            ${itemsTotalRow}
+                            ${schedules.map((schedule, index) => {
+                                const workScope = schedule.workScope || schedule.item || 'Task';
+                                const startDate = schedule.startDate ? new Date(schedule.startDate).toLocaleDateString('en-GB') : '';
+                                const endDate = schedule.endDate ? new Date(schedule.endDate).toLocaleDateString('en-GB') : '';
+                                const daysValue = Number(schedule.days) || 0;
+                                const bg = index % 2 === 0 ? '#f9f9f9' : '#ffffff';
+                                return `
+                                    <tr style="border-bottom:1px solid #ddd; background-color:${bg};">
+                                        <td style="padding:6px; text-align:center;">${index + 1}</td>
+                                        <td style="padding:6px; text-align:left;">${escapeHtml(workScope)}</td>
+                                        <td style="padding:6px; text-align:center;">${startDate}</td>
+                                        <td style="padding:6px; text-align:center;">${endDate}</td>
+                                    </tr>`;
+                            }).join('')}
                         </tbody>
                     </table>
                 </div>
 
+                ${constructionItemsPlacementAfter}
             </div>
         </div>
     `;
@@ -14755,8 +14878,14 @@ async function downloadConstructionQuotationPDFFromPortal(quotation) {
     if (typeof window.generateQuotationPDF !== 'function') {
         throw new Error('PDF generator not available');
     }
+
+    const tablePlacement = await promptQuotationTablePlacementIfNeeded(quotation.category);
+    if (tablePlacement === null) {
+        return;
+    }
+    window.quotationPdfTablePlacement = tablePlacement;
     
-    await window.generateQuotationPDF('download');
+    await window.generateQuotationPDF('download', tablePlacement);
 }
 
 
