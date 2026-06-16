@@ -46,162 +46,136 @@
             color: #EFF3FA;
         }
         /* ===== SIDEBAR — CLEAN DARK THEME ===== */
-        .sidebar {
-            width: var(--sidebar-icon-only);
-            background: var(--dark-blue-deep);
-            position: fixed;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-            z-index: 1030;
-            overflow-x: hidden;
-            overflow-y: auto;
-            transition: width 0.3s ease;
-            white-space: nowrap;
-            border-right: 1px solid #34495e;
-        }
-
-        .sidebar:hover {
-            width: var(--sidebar-expanded);
-        }
-
-        .sidebar .logo-area {
-            padding: 20px 15px;
-            text-align: center;
-            border-bottom: 1px solid #34495e;
-            margin-bottom: 20px;
-        }
-
-        .sidebar .logo-img {
-            max-width: 45px;
-            transition: 0.3s ease;
-        }
-
-        .sidebar:hover .logo-img {
-            max-width: 120px;
-        }
-
-        .sidebar h6 {
-            font-size: 0.65rem;
-            letter-spacing: 1px;
-            font-weight: 600;
-            color: #ecf0f1;
-            text-align: center;
-            margin: 10px 0 25px;
-            opacity: 0;
-            transition: 0.3s ease;
-        }
-
-        .sidebar:hover h6 {
-            opacity: 1;
-        }
-
-        .sidebar .btn-side {
-            background: transparent;
-            border: 1px solid #34495e;
-            color: #bdc3c7;
-            width: calc(100% - 16px);
-            margin: 6px 8px;
-            padding: 4px 4px;
-            border-radius: 6px;
-            font-size: 0.65rem;
-            font-weight: 500;
-            text-align: left;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .sidebar .btn-side:hover {
-            background: #34495e;
-            color: #ecf0f1;
-            border-color: #7f8c8d;
-        }
-
-        .sidebar .btn-side i {
-            font-size: 1.1rem;
-            width: 20px;
-            text-align: center;
-            transition: 0.3s ease;
-        }
-
-        .sidebar .btn-side span {
-            opacity: 0;
-            visibility: hidden;
-            transition: 0.3s ease;
-        }
-
-        .sidebar:hover .btn-side span {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .sidebar .btn-side:active {
-            background: #2c3e50;
-        }
-
-        /* Sidebar Sections */
-        .sidebar-section {
-            padding: 0 8px;
-        }
-
-        .sidebar-section-title {
-            font-size: 0.55rem;
-            font-weight: 700;
-            color: rgba(255, 255, 255, 0.6);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            padding-left: 8px;
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar:hover .sidebar-section-title {
-            opacity: 1;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        /* Sidebar entrance animation */
-        .sidebar {
-            animation: none;
-        }
-
-        /* Button stagger animation */
-        .sidebar .btn-side {
-            animation: none;
-        }
 
 
-        /* Enhanced tooltip styling */
-        .sidebar:not(:hover) .btn-side:hover::after {
-            background: linear-gradient(135deg, var(--dark-blue-primary), var(--dark-blue-deep));
-            border: 1px solid rgba(193, 43, 62, 0.3);
-            box-shadow:
-                0 6px 20px rgba(0, 0, 0, 0.4),
-                0 0 30px rgba(193, 43, 62, 0.2);
-            backdrop-filter: blur(10px);
-        }
+
+/* ===== FIXED TOP NAVBAR (replaces sidebar) ===== */
+.fixed-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1050;
+  background: linear-gradient(135deg, var(--dark-blue-deep) 0%, var(--dark-blue-primary) 100%);
+  border-bottom: 1px solid rgba(193, 43, 62, 0.3);
+  padding: 6px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  height: 56px;
+}
+.fixed-navbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.fixed-navbar .brand img {
+  height: 32px;
+  width: auto;
+}
+.fixed-navbar .brand span {
+  color: white;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+}
+.fixed-navbar .nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.fixed-navbar .nav-actions .btn-side {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.85);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.fixed-navbar .nav-actions .btn-side:hover {
+  background: rgba(193,43,62,0.25);
+  border-color: var(--crimson-bright);
+  color: white;
+}
+.fixed-navbar .nav-actions .btn-side.active {
+  background: var(--crimson-bright);
+  border-color: var(--crimson-bright);
+  color: white;
+  box-shadow: 0 2px 8px rgba(193,43,62,0.4);
+}
+.fixed-navbar .nav-actions .btn-side i {
+  font-size: 0.85rem;
+}
+.fixed-navbar .user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(193,43,62,0.2);
+  padding: 2px 12px 2px 8px;
+  border-radius: 30px;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+.fixed-navbar .user-badge .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #C12B3E, #E91E63);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: white;
+}
+/* Hide old sidebar */
+.sidebar {
+  display: none !important;
+}
+/* Adjust main content for fixed navbar */
+body {
+  padding-top: 56px;
+}
+.main-content {
+  margin-left: 0 !important;
+  width: 100% !important;
+}
+/* Reduced font sizes globally */
+body {
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+.table-theme th,
+.table-theme td,
+.form-control,
+.form-select,
+.btn,
+.employeetag,
+.nav-link {
+  font-size: 0.6rem !important;
+}
+.vertical-nav-link {
+  font-size: 0.6rem !important;
+  padding: 4px 10px !important;
+}
+.summary-card .details h5 {
+  font-size: 0.55rem;
+}
+.summary-card .details p {
+  font-size: 0.7rem;
+}
 
 
-        .sidebar .btn-side.active i {
-            color: var(--white);
-            transform: scale(1.05);
-        }
-
-        .sidebar .btn-side.active::after {
-            width: 4px;
-            height: 60%;
-            border-radius: 2px;
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            box-shadow: 0 0 10px rgba(193, 43, 62, 0.5);
-        }
 
         /* ===== MAIN CONTENT — DARK BLUE BACKGROUND ===== */
         .main-content {
@@ -215,10 +189,7 @@
             flex-direction: column;
             overflow: hidden;
         }
-        .sidebar:hover ~ .main-content, body:has(.sidebar:hover) .main-content {
-            margin-left: var(--sidebar-expanded);
-            width: calc(100% - var(--sidebar-expanded));
-        }
+
         /* Header card - dark blue with subtle border */
         header {
             display: flex;
@@ -2087,33 +2058,29 @@
     </div>
 
     
-    <div class="sidebar">
-        <div class="logo-area">
-            <img class="logo-img" src="{{ url_for('static', filename='images/web-logo-white.png') }}" alt="ConnectLink">
-        </div>
-        <h6>ADMIN PANEL</h6>
-
-        <button id="btn-dashboard" class="btn-side active" onclick="setActiveButton('btn-dashboard'); showPage('dashboardPage')" data-tooltip="Dashboard">
-            <i class="bi bi-speedometer2"></i><span>Dashboard</span>
-        </button>
-
-        <button id="btn-new-project" class="btn-side" onclick="setActiveButton('btn-new-project'); openModal('addnewProjectModal')" data-tooltip="New Project">
-            <i class="bi bi-plus-circle-fill"></i><span>New Project</span>
-        </button>
-
-        <button id="btn-quotation" class="btn-side" onclick="setActiveButton('btn-quotation'); openModal('quotationgeneratorModal')" data-tooltip="Generate Quotation">
-            <i class="bi bi-file-earmark-text-fill"></i><span>Quotation</span>
-        </button>
-
-        <button id="btn-system-users" class="btn-side" onclick="setActiveButton('btn-system-users'); openModal('systemUserModal')" data-tooltip="Manage System Users">
-            <i class="bi bi-person-fill-add"></i><span>System Users</span>
-        </button>
-
-        <button id="btn-administrators" class="btn-side" onclick="setActiveButton('btn-administrators'); openModal('addcompAdminModal')" data-tooltip="Manage Administrators">
-            <i class="bi bi-shield-fill"></i><span>Administrators</span>
-        </button>
-
+<div class="sidebar">
+    <div class="logo-area">
+        <img class="logo-img" src="{{ url_for('static', filename='images/web-logo-white.png') }}" alt="ConnectLink">
     </div>
+    <h6>ADMIN PANEL</h6>
+    <button id="btn-dashboard" class="btn-side active" onclick="setActiveButton('btn-dashboard'); showPage('dashboardPage')" data-tooltip="Dashboard">
+        <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+    </button>
+    <button id="btn-new-project" class="btn-side" onclick="setActiveButton('btn-new-project'); openModal('addnewProjectModal')" data-tooltip="New Project">
+        <i class="bi bi-plus-circle-fill"></i><span>New Project</span>
+    </button>
+    <button id="btn-quotation" class="btn-side" onclick="setActiveButton('btn-quotation'); openModal('quotationgeneratorModal')" data-tooltip="Generate Quotation">
+        <i class="bi bi-file-earmark-text-fill"></i><span>Quotation</span>
+    </button>
+    <button id="btn-system-users" class="btn-side" onclick="setActiveButton('btn-system-users'); openModal('systemUserModal')" data-tooltip="Manage System Users">
+        <i class="bi bi-person-fill-add"></i><span>System Users</span>
+    </button>
+    <button id="btn-administrators" class="btn-side" onclick="setActiveButton('btn-administrators'); openModal('addcompAdminModal')" data-tooltip="Manage Administrators">
+        <i class="bi bi-shield-fill"></i><span>Administrators</span>
+    </button>
+</div>
+
+
 
     <!-- Modern Header -->
     <div class="modern-header">
