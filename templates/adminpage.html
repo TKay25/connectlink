@@ -886,6 +886,23 @@
             transform: rotate(90deg) scale(1.2);
             background: var(--crimson-bright);
         }
+
+        /* ==================== PROJECT LOADER ANIMATIONS ==================== */
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes loadingSlide {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 0.8; transform: scale(1); }
+        }
     </style>
 </head>
 
@@ -905,21 +922,25 @@
 <!-- Hidden table containers - populated by server-side rendering -->
 <!-- These tables are populated dynamically and should not be initialized as DataTables placeholders -->
 
-    <div class="eds-loader" id="edsLoader" style="display: none;">
-        <div class="eds-logo"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 200px;"></div> 
+    <div class="eds-loader" id="edsLoader" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 26, 58, 0.96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+        <!-- Spinner -->
+        <div style="width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.1); border-radius: 50%; border-top-color: #C12B3E; animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; margin-bottom: 24px;"></div>
+        
+        <div class="eds-logo" style="margin-bottom: 16px;"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 120px; opacity: 0.9;"></div> 
 
-        <br><br>
-        <p style="font-weight: 700;color: white;font-size: 1.2rem;">We are saving the new project, please wait...</p>
+        <p style="font-weight: 700; color: white; font-size: 1.2rem; margin: 0 0 4px 0; letter-spacing: 0.5px; min-height: 30px; transition: opacity 0.3s ease;">Creating project <span style="color: #C12B3E;">...</span></p>
+        
+        <p style="color: rgba(255,255,255,0.5); font-size: 0.75rem; margin: 0 0 20px 0; letter-spacing: 0.3px; min-height: 20px; transition: opacity 0.3s ease;">Initializing project database</p>
 
-        <div class="loader-bar">
-            <div class="loader-progress"></div>
+        <div class="loader-bar" style="width: 200px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;">
+            <div class="loader-progress" style="height: 100%; background: linear-gradient(90deg, #C12B3E, #E91E63, #C12B3E); animation: loadingSlide 1.5s ease-in-out infinite;"></div>
         </div>
         
-        <div class="eds-grid">
-            <div class="grid-item"></div>
-            <div class="grid-item"></div>
-            <div class="grid-item"></div>
-            <div class="grid-item"></div>
+        <div class="eds-grid" style="display: grid; grid-template-columns: repeat(4, 40px); gap: 8px; margin-top: 20px;">
+            <div class="grid-item" style="width: 40px; height: 40px; background: rgba(193,43,62,0.2); border-radius: 8px; animation: pulse 1.5s ease-in-out infinite;"></div>
+            <div class="grid-item" style="width: 40px; height: 40px; background: rgba(193,43,62,0.2); border-radius: 8px; animation: pulse 1.5s ease-in-out 0.2s infinite;"></div>
+            <div class="grid-item" style="width: 40px; height: 40px; background: rgba(193,43,62,0.2); border-radius: 8px; animation: pulse 1.5s ease-in-out 0.4s infinite;"></div>
+            <div class="grid-item" style="width: 40px; height: 40px; background: rgba(193,43,62,0.2); border-radius: 8px; animation: pulse 1.5s ease-in-out 0.6s infinite;"></div>
         </div>
     </div>
 
@@ -4702,6 +4723,17 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function formatCategoryName(category) {
+    if (category === 'construction_single') {
+        return 'Single Storey Construction';
+    } else if (category === 'construction_double') {
+        return 'Double Storey Construction';
+    } else if (category === 'kitchen') {
+        return 'Kitchen & Cabinets';
+    }
+    return category || '';
+}
+
 function formatPdfDate(value) {
     if (!value) return '';
     const parsedDate = new Date(value);
@@ -5076,7 +5108,8 @@ function initializeProjectQuotationsDropdown() {
                 data.data.forEach(quotation => {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(quotation); // Store full quotation object as value
-                    option.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
+                    const formattedCategory = formatCategoryName(quotation.category);
+                    option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
                     selectElement.appendChild(option);
                 });
                 
@@ -5152,7 +5185,8 @@ function selectProjectQuotation(quotation) {
     const previewDiv = document.getElementById('selected_quotation_preview');
     const previewText = document.getElementById('selected_quotation_name');
     
-    previewText.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M)`;
+    const formattedCategory = formatCategoryName(quotation.category);
+    previewText.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M)`;
     previewDiv.style.display = 'block';
     
     // Fetch work schedule and auto-populate project duration
@@ -5276,7 +5310,8 @@ function initializeOtherDetailsQuotationDropdown(currentQuotationRef) {
                 data.data.forEach(quotation => {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(quotation);
-                    option.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
+                    const formattedCategory = formatCategoryName(quotation.category);
+                    option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
                     selectElement.appendChild(option);
                     
                     // If this quotation matches the current one, select it
@@ -5284,7 +5319,8 @@ function initializeOtherDetailsQuotationDropdown(currentQuotationRef) {
                         option.selected = true;
                         // Show the preview
                         document.getElementById('otherDetails_selected_quotation_preview').style.display = 'block';
-                        document.getElementById('otherDetails_selected_quotation_name').textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M)`;
+                        const formattedCategory = formatCategoryName(quotation.category);
+                        document.getElementById('otherDetails_selected_quotation_name').textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M)`;
                     }
                 });
                 
@@ -5339,7 +5375,8 @@ function selectOtherDetailsQuotation(quotation) {
     const previewDiv = document.getElementById('otherDetails_selected_quotation_preview');
     const previewText = document.getElementById('otherDetails_selected_quotation_name');
     
-    previewText.textContent = `${quotation.clientName} - ${quotation.category} (${quotation.projectSize} Sq.M)`;
+    const formattedCategory = formatCategoryName(quotation.category);
+    previewText.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M)`;
     previewDiv.style.display = 'block';
     
     // Store quotation ID in hidden field for form submission
@@ -11402,7 +11439,30 @@ document.getElementById("confirmSaveProjectBtn").addEventListener("click", funct
     console.log('Project start date:', formData.get('project_start_date'));
     console.log('==============================');
     
-    document.getElementById("edsLoader").style.display = "flex";
+    // ==================== SHOW MODERN LOADING OVERLAY ====================
+    const projectLoader = document.getElementById("edsLoader");
+    projectLoader.style.display = "flex";
+    projectLoader.style.zIndex = "9999";
+    
+    // Initialize loading messages similar to mainindex.html
+    const loadingMessages = [
+        { main: 'Creating project <span style="color: #C12B3E;">...</span>', sub: 'Initializing project database' },
+        { main: 'Saving client details <span style="color: #C12B3E;">...</span>', sub: 'Storing client information' },
+        { main: 'Processing payment terms <span style="color: #C12B3E;">...</span>', sub: 'Configuring installments' },
+        { main: 'Generating project file <span style="color: #C12B3E;">...</span>', sub: 'Compiling project data' },
+        { main: 'Finalizing setup <span style="color: #C12B3E;">...</span>', sub: 'Almost there' }
+    ];
+    
+    let currentMessageStep = 0;
+    const projectLoaderInterval = setInterval(() => {
+        if (currentMessageStep < loadingMessages.length - 1) {
+            currentMessageStep++;
+            updateProjectLoaderMessage(loadingMessages[currentMessageStep]);
+        }
+    }, 2000);
+    
+    // Store interval ID for cleanup
+    window.projectLoaderInterval = projectLoaderInterval;
 
     fetch("/contract_log", {
         method: "POST",
@@ -11412,29 +11472,51 @@ document.getElementById("confirmSaveProjectBtn").addEventListener("click", funct
         if (!response.ok) {
             let errorText = await response.text();
             console.error("Server error:", errorText);
+            clearInterval(projectLoaderInterval);
+            projectLoader.style.display = "none";
             alert("❌ Failed to save: " + errorText);
-            document.getElementById("edsLoader").style.display = "none";
             throw new Error("Server returned an error");
         }
 
         if (response.redirected) {
-            window.location.href = response.url;
-            return;
+            // Keep loader visible - page will reload
+            return response.text();
         }
 
         return response.text();
     })
     .then(data => {
         console.log("Server response:", data);
-        alert("✅ Project saved successfully!");
-        document.getElementById("edsLoader").style.display = "none";
+        // Keep the loader visible while page reloads
+        // The loader will stay visible until page navigation completes
+        window.location.reload();
     })
     .catch(error => {
         console.error("Error:", error);
+        clearInterval(projectLoaderInterval);
+        projectLoader.style.display = "none";
         alert("❌ There was an error saving the project.");
-        document.getElementById("edsLoader").style.display = "none";
     });
 });
+
+// Helper function to update project loader messages
+function updateProjectLoaderMessage(messageObj) {
+    const loader = document.getElementById('edsLoader');
+    if (!loader) return;
+    
+    const allParagraphs = loader.querySelectorAll('p');
+    
+    // Update main message (first <p> tag with font-weight: 700)
+    if (allParagraphs.length > 0) {
+        allParagraphs[0].innerHTML = messageObj.main;
+    }
+    
+    // Update sub message (second <p> tag with lighter color)
+    if (allParagraphs.length > 1) {
+        allParagraphs[1].textContent = messageObj.sub;
+        allParagraphs[1].style.opacity = '1';
+    }
+}
 
 </script>
 <script>

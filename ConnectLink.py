@@ -19131,7 +19131,10 @@ def build_quotation_pdf_document(quotation_id):
             pdf_bytes = HTML(string=html).write_pdf()
             safe_name = ''.join(char for char in client_name if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
             filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
-            caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
+            
+            # Format category for caption display
+            caption_category = "Single Storey Construction" if category == "construction_single" else "Double Storey Construction" if category == "construction_double" else category
+            caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
             
             return pdf_bytes, filename, caption
             
@@ -19154,7 +19157,15 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
         monthly = balance / 5 if balance else 0
         payment_period_text = "5 months"
     
-    category_display = "Kitchen & Cabinets" if is_kitchen else category.replace('_', ' ').title()
+    # Format category for PDF display
+    if is_kitchen:
+        category_display = "Kitchen & Cabinets"
+    elif category == "construction_single":
+        category_display = "Single Storey Construction"
+    elif category == "construction_double":
+        category_display = "Double Storey Construction"
+    else:
+        category_display = category.replace('_', ' ').title()
     
     return f"""
     <!DOCTYPE html>
