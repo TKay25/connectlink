@@ -756,15 +756,16 @@
             border-left: 4px solid #dc2626;
         }
 
-        /* Loading Overlay - Stays visible until redirect */
+        /* Loading Overlay - Clean white/light background like modal */
         .loading-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(10, 43, 62, 0.95);
-            backdrop-filter: blur(8px);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             z-index: 2000;
             display: none;
             justify-content: center;
@@ -780,7 +781,7 @@
         .loading-spinner {
             width: 48px;
             height: 48px;
-            border: 3px solid rgba(255,255,255,0.1);
+            border: 3px solid rgba(10, 43, 62, 0.08);
             border-radius: 50%;
             border-top-color: var(--accent);
             animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
@@ -792,7 +793,7 @@
         }
 
         .loading-text {
-            color: white;
+            color: var(--primary);
             font-size: 0.9rem;
             font-weight: 500;
             letter-spacing: 0.5px;
@@ -1103,7 +1104,7 @@
     </div>
 </div>
 
-<!-- Loading Overlay - Stays visible until page redirects -->
+<!-- Loading Overlay - Clean white/light background like modal -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
     <div class="loading-text">Authenticating <span>...</span></div>
@@ -1143,7 +1144,7 @@
             dom.hardwareModal.classList.toggle('active', state.modals.hardware);
             document.body.style.overflow = (state.modals.projects || state.modals.hardware) ? 'hidden' : '';
             
-            // Loading overlay - stays visible until redirect happens
+            // Loading overlay - clean white/light background
             if (state.loading) {
                 dom.loadingOverlay.classList.add('active');
             } else {
@@ -1276,7 +1277,6 @@
                 return;
             }
 
-            // Show loading - it will stay until page redirects
             setLoading(true);
 
             const formData = new URLSearchParams();
@@ -1291,9 +1291,7 @@
             })
             .then(res => res.json())
             .then(data => {
-                // Only hide loading if there's an error (no redirect)
                 if (data.success) {
-                    // Loading stays visible - redirect will happen
                     window.location.href = data.redirect || '/dashboard';
                 } else {
                     setLoading(false);
@@ -1320,7 +1318,6 @@
                 return;
             }
 
-            // Show loading - it will stay until page redirects
             setLoading(true);
 
             fetch('/api/login', {
@@ -1331,11 +1328,9 @@
             })
             .then(res => res.json())
             .then(data => {
-                // Only hide loading if there's an error (no redirect)
                 if (data.success) {
                     localStorage.setItem('isLoggedIn', 'true');
                     if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
-                    // Loading stays visible - redirect will happen
                     window.location.href = '/pos-system.html';
                 } else {
                     setLoading(false);
@@ -1349,7 +1344,6 @@
             });
         });
 
-        // Initial render
         render();
     })();
 </script>
