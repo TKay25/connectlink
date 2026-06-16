@@ -209,8 +209,11 @@
             padding: 12px 14px;
             transition: margin-left 0.28s;
             width: calc(100% - var(--sidebar-collapsed));
-            min-height: 100vh;
+            height: 100vh;
             background: var(--white);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
         .sidebar:hover ~ .main-content, body:has(.sidebar:hover) .main-content {
             margin-left: var(--sidebar-expanded);
@@ -224,8 +227,9 @@
             background: var(--white);
             border-radius: 24px;
             padding: 6px 12px;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
             box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
         }
         .employeetag {
             padding: 3px 9px;
@@ -235,32 +239,255 @@
             font-size: 0.65rem;
         }
         /* TABS — dark blue background, red highlight on hover/active */
+        /* ===== MODERN REACT TAB NAVIGATION ===== */
         .nav-tabs {
-            border-bottom: 1px solid rgb(6, 14, 86);
-            gap: 0.5rem;
-            margin-bottom: 7px;
+            border-bottom: 2px solid rgba(193, 43, 62, 0.1);
+            gap: 8px;
+            margin-bottom: 0;
             background: transparent;
+            display: flex;
+            flex-wrap: wrap;
+            padding: 0;
+            list-style: none;
+            position: relative;
         }
+
+        .nav-tabs::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            height: 2px;
+            width: 0;
+            background: linear-gradient(90deg, var(--crimson-bright) 0%, #E91E63 100%);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .nav-item {
+            list-style: none;
+            margin: 0;
+        }
+
         .nav-tabs .nav-link {
             font-weight: 700;
-            padding: 5px 12px;
-            font-size: 0.65rem;
+            padding: 12px 16px;
+            font-size: 0.8rem;
             border: none;
             background: transparent;
-            color: var(--dark-blue-deep);
-            border-radius: 40px;
-            transition: all 0.2s;
+            color: rgba(14, 31, 66, 0.6);
+            border-radius: 8px 8px 0 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
         }
-        .nav-tabs .nav-link i { margin-right: 8px; font-size: 0.8rem; }
+
+        .nav-tabs .nav-link i {
+            font-size: 0.9rem;
+            transition: transform 0.3s ease;
+        }
+
         .nav-tabs .nav-link:hover {
-            color: var(--crimson-bright);
-            background: rgba(193, 43, 62, 0.15);
+            color: var(--dark-blue-deep);
+            background: rgba(193, 43, 62, 0.08);
+            transform: translateY(-2px);
         }
+
+        .nav-tabs .nav-link:hover i {
+            transform: scale(1.1);
+        }
+
         .nav-tabs .nav-link.active {
-            background: var(--dark-blue-deep);
-            color: white;
-            box-shadow: 0 4px 12px rgba(93, 52, 198, 0.4);
+            background: linear-gradient(135deg, rgba(193, 43, 62, 0.1) 0%, rgba(193, 43, 62, 0.05) 100%);
+            color: var(--crimson-bright);
+            border-bottom: 3px solid var(--crimson-bright);
+            box-shadow: 0 -2px 8px rgba(193, 43, 62, 0.1);
         }
+
+        .nav-tabs .nav-link.active i {
+            color: var(--crimson-bright);
+        }
+
+        /* ===== VERTICAL NAVIGATION SIDEBAR ===== */
+        .vertical-nav-sidebar {
+            min-width: 240px;
+            width: 240px;
+            background: linear-gradient(180deg, #F8F9FC 0%, #FFFFFF 100%);
+            border-right: 2px solid rgba(193, 43, 62, 0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            flex-shrink: 0;
+            overflow: hidden;
+            height: 100%;
+            flex: 0 0 240px;
+        }
+
+        .vertical-nav-header {
+            background: linear-gradient(135deg, var(--dark-blue-deep) 0%, #1A3A5C 100%);
+            color: white;
+            padding: 16px 12px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 2px solid rgba(193, 43, 62, 0.2);
+            flex-shrink: 0;
+        }
+
+        .vertical-nav-header i {
+            font-size: 1rem;
+        }
+
+        /* Vertical Tabs */
+        .vertical-nav-sidebar .vertical-tabs {
+            border: none;
+            border-bottom: none;
+            flex-direction: column;
+            gap: 0;
+            padding: 8px 0;
+            margin: 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .vertical-nav-sidebar .vertical-tabs::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .vertical-nav-sidebar .vertical-tabs::-webkit-scrollbar-track {
+            background: rgba(193, 43, 62, 0.05);
+        }
+
+        .vertical-nav-sidebar .vertical-tabs::-webkit-scrollbar-thumb {
+            background: rgba(193, 43, 62, 0.2);
+            border-radius: 4px;
+        }
+
+        .vertical-nav-sidebar .vertical-tabs::-webkit-scrollbar-thumb:hover {
+            background: rgba(193, 43, 62, 0.4);
+        }
+
+        .vertical-nav-sidebar .nav-item {
+            margin: 0;
+            width: 100%;
+        }
+
+        .vertical-nav-link {
+            width: 100%;
+            padding: 12px 12px !important;
+            margin: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            color: rgba(14, 31, 66, 0.6) !important;
+            cursor: pointer;
+            text-align: left;
+            display: flex !important;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            border-left: 3px solid transparent;
+            border-radius: 0 !important;
+        }
+
+        .vertical-nav-link i {
+            font-size: 0.95rem;
+            transition: transform 0.3s ease;
+            margin-right: 8px;
+        }
+
+        .vertical-nav-link:hover {
+            color: var(--dark-blue-deep) !important;
+            background: rgba(193, 43, 62, 0.08) !important;
+            border-left-color: rgba(193, 43, 62, 0.3);
+            padding-left: 16px;
+        }
+
+        .vertical-nav-link:hover i {
+            transform: translateX(4px);
+        }
+
+        .vertical-nav-link.active {
+            color: var(--crimson-bright) !important;
+            background: linear-gradient(90deg, rgba(193, 43, 62, 0.1) 0%, rgba(193, 43, 62, 0.05) 100%) !important;
+            border-left-color: var(--crimson-bright);
+            padding-left: 16px;
+            box-shadow: inset -4px 0 8px rgba(193, 43, 62, 0.1);
+        }
+
+        .vertical-nav-link.active i {
+            color: var(--crimson-bright);
+            transform: scale(1.1);
+        }
+
+        /* Vertical Navigation Content Area */
+        .vertical-nav-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            overflow-y: auto;
+            height: 100%;
+            min-height: 100%;
+            width: 100%;
+        }
+
+        .vertical-nav-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .vertical-nav-content::-webkit-scrollbar-track {
+            background: rgba(193, 43, 62, 0.05);
+            border-radius: 8px;
+        }
+
+        .vertical-nav-content::-webkit-scrollbar-thumb {
+            background: rgba(193, 43, 62, 0.2);
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .vertical-nav-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(193, 43, 62, 0.4);
+        }
+
+        /* Admin Content Card Container */
+        #admin-content {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            border-radius: 12px;
+            border: 1px solid rgba(193, 43, 62, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            margin: 0;
+            height: 100%;
+            min-height: 100%;
+        }
+
+        #admin-content .tab-content {
+            flex: 1;
+            margin-top: 0;
+            border-radius: 0;
+            border: none;
+            min-height: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
         /* Cards — dark blue elevated */
         .card {
             background: var(--white);
@@ -886,27 +1113,39 @@
         }
 
         /* Tab Navigation Animation */
-        .nav-tabs .nav-link {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        /* Tab Content Enhancement */
+        .tab-content {
+            background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FC 100%);
+            border-radius: 0 0 12px 12px;
+            padding: 24px;
+            border: 1px solid rgba(193, 43, 62, 0.1);
+            border-top: none;
+            overflow-y: auto;
+            min-height: 400px;
+            max-height: none;
         }
 
-        .nav-tabs .nav-link:hover {
-            transform: translateY(-2px);
+        .tab-content::-webkit-scrollbar {
+            width: 8px;
         }
 
-        .nav-tabs .nav-link.active {
-            animation: tabActive 0.3s ease-out;
+        .tab-content::-webkit-scrollbar-track {
+            background: rgba(193, 43, 62, 0.05);
+            border-radius: 8px;
         }
 
-        @keyframes tabActive {
-            from {
-                opacity: 0;
-                transform: translateY(5px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .tab-content::-webkit-scrollbar-thumb {
+            background: rgba(193, 43, 62, 0.2);
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .tab-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(193, 43, 62, 0.4);
+        }
+
+        .tab-pane {
+            animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* Smooth Color Transitions */
@@ -1479,10 +1718,42 @@
             overflow-y: auto;
         }
 
+        /* Content Wrapper - Scrollable Container */
+        .content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding-right: 8px;
+        }
+
+        .content-wrapper::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .content-wrapper::-webkit-scrollbar-track {
+            background: rgba(193, 43, 62, 0.05);
+            border-radius: 8px;
+        }
+
+        .content-wrapper::-webkit-scrollbar-thumb {
+            background: rgba(193, 43, 62, 0.2);
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .content-wrapper::-webkit-scrollbar-thumb:hover {
+            background: rgba(193, 43, 62, 0.4);
+        }
+
         /* Dashboard Grid */
         .dashboard-grid {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 24px;
+            flex-shrink: 0;
         }
 
         /* Section Card */
@@ -4118,35 +4389,163 @@
 
         </header>
 
-        <div class="card" id="admin-content" style="display: block;">
-            <ul class="nav nav-tabs">
+        <!-- Scrollable Content Wrapper -->
+        <div class="content-wrapper">
+            <!-- Dashboard Overview Sections (Above Tabs) -->
+            <div class="dashboard-grid">
+            <!-- Quick Actions Section -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="bi bi-lightning-fill"></i>
+                        Quick Actions
+                    </div>
+                </div>
+                <div class="section-body">
+                    <div class="content-grid">
+                        <div class="quick-action-card" onclick="openModal('addnewProjectModal'); setActiveButton('btn-new-project')">
+                            <div class="action-icon">
+                                <i class="bi bi-plus-circle"></i>
+                            </div>
+                            <div class="action-content">
+                                <div class="action-title">New Project</div>
+                                <div class="action-description">Create a new project</div>
+                            </div>
+                            <div class="action-arrow">
+                                <i class="bi bi-arrow-right"></i>
+                            </div>
+                        </div>
+
+                        <div class="quick-action-card" onclick="openModal('quotationgeneratorModal'); setActiveButton('btn-quotation')">
+                            <div class="action-icon">
+                                <i class="bi bi-file-text"></i>
+                            </div>
+                            <div class="action-content">
+                                <div class="action-title">Generate Quote</div>
+                                <div class="action-description">Create a quotation</div>
+                            </div>
+                            <div class="action-arrow">
+                                <i class="bi bi-arrow-right"></i>
+                            </div>
+                        </div>
+
+                        <div class="quick-action-card" onclick="openModal('systemUserModal'); setActiveButton('btn-system-users')">
+                            <div class="action-icon">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            <div class="action-content">
+                                <div class="action-title">Manage Users</div>
+                                <div class="action-description">System users & roles</div>
+                            </div>
+                            <div class="action-arrow">
+                                <i class="bi bi-arrow-right"></i>
+                            </div>
+                        </div>
+
+                        <div class="quick-action-card" onclick="openModal('addcompAdminModal'); setActiveButton('btn-administrators')">
+                            <div class="action-icon">
+                                <i class="bi bi-shield-check"></i>
+                            </div>
+                            <div class="action-content">
+                                <div class="action-title">Administrators</div>
+                                <div class="action-description">Manage admins</div>
+                            </div>
+                            <div class="action-arrow">
+                                <i class="bi bi-arrow-right"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Section -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="bi bi-graph-up"></i>
+                        System Overview
+                    </div>
+                </div>
+                <div class="section-body">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Total Projects</div>
+                            <div class="stat-value">—</div>
+                            <div class="stat-change">Data loads from database</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Active Users</div>
+                            <div class="stat-value">—</div>
+                            <div class="stat-change">System users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Pending Payments</div>
+                            <div class="stat-value">—</div>
+                            <div class="stat-change">Due installments</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Quotations</div>
+                            <div class="stat-value">—</div>
+                            <div class="stat-change">This month</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity Section -->
+            <div class="section-card">
+                <div class="section-header">
+                    <div class="section-title">
+                        <i class="bi bi-clock-history"></i>
+                        Recent Activity
+                    </div>
+                </div>
+                <div class="section-body">
+                    <p style="text-align: center; color: rgba(14, 31, 66, 0.5); padding: 20px 0;">
+                        Activity logs will appear here
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="admin-content" style="display: block; border-radius: 12px; border: 1px solid rgba(193, 43, 62, 0.1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); display: flex; flex-direction: row;">
+            <!-- Vertical Navigation Sidebar -->
+            <div class="vertical-nav-sidebar">
+                <div class="vertical-nav-header">
+                    <i class="bi bi-list-columns-reverse"></i>
+                    PROJECTS PORTFOLIO PORTAL
+                </div>
+                <ul class="nav nav-tabs vertical-tabs">
 
                 <li class="nav-item">
-                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#projects-tab"><i class="bi bi-list-columns-reverse"></i>    PROJECTS PORTFOLIO PORTAL</button>
+                    <button class="nav-link vertical-nav-link active" data-bs-toggle="tab" data-bs-target="#projects-tab"><i class="bi bi-list-columns-reverse"></i>    PROJECTS PORTAL</button>
                 </li>
 
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#payments-tab"><i class="bi bi-cash-coin"></i>    PAYMENTS PORTAL</button>
+                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#payments-tab"><i class="bi bi-cash-coin"></i>    PAYMENTS PORTAL</button>
                 </li>
 
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#quotations-tab"><i class="bi bi-file-earmark-text"></i>    QUOTATIONS PORTAL</button>
+                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#quotations-tab"><i class="bi bi-file-earmark-text"></i>    QUOTATIONS PORTAL</button>
                 </li>
 
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#enquiries-tab"><i class="bi bi-person-badge-fill"></i>    ENQUIRIES PORTAL</button>
+                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#enquiries-tab"><i class="bi bi-person-badge-fill"></i>    ENQUIRIES PORTAL</button>
                 </li>
 
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#dashboard-tab"><i class="bi bi-person-badge-fill"></i>    SUMMARY</button>
+                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#dashboard-tab"><i class="bi bi-graph-up"></i>    SUMMARY</button>
                 </li>
 
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#contractor-details-tab"><i class="bi bi-list-columns-reverse"></i>    CONTRACTOR DETAILS</button>
+                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#contractor-details-tab"><i class="bi bi-building"></i>    CONTRACTOR DETAILS</button>
                 </li>
 
-            </ul>
-            <div class="tab-content mt-4">
+                </ul>
+            </div>
+            <!-- Content Area -->
+            <div class="vertical-nav-content">
+            <div class="tab-content">
 
 
                 <div class="tab-pane fade" id="payments-tab">
@@ -4648,7 +5047,12 @@
                     <p>Manage Payments</p>
                 </div>
             </div>
+            </div>
+            <!-- End vertical-nav-content -->
         </div>
+        <!-- End admin-content -->
+        </div>
+        <!-- End content-wrapper -->
     </main>
 
 <!-- Kitchen & Cabinets Preview Modal - SEPARATE -->
