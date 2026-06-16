@@ -756,7 +756,7 @@
             border-left: 4px solid #dc2626;
         }
 
-        /* Loading Overlay - Dark like modal header */
+        /* Loading Overlay - Dark background */
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -1137,14 +1137,13 @@
             loadingStep: 0
         };
 
-        // Loading messages array
+        // Loading messages - each message appears once, then stops at final
         const loadingMessages = [
             { main: 'Authenticating <span>...</span>', sub: 'Verifying credentials' },
             { main: 'Loading datasets <span>...</span>', sub: 'Fetching project data' },
             { main: 'Preparing reports <span>...</span>', sub: 'Compiling analytics' },
             { main: 'Syncing systems <span>...</span>', sub: 'Connecting to services' },
-            { main: 'Finalizing setup <span>...</span>', sub: 'Almost there' },
-            { main: 'Welcome back <span>!</span>', sub: 'Redirecting to dashboard' }
+            { main: 'Finalizing setup <span>...</span>', sub: 'Almost there' }
         ];
 
         // DOM refs
@@ -1164,7 +1163,7 @@
             hardwarePassword: document.getElementById('hardwarePassword')
         };
 
-        // Start loading animation with rotating messages
+        // Start loading animation with rotating messages - each once, then stay at final
         function startLoadingAnimation() {
             state.loadingStep = 0;
             updateLoadingMessage();
@@ -1174,9 +1173,13 @@
             }
             
             state.loadingInterval = setInterval(function() {
-                state.loadingStep = (state.loadingStep + 1) % loadingMessages.length;
-                updateLoadingMessage();
-            }, 1800);
+                // Move to next message, but stop at the last one
+                if (state.loadingStep < loadingMessages.length - 1) {
+                    state.loadingStep++;
+                    updateLoadingMessage();
+                }
+                // Once we reach the last message, we stop changing
+            }, 3000);
         }
 
         function updateLoadingMessage() {
@@ -1354,7 +1357,6 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    // Keep loading visible, redirect will happen
                     window.location.href = data.redirect || '/dashboard';
                 } else {
                     setLoading(false);
