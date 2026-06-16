@@ -13503,12 +13503,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Apply pre-selections for edit mode
             if (window._editingPreSelectItems && window._editingPreSelectItems.length > 0) {
-                const preSelectNames = window._editingPreSelectItems;
+                const preSelectItems = window._editingPreSelectItems;
                 window._editingPreSelectItems = null; // clear before triggering events
+                
+                // Create a map of item names to their full data for quick lookup
+                const itemMap = {};
+                preSelectItems.forEach(item => {
+                    itemMap[normalizeConstructionItemName(item.name)] = item;
+                });
+                
+                // Now select the items and restore their rates
                 $('.construction-item-row').each(function() {
                     const rowName = $(this).data('item-name');
-                    if (preSelectNames.includes(rowName)) {
+                    const normalizedName = normalizeConstructionItemName(rowName);
+                    const preSelectedItem = itemMap[normalizedName];
+                    
+                    if (preSelectedItem) {
+                        // Check the checkbox
                         $(this).find('.construction-item-checkbox').prop('checked', true);
+                        
+                        // Restore the unit rate (inhouseRate) if present
+                        if (preSelectedItem.inhouseRate) {
+                            $(this).data('unit-rate', preSelectedItem.inhouseRate);
+                        }
+                        
+                        // Restore the markup/clientPrice if needed
+                        if (preSelectedItem.clientPrice) {
+                            $(this).data('client-price', preSelectedItem.clientPrice);
+                        }
                     }
                 });
                 updateSelectedItemsList();
@@ -15091,11 +15113,19 @@ $('#sendQuotationBtn').click(async function() {
     }
 });
 
-// Reset form when modal is closed
+// Reset form when modal is closed and clean up editing context
         $('#quotationgeneratorModal').on('hidden.bs.modal', function() {
             $('#quotationGeneratorForm')[0].reset();
             $('#quotationDate').val(today);
             $('#quotationCategory').change();
+            
+            // Clean up editing context
+            window.editingQuotationId = null;
+            window._editingQuotationData = null;
+            window._editingPreSelectItems = null;
+            window.kitchenCabinetItems = [];
+            window.ganttChartData = [];
+            ganttItems = [];
         });
 
         // Hide preview modal properly
@@ -16728,11 +16758,13 @@ function editQuotationFromPortal(quotationId) {
 
             if (isKitchen) {
                 // Load kitchen quotation for editing
+                // Restore kitchen quotation items for editing with proper field mapping
                 window.kitchenCabinetItems = (quotation.items || []).map(item => ({
-                    name: item.name,
+                    name: item.name || '',
                     quantity: item.quantity || 1,
-                    amount: item.amount || item.unitRate || 0,
-                    days: item.days || 1
+                    amount: item.amount || item.unitRate || item.totalPrice || 0,
+                    days: item.days || 1,
+                    totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || item.unitRate || 0))
                 }));
                 
                 $('#quotationClientName').val(quotation.clientName || '');
@@ -16755,15 +16787,21 @@ function editQuotationFromPortal(quotationId) {
                 }));
                 ganttItems = window.ganttChartData.slice();
 
+                // Store editing context - preserve full item data for restoration
+                window._editingQuotationData = quotation;
                 window._editingPreSelectItems = (quotation.items || []).map((item, idx) => {
                     const matchingSchedule = quotation.schedules ? quotation.schedules[idx] : null;
                     return {
                         name: item.name,
                         sqm: item.quantity,
+                        quantity: item.quantity,
                         inhouseRate: item.unitRate,
+                        unitRate: item.unitRate,
                         clientPrice: item.totalPrice,
+                        totalPrice: item.totalPrice,
                         total: item.totalPrice,
-                        days: matchingSchedule ? matchingSchedule.days : 0
+                        days: matchingSchedule ? matchingSchedule.days : 0,
+                        markup: quotation.markup
                     };
                 });
 
