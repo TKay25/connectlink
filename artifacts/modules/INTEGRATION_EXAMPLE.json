@@ -1,0 +1,43 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "INTEGRATIONEXAMPLE",
+  "file": "INTEGRATION_EXAMPLE.py",
+  "purpose": "ConnectLink React App Integration Example",
+  "entry_function": "api_response(success = True, data = None, message = '')",
+  "entry_flows": [
+    "INTEGRATION_EXAMPLE → app.route, session.get, cursor.execute, cursor.fetchone, args.get"
+  ],
+  "public_api": [
+    "api_response(success = True, data = None, message = '')",
+    "json_error(message, status_code = 400)",
+    "dashboard_modern()",
+    "projects_modern()",
+    "api_dashboard_stats()",
+    "api_get_projects()",
+    "api_get_project(project_id)",
+    "api_create_project()"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "96843efb80ff9326",
+  "file_mtime": 1781615025135.8706,
+  "file_size": 16748,
+  "file_birthtime": 1781615024915.4692,
+  "generated_at": "2026-06-16T13:03:49.324977Z",
+  "stale": false
+}

@@ -1,0 +1,46 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Components",
+  "file": "static/js/components.js",
+  "purpose": "ConnectLink Component Library",
+  "entry_function": "class Modal",
+  "entry_flows": [],
+  "public_api": [
+    "class Modal",
+    "class Dropdown",
+    "class Tabs",
+    "class Toast",
+    "class Form",
+    "class Notification",
+    "class DataTable",
+    "class Pagination",
+    "init",
+    "if",
+    "open",
+    "close",
+    "toggle"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "8cb71ebf380694c8",
+  "file_mtime": 1781614865061.3044,
+  "file_size": 12723,
+  "file_birthtime": 1781614864984.9185,
+  "generated_at": "2026-06-16T13:01:09.103771Z",
+  "stale": false
+}
