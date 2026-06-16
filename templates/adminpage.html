@@ -1959,6 +1959,34 @@ body {
                 justify-content: space-between;
             }
         }
+        /* Row-wise Tab Active Styling */
+        .vertical-nav-link.active {
+            background: var(--crimson-bright) !important;
+            color: white !important;
+            border-color: var(--crimson-bright) !important;
+            box-shadow: 0 2px 6px rgba(193,43,62,0.3);
+        }
+        .vertical-nav-link.active i {
+            color: white !important;
+        }
+        
+        /* Fix for card styling */
+        #admin-content .card {
+            background: transparent;
+            box-shadow: none;
+            border: none;
+            padding: 0;
+        }
+        
+        /* Ensure tabs take full width */
+        #admin-content .tab-content {
+            padding: 8px 10px;
+            min-height: 300px;
+            background: white;
+            border-radius: 0 0 8px 8px;
+            border: none;
+        }
+
     </style>
 </head>
 
@@ -2035,75 +2063,232 @@ body {
 </nav>
 
     <!-- Modern Main Content -->
-    <div class="modern-main-content">
-        <div class="content-container">
-
+    <div class="main-content" id="main-content">
+            <!-- Dashboard Page -->
             <!-- Dashboard Page -->
             <div id="dashboardPage" class="page-view" style="display: block;">
-                <div class="dashboard-grid">
-                    <!-- Quick Actions Section -->
-                    <div class="section-card">
-                        <div class="section-body">
-                            <div class="content-grid">
-                                <div class="quick-action-card" onclick="openModal('addnewProjectModal'); setActiveButton('btn-new-project')">
-                                    <div class="action-icon">
-                                        <i class="bi bi-plus-circle"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <div class="action-title">New Project</div>
-                                        <div class="action-description">Create a new project</div>
-                                    </div>
-                                    <div class="action-arrow">
-                                        <i class="bi bi-arrow-right"></i>
-                                    </div>
+                <!-- Quick Actions Section - AT THE TOP -->
+                <div class="section-card" style="margin-bottom: 8px;">
+                    <div class="section-body" style="padding: 6px 10px;">
+                        <div class="content-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+                            <div class="quick-action-card" onclick="openModal('addnewProjectModal')" style="padding: 4px 8px; min-height: 28px;">
+                                <div class="action-icon" style="width:20px;height:20px;font-size:0.55rem;">
+                                    <i class="bi bi-plus-circle"></i>
                                 </div>
-
-                                <div class="quick-action-card" onclick="openModal('quotationgeneratorModal'); setActiveButton('btn-quotation')">
-                                    <div class="action-icon">
-                                        <i class="bi bi-file-text"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <div class="action-title">Generate Quote</div>
-                                        <div class="action-description">Create a quotation</div>
-                                    </div>
-                                    <div class="action-arrow">
-                                        <i class="bi bi-arrow-right"></i>
-                                    </div>
+                                <div class="action-content">
+                                    <div class="action-title" style="font-size:0.55rem;">New Project</div>
+                                    <div class="action-description" style="font-size:0.45rem;">Create a new project</div>
                                 </div>
-
-                                <div class="quick-action-card" onclick="openModal('systemUserModal'); setActiveButton('btn-system-users')">
-                                    <div class="action-icon">
-                                        <i class="bi bi-people"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <div class="action-title">Manage Users</div>
-                                        <div class="action-description">System users & roles</div>
-                                    </div>
-                                    <div class="action-arrow">
-                                        <i class="bi bi-arrow-right"></i>
-                                    </div>
+                                <div class="action-arrow" style="font-size:0.55rem;">
+                                    <i class="bi bi-arrow-right"></i>
                                 </div>
+                            </div>
 
-                                <div class="quick-action-card" onclick="openModal('addcompAdminModal'); setActiveButton('btn-administrators')">
-                                    <div class="action-icon">
-                                        <i class="bi bi-shield-check"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <div class="action-title">Administrators</div>
-                                        <div class="action-description">Manage admins</div>
-                                    </div>
-                                    <div class="action-arrow">
-                                        <i class="bi bi-arrow-right"></i>
-                                    </div>
+                            <div class="quick-action-card" onclick="openModal('quotationgeneratorModal')" style="padding: 4px 8px; min-height: 28px;">
+                                <div class="action-icon" style="width:20px;height:20px;font-size:0.55rem;">
+                                    <i class="bi bi-file-text"></i>
+                                </div>
+                                <div class="action-content">
+                                    <div class="action-title" style="font-size:0.55rem;">Generate Quote</div>
+                                    <div class="action-description" style="font-size:0.45rem;">Create a quotation</div>
+                                </div>
+                                <div class="action-arrow" style="font-size:0.55rem;">
+                                    <i class="bi bi-arrow-right"></i>
+                                </div>
+                            </div>
+
+                            <div class="quick-action-card" onclick="openModal('systemUserModal')" style="padding: 4px 8px; min-height: 28px;">
+                                <div class="action-icon" style="width:20px;height:20px;font-size:0.55rem;">
+                                    <i class="bi bi-people"></i>
+                                </div>
+                                <div class="action-content">
+                                    <div class="action-title" style="font-size:0.55rem;">Manage Users</div>
+                                    <div class="action-description" style="font-size:0.45rem;">System users & roles</div>
+                                </div>
+                                <div class="action-arrow" style="font-size:0.55rem;">
+                                    <i class="bi bi-arrow-right"></i>
+                                </div>
+                            </div>
+
+                            <div class="quick-action-card" onclick="openModal('addcompAdminModal')" style="padding: 4px 8px; min-height: 28px;">
+                                <div class="action-icon" style="width:20px;height:20px;font-size:0.55rem;">
+                                    <i class="bi bi-shield-check"></i>
+                                </div>
+                                <div class="action-content">
+                                    <div class="action-title" style="font-size:0.55rem;">Administrators</div>
+                                    <div class="action-description" style="font-size:0.45rem;">Manage admins</div>
+                                </div>
+                                <div class="action-arrow" style="font-size:0.55rem;">
+                                    <i class="bi bi-arrow-right"></i>
                                 </div>
                             </div>
                         </div>
                     </div>
-
                 </div>
-            </div>
 
-        </div>
+                <!-- Admin Content - Tabs Below Quick Actions -->
+                <!-- Admin Content - Tabs Below Quick Actions -->
+                <div class="card" id="admin-content" style="display:flex; flex-direction:column; border-radius:8px; border:1px solid rgba(193,43,62,0.06); flex:1; min-height:0; margin-top:4px; overflow:hidden; width:100%;">
+                    
+                    <!-- Row-wise Tab Navigation -->
+                    <div style="width:100%; border-bottom: 2px solid rgba(193, 43, 62, 0.15); padding: 0; background: #f8f9fc; border-radius: 8px 8px 0 0; flex-shrink:0;">
+                        <ul class="nav nav-tabs" style="border: none; display: flex; flex-wrap: wrap; gap: 2px; padding: 4px 6px; margin: 0; background: transparent;">
+                            <li class="nav-item" style="list-style:none; margin:0;">
+                                <button class="nav-link vertical-nav-link active" data-bs-toggle="tab" data-bs-target="#projects-tab" style="font-size:0.6rem; padding:4px 10px; border:1px solid rgba(193,43,62,0.15); border-radius:4px; background:transparent; color:rgba(14,31,66,0.6); cursor:pointer; transition:all 0.2s; white-space:nowrap;">
+                                    <i class="bi bi-list-columns-reverse"></i> PROJECTS
+                                </button>
+                            </li>
+                            <li class="nav-item" style="list-style:none; margin:0;">
+                                <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#payments-tab" style="font-size:0.6rem; padding:4px 10px; border:1px solid rgba(193,43,62,0.15); border-radius:4px; background:transparent; color:rgba(14,31,66,0.6); cursor:pointer; transition:all 0.2s; white-space:nowrap;">
+                                    <i class="bi bi-cash-coin"></i> PAYMENTS
+                                </button>
+                            </li>
+                            <li class="nav-item" style="list-style:none; margin:0;">
+                                <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#quotations-tab" style="font-size:0.6rem; padding:4px 10px; border:1px solid rgba(193,43,62,0.15); border-radius:4px; background:transparent; color:rgba(14,31,66,0.6); cursor:pointer; transition:all 0.2s; white-space:nowrap;">
+                                    <i class="bi bi-file-earmark-text"></i> QUOTATIONS
+                                </button>
+                            </li>
+                            <li class="nav-item" style="list-style:none; margin:0;">
+                                <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#enquiries-tab" style="font-size:0.6rem; padding:4px 10px; border:1px solid rgba(193,43,62,0.15); border-radius:4px; background:transparent; color:rgba(14,31,66,0.6); cursor:pointer; transition:all 0.2s; white-space:nowrap;">
+                                    <i class="bi bi-person-badge-fill"></i> ENQUIRIES
+                                </button>
+                            </li>
+                            <li class="nav-item" style="list-style:none; margin:0;">
+                                <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#dashboard-tab" style="font-size:0.6rem; padding:4px 10px; border:1px solid rgba(193,43,62,0.15); border-radius:4px; background:transparent; color:rgba(14,31,66,0.6); cursor:pointer; transition:all 0.2s; white-space:nowrap;">
+                                    <i class="bi bi-graph-up"></i> SUMMARY
+                                </button>
+                            </li>
+                            <li class="nav-item" style="list-style:none; margin:0;">
+                                <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#contractor-details-tab" style="font-size:0.6rem; padding:4px 10px; border:1px solid rgba(193,43,62,0.15); border-radius:4px; background:transparent; color:rgba(14,31,66,0.6); cursor:pointer; transition:all 0.2s; white-space:nowrap;">
+                                    <i class="bi bi-building"></i> CONTRACTOR
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Tab Content Area - Full Width -->
+                    <div class="tab-content" style="flex:1; padding:8px 10px; background:white; border:none; border-radius:0 0 8px 8px; overflow-y:auto; min-height:300px;">
+
+                        <!-- PROJECTS TAB -->
+                        <div class="tab-pane fade show active" id="projects-tab">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('downloadPortfolioModal')"><i class="bi bi-download"></i> Master File</button>
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('workPlanModal')"><i class="bi bi-calendar-check"></i> Work Plan</button>
+                                <button id="aiAssistantBtn" class="btn btn-danger" style="font-size:0.55rem; padding:2px 8px; cursor:pointer;"><i class="bi bi-robot"></i> Ask AI</button>
+                            </div>
+                            <div class="container" style="padding:4px; background:#fafafa; border-radius:4px;">
+                                <div class="row mb-2 align-items-center">
+                                    <div class="col-md-3">
+                                        <div class="input-group" style="font-size:0.55rem;">
+                                            <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-calendar-month"></i></span>
+                                            <select class="form-select" id="monthFilter" style="font-size:0.55rem;padding:0.1rem 0.3rem;">
+                                                {% for month in month_options %}
+                                                    <option value="{{ month.value }}" {% if loop.first %}selected{% endif %}>{{ month.display }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="input-group" style="font-size:0.55rem;">
+                                            <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-search"></i></span>
+                                            <input type="text" class="form-control" id="tableSearch" placeholder="Search..." style="font-size:0.55rem;padding:0.1rem 0.3rem;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="container2" style="max-height:280px; overflow-y:auto;">
+                                    {{ table_datamain_html|safe }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PAYMENTS TAB -->
+                        <div class="tab-pane fade" id="payments-tab">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" id="exportcashflowBtn"><i class="bi bi-download"></i> Cashflow</button>
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('downloadInstallmentsModal')"><i class="bi bi-download"></i> Installments</button>
+                                <button class="btn btn-danger" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('auditInstallmentsModal')"><i class="bi bi-credit-card-2-front-fill"></i> Audit</button>
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="Pushpaymentreminders()"><i class="bi bi-credit-card-2-front-fill"></i> Reminders</button>
+                            </div>
+                            <div class="container2" style="max-height:300px; overflow-y:auto; margin-top:4px;">
+                                {{ status_df_html|safe }}
+                            </div>
+                        </div>
+
+                        <!-- QUOTATIONS TAB -->
+                        <div class="tab-pane fade" id="quotations-tab">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="reloadQuotations()"><i class="bi bi-arrow-clockwise"></i> Reload</button>
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openSentQuotationsModal()"><i class="bi bi-whatsapp"></i> Sent</button>
+                            </div>
+                            <div id="quotationsContainer" style="color:var(--dark-blue-deep); padding:4px; font-size:0.6rem; background:#fafafa; border-radius:4px; min-height:100px;">
+                                <p class="text-muted text-center" style="padding:20px;">Click Reload to load quotations...</p>
+                            </div>
+                        </div>
+
+                        <!-- ENQUIRIES TAB -->
+                        <div class="tab-pane fade" id="enquiries-tab">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="downloadenquiries()"><i class="bi bi-download"></i> Enquiries</button>
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('viewEnquiriesModal')"><i class="bi bi-search"></i> View Interim</button>
+                            </div>
+                            <div class="container" style="padding:4px; background:#fafafa; border-radius:4px;">
+                                <div class="row mb-2">
+                                    <div class="col-md-4"><input type="text" class="form-control" id="enquirySearch" placeholder="Search..." style="font-size:0.55rem;padding:0.1rem 0.3rem;"></div>
+                                    <div class="col-md-4"><select class="form-select" id="categoryFilter" style="font-size:0.55rem;padding:0.1rem 0.3rem;"><option value="">All Categories</option><option>Kitchen & Cabinets</option><option>Building</option><option>Renovation</option></select></div>
+                                    <div class="col-md-4"><select class="form-select" id="statusFilter" style="font-size:0.55rem;padding:0.1rem 0.3rem;"><option value="">All Status</option><option>pending</option><option>in_progress</option><option>completed</option></select></div>
+                                </div>
+                                <div class="container2" style="max-height:260px; overflow-y:auto;">
+                                    <table class="table-theme" id="enquiriesDetailTable" style="font-size:0.55rem;">
+                                        <thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Category</th><th>Status</th><th>Action</th></tr></thead>
+                                        <tbody>
+                                            {% for enquiry in enquiries_data %}
+                                            <tr><td>{{ enquiry.id }}</td><td>{{ enquiry.timestamp }}</td><td>{{ enquiry.clientwhatsapp }}</td><td>{{ enquiry.category }}</td><td>{{ enquiry.status }}</td><td><button class="btn btn-sm btn-danger">Delete</button></td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUMMARY TAB -->
+                        <div class="tab-pane fade" id="dashboard-tab">
+                            <div class="dashboard-summary" style="grid-template-columns:repeat(auto-fit,minmax(80px,1fr)); gap:4px; margin-bottom:6px;">
+                                <div class="summary-card" style="padding:2px 4px;"><div class="details"><h5 style="font-size:0.5rem;">Projects</h5><p style="font-size:0.65rem;">{{ num_projects }}</p></div></div>
+                                <div class="summary-card" style="padding:2px 4px;"><div class="details"><h5 style="font-size:0.5rem;">Ongoing</h5><p style="font-size:0.65rem;">{{ count_ongoing }}</p></div></div>
+                                <div class="summary-card" style="padding:2px 4px;"><div class="details"><h5 style="font-size:0.5rem;">Completed</h5><p style="font-size:0.65rem;">{{ count_completed }}</p></div></div>
+                                <div class="summary-card" style="padding:2px 4px;"><div class="details"><h5 style="font-size:0.5rem;">Avg Time</h5><p style="font-size:0.65rem;">{{ average_duration }}d</p></div></div>
+                            </div>
+                            <div class="dashboard-graphs">
+                                <div class="graph-card" style="padding:2px; flex:1; min-width:100px;"><h6 style="font-size:0.5rem;">Completed vs Ongoing</h6><canvas id="leaveByTypeChart" width="120" height="45"></canvas></div>
+                                <div class="graph-card" style="padding:2px; flex:1; min-width:100px;"><h6 style="font-size:0.5rem;">By Location</h6><canvas id="projectsByLocationChart" width="120" height="45"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- CONTRACTOR TAB -->
+                        <div class="tab-pane fade" id="contractor-details-tab">
+                            <div style="color: #1E2A56; font-size: 0.7rem; padding:4px;">
+                                <div class="card shadow-sm border-0 rounded-4">
+                                    <div class="card-body p-2">
+                                        <h6 class="mb-1 fw-bold" style="font-size:0.7rem;color:var(--dark-blue-deep)"><i class="bi bi-building-fill-gear"></i> CONTRACTOR DETAILS</h6>
+                                        <div class="row mb-1">
+                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">COMPANY</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ companyname }}</p></div>
+                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">PHONES</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ contact1 }}</p></div>
+                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">EMAIL</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ compemail }}</p></div>
+                                        </div>
+                                        <div class="row mb-1">
+                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">ADDRESS</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ address }}</p></div>
+                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">TIN</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ tinnumber }}</p></div>
+                                        </div>
+                                        <button class="btn btn-primary px-2 py-0" style="font-size:0.6rem;" onclick="openModal('editContractorModal')">Edit Details</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- tab-content -->
+                </div><!-- admin-content -->
+            </div><!-- dashboardPage -->
+
     </div>
 
 <div id="systemUserModal" class="modal-overlay">
@@ -3920,9 +4105,6 @@ body {
 <!-- HIDDEN DATA CONTAINER - Add this too -->
 <div id="paymentRemindersData" data-reminders='{{ payment_reminders|tojson|safe if payment_reminders else "{}" }}' style="display: none;"></div>
 
-
-
-
 <!-- View Interim Enquiries Modal - Blur Overlay Version -->
 <div id="viewEnquiriesModal" class="modal-overlay">
     <div class="modal-container fullscreen">
@@ -4214,676 +4396,6 @@ body {
     </div>
 </div>
 
-    <main class="main-content" id="main-content">
-        <header>
-            <div class="employeetag" style="text-transform: uppercase;">{{user_name}}, CONNECTLINK PROPERTIES <span>ID: {{userid}}</span></div>
-            <div><span class="current-date" id="currdate" style="color: var(--dark-blue-deep); font-size: 0.65rem; font-weight: bolder;">DATE: {{ today_date }}</span></div>
-            <span id="name-down" value="{{firstname}}" style="display: none;"></span>
-            <span id="name-down2" value="{{surname}}" style="display: none;"></span>
-
-            <button onclick="window.location.href='/logout'" class="btn btn-primary" style="width: max-content;font-size: 0.65rem;">  Logout<i class="bi bi-door-closed-fill" style="margin-left: 7px;"></i>  </button>
-
-        </header>
-
-        <!-- Scrollable Content Wrapper -->
-        <div class="content-wrapper">
-            <!-- Dashboard Overview Sections (Above Tabs) -->
-            <div class="dashboard-grid">
-            <!-- Quick Actions Section -->
-            <div class="section-card">
-                <div class="section-body">
-                    <div class="content-grid">
-                        <div class="quick-action-card" onclick="openModal('addnewProjectModal'); setActiveButton('btn-new-project')">
-                            <div class="action-icon">
-                                <i class="bi bi-plus-circle"></i>
-                            </div>
-                            <div class="action-content">
-                                <div class="action-title">New Project</div>
-                                <div class="action-description">Create a new project</div>
-                            </div>
-                            <div class="action-arrow">
-                                <i class="bi bi-arrow-right"></i>
-                            </div>
-                        </div>
-
-                        <div class="quick-action-card" onclick="openModal('quotationgeneratorModal'); setActiveButton('btn-quotation')">
-                            <div class="action-icon">
-                                <i class="bi bi-file-text"></i>
-                            </div>
-                            <div class="action-content">
-                                <div class="action-title">Generate Quote</div>
-                                <div class="action-description">Create a quotation</div>
-                            </div>
-                            <div class="action-arrow">
-                                <i class="bi bi-arrow-right"></i>
-                            </div>
-                        </div>
-
-                        <div class="quick-action-card" onclick="openModal('systemUserModal'); setActiveButton('btn-system-users')">
-                            <div class="action-icon">
-                                <i class="bi bi-people"></i>
-                            </div>
-                            <div class="action-content">
-                                <div class="action-title">Manage Users</div>
-                                <div class="action-description">System users & roles</div>
-                            </div>
-                            <div class="action-arrow">
-                                <i class="bi bi-arrow-right"></i>
-                            </div>
-                        </div>
-
-                        <div class="quick-action-card" onclick="openModal('addcompAdminModal'); setActiveButton('btn-administrators')">
-                            <div class="action-icon">
-                                <i class="bi bi-shield-check"></i>
-                            </div>
-                            <div class="action-content">
-                                <div class="action-title">Administrators</div>
-                                <div class="action-description">Manage admins</div>
-                            </div>
-                            <div class="action-arrow">
-                                <i class="bi bi-arrow-right"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Statistics Section -->
-            <div class="section-card">
-                <div class="section-header">
-                    <div class="section-title">
-                        <i class="bi bi-graph-up"></i>
-                        System Overview
-                    </div>
-                </div>
-                <div class="section-body">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-label">Total Projects</div>
-                            <div class="stat-value">—</div>
-                            <div class="stat-change">Data loads from database</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Active Users</div>
-                            <div class="stat-value">—</div>
-                            <div class="stat-change">System users</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Pending Payments</div>
-                            <div class="stat-value">—</div>
-                            <div class="stat-change">Due installments</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Quotations</div>
-                            <div class="stat-value">—</div>
-                            <div class="stat-change">This month</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Activity Section -->
-            <div class="section-card">
-                <div class="section-header">
-                    <div class="section-title">
-                        <i class="bi bi-clock-history"></i>
-                        Recent Activity
-                    </div>
-                </div>
-                <div class="section-body">
-                    <p style="text-align: center; color: rgba(14, 31, 66, 0.5); padding: 20px 0;">
-                        Activity logs will appear here
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <div class="card" id="admin-content" style="display: block; border-radius: 12px; border: 1px solid rgba(193, 43, 62, 0.1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); display: flex; flex-direction: row;">
-            <!-- Vertical Navigation Sidebar -->
-            <div class="vertical-nav-sidebar">
-                <div class="vertical-nav-header">
-                    <i class="bi bi-list-columns-reverse"></i>
-                    PROJECTS PORTFOLIO PORTAL
-                </div>
-                <ul class="nav nav-tabs vertical-tabs">
-
-                <li class="nav-item">
-                    <button class="nav-link vertical-nav-link active" data-bs-toggle="tab" data-bs-target="#projects-tab"><i class="bi bi-list-columns-reverse"></i>    PROJECTS PORTAL</button>
-                </li>
-
-                <li class="nav-item">
-                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#payments-tab"><i class="bi bi-cash-coin"></i>    PAYMENTS PORTAL</button>
-                </li>
-
-                <li class="nav-item">
-                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#quotations-tab"><i class="bi bi-file-earmark-text"></i>    QUOTATIONS PORTAL</button>
-                </li>
-
-                <li class="nav-item">
-                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#enquiries-tab"><i class="bi bi-person-badge-fill"></i>    ENQUIRIES PORTAL</button>
-                </li>
-
-                <li class="nav-item">
-                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#dashboard-tab"><i class="bi bi-graph-up"></i>    SUMMARY</button>
-                </li>
-
-                <li class="nav-item">
-                    <button class="nav-link vertical-nav-link" data-bs-toggle="tab" data-bs-target="#contractor-details-tab"><i class="bi bi-building"></i>    CONTRACTOR DETAILS</button>
-                </li>
-
-                </ul>
-            </div>
-            <!-- Content Area -->
-            <div class="vertical-nav-content">
-            <div class="tab-content">
-
-
-                <div class="tab-pane fade" id="payments-tab">
-
-                    <button class="btn btn-primary mt-1"
-                            id="exportcashflowBtn"
-                            style="width: max-content;">
-                        <i class="bi bi-download"></i> Download Cashflow File
-                    </button>
-
-                    <button class="btn btn-primary mt-1"
-                            id="exportInstallmentsBtn"
-                            style="width: max-content;"
-                            onclick="openModal('downloadInstallmentsModal')">
-                        <i class="bi bi-download"></i> Download Installments Schedule
-                    </button>
-
-                    <button class="btn btn-danger mt-1"
-                            id="auditInstallmentsBtn"
-                            style="width: max-content;"
-                            onclick="openModal('auditInstallmentsModal')">
-                        <i class="bi bi-credit-card-2-front-fill"></i> Installments Schedule Audit
-                    </button>
-
-                    <!-- Your existing button should look like this -->
-                    <button class="btn btn-primary mt-1"
-                            id="installmentscheduleBtn"
-                            style="width: max-content;"
-                            onclick="Pushpaymentreminders()">
-                        <i class="bi bi-credit-card-2-front-fill"></i> Push Payment Reminders
-                    </button>
-
-                    <input type="hidden" id="completed-projects" value="{{ count_completed|default(0)|int }}">
-                    <input type="hidden" id="ongoing-projects" value="{{ count_ongoing|default(0)|int }}">
-                    <input type="hidden" id="other-projects" value="{{ count_other|default(0)|int }}">
-
-                    <div class="dashboard-summary">
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-calendar-day fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Today</h5>
-                                <div class="payment-amounts">
-                                    <div class="paid-amount">
-                                        <span class="badge bg-success">PAID</span>
-                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['today_paid']) }}</span>
-                                    </div>
-                                    <div class="overdue-amount">
-                                        <span class="badge bg-danger">OVERDUE</span>
-                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['today_overdue']) }}</span>
-                                    </div>
-                                </div>
-                                <small class="text-muted">Payments today</small>
-                            </div>
-                        </div>
-                        
-                        <!-- Week to Date -->
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-calendar-week fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Week To Date</h5>
-                                <div class="payment-amounts">
-                                    <div class="paid-amount">
-                                        <span class="badge bg-success">PAID</span>
-                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['week_paid']) }}</span>
-                                    </div>
-                                    <div class="overdue-amount">
-                                        <span class="badge bg-danger">OVERDUE</span>
-                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['week_overdue']) }}</span>
-                                    </div>
-                                </div>
-                                <small class="text-muted">Since {{ start_of_week.strftime('%b %d') }}</small>
-                            </div>
-                        </div>
-                        
-                        <!-- Month to Date -->
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-calendar-month fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Month to Date</h5>
-                                <div class="payment-amounts">
-                                    <div class="paid-amount">
-                                        <span class="badge bg-success">PAID</span>
-                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['month_paid']) }}</span>
-                                    </div>
-                                    <div class="overdue-amount">
-                                        <span class="badge bg-danger">OVERDUE</span>
-                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['month_overdue']) }}</span>
-                                    </div>
-                                </div>
-                                <small class="text-muted">Since {{ start_of_month.strftime('%b %d') }}</small>
-                            </div>
-                        </div>
-                        
-                        <!-- Year to Date -->
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-calendar-year fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Year to Date</h5>
-                                <div class="payment-amounts">
-                                    <div class="paid-amount">
-                                        <span class="badge bg-success">PAID</span>
-                                        <span class="amount text-success">${{ "{:,.2f}".format(payment_stats['year_paid']) }}</span>
-                                    </div>
-                                    <div class="overdue-amount">
-                                        <span class="badge bg-danger">OVERDUE</span>
-                                        <span class="amount text-danger">${{ "{:,.2f}".format(payment_stats['year_overdue']) }}</span>
-                                    </div>
-                                </div>
-                                <small class="text-muted">Since {{ start_of_year.strftime('%Y') }}</small>
-                            </div>
-                        </div>
-                        
-                        <!-- Total Overdue (Cumulative) -->
-                        <div class="summary-card overdue-card">
-                            <div class="icon"><i class="bi bi-exclamation-triangle-fill fs-3" style="color: #dc3545;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder; color: #dc3545;">Total Overdue</h5>
-                                <p class="count text-danger">${{ "{:,.2f}".format(payment_stats['total_overdue']) }}</p>
-                                <small class="text-danger">
-                                    <i class="bi bi-clock-history"></i> All unpaid past due amounts
-                                </small>
-                            </div>
-                        </div>
-            
-                    </div>
-
-                    <div class="container2" style="max-height: 360px; overflow-y: auto; margin-top: 20px;">
-                        {{ status_df_html |safe }}
-                    </div>
-
-
-                </div>
-
-                <!-- QUOTATIONS TAB PANE -->
-                <div class="tab-pane fade" id="quotations-tab">
-                    <div class="container mt-4">
-                        <div class="row mb-4">
-                            <div class="col-md-12">
-                                <div style="margin-bottom: 15px;">
-                                    <button class="btn btn-primary btn-sm" onclick="reloadQuotations()" style="width: auto;">
-                                        <i class="bi bi-arrow-clockwise"></i> Reload Quotations
-                                    </button>
-                                    <button class="btn btn-primary btn-sm" onclick="openSentQuotationsModal()" style="width: auto; margin-left: 8px;">
-                                        <i class="bi bi-whatsapp"></i> View Sent Quotations
-                                    </button>
-                                </div>
-                                <div id="quotationsContainer" style="color: var(--dark-blue-deep); background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                    <p class="text-muted text-center" style="padding: 40px;">Click "Reload Quotations" to load saved quotations...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="sentQuotationsModal" class="modal-overlay">
-                    <div class="modal-container xlarge" style="color: var(--dark-blue-deep);">
-                        <div class="modal-header-custom">
-                            <h3><i class="bi bi-whatsapp"></i> Sent Quotations via WhatsApp</h3>
-                            <button class="close-modal" onclick="closeModal('sentQuotationsModal')">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
-                        </div>
-                        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
-                            <div id="sentQuotationsSummary" style="margin-bottom: 10px; font-size: 0.8rem; color: #555;"></div>
-                            <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <label for="sentQuotationsStatusFilter" style="font-size: 0.75rem; font-weight: 600; margin: 0;">Status Filter:</label>
-                                <select id="sentQuotationsStatusFilter" class="form-control form-control-sm" style="max-width: 180px;" onchange="applySentQuotationsFilter()">
-                                    <option value="all">All</option>
-                                    <option value="success">Success</option>
-                                    <option value="failed">Failed</option>
-                                </select>
-                                <label for="sentQuotationsTypeFilter" style="font-size: 0.75rem; font-weight: 600; margin: 0 0 0 8px;">Type Filter:</label>
-                                <select id="sentQuotationsTypeFilter" class="form-control form-control-sm" style="max-width: 210px;" onchange="applySentQuotationsFilter()">
-                                    <option value="all">All</option>
-                                    <option value="document">PDF Document</option>
-                                    <option value="template_fallback">Template Fallback</option>
-                                </select>
-                            </div>
-                            <div id="sentQuotationsContainer">
-                                <p class="text-muted text-center" style="padding: 20px;">Loading sent quotations...</p>
-                            </div>
-                        </div>
-                        <div class="modal-footer-custom">
-                            <button type="button" class="btn btn-primary" onclick="loadSentQuotations()">
-                                <i class="bi bi-arrow-clockwise"></i> Refresh
-                            </button>
-                            <button type="button" class="btn btn-danger" onclick="closeModal('sentQuotationsModal')">Close</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tab-pane fade" id="dashboard-tab">
-
-                    <input type="hidden" id="completed-projects" value="{{ count_completed|default(0)|int }}">
-                    <input type="hidden" id="ongoing-projects" value="{{ count_ongoing|default(0)|int }}">
-                    <input type="hidden" id="other-projects" value="{{ count_other|default(0)|int }}">
-
-                    <div class="dashboard-summary">
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-people-fill fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Projects</h5>
-                                <p>{{ num_projects }}</p>
-                            </div>
-                        </div>
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-hourglass-split fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Ongoing Projects</h5>
-                                <p>{{ count_ongoing }}</p>
-                            </div>
-                        </div>
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-calendar2-check-fill fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Completed Projects</h5>
-                                <p>{{ count_completed }}</p>
-                            </div>
-                        </div>
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-question-circle-fill fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Other Status</h5>
-                                <p>{{ count_other|default(0) }}</p>
-                            </div>
-                        </div>
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-stopwatch-fill fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Average Completion Time</h5>
-                                <p>{{ average_duration }} days</p>
-                            </div>
-                        </div>
-
-                        <div class="summary-card">
-                            <div class="icon"><i class="bi bi-1-circle-fill fs-3" style="color: #1E2A56;"></i></div>
-                            <div class="details">
-                                <h5 style="font-weight: bolder;">Top Location</h5>
-                                <p>{{ most_frequent_location }}</p>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <div class="dashboard-graphs">
-
-                        <div class="graph-card">
-                            <h6>Completed vs Ongoing</h6>
-                            <canvas id="leaveByTypeChart" width="140" height="60"></canvas>
-                        </div>
-
-                        <div class="graph-card">
-                            <h6>Projects By Location</h6>
-                            <canvas id="projectsByLocationChart" width="140" height="60"></canvas>
-                        </div>
-
-                        <div class="graph-card">
-                            <h6>Overdue Payments</h6>
-                            <canvas id="employeesRemainingChart" width="140" height="60"></canvas>
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <div class="tab-pane fade" id="enquiries-tab">
-                    <button class="btn btn-primary mt-1"
-                            id="exportenquiriesBtn"
-                            style="width: max-content;"
-                            onclick="downloadenquiries()">
-                        <i class="bi bi-download"></i> Download Enquiries File
-                    </button>
-
-                    <button class="btn btn-primary mt-1"
-                            id="viewInterimEnquiriesBtn"
-                            style="width: max-content;"
-                            onclick="openModal('viewEnquiriesModal')">
-                        <i class="bi bi-search"></i> View Interim Enquiries
-                    </button>
-
-                    <div class="container mt-6 card">
-                        <div class="row mb-5 align-items-center">
-                            <div class="col-md-3">
-                                <div class="input-group" style="font-size: 0.65rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
-                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56; padding: 0.2rem 0.3rem;">
-                                        <i class="bi bi-search" style="font-size: 0.6rem;"></i>
-                                    </span>
-                                    <input type="text" class="form-control" id="enquirySearch" placeholder="Search enquiries..." style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.65rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="input-group" style="font-size: 0.65rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
-                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56; padding: 0.2rem 0.3rem;">
-                                        <i class="bi bi-filter" style="font-size: 0.6rem;"></i>
-                                    </span>
-                                    <select id="categoryFilter" class="form-select" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.65rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
-                                        <option value="">All Categories</option>
-                                        <option value="Kitchen & Cabinets">Kitchen & Cabinets</option>
-                                        <option value="Building">Building</option>
-                                        <option value="Renovation">Renovation</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="input-group" style="font-size: 0.65rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
-                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56; padding: 0.2rem 0.3rem;">
-                                        <i class="bi bi-toggles" style="font-size: 0.6rem;"></i>
-                                    </span>
-                                    <select id="statusFilter" class="form-select" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.65rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
-                                        <option value="">All Status</option>
-                                        <option value="pending">Pending</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="completed">Completed</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-<div class="container2" style="max-height: 500px; overflow-y: auto;">
-    <table class="table-theme" id="enquiriesDetailTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Date</th>
-                <th>Client</th>
-                <th>Username</th>
-                <th>Category</th>
-                <th style="width: 120px;">Message</th>
-                <th style="width: 80px;">Status</th>
-                <th style="width: 60px;">Document</th>
-                <th style="width: 80px;">Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for enquiry in enquiries_data %}
-            <tr class="enquiry-row" id="enquiry-row-{{ enquiry.id }}">
-                <td>{{ enquiry.id }}</td>  <!-- Just the number, no # symbol -->
-                <td>{{ enquiry.timestamp }}</td>
-                <td>
-                    <a href="https://wa.me/{{ enquiry.clientwhatsapp }}" target="_blank">
-                        +{{ enquiry.clientwhatsapp }}
-                    </a>
-                </td>
-                <td>{{ enquiry.username }}</td>
-                <td><span class="badge bg-secondary">{{ enquiry.category }}</span></td>
-                <td>
-                    <div class="message-container">
-                        <span class="message-preview">
-                            {{ enquiry.message[:10] if enquiry.message and enquiry.message|length > 10 else enquiry.message or 'No message' }}
-                            {% if enquiry.message and enquiry.message|length > 10 %}
-                            ... <a href="javascript:void(0)" class="expand-message" data-id="{{ enquiry.id }}">[Show More]</a>
-                            {% endif %}
-                        </span>
-                        <div class="message-full" id="message-full-{{ enquiry.id }}" style="display: none;">
-                            {{ enquiry.message or 'No message' }}
-                            <br>
-                            <a href="javascript:void(0)" class="collapse-message" data-id="{{ enquiry.id }}">[Show Less]</a>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <select class="form-select status-select" style="font-size: 11px;" data-id="{{ enquiry.id }}">
-                        <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
-                        <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                        <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
-                    </select>
-                </td>
-                <td>
-                    {% if enquiry.has_plan %}
-                    <a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success">PDF</a>
-                    {% endif %}
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-danger delete-enquiry-btn" type="button" data-id="{{ enquiry.id }}">
-                        Delete
-                    </button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-
-                    </div>
-                </div>
-
-
-                <div class="tab-pane fade show active" id="projects-tab">
-                    <button class="btn btn-primary mt-1"
-                            id="exportprojectportBtn"
-                            style="width: max-content;"
-                            onclick="openModal('downloadPortfolioModal')">
-                        <i class="bi bi-download"></i> Download Master File
-                    </button>
-                    
-                    <button class="btn btn-primary mt-1"
-                            id="workPlanBtn"
-                            style="width: max-content;"
-                            onclick="openModal('workPlanModal')">
-                        <i class="bi bi-calendar-check"></i> View Work Plan
-                    </button>
-
-                    <!-- Add this button anywhere in your page -->
-                    <button id="aiAssistantBtn" class="btn btn-danger mt-1" style="font-weight: bold; cursor: pointer;">
-                    <i class="bi bi-robot"></i>
-                        Ask AI About ConnectLink Properties Projects
-                    </button>
-
-                    <div class="container mt-6 card">
-                        <div class="row mb-5 align-items-center">
-                            <div class="col-md-3">
-
-                                <div class="input-group" style="font-size: 0.65rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
-
-                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56; padding: 0.2rem 0.3rem;">
-                                        <i class="bi bi-calendar-month" style="font-size: 0.6rem;"></i>
-                                    </span>
-                                    <select class="form-select" id="monthFilter" style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.65rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
-                                        {% for month in month_options %}
-                                            <option value="{{ month.value }}" 
-                                                    {% if loop.first %}selected{% endif %}>
-                                                {{ month.display }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-                            
-
-
-                            <div class="col-md-3">
-                                <div class="input-group" style="font-size: 0.65rem; padding: 1px 1px; height: 1.8rem; line-height: 1.2;">
-                                    <span class="input-group-text" style="background-color: #1E2A56; color: white; border: 2px solid #1E2A56; padding: 0.2rem 0.3rem;">
-                                        <i class="bi bi-search" style="font-size: 0.6rem;"></i>
-                                    </span>
-                                    <input type="text" class="form-control" id="tableSearch" placeholder="Search projects..." style="border: 2px solid #1E2A56; color: #1E2A56; font-weight: 500;font-size:0.65rem; padding: 0.1rem 0.3rem; height: 1.8rem; line-height: 1.2;">
-                                </div>
-                            </div>
-                            
-                        </div>
-
-                        <div class="container2 mainalldata" style="max-height: 400px; overflow-y: auto;">
-                            {{ table_datamain_html |safe }}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tab-pane fade" id="contractor-details-tab">
-                    <div class="container mt-3" style="color: #1E2A56; font-size: 0.82rem;">
-
-                        <div class="card shadow-sm border-0 rounded-4">
-                            <div class="card-body p-3">
-
-                                <h6 class="mb-2 fw-bold" style="font-size: 0.9rem;color: var(--dark-blue-deep)"> <i class="bi bi-building-fill-gear"></i> CONTRACTOR DETAILS</h6>
-
-                                <div class="row mb-2">
-                                    <div class="col-md-4">
-                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">COMPANY</p>
-                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ companyname }}</p>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">PHONES</p>
-                                        <p class="fw-semibold mb-0" style="color: var(--dark-blue-deep);">{{ contact1 }}</p>
-                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ contact2 }}</p>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">EMAIL</p>
-                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ compemail }}</p>
-                                    </div>
-                                </div>
-
-                                <div class="row mb-2">
-                                    <div class="col-md-4">
-                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">ADDRESS</p>
-                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ address }}</p>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <p class="mb-0" style="font-size: 0.75rem; color: var(--dark-blue-deep);">TIN NUMBER</p>
-                                        <p class="fw-semibold mb-1" style="color: var(--dark-blue-deep);">{{ tinnumber }}</p>
-                                    </div>
-                                </div>
-
-                                <button class="btn btn-primary px-3 py-1" style="font-size: 0.75rem;"
-                                        onclick="openModal('editContractorModal')">
-                                    Edit Details
-                                </button>
-
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                <div class="tab-pane fade" id="settings">
-                    <h4>Payments</h4>
-                    <p>Manage Payments</p>
-                </div>
-            </div>
-            </div>
-            <!-- End vertical-nav-content -->
-        </div>
-        <!-- End admin-content -->
-        </div>
-        <!-- End content-wrapper -->
-    </main>
 
 <!-- Kitchen & Cabinets Preview Modal - SEPARATE -->
 <div id="kitchenPreviewModal" class="modal-overlay">
