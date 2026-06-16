@@ -56,16 +56,16 @@
             z-index: -2;
         }
 
-        /* Main dark gradient background */
+        /* Main light gradient background with blue tones */
         .bg-gradient {
-            background: linear-gradient(135deg, #0a2b3e 0%, #0d3a52 35%, #0f4a66 65%, #0a2b3e 100%);
+            background: linear-gradient(135deg, #e8f0f8 0%, #d4e4f0 35%, #c0d8e8 65%, #e8f0f8 100%);
         }
 
         /* Subtle grid pattern overlay */
         .bg-grid {
             background-image: 
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+                linear-gradient(rgba(10,43,62,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(10,43,62,0.04) 1px, transparent 1px);
             background-size: 60px 60px;
         }
 
@@ -75,8 +75,8 @@
                 45deg,
                 transparent,
                 transparent 40px,
-                rgba(255,255,255,0.015) 40px,
-                rgba(255,255,255,0.015) 41px
+                rgba(10,43,62,0.03) 40px,
+                rgba(10,43,62,0.03) 41px
             );
         }
 
@@ -99,7 +99,7 @@
             right: -5%;
             width: 45%;
             height: 60%;
-            background: radial-gradient(circle, rgba(181,13,13,0.12) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(181,13,13,0.08) 0%, transparent 70%);
             border-radius: 50%;
             filter: blur(80px);
             animation: floatOrb 20s ease-in-out infinite alternate;
@@ -112,7 +112,7 @@
             left: -5%;
             width: 40%;
             height: 50%;
-            background: radial-gradient(circle, rgba(30,74,110,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(10,43,62,0.08) 0%, transparent 70%);
             border-radius: 50%;
             filter: blur(80px);
             animation: floatOrb 25s ease-in-out infinite alternate-reverse;
@@ -132,7 +132,7 @@
             height: 100%;
             z-index: -1;
             pointer-events: none;
-            background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-image: radial-gradient(circle, rgba(10,43,62,0.06) 1px, transparent 1px);
             background-size: 30px 30px;
         }
 
@@ -214,16 +214,27 @@
             position: relative;
         }
 
-        /* Left Column - Hero - BLUE text now */
+        /* Left Column - Hero */
         .hero-section {
             padding-right: 40px;
+        }
+
+        .hero-logo-wrapper {
+            margin-bottom: 16px;
+        }
+
+        .hero-logo {
+            height: 70px;
+            width: auto;
+            filter: none;
+            display: block;
         }
 
         .hero-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: rgba(10, 43, 62, 0.15);
+            background: rgba(10, 43, 62, 0.1);
             backdrop-filter: blur(4px);
             padding: 6px 18px;
             border-radius: var(--radius-full);
@@ -231,20 +242,13 @@
             font-weight: 600;
             color: #1a4a6e;
             margin-bottom: 20px;
-            border: 1px solid rgba(10, 43, 62, 0.1);
+            border: 1px solid rgba(10, 43, 62, 0.08);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .hero-badge i {
             color: var(--accent);
-        }
-
-        .hero-logo {
-            height: 70px;
-            width: auto;
-            margin-bottom: 20px;
-            filter: none;
         }
 
         .hero-section h1 {
@@ -752,7 +756,7 @@
             border-left: 4px solid #dc2626;
         }
 
-        /* Loading Overlay */
+        /* Loading Overlay - Stays visible until redirect */
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -767,6 +771,10 @@
             align-items: center;
             flex-direction: column;
             animation: overlayFade 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            display: flex;
         }
 
         .loading-spinner {
@@ -869,6 +877,10 @@
             }
             .hero-logo {
                 height: 56px;
+                margin: 0 auto 16px;
+            }
+            .hero-logo-wrapper {
+                text-align: center;
             }
             .footer {
                 position: relative;
@@ -920,7 +932,7 @@
 <nav class="navbar">
     <div class="container-fluid px-0">
         <a class="navbar-brand" href="#">
-            <img src="/static/images/web-logo.png" alt="ConnectLink" style="filter: none;">
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink" style="filter: none;">
             <span class="brand-text">Connect<span>Link</span></span>
         </a>
         <div class="nav-status">
@@ -934,13 +946,15 @@
 <div class="main-content">
     <div class="container-fluid">
         <div class="row align-items-center g-4">
-            <!-- Left Column - Hero - BLUE text now -->
+            <!-- Left Column - Hero -->
             <div class="col-lg-6 hero-section">
+                <div class="hero-logo-wrapper">
+                    <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="hero-logo">
+                </div>
                 <div class="hero-badge">
                     <i class="fas fa-crown"></i>
                     Enterprise Solutions
                 </div>
-                <img src="/static/images/web-logo.png" alt="ConnectLink" class="hero-logo">
                 <h1>
                     Building Projects<br>
                     & <span class="highlight">Hardware</span> Solutions
@@ -951,15 +965,15 @@
                 </p>
                 <div class="hero-stats">
                     <div class="stat-item">
-                        <span class="stat-number">100+</span>
-                        <span class="stat-label">Active Building Projects</span>
+                        <span class="stat-number">450+</span>
+                        <span class="stat-label">Active Projects</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-number">20+</span>
-                        <span class="stat-label">Building Project Locations</span>
+                        <span class="stat-number">1.2k</span>
+                        <span class="stat-label">Retail Locations</span>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-number">100%</span>
+                        <span class="stat-number">98%</span>
                         <span class="stat-label">Satisfaction Rate</span>
                     </div>
                 </div>
@@ -1089,7 +1103,7 @@
     </div>
 </div>
 
-<!-- Loading Overlay -->
+<!-- Loading Overlay - Stays visible until page redirects -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
     <div class="loading-text">Authenticating <span>...</span></div>
@@ -1128,7 +1142,13 @@
             dom.projectsModal.classList.toggle('active', state.modals.projects);
             dom.hardwareModal.classList.toggle('active', state.modals.hardware);
             document.body.style.overflow = (state.modals.projects || state.modals.hardware) ? 'hidden' : '';
-            dom.loadingOverlay.style.display = state.loading ? 'flex' : 'none';
+            
+            // Loading overlay - stays visible until redirect happens
+            if (state.loading) {
+                dom.loadingOverlay.classList.add('active');
+            } else {
+                dom.loadingOverlay.classList.remove('active');
+            }
             
             ['projects', 'hardware'].forEach(type => {
                 const el = type === 'projects' ? dom.projectsError : dom.hardwareError;
@@ -1243,6 +1263,7 @@
             }
         });
 
+        // Projects Login - Loading stays visible until redirect
         dom.projectsForm.addEventListener('submit', function(e) {
             e.preventDefault();
             setError('projects', '');
@@ -1255,6 +1276,7 @@
                 return;
             }
 
+            // Show loading - it will stay until page redirects
             setLoading(true);
 
             const formData = new URLSearchParams();
@@ -1269,10 +1291,12 @@
             })
             .then(res => res.json())
             .then(data => {
-                setLoading(false);
+                // Only hide loading if there's an error (no redirect)
                 if (data.success) {
+                    // Loading stays visible - redirect will happen
                     window.location.href = data.redirect || '/dashboard';
                 } else {
+                    setLoading(false);
                     setError('projects', data.message || 'Invalid credentials');
                     dom.projectsPassword.value = '';
                 }
@@ -1283,6 +1307,7 @@
             });
         });
 
+        // Hardware Login - Loading stays visible until redirect
         dom.hardwareForm.addEventListener('submit', function(e) {
             e.preventDefault();
             setError('hardware', '');
@@ -1295,6 +1320,7 @@
                 return;
             }
 
+            // Show loading - it will stay until page redirects
             setLoading(true);
 
             fetch('/api/login', {
@@ -1305,12 +1331,14 @@
             })
             .then(res => res.json())
             .then(data => {
-                setLoading(false);
+                // Only hide loading if there's an error (no redirect)
                 if (data.success) {
                     localStorage.setItem('isLoggedIn', 'true');
                     if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+                    // Loading stays visible - redirect will happen
                     window.location.href = '/pos-system.html';
                 } else {
+                    setLoading(false);
                     setError('hardware', data.message || 'Invalid credentials');
                     dom.hardwarePassword.value = '';
                 }
@@ -1321,6 +1349,7 @@
             });
         });
 
+        // Initial render
         render();
     })();
 </script>
