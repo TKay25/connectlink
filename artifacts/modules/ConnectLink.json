@@ -1,0 +1,74 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ConnectLink",
+  "file": "ConnectLink.py",
+  "purpose": "Initialize database tables",
+  "entry_function": "initialize_database_tables()",
+  "entry_flows": [
+    "ConnectLink → environ.setdefault, genai.configure, cursor.execute"
+  ],
+  "public_api": [
+    "initialize_database_tables()",
+    "get_table_columns(table_name)",
+    "migrate_product_categories()",
+    "webhook()",
+    "send_whatsapp_button_image_message(recipient, text, image_url, buttons, footer_text = None)",
+    "send_whatsapp_message(to, text, buttons = None, footer_text = None)",
+    "send_whatsapp_button_message(recipient, text, buttons, footer_text = None)",
+    "send_whatsapp_list_message(recipient, text, header_text, sections, footer_text = None)"
+  ],
+  "dependencies": [
+    "ai_classifier",
+    "base64",
+    "bleach",
+    "calendar",
+    "db_helper",
+    "email",
+    "flask",
+    "flask_cors",
+    "google",
+    "html",
+    "jinja2",
+    "mysql",
+    "numpy",
+    "openpyxl",
+    "pandas",
+    "psycopg2",
+    "pytz",
+    "requests",
+    "seaborn",
+    "secrets"
+  ],
+  "prompt_locations": [
+    "INSTRUCTIONS @ line 10274"
+  ],
+  "token_controls": [
+    "max_length = 0 @ line 14104",
+    "max_length = len(str(cell.value)) @ line 14109",
+    "adjusted_width = min(max_length + 2, 50) @ line 14112",
+    "max_length = 0 @ line 14920",
+    "max_length = cell_length @ line 14927",
+    "adjusted_width = min(max_length + 2, 50) @ line 14930",
+    "max_length = 0 @ line 15714",
+    "max_length = cell_length @ line 15721",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 15724"
+  ],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: GEMINI_API_KEY = 'AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g', VERIFY_TOKEN = '2012753506232550', ACCESS_TOKEN = 'EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD', PHONE_NUMBER_ID = '977519838770637', VERIFY_TOKEN = '2012753506232550', WHATSAPP_API_URL = f'https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "d1417c3b00a3bd4f",
+  "file_mtime": 1781016926419.0522,
+  "file_size": 1378651,
+  "file_birthtime": 1776794366250.55,
+  "generated_at": "2026-06-16T10:24:14.264052Z",
+  "stale": false
+}

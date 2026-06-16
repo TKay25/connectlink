@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Workspace",
+  "file": "",
+  "purpose": "Workspace snapshot — 38 module(s). 0 orphaned artifact(s) need review.",
+  "entry_function": "",
+  "entry_flows": [],
+  "public_api": [],
+  "dependencies": [],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "",
+    "output": "",
+    "side_effects": ""
+  },
+  "notes": "Last sync: 2026-06-16T10:06:47.149Z. Modules: 38. Orphaned: 0.",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [
+    {
+      "date": "2026-06-13",
+      "change": "Workspace sync on project open",
+      "why": "Keep agent context current without source files",
+      "next": "Run Quick Refresh after code changes"
+    }
+  ],
+  "generated_from_commit": "",
+  "file_hash": "",
+  "generated_at": "2026-06-16T10:06:47.149Z",
+  "stale": false
+}

@@ -20,11 +20,16 @@
             --accent: #b50d0d;
             --accent-light: #c63f3f;
             --white: #FFFFFF;
+            --gray-50: #F9FAFB;
             --gray-100: #F3F4F6;
             --gray-200: #E5E7EB;
             --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --gray-700: #374151;
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.15);
             --radius-sm: 0.5rem;
             --radius-md: 0.75rem;
             --radius-lg: 1rem;
@@ -35,231 +40,469 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            height: 100vh;
-            overflow: hidden;
-            background: var(--white);
+            min-height: 100vh;
+            background: var(--gray-50);
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
-        /* Diagonal Background */
-        body::after {
-            content: '';
+        /* Background with rich patterns */
+        .bg-layer {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(125deg, 
-                var(--primary) 0%, 
-                var(--primary) 45%, 
-                var(--white) 45%, 
-                var(--white) 100%);
             z-index: -2;
+        }
+
+        /* Main dark gradient background */
+        .bg-gradient {
+            background: linear-gradient(135deg, #0a2b3e 0%, #0d3a52 35%, #0f4a66 65%, #0a2b3e 100%);
+        }
+
+        /* Subtle grid pattern overlay */
+        .bg-grid {
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* Diagonal lines pattern */
+        .bg-diagonal {
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 40px,
+                rgba(255,255,255,0.015) 40px,
+                rgba(255,255,255,0.015) 41px
+            );
+        }
+
+        /* Glowing orbs */
+        .bg-orbs {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bg-orbs::before {
+            content: '';
+            position: absolute;
+            top: -15%;
+            right: -5%;
+            width: 45%;
+            height: 60%;
+            background: radial-gradient(circle, rgba(181,13,13,0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: floatOrb 20s ease-in-out infinite alternate;
+        }
+
+        .bg-orbs::after {
+            content: '';
+            position: absolute;
+            bottom: -20%;
+            left: -5%;
+            width: 40%;
+            height: 50%;
+            background: radial-gradient(circle, rgba(30,74,110,0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: floatOrb 25s ease-in-out infinite alternate-reverse;
+        }
+
+        @keyframes floatOrb {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -20px) scale(1.1); }
+        }
+
+        /* Floating dots pattern */
+        .bg-dots {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+            background-size: 30px 30px;
         }
 
         /* Navbar */
         .navbar {
-            background: rgba(255, 255, 255, 0.98);
-            box-shadow: var(--shadow-sm);
-            padding: 0.5rem 2rem;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            padding: 0.75rem 2rem;
             position: fixed;
             top: 0;
             width: 100%;
             z-index: 100;
-            border-bottom: 1px solid var(--gray-200);
+            border-bottom: 1px solid rgba(255,255,255,0.2);
         }
 
         .navbar-brand {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             text-decoration: none;
+            padding: 4px 12px;
             border-radius: var(--radius-md);
-            padding: 4px 8px;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
         }
 
         .navbar-brand:hover {
-            background: rgba(0, 0, 0, 0.02);
+            background: rgba(0,0,0,0.03);
+            transform: scale(1.02);
         }
 
         .navbar-brand img {
-            height: 28px;
+            height: 32px;
+            filter: none;
         }
 
         .brand-text {
             font-weight: 700;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             color: var(--primary);
+            letter-spacing: -0.3px;
+        }
+
+        .brand-text span {
+            color: var(--accent);
+        }
+
+        .nav-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.65rem;
+            color: var(--gray-500);
+            background: var(--gray-100);
+            padding: 4px 14px;
+            border-radius: var(--radius-full);
+        }
+
+        .nav-status .dot {
+            width: 6px;
+            height: 6px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
         }
 
         /* Main Content */
         .main-content {
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             align-items: center;
-            padding: 10px 5% 0;
+            padding: 80px 5% 60px;
+            position: relative;
         }
 
-        /* Left Column */
-        .hero-left {
-            padding-right: 30px;
+        /* Left Column - Hero - BLUE text now */
+        .hero-section {
+            padding-right: 40px;
         }
 
         .hero-badge {
-            display: inline-block;
-            background: var(--accent);
-            padding: 3px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(10, 43, 62, 0.15);
+            backdrop-filter: blur(4px);
+            padding: 6px 18px;
             border-radius: var(--radius-full);
-            font-size: 0.6rem;
+            font-size: 0.65rem;
             font-weight: 600;
-            color: white;
-            margin-bottom: 16px;
+            color: #1a4a6e;
+            margin-bottom: 20px;
+            border: 1px solid rgba(10, 43, 62, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .hero-badge i {
+            color: var(--accent);
         }
 
         .hero-logo {
-            height: 60px;
+            height: 70px;
             width: auto;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            filter: none;
         }
 
-        .hero-left h1 {
-            font-size: 1.8rem;
+        .hero-section h1 {
+            font-size: 2.4rem;
             font-weight: 800;
-            color: white;
-            margin-bottom: 12px;
-            line-height: 1.2;
+            color: #0a2b3e;
+            margin-bottom: 14px;
+            line-height: 1.15;
+            letter-spacing: -0.5px;
         }
 
-        .hero-left .lead-text {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.85);
-            max-width: 420px;
-            line-height: 1.4;
+        .hero-section h1 .highlight {
+            color: var(--accent);
+            position: relative;
         }
 
-        /* Right Column */
-        .portal-right {
-            padding-left: 60px;
+        .hero-section .lead-text {
+            font-size: 0.9rem;
+            color: #1a4a6e;
+            max-width: 460px;
+            line-height: 1.7;
+            margin-bottom: 28px;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 35px;
+            margin-top: 10px;
+        }
+
+        .hero-stats .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hero-stats .stat-number {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #0a2b3e;
+        }
+
+        .hero-stats .stat-label {
+            font-size: 0.6rem;
+            color: #4a7a9e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Right Column - Cards */
+        .portal-section {
+            padding-left: 20px;
         }
 
         .portal-header {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            text-align: left;
         }
 
         .portal-header .badge {
-            background: var(--accent);
-            color: white;
-            padding: 3px 12px;
+            background: rgba(181, 13, 13, 0.12);
+            color: var(--accent);
+            padding: 4px 14px;
             border-radius: var(--radius-full);
             font-size: 0.55rem;
             font-weight: 600;
             display: inline-block;
             margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(181, 13, 13, 0.15);
         }
 
         .portal-header h2 {
-            font-size: 1.2rem;
+            font-size: 1.4rem;
             font-weight: 700;
-            color: var(--gray-500);
+            color: var(--gray-700);
             margin-bottom: 4px;
+            letter-spacing: -0.3px;
         }
 
         .portal-header p {
             color: var(--gray-500);
-            font-size: 0.65rem;
+            font-size: 0.7rem;
         }
 
         /* Cards */
         .cards-container {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 16px;
         }
 
         .system-card {
-            background: white;
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-sm);
-            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: var(--radius-2xl);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
-            padding: 16px 20px;
+            padding: 20px 24px;
             display: flex;
-            gap: 14px;
+            gap: 16px;
             align-items: center;
-            justify-content: space-between;
-            border: 1px solid var(--gray-200);
+            border: 1px solid rgba(255,255,255,0.6);
+            position: relative;
+        }
+
+        .system-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: var(--radius-2xl);
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(181,13,13,0.1), transparent, rgba(181,13,13,0.05));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
         }
 
         .system-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-            border-color: var(--accent-light);
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+            border-color: rgba(181,13,13,0.2);
+            background: white;
         }
 
-        .card-icon {
-            width: 44px;
-            height: 44px;
-            background: var(--gray-100);
-            border-radius: var(--radius-md);
+        .system-card:active {
+            transform: scale(0.98);
+        }
+
+        .card-icon-wrapper {
+            width: 52px;
+            height: 52px;
+            background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
+            border-radius: var(--radius-lg);
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            transition: all 0.2s;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid var(--gray-200);
         }
 
-        .system-card:hover .card-icon {
+        .system-card:hover .card-icon-wrapper {
             background: var(--accent);
+            border-color: var(--accent);
+            transform: scale(1.05) rotate(-3deg);
+            box-shadow: 0 4px 12px rgba(181,13,13,0.25);
         }
 
-        .card-icon i {
-            font-size: 1.2rem;
+        .card-icon-wrapper i {
+            font-size: 1.3rem;
             color: var(--primary);
+            transition: all 0.4s ease;
         }
 
-        .system-card:hover .card-icon i {
+        .system-card:hover .card-icon-wrapper i {
             color: white;
+            transform: scale(1.1);
         }
 
         .card-content {
             flex: 1;
         }
 
-        .system-card h2 {
-            font-size: 0.9rem;
+        .system-card h3 {
+            font-size: 0.95rem;
             font-weight: 700;
             color: var(--gray-700);
             margin-bottom: 4px;
+            letter-spacing: -0.2px;
         }
 
         .system-card p {
             color: var(--gray-500);
-            font-size: 0.6rem;
-            line-height: 1.35;
+            font-size: 0.65rem;
+            line-height: 1.4;
             margin-bottom: 0;
+        }
+
+        .card-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
         }
 
         .btn-explore {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            background: transparent;
-            color: var(--accent);
-            border: 1px solid var(--accent);
-            padding: 6px 16px;
+            gap: 8px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 20px;
             border-radius: var(--radius-full);
-            font-weight: 500;
-            font-size: 0.6rem;
-            transition: all 0.2s;
+            font-weight: 600;
+            font-size: 0.65rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
-            flex-shrink: 0;
-            margin-left: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-explore::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transition: all 0.6s ease;
+            transform: translate(-50%, -50%);
+        }
+
+        .btn-explore:hover::after {
+            width: 300px;
+            height: 300px;
         }
 
         .btn-explore:hover {
-            background: var(--accent);
-            color: white;
+            background: var(--accent-light);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(181,13,13,0.3);
+        }
+
+        .btn-explore:active {
+            transform: scale(0.95);
+        }
+
+        .btn-explore i {
+            transition: transform 0.3s ease;
+        }
+
+        .btn-explore:hover i {
+            transform: translateX(4px);
+        }
+
+        .card-badge {
+            font-size: 0.5rem;
+            background: var(--gray-100);
+            padding: 2px 10px;
+            border-radius: var(--radius-full);
+            color: var(--gray-500);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .system-card:hover .card-badge {
+            background: rgba(181,13,13,0.1);
+            color: var(--accent);
         }
 
         /* Modal */
@@ -269,12 +512,19 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(3px);
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             z-index: 1000;
             display: none;
             justify-content: center;
             align-items: center;
+            animation: overlayFade 0.3s ease;
+        }
+
+        @keyframes overlayFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         .modal-overlay.active {
@@ -285,77 +535,78 @@
             background: white;
             border-radius: var(--radius-2xl);
             width: 90%;
-            max-width: 400px;
-            box-shadow: var(--shadow-md);
-            animation: modalFadeIn 0.2s ease;
+            max-width: 420px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.2);
+            animation: modalSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             overflow: hidden;
         }
 
-        @keyframes modalFadeIn {
+        @keyframes modalSlideUp {
             from {
                 opacity: 0;
-                transform: scale(0.96);
+                transform: translateY(30px) scale(0.95);
             }
             to {
                 opacity: 1;
-                transform: scale(1);
+                transform: translateY(0) scale(1);
             }
         }
 
         .modal-header {
-            background: var(--primary);
-            padding: 24px 24px 20px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            padding: 32px 28px 28px;
             text-align: center;
-            border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
             position: relative;
         }
 
         .modal-header .modal-logo {
-            width: 60px;
-            margin-bottom: 12px;
+            width: 64px;
+            margin-bottom: 14px;
+            filter: brightness(0) invert(1);
         }
 
         .modal-header h3 {
             color: white;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             font-weight: 700;
             margin-bottom: 4px;
+            letter-spacing: -0.3px;
         }
 
         .modal-header p {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.7rem;
+            color: rgba(255,255,255,0.75);
+            font-size: 0.75rem;
         }
 
         .close-modal {
             position: absolute;
-            top: 15px;
+            top: 16px;
             right: 18px;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255,255,255,0.12);
             border: none;
             color: white;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             cursor: pointer;
-            width: 28px;
-            height: 28px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .close-modal:hover {
             background: var(--accent);
-            transform: rotate(90deg);
+            transform: rotate(90deg) scale(1.1);
         }
 
         .modal-body {
-            padding: 24px;
+            padding: 30px 28px 28px;
         }
 
         .form-group {
-            margin-bottom: 18px;
+            margin-bottom: 20px;
         }
 
         .form-group label {
@@ -364,6 +615,8 @@
             font-weight: 600;
             color: var(--gray-600);
             margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
         }
 
         .input-group-modal {
@@ -372,26 +625,34 @@
 
         .input-icon-modal {
             position: absolute;
-            left: 12px;
+            left: 14px;
             top: 50%;
             transform: translateY(-50%);
             color: var(--gray-400);
-            font-size: 0.8rem;
+            font-size: 0.85rem;
+            transition: color 0.3s ease;
+            pointer-events: none;
         }
 
         .form-input-modal {
             width: 100%;
-            padding: 10px 12px 10px 38px;
-            font-size: 0.8rem;
-            border: 1px solid var(--gray-200);
+            padding: 11px 14px 11px 42px;
+            font-size: 0.85rem;
+            border: 2px solid var(--gray-200);
             border-radius: var(--radius-md);
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             outline: none;
+            background: var(--gray-50);
         }
 
         .form-input-modal:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(181, 13, 13, 0.1);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(181,13,13,0.06);
+        }
+
+        .form-input-modal:focus ~ .input-icon-modal {
+            color: var(--accent);
         }
 
         .password-toggle-modal {
@@ -403,49 +664,75 @@
             border: none;
             color: var(--gray-400);
             cursor: pointer;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
+            padding: 6px;
             border-radius: var(--radius-sm);
-            padding: 5px;
+            transition: all 0.3s ease;
         }
 
         .password-toggle-modal:hover {
             color: var(--accent);
-            background: rgba(181, 13, 13, 0.05);
+            background: rgba(181,13,13,0.05);
         }
 
         .modal-login-btn {
             width: 100%;
-            padding: 10px;
-            background: var(--accent);
+            padding: 12px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
             color: white;
             border: none;
             border-radius: var(--radius-full);
-            font-weight: 600;
-            font-size: 0.8rem;
+            font-weight: 700;
+            font-size: 0.85rem;
             cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 5px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modal-login-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .modal-login-btn:hover::before {
+            left: 100%;
         }
 
         .modal-login-btn:hover {
-            background: var(--accent-light);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(181,13,13,0.3);
+        }
+
+        .modal-login-btn:active {
+            transform: scale(0.97);
         }
 
         .modal-footer-links {
             text-align: center;
-            margin-top: 18px;
-            padding-top: 15px;
+            margin-top: 20px;
+            padding-top: 16px;
             border-top: 1px solid var(--gray-200);
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 24px;
         }
 
         .modal-footer-links a {
             color: var(--gray-500);
             text-decoration: none;
-            font-size: 0.65rem;
+            font-size: 0.7rem;
+            font-weight: 500;
+            transition: color 0.3s ease;
         }
 
         .modal-footer-links a:hover {
@@ -455,13 +742,14 @@
         .error-message {
             background: #fee2e2;
             color: #dc2626;
-            padding: 8px 12px;
+            padding: 10px 14px;
             border-radius: var(--radius-md);
-            font-size: 0.7rem;
-            margin-bottom: 15px;
+            font-size: 0.75rem;
+            margin-bottom: 16px;
             display: none;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            border-left: 4px solid #dc2626;
         }
 
         /* Loading Overlay */
@@ -471,22 +759,24 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(30, 42, 86, 0.95);
+            background: rgba(10, 43, 62, 0.95);
+            backdrop-filter: blur(8px);
             z-index: 2000;
             display: none;
             justify-content: center;
             align-items: center;
             flex-direction: column;
+            animation: overlayFade 0.3s ease;
         }
 
         .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(255,255,255,0.1);
             border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-            margin-bottom: 15px;
+            border-top-color: var(--accent);
+            animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            margin-bottom: 16px;
         }
 
         @keyframes spin {
@@ -497,6 +787,11 @@
             color: white;
             font-size: 0.9rem;
             font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .loading-text span {
+            color: var(--accent);
         }
 
         /* Footer */
@@ -504,243 +799,215 @@
             position: fixed;
             bottom: 0;
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             text-align: center;
-            border-top: 1px solid var(--gray-200);
-            background: transparent;
+            background: rgba(255,255,255,0.5);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-top: 1px solid rgba(255,255,255,0.2);
+            z-index: 50;
         }
 
         .footer p {
             color: var(--gray-500);
-            font-size: 0.55rem;
+            font-size: 0.6rem;
             margin: 0;
+            letter-spacing: 0.3px;
         }
 
-        @media (min-width: 769px) and (max-width: 1024px) {
-            body {
-                overflow: auto;
-                height: auto;
-            }
-
-            .main-content {
-                height: auto;
-                min-height: calc(100vh - 110px);
-                align-items: flex-start;
-                padding: 80px 5% 40px;
-            }
-
-            .main-content .container-fluid {
-                width: 100%;
-            }
-
-            .hero-left {
-                padding-right: 12px;
-            }
-
-            .hero-left h1 {
-                font-size: 1.55rem;
-            }
-
-            .hero-left .lead-text {
-                max-width: 100%;
-                font-size: 0.72rem;
-            }
-
-            .portal-right {
-                padding-left: 24px;
-            }
-
-            .cards-container {
-                gap: 12px;
-            }
-
-            .system-card {
-                padding: 14px 16px;
-            }
-
-            .footer {
-                position: relative;
-                margin-top: 20px;
-            }
+        .footer p i {
+            color: var(--accent);
         }
 
-        /* iPad portrait (820x1180 / 834x1194 class devices) */
-        @media (min-width: 810px) and (max-width: 834px) and (orientation: portrait) {
+        /* Responsive */
+        @media (max-width: 992px) {
             .main-content {
-                padding: 78px 6% 50px;
+                padding: 90px 5% 50px;
             }
-
-            .hero-left {
-                text-align: center;
-                padding-right: 0;
-                margin-bottom: 26px;
+            .hero-section {
+                padding-right: 20px;
             }
-
-            .hero-left .lead-text {
-                margin: 0 auto;
-                max-width: 560px;
-            }
-
-            .portal-right {
+            .portal-section {
                 padding-left: 0;
             }
-
-            .portal-header {
-                text-align: center;
-            }
-
-            .cards-container {
-                max-width: 620px;
-                margin: 0 auto;
-            }
-        }
-
-        /* iPad landscape and similar short-height tablets */
-        @media (min-width: 1024px) and (max-width: 1180px) and (max-height: 840px) and (orientation: landscape) {
-            .main-content {
-                min-height: calc(100vh - 90px);
-                padding: 72px 4% 28px;
-            }
-
-            .hero-left {
-                padding-right: 10px;
-            }
-
-            .hero-logo {
-                height: 52px;
-                margin-bottom: 12px;
-            }
-
-            .hero-left h1 {
-                font-size: 1.35rem;
-                margin-bottom: 8px;
-            }
-
-            .hero-left .lead-text {
-                font-size: 0.68rem;
-                line-height: 1.35;
-            }
-
-            .portal-right {
-                padding-left: 18px;
-            }
-
-            .portal-header {
-                margin-bottom: 14px;
-            }
-
-            .portal-header h2 {
-                font-size: 1rem;
-            }
-
-            .portal-header p {
-                font-size: 0.6rem;
-            }
-
-            .cards-container {
-                gap: 10px;
-            }
-
-            .system-card {
-                padding: 12px 14px;
-                gap: 10px;
-            }
-
-            .card-icon {
-                width: 38px;
-                height: 38px;
-            }
-
-            .system-card h2 {
-                font-size: 0.8rem;
-            }
-
-            .system-card p {
-                font-size: 0.55rem;
-            }
-
-            .btn-explore {
-                padding: 5px 12px;
-                font-size: 0.55rem;
+            .hero-section h1 {
+                font-size: 2rem;
             }
         }
 
         @media (max-width: 768px) {
-            body {
-                overflow: auto;
-                height: auto;
-            }
             .main-content {
-                height: auto;
                 flex-direction: column;
-                padding: 80px 5% 60px;
+                padding: 100px 5% 60px;
+                gap: 40px;
             }
-            .hero-left {
-                text-align: center;
+            .hero-section {
                 padding-right: 0;
-                margin-bottom: 30px;
+                text-align: center;
             }
-            .hero-left .lead-text {
-                margin: 0 auto;
+            .hero-section .lead-text {
+                max-width: 100%;
             }
-            .portal-right {
+            .hero-stats {
+                justify-content: center;
+            }
+            .portal-section {
                 padding-left: 0;
+                width: 100%;
             }
             .portal-header {
                 text-align: center;
             }
-            .cards-container {
-                max-width: 450px;
-                margin: 0 auto;
+            .system-card {
+                padding: 16px 18px;
+                flex-wrap: wrap;
+            }
+            .card-actions {
+                width: 100%;
+                justify-content: flex-end;
+                margin-top: 6px;
+            }
+            .hero-logo {
+                height: 56px;
             }
             .footer {
                 position: relative;
-                margin-top: 30px;
+                margin-top: 20px;
+            }
+            .hero-section h1 {
+                font-size: 1.7rem;
+            }
+            .hero-section .lead-text {
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .system-card {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+            }
+            .card-actions {
+                justify-content: center;
+            }
+            .card-icon-wrapper {
+                margin: 0 auto;
+            }
+            .hero-stats {
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
+            }
+            .hero-stats .stat-item {
+                flex-direction: row;
+                gap: 8px;
+                align-items: center;
             }
         }
     </style>
 </head>
 <body>
 
+<!-- Background Layers with Rich Patterns -->
+<div class="bg-layer bg-gradient"></div>
+<div class="bg-layer bg-grid"></div>
+<div class="bg-layer bg-diagonal"></div>
+<div class="bg-dots"></div>
+<div class="bg-orbs"></div>
+
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="container-fluid px-0">
+        <a class="navbar-brand" href="#">
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink" style="filter: none;">
+            <span class="brand-text">Connect<span>Link</span></span>
+        </a>
+        <div class="nav-status">
+            <span class="dot"></span>
+            <span>All systems operational</span>
+        </div>
+    </div>
+</nav>
+
 <!-- Main Content -->
 <div class="main-content">
     <div class="container-fluid">
-        <div class="row align-items-center">
-            <!-- Left Column -->
-            <div class="col-lg-6 hero-left">
-                <span class="hero-badge"><i class="fas fa-crown me-1"></i> Enterprise Solutions</span>
-                <div><img src="/static/images/web-logo-white.png" alt="Logo" class="hero-logo"></div>
-                <h1>Building Projects<br>& Hardware Solutions</h1>
-                <p class="lead-text">ConnectLink construction project management and hardware retail operations</p>
+        <div class="row align-items-center g-4">
+            <!-- Left Column - Hero - BLUE text now -->
+            <div class="col-lg-6 hero-section">
+                <div class="hero-badge">
+                    <i class="fas fa-crown"></i>
+                    Enterprise Solutions
+                </div>
+                <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="hero-logo">
+                <h1>
+                    Building Projects<br>
+                    & <span class="highlight">Hardware</span> Solutions
+                </h1>
+                <p class="lead-text">
+                    ConnectLink construction project management and hardware retail operations — 
+                    unified platform for modern building enterprises.
+                </p>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">450+</span>
+                        <span class="stat-label">Active Projects</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">1.2k</span>
+                        <span class="stat-label">Retail Locations</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">98%</span>
+                        <span class="stat-label">Satisfaction Rate</span>
+                    </div>
+                </div>
             </div>
             
-            <!-- Right Column -->
-            <div class="col-lg-6 portal-right">
+            <!-- Right Column - Portal Cards -->
+            <div class="col-lg-6 portal-section">
                 <div class="portal-header">
-                    <span class="badge"><i class="fas fa-compass me-1"></i> Choose Your Portal</span>
-                    <h2>Select Your Workspace</h2>
-                    <p>Access the right tools for your role</p>
+                    <span class="badge">
+                        <i class="fas fa-compass me-1"></i> Select Workspace
+                    </span>
+                    <h2>Choose Your Portal</h2>
+                    <p>Access the right tools for your role in the ecosystem</p>
                 </div>
                 
                 <div class="cards-container">
                     <!-- Building Projects Card -->
                     <div class="system-card" data-portal="projects">
-                        <div class="card-icon"><i class="fas fa-hard-hat"></i></div>
-                        <div class="card-content">
-                            <h2>Building Projects</h2>
-                            <p>Construction project management, contracts, payment tracking</p>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-hard-hat"></i>
                         </div>
-                        <button class="btn-explore">Access Portal <i class="fas fa-arrow-right"></i></button>
+                        <div class="card-content">
+                            <h3>Building Projects</h3>
+                            <p>Construction management, contracts, payment tracking &amp; project oversight</p>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v3.2</span>
+                            <button class="btn-explore">
+                                Access <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- Hardware POS Card -->
                     <div class="system-card" data-portal="hardware">
-                        <div class="card-icon"><i class="fas fa-cash-register"></i></div>
-                        <div class="card-content">
-                            <h2>Hardware POS</h2>
-                            <p>Complete retail management for ConnectLink hardware operations</p>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-cash-register"></i>
                         </div>
-                        <button class="btn-explore">Launch POS <i class="fas fa-arrow-right"></i></button>
+                        <div class="card-content">
+                            <h3>Hardware POS</h3>
+                            <p>Complete retail management for ConnectLink hardware operations &amp; inventory</p>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v4.1</span>
+                            <button class="btn-explore">
+                                Launch <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -755,7 +1022,7 @@
             <button class="close-modal" onclick="closeProjectsModal()"><i class="fas fa-times"></i></button>
             <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
             <h3>Building Projects</h3>
-            <p>Sign in to access project management</p>
+            <p>Sign in to access project management dashboard</p>
         </div>
         <div class="modal-body">
             <div class="error-message" id="projectsErrorMsg"></div>
@@ -763,20 +1030,24 @@
                 <div class="form-group">
                     <label>Email Address</label>
                     <div class="input-group-modal">
-                        <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
                         <input type="text" class="form-input-modal" id="projectsEmail" placeholder="admin@connectlink.co.zw" required>
+                        <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
                     <div class="input-group-modal">
-                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
                         <input type="password" class="form-input-modal" id="projectsPassword" placeholder="••••••••" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
                         <button type="button" class="password-toggle-modal" onclick="toggleProjectsPassword()"><i class="fas fa-eye"></i></button>
                     </div>
                 </div>
                 <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
             </form>
+            <div class="modal-footer-links">
+                <a href="#">Forgot password?</a>
+                <a href="#">Need help?</a>
+            </div>
         </div>
     </div>
 </div>
@@ -788,7 +1059,7 @@
             <button class="close-modal" onclick="closeHardwareModal()"><i class="fas fa-times"></i></button>
             <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
             <h3>Hardware POS</h3>
-            <p>Sign in to access retail management</p>
+            <p>Sign in to access retail management system</p>
         </div>
         <div class="modal-body">
             <div class="error-message" id="hardwareErrorMsg"></div>
@@ -796,20 +1067,24 @@
                 <div class="form-group">
                     <label>Username</label>
                     <div class="input-group-modal">
-                        <div class="input-icon-modal"><i class="fas fa-user"></i></div>
                         <input type="text" class="form-input-modal" id="hardwareUsername" placeholder="admin" required>
+                        <div class="input-icon-modal"><i class="fas fa-user"></i></div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
                     <div class="input-group-modal">
-                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
                         <input type="password" class="form-input-modal" id="hardwarePassword" placeholder="••••••••" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
                         <button type="button" class="password-toggle-modal" onclick="toggleHardwarePassword()"><i class="fas fa-eye"></i></button>
                     </div>
                 </div>
                 <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
             </form>
+            <div class="modal-footer-links">
+                <a href="#">Forgot password?</a>
+                <a href="#">Support</a>
+            </div>
         </div>
     </div>
 </div>
@@ -817,197 +1092,237 @@
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
-    <div class="loading-text">Authenticating...</div>
+    <div class="loading-text">Authenticating <span>...</span></div>
 </div>
 
 <!-- Footer -->
 <footer class="footer">
-    <p>© 2026 ConnectLink Properties & Hardware | From Concept to Creation — Let's Build Together</p>
+    <p><i class="fas fa-heart me-1"></i> © 2026 ConnectLink Properties & Hardware — From Concept to Creation, Let's Build Together</p>
 </footer>
 
 <script>
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    const projectsModal = document.getElementById('projectsLoginModal');
-    const hardwareModal = document.getElementById('hardwareLoginModal');
-    
-    // Open Projects Modal
-    function openProjectsModal() {
-        projectsModal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        document.getElementById('projectsEmail').focus();
-        clearError('projectsErrorMsg');
-    }
-    
-    // Close Projects Modal
-    function closeProjectsModal() {
-        projectsModal.classList.remove('active');
-        document.body.style.overflow = '';
-        document.getElementById('projectsLoginForm').reset();
-    }
-    
-    // Open Hardware Modal
-    function openHardwareModal() {
-        hardwareModal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        document.getElementById('hardwareUsername').focus();
-        clearError('hardwareErrorMsg');
-    }
-    
-    // Close Hardware Modal
-    function closeHardwareModal() {
-        hardwareModal.classList.remove('active');
-        document.body.style.overflow = '';
-        document.getElementById('hardwareLoginForm').reset();
-    }
-    
-    // Toggle password visibility - Projects
-    function toggleProjectsPassword() {
-        const input = document.getElementById('projectsPassword');
-        const icon = event.target.closest('button').querySelector('i');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            input.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
-    }
-    
-    // Toggle password visibility - Hardware
-    function toggleHardwarePassword() {
-        const input = document.getElementById('hardwarePassword');
-        const icon = event.target.closest('button').querySelector('i');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            input.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
-    }
-    
-    // Show error message
-    function showError(elementId, message) {
-        const errorDiv = document.getElementById(elementId);
-        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
-        errorDiv.style.display = 'flex';
-    }
-    
-    // Clear error message
-    function clearError(elementId) {
-        const errorDiv = document.getElementById(elementId);
-        errorDiv.style.display = 'none';
-    }
-    
-    // Open modals on card click
-    document.querySelectorAll('.system-card').forEach(card => {
-        card.addEventListener('click', function(e) {
-            if (e.target.closest('.btn-explore')) e.stopPropagation();
-            const portal = this.dataset.portal;
-            if (portal === 'projects') {
-                openProjectsModal();
-            } else if (portal === 'hardware') {
-                openHardwareModal();
-            }
-        });
-    });
-    
-    // Close modals on overlay click or Escape
-    projectsModal.addEventListener('click', e => { if (e.target === projectsModal) closeProjectsModal(); });
-    hardwareModal.addEventListener('click', e => { if (e.target === hardwareModal) closeHardwareModal(); });
-    document.addEventListener('keydown', e => { 
-        if (e.key === 'Escape') {
-            if (projectsModal.classList.contains('active')) closeProjectsModal();
-            if (hardwareModal.classList.contains('active')) closeHardwareModal();
-        }
-    });
-    
-    // Projects Login Form Submission
-    document.getElementById('projectsLoginForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        clearError('projectsErrorMsg');
-        
-        const email = document.getElementById('projectsEmail').value.trim();
-        const password = document.getElementById('projectsPassword').value;
-        
-        if (!email || !password) {
-            showError('projectsErrorMsg', 'Please fill in all fields');
-            return;
-        }
-        
-        loadingOverlay.style.display = 'flex';
-        
-        // Send as form data (application/x-www-form-urlencoded)
-        const formData = new URLSearchParams();
-        formData.append('emaillogin', email);
-        formData.append('passwordlogin', password);
-        
-        fetch('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            credentials: 'include',
-            body: formData.toString()
-        })
-        .then(response => response.json())
-        .then(data => {
-            loadingOverlay.style.display = 'none';
-            if (data.success) {
-                window.location.href = data.redirect || '/dashboard';
-            } else {
-                showError('projectsErrorMsg', data.message || 'Invalid credentials');
-                document.getElementById('projectsPassword').value = '';
-            }
-        })
-        .catch(error => {
-            loadingOverlay.style.display = 'none';
-            showError('projectsErrorMsg', 'Connection error. Please try again.');
-        });
-    });
-    
-    // Hardware Login Form Submission
-    document.getElementById('hardwareLoginForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        clearError('hardwareErrorMsg');
-        
-        const username = document.getElementById('hardwareUsername').value.trim();
-        const password = document.getElementById('hardwarePassword').value;
-        
-        if (!username || !password) {
-            showError('hardwareErrorMsg', 'Please fill in all fields');
-            return;
-        }
-        
-        loadingOverlay.style.display = 'flex';
-        
-        fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ username, password })
-        })
-        .then(response => response.json())
-        .then(data => {
-            loadingOverlay.style.display = 'none';
-            if (data.success) {
-                localStorage.setItem('isLoggedIn', 'true');
-                if (data.user) {
-                    localStorage.setItem('user', JSON.stringify(data.user));
+    (function() {
+        // State management
+        const state = {
+            modals: { projects: false, hardware: false },
+            loading: false,
+            errors: { projects: '', hardware: '' }
+        };
+
+        // DOM refs
+        const dom = {
+            projectsModal: document.getElementById('projectsLoginModal'),
+            hardwareModal: document.getElementById('hardwareLoginModal'),
+            loadingOverlay: document.getElementById('loadingOverlay'),
+            projectsError: document.getElementById('projectsErrorMsg'),
+            hardwareError: document.getElementById('hardwareErrorMsg'),
+            projectsForm: document.getElementById('projectsLoginForm'),
+            hardwareForm: document.getElementById('hardwareLoginForm'),
+            projectsEmail: document.getElementById('projectsEmail'),
+            projectsPassword: document.getElementById('projectsPassword'),
+            hardwareUsername: document.getElementById('hardwareUsername'),
+            hardwarePassword: document.getElementById('hardwarePassword')
+        };
+
+        function render() {
+            dom.projectsModal.classList.toggle('active', state.modals.projects);
+            dom.hardwareModal.classList.toggle('active', state.modals.hardware);
+            document.body.style.overflow = (state.modals.projects || state.modals.hardware) ? 'hidden' : '';
+            dom.loadingOverlay.style.display = state.loading ? 'flex' : 'none';
+            
+            ['projects', 'hardware'].forEach(type => {
+                const el = type === 'projects' ? dom.projectsError : dom.hardwareError;
+                const msg = type === 'projects' ? state.errors.projects : state.errors.hardware;
+                if (msg) {
+                    el.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+                    el.style.display = 'flex';
+                } else {
+                    el.style.display = 'none';
                 }
-                window.location.href = '/pos-system.html';
+            });
+        }
+
+        function openProjectsModal() {
+            state.modals.projects = true;
+            state.errors.projects = '';
+            render();
+            setTimeout(() => dom.projectsEmail.focus(), 100);
+        }
+
+        function closeProjectsModal() {
+            state.modals.projects = false;
+            state.errors.projects = '';
+            dom.projectsForm.reset();
+            render();
+        }
+
+        function openHardwareModal() {
+            state.modals.hardware = true;
+            state.errors.hardware = '';
+            render();
+            setTimeout(() => dom.hardwareUsername.focus(), 100);
+        }
+
+        function closeHardwareModal() {
+            state.modals.hardware = false;
+            state.errors.hardware = '';
+            dom.hardwareForm.reset();
+            render();
+        }
+
+        function setLoading(active) {
+            state.loading = active;
+            render();
+        }
+
+        function setError(type, msg) {
+            if (type === 'projects') state.errors.projects = msg;
+            else state.errors.hardware = msg;
+            render();
+        }
+
+        window.toggleProjectsPassword = function(e) {
+            const input = dom.projectsPassword;
+            const icon = e.currentTarget.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
             } else {
-                showError('hardwareErrorMsg', data.message || 'Invalid credentials');
-                document.getElementById('hardwarePassword').value = '';
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
             }
-        })
-        .catch(error => {
-            loadingOverlay.style.display = 'none';
-            showError('hardwareErrorMsg', 'Connection error. Please try again.');
+        };
+
+        window.toggleHardwarePassword = function(e) {
+            const input = dom.hardwarePassword;
+            const icon = e.currentTarget.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        };
+
+        window.openProjectsModal = openProjectsModal;
+        window.closeProjectsModal = closeProjectsModal;
+        window.openHardwareModal = openHardwareModal;
+        window.closeHardwareModal = closeHardwareModal;
+
+        document.querySelectorAll('.system-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                if (e.target.closest('.btn-explore')) return;
+                const portal = this.dataset.portal;
+                if (portal === 'projects') openProjectsModal();
+                else if (portal === 'hardware') openHardwareModal();
+            });
         });
-    });
+
+        document.querySelectorAll('.btn-explore').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const card = this.closest('.system-card');
+                const portal = card.dataset.portal;
+                if (portal === 'projects') openProjectsModal();
+                else if (portal === 'hardware') openHardwareModal();
+            });
+        });
+
+        dom.projectsModal.addEventListener('click', e => {
+            if (e.target === dom.projectsModal) closeProjectsModal();
+        });
+        dom.hardwareModal.addEventListener('click', e => {
+            if (e.target === dom.hardwareModal) closeHardwareModal();
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                if (state.modals.projects) closeProjectsModal();
+                if (state.modals.hardware) closeHardwareModal();
+            }
+        });
+
+        dom.projectsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            setError('projects', '');
+
+            const email = dom.projectsEmail.value.trim();
+            const password = dom.projectsPassword.value;
+
+            if (!email || !password) {
+                setError('projects', 'Please fill in all fields');
+                return;
+            }
+
+            setLoading(true);
+
+            const formData = new URLSearchParams();
+            formData.append('emaillogin', email);
+            formData.append('passwordlogin', password);
+
+            fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                credentials: 'include',
+                body: formData.toString()
+            })
+            .then(res => res.json())
+            .then(data => {
+                setLoading(false);
+                if (data.success) {
+                    window.location.href = data.redirect || '/dashboard';
+                } else {
+                    setError('projects', data.message || 'Invalid credentials');
+                    dom.projectsPassword.value = '';
+                }
+            })
+            .catch(() => {
+                setLoading(false);
+                setError('projects', 'Connection error. Please try again.');
+            });
+        });
+
+        dom.hardwareForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            setError('hardware', '');
+
+            const username = dom.hardwareUsername.value.trim();
+            const password = dom.hardwarePassword.value;
+
+            if (!username || !password) {
+                setError('hardware', 'Please fill in all fields');
+                return;
+            }
+
+            setLoading(true);
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ username, password })
+            })
+            .then(res => res.json())
+            .then(data => {
+                setLoading(false);
+                if (data.success) {
+                    localStorage.setItem('isLoggedIn', 'true');
+                    if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+                    window.location.href = '/pos-system.html';
+                } else {
+                    setError('hardware', data.message || 'Invalid credentials');
+                    dom.hardwarePassword.value = '';
+                }
+            })
+            .catch(() => {
+                setLoading(false);
+                setError('hardware', 'Connection error. Please try again.');
+            });
+        });
+
+        render();
+    })();
 </script>
 </body>
 </html>
