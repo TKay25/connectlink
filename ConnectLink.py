@@ -10992,9 +10992,12 @@ def change_password():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-chats', methods=['GET'])
-@login_required
 def whatsapp_chats():
     """Get grouped WhatsApp conversations from whatsapp_messages table"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
@@ -11031,9 +11034,12 @@ def whatsapp_chats():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-messages/<phone_number>', methods=['GET'])
-@login_required
 def whatsapp_messages(phone_number):
     """Get all messages for a specific WhatsApp conversation"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
