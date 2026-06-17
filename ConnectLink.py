@@ -13831,6 +13831,7 @@ def run1(userid):
 
         # Function to calculate paid and overdue amounts for specific time periods
         def calculate_payment_stats(df):
+            # Track amounts
             stats = {
                 'today_paid': 0,
                 'today_overdue': 0,
@@ -13840,12 +13841,24 @@ def run1(userid):
                 'month_overdue': 0,
                 'year_paid': 0,
                 'year_overdue': 0,
-                'total_overdue': df['overdue_amount'].sum()  # From your existing calculation
+                'total_overdue': df['overdue_amount'].sum(),
+                # Track project counts (using sets for unique project IDs)
+                'today_paid_projects': set(),
+                'today_overdue_projects': set(),
+                'week_paid_projects': set(),
+                'week_overdue_projects': set(),
+                'month_paid_projects': set(),
+                'month_overdue_projects': set(),
+                'year_paid_projects': set(),
+                'year_overdue_projects': set(),
+                'total_overdue_projects': set()
             }
             
             # Calculate amounts based on payment dates
             for _, row in df.iterrows():
-                # Check each installment (1-6)
+                project_id = row.get('id', 0)
+                
+                # Check each installment (1-10)
                 for i in range(1, 11):
                     due_date_col = f'installment{i}duedate'
                     paid_date_col = f'installment{i}date'
@@ -13863,18 +13876,22 @@ def run1(userid):
                             # TODAY PAID: Payments made today
                             if paid_date_dt == current_date:
                                 stats['today_paid'] += amount
+                                stats['today_paid_projects'].add(project_id)
                             
                             # WEEK PAID: Payments made this week (Monday to today)
                             if paid_date_dt >= start_of_week:
                                 stats['week_paid'] += amount
+                                stats['week_paid_projects'].add(project_id)
                             
                             # MONTH PAID: Payments made this month
                             if paid_date_dt >= start_of_month:
                                 stats['month_paid'] += amount
+                                stats['month_paid_projects'].add(project_id)
                             
                             # YEAR PAID: Payments made this year
                             if paid_date_dt >= start_of_year:
                                 stats['year_paid'] += amount
+                                stats['year_paid_projects'].add(project_id)
                         
                         # Check for overdue (not paid and past due date)
                         else:
@@ -13882,18 +13899,32 @@ def run1(userid):
                                 # TODAY OVERDUE: Became overdue today
                                 if due_date == current_date:
                                     stats['today_overdue'] += amount
+                                    stats['today_overdue_projects'].add(project_id)
                                 
                                 # WEEK OVERDUE: Became overdue this week
                                 if due_date >= start_of_week:
                                     stats['week_overdue'] += amount
+                                    stats['week_overdue_projects'].add(project_id)
                                 
                                 # MONTH OVERDUE: Became overdue this month
                                 if due_date >= start_of_month:
                                     stats['month_overdue'] += amount
+                                    stats['month_overdue_projects'].add(project_id)
                                 
                                 # YEAR OVERDUE: Became overdue this year
                                 if due_date >= start_of_year:
                                     stats['year_overdue'] += amount
+                                    stats['year_overdue_projects'].add(project_id)
+            
+            # Also track total overdue projects count
+            for _, row in df.iterrows():
+                if row.get('is_overdue', False):
+                    stats['total_overdue_projects'].add(row.get('id', 0))
+            
+            # Convert sets to counts for JSON serialization
+            for key in list(stats.keys()):
+                if isinstance(stats[key], set):
+                    stats[key] = len(stats[key])
             
             return stats
 

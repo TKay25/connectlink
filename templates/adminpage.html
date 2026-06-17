@@ -21,11 +21,11 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
     <style>
         :root {
-            --primary: #4F46E5;
-            --primary-dark: #4338CA;
-            --primary-light: rgba(79, 70, 229, 0.08);
-            --primary-hover: #6366F1;
-            --primary-muted: rgba(79, 70, 229, 0.12);
+            --primary: #C12B3E;
+            --primary-dark: #9B1D2C;
+            --primary-light: rgba(193, 43, 62, 0.08);
+            --primary-hover: #D33F52;
+            --primary-muted: rgba(193, 43, 62, 0.12);
             --slate-50: #F8FAFC;
             --slate-100: #F1F5F9;
             --slate-200: #E2E8F0;
@@ -43,8 +43,8 @@
             --warning-light: rgba(245, 158, 11, 0.1);
             --danger: #EF4444;
             --danger-light: rgba(239, 68, 68, 0.1);
-            --info: #3B82F6;
-            --info-light: rgba(59, 130, 246, 0.1);
+            --info: #C12B3E;
+            --info-light: rgba(193, 43, 62, 0.1);
             --text-primary: var(--slate-900);
             --text-secondary: var(--slate-500);
             --text-muted: var(--slate-400);
@@ -201,7 +201,7 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), #7C3AED);
+  background: linear-gradient(135deg, var(--primary), #9B1D2C);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1605,7 +1605,7 @@ table.dataTable thead th,
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary), #7C3AED);
+            background: linear-gradient(135deg, var(--primary), #9B1D2C);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1767,7 +1767,7 @@ table.dataTable thead th,
         .quick-action-card:nth-child(1) .action-icon { background: #e8f0fe; color: #1a73e8; }
         .quick-action-card:nth-child(2) .action-icon { background: #e6f7e6; color: #2e7d32; }
         .quick-action-card:nth-child(3) .action-icon { background: #fff3e0; color: #ef6c00; }
-        .quick-action-card:nth-child(4) .action-icon { background: #f3e8ff; color: #7c3aed; }
+        .quick-action-card:nth-child(4) .action-icon { background: #fce8eb; color: #C12B3E; }
         .quick-action-card .action-content { flex: 1; }
         .quick-action-card .action-title {
             font-weight: 700;
@@ -2189,7 +2189,7 @@ table.dataTable thead th,
         color: white !important;
     }
     .badge.bg-danger {
-        background: linear-gradient(135deg, var(--primary) 0%, #7C3AED 100%) !important;
+        background: linear-gradient(135deg, var(--primary) 0%, #9B1D2C 100%) !important;
     }
     .badge.bg-info {
         background: linear-gradient(135deg, #2196f3 0%, #1565c0 100%) !important;
@@ -2254,7 +2254,7 @@ table.dataTable thead th,
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: linear-gradient(135deg, var(--primary), #7C3AED);
+        background: linear-gradient(135deg, var(--primary), #9B1D2C);
         animation: pulseSpin 1.2s ease-in-out infinite;
     }
     @keyframes pulseSpin {
@@ -2320,7 +2320,7 @@ table.dataTable thead th,
     .stat-card .stat-icon.green { background: #e6f7e6; color: #2e7d32; }
     .stat-card .stat-icon.red { background: #fce4ec; color: #c62828; }
     .stat-card .stat-icon.amber { background: #fff3e0; color: #ef6c00; }
-    .stat-card .stat-icon.purple { background: #f3e8ff; color: #7c3aed; }
+    .stat-card .stat-icon.purple { background: #fce8eb; color: #C12B3E; }
     .stat-card .stat-body { flex: 1; min-width: 0; }
     .stat-card .stat-label {
         font-size: 0.5rem;
@@ -2388,7 +2388,7 @@ table.dataTable thead th,
     .chip.success { background: #e6f7e6; color: #2e7d32; }
     .chip.danger { background: #fce4ec; color: #c62828; }
     .chip.warning { background: #fff3e0; color: #ef6c00; }
-    .chip.purple { background: #f3e8ff; color: #7c3aed; }
+    .chip.purple { background: #fce8eb; color: #C12B3E; }
     .chip.crimson { background: var(--crimson-light); color: var(--crimson-bright); }
 
     /* --- Empty State --- */
@@ -2642,7 +2642,7 @@ table.dataTable thead th,
         <p style="color: rgba(255,255,255,0.5); font-size: 0.75rem; margin: 0 0 20px 0; letter-spacing: 0.3px; min-height: 20px; transition: opacity 0.3s ease;">Initializing project database</p>
 
         <div class="loader-bar" style="width: 200px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;">
-            <div class="loader-progress" style="height: 100%; background: linear-gradient(90deg, var(--primary), #7C3AED, var(--primary)); animation: loadingSlide 1.5s ease-in-out infinite;"></div>
+            <div class="loader-progress" style="height: 100%; background: linear-gradient(90deg, var(--primary), #9B1D2C, var(--primary)); animation: loadingSlide 1.5s ease-in-out infinite;"></div>
         </div>
         
         <div class="eds-grid" style="display: grid; grid-template-columns: repeat(4, 40px); gap: 8px; margin-top: 20px;">
@@ -2839,33 +2839,58 @@ table.dataTable thead th,
                                 <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="Pushpaymentreminders()"><i class="bi bi-credit-card-2-front-fill"></i> Reminders</button>
                             </div>
                             <!-- Payment Summary Cards -->
-                            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:4px; margin-bottom:6px;">
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#059669,#10B981); border-radius:8px; padding:6px 8px; text-align:center;">
-                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Paid Today</div>
-                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.today_paid|default(0)) }}</div>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(185px,1fr)); gap:4px; margin-bottom:6px;">
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#059669,#10B981); border-radius:8px; padding:6px 10px;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:3px;">TODAY</div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.55rem;">
+                                        <span style="color:rgba(255,255,255,0.7);">Paid</span>
+                                        <span style="color:#fff; font-weight:700;">${{ "%.2f"|format(payment_stats.today_paid|default(0)) }}</span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.55rem;">
+                                        <span style="color:rgba(255,255,255,0.7);">Due</span>
+                                        <span style="color:#fbb; font-weight:700;">${{ "%.2f"|format(payment_stats.today_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.5rem;">({{ payment_stats.today_overdue_projects|default(0) }} proj)</span></span>
+                                    </div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#DC2626,#EF4444); border-radius:8px; padding:6px 8px; text-align:center;">
-                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Overdue Today</div>
-                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.today_overdue|default(0)) }}</div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#059669,#34D399); border-radius:8px; padding:6px 10px;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:3px;">THIS WEEK</div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.55rem;">
+                                        <span style="color:rgba(255,255,255,0.7);">Paid</span>
+                                        <span style="color:#fff; font-weight:700;">${{ "%.2f"|format(payment_stats.week_paid|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.5rem;">({{ payment_stats.week_paid_projects|default(0) }})</span></span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.55rem;">
+                                        <span style="color:rgba(255,255,255,0.7);">Overdue</span>
+                                        <span style="color:#fbb; font-weight:700;">${{ "%.2f"|format(payment_stats.week_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.5rem;">({{ payment_stats.week_overdue_projects|default(0) }})</span></span>
+                                    </div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#059669,#34D399); border-radius:8px; padding:6px 8px; text-align:center;">
-                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Paid This Week</div>
-                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.week_paid|default(0)) }}</div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#2563EB,#3B82F6); border-radius:8px; padding:6px 10px;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:3px;">THIS MONTH</div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.55rem;">
+                                        <span style="color:rgba(255,255,255,0.7);">Paid</span>
+                                        <span style="color:#fff; font-weight:700;">${{ "%.2f"|format(payment_stats.month_paid|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.5rem;">({{ payment_stats.month_paid_projects|default(0) }})</span></span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.55rem;">
+                                        <span style="color:rgba(255,255,255,0.7);">Overdue</span>
+                                        <span style="color:#fbb; font-weight:700;">${{ "%.2f"|format(payment_stats.month_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.5rem;">({{ payment_stats.month_overdue_projects|default(0) }})</span></span>
+                                    </div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#2563EB,#3B82F6); border-radius:8px; padding:6px 8px; text-align:center;">
-                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Paid This Month</div>
-                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.month_paid|default(0)) }}</div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#2563EB,#60A5FA); border-radius:8px; padding:6px 10px;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:3px;">THIS YEAR</div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.55rem;">
+                                        <span style="color:rgba(255,255,255,0.7);">Paid</span>
+                                        <span style="color:#fff; font-weight:700;">${{ "%.2f"|format(payment_stats.year_paid|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.5rem;">({{ payment_stats.year_paid_projects|default(0) }})</span></span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.55rem;">
+                                        <span style="color:rgba(255,255,255,0.7);">Overdue</span>
+                                        <span style="color:#fbb; font-weight:700;">${{ "%.2f"|format(payment_stats.year_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.5rem;">({{ payment_stats.year_overdue_projects|default(0) }})</span></span>
+                                    </div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#2563EB,#60A5FA); border-radius:8px; padding:6px 8px; text-align:center;">
-                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Paid This Year</div>
-                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.year_paid|default(0)) }}</div>
-                                </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#DC2626,#F87171); border-radius:8px; padding:6px 8px; text-align:center;">
-                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Total Overdue</div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#DC2626,#F87171); border-radius:8px; padding:6px 10px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700;">Total Overdue</div>
                                     <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.total_overdue|default(0)) }}</div>
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.5);">{{ payment_stats.total_overdue_projects|default(0) }} projects</div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#D97706,#F59E0B); border-radius:8px; padding:6px 8px; text-align:center;">
-                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Total Due</div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#D97706,#F59E0B); border-radius:8px; padding:6px 10px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700;">Total Due</div>
                                     <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.total_due|default(0)) }}</div>
                                 </div>
                             </div>
@@ -17875,7 +17900,7 @@ function loadActivityLog() {
             };
             const actionColors = {
                 'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
-                'quotation_edited': '#7c3aed', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
+                'quotation_edited': '#C12B3E', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
                 'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
                 'contractor_edited': '#37474f', 'system': '#546e7a'
             };
