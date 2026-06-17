@@ -57,6 +57,30 @@
             --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.05);
             --radius-sm: 6px;
             --radius-md: 10px;
+        }
+        /* Dark theme overrides */
+        body.dark-theme {
+            --slate-50: #0f1729;
+            --slate-100: #1a1f35;
+            --slate-200: #252b45;
+            --slate-300: #3a4058;
+            --slate-400: #6b7280;
+            --slate-500: #9ca3af;
+            --slate-600: #cbd5e1;
+            --slate-700: #e2e8f0;
+            --slate-800: #f1f5f9;
+            --slate-900: #f8fafc;
+            --white: #1a1f35;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --bg-body: #0f1729;
+            --bg-card: #1a1f35;
+            --border-color: #2a3050;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             --radius-lg: 16px;
             --radius-xl: 20px;
             --nav-height: 52px;
@@ -87,9 +111,86 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
+
+        /* ===== BACKGROUND PATTERNS (from mainindex.html) ===== */
+        .bg-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            pointer-events: none;
+        }
+        .bg-gradient {
+            background: linear-gradient(135deg, #e8f0f8 0%, #d4e4f0 35%, #c0d8e8 65%, #e8f0f8 100%);
+        }
+        .bg-grid {
+            background-image: 
+                linear-gradient(rgba(10,43,62,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(10,43,62,0.04) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+        .bg-diagonal {
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 40px,
+                rgba(10,43,62,0.03) 40px,
+                rgba(10,43,62,0.03) 41px
+            );
+        }
+        .bg-orbs {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .bg-orbs::before {
+            content: '';
+            position: absolute;
+            top: -15%;
+            right: -5%;
+            width: 45%;
+            height: 60%;
+            background: radial-gradient(circle, rgba(181,13,13,0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: floatOrb 20s ease-in-out infinite alternate;
+        }
+        .bg-orbs::after {
+            content: '';
+            position: absolute;
+            bottom: -20%;
+            left: -5%;
+            width: 40%;
+            height: 50%;
+            background: radial-gradient(circle, rgba(10,43,62,0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: floatOrb 25s ease-in-out infinite alternate-reverse;
+        }
+        @keyframes floatOrb {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -20px) scale(1.1); }
+        }
+        .bg-dots {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            background-image: radial-gradient(circle, rgba(10,43,62,0.06) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
         /* ===== SIDEBAR — CLEAN DARK THEME ===== */
-
-
 
 /* ===== FIXED TOP NAVBAR — Sleek glass-morphism ===== */
 .fixed-navbar {
@@ -343,7 +444,7 @@ table.dataTable thead th.sorting_desc {
             transition: margin-left 0.28s;
             width: 100%;
             height: 100vh;
-            background: var(--bg-body);
+            background: transparent;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -2698,6 +2799,13 @@ table.dataTable thead th.sorting_desc {
 
 <body>
 
+<!-- Background Pattern Layers (from mainindex.html) -->
+<div class="bg-layer bg-gradient"></div>
+<div class="bg-layer bg-grid"></div>
+<div class="bg-layer bg-diagonal"></div>
+<div class="bg-orbs"></div>
+<div class="bg-dots"></div>
+
 <!-- Hidden elements needed for JavaScript functionality -->
 <input type="hidden" id="company_name" value="{{ companyname }}">
 <input type="hidden" id="currentIdeditdepartment" value="">
@@ -2778,7 +2886,7 @@ table.dataTable thead th.sorting_desc {
             <div class="dropdown-item" onclick="openProfileModal(); closeUserDropdown();">
                 <i class="bi bi-person-circle"></i> Profile
             </div>
-            <div class="dropdown-item" onclick="closeUserDropdown();">
+            <div class="dropdown-item" onclick="closeUserDropdown(); showPage('settingsPage'); setActiveButton('btn-settings');">
                 <i class="bi bi-gear"></i> Settings
             </div>
             <div class="dropdown-divider"></div>
@@ -3145,6 +3253,91 @@ table.dataTable thead th.sorting_desc {
                     </div><!-- tab-content -->
                 </div><!-- admin-content -->
             </div><!-- dashboardPage -->
+
+            <!-- Settings Page -->
+            <div id="settingsPage" class="page-view" style="display: none;">
+                <div class="section-card">
+                    <div class="section-header" style="padding: 8px 14px;">
+                        <h5 style="margin:0;font-size:0.75rem;font-weight:700;"><i class="bi bi-gear"></i> Settings</h5>
+                    </div>
+                    <div class="section-body" style="padding: 14px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                            <!-- Profile Settings -->
+                            <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                                <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:8px 14px;font-size:0.65rem;font-weight:700;">
+                                    <i class="bi bi-person"></i> Profile Information
+                                </div>
+                                <div class="card-body" style="padding:14px;">
+                                    <div class="mb-3">
+                                        <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">Full Name</label>
+                                        <input type="text" class="form-control" id="settingsName" style="font-size:0.6rem;padding:6px 10px;">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">Email Address</label>
+                                        <input type="email" class="form-control" id="settingsEmail" style="font-size:0.6rem;padding:6px 10px;">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">WhatsApp Number</label>
+                                        <input type="text" class="form-control" id="settingsWhatsapp" style="font-size:0.6rem;padding:6px 10px;">
+                                    </div>
+                                    <button class="btn btn-primary" onclick="saveProfileSettings()" style="font-size:0.6rem;padding:6px 16px;">
+                                        <i class="bi bi-check-circle"></i> Save Profile
+                                    </button>
+                                    <div id="profileSaveMsg" style="font-size:0.55rem;margin-top:6px;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Change Password -->
+                            <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                                <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:8px 14px;font-size:0.65rem;font-weight:700;">
+                                    <i class="bi bi-lock"></i> Change Password
+                                </div>
+                                <div class="card-body" style="padding:14px;">
+                                    <div class="mb-3">
+                                        <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">Current Password</label>
+                                        <input type="password" class="form-control" id="settingsCurrentPwd" style="font-size:0.6rem;padding:6px 10px;">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">New Password</label>
+                                        <input type="password" class="form-control" id="settingsNewPwd" style="font-size:0.6rem;padding:6px 10px;">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">Confirm New Password</label>
+                                        <input type="password" class="form-control" id="settingsConfirmPwd" style="font-size:0.6rem;padding:6px 10px;">
+                                    </div>
+                                    <button class="btn btn-primary" onclick="changePassword()" style="font-size:0.6rem;padding:6px 16px;">
+                                        <i class="bi bi-check-circle"></i> Update Password
+                                    </button>
+                                    <div id="passwordChangeMsg" style="font-size:0.55rem;margin-top:6px;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Theme Settings -->
+                            <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                                <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:8px 14px;font-size:0.65rem;font-weight:700;">
+                                    <i class="bi bi-palette"></i> Theme Preferences
+                                </div>
+                                <div class="card-body" style="padding:14px;">
+                                    <div class="mb-3">
+                                        <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:8px;">Appearance</label>
+                                        <div style="display:flex;gap:10px;">
+                                            <div onclick="setTheme('light')" id="themeLightCard" style="flex:1;border:2px solid var(--gray-200);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s;background:white;">
+                                                <div style="font-size:1.4rem;margin-bottom:6px;">☀️</div>
+                                                <div style="font-size:0.6rem;font-weight:600;color:#333;">Light Mode</div>
+                                            </div>
+                                            <div onclick="setTheme('dark')" id="themeDarkCard" style="flex:1;border:2px solid var(--gray-200);border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:all 0.2s;background:#1a1a2e;">
+                                                <div style="font-size:1.4rem;margin-bottom:6px;">🌙</div>
+                                                <div style="font-size:0.6rem;font-weight:600;color:#ccc;">Dark Mode</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="themeMsg" style="font-size:0.55rem;margin-top:6px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
     </div>
 
@@ -6640,6 +6833,134 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// ===== SETTINGS FUNCTIONS =====
+function loadSettings() {
+    fetch('/api/user-profile')
+        .then(r => r.json())
+        .then(res => {
+            if (res.success && res.data) {
+                const u = res.data;
+                document.getElementById('settingsName').value = u.name || '';
+                document.getElementById('settingsEmail').value = u.email || '';
+                document.getElementById('settingsWhatsapp').value = u.whatsapp || '';
+            }
+        })
+        .catch(err => console.error('Load settings error:', err));
+    
+    // Highlight current theme
+    const theme = localStorage.getItem('adminTheme') || 'light';
+    highlightThemeCard(theme);
+}
+
+function saveProfileSettings() {
+    const name = document.getElementById('settingsName').value.trim();
+    const email = document.getElementById('settingsEmail').value.trim();
+    const whatsapp = document.getElementById('settingsWhatsapp').value.trim();
+    const msg = document.getElementById('profileSaveMsg');
+    
+    if (!name || !email) {
+        msg.innerHTML = '<span style="color:#d32f2f;">Name and Email are required.</span>';
+        return;
+    }
+    
+    fetch('/api/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: name, email: email, whatsapp: whatsapp })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            msg.innerHTML = '<span style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Profile updated successfully!</span>';
+            // Update the displayed user name in the header
+            const userNameEl = document.getElementById('headerUserName');
+            if (userNameEl) userNameEl.textContent = name;
+        } else {
+            msg.innerHTML = '<span style="color:#d32f2f;">' + (res.message || 'Update failed.') + '</span>';
+        }
+    })
+    .catch(err => {
+        msg.innerHTML = '<span style="color:#d32f2f;">Connection error.</span>';
+        console.error('Save profile error:', err);
+    });
+}
+
+function changePassword() {
+    const currentPwd = document.getElementById('settingsCurrentPwd').value;
+    const newPwd = document.getElementById('settingsNewPwd').value;
+    const confirmPwd = document.getElementById('settingsConfirmPwd').value;
+    const msg = document.getElementById('passwordChangeMsg');
+    
+    if (!currentPwd || !newPwd || !confirmPwd) {
+        msg.innerHTML = '<span style="color:#d32f2f;">All password fields are required.</span>';
+        return;
+    }
+    if (newPwd.length < 4) {
+        msg.innerHTML = '<span style="color:#d32f2f;">New password must be at least 4 characters.</span>';
+        return;
+    }
+    if (newPwd !== confirmPwd) {
+        msg.innerHTML = '<span style="color:#d32f2f;">New passwords do not match.</span>';
+        return;
+    }
+    
+    fetch('/api/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: currentPwd, new_password: newPwd })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            msg.innerHTML = '<span style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Password changed successfully!</span>';
+            document.getElementById('settingsCurrentPwd').value = '';
+            document.getElementById('settingsNewPwd').value = '';
+            document.getElementById('settingsConfirmPwd').value = '';
+        } else {
+            msg.innerHTML = '<span style="color:#d32f2f;">' + (res.message || 'Password change failed.') + '</span>';
+        }
+    })
+    .catch(err => {
+        msg.innerHTML = '<span style="color:#d32f2f;">Connection error.</span>';
+        console.error('Change password error:', err);
+    });
+}
+
+function setTheme(mode) {
+    if (mode === 'dark') {
+        document.body.classList.add('dark-theme');
+    } else {
+        document.body.classList.remove('dark-theme');
+    }
+    localStorage.setItem('adminTheme', mode);
+    highlightThemeCard(mode);
+    document.getElementById('themeMsg').innerHTML = '<span style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Theme changed to ' + mode + ' mode.</span>';
+}
+
+function highlightThemeCard(mode) {
+    const lightCard = document.getElementById('themeLightCard');
+    const darkCard = document.getElementById('themeDarkCard');
+    if (mode === 'dark') {
+        lightCard.style.borderColor = 'var(--gray-200)';
+        darkCard.style.borderColor = '#C12B3E';
+        darkCard.style.boxShadow = '0 0 12px rgba(193,43,62,0.3)';
+        lightCard.style.boxShadow = 'none';
+    } else {
+        darkCard.style.borderColor = 'var(--gray-200)';
+        lightCard.style.borderColor = '#C12B3E';
+        lightCard.style.boxShadow = '0 0 12px rgba(193,43,62,0.3)';
+        darkCard.style.boxShadow = 'none';
+    }
+}
+
+// Apply saved theme on page load
+(function() {
+    const savedTheme = localStorage.getItem('adminTheme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+    }
+})();
+
 // Modal functions for blur overlay
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -8024,6 +8345,11 @@ function showPage(pageId) {
         const breadcrumb = document.getElementById('breadcrumb-current');
         if (breadcrumb) {
             breadcrumb.textContent = pageTitles[pageId] || 'Dashboard';
+        }
+        
+        // Load settings data when settings page is shown
+        if (pageId === 'settingsPage') {
+            loadSettings();
         }
     }
 }

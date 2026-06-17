@@ -10886,6 +10886,53 @@ def update_profile():
         print(f"Update profile error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/change-password', methods=['POST'])
+def change_password():
+    """Change current user's password"""
+    user_id = session.get('userid')
+    user_uuid = session.get('user_uuid')
+    
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+        
+        if not current_password or not new_password:
+            return jsonify({'success': False, 'message': 'Current and new password are required'}), 400
+        
+        if len(new_password) < 4:
+            return jsonify({'success': False, 'message': 'New password must be at least 4 characters'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Verify current password
+            cursor.execute("""
+                SELECT password FROM connectlinkusers WHERE id = %s
+            """, (user_id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                return jsonify({'success': False, 'message': 'User not found'}), 404
+            
+            stored_password = row[0]
+            
+            # Check against current password
+            if stored_password != current_password:
+                return jsonify({'success': False, 'message': 'Current password is incorrect'}), 400
+            
+            # Update password
+            cursor.execute("""
+                UPDATE connectlinkusers SET password = %s WHERE id = %s
+            """, (new_password, user_id))
+            connection.commit()
+            
+            return jsonify({'success': True, 'message': 'Password changed successfully'})
+    except Exception as e:
+        print(f"Change password error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/export-enquiries')
 def export_enquiries():
     with get_db() as (cursor, connection):
