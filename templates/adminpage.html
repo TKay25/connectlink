@@ -2733,6 +2733,11 @@ body {
                                 </button>
                             </li>
                             <li class="nav-item">
+                                <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#activity-tab">
+                                    <i class="bi bi-activity"></i> ACTIVITY
+                                </button>
+                            </li>
+                            <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#dashboard-tab">
                                     <i class="bi bi-graph-up"></i> SUMMARY
                                 </button>
@@ -2767,15 +2772,33 @@ body {
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <div class="input-group" style="font-size:0.55rem;">
                                             <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-search"></i></span>
                                             <input type="text" class="form-control" id="tableSearch" placeholder="Search..." style="font-size:0.55rem;padding:0.1rem 0.3rem;">
                                         </div>
                                     </div>
+                                    <div class="col-md-2">
+                                        <div class="input-group" style="font-size:0.55rem;">
+                                            <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-list-ol"></i></span>
+                                            <select class="form-select" id="projectsPageLength" style="font-size:0.55rem;padding:0.1rem 0.3rem;">
+                                                <option value="25">25 entries</option>
+                                                <option value="50">50 entries</option>
+                                                <option value="100">100 entries</option>
+                                                <option value="200">200 entries</option>
+                                                <option value="-1">All</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="container2" style="overflow-y:auto;">
                                     {{ table_datamain_html|safe }}
+                                </div>
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:0.5rem;color:var(--text-muted);">
+                                    <span id="projectsTableInfo"></span>
+                                    <button class="btn btn-primary" id="loadMoreProjectsBtn" style="font-size:0.5rem;padding:2px 8px;display:none;" onclick="loadMoreProjects()">
+                                        <i class="bi bi-plus-circle"></i> Load More Projects
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -2845,6 +2868,22 @@ body {
                                             {% endfor %}
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ACTIVITY LOG TAB -->
+                        <div class="tab-pane fade" id="activity-tab">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                                <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadActivityLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                            </div>
+                            <div class="container2" style="overflow-y:auto; background:#fafafa; border-radius:4px; padding:4px;">
+                                <div id="activityLogContainer">
+                                    <div class="empty-state">
+                                        <div class="empty-icon"><i class="bi bi-clock-history"></i></div>
+                                        <div class="empty-title">Activity Log</div>
+                                        <div class="empty-desc">Click Refresh to load the latest activity log entries.</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -6405,12 +6444,11 @@ function initializeDataTableForProjects() {
     
     // Initialize DataTables with columnDefs (matching backend output)
     window.dataTable = $('#allprojectsTable').DataTable({
-        paging: true,
+        paging: false,
         searching: true,
         ordering: false,
-        info: true,
-        pageLength: 7,
-        lengthChange: false,
+        info: false,
+        pageLength: -1,
         columnDefs: [
             // Hide all detail columns, show only: momid(0), clientname(1), projectname(10), projectadmin(13), date(24), id(58), QREF(59), Action(60)
             { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
@@ -11189,13 +11227,11 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             window.dataTable = $('#allprojectsTable').DataTable({
                 order: [[0, 'desc']],
-                paging: true,
+                paging: false,
                 searching: true,
                 ordering: true,
-                info: true,
-                pageLength: 25,
-                lengthChange: true,
-                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+                info: false,
+                pageLength: -1,
                 columnDefs: [
                     // Hide columns 2-9, 11-12, 14, 15-57 (client details, addresses, projectstartdate, installment details)
                     { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
@@ -11277,11 +11313,44 @@ $(document).ready(function() {
         const searchTerm = this.value;
         
         if (window.dataTable) {
-            // Use DataTables built-in search which searches ALL data rows and columns
-            // This searches the entire dataset, not just filtered/visible rows
             window.dataTable.search(searchTerm).draw();
         }
     });
+
+    // Entry count dropdown - show/hide rows in projects table
+    document.getElementById('projectsPageLength')?.addEventListener('change', function() {
+        const val = parseInt(this.value);
+        const table = document.getElementById('allprojectsTable');
+        if (!table) return;
+        const rows = table.querySelectorAll('tbody tr');
+        const limit = val === -1 ? rows.length : val;
+        
+        rows.forEach((row, idx) => {
+            if (idx < limit) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        const infoEl = document.getElementById('projectsTableInfo');
+        if (infoEl) {
+            const showing = Math.min(limit, rows.length);
+            const total = rows.length;
+            infoEl.textContent = `Showing ${showing} of ${total} entries`;
+            // Show Load More button only when viewing all loaded rows
+            const btn = document.getElementById('loadMoreProjectsBtn');
+            if (btn) {
+                btn.style.display = (val === -1 || limit >= total) ? 'block' : 'none';
+            }
+        }
+    });
+    
+    // Show Load More button on page load if data might exist beyond 500
+    setTimeout(() => {
+        const btn = document.getElementById('loadMoreProjectsBtn');
+        if (btn) btn.style.display = 'block';
+    }, 500);
 });
 
 
@@ -17475,6 +17544,220 @@ function reloadCurrentTab() {
 
 // --- Scroll to top ---
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+// --- Load More Projects (server-side pagination) ---
+let projectsOffset = 500;
+function loadMoreProjects() {
+    const btn = document.getElementById('loadMoreProjectsBtn');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Loading...';
+    
+    fetch(`/api/projects-page?offset=${projectsOffset}&limit=100`)
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data || !res.data.length) {
+                btn.innerHTML = 'No more projects';
+                btn.disabled = true;
+                return;
+            }
+            
+            const table = document.getElementById('allprojectsTable');
+            if (!table) return;
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            
+            // Append new rows
+            res.data.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${p.id}</td>
+                    <td>${escapeHtml(p.clientname || '')}</td>
+                    <td>${escapeHtml(p.projectname || '')}</td>
+                    <td>${escapeHtml(p.location || '')}</td>
+                    <td>${escapeHtml(p.admin || '')}</td>
+                    <td>${p.start_date || ''}</td>
+                    <td>$${p.amount.toLocaleString()}</td>
+                    <td>$${p.deposit.toLocaleString()}</td>
+                    <td><span class="badge ${p.status === 'Completed' ? 'bg-success' : p.status === 'Ongoing' ? 'bg-warning' : 'bg-secondary'}">${p.status}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            projectsOffset += res.data.length;
+            
+            // Update info
+            const infoEl = document.getElementById('projectsTableInfo');
+            if (infoEl) {
+                const totalRows = table.querySelectorAll('tbody tr').length;
+                infoEl.textContent = `Showing ${totalRows} entries`;
+            }
+            
+            // Show/hide button
+            if (res.has_more) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-plus-circle"></i> Load More Projects';
+            } else {
+                btn.innerHTML = 'All projects loaded';
+                btn.disabled = true;
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Error loading';
+            console.error('Load more error:', err);
+        });
+}
+
+// --- Log Activity (frontend helper) ---
+function logActivity(action_type, description, reference_type, reference_id, details) {
+    fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action_type: action_type,
+            description: description,
+            reference_type: reference_type,
+            reference_id: reference_id,
+            details: details || null
+        })
+    }).catch(err => console.warn('Failed to log activity:', err));
+}
+
+// --- Activity Log ---
+function loadActivityLog() {
+    const container = document.getElementById('activityLogContainer');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>';
+    
+    fetch('/api/activity-log?limit=200')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) { container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="empty-title">Failed to load</div></div>'; return; }
+            
+            const data = res.data || [];
+            if (!data.length) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-clock-history"></i></div><div class="empty-title">No Activity Yet</div><div class="empty-desc">Activity log entries will appear here as actions are performed.</div></div>';
+                return;
+            }
+            
+            const actionIcons = {
+                'project_created': 'bi-folder-plus', 'payment_updated': 'bi-cash', 'quotation_created': 'bi-file-text',
+                'quotation_edited': 'bi-pencil', 'quotation_sent': 'bi-send', 'project_altered': 'bi-pencil-square',
+                'audit_corrected': 'bi-gear', 'user_action': 'bi-person', 'enquiry_action': 'bi-chat-dots',
+                'contractor_edited': 'bi-building', 'system': 'bi-gear-wide'
+            };
+            const actionColors = {
+                'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
+                'quotation_edited': '#7c3aed', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
+                'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
+                'contractor_edited': '#37474f', 'system': '#546e7a'
+            };
+            
+            let html = '<div style="display:flex;flex-direction:column;gap:3px;">';
+            data.forEach(item => {
+                const icon = actionIcons[item.action_type] || 'bi-three-dots';
+                const color = actionColors[item.action_type] || '#666';
+                const time = item.created_at || '';
+                html += `
+                    <div class="clickable-row" onclick="viewActivityDetails('${escapeHtml(JSON.stringify(item).replace(/'/g, "\\'"))}')" 
+                         style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:white;border:1px solid var(--gray-200);border-radius:6px;font-size:0.55rem;transition:all 0.15s;">
+                        <div style="width:26px;height:26px;border-radius:6px;background:${color}15;color:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;">
+                            <i class="bi ${icon}"></i>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.description)}</div>
+                            <div style="display:flex;gap:8px;font-size:0.48rem;color:var(--text-muted);">
+                                <span><i class="bi bi-person"></i> ${escapeHtml(item.user_name)}</span>
+                                <span><i class="bi bi-clock"></i> ${time}</span>
+                                ${item.reference_type ? `<span><i class="bi bi-tag"></i> ${item.reference_type}#${item.reference_id}</span>` : ''}
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <span class="chip" style="font-size:0.45rem;padding:1px 6px;background:${color}15;color:${color};">${item.action_type.replace(/_/g,' ')}</span>
+                            <i class="bi bi-chevron-right" style="color:var(--gray-400);font-size:0.5rem;"></i>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        })
+        .catch(() => {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div></div>';
+        });
+}
+
+function viewActivityDetails(itemStr) {
+    try {
+        const item = typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
+        let html = `
+            <div style="display:flex;flex-direction:column;gap:8px;padding:4px;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <div style="flex:1;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Action Type</div>
+                        <div style="font-size:0.6rem;font-weight:700;color:var(--text-primary);text-transform:capitalize;">${item.action_type.replace(/_/g,' ')}</div>
+                    </div>
+                    <div style="flex:1;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">User</div>
+                        <div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">${escapeHtml(item.user_name)}</div>
+                    </div>
+                    <div style="flex:1;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Date/Time</div>
+                        <div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">${item.created_at}</div>
+                    </div>
+                </div>
+                <div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;border:1px solid var(--gray-200);">
+                    <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:4px;">Description</div>
+                    <div style="font-size:0.6rem;color:var(--text-primary);">${escapeHtml(item.description)}</div>
+                </div>`;
+        
+        if (item.reference_type) {
+            html += `
+                <div style="display:flex;gap:8px;">
+                    <div style="flex:1;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Reference</div>
+                        <div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">${item.reference_type} #${item.reference_id}</div>
+                    </div>
+                </div>`;
+        }
+        
+        if (item.details && item.details !== 'null') {
+            try {
+                const details = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
+                let detailHtml = '';
+                for (const [k, v] of Object.entries(details)) {
+                    detailHtml += `<div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--gray-200);font-size:0.5rem;">
+                        <span style="font-weight:600;color:var(--text-muted);flex:0 0 100px;">${k.replace(/_/g,' ')}</span>
+                        <span style="color:var(--text-primary);">${v}</span>
+                    </div>`;
+                }
+                html += `<div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;border:1px solid var(--gray-200);">
+                    <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:4px;">Details</div>
+                    ${detailHtml}
+                </div>`;
+            } catch(e) {}
+        }
+        
+        html += '</div>';
+        
+        // Show in a modal or slide-in
+        const existing = document.getElementById('activityDetailPopup');
+        if (existing) existing.remove();
+        
+        const popup = document.createElement('div');
+        popup.id = 'activityDetailPopup';
+        popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,26,58,0.5);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        popup.innerHTML = `
+            <div style="background:white;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+                <div class="modal-header-custom"><h3><i class="bi bi-info-circle"></i> Activity Details</h3>
+                    <button class="close-modal" onclick="this.closest('#activityDetailPopup').remove()"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="modal-body-custom">${html}</div>
+                <div class="modal-footer-custom"><button class="btn btn-danger" onclick="this.closest('#activityDetailPopup').remove()">Close</button></div>
+            </div>`;
+        document.body.appendChild(popup);
+    } catch(e) { console.error('Activity detail error:', e); }
+}
 </script>
 
 </body>

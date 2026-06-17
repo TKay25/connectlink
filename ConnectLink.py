@@ -1042,6 +1042,28 @@ def initialize_database_tables():
                     """, (cat_name, order), commit=True)
 
 
+            # Create activity_log table for tracking user actions
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS activity_log (
+                    id SERIAL PRIMARY KEY,
+                    action_type VARCHAR(50) NOT NULL,
+                    description TEXT NOT NULL,
+                    user_name VARCHAR(100),
+                    reference_type VARCHAR(50),
+                    reference_id INT,
+                    details JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            # Add indexes for faster querying
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at DESC);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_log_action_type ON activity_log(action_type);")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_log_reference ON activity_log(reference_type, reference_id);")
+            except Exception as e:
+                connection.rollback()
+                print(f"Note: Could not create activity_log indexes: {e}")
+
             connection.commit()
             print("✅ Database tables initialized successfully!")
     except Exception as e:
@@ -9075,6 +9097,88 @@ def get_user_by_id(user_id):
     return result
 
 
+# ==================== ACTIVITY LOG SYSTEM ====================
+
+def log_activity(action_type, description, reference_type=None, reference_id=None, details=None):
+    """Log an activity to the activity_log table"""
+    try:
+        user_name = session.get('username') or session.get('user_name') or 'System'
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO activity_log (action_type, description, user_name, reference_type, reference_id, details)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                action_type,
+                description,
+                user_name,
+                reference_type,
+                reference_id,
+                json.dumps(details) if details else None
+            ))
+            connection.commit()
+    except Exception as e:
+        print(f"❌ Failed to log activity: {e}")
+
+
+@app.route('/api/activity-log', methods=['GET', 'POST'])
+def handle_activity_log():
+    if request.method == 'POST':
+        try:
+            data = request.get_json()
+            action_type = data.get('action_type', 'system')
+            description = data.get('description', '')
+            reference_type = data.get('reference_type')
+            reference_id = data.get('reference_id')
+            details = data.get('details')
+            log_activity(action_type, description, reference_type, reference_id, details)
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+    # GET - fetch activity log
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        action_filter = request.args.get('action_type', '')
+        
+        with get_db() as (cursor, connection):
+            if action_filter:
+                cursor.execute("""
+                    SELECT id, action_type, description, user_name, reference_type, reference_id, 
+                           details, created_at
+                    FROM activity_log
+                    WHERE action_type = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """, (action_filter, limit))
+            else:
+                cursor.execute("""
+                    SELECT id, action_type, description, user_name, reference_type, reference_id, 
+                           details, created_at
+                    FROM activity_log
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """, (limit,))
+            
+            rows = cursor.fetchall()
+            activities = []
+            for row in rows:
+                activities.append({
+                    'id': row[0],
+                    'action_type': row[1],
+                    'description': row[2],
+                    'user_name': row[3] or 'System',
+                    'reference_type': row[4],
+                    'reference_id': row[5],
+                    'details': row[6],
+                    'created_at': row[7].strftime('%d/%m/%Y %H:%M') if row[7] else ''
+                })
+            
+            return jsonify({'success': True, 'data': activities, 'count': len(activities)})
+    except Exception as e:
+        print(f"❌ Error fetching activity log: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 def run1hardware():
     """Fetch all active products from the Products table"""
     query = """
@@ -13423,18 +13527,12 @@ def run1(userid):
         # quotation_id column is already added during initialize_database_tables()
         # No need to check/add it again here
         
-        maindataquery = f"SELECT * FROM connectlinkdatabase;"
+        maindataquery = f"SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 500;"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
-        print("Database columns from cursor.description:", column_names)
-        print(f"Total columns from database: {len(column_names)}")
 
-        print("maaaaiiiiin DATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        print(maindata)
         num_projects = len(maindata)
-        print(f"Number of projects: {num_projects}")
-
 
         # Use the actual column names from the database
         datamain = pd.DataFrame(maindata, columns=column_names)
@@ -14957,6 +15055,55 @@ def download_portfolio():
         import traceback
         traceback.print_exc()
         return "Error generating download", 500
+
+
+@app.route('/api/projects-page')
+def api_projects_page():
+    """Return a page of projects as JSON for pagination (Load More)"""
+    try:
+        offset = request.args.get('offset', 0, type=int)
+        limit = request.args.get('limit', 100, type=int)
+        limit = min(limit, 500)  # cap at 500 per request
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, clientname, projectname, projectlocation, 
+                       totalcontractamount, depositorbullet, projectcompletionstatus,
+                       projectadministratorname, projectstartdate
+                FROM connectlinkdatabase 
+                ORDER BY id DESC
+                LIMIT %s OFFSET %s
+            """, (limit, offset))
+            rows = cursor.fetchall()
+            
+            cursor.execute("SELECT COUNT(*) FROM connectlinkdatabase")
+            total = cursor.fetchone()[0]
+            
+            projects = []
+            for row in rows:
+                projects.append({
+                    'id': row[0],
+                    'clientname': row[1],
+                    'projectname': row[2],
+                    'location': row[3],
+                    'amount': float(row[4]) if row[4] else 0,
+                    'deposit': float(row[5]) if row[5] else 0,
+                    'status': row[6] or 'Pending',
+                    'admin': row[7] or '',
+                    'start_date': row[8].strftime('%d/%m/%Y') if row[8] else ''
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': projects,
+                'total': total,
+                'offset': offset,
+                'limit': limit,
+                'has_more': (offset + limit) < total
+            })
+    except Exception as e:
+        print(f"Error fetching projects page: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/get_project_start_months')
@@ -17114,6 +17261,13 @@ def contract_log():
                     response = {'status': 'error', 'message': 'Failed to save project.'}
                     return jsonify(response), 500
 
+                # Log project creation
+                log_activity(
+                    'project_created',
+                    f"Project '{project_name}' created for {client_name}",
+                    'project', project_id,
+                    {'client': client_name, 'amount': str(total_contract_price), 'location': project_location}
+                )
                 # At the end of your try block
                 return redirect(url_for('Dashboard'))  # or wherever you want to go
 
