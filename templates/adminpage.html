@@ -2222,46 +2222,7 @@ table.dataTable thead th.sorting_desc {
         max-height: none;
     }
 
-    /* --- Sticky Table Headers --- */
-    .container2 thead,
-    .table-scroll-container thead {
-        position: sticky;
-        top: 0;
-        z-index: 20;
-    }
-    .container2 table.dataTable thead,
-    .table-scroll-container table.dataTable thead {
-        position: sticky;
-        top: 0;
-        z-index: 20;
-    }
-    .container2 table.dataTable thead th,
-    .table-scroll-container table.dataTable thead th {
-        position: sticky;
-        top: 0;
-        z-index: 20;
-        background: #1E2A56;
-        color: white;
-    }
-    /* Sticky DataTables filter inside scrollable containers */
-    .container2 .dataTables_wrapper .dataTables_filter,
-    .table-scroll-container .dataTables_wrapper .dataTables_filter {
-        position: sticky;
-        top: 0;
-        z-index: 25;
-        padding: 6px 4px;
-        background: white;
-        border-bottom: 1px solid var(--gray-200);
-    }
-    /* When filter is sticky above thead, offset thead below it */
-    .container2 .dataTables_wrapper .dataTables_filter + table.dataTable thead,
-    .table-scroll-container .dataTables_wrapper .dataTables_filter + table.dataTable thead {
-        top: 34px;
-    }
-    .container2 .dataTables_wrapper .dataTables_filter + table.dataTable thead th,
-    .table-scroll-container .dataTables_wrapper .dataTables_filter + table.dataTable thead th {
-        top: 34px;
-    }
+    /* --- Sticky Table Headers (handled by JS to avoid DataTables conflicts) --- */
 
     /* --- Card Hover Elevation --- */
     .card, .summary-card, .graph-card {
@@ -11816,40 +11777,53 @@ $(document).ready(function() {
 
 /**
  * Make table headers and search inputs sticky inside scrollable containers.
+ * Uses a wrapper approach to avoid breaking DataTables internal layout.
  */
 function setupStickyTableHeaders() {
     document.querySelectorAll('.container2, .table-scroll-container').forEach(container => {
-        // Find the DataTables filter inside this container
-        const filter = container.querySelector('.dataTables_filter');
-        const thead = container.querySelector('thead');
-        
-        if (filter) {
-            filter.style.position = 'sticky';
-            filter.style.top = '0';
-            filter.style.zIndex = '25';
-            filter.style.background = 'white';
-            filter.style.padding = '6px 4px';
-            filter.style.borderBottom = '1px solid var(--gray-200)';
+        // For DataTables: move the filter outside the scrollable wrapper into a sticky bar
+        const wrapper = container.querySelector('.dataTables_wrapper');
+        if (wrapper) {
+            const filter = wrapper.querySelector('.dataTables_filter');
+            if (filter && !container.querySelector('.sticky-filter-bar')) {
+                // Create a fixed filter bar above the scrollable area
+                const filterBar = document.createElement('div');
+                filterBar.className = 'sticky-filter-bar';
+                filterBar.style.cssText = 'position:sticky;top:0;z-index:25;background:white;padding:6px 8px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:flex-end;align-items:center;gap:8px;';
+                // Clone the filter into the bar
+                filterBar.innerHTML = filter.outerHTML;
+                container.insertBefore(filterBar, wrapper);
+                // Hide the original filter inside the wrapper
+                filter.style.display = 'none';
+            }
             
-            // Offset thead below the filter
+            // Make thead sticky - wrap in a container if needed
+            const table = wrapper.querySelector('table');
+            if (table) {
+                const thead = table.querySelector('thead');
+                if (thead) {
+                    // Apply sticky directly to th elements only (not thead itself)
+                    thead.querySelectorAll('th').forEach(th => {
+                        th.style.position = 'sticky';
+                        th.style.top = '0';
+                        th.style.zIndex = '10';
+                        th.style.background = '#1E2A56';
+                        th.style.color = 'white';
+                    });
+                }
+            }
+        } else {
+            // Non-DataTables tables
+            const thead = container.querySelector('thead');
             if (thead) {
-                const filterHeight = filter.offsetHeight || 34;
-                thead.style.top = filterHeight + 'px';
                 thead.querySelectorAll('th').forEach(th => {
-                    th.style.top = filterHeight + 'px';
+                    th.style.position = 'sticky';
+                    th.style.top = '0';
+                    th.style.zIndex = '10';
+                    th.style.background = '#1E2A56';
+                    th.style.color = 'white';
                 });
             }
-        } else if (thead) {
-            thead.style.position = 'sticky';
-            thead.style.top = '0';
-            thead.style.zIndex = '20';
-            thead.querySelectorAll('th').forEach(th => {
-                th.style.position = 'sticky';
-                th.style.top = '0';
-                th.style.zIndex = '20';
-                th.style.background = '#1E2A56';
-                th.style.color = 'white';
-            });
         }
     });
 }
