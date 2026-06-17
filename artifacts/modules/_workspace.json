@@ -3,7 +3,7 @@
   "_managed_by": "artifacto-plugin",
   "module": "Workspace",
   "file": "",
-  "purpose": "Workspace snapshot — 38 module(s). 0 orphaned artifact(s) need review.",
+  "purpose": "Workspace snapshot — 37 module(s). 8 orphaned artifact(s) need review.",
   "entry_function": "",
   "entry_flows": [],
   "public_api": [],
@@ -15,10 +15,12 @@
     "output": "",
     "side_effects": ""
   },
-  "notes": "Last sync: 2026-06-16T10:06:47.149Z. Modules: 38. Orphaned: 0.",
+  "notes": "Last sync: 2026-06-17T16:16:45.335Z. Modules: 37. Orphaned: 8.",
   "why": {},
   "dont_touch": [],
-  "known_risks": [],
+  "known_risks": [
+    "Orphaned artifacts exist — source files were removed"
+  ],
   "changelog": [
     {
       "date": "2026-06-13",
@@ -29,6 +31,6 @@
   ],
   "generated_from_commit": "",
   "file_hash": "",
-  "generated_at": "2026-06-16T10:06:47.149Z",
+  "generated_at": "2026-06-17T16:16:45.335Z",
   "stale": false
 }

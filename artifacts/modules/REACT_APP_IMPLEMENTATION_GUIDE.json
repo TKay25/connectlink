@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "SystemOverview",
-  "file": "templates/system_overview.html",
-  "purpose": "<!-- Describe what SystemOverview does -->",
+  "module": "REACTAPPIMPLEMENTATIONGUIDE",
+  "file": "REACT_APP_IMPLEMENTATION_GUIDE.md",
+  "purpose": "<!-- Describe what REACTAPPIMPLEMENTATIONGUIDE does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,11 +25,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "6ca566b00680e85a",
-  "file_mtime": 1780660423917.9255,
-  "file_size": 12675,
-  "file_birthtime": 1780660423917.4172,
-  "generated_at": "2026-06-13T06:31:41.990Z",
-  "stale": true,
-  "stale_reason": "source file deleted"
+  "file_hash": "ee9a1ac43c62d467",
+  "file_mtime": 1781691732229.5305,
+  "file_size": 12231,
+  "file_birthtime": 1781691732229.5305,
+  "generated_at": "2026-06-17T16:16:45.280Z",
+  "stale": false
 }

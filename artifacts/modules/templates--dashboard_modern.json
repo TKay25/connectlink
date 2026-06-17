@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "SystemOverview",
-  "file": "templates/system_overview.html",
-  "purpose": "<!-- Describe what SystemOverview does -->",
+  "module": "DashboardModern",
+  "file": "templates/dashboard_modern.html",
+  "purpose": "<!-- Describe what DashboardModern does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,11 +25,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "6ca566b00680e85a",
-  "file_mtime": 1780660423917.9255,
-  "file_size": 12675,
-  "file_birthtime": 1780660423917.4172,
-  "generated_at": "2026-06-13T06:31:41.990Z",
-  "stale": true,
-  "stale_reason": "source file deleted"
+  "file_hash": "363132bd84c2fae5",
+  "file_mtime": 1781691734155.136,
+  "file_size": 11916,
+  "file_birthtime": 1781691734155.136,
+  "generated_at": "2026-06-17T16:16:45.221Z",
+  "stale": false
 }
