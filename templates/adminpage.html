@@ -5112,6 +5112,64 @@ body {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 
+<<<<<<< Updated upstream
+=======
+// ==================== CONSTRUCTION ITEMS TABLE POPUP DIALOG ====================
+
+function askIncludeConstructionItemsTable() {
+    return new Promise((resolve) => {
+        const modalId = 'constructionItemsTableModal_' + Date.now();
+        const modalHTML = `<div id="${modalId}" class="modal-overlay" style="display: flex; z-index: 10000;">
+            <div class="modal-container" style="max-width: 500px;">
+                <div class="modal-header-custom">
+                    <h3><i class="bi bi-table"></i> Construction Items Table</h3>
+                    <button class="close-modal" onclick="document.getElementById('${modalId}').style.display='none';">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="modal-body-custom" style="padding: 24px;">
+                    <p style="font-size: 15px; color: #1E2A56; margin-bottom: 16px;"><strong>Do you want to include the detailed construction items table in the PDF?</strong></p>
+                    <div style="background: #f5f7fa; border-left: 4px solid #2196F3; padding: 12px 14px; border-radius: 6px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 8px;"><strong style="color: #1E2A56;">✓ With Items Table:</strong><div style="font-size: 14px; color: #5a678a; margin-top: 4px;">Shows detailed breakdown of all construction items, days, and costs.</div></div>
+                        <div><strong style="color: #1E2A56;">✗ Without Items Table:</strong><div style="font-size: 14px; color: #5a678a; margin-top: 4px;">Shows only summary information (total cost, payment schedule, banking details).</div></div>
+                    </div>
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-primary" id="btn-without-table"><i class="bi bi-file-pdf me-2"></i>Without Table</button>
+                    <button type="button" class="btn btn-primary" id="btn-with-table"><i class="bi bi-file-pdf me-2"></i>With Table</button>
+                    <button type="button" class="btn btn-danger" id="btn-cancel-table" onclick="document.getElementById('${modalId}').style.display='none';">Cancel</button>
+                </div>
+            </div>
+        </div>`;
+        const modalContainer = document.createElement('div');
+        modalContainer.innerHTML = modalHTML;
+        document.body.appendChild(modalContainer);
+        const modalOverlay = document.getElementById(modalId);
+        
+        document.getElementById('btn-with-table').addEventListener('click', function() {
+            modalOverlay.style.display = 'none';
+            setTimeout(() => { modalContainer.remove(); resolve(true); }, 150);
+        });
+        document.getElementById('btn-without-table').addEventListener('click', function() {
+            modalOverlay.style.display = 'none';
+            setTimeout(() => { modalContainer.remove(); resolve(false); }, 150);
+        });
+        document.getElementById('btn-cancel-table').addEventListener('click', function() {
+            modalOverlay.style.display = 'none';
+            setTimeout(() => { modalContainer.remove(); resolve(null); }, 150);
+        });
+        
+        // Close on overlay click
+        modalOverlay.addEventListener('click', function(e) {
+            if (e.target === modalOverlay) {
+                modalOverlay.style.display = 'none';
+                setTimeout(() => { modalContainer.remove(); resolve(null); }, 150);
+            }
+        });
+    });
+}
+
+>>>>>>> Stashed changes
 let kitchenCabinetItems = [];
 
 // Show/hide container based on category selection
@@ -10559,6 +10617,10 @@ $(document).ready(function() {
                 info: "Showing _START_ to _END_ of _TOTAL_ enquiries",
                 infoEmpty: "Showing 0 to 0 of 0 enquiries"
             },
+            columns: [
+                null, null, null, null, null,
+                null, null, null, null
+            ],
             columnDefs: [
                 { orderable: true, targets: [0] },  // ID column - sortable
                 { orderable: true, targets: [1] },  // Date column - sortable
