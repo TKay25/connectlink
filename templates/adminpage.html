@@ -2861,11 +2861,31 @@ body {
                                     <div class="col-md-4"><select class="form-select" id="statusFilter" style="font-size:0.55rem;padding:0.1rem 0.3rem;"><option value="">All Status</option><option>pending</option><option>in_progress</option><option>completed</option></select></div>
                                 </div>
                                 <div class="container2" style="overflow-y:auto;">
-                                    <table class="table-theme" id="enquiriesDetailTable" style="font-size:0.55rem;">
-                                        <thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Category</th><th>Status</th><th>Action</th></tr></thead>
+                                    <table class="table-theme" id="enquiriesTabTable" style="font-size:0.55rem;">
+                                        <thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Username</th><th>Category</th><th>Message</th><th>Status</th><th>Document</th><th>Action</th></tr></thead>
                                         <tbody>
                                             {% for enquiry in enquiries_data %}
-                                            <tr><td>{{ enquiry.id }}</td><td>{{ enquiry.timestamp }}</td><td>{{ enquiry.clientwhatsapp }}</td><td>{{ enquiry.category }}</td><td>{{ enquiry.status }}</td><td><button class="btn btn-sm btn-danger">Delete</button></td></tr>
+                                            <tr class="enquiry-row" id="enquiry-row-{{ enquiry.id }}">
+                                                <td>{{ enquiry.id }}</td>
+                                                <td>{{ enquiry.timestamp }}</td>
+                                                <td><a href="https://wa.me/{{ enquiry.clientwhatsapp }}" target="_blank">+{{ enquiry.clientwhatsapp }}</a></td>
+                                                <td>{{ enquiry.username }}</td>
+                                                <td><span class="badge bg-secondary">{{ enquiry.category }}</span></td>
+                                                <td>
+                                                    <div class="message-container">
+                                                        <span class="message-preview">{{ enquiry.message[:20] if enquiry.message and enquiry.message|length > 20 else enquiry.message or 'No message' }}{% if enquiry.message and enquiry.message|length > 20 %}...{% endif %}</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <select class="form-select status-select" style="font-size:11px;" data-id="{{ enquiry.id }}">
+                                                        <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
+                                                        <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                                        <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
+                                                    </select>
+                                                </td>
+                                                <td>{% if enquiry.has_plan %}<a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success">PDF</a>{% endif %}</td>
+                                                <td><button class="btn btn-sm btn-danger delete-enquiry-btn" type="button" data-id="{{ enquiry.id }}">Delete</button></td>
+                                            </tr>
                                             {% endfor %}
                                         </tbody>
                                     </table>
@@ -11223,13 +11243,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('DataTable initialized with column visibility settings');
 
-    // Initialize DataTable for Enquiries
-// In your document ready function, initialize DataTable on enquiriesDetailTable
+    // Initialize DataTable for Enquiries tab
 $(document).ready(function() {
-    // Initialize DataTable for Enquiries (visible table)
-    if ($('#enquiriesDetailTable').length && !$.fn.DataTable.isDataTable('#enquiriesDetailTable')) {
-        $('#enquiriesDetailTable').DataTable({
-            order: [[0, 'desc']],  // Sort by ID column (first column) descending (newest first)
+    if ($('#enquiriesTabTable').length && !$.fn.DataTable.isDataTable('#enquiriesTabTable')) {
+        $('#enquiriesTabTable').DataTable({
+            order: [[0, 'desc']],
             paging: false,
             searching: false,
             ordering: true,
@@ -11246,12 +11264,12 @@ $(document).ready(function() {
                 null, null, null, null
             ],
             columnDefs: [
-                { orderable: true, targets: [0] },  // ID column - sortable
-                { orderable: true, targets: [1] },  // Date column - sortable
-                { orderable: false, targets: [5, 6, 7, 8] }  // Disable sorting on message, status, document, action
+                { orderable: true, targets: [0] },
+                { orderable: true, targets: [1] },
+                { orderable: false, targets: [5, 6, 7, 8] }
             ]
         });
-        console.log('✅ Enquiries table initialized with sorting by ID DESC');
+        console.log('✅ Enquiries tab table initialized');
     }
 });
     
