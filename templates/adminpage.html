@@ -652,12 +652,6 @@ body {
     min-width: 70px;
     justify-content: center;
 }
-.modal-footer-custom .btn:first-child {
-    margin-right: auto;
-}
-.modal-footer-custom .btn:last-child {
-    margin-left: 0;
-}
 
         .btn {
             border-radius: var(--radius-sm);
@@ -4401,6 +4395,51 @@ body {
             <button type="button" class="btn btn-primary" id="downloadInstallmentsBtn">
                 <i class="bi bi-download"></i> Generate & Download
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- SENT QUOTATIONS MODAL -->
+<div id="sentQuotationsModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-whatsapp me-2"></i> Sent Quotations</h3>
+            <button class="close-modal" onclick="closeModal('sentQuotationsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <!-- Filters -->
+            <div class="row mb-2">
+                <div class="col-md-6">
+                    <label style="font-size:0.7rem; font-weight:600;">Status Filter</label>
+                    <select id="sentQuotationsStatusFilter" class="form-select" style="font-size:0.7rem; padding:2px 6px;" onchange="applySentQuotationsFilter()">
+                        <option value="all">All Statuses</option>
+                        <option value="success">Success</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label style="font-size:0.7rem; font-weight:600;">Type Filter</label>
+                    <select id="sentQuotationsTypeFilter" class="form-select" style="font-size:0.7rem; padding:2px 6px;" onchange="applySentQuotationsFilter()">
+                        <option value="all">All Types</option>
+                        <option value="document">PDF Document</option>
+                        <option value="template_fallback">Template Fallback</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div id="sentQuotationsSummary" style="font-size:0.7rem; color:#666; margin-bottom:6px; padding:4px 6px; background:#f0f0f0; border-radius:4px;">Loading...</div>
+
+            <!-- Container -->
+            <div id="sentQuotationsContainer" style="max-height:500px; overflow-y:auto; font-size:0.7rem;">
+                <p class="text-muted text-center" style="padding:20px;">Loading sent quotations...</p>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-primary" onclick="loadSentQuotations()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('sentQuotationsModal')">Close</button>
         </div>
     </div>
 </div>
