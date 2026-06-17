@@ -2981,36 +2981,69 @@ table.dataTable thead th.sorting_desc {
 
                         <!-- SUMMARY TAB -->
                         <div class="tab-pane fade" id="dashboard-tab">
-                            <div class="dashboard-summary" style="grid-template-columns:repeat(auto-fit,minmax(80px,1fr)); gap:4px; margin-bottom:6px;">
-                                <div class="summary-card" style="padding:2px 4px;"><div class="details"><h5 style="font-size:0.5rem;">Projects</h5><p style="font-size:0.65rem;">{{ num_projects }}</p></div></div>
-                                <div class="summary-card" style="padding:2px 4px;"><div class="details"><h5 style="font-size:0.5rem;">Ongoing</h5><p style="font-size:0.65rem;">{{ count_ongoing }}</p></div></div>
-                                <div class="summary-card" style="padding:2px 4px;"><div class="details"><h5 style="font-size:0.5rem;">Completed</h5><p style="font-size:0.65rem;">{{ count_completed }}</p></div></div>
-                                <div class="summary-card" style="padding:2px 4px;"><div class="details"><h5 style="font-size:0.5rem;">Avg Time</h5><p style="font-size:0.65rem;">{{ average_duration }}d</p></div></div>
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:6px; margin-bottom:8px;">
+                                <div class="stat-card">
+                                    <div class="stat-icon blue"><i class="bi bi-folder"></i></div>
+                                    <div class="stat-body"><div class="stat-label">Projects</div><div class="stat-value">{{ num_projects }}</div></div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon amber"><i class="bi bi-arrow-repeat"></i></div>
+                                    <div class="stat-body"><div class="stat-label">Ongoing</div><div class="stat-value">{{ count_ongoing }}</div></div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+                                    <div class="stat-body"><div class="stat-label">Completed</div><div class="stat-value">{{ count_completed }}</div></div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon purple"><i class="bi bi-clock-history"></i></div>
+                                    <div class="stat-body"><div class="stat-label">Avg Time</div><div class="stat-value">{{ average_duration }}d</div></div>
+                                </div>
                             </div>
                             <div class="dashboard-graphs">
-                                <div class="graph-card" style="padding:2px; flex:1; min-width:100px;"><h6 style="font-size:0.5rem;">Completed vs Ongoing</h6><canvas id="leaveByTypeChart" width="120" height="45"></canvas></div>
-                                <div class="graph-card" style="padding:2px; flex:1; min-width:100px;"><h6 style="font-size:0.5rem;">By Location</h6><canvas id="projectsByLocationChart" width="120" height="45"></canvas></div>
+                                <div class="graph-card" style="padding:6px; flex:1; min-width:140px;"><h6 style="font-size:0.55rem;font-weight:700;margin-bottom:4px;color:var(--dark-blue-deep);text-align:center;">Completed vs Ongoing</h6><canvas id="leaveByTypeChart" width="160" height="60"></canvas></div>
+                                <div class="graph-card" style="padding:6px; flex:1; min-width:140px;"><h6 style="font-size:0.55rem;font-weight:700;margin-bottom:4px;color:var(--dark-blue-deep);text-align:center;">By Location</h6><canvas id="projectsByLocationChart" width="160" height="60"></canvas></div>
                             </div>
                         </div>
 
                         <!-- CONTRACTOR TAB -->
                         <div class="tab-pane fade" id="contractor-details-tab">
-                            <div style="color: #1E2A56; font-size: 0.7rem; padding:4px;">
-                                <div class="card shadow-sm border-0 rounded-4">
-                                    <div class="card-body p-2">
-                                        <h6 class="mb-1 fw-bold" style="font-size:0.7rem;color:var(--dark-blue-deep)"><i class="bi bi-building-fill-gear"></i> CONTRACTOR DETAILS</h6>
-                                        <div class="row mb-1">
-                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">COMPANY</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ companyname }}</p></div>
-                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">PHONES</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ contact1 }}</p></div>
-                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">EMAIL</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ compemail }}</p></div>
-                                        </div>
-                                        <div class="row mb-1">
-                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">ADDRESS</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ address }}</p></div>
-                                            <div class="col-md-4"><p class="mb-0" style="font-size:0.6rem;color:var(--dark-blue-deep);">TIN</p><p class="fw-semibold mb-0" style="color:var(--dark-blue-deep);font-size:0.65rem;">{{ tinnumber }}</p></div>
-                                        </div>
-                                        <button class="btn btn-primary px-2 py-0" style="font-size:0.6rem;" onclick="openModal('editContractorModal')">Edit Details</button>
+                            <div style="padding:2px;">
+                                <!-- Header -->
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;background:linear-gradient(135deg,#1E2A56,#2A3A78);border-radius:10px;color:#fff;">
+                                    <i class="bi bi-building-fill-gear" style="font-size:0.8rem;"></i>
+                                    <span style="font-size:0.6rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">Contractor Details</span>
+                                </div>
+                                <!-- Detail cards grid -->
+                                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-bottom:8px;">
+                                    <div class="stat-card" style="padding:8px 10px;">
+                                        <div class="stat-icon blue"><i class="bi bi-buildings"></i></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Company</div><div class="stat-value" style="font-size:0.7rem;">{{ companyname }}</div></div>
+                                    </div>
+                                    <div class="stat-card" style="padding:8px 10px;">
+                                        <div class="stat-icon green"><i class="bi bi-telephone"></i></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Phone 1</div><div class="stat-value" style="font-size:0.7rem;">{{ contact1 }}</div></div>
+                                    </div>
+                                    <div class="stat-card" style="padding:8px 10px;">
+                                        <div class="stat-icon amber"><i class="bi bi-telephone"></i></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Phone 2</div><div class="stat-value" style="font-size:0.7rem;">{{ contact2 }}</div></div>
                                     </div>
                                 </div>
+                                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-bottom:8px;">
+                                    <div class="stat-card" style="padding:8px 10px;">
+                                        <div class="stat-icon purple"><i class="bi bi-envelope"></i></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Email</div><div class="stat-value" style="font-size:0.7rem;">{{ compemail }}</div></div>
+                                    </div>
+                                    <div class="stat-card" style="padding:8px 10px;">
+                                        <div class="stat-icon blue"><i class="bi bi-geo-alt"></i></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Address</div><div class="stat-value" style="font-size:0.7rem;">{{ address }}</div></div>
+                                    </div>
+                                    <div class="stat-card" style="padding:8px 10px;">
+                                        <div class="stat-icon red"><i class="bi bi-credit-card"></i></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">TIN Number</div><div class="stat-value" style="font-size:0.7rem;">{{ tinnumber }}</div></div>
+                                    </div>
+                                </div>
+                                <!-- Edit button -->
+                                <button class="btn btn-primary" style="font-size:0.55rem;padding:4px 14px;border-radius:8px;" onclick="openModal('editContractorModal')"><i class="bi bi-pencil-square me-1"></i>Edit Contractor Details</button>
                             </div>
                         </div>
 
@@ -5506,15 +5539,15 @@ table.dataTable thead th.sorting_desc {
 
                         <!-- Summary Box -->
                         <div class="alert alert-light border mb-3" style="font-size: 0.75rem;">
-                            <div class="row">
+                            <div class="row align-items-center">
                                 <div class="col-md-4">
-                                    <div><strong>Square Meters:</strong> <span id="displaySqm">--</span></div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><strong style="white-space:nowrap;">Square Meters:</strong> <span id="displaySqm" style="font-weight:700;">--</span></div>
                                 </div>
                                 <div class="col-md-4">
-                                    <div><strong>Markup:</strong> <span id="displayMarkup">30%</span></div>
+                                    <div style="display:flex;align-items:center;gap:4px;"><strong style="white-space:nowrap;">Markup:</strong> <span id="displayMarkup" style="font-weight:700;">30%</span></div>
                                 </div>
-                                <div class="col-md-4 text-end">
-                                    <div style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">Total: $<span id="constructionTotal">0.00</span></div>
+                                <div class="col-md-4">
+                                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;color:#2196F3;font-weight:bold;font-size:1.1rem;"><strong style="white-space:nowrap;color:inherit;">Total:</strong> $<span id="constructionTotal">0.00</span></div>
                                 </div>
                             </div>
                         </div>
@@ -5852,6 +5885,8 @@ table.dataTable thead th.sorting_desc {
 
     <input type="hidden" id="locations-data" value='{{ locations|tojson }}'>
     <input type="hidden" id="frequencies-data" value='{{ frequencies|tojson }}'>
+    <input type="hidden" id="completed-projects" value="{{ count_completed }}">
+    <input type="hidden" id="ongoing-projects" value="{{ count_ongoing }}">
   <!-- Bootstrap and jQuery Scripts -->
 
 
@@ -6389,6 +6424,11 @@ function openModal(modalId) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
         
+        // Stack modals: the PDF Options modal always appears on top of any other modal
+        if (modalId === 'quotationTableOptionsModal') {
+            modal.style.zIndex = 1060;
+        }
+        
         // Load installments audit data when audit modal opens
         if (modalId === 'auditInstallmentsModal') {
             loadAuditData();
@@ -6458,6 +6498,7 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.remove('active');
+        modal.style.zIndex = '';
         document.body.style.overflow = '';
     }
 }
@@ -12184,7 +12225,7 @@ document.addEventListener('DOMContentLoaded', () => {
             datasets: [{
                 label: 'Number of Projects',
                 data: frequencies,
-                backgroundColor: '#1E2A56', // dark blue bars
+                backgroundColor: '#C12B3E', // crimson bars
                 borderColor: '#fff',
                 borderWidth: 1
             }]
@@ -12209,24 +12250,44 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
     const completed = parseInt(document.getElementById('completed-projects').value, 10) || 0;
     const ongoing = parseInt(document.getElementById('ongoing-projects').value, 10) || 0;
+    const total = completed + ongoing;
 
     const ctx = document.getElementById('leaveByTypeChart').getContext('2d');
 
     new Chart(ctx, {
-        type: 'pie',
+        type: 'doughnut',
         data: {
-            labels: ['Completed Projects', 'Ongoing Projects'],
+            labels: ['Completed', 'Ongoing'],
             datasets: [{
                 data: [completed, ongoing],
-                backgroundColor: ['#28a745', '#dc3545'], // green for completed, red for ongoing
+                backgroundColor: ['#1E2A56', '#C12B3E'],
                 borderColor: ['#fff', '#fff'],
-                borderWidth: 2
+                borderWidth: 2,
+                hoverOffset: 6
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
+            cutout: '55%',
             plugins: {
-                legend: { position: 'bottom' }
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 10,
+                        padding: 8,
+                        font: { size: 9 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.parsed;
+                            const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${value} (${pct}%)`;
+                        }
+                    }
+                }
             }
         }
     });
@@ -15988,6 +16049,15 @@ function renderGanttItemsList() {
         console.warn('Quotations tab button not found');
     }
 
+    // Load activity log when tab is shown
+    const activityTabButton = document.querySelector('button[data-bs-target="#activity-tab"]');
+    if (activityTabButton) {
+        activityTabButton.addEventListener('shown.bs.tab', function(e) {
+            console.log('Activity tab shown event fired', e);
+            loadActivityLog();
+        });
+    }
+
     // Also set up a way to manually load quotations
     window.reloadQuotations = function() {
         console.log('Manual reloadQuotations called');
@@ -17876,11 +17946,11 @@ function loadActivityLog() {
     fetch('/api/activity-log?limit=200')
         .then(r => r.json())
         .then(res => {
-            if (!res.success) { container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="empty-title">Failed to load</div></div>'; return; }
+            if (!res.success) { container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="empty-title">Failed to load</div><div class="empty-desc">' + (res.error || 'Unknown error') + '</div></div>'; return; }
             
             const data = res.data || [];
             if (!data.length) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-clock-history"></i></div><div class="empty-title">No Activity Yet</div><div class="empty-desc">Activity log entries will appear here as actions are performed.</div></div>';
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-clock-history"></i></div><div class="empty-title">No Activity Yet</div><div class="empty-desc">Activity log entries will appear here as actions are performed.<br><small style="color:#999;">If you\'ve created records, try creating a new one to trigger activity logging.</small></div></div>';
                 return;
             }
             
@@ -17925,8 +17995,9 @@ function loadActivityLog() {
             html += '</div>';
             container.innerHTML = html;
         })
-        .catch(() => {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div></div>';
+        .catch(err => {
+            console.error('loadActivityLog fetch error:', err);
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div><div class="empty-desc">Could not reach server. Check your connection.</div></div>';
         });
 }
 
@@ -18001,6 +18072,12 @@ function viewActivityDetails(itemStr) {
         document.body.appendChild(popup);
     } catch(e) { console.error('Activity detail error:', e); }
 }
+
+// Preload activity log when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Load activity log data in background so it's ready when user clicks the tab
+    loadActivityLog();
+});
 </script>
 
 </body>
