@@ -12092,6 +12092,12 @@ def delete_project():
                 insert_columns = ', '.join(['id'] + columns_to_copy + ['deletedby', 'deleterid'])
                 
                 # Execute the copy - use project_id as the id value
+                # Fetch project name before deleting
+                cursor.execute("SELECT projectname, clientname FROM connectlinkdatabase WHERE id = %s", (project_id,))
+                proj = cursor.fetchone()
+                proj_name = proj[0] if proj else 'Unknown'
+                client_name = proj[1] if proj else 'Unknown'
+                
                 cursor.execute(f"""
                     INSERT INTO connectlinkdatabasedeletedprojects ({insert_columns})
                     SELECT %s, {select_columns}, %s, %s
@@ -12105,6 +12111,15 @@ def delete_project():
                 connection.commit()
                 
                 print(f"✅ Project {project_id} deleted and archived successfully")
+                
+                # Log the deletion
+                log_activity(
+                    'project_deleted',
+                    f'Project "{proj_name}" for {client_name} deleted and archived',
+                    'project',
+                    project_id,
+                    {'project_name': proj_name, 'client_name': client_name, 'deleted_by': user_name}
+                )
                 
                 return jsonify({
                     'status': 'success',
@@ -12633,6 +12648,15 @@ def delete_temp_enquiry():
             cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (enquiry_id,))
             connection.commit()
             
+            # Log the deletion
+            log_activity(
+                'enquiry_deleted',
+                f'Temporary enquiry #{enquiry_id} deleted',
+                'enquiry',
+                enquiry_id,
+                {'source': 'temp_enquiry', 'deleted_by': session.get('user_name', 'Unknown')}
+            )
+            
             return jsonify({'success': True, 'message': 'Enquiry deleted'})
             
         except Exception as e:
@@ -12659,6 +12683,15 @@ def batch_delete_enquiries():
                 placeholders = ','.join(['%s'] * len(enquiry_ids))
                 cursor.execute(f"DELETE FROM appenqtemp WHERE id IN ({placeholders})", enquiry_ids)
                 connection.commit()
+            
+            # Log the batch deletion
+            log_activity(
+                'enquiry_deleted',
+                f'{len(enquiry_ids)} temporary enquiries deleted (batch)',
+                'enquiry',
+                None,
+                {'count': len(enquiry_ids), 'ids': enquiry_ids, 'source': 'batch_temp_enquiry', 'deleted_by': session.get('user_name', 'Unknown')}
+            )
             
             return jsonify({'success': True, 'message': f'{len(enquiry_ids)} enquiries deleted'})
             
@@ -13156,6 +13189,15 @@ def delete_quotation(quotation_id):
             cursor.execute("DELETE FROM quotations WHERE id = %s", (quotation_id,))
             
             connection.commit()
+            
+            # Log the deletion
+            log_activity(
+                'quotation_deleted',
+                f'Quotation for {quotation[1]} deleted',
+                'quotation',
+                quotation_id,
+                {'client_name': quotation[1], 'deleted_by': session.get('user_name', 'Unknown')}
+            )
             
             return jsonify({
                 'success': True,
@@ -16193,6 +16235,15 @@ def delete_main_enquiry(enquiry_id):
 
             if not deleted_row:
                 return jsonify({'status': 'error', 'message': 'Enquiry not found.'}), 404
+
+            # Log the deletion
+            log_activity(
+                'enquiry_deleted',
+                f'Main enquiry #{enquiry_id} deleted',
+                'enquiry',
+                enquiry_id,
+                {'source': 'main_enquiry', 'deleted_by': session.get('user_name', 'Unknown')}
+            )
 
             return jsonify({
                 'status': 'success',

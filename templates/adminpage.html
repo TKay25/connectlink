@@ -2967,6 +2967,7 @@ table.dataTable thead th.sorting_desc {
                         <div class="tab-pane fade" id="activity-tab">
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
                                 <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadActivityLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                <button class="btn btn-success" style="font-size:0.55rem;padding:2px 8px;" onclick="exportActivityExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
                             </div>
                             <div class="container2" style="overflow-y:auto; background:#fafafa; border-radius:4px; padding:4px;">
                                 <div id="activityLogContainer">
@@ -17958,12 +17959,14 @@ function loadActivityLog() {
             const actionIcons = {
                 'project_created': 'bi-folder-plus', 'payment_updated': 'bi-cash', 'quotation_created': 'bi-file-text',
                 'quotation_edited': 'bi-pencil', 'quotation_sent': 'bi-send', 'project_altered': 'bi-pencil-square',
+                'project_deleted': 'bi-folder-x', 'quotation_deleted': 'bi-file-x', 'enquiry_deleted': 'bi-chat-square-x',
                 'audit_corrected': 'bi-gear', 'user_action': 'bi-person', 'enquiry_action': 'bi-chat-dots',
                 'contractor_edited': 'bi-building', 'system': 'bi-gear-wide'
             };
             const actionColors = {
                 'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
                 'quotation_edited': '#C12B3E', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
+                'project_deleted': '#d32f2f', 'quotation_deleted': '#d32f2f', 'enquiry_deleted': '#d32f2f',
                 'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
                 'contractor_edited': '#37474f', 'system': '#546e7a'
             };
@@ -18002,37 +18005,106 @@ function loadActivityLog() {
         });
 }
 
+function exportActivityExcel() {
+    // Fetch all activity data for export
+    fetch('/api/activity-log?limit=5000')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data || !res.data.length) {
+                alert('No activity data to export.');
+                return;
+            }
+            const data = res.data;
+            
+            // Build worksheet data
+            const wsData = [['ID', 'Action Type', 'Description', 'User', 'Reference Type', 'Reference ID', 'Details', 'Date/Time']];
+            data.forEach(item => {
+                let detailsStr = '';
+                if (item.details) {
+                    try {
+                        const d = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
+                        detailsStr = Object.entries(d).map(([k,v]) => `${k}: ${v}`).join('; ');
+                    } catch(e) {
+                        detailsStr = String(item.details);
+                    }
+                }
+                wsData.push([
+                    item.id,
+                    item.action_type,
+                    item.description,
+                    item.user_name,
+                    item.reference_type || '',
+                    item.reference_id || '',
+                    detailsStr,
+                    item.created_at
+                ]);
+            });
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            
+            // Set column widths
+            ws['!cols'] = [
+                {wch: 6},  // ID
+                {wch: 20}, // Action Type
+                {wch: 50}, // Description
+                {wch: 20}, // User
+                {wch: 16}, // Reference Type
+                {wch: 12}, // Reference ID
+                {wch: 40}, // Details
+                {wch: 18}  // Date/Time
+            ];
+            
+            XLSX.utils.book_append_sheet(wb, ws, 'Activity Log');
+            XLSX.writeFile(wb, 'activity_log_export.xlsx');
+        })
+        .catch(err => {
+            console.error('Export error:', err);
+            alert('Failed to export activity log. Check console for details.');
+        });
+}
+
 function viewActivityDetails(itemStr) {
     try {
         const item = typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
+        
+        // Color map for action types
+        const actionColors = {
+            'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
+            'quotation_edited': '#C12B3E', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
+            'project_deleted': '#d32f2f', 'quotation_deleted': '#d32f2f', 'enquiry_deleted': '#d32f2f',
+            'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
+            'contractor_edited': '#37474f', 'system': '#546e7a'
+        };
+        const color = actionColors[item.action_type] || '#666';
+        
         let html = `
             <div style="display:flex;flex-direction:column;gap:8px;padding:4px;">
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <div style="flex:1;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
-                        <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Action Type</div>
-                        <div style="font-size:0.6rem;font-weight:700;color:var(--text-primary);text-transform:capitalize;">${item.action_type.replace(/_/g,' ')}</div>
+                <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:120px;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:2px;">Action Type</div>
+                        <span style="display:inline-block;font-size:0.55rem;font-weight:700;padding:2px 8px;border-radius:4px;background:${color}18;color:${color};text-transform:capitalize;">${item.action_type.replace(/_/g,' ')}</span>
                     </div>
-                    <div style="flex:1;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
-                        <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">User</div>
-                        <div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">${escapeHtml(item.user_name)}</div>
+                    <div style="flex:1;min-width:120px;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:2px;">User</div>
+                        <div style="font-size:0.65rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-person" style="margin-right:4px;"></i>${escapeHtml(item.user_name)}</div>
                     </div>
-                    <div style="flex:1;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
-                        <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Date/Time</div>
-                        <div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">${item.created_at}</div>
+                    <div style="flex:1;min-width:120px;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:2px;">Date/Time</div>
+                        <div style="font-size:0.65rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-clock" style="margin-right:4px;"></i>${item.created_at}</div>
                     </div>
                 </div>
                 <div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;border:1px solid var(--gray-200);">
-                    <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:4px;">Description</div>
-                    <div style="font-size:0.6rem;color:var(--text-primary);">${escapeHtml(item.description)}</div>
+                    <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:4px;">Description</div>
+                    <div style="font-size:0.65rem;color:var(--text-primary);line-height:1.5;">${escapeHtml(item.description)}</div>
                 </div>`;
         
         if (item.reference_type) {
             html += `
-                <div style="display:flex;gap:8px;">
-                    <div style="flex:1;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
-                        <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Reference</div>
-                        <div style="font-size:0.6rem;font-weight:600;color:var(--text-primary);">${item.reference_type} #${item.reference_id}</div>
-                    </div>
+                <div style="background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
+                    <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:2px;">Reference</div>
+                    <div style="font-size:0.65rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-tag" style="margin-right:4px;"></i>${item.reference_type} #${item.reference_id}</div>
                 </div>`;
         }
         
@@ -18041,13 +18113,14 @@ function viewActivityDetails(itemStr) {
                 const details = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
                 let detailHtml = '';
                 for (const [k, v] of Object.entries(details)) {
-                    detailHtml += `<div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--gray-200);font-size:0.5rem;">
-                        <span style="font-weight:600;color:var(--text-muted);flex:0 0 100px;">${k.replace(/_/g,' ')}</span>
-                        <span style="color:var(--text-primary);">${v}</span>
+                    const val = v !== null && v !== undefined ? String(v) : '';
+                    detailHtml += `<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--gray-200);">
+                        <span style="font-weight:600;color:var(--text-muted);flex:0 0 120px;font-size:0.6rem;">${k.replace(/_/g,' ')}</span>
+                        <span style="color:var(--text-primary);font-size:0.6rem;word-break:break-all;">${escapeHtml(val)}</span>
                     </div>`;
                 }
                 html += `<div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;border:1px solid var(--gray-200);">
-                    <div style="font-size:0.45rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:4px;">Details</div>
+                    <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:4px;"><i class="bi bi-list-ul"></i> Details</div>
                     ${detailHtml}
                 </div>`;
             } catch(e) {}
@@ -18055,20 +18128,23 @@ function viewActivityDetails(itemStr) {
         
         html += '</div>';
         
-        // Show in a modal or slide-in
+        // Show in a modal
         const existing = document.getElementById('activityDetailPopup');
         if (existing) existing.remove();
         
         const popup = document.createElement('div');
         popup.id = 'activityDetailPopup';
         popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,26,58,0.5);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;';
+        popup.addEventListener('click', function(e) {
+            if (e.target === this) this.remove();
+        });
         popup.innerHTML = `
             <div style="background:white;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
                 <div class="modal-header-custom"><h3><i class="bi bi-info-circle"></i> Activity Details</h3>
                     <button class="close-modal" onclick="this.closest('#activityDetailPopup').remove()"><i class="bi bi-x-lg"></i></button>
                 </div>
                 <div class="modal-body-custom">${html}</div>
-                <div class="modal-footer-custom"><button class="btn btn-danger" onclick="this.closest('#activityDetailPopup').remove()">Close</button></div>
+                <div class="modal-footer-custom"><button class="btn btn-danger" onclick="this.closest('#activityDetailPopup').remove()"><i class="bi bi-x"></i> Close</button></div>
             </div>`;
         document.body.appendChild(popup);
     } catch(e) { console.error('Activity detail error:', e); }
