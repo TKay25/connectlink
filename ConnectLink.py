@@ -11147,6 +11147,8 @@ def whatsapp_bulk_send():
         data = request.get_json()
         recipients = data.get('recipients', [])  # list of phone numbers
         message = data.get('message', '').strip()
+        media_url = data.get('media_url', '')
+        media_type = data.get('media_type', '')  # 'image' or 'document'
         
         if not recipients or not message:
             return jsonify({'success': False, 'message': 'Recipients and message required'}), 400
@@ -11164,12 +11166,28 @@ def whatsapp_bulk_send():
             elif not recipient_clean.startswith('263'):
                 recipient_clean = '263' + recipient_clean
             
-            payload = {
-                'messaging_product': 'whatsapp',
-                'to': recipient_clean,
-                'type': 'text',
-                'text': { 'body': message }
-            }
+            if media_url and media_type == 'image':
+                payload = {
+                    'messaging_product': 'whatsapp',
+                    'to': recipient_clean,
+                    'type': 'image',
+                    'image': { 'link': media_url },
+                    'caption': message
+                }
+            elif media_url and media_type == 'document':
+                payload = {
+                    'messaging_product': 'whatsapp',
+                    'to': recipient_clean,
+                    'type': 'document',
+                    'document': { 'link': media_url, 'caption': message }
+                }
+            else:
+                payload = {
+                    'messaging_product': 'whatsapp',
+                    'to': recipient_clean,
+                    'type': 'text',
+                    'text': { 'body': message }
+                }
             try:
                 resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
                 results.append({

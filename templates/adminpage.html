@@ -2803,9 +2803,13 @@ table.dataTable thead th.sorting_desc {
         background: #e5ddd5 !important;
         background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4d4d4' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
     }
-    body.dark-theme #chatMessagesArea {
+    body.dark-theme #chatMessagesArea,
+    body.dark-theme #bulkPreviewBubble {
         background: #1a2332 !important;
         background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23333' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    body.dark-theme #bulkPreviewBubble {
+        background: #1e2745 !important;
     }
     #chatMessagesArea > div {
         max-width: 80%;
@@ -5772,32 +5776,84 @@ table.dataTable thead th.sorting_desc {
 
 <!-- Bulk WhatsApp Messaging Modal -->
 <div id="bulkMessagingModal" class="modal-overlay">
-    <div class="modal-container large">
+    <div class="modal-container xlarge">
         <div class="modal-header-custom">
             <h3><i class="bi bi-megaphone"></i> Bulk WhatsApp Messaging</h3>
             <button class="close-modal" onclick="closeModal('bulkMessagingModal')">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="modal-body-custom" style="max-height:70vh;overflow-y:auto;padding:14px 16px;">
-            <div class="mb-3">
-                <label style="font-size:0.6rem;font-weight:600;display:block;margin-bottom:6px;">Select Recipients</label>
-                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;" id="bulkRecipientTags"></div>
-                <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;padding:6px;" id="bulkRecipientList"></div>
-                <div style="margin-top:6px;font-size:0.55rem;color:var(--text-muted);">
-                    <label><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll()"> Select All</label>
-                    <span id="bulkSelectedCount" style="margin-left:10px;">0 selected</span>
+        <div class="modal-body-custom" style="max-height:72vh;overflow-y:auto;padding:12px 14px;">
+            <div class="row g-3">
+                <!-- LEFT: Composer -->
+                <div class="col-md-7">
+                    <!-- Recipients -->
+                    <div class="card border mb-2" style="border-radius:var(--radius-md);overflow:hidden;">
+                        <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-people"></i> Recipients</div>
+                        <div class="card-body" style="padding:8px;">
+                            <div style="max-height:120px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;padding:4px;" id="bulkRecipientList"></div>
+                            <div style="margin-top:4px;font-size:0.5rem;color:var(--text-muted);display:flex;align-items:center;gap:10px;">
+                                <label><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll()"> Select All</label>
+                                <span id="bulkSelectedCount">0 selected</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Message Composer -->
+                    <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                        <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-pencil"></i> Message</div>
+                        <div class="card-body" style="padding:8px;">
+                            <div class="mb-1">
+                                <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Header (optional)</label>
+                                <input type="text" class="form-control" id="bulkHeaderText" placeholder="e.g. *Attention Valued Client*" style="font-size:0.55rem;padding:4px 8px;" oninput="updateBulkPreview()">
+                            </div>
+                            <div class="mb-1">
+                                <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Body *</label>
+                                <textarea class="form-control" id="bulkBodyText" rows="3" placeholder="Main message content..." style="font-size:0.55rem;padding:4px 8px;resize:vertical;" oninput="updateBulkPreview()"></textarea>
+                            </div>
+                            <div class="mb-1">
+                                <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Footer (optional)</label>
+                                <input type="text" class="form-control" id="bulkFooterText" placeholder="e.g. ConnectLink Properties Team" style="font-size:0.55rem;padding:4px 8px;" oninput="updateBulkPreview()">
+                            </div>
+                            <div class="mb-1">
+                                <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Attach Image (optional)</label>
+                                <div style="display:flex;gap:6px;align-items:center;">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('bulkImageInput').click()" style="font-size:0.55rem;padding:3px 10px;">
+                                        <i class="bi bi-image"></i> Choose Image
+                                    </button>
+                                    <span id="bulkImageName" style="font-size:0.5rem;color:var(--text-muted);"></span>
+                                    <button class="btn btn-sm btn-outline-danger" id="bulkImageRemove" style="display:none;font-size:0.5rem;padding:2px 6px;" onclick="removeBulkImage()"><i class="bi bi-x"></i></button>
+                                </div>
+                                <input type="file" id="bulkImageInput" style="display:none;" accept="image/*" onchange="handleBulkImageSelect(event)">
+                                <div id="bulkImagePreviewBox" style="display:none;margin-top:4px;padding:4px;border:1px solid var(--border-color);border-radius:6px;text-align:center;max-width:160px;">
+                                    <img id="bulkImagePreview" style="max-width:150px;max-height:100px;border-radius:4px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="bulkSendResult" style="font-size:0.55rem;margin-top:4px;"></div>
+                </div>
+                <!-- RIGHT: Live Preview -->
+                <div class="col-md-5">
+                    <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;position:sticky;top:0;">
+                        <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-eye"></i> Preview</div>
+                        <div class="card-body" style="padding:10px;background:#e5ddd5;min-height:300px;display:flex;flex-direction:column;justify-content:flex-end;">
+                            <div id="bulkPreviewBubble" style="max-width:90%;background:white;padding:10px 12px;border-radius:8px;border-bottom-left-radius:2px;box-shadow:0 1px 1px rgba(0,0,0,0.1);align-self:flex-start;">
+                                <div id="bulkPreviewHeader" style="font-size:0.6rem;font-weight:700;color:#075e54;margin-bottom:4px;display:none;"></div>
+                                <div id="bulkPreviewImageContainer" style="display:none;margin-bottom:6px;border-radius:6px;overflow:hidden;">
+                                    <img id="bulkPreviewImage" style="max-width:100%;max-height:140px;border-radius:6px;display:block;">
+                                </div>
+                                <div id="bulkPreviewBody" style="font-size:0.6rem;color:var(--text-primary);line-height:1.5;white-space:pre-wrap;word-wrap:break-word;"></div>
+                                <div id="bulkPreviewFooter" style="font-size:0.5rem;color:#999;margin-top:6px;padding-top:4px;border-top:1px solid #eee;display:none;"></div>
+                                <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:4px;">Just now</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="mb-3">
-                <label style="font-size:0.6rem;font-weight:600;display:block;margin-bottom:4px;">Message</label>
-                <textarea class="form-control" id="bulkMessageText" rows="4" placeholder="Type your message here..." style="font-size:0.6rem;"></textarea>
-            </div>
-            <div id="bulkSendResult" style="font-size:0.55rem;"></div>
         </div>
-        <div class="modal-footer-custom" style="padding:8px 12px;">
-            <button class="btn btn-danger btn-sm" onclick="closeModal('bulkMessagingModal')" style="font-size:0.65rem;padding:4px 14px;"><i class="bi bi-x"></i> Cancel</button>
-            <button class="btn btn-success btn-sm" onclick="sendBulkMessages()" style="font-size:0.65rem;padding:4px 14px;"><i class="bi bi-send"></i> Send to All Selected</button>
+        <div class="modal-footer-custom" style="padding:6px 12px;gap:6px;">
+            <button class="btn btn-danger btn-sm" onclick="closeModal('bulkMessagingModal')" style="font-size:0.6rem;padding:4px 14px;"><i class="bi bi-x"></i> Cancel</button>
+            <button class="btn btn-success btn-sm" onclick="sendBulkMessages()" style="font-size:0.6rem;padding:4px 14px;"><i class="bi bi-send"></i> Send to All Selected</button>
         </div>
     </div>
 </div>
@@ -19127,13 +19183,19 @@ function sendWhatsAppMessage(phone, text) {
     });
 }
 
+let bulkImageFile = null;
+
 function openBulkMessaging() {
-    // Load chats as recipient options
     const list = document.getElementById('bulkRecipientList');
-    const tags = document.getElementById('bulkRecipientTags');
-    tags.innerHTML = '';
-    document.getElementById('bulkMessageText').value = '';
     document.getElementById('bulkSendResult').innerHTML = '';
+    document.getElementById('bulkHeaderText').value = '';
+    document.getElementById('bulkBodyText').value = '';
+    document.getElementById('bulkFooterText').value = '';
+    bulkImageFile = null;
+    document.getElementById('bulkImageName').textContent = '';
+    document.getElementById('bulkImagePreviewBox').style.display = 'none';
+    document.getElementById('bulkImageRemove').style.display = 'none';
+    updateBulkPreview();
     
     if (!whatsappRecipients.length) {
         list.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.55rem;">Load WhatsApp chats first.</div>';
@@ -19162,9 +19224,83 @@ function updateBulkSelectedCount() {
     document.getElementById('bulkSelectedCount').textContent = count + ' selected';
 }
 
+function updateBulkPreview() {
+    const header = document.getElementById('bulkHeaderText').value.trim();
+    const body = document.getElementById('bulkBodyText').value.trim();
+    const footer = document.getElementById('bulkFooterText').value.trim();
+    
+    const headerEl = document.getElementById('bulkPreviewHeader');
+    const bodyEl = document.getElementById('bulkPreviewBody');
+    const footerEl = document.getElementById('bulkPreviewFooter');
+    const imgContainer = document.getElementById('bulkPreviewImageContainer');
+    const previewImg = document.getElementById('bulkPreviewImage');
+    
+    if (header) {
+        headerEl.textContent = header;
+        headerEl.style.display = 'block';
+    } else {
+        headerEl.style.display = 'none';
+    }
+    
+    bodyEl.textContent = body || 'Your message will appear here...';
+    bodyEl.style.color = body ? 'var(--text-primary)' : '#999';
+    
+    if (footer) {
+        footerEl.textContent = '— ' + footer;
+        footerEl.style.display = 'block';
+    } else {
+        footerEl.style.display = 'none';
+    }
+    
+    if (bulkImageFile) {
+        imgContainer.style.display = 'block';
+    } else {
+        imgContainer.style.display = 'none';
+    }
+}
+
+function handleBulkImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file.');
+        return;
+    }
+    bulkImageFile = file;
+    document.getElementById('bulkImageName').textContent = '📷 ' + file.name;
+    document.getElementById('bulkImageRemove').style.display = 'inline-block';
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('bulkImagePreview').src = e.target.result;
+        document.getElementById('bulkPreviewImage').src = e.target.result;
+        document.getElementById('bulkImagePreviewBox').style.display = 'block';
+        updateBulkPreview();
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeBulkImage() {
+    bulkImageFile = null;
+    document.getElementById('bulkImageInput').value = '';
+    document.getElementById('bulkImageName').textContent = '';
+    document.getElementById('bulkImagePreviewBox').style.display = 'none';
+    document.getElementById('bulkImageRemove').style.display = 'none';
+    updateBulkPreview();
+}
+
 function sendBulkMessages() {
-    const message = document.getElementById('bulkMessageText').value.trim();
-    if (!message) { alert('Please enter a message.'); return; }
+    const header = document.getElementById('bulkHeaderText').value.trim();
+    const body = document.getElementById('bulkBodyText').value.trim();
+    const footer = document.getElementById('bulkFooterText').value.trim();
+    
+    if (!body) { alert('Please enter a message body.'); return; }
+    
+    // Compose full message with optional header and footer
+    let fullMessage = '';
+    if (header) fullMessage += header + '\n\n';
+    fullMessage += body;
+    if (footer) fullMessage += '\n\n' + footer;
     
     const selected = [];
     document.querySelectorAll('.bulk-recipient-cb:checked').forEach(cb => {
@@ -19179,7 +19315,7 @@ function sendBulkMessages() {
     fetch('/api/whatsapp-bulk-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipients: selected, message: message })
+        body: JSON.stringify({ recipients: selected, message: fullMessage })
     })
     .then(r => r.json())
     .then(res => {
