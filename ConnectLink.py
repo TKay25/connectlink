@@ -10993,55 +10993,12 @@ def change_password():
 
 @app.route('/api/whatsapp-chats', methods=['GET'])
 def whatsapp_chats():
-    """Get grouped WhatsApp conversations from Meta API + whatsapp_messages table"""
+    """Get grouped WhatsApp conversations from whatsapp_messages table (populated via webhook)"""
     user_uuid = session.get('user_uuid')
     user_id = session.get('user_id') or session.get('userid')
     if not user_uuid and not user_id:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     try:
-        # Step 1: Try fetching conversations from Meta Conversations API
-        try:
-            headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-            conv_url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/conversations?limit=100"
-            conv_resp = requests.get(conv_url, headers=headers, timeout=10)
-            if conv_resp.status_code == 200:
-                conv_data = conv_resp.json()
-                api_conversations = conv_data.get('data', [])
-                print(f"📞 Meta API returned {len(api_conversations)} conversations")
-                
-                if api_conversations:
-                    with get_db() as (save_cursor, save_conn):
-                        synced_count = 0
-                        for conv in api_conversations:
-                            conv_msg = conv.get('message', {})
-                            sender_wa_id = conv_msg.get('from', '')
-                            if not sender_wa_id or sender_wa_id == PHONE_NUMBER_ID:
-                                continue
-                            last_text = ''
-                            msg_type = conv_msg.get('type', '')
-                            if msg_type == 'text':
-                                text_data = conv_msg.get('text', {})
-                                last_text = text_data.get('body', '') if text_data else ''
-                            elif msg_type in ('image', 'document', 'audio', 'video'):
-                                last_text = f'[{msg_type.capitalize()}]'
-                            
-                            save_cursor.execute(
-                                "SELECT COUNT(*) FROM whatsapp_messages WHERE sender_phone = %s",
-                                (sender_wa_id,)
-                            )
-                            if save_cursor.fetchone()[0] == 0:
-                                save_cursor.execute("""
-                                    INSERT INTO whatsapp_messages 
-                                    (sender_phone, sender_name, message_text, message_type, direction, status)
-                                    VALUES (%s, %s, %s, %s, 'incoming', 'received')
-                                """, (sender_wa_id, sender_wa_id, f"[Meta API] {last_text[:200]}" if last_text else "[Synced from Meta Conversations API]", msg_type or 'unknown'))
-                                synced_count += 1
-                        save_conn.commit()
-                        print(f"✅ Synced {synced_count} new conversations from Meta API")
-        except Exception as api_err:
-            print(f"⚠️ Meta Conversations API error (non-fatal): {api_err}")
-        
-        # Step 2: Query whatsapp_messages table for grouped conversations
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT sender_phone,
@@ -11071,7 +11028,7 @@ def whatsapp_chats():
                     'last_message': r[4] or '',
                     'status': r[5] or 'received'
                 })
-            return jsonify({'success': True, 'data': chats, 'synced': True})
+            return jsonify({'success': True, 'data': chats})
     except Exception as e:
         print(f"WhatsApp chats error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
