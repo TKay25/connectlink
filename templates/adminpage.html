@@ -235,18 +235,18 @@ body {
 .nav-link {
   font-size: 0.55rem !important;
 }
-/* Blue header + white font on ALL table headers across the system */
+/* Dark blue header + white font on ALL table headers across the system */
 table thead th,
 .table th,
 table.dataTable thead th,
 .dataTables_wrapper table thead th {
-  background: var(--primary) !important;
+  background: var(--dark-blue-deep, #1E293B) !important;
   color: white !important;
   font-weight: 700 !important;
 }
 .vertical-nav-link {
-  font-size: 0.55rem !important;
-  padding: 4px 10px !important;
+  font-size: 0.65rem !important;
+  padding: 5px 12px !important;
 }
 .summary-card .details h5 {
   font-size: 0.5rem;
@@ -735,13 +735,13 @@ table.dataTable thead th,
             overflow: hidden;
         }
         .table-theme thead th {
-            background: var(--crimson-bright) !important;
+            background: var(--dark-blue-deep) !important;
             color: white !important;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.3px;
-            font-size: 0.5rem;
-            padding: 0.35rem 0.4rem;
+            font-size: 0.55rem;
+            padding: 0.4rem 0.5rem;
             border-bottom: none;
             position: sticky;
             top: 0;
@@ -754,8 +754,8 @@ table.dataTable thead th,
         }
         .table-theme td {
             color: var(--text-primary);
-            padding: 0.3rem 0.35rem;
-            font-size: 0.52rem;
+            padding: 0.35rem 0.45rem;
+            font-size: 0.55rem;
             border-bottom: 1px solid var(--gray-200);
             vertical-align: middle;
         }
@@ -1772,12 +1772,12 @@ table.dataTable thead th,
         .quick-action-card .action-title {
             font-weight: 700;
             color: var(--text-primary);
-            font-size: 0.6rem;
-            margin-bottom: 1px;
+            font-size: 0.75rem;
+            margin-bottom: 2px;
         }
         .quick-action-card .action-description {
             color: var(--text-muted);
-            font-size: 0.5rem;
+            font-size: 0.6rem;
         }
         .quick-action-card .action-arrow {
             color: var(--gray-400);
@@ -2867,7 +2867,7 @@ table.dataTable thead th,
                                     <div class="col-md-4"><select class="form-select" id="statusFilter" style="font-size:0.55rem;padding:0.1rem 0.3rem;"><option value="">All Status</option><option>pending</option><option>in_progress</option><option>completed</option></select></div>
                                 </div>
                                 <div class="container2" style="overflow-y:auto;">
-                                    <table class="table-theme" id="enquiriesTabTable" style="font-size:0.55rem;">
+                                    <table class="table-theme" id="enquiriesTabTable">
                                         <thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Username</th><th>Category</th><th>Message</th><th>Status</th><th>Document</th><th>Action</th></tr></thead>
                                         <tbody>
                                             {% for enquiry in enquiries_data %}
@@ -3498,7 +3498,7 @@ table.dataTable thead th,
                                 <div id="manualInstallments" class="form-group" style="display:none; margin-top: 1rem;">
                                     <label class="form-label fw-bold mb-2">Installment Schedule (Enter amounts and due dates for each installment)</label>
                                     <div class="table-responsive">
-                                        <table class="table table-sm table-theme" style="font-size: 0.65rem;">
+                                        <table class="table table-sm table-theme">
                                             <thead>
                                                 <tr>
                                                     <th>Installment</th>
@@ -4056,7 +4056,7 @@ table.dataTable thead th,
         </div>
         <div class="modal-body-custom">
             <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                <table class="table table-striped table-theme" id="ganttScheduleTable" style="font-size: 0.7rem;">
+                <table class="table table-striped table-theme" id="ganttScheduleTable">
                     <thead style="position: sticky; top: 0;">
                         <tr>
                             <th style="width: 35%;">Work Scope</th>
@@ -4136,7 +4136,7 @@ table.dataTable thead th,
             
             <!-- Summary Table -->
             <div class="table-responsive">
-                <table class="table table-sm table-hover table-theme" id="workPlanSummaryTable" style="font-size: 0.75rem;">
+                <table class="table table-sm table-hover table-theme" id="workPlanSummaryTable">
                     <thead style="background-color: var(--dark-blue-deep); color: white;">
                         <tr>
                             <th>Project Name</th>
@@ -5536,7 +5536,7 @@ table.dataTable thead th,
 
                         <!-- Items Table -->
                         <div class="table-responsive">
-                            <table class="table table-sm table-bordered table-theme" id="kitchenItemsTable" style="font-size: 0.7rem;">
+                            <table class="table table-sm table-bordered table-theme" id="kitchenItemsTable">
                                 <thead style="background-color: #1E2A56; color: white;">
                                     <tr>
                                         <th style="width: 35%;">Item Name</th>
@@ -15764,7 +15764,7 @@ function displayGanttChartInPreview() {
     const items = getSchedulesForQuotationOutput(window.ganttChartData, window.quotationData);
 
     let html = `
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.55rem;">
             <thead>
                 <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
                     <th style="padding: 10px; text-align: left; font-weight: bold;">#</th>
@@ -15821,7 +15821,7 @@ function renderGanttItemsList() {
     }
 
     let html = `
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.68rem;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.55rem;">
             <thead>
                 <tr style="background-color: #f5f5f5; border-bottom: 2px solid #333;">
                     <th style="padding: 2px 3px; text-align: left; font-weight: bold;">#</th>
@@ -16023,7 +16023,7 @@ function renderGanttItemsList() {
 
         let html = `
             <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.55rem;">
                     <thead>
                         <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid var(--primary);">
                             <th style="padding: 6px; text-align: left;">Sent At</th>
@@ -16658,7 +16658,7 @@ function displayQuotationDetailsInModal(quotation) {
             <div style="background:white; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; margin-bottom:10px;">
                 <div style="background:var(--crimson-bright); color:white; padding:6px 10px; font-size:0.55rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px;">Construction Items (${quotation.items.length})</div>
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0" style="font-size:0.55rem;">
+                    <table class="table table-sm table-bordered mb-0 table-theme">
                         <thead>
                             <tr>
                                 <th style="width:30px;text-align:center;">#</th>
@@ -16701,7 +16701,7 @@ function displayQuotationDetailsInModal(quotation) {
             <div style="background:white; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; margin-bottom:10px;">
                 <div style="background:var(--crimson-bright); color:white; padding:6px 10px; font-size:0.55rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px;">Work Schedule (${totalDays} Total Days)</div>
                 <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0" style="font-size:0.52rem;">
+                    <table class="table table-sm table-bordered mb-0 table-theme">
                         <thead>
                             <tr>
                                 <th style="width:30px;text-align:center;">#</th>
