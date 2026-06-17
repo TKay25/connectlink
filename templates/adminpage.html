@@ -2892,14 +2892,14 @@ table.dataTable thead th.sorting_desc {
                                         <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.year_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.6rem;">({{ payment_stats.year_overdue_projects|default(0) }} projects)</span></span>
                                     </div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#DC2626,#F87171); border-radius:8px; padding:8px 12px; text-align:center;">
-                                    <div style="font-size:0.75rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700;">Total Overdue</div>
-                                    <div style="font-size:1rem; font-weight:800; color:#fff;">${{ "{:,.2f}".format(payment_stats.total_overdue|default(0)) }}</div>
-                                    <div style="font-size:0.65rem; color:rgba(255,255,255,0.5);">{{ payment_stats.total_overdue_projects|default(0) }} projects</div>
+                                <div class="payment-stat-card" style="background:#e8f0fe; border:1.5px solid #d0dbf0; border-radius:8px; padding:8px 12px; text-align:center;">
+                                    <div style="font-size:0.75rem; color:#5a678a; text-transform:uppercase; letter-spacing:0.3px; font-weight:700;">Total Overdue</div>
+                                    <div style="font-size:1rem; font-weight:800; color:#C12B3E;">${{ "{:,.2f}".format(payment_stats.total_overdue|default(0)) }}</div>
+                                    <div style="font-size:0.65rem; color:#5a678a;">{{ payment_stats.total_overdue_projects|default(0) }} projects</div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#D97706,#F59E0B); border-radius:8px; padding:8px 12px; text-align:center;">
-                                    <div style="font-size:0.75rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700;">Total Due</div>
-                                    <div style="font-size:1rem; font-weight:800; color:#fff;">${{ "{:,.2f}".format(payment_stats.total_due|default(0)) }}</div>
+                                <div class="payment-stat-card" style="background:#e8f0fe; border:1.5px solid #d0dbf0; border-radius:8px; padding:8px 12px; text-align:center;">
+                                    <div style="font-size:0.75rem; color:#5a678a; text-transform:uppercase; letter-spacing:0.3px; font-weight:700;">Total Due</div>
+                                    <div style="font-size:1rem; font-weight:800; color:#1E2A56;">${{ "{:,.2f}".format(payment_stats.total_due|default(0)) }}</div>
                                 </div>
                             </div>
                             <div class="container2" style="overflow-y:auto; margin-top:4px;">
