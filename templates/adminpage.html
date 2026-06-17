@@ -708,24 +708,27 @@ body {
             overflow: hidden;
         }
         .table-theme thead th {
-            background: var(--gray-100);
-            color: var(--text-secondary);
-            font-weight: 600;
+            background: var(--crimson-bright) !important;
+            color: white !important;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.3px;
             font-size: 0.5rem;
             padding: 0.35rem 0.4rem;
-            border-bottom: 2px solid var(--gray-200);
+            border-bottom: none;
             position: sticky;
             top: 0;
             z-index: 10;
             text-align: left;
             white-space: nowrap;
         }
+        .table-theme thead th:not(:last-child) {
+            border-right: 1px solid rgba(255,255,255,0.15);
+        }
         .table-theme td {
             color: var(--text-primary);
-            padding: 0.35rem 0.4rem;
-            font-size: 0.55rem;
+            padding: 0.3rem 0.35rem;
+            font-size: 0.52rem;
             border-bottom: 1px solid var(--gray-200);
             vertical-align: middle;
         }
@@ -734,7 +737,7 @@ body {
             background: var(--gray-50);
         }
         .table-theme tbody tr:nth-child(even) td {
-            background-color: var(--gray-50);
+            background-color: #FAFBFC;
         }
         .table-theme tbody tr:nth-child(even):hover td {
             background-color: #EEF0F5;
@@ -16386,53 +16389,57 @@ async function viewQuotationDetails(quotationId) {
 function displayQuotationDetailsInModal(quotation) {
     const contentDiv = document.getElementById('quotationDetailsContent');
     
-    // Calculate totals
     const totalCost = quotation.totalCost || 0;
     const markup = quotation.markup || 0;
     const markupMultiplier = 1 + (markup / 100);
     const baseCost = totalCost / markupMultiplier;
     const markupAmount = totalCost - baseCost;
+    const cat = quotation.category || '';
+    const isConstruction = cat.includes('construction');
+    const categoryDisplay = formatCategoryName ? formatCategoryName(cat) : cat;
     
     let html = `
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header" style="background: #0A1A3A; color: white;">QUOTATION ID</div>
-                    <div class="card-body" style="color: #0E1F42"><h6 class="mb-0">#${quotation.id}</h6></div>
-                </div>
+        <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:140px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:8px 12px;">
+                <div style="font-size:0.45rem; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.3px;">Quotation ID</div>
+                <div style="font-size:0.7rem; font-weight:800; color:var(--crimson-bright);">#${quotation.id}</div>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header" style="background: #0A1A3A; color: white;">DATE CREATED</div>
-                    <div class="card-body" style="color: #0E1F42">${new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-                </div>
+            <div style="flex:1; min-width:140px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:8px 12px;">
+                <div style="font-size:0.45rem; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.3px;">Date Created</div>
+                <div style="font-size:0.6rem; font-weight:600; color:var(--text-primary);">${new Date(quotation.quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
             </div>
+            <div style="flex:1; min-width:100px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:8px 12px;">
+                <div style="font-size:0.45rem; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.3px;">Category</div>
+                <div style="font-size:0.6rem; font-weight:600; color:var(--text-primary);">${escapeHtml(categoryDisplay)}</div>
+            </div>
+            ${isConstruction ? `<div style="flex:1; min-width:100px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:8px 12px;">
+                <div style="font-size:0.45rem; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.3px;">Project Size</div>
+                <div style="font-size:0.6rem; font-weight:600; color:var(--text-primary);">${quotation.projectSize || '0'} sq.m</div>
+            </div>` : ''}
         </div>
-        
-        <div class="card mb-3">
-            <div class="card-header" style="background: #0A1A3A; color: white;font-weight: bold;font-size: 0.7rem;">CLIENT INFORMATION</div>
-            <div class="card-body" style="color: #0E1F42">
-                <div class="row">
-                    <div class="col-md-6"><strong>Name:</strong> ${escapeHtml(quotation.clientName || 'N/A')}</div>
-                    <div class="col-md-6"><strong>WhatsApp:</strong> ${quotation.clientWhatsapp || 'N/A'}</div>
-                    <div class="col-md-6"><strong>Category:</strong> ${escapeHtml(quotation.category || 'N/A')}</div>
-                    <div class="col-md-6"><strong>Project Size:</strong> ${quotation.projectSize || '0'} sq.m</div>
+
+        <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+            <div style="flex:3; min-width:240px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:10px 12px;">
+                <div style="font-size:0.5rem; text-transform:uppercase; font-weight:700; color:var(--text-secondary); margin-bottom:6px; letter-spacing:0.3px;">Client Information</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; font-size:0.55rem;">
+                    <div><span style="color:var(--text-muted);">Name:</span> <strong>${escapeHtml(quotation.clientName || 'N/A')}</strong></div>
+                    <div><span style="color:var(--text-muted);">WhatsApp:</span> <strong>${quotation.clientWhatsapp || 'N/A'}</strong></div>
                 </div>
             </div>
-        </div>
-        
-        <div class="card mb-3">
-            <div class="card-header" style="background: #0A1A3A; color: white;font-weight: bold;font-size: 0.7rem;">COST SUMMARY</div>
-            <div class="card-body" style="color: #0E1F42">
-                <div class="row text-center">
-                    <div class="col-md-4">
-                        <div class="border rounded p-2 bg-light"><small class="text-muted">Base Cost</small><br><strong>USD ${baseCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></div>
+            <div style="flex:2; min-width:200px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:10px 12px;">
+                <div style="font-size:0.5rem; text-transform:uppercase; font-weight:700; color:var(--text-secondary); margin-bottom:6px; letter-spacing:0.3px;">Cost Summary</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; text-align:center;">
+                    <div style="background:white; border-radius:6px; padding:4px 6px; border:1px solid var(--gray-200);">
+                        <div style="font-size:0.45rem; color:var(--text-muted);">Base Cost</div>
+                        <div style="font-size:0.6rem; font-weight:700;">USD ${baseCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="border rounded p-2 bg-light"><small class="text-muted">Markup (${markup}%)</small><br><strong>USD ${markupAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></div>
+                    <div style="background:white; border-radius:6px; padding:4px 6px; border:1px solid var(--gray-200);">
+                        <div style="font-size:0.45rem; color:var(--text-muted);">Markup (${markup}%)</div>
+                        <div style="font-size:0.6rem; font-weight:700;">USD ${markupAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="border rounded p-2 bg-light"><small class="text-muted">Total Cost</small><br><strong class="text-success">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></div>
+                    <div style="background:white; border-radius:6px; padding:4px 6px; border:1px solid var(--gray-200);">
+                        <div style="font-size:0.45rem; color:var(--text-muted);">Total Cost</div>
+                        <div style="font-size:0.65rem; font-weight:800; color:var(--crimson-bright);">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                     </div>
                 </div>
             </div>
@@ -16442,22 +16449,21 @@ function displayQuotationDetailsInModal(quotation) {
     // Construction Items Table
     if (quotation.items && quotation.items.length > 0) {
         html += `
-            <div class="card mb-3">
-                <div class="card-header" style="background: #0A1A3A; color: white;font-weight: bold;font-size: 0.7rem;">CONSTRUCTION ITEMS (${quotation.items.length})</div>
-                <div class="card-body p-0" style="color: #0E1F42;">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered mb-0" style="font-size: 0.7rem;">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th style="width: 40px;">#</th>
-                                    <th>Item Description</th>
-                                    <th style="width: 70px; text-align: center;">Qty</th>
-                                    <th style="width: 90px; text-align: right;">Inhouse Rate</th>
-                                    <th style="width: 90px; text-align: right;">Client Rate</th>
-                                    <th style="width: 90px; text-align: right;">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+            <div style="background:white; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; margin-bottom:10px;">
+                <div style="background:var(--crimson-bright); color:white; padding:6px 10px; font-size:0.55rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px;">Construction Items (${quotation.items.length})</div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0" style="font-size:0.55rem;">
+                        <thead>
+                            <tr>
+                                <th style="width:30px;text-align:center;">#</th>
+                                <th>Item Description</th>
+                                <th style="width:50px;text-align:center;">Qty</th>
+                                <th style="width:70px;text-align:right;">Inhouse Rate</th>
+                                <th style="width:70px;text-align:right;">Client Rate</th>
+                                <th style="width:70px;text-align:right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
         `;
         
         quotation.items.forEach((item, idx) => {
@@ -16467,17 +16473,17 @@ function displayQuotationDetailsInModal(quotation) {
             const totalPrice = item.totalPrice || 0;
             html += `
                 <tr>
-                    <td class="text-center fw-bold">${idx + 1}</td>
-                    <td>${escapeHtml(item.name || 'Item')}</td>
-                    <td class="text-center">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
-                    <td class="text-end">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end fw-bold">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end fw-bold text-primary">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td class="text-center fw-bold" style="font-size:0.5rem;">${idx + 1}</td>
+                    <td style="font-size:0.5rem;">${escapeHtml(item.name || 'Item')}</td>
+                    <td class="text-center" style="font-size:0.5rem;">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
+                    <td class="text-end" style="font-size:0.5rem;">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td class="text-end fw-bold" style="font-size:0.5rem;">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td class="text-end fw-bold" style="font-size:0.5rem;color:var(--crimson-bright);">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 </tr>
             `;
         });
         
-        html += `</tbody></table></div></div></div>`;
+        html += `</tbody></table></div></div>`;
     }
     
     // Work Schedule Table
@@ -16486,21 +16492,20 @@ function displayQuotationDetailsInModal(quotation) {
         quotation.schedules.forEach(s => { totalDays += (s.days || 0); });
         
         html += `
-            <div class="card mb-3">
-                <div class="card-header" style="background: #0A1A3A; color: white;">WORK SCHEDULE (${totalDays} Total Days)</div>
-                <div class="card-body p-0" style="color: #0E1F42;">
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered mb-0" style="font-size: 0.7rem;">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th style="width: 40px;">#</th>
-                                    <th>Work Scope</th>
-                                    <th style="width: 100px; text-align: center;">Start Date</th>
-                                    <th style="width: 100px; text-align: center;">End Date</th>
-                                    <th style="width: 60px; text-align: center;">Days</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+            <div style="background:white; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; margin-bottom:10px;">
+                <div style="background:var(--crimson-bright); color:white; padding:6px 10px; font-size:0.55rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px;">Work Schedule (${totalDays} Total Days)</div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0" style="font-size:0.52rem;">
+                        <thead>
+                            <tr>
+                                <th style="width:30px;text-align:center;">#</th>
+                                <th>Work Scope</th>
+                                <th style="width:85px;text-align:center;">Start Date</th>
+                                <th style="width:85px;text-align:center;">End Date</th>
+                                <th style="width:50px;text-align:center;">Days</th>
+                            </tr>
+                        </thead>
+                        <tbody>
         `;
         
         quotation.schedules.forEach((schedule, idx) => {
@@ -16508,16 +16513,16 @@ function displayQuotationDetailsInModal(quotation) {
             const endDate = schedule.endDate ? new Date(schedule.endDate).toLocaleDateString('en-GB') : 'N/A';
             html += `
                 <tr>
-                    <td class="text-center fw-bold">${idx + 1}</td>
-                    <td>${escapeHtml(schedule.workScope || 'Task')}</td>
-                    <td class="text-center">${startDate}</td>
-                    <td class="text-center">${endDate}</td>
-                    <td class="text-center fw-bold">${schedule.days || 0}</td>
+                    <td class="text-center fw-bold" style="font-size:0.5rem;">${idx + 1}</td>
+                    <td style="font-size:0.5rem;">${escapeHtml(schedule.workScope || 'Task')}</td>
+                    <td class="text-center" style="font-size:0.5rem;">${startDate}</td>
+                    <td class="text-center" style="font-size:0.5rem;">${endDate}</td>
+                    <td class="text-center fw-bold" style="font-size:0.5rem;">${schedule.days || 0}</td>
                 </tr>
             `;
         });
         
-        html += `</tbody></table></div></div></div>`;
+        html += `</tbody></table></div></div>`;
     }
     
     contentDiv.innerHTML = html;
