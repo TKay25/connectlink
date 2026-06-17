@@ -3692,7 +3692,7 @@ table.dataTable thead th.sorting_desc {
             </button>
         </div>
         <div class="modal-body-custom">
-            <form id="createUserForm">
+            <form id="createUserForm" method="POST" onsubmit="return false;">
                 <div class="form-inline-group">
                     <label for="userFullName">Full Name</label>
                     <input type="text" class="form-control editable-field" id="userFullName" name="userfullname" required>
@@ -3776,7 +3776,7 @@ table.dataTable thead th.sorting_desc {
             </button>
         </div>
         <div class="modal-body-custom">
-            <form id="adminForm">
+            <form id="adminForm" method="POST" onsubmit="return false;">
                 <div class="form-inline-group">
                     <label for="adminName">Full Name</label>
                     <input type="text" class="form-control" id="adminName" name="adminName" placeholder="Enter Admin full name">
@@ -3870,7 +3870,7 @@ table.dataTable thead th.sorting_desc {
             </button>
         </div>
         <div class="modal-body-custom" style="max-height:78vh;overflow-y:auto;padding:10px 14px;">
-            <form id="addProjectForm">
+            <form id="addProjectForm" method="POST" onsubmit="return false;">
                 <input type="hidden" id="project_quotation_id" name="project_quotation_id" value="">
                 <input type="hidden" id="adjusted_schedules_json" name="adjusted_schedules_json" value="">
                 
@@ -4125,7 +4125,7 @@ table.dataTable thead th.sorting_desc {
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <form id="deleteProjectForm" style="color: var(--dark-blue-deep)">
+        <form id="deleteProjectForm" method="POST" onsubmit="return false;" style="color: var(--dark-blue-deep)">
             <div class="modal-body-custom">
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle-fill"></i>
@@ -5868,7 +5868,7 @@ table.dataTable thead th.sorting_desc {
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <form id="removeUserForm">
+        <form id="removeUserForm" method="POST" onsubmit="return false;">
             <div class="modal-body-custom">
                 <p>Are you sure you want to remove the following user?</p>
                 
@@ -5952,7 +5952,7 @@ table.dataTable thead th.sorting_desc {
             </button>
         </div>
         <div class="modal-body-custom">
-            <form id="contractorEditForm">
+            <form id="contractorEditForm" method="POST" onsubmit="return false;">
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="companyName" class="form-label fw-semibold mb-1">Company Name</label>
@@ -6054,7 +6054,7 @@ table.dataTable thead th.sorting_desc {
             </button>
         </div>
         <div class="modal-body-custom">
-            <form id="quotationGeneratorForm">
+            <form id="quotationGeneratorForm" method="POST" onsubmit="return false;">
                 <!-- Category Dropdown -->
                 <div class="form-inline-group">
                     <label for="quotationCategory">Quotation Category <span class="text-danger">*</span></label>
