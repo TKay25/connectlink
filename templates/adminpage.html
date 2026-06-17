@@ -5613,7 +5613,7 @@ function cancelQuotationTableOption() {
 
 async function promptQuotationTablePlacementIfNeeded(category) {
     const lowerCategory = String(category || '').toLowerCase();
-    const isStoreyQuote = /(?:single|double)\s+(?:storey|story)/.test(lowerCategory) || /(?:storey|story)/.test(lowerCategory);
+    const isStoreyQuote = /construction/.test(lowerCategory);
     if (!isStoreyQuote) {
         return 'default';
     }
@@ -9645,7 +9645,7 @@ async function generateKitchenPDF(outputMode = 'download') {
     
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
-    const monthlyInstallment = balanceAmount / 5;
+    const monthlyInstallment = balanceAmount / 6;
     
     const htmlContent = `
         <div style="font-family: 'Roboto', Arial, sans-serif; background:#ffffff; color:#1E2A56; padding:0;">
@@ -9669,7 +9669,7 @@ async function generateKitchenPDF(outputMode = 'download') {
                         <div><div style="font-size:10px; color:#5a678a;">Total Amount</div><div style="font-size:13px; font-weight:900;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Deposit (30%)</div><div style="font-size:13px; font-weight:700;">USD ${depositAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Balance</div><div style="font-size:13px; font-weight:700;">USD ${balanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
-                        <div><div style="font-size:10px; color:#5a678a;">Monthly (5 months)</div><div style="font-size:13px; font-weight:700;">USD ${monthlyInstallment.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                        <div><div style="font-size:10px; color:#5a678a;">Monthly (6 months)</div><div style="font-size:13px; font-weight:700;">USD ${monthlyInstallment.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Duration</div><div style="font-size:13px; font-weight:700; color:#2196F3;">${totalDays} Days</div></div>
                     </div>
                 </div>
@@ -14346,7 +14346,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     // Calculate deposit and monthly installments
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
-    const monthlyInstallment = balanceAmount / 5;
+    const monthlyInstallment = balanceAmount / 6;
     const normalizedPlacement = ['default', 'after_schedule', 'exclude'].includes(tablePlacement) ? tablePlacement : 'default';
     const showConstructionItemsTable = normalizedPlacement !== 'exclude';
 
@@ -14391,7 +14391,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                             <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Project Size:</strong> <span>${size} Sq. Meters</span></div>
                         </div>
                         <div style="display: table-cell; width: 50%; vertical-align: top; padding-left: 10px; box-sizing: border-box;">
-                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Category:</strong> <span>${escapeHtml(category)}</span></div>
+                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Category:</strong> <span>${escapeHtml(formatCategoryName(category))}</span></div>
                             <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Date:</strong> <span>${formatPdfDate(quotationDate)}</span></div>
                         </div>
                     </div>
@@ -14401,7 +14401,11 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                 <div style="page-break-inside: avoid; break-inside: avoid;">
                     <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
                     <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
-                        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center;">
+                        ${(() => {
+                            const isConstruction = String(category || '').toLowerCase().includes('construction');
+                            const cols = isConstruction ? 4 : 5;
+                            return `
+                        <div style="display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 10px; text-align: center;">
                             <div style="padding: 0 5px;">
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
                                 <div style="font-size: 13px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
@@ -14415,14 +14419,16 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
                             </div>
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over 5 months)</div>
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over 6 months)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
                             </div>
+                            ${!isConstruction ? `
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Duration</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #2196F3;">${totalConstructionDays} Days</div>
-                            </div>
-                        </div>
+                            </div>` : ''}
+                        </div>`;
+                        })()}
                     </div>
                 </div>
 
@@ -14685,7 +14691,14 @@ $('#sendQuotationBtn').click(async function() {
 
         // Generate and send PDF...
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
-        const dataUri = await generateQuotationPDF('datauri');
+        const tablePlacement = await promptQuotationTablePlacementIfNeeded(data.category);
+        if (tablePlacement === null) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
+        }
+        window.quotationPdfTablePlacement = tablePlacement;
+        const dataUri = await generateQuotationPDF('datauri', tablePlacement);
         const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
 
         if (!pdfBase64) {
@@ -16563,8 +16576,15 @@ async function sendConstructionQuotationFromPortal(quotation) {
     if (typeof window.generateQuotationPDF !== 'function') {
         throw new Error('PDF generator not available. Please refresh and try again.');
     }
+
+    // Ask user about construction table placement
+    const tablePlacement = await promptQuotationTablePlacementIfNeeded(quotation.category);
+    if (tablePlacement === null) {
+        return; // User cancelled
+    }
+    window.quotationPdfTablePlacement = tablePlacement;
     
-    const dataUri = await window.generateQuotationPDF('datauri');
+    const dataUri = await window.generateQuotationPDF('datauri', tablePlacement);
     const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
     
     if (!pdfBase64) {
