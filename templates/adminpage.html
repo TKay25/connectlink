@@ -10494,9 +10494,12 @@ function renderTable() {
         }
         
         $('#enquiriesTable').DataTable({
-            paging: false,
-            searching: false,
-            info: false,
+            paging: true,
+            pageLength: 25,
+            lengthChange: true,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+            searching: true,
+            info: true,
             ordering: true,
                 order: [[1, 'desc']],
             columnDefs: [
@@ -11217,12 +11220,13 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             window.dataTable = $('#allprojectsTable').DataTable({
                 order: [[0, 'desc']],
-                paging: false,
+                paging: true,
                 searching: true,
                 ordering: true,
                 info: true,
-                pageLength: 7,
-                lengthChange: false,
+                pageLength: 25,
+                lengthChange: true,
+                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
                 columnDefs: [
                     // Hide columns 2-9, 11-12, 14, 15-57 (client details, addresses, projectstartdate, installment details)
                     { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
@@ -11248,11 +11252,13 @@ $(document).ready(function() {
     if ($('#enquiriesTabTable').length && !$.fn.DataTable.isDataTable('#enquiriesTabTable')) {
         $('#enquiriesTabTable').DataTable({
             order: [[0, 'desc']],
-            paging: false,
-            searching: false,
+            paging: true,
+            pageLength: 25,
+            lengthChange: true,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+            searching: true,
             ordering: true,
             info: true,
-            lengthChange: false,
             language: {
                 emptyTable: 'No enquiries found',
                 search: "Search:",

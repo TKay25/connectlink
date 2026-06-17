@@ -12437,14 +12437,16 @@ def get_temp_enquiries():
                 cursor.execute("""
                     SELECT id, wanumber, enqtype, created_at
                     FROM appenqtemp
-                    ORDER BY created_at DESC NULLS LAST, id DESC;
+                    ORDER BY created_at DESC NULLS LAST, id DESC
+                    LIMIT 500;
                 """)
             except Exception:
                 connection.rollback()
                 cursor.execute("""
                     SELECT id, wanumber, enqtype, NULL::timestamp AS created_at
                     FROM appenqtemp
-                    ORDER BY id DESC;
+                    ORDER BY id DESC
+                    LIMIT 500;
                 """)
 
             usersdataquerytempenqfetch = cursor.fetchall()
@@ -13358,16 +13360,15 @@ def run1(userid):
         today_date = datetime.now().strftime('%d %B %Y')
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
-        enquiriesdataquery = f"SELECT * FROM connectlinkenquiries ORDER BY id DESC;"
+        enquiriesdataquery = f"SELECT * FROM connectlinkenquiries ORDER BY id DESC LIMIT 500;"
         cursor.execute(enquiriesdataquery)
         enquiriesdata = cursor.fetchall()
-        print(enquiriesdata)
 
         enquiriesdatamain = pd.DataFrame(enquiriesdata, columns=['ID','Timestamp','Contact','Enquiry','Description','Document','Username','Status'])
         enquiriesdatamain = enquiriesdatamain[['ID','Timestamp','Username','Contact','Enquiry','Description','Document','Status']]
         enquiriesdatamain_html = enquiriesdatamain.to_html(classes="table table-bordered table-theme", table_id="allenquiriesTable", index=False,  escape=False,)
 
-        usersdataquerytempenq = f"SELECT * FROM appenqtemp;"
+        usersdataquerytempenq = f"SELECT * FROM appenqtemp ORDER BY id DESC LIMIT 500;"
         cursor.execute(usersdataquerytempenq)
         usersdataquerytempenqfetch = cursor.fetchall()
         print(usersdataquerytempenqfetch)
@@ -14141,6 +14142,7 @@ def get_enquiries_data():
                        plan IS NOT NULL as has_plan, status, username
                 FROM connectlinkenquiries 
                 ORDER BY id DESC
+                LIMIT 500
             """)
             enquiries = cursor.fetchall()
             
