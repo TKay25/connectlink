@@ -460,9 +460,10 @@ body {
     background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%);
     border: 1px solid rgba(193, 43, 62, 0.1);
     border-radius: 16px;
-    width: 90%;
-    max-width: 700px;
-    max-height: 95vh;
+    width: auto;
+    min-width: 420px;
+    max-width: 680px;
+    max-height: 90vh;
     overflow-y: auto;
     overflow-x: hidden;
     box-shadow: 
@@ -475,21 +476,26 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
-.modal-container.large {
-    max-width: 900px;
+.modal-container.small {
+    max-width: 380px;
+    min-width: 320px;
 }
 
-.modal-container.small {
-    max-width: 45%;
+.modal-container.medium {
+    max-width: 540px;
+}
+
+.modal-container.large {
+    max-width: 800px;
 }
 
 .modal-container.xlarge {
-    max-width: 1200px;
+    max-width: 1100px;
     width: 95%;
 }
 
 .modal-container.x2large {
-    max-width: 900px;
+    max-width: 860px;
     width: 95%;
 }
 
@@ -2935,7 +2941,7 @@ body {
     </div>
 
 <div id="systemUserModal" class="modal-overlay">
-    <div class="modal-container" style="width:90%">
+    <div class="modal-container xlarge">
         <div class="modal-header-custom">
             <h3><i class="bi bi-people-fill"></i> SYSTEM USERS</h3>
             <button class="close-modal" onclick="closeModal('systemUserModal')">
@@ -2997,7 +3003,7 @@ body {
 </div>
 
 <div id="quotationTableOptionsModal" class="modal-overlay">
-    <div class="modal-container" style="width: 420px;">
+    <div class="modal-container small">
         <div class="modal-header-custom">
             <h3><i class="bi bi-table"></i> Quotation PDF Options</h3>
             <button class="close-modal" onclick="cancelQuotationTableOption()">
@@ -3027,7 +3033,7 @@ body {
 </div>
 
  <div id="createUserModal" class="modal-overlay">
-    <div class="modal-container" style="width: 30%">
+    <div class="modal-container medium">
         <div class="modal-header-custom">
             <h3><i class="bi bi-person-fill-add"></i> CREATE SYSTEM USER</h3>
             <button class="close-modal" onclick="closeModal('createUserModal')">
@@ -3067,7 +3073,7 @@ body {
 
 
 <div id="addcompAdminModal" class="modal-overlay">
-    <div class="modal-container" style="width: 45%;">
+    <div class="modal-container large">
         <div class="modal-header-custom">
             <h3><i class="bi bi-people-fill"></i> ADMINISTRATORS</h3>
             <button class="close-modal" onclick="closeModal('addcompAdminModal')">
@@ -3111,7 +3117,7 @@ body {
 
 
 <div id="addAdminplusModal" class="modal-overlay">
-    <div class="modal-container" style="width: 30%;">
+    <div class="modal-container medium">
         <div class="modal-header-custom">
             <h3><i class="bi bi-person-plus-fill"></i> ADD ADMINISTRATOR</h3>
             <button class="close-modal" onclick="closeModal('addAdminplusModal')">
@@ -3555,7 +3561,7 @@ body {
 
 <!-- Delete Project Modal - Blur Overlay Version -->
 <div id="deleteprojectModal" class="modal-overlay">
-    <div class="modal-container" style="width: 40%;">
+    <div class="modal-container small">
         <div class="modal-header-custom" style="background: var(--crimson-sidebar, #9B1D2C);">
             <h3><i class="bi bi-exclamation-triangle"></i> PROJECT REMOVAL CONFIRMATION</h3>
             <button class="close-modal" onclick="closeModal('deleteprojectModal')">
@@ -4025,7 +4031,7 @@ body {
 
 <!-- GANTT CHART EDITOR MODAL -->
 <div id="ganttChartModal" class="modal-overlay">
-    <div class="modal-container" style="width: 50%;">
+    <div class="modal-container large">
         <div class="modal-header-custom">
             <h3><i class="bi bi-diagram-3"></i> WORK SCHEDULE - GANTT CHART</h3>
             <button class="close-modal" onclick="closeModal('ganttChartModal')">
@@ -4177,7 +4183,7 @@ body {
 </div>
 
 <div id="downloadPortfolioModal" class="modal-overlay">
-    <div class="modal-container" style="width: 30%;">
+    <div class="modal-container small">
         <div class="modal-header-custom">
             <h3><i class="bi bi-download"></i> DOWNLOAD MASTER PROJECTS FILE</h3>
             <button class="close-modal" onclick="closeModal('downloadPortfolioModal')">
@@ -4327,7 +4333,7 @@ body {
 </div>
 <!-- Download Installments Modal - Blur Overlay Version -->
 <div id="downloadInstallmentsModal" class="modal-overlay">
-    <div class="modal-container" style="width: 30%;">
+    <div class="modal-container small">
         <div class="modal-header-custom">
             <h3><i class="bi bi-download"></i>INSTALLMENTS SCHEDULE</h3>
             <button class="close-modal" onclick="closeModal('downloadInstallmentsModal')">
@@ -5765,7 +5771,7 @@ function askIncludeConstructionItemsTable() {
     return new Promise((resolve) => {
         const modalId = 'constructionItemsTableModal_' + Date.now();
         const modalHTML = `<div id="${modalId}" class="modal-overlay" style="display: flex; z-index: 10000;">
-            <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-container small">
                 <div class="modal-header-custom">
                     <h3><i class="bi bi-table"></i> Construction Items Table</h3>
                     <button class="close-modal" onclick="document.getElementById('${modalId}').style.display='none';">
@@ -17405,7 +17411,7 @@ function showConfirm(message, title = 'Confirm', confirmText = 'Yes', cancelText
         const modalId = 'confirmModal_' + Date.now();
         const html = `
         <div id="${modalId}" class="modal-overlay" style="display:flex;z-index:99999;">
-            <div class="modal-container small" style="max-width:380px;">
+            <div class="modal-container small">
                 <div class="modal-header-custom">
                     <h3><i class="bi bi-question-circle"></i> ${title}</h3>
                 </div>
