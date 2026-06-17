@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "DbHelper",
+  "file": "db_helper.py",
+  "purpose": "Database Helper Module for EDSDEVV",
+  "entry_function": "get_db()",
+  "entry_flows": [
+    "db_helper → cursor.execute, cursor.fetchone, connection.commit, psycopg2.connect, connection.cursor"
+  ],
+  "public_api": [
+    "get_db()",
+    "get_db_cursor_only()",
+    "execute_query(query, params = None, fetch_one = False, fetch_all = False, commit = False)"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "0d223c3d7179f5eb",
+  "file_mtime": 1776794366000,
+  "file_size": 3555,
+  "file_birthtime": 1776794366272.5293,
+  "generated_at": "2026-06-17T19:35:20.977929Z",
+  "stale": false
+}

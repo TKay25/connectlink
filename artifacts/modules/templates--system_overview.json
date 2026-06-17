@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "SystemOverview",
+  "file": "templates/system_overview.html",
+  "purpose": "<!-- Describe what SystemOverview does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "6ca566b00680e85a",
+  "file_mtime": 1780660423917.9255,
+  "file_size": 12675,
+  "file_birthtime": 1780660423917.4172,
+  "generated_at": "2026-06-13T06:31:41.990Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

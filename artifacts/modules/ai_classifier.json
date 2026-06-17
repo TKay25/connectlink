@@ -1,0 +1,42 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "AiClassifier",
+  "file": "ai_classifier.py",
+  "purpose": "AI Product Category Classifier",
+  "entry_function": "class ProductCategoryClassifier  # line 10 — Classifies products into categories and subcategories using keyword matching + f",
+  "entry_flows": [
+    "ProductCategoryClassifier.__init__() → category_scores.items, product_name.lower, category_mapping.items, subcategory.lower"
+  ],
+  "public_api": [
+    "class ProductCategoryClassifier  # line 10 — Classifies products into categories and subcategories using keyword matching + f",
+    "  ProductCategoryClassifier.__init__()",
+    "  ProductCategoryClassifier.classify_product(product_name: str, description: str = '') -> Dict",
+    "  ProductCategoryClassifier.get_suggestions_for_partial_name(partial_name: str, limit: int = 3) -> List[Dict]",
+    "add_dynamic_category(category_name: str, subcategory_items: List[str]) -> bool",
+    "classify_product(product_name: str, description: str = '') -> Dict",
+    "get_category_suggestions(partial_name: str) -> List[Dict]"
+  ],
+  "dependencies": [
+    "fuzzywuzzy"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7bb761cfb65bd799",
+  "file_mtime": 1778160153002.9045,
+  "file_size": 15241,
+  "file_birthtime": 1778160153002.9045,
+  "generated_at": "2026-06-17T19:35:20.299259Z",
+  "stale": false
+}

@@ -1,0 +1,67 @@
+{
+  "last_sync": "2026-06-17T16:16:45.335Z",
+  "module_count": 37,
+  "empty_project": false,
+  "planning_ready": true,
+  "orphaned_count": 8,
+  "orphaned": [
+    {
+      "artifact": "artifacts/modules/LOCs.json",
+      "source": "LOCs.py"
+    },
+    {
+      "artifact": "artifacts/modules/templates--copy.json",
+      "source": "templates/copy.html"
+    },
+    {
+      "artifact": "artifacts/modules/templates--cv.json",
+      "source": "templates/cv.html"
+    },
+    {
+      "artifact": "artifacts/modules/templates--login hardware.json",
+      "source": "templates/login hardware.html"
+    },
+    {
+      "artifact": "artifacts/modules/templates--login.json",
+      "source": "templates/login.html"
+    },
+    {
+      "artifact": "artifacts/modules/templates--system_overview.json",
+      "source": "templates/system_overview.html"
+    },
+    {
+      "artifact": "artifacts/modules/templates--Untitled-2.json",
+      "source": "templates/Untitled-2.html"
+    },
+    {
+      "artifact": "artifacts/modules/test_pagination_api.json",
+      "source": "test_pagination_api.py"
+    }
+  ],
+  "recent_deletions": [
+    {
+      "rel": "templates/Untitled-2.html",
+      "ts": "2026-06-17T16:16:45.115Z"
+    },
+    {
+      "rel": "templates/system_overview.html",
+      "ts": "2026-06-17T16:16:45.060Z"
+    },
+    {
+      "rel": "templates/login.html",
+      "ts": "2026-06-17T16:16:44.985Z"
+    },
+    {
+      "rel": "templates/login hardware.html",
+      "ts": "2026-06-17T16:16:44.928Z"
+    },
+    {
+      "rel": "templates/cv.html",
+      "ts": "2026-06-17T16:16:44.873Z"
+    },
+    {
+      "rel": "templates/copy.html",
+      "ts": "2026-06-17T16:16:44.819Z"
+    }
+  ]
+}

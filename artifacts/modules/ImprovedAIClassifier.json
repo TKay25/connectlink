@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ImprovedAIClassifier",
+  "file": "ImprovedAIClassifier.py",
+  "purpose": "ImprovedProductClassifier: Enhanced AI classifier with 99%+ accuracy through:",
+  "entry_function": "class ImprovedProductClassifier  # line 10 — Enhanced AI classifier with 99%+ accuracy through:",
+  "entry_flows": [
+    "ImprovedProductClassifier.__init__(db_connection = None) → logging.getLogger, product_name.lower, fuzz.token_set_ratio, logger.info"
+  ],
+  "public_api": [
+    "class ImprovedProductClassifier  # line 10 — Enhanced AI classifier with 99%+ accuracy through:",
+    "  ImprovedProductClassifier.__init__(db_connection = None)",
+    "  ImprovedProductClassifier.classify_product(product_name: str, existing_products: list = None)",
+    "  ImprovedProductClassifier.learn_from_correction(product_name: str, correct_category: str, correct_subcategory: str)"
+  ],
+  "dependencies": [
+    "fuzzywuzzy"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "0fe9e84083c6090e",
+  "file_mtime": 1778160153000.0708,
+  "file_size": 14875,
+  "file_birthtime": 1778160153000.0708,
+  "generated_at": "2026-06-17T19:35:20.587175Z",
+  "stale": false
+}

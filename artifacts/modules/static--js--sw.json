@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Sw",
+  "file": "static/js/sw.js",
+  "purpose": "Sw",
+  "entry_function": "if",
+  "entry_flows": [],
+  "public_api": [
+    "if",
+    "fetch"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "a5a84dd0d8203665",
+  "file_mtime": 1781716751804.963,
+  "file_size": 1968,
+  "file_birthtime": 1781716751480.9402,
+  "generated_at": "2026-06-17T19:35:16.980640Z",
+  "stale": false
+}

@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Untitled2",
+  "file": "templates/Untitled-2.html",
+  "purpose": "<!-- Describe what Untitled2 does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "e25808092a0aade7",
+  "file_mtime": 1777997561026.3428,
+  "file_size": 9854,
+  "file_birthtime": 1776794366288.4639,
+  "generated_at": "2026-06-13T06:31:42.134Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

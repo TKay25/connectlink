@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Cv",
+  "file": "templates/cv.html",
+  "purpose": "<!-- Describe what Cv does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "d355a44648b978a4",
+  "file_mtime": 1781033973445.0999,
+  "file_size": 16841,
+  "file_birthtime": 1781022332747.3862,
+  "generated_at": "2026-06-13T06:31:41.864Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

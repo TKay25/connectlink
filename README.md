@@ -588,7 +588,7 @@ export SECRET_KEY="your-secure-key"
 pip install gunicorn
 
 # 3. Run with Gunicorn
-gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --worker-class gthread --timeout 120 --max-requests 200 --max-requests-jitter 50 ConnectLink:app
+gunicorn -w 4 -b 0.0.0.0:5000 ConnectLink:app
 
 # 4. Configure Nginx reverse proxy
 # See nginx.conf example in docs/

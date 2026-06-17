@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestColumns",
+  "file": "test_columns.py",
+  "purpose": "Debug script to check table structure and column ordering",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "test_columns → cursor.execute, cursor.fetchall, cursor.fetchone"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "f370f54b9760cdaa",
+  "file_mtime": 1776794366000,
+  "file_size": 1973,
+  "file_birthtime": 1776794366327.778,
+  "generated_at": "2026-06-17T19:35:21.338903Z",
+  "stale": false
+}

@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Settings",
+  "file": ".vscode/settings.json",
+  "purpose": "JSON config/data — 3 top-level keys",
+  "entry_function": "files.exclude",
+  "entry_flows": [],
+  "public_api": [
+    "files.exclude: dict",
+    "search.exclude: dict",
+    "files.readonlyInclude: dict"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "6e607125333b3d67",
+  "file_mtime": 1781332304895.971,
+  "file_size": 189,
+  "file_birthtime": 1781332304895.971,
+  "generated_at": "2026-06-16T08:30:06.216200Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

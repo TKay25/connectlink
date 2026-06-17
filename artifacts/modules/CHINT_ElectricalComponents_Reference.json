@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CHINTElectricalComponentsReference",
+  "file": "CHINT_ElectricalComponents_Reference.py",
+  "purpose": "<!-- main function",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ELECTRICAL_COMPONENTS_PRODUCTS = [{'name': 'CHINT Circuit Breaker 6A 230V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CB-6A', 'cost_price': 8.5, 'retail_price': 12.0, 'unit_type': 'Piece'}, {'name': 'CHINT Circuit Breaker 10A 230V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CB-10A', 'cost_price': 9.0, 'retail_price': 13.0, 'unit_type': 'Piece'}, {'name': 'CHINT Circuit Breaker 16A 230V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CB-16A', 'cost_price': 10.0, 'retail_price': 14.0, 'unit_type': 'Piece'}, {'name': 'CHINT Circuit Breaker 20A 230V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CB-20A', 'cost_price': 11.0, 'retail_price': 15.0, 'unit_type': 'Piece'}, {'name': 'CHINT Circuit Breaker 32A 230V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CB-32A', 'cost_price': 13.5, 'retail_price': 18.0, 'unit_type': 'Piece'}, {'name': 'CHINT Circuit Breaker 63A 230V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CB-63A', 'cost_price': 18.0, 'retail_price': 24.0, 'unit_type': 'Piece'}, {'name': 'CHINT Contactor 25A 24V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CONT-25A', 'cost_price': 15.0, 'retail_price': 22.0, 'unit_type': 'Piece'}, {'name': 'CHINT Contactor 40A 24V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CONT-40A', 'cost_price': 18.0, 'retail_price': 26.0, 'unit_type': 'Piece'}, {'name': 'CHINT Contactor 63A 24V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-CONT-63A', 'cost_price': 22.0, 'retail_price': 32.0, 'unit_type': 'Piece'}, {'name': 'CHINT Relay 24V DC', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-RELAY-24V', 'cost_price': 5.0, 'retail_price': 8.0, 'unit_type': 'Piece'}, {'name': 'CHINT Relay 220V AC', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-RELAY-220V', 'cost_price': 6.0, 'retail_price': 9.5, 'unit_type': 'Piece'}, {'name': 'CHINT Switch 1-Way 16A', 'category': 'Electrical', 'subcategory': 'Electrical Switches & Controls', 'sku': 'CHINT-SW-1W-16A', 'cost_price': 3.5, 'retail_price': 6.0, 'unit_type': 'Piece'}, {'name': 'CHINT Switch 2-Way 16A', 'category': 'Electrical', 'subcategory': 'Electrical Switches & Controls', 'sku': 'CHINT-SW-2W-16A', 'cost_price': 4.0, 'retail_price': 7.0, 'unit_type': 'Piece'}, {'name': 'CHINT Switch 3-Way 16A', 'category': 'Electrical', 'subcategory': 'Electrical Switches & Controls', 'sku': 'CHINT-SW-3W-16A', 'cost_price': 4.5, 'retail_price': 8.0, 'unit_type': 'Piece'}, {'name': 'CHINT Outlet Socket 16A 230V', 'category': 'Electrical', 'subcategory': 'Electrical Switches & Controls', 'sku': 'CHINT-OUT-16A', 'cost_price': 5.0, 'retail_price': 9.0, 'unit_type': 'Piece'}, {'name': 'CHINT Transformer 100VA 230V/24V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-TRANS-100VA', 'cost_price': 25.0, 'retail_price': 38.0, 'unit_type': 'Piece'}, {'name': 'CHINT Transformer 500VA 230V/24V', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'CHINT-TRANS-500VA', 'cost_price': 65.0, 'retail_price': 95.0, 'unit_type': 'Piece'}, {'name': 'Circuit Breaker MCB 16A Single Pole', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'MCB-16A-SP', 'cost_price': 6.0, 'retail_price': 10.0, 'unit_type': 'Piece'}, {'name': 'Circuit Breaker MCB 20A Double Pole', 'category': 'Electrical', 'subcategory': 'Electrical Components', 'sku': 'MCB-20A-DP', 'cost_price': 8.0, 'retail_price': 12.0, 'unit_type': 'Piece'}, {'name': 'Electrical Cable 2.5mm Single Core', 'category': 'Electrical', 'subcategory': 'Wires & Cables', 'sku': 'CABLE-2.5MM-SC', 'cost_price': 0.45, 'retail_price': 0.75, 'unit_type': 'Length (meter)'}, {'name': 'Electrical Cable 4mm Twin & Earth', 'category': 'Electrical', 'subcategory': 'Wires & Cables', 'sku': 'CABLE-4MM-T&E', 'cost_price': 0.85, 'retail_price': 1.4, 'unit_type': 'Length (meter)'}, {'name': 'Insulation Tape 3/4 inch', 'category': 'Electrical', 'subcategory': 'Electrical Accessories', 'sku': 'TAPE-INSUL-3/4', 'cost_price': 0.5, 'retail_price': 1.0, 'unit_type': 'Roll'}, {'name': 'Cable Saddles 25mm - Pack of 100', 'category': 'Electrical', 'subcategory': 'Electrical Accessories', 'sku': 'SADDLE-CABLE-25MM', 'cost_price': 8.0, 'retail_price': 12.0, 'unit_type': 'Pack'}], SQL_INSERT = '\\nINSERT INTO connectlinkinventory \\n(name, category, subcategory, sku, cost_price, retail_price, unit_type, stock_level, created_at)\\nVALUES (%(name)s, %(category)s, %(subcategory)s, %(sku)s, %(cost_price)s, %(retail_price)s, %(unit_type)s, 0, NOW());\\n'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "6db1f5b5b24b5ce3",
+  "file_mtime": 1778160152991.0295,
+  "file_size": 7846,
+  "file_birthtime": 1778160152991.0295,
+  "generated_at": "2026-06-17T19:35:20.077545Z",
+  "stale": false
+}

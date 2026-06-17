@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ConnectLink{% endblock %}</title>
+    
+    <!-- Bootstrap 5 (as fallback) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    
+    <!-- Design System CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
+    
+    <!-- Additional Styles -->
+    <style>
+        /* Page-specific spacing */
+        .page-container {
+            min-height: 100vh;
+            padding-top: 70px;
+            padding-bottom: 40px;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+            animation: fadeInDown 0.5s ease-out;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--gray-700);
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            font-size: 0.9rem;
+            color: var(--gray-500);
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .content-grid.wide {
+            grid-template-columns: 1fr;
+        }
+
+        .section-card {
+            background: white;
+            border-radius: var(--radius-2xl);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-base);
+        }
+
+        .section-card:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--gray-700);
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(181,13,13,0.05), rgba(10,43,62,0.05));
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all var(--transition-base);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+            color: var(--accent);
+            opacity: 0.2;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in-down {
+            animation: fadeInDown 0.5s ease-out;
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease-out;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Background Patterns -->
+    <div class="bg-pattern"></div>
+    <div class="bg-orbs"></div>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-glassmorphic">
+        <div class="container-fluid">
+            <a href="/" class="navbar-brand">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="ConnectLink">
+                <span class="brand-text">Connect<span>Link</span></span>
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    {% block navbar_items %}
+                    <li class="nav-item">
+                        <a href="/dashboard" class="nav-link">Dashboard</a>
+                    </li>
+                    {% endblock %}
+                    
+                    <li class="nav-item dropdown">
+                        <button class="btn btn-secondary btn-small dropdown-toggle" type="button">
+                            <i class="fas fa-user-circle"></i>
+                            Profile
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="/profile" class="dropdown-item">My Profile</a>
+                            <div class="dropdown-divider"></div>
+                            <a href="/api/logoutpos" class="dropdown-item">Logout</a>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="page-container">
+        <div class="container-lg">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <script>
+                            document.addEventListener('DOMContentLoaded', () => {
+                                Notification.show('{{ message }}', '{{ category }}');
+                            });
+                        </script>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Page Header -->
+            {% block page_header %}
+            <div class="page-header fade-in-down">
+                <h1 class="page-title">{% block page_title %}Welcome{% endblock %}</h1>
+                <p class="page-subtitle">{% block page_subtitle %}{% endblock %}</p>
+            </div>
+            {% endblock %}
+
+            <!-- Page Content -->
+            <div class="fade-in-up">
+                {% block content %}
+                <!-- Page content goes here -->
+                {% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container"></div>
+    <div class="notifications-container"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/components.js') }}"></script>
+
+    <!-- Initialize Components -->
+    <script>
+        // Auto-initialize dropdowns
+        document.querySelectorAll('.dropdown-toggle').forEach(toggle => {
+            const parent = toggle.closest('.dropdown') || toggle.parentElement;
+            const menu = parent.querySelector('.dropdown-menu');
+            if (menu) {
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menu.classList.toggle('active');
+                });
+                document.addEventListener('click', () => menu.classList.remove('active'));
+            }
+        });
+
+        // Toast notifications helper
+        function showToast(message, type = 'info', duration = 3000) {
+            Toast.show(message, type, duration);
+        }
+
+        // API Helper
+        async function apiCall(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                Toast.show(error.message, 'error');
+                throw error;
+            }
+        }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
