@@ -12040,6 +12040,16 @@ def download_contract(project_id):
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
             response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]} {project["project_name"]} contract_{project["project_id_num"]} ConnectLink Properties.pdf'
+            
+            # Log the contract download
+            log_activity(
+                'contract_downloaded',
+                f'Contract for {project["client_name"]} - {project["project_name"]} downloaded',
+                'project',
+                project['project_id_num'],
+                {'client_name': project['client_name'], 'project_name': project['project_name']}
+            )
+            
             return response
 
         except Exception as e:
@@ -13375,6 +13385,15 @@ def send_meta_template():
                     json.dumps(response_data)  # Store full API response
                 ))
                 connection.commit()
+            
+            # Log the reminder send
+            log_activity(
+                'payment_reminder_sent',
+                f'{status.title()} reminder sent to {client_name} for {project_name} (Installment #{installment_number}, ${amount_due:,.2f})',
+                'project',
+                None,
+                {'client_name': client_name, 'project_name': project_name, 'installment': installment_number, 'amount': amount_due, 'status': status}
+            )
             
             return jsonify({
                 'success': True,
@@ -19623,6 +19642,16 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
     try:
         send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption)
         mark_quotation_download_send_result(share_token, True, recipient_number)
+        
+        # Log the quotation download from WhatsApp
+        log_activity(
+            'quotation_downloaded',
+            f'Quotation #{quotation_id} downloaded via WhatsApp by {recipient_number}',
+            'quotation',
+            quotation_id,
+            {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token}
+        )
+        
         print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
         return True
     except Exception as exc:
@@ -19976,6 +20005,15 @@ def send_quotation_whatsapp():
                 snapshot_quotation_date=snapshot_quotation_date
             )
 
+        # Log the quotation send
+        log_activity(
+            'quotation_sent',
+            f'Quotation #{safe_qid} sent via WhatsApp to {client_name} ({whatsapp_number})',
+            'quotation',
+            safe_qid,
+            {'client_name': client_name, 'whatsapp_number': whatsapp_number, 'method': 'document'}
+        )
+
         print(f"✅ Quotation PDF accepted by WhatsApp API for {whatsapp_number}: {whatsapp_response}")
         return jsonify({
             'success': True,
@@ -20040,6 +20078,15 @@ def send_quotation_whatsapp():
                     snapshot_total_cost=q_total,
                     snapshot_markup=q_markup,
                     snapshot_quotation_date=q_date
+                )
+
+                # Log the quotation template send
+                log_activity(
+                    'quotation_sent',
+                    f'Quotation #{safe_qid} template sent to {client_name} ({whatsapp_number}) - outside 24h window',
+                    'quotation',
+                    safe_qid,
+                    {'client_name': client_name, 'whatsapp_number': whatsapp_number, 'method': 'template_fallback', 'share_token': share_token}
                 )
 
                 public_base = PUBLIC_BASE_URL or request.url_root.rstrip('/')

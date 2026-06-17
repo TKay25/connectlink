@@ -2910,8 +2910,8 @@ table.dataTable thead th.sorting_desc {
                         <!-- QUOTATIONS TAB -->
                         <div class="tab-pane fade" id="quotations-tab">
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openSentQuotationsModal()"><i class="bi bi-whatsapp"></i> Sent Quotations</button>
                                 <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="reloadQuotations()"><i class="bi bi-arrow-clockwise"></i> Reload</button>
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openSentQuotationsModal()"><i class="bi bi-whatsapp"></i> Sent</button>
                             </div>
                             <div id="quotationsContainer" style="color:var(--dark-blue-deep); padding:4px; font-size:0.6rem; background:#fafafa; border-radius:4px; min-height:100px;">
                                 <p class="text-muted text-center" style="padding:20px;">Click Reload to load quotations...</p>
@@ -17960,6 +17960,7 @@ function loadActivityLog() {
                 'project_created': 'bi-folder-plus', 'payment_updated': 'bi-cash', 'quotation_created': 'bi-file-text',
                 'quotation_edited': 'bi-pencil', 'quotation_sent': 'bi-send', 'project_altered': 'bi-pencil-square',
                 'project_deleted': 'bi-folder-x', 'quotation_deleted': 'bi-file-x', 'enquiry_deleted': 'bi-chat-square-x',
+                'quotation_downloaded': 'bi-download', 'contract_downloaded': 'bi-file-pdf', 'payment_reminder_sent': 'bi-bell',
                 'audit_corrected': 'bi-gear', 'user_action': 'bi-person', 'enquiry_action': 'bi-chat-dots',
                 'contractor_edited': 'bi-building', 'system': 'bi-gear-wide'
             };
@@ -17967,6 +17968,7 @@ function loadActivityLog() {
                 'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
                 'quotation_edited': '#C12B3E', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
                 'project_deleted': '#d32f2f', 'quotation_deleted': '#d32f2f', 'enquiry_deleted': '#d32f2f',
+                'quotation_downloaded': '#7b1fa2', 'contract_downloaded': '#1565c0', 'payment_reminder_sent': '#e65100',
                 'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
                 'contractor_edited': '#37474f', 'system': '#546e7a'
             };
@@ -18074,6 +18076,7 @@ function viewActivityDetails(itemStr) {
             'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
             'quotation_edited': '#C12B3E', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
             'project_deleted': '#d32f2f', 'quotation_deleted': '#d32f2f', 'enquiry_deleted': '#d32f2f',
+            'quotation_downloaded': '#7b1fa2', 'contract_downloaded': '#1565c0', 'payment_reminder_sent': '#e65100',
             'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
             'contractor_edited': '#37474f', 'system': '#546e7a'
         };
