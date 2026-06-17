@@ -16321,6 +16321,40 @@ def delete_main_enquiry(enquiry_id):
         return jsonify({'status': 'error', 'message': f'Failed to delete enquiry: {str(e)}'}), 500
 
 
+# PWA: Web App Manifest
+@app.route('/manifest.json')
+def pwa_manifest():
+    return jsonify({
+        "name": "ConnectLink Admin",
+        "short_name": "ConnectLink",
+        "description": "Construction project management system",
+        "start_url": "/dashboard",
+        "display": "standalone",
+        "background_color": "#0F1729",
+        "theme_color": "#1E293B",
+        "orientation": "any",
+        "categories": ["business", "productivity"],
+        "icons": [
+            {
+                "src": "/static/images/pwa-icon-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "/static/images/pwa-icon-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    })
+
+# PWA: Service Worker
+@app.route('/sw.js')
+def pwa_service_worker():
+    return app.send_static_file('js/sw.js')
+
 # Add these routes to your Flask app
 
 @app.route('/')
