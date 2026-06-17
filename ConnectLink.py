@@ -20192,6 +20192,24 @@ def save_quotation():
             connection.commit()
             print(f"✅ Quotation {quotation_id} saved successfully with total cost: {total_cost}")
             
+        # Log the activity
+        try:
+            log_activity(
+                'quotation_created',
+                f"Quotation #{quotation_id} for {client_name} ({category}) created - Total: ${total_cost:,.2f}",
+                reference_type='quotation',
+                reference_id=quotation_id,
+                details={
+                    'client_name': client_name,
+                    'category': category,
+                    'total_cost': total_cost,
+                    'item_count': len(items),
+                    'has_schedule': len(schedules) > 0
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log quotation activity: {log_err}")
+            
         return jsonify({
             'success': True,
             'message': 'Quotation saved successfully',
