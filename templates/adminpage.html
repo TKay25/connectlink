@@ -5391,6 +5391,26 @@ table.dataTable thead th.sorting_desc {
     </div>
 </div>
 
+<!-- Activity Detail Modal -->
+<div id="activityDetailModal" class="modal-overlay">
+    <div class="modal-container large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-info-circle"></i> Activity Details</h3>
+            <button class="close-modal" onclick="closeModal('activityDetailModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto; padding: 12px 16px;">
+            <div id="activityDetailContent"></div>
+        </div>
+        <div class="modal-footer-custom" style="padding: 8px 12px;">
+            <button type="button" class="btn btn-danger btn-sm" style="font-size: 0.85em; padding: 4px 14px;" onclick="closeModal('activityDetailModal')">
+                <i class="bi bi-x"></i> Close
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Remove User Modal - Blur Overlay Version -->
 <div id="removeUserModal" class="modal-overlay">
     <div class="modal-container">
@@ -5708,16 +5728,19 @@ table.dataTable thead th.sorting_desc {
                         </label>
 
                         <!-- Summary Box -->
-                        <div class="alert alert-light border mb-3" style="font-size: 0.75rem;">
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div><strong>Items:</strong> <span id="kitchenItemCount">0</span></div>
+                        <div class="alert alert-light border mb-3 py-2" style="font-size: 0.75rem;">
+                            <div class="row g-2">
+                                <div class="col-4 d-flex align-items-center gap-1">
+                                    <strong>Items:</strong>
+                                    <span id="kitchenItemCount" class="fw-bold text-primary">0</span>
                                 </div>
-                                <div class="col-md-4">
-                                    <div><strong>Total Days:</strong> <span id="kitchenTotalDays">0</span></div>
+                                <div class="col-4 d-flex align-items-center gap-1">
+                                    <strong>Total Days:</strong>
+                                    <span id="kitchenTotalDays" class="fw-bold text-primary">0</span>
                                 </div>
-                                <div class="col-md-4 text-end">
-                                    <div style="color: #2196F3; font-weight: bold; font-size: 1.1rem;">Total: $<span id="kitchenTotalCost">0.00</span></div>
+                                <div class="col-4 d-flex align-items-center justify-content-end gap-1">
+                                    <strong>Total:</strong>
+                                    <span style="color: #2196F3; font-weight: bold;">$<span id="kitchenTotalCost">0.00</span></span>
                                 </div>
                             </div>
                         </div>
@@ -18237,8 +18260,8 @@ function loadActivityLog() {
                 const color = actionColors[item.action_type] || '#666';
                 const time = item.created_at || '';
                 html += `
-                    <div class="clickable-row" onclick="viewActivityDetails('${escapeHtml(JSON.stringify(item).replace(/'/g, "\\'"))}')" 
-                         style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:white;border:1px solid var(--gray-200);border-radius:6px;font-size:0.55rem;transition:all 0.15s;">
+                    <div class="clickable-row activity-log-item" data-item='${escapeHtml(JSON.stringify(item))}' 
+                         style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:white;border:1px solid var(--gray-200);border-radius:6px;font-size:0.55rem;transition:all 0.15s;" onclick="viewActivityDetails(this)">
                         <div style="width:26px;height:26px;border-radius:6px;background:${color}15;color:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;">
                             <i class="bi ${icon}"></i>
                         </div>
@@ -18325,9 +18348,19 @@ function exportActivityExcel() {
         });
 }
 
-function viewActivityDetails(itemStr) {
+function viewActivityDetails(element) {
     try {
-        const item = typeof itemStr === 'string' ? JSON.parse(itemStr) : itemStr;
+        // Get item data from the clicked element's dataset
+        let item;
+        if (typeof element === 'string') {
+            try { item = JSON.parse(element); } catch(e) { item = null; }
+        } else if (element && element.dataset && element.dataset.item) {
+            item = JSON.parse(element.dataset.item);
+        } else {
+            console.error('Invalid activity detail call');
+            return;
+        }
+        if (!item) return;
         
         // Color map for action types
         const actionColors = {
@@ -18341,47 +18374,52 @@ function viewActivityDetails(itemStr) {
         const color = actionColors[item.action_type] || '#666';
         
         let html = `
-            <div style="display:flex;flex-direction:column;gap:8px;padding:4px;">
+            <div style="display:flex;flex-direction:column;gap:10px;padding:2px;">
+                <!-- Header Info Cards -->
                 <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;">
-                    <div style="flex:1;min-width:120px;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
-                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:2px;">Action Type</div>
-                        <span style="display:inline-block;font-size:0.55rem;font-weight:700;padding:2px 8px;border-radius:4px;background:${color}18;color:${color};text-transform:capitalize;">${item.action_type.replace(/_/g,' ')}</span>
+                    <div style="flex:1;min-width:130px;background:var(--gray-50);border-radius:10px;padding:10px 14px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:3px;">Action Type</div>
+                        <span style="display:inline-block;font-size:0.6rem;font-weight:700;padding:3px 10px;border-radius:5px;background:${color}18;color:${color};text-transform:capitalize;">${item.action_type.replace(/_/g,' ')}</span>
                     </div>
-                    <div style="flex:1;min-width:120px;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
-                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:2px;">User</div>
-                        <div style="font-size:0.65rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-person" style="margin-right:4px;"></i>${escapeHtml(item.user_name)}</div>
+                    <div style="flex:1;min-width:130px;background:var(--gray-50);border-radius:10px;padding:10px 14px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:3px;">User</div>
+                        <div style="font-size:0.7rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-person" style="margin-right:4px;"></i> ${escapeHtml(item.user_name)}</div>
                     </div>
-                    <div style="flex:1;min-width:120px;background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
-                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:2px;">Date/Time</div>
-                        <div style="font-size:0.65rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-clock" style="margin-right:4px;"></i>${item.created_at}</div>
+                    <div style="flex:1;min-width:130px;background:var(--gray-50);border-radius:10px;padding:10px 14px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:3px;">Date/Time</div>
+                        <div style="font-size:0.7rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-clock" style="margin-right:4px;"></i> ${item.created_at}</div>
                     </div>
                 </div>
-                <div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;border:1px solid var(--gray-200);">
+                
+                <!-- Description -->
+                <div style="background:var(--gray-50);border-radius:10px;padding:12px 14px;border:1px solid var(--gray-200);">
                     <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:4px;">Description</div>
-                    <div style="font-size:0.65rem;color:var(--text-primary);line-height:1.5;">${escapeHtml(item.description)}</div>
+                    <div style="font-size:0.7rem;color:var(--text-primary);line-height:1.5;">${escapeHtml(item.description)}</div>
                 </div>`;
         
+        // Reference info
         if (item.reference_type) {
             html += `
-                <div style="background:var(--gray-50);border-radius:8px;padding:8px 12px;border:1px solid var(--gray-200);">
-                    <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:2px;">Reference</div>
-                    <div style="font-size:0.65rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-tag" style="margin-right:4px;"></i>${item.reference_type} #${item.reference_id}</div>
+                <div style="background:var(--gray-50);border-radius:10px;padding:10px 14px;border:1px solid var(--gray-200);">
+                    <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:3px;">Reference</div>
+                    <div style="font-size:0.7rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-tag" style="margin-right:4px;"></i> ${item.reference_type} #${item.reference_id}</div>
                 </div>`;
         }
         
+        // Detailed breakdown
         if (item.details && item.details !== 'null') {
             try {
                 const details = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
                 let detailHtml = '';
                 for (const [k, v] of Object.entries(details)) {
                     const val = v !== null && v !== undefined ? String(v) : '';
-                    detailHtml += `<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--gray-200);">
-                        <span style="font-weight:600;color:var(--text-muted);flex:0 0 120px;font-size:0.6rem;">${k.replace(/_/g,' ')}</span>
-                        <span style="color:var(--text-primary);font-size:0.6rem;word-break:break-all;">${escapeHtml(val)}</span>
+                    detailHtml += `<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--gray-200);">
+                        <span style="font-weight:600;color:var(--text-muted);flex:0 0 130px;font-size:0.6rem;">${k.replace(/_/g,' ')}</span>
+                        <span style="color:var(--text-primary);font-size:0.65rem;word-break:break-all;">${escapeHtml(val)}</span>
                     </div>`;
                 }
-                html += `<div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;border:1px solid var(--gray-200);">
-                    <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:4px;"><i class="bi bi-list-ul"></i> Details</div>
+                html += `<div style="background:var(--gray-50);border-radius:10px;padding:12px 14px;border:1px solid var(--gray-200);">
+                    <div style="font-size:0.5rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:6px;"><i class="bi bi-list-ul"></i> Details</div>
                     ${detailHtml}
                 </div>`;
             } catch(e) {}
@@ -18389,25 +18427,9 @@ function viewActivityDetails(itemStr) {
         
         html += '</div>';
         
-        // Show in a modal
-        const existing = document.getElementById('activityDetailPopup');
-        if (existing) existing.remove();
-        
-        const popup = document.createElement('div');
-        popup.id = 'activityDetailPopup';
-        popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,26,58,0.5);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;';
-        popup.addEventListener('click', function(e) {
-            if (e.target === this) this.remove();
-        });
-        popup.innerHTML = `
-            <div style="background:white;border-radius:16px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
-                <div class="modal-header-custom"><h3><i class="bi bi-info-circle"></i> Activity Details</h3>
-                    <button class="close-modal" onclick="this.closest('#activityDetailPopup').remove()"><i class="bi bi-x-lg"></i></button>
-                </div>
-                <div class="modal-body-custom">${html}</div>
-                <div class="modal-footer-custom"><button class="btn btn-danger" onclick="this.closest('#activityDetailPopup').remove()"><i class="bi bi-x"></i> Close</button></div>
-            </div>`;
-        document.body.appendChild(popup);
+        // Populate and show the modal
+        document.getElementById('activityDetailContent').innerHTML = html;
+        openModal('activityDetailModal');
     } catch(e) { console.error('Activity detail error:', e); }
 }
 
