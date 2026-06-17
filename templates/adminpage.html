@@ -2838,6 +2838,37 @@ table.dataTable thead th,
                                 <button class="btn btn-danger" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('auditInstallmentsModal')"><i class="bi bi-credit-card-2-front-fill"></i> Audit</button>
                                 <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="Pushpaymentreminders()"><i class="bi bi-credit-card-2-front-fill"></i> Reminders</button>
                             </div>
+                            <!-- Payment Summary Cards -->
+                            <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:4px; margin-bottom:6px;">
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#059669,#10B981); border-radius:8px; padding:6px 8px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Paid Today</div>
+                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.today_paid|default(0)) }}</div>
+                                </div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#DC2626,#EF4444); border-radius:8px; padding:6px 8px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Overdue Today</div>
+                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.today_overdue|default(0)) }}</div>
+                                </div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#059669,#34D399); border-radius:8px; padding:6px 8px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Paid This Week</div>
+                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.week_paid|default(0)) }}</div>
+                                </div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#2563EB,#3B82F6); border-radius:8px; padding:6px 8px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Paid This Month</div>
+                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.month_paid|default(0)) }}</div>
+                                </div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#2563EB,#60A5FA); border-radius:8px; padding:6px 8px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Paid This Year</div>
+                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.year_paid|default(0)) }}</div>
+                                </div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#DC2626,#F87171); border-radius:8px; padding:6px 8px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Total Overdue</div>
+                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.total_overdue|default(0)) }}</div>
+                                </div>
+                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#D97706,#F59E0B); border-radius:8px; padding:6px 8px; text-align:center;">
+                                    <div style="font-size:0.5rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px;">Total Due</div>
+                                    <div style="font-size:0.75rem; font-weight:800; color:#fff;">${{ "%.2f"|format(payment_stats.total_due|default(0)) }}</div>
+                                </div>
+                            </div>
                             <div class="container2" style="overflow-y:auto; margin-top:4px;">
                                 {{ status_df_html|safe }}
                             </div>
