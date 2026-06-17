@@ -807,7 +807,7 @@ table.dataTable thead th.sorting_desc {
 
 .modal-header-custom h3 {
     color: white;
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     font-weight: 700;
     margin: 0;
     position: relative;
@@ -1435,7 +1435,7 @@ table.dataTable thead th.sorting_desc {
 
         .modal-header-custom h3 {
             color: white;
-            font-size: 0.7rem;
+            font-size: 0.85rem;
             font-weight: 700;
             margin: 0;
             position: relative;
@@ -3664,13 +3664,15 @@ table.dataTable thead th.sorting_desc {
                         <div class="card" style="padding:8px; background: var(--white);">
                             <h6 style="background-color:#1E2A56; font-weight:800; color: white; text-align: center; padding: 1%; border-radius: 10px; font-size: 0.7rem;">CLIENT DETAILS</h6>
 
-                            <div class="form-group mb-2">
-                                <label for="existing_client_select" class="form-label fw-bold" style="font-size: 0.65rem;">Select Existing Client:</label>
-                                <select class="form-control editable-field" id="existing_client_select" name="existing_client_select" style="color: var(--dark-blue-deep); font-size: 0.65rem;">
-                                    <option value="" style="font-size: 0.65rem;" selected disabled>-- Search or Select Client --</option>
-                                </select>
-                                <small class="text-muted" style="font-size: 0.65rem;">Selecting will auto-fill client and next of kin details</small>
+                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                <div class="col">
+                                    <select class="form-control editable-field" id="existing_client_select" name="existing_client_select" style="color: var(--dark-blue-deep); font-size: 0.65rem;">
+                                        <option value="" style="font-size: 0.65rem;" selected disabled>-- Search or Select Client --</option>
+                                    </select>
+                                </div>
+                                <label for="existing_client_select" class="col-auto col-form-label fw-bold" style="padding-left: 0.5rem; font-size: 0.65rem;">Select Existing Client:</label>
                             </div>
+                            <small class="text-muted" style="font-size: 0.65rem; display: block; text-align: right; margin-top: 2px;">Selecting will auto-fill client and next of kin details</small>
 
                             <hr style="margin: 0.5rem 0; border-top: 1px dashed #ccc;">
 
@@ -3758,14 +3760,18 @@ table.dataTable thead th.sorting_desc {
                                 </div>
                             </div>
 
-                            <div class="form-group mb-2">
-                                <label for="contractorAddress" style="color: var(--dark-blue-deep);">Address:</label>
-                                <input type="text" class="form-control editable-field" id="contractorAddress" value="38A Coronation Avenue Greendale Harare" readonly>
+                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                <div class="col">
+                                    <input type="text" class="form-control editable-field" id="contractorAddress" value="38A Coronation Avenue Greendale Harare" readonly>
+                                </div>
+                                <label for="contractorAddress" class="col-auto col-form-label" style="padding-left: 0.5rem; color: var(--dark-blue-deep);">Address:</label>
                             </div>
 
-                            <div class="form-group mb-2">
-                                <label for="contractorPhone" style="color: var(--dark-blue-deep);">Contact Number</label>
-                                <input type="text" class="form-control editable-field" id="contractorPhone" value="+263 773 368 558 ; +263 716 788 838" readonly>
+                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                <div class="col">
+                                    <input type="text" class="form-control editable-field" id="contractorPhone" value="+263 773 368 558 ; +263 716 788 838" readonly>
+                                </div>
+                                <label for="contractorPhone" class="col-auto col-form-label" style="padding-left: 0.5rem; color: var(--dark-blue-deep);">Contact Number</label>
                             </div>
 
                             <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
@@ -3775,14 +3781,16 @@ table.dataTable thead th.sorting_desc {
                                 </div>
                             </div>
 
-                            <div class="form-group">
-                                <label for="projectadministrator" style="color: var(--dark-blue-deep);">Administrator:</label>
-                                <select class="form-control editable-field" id="projectadministrator" name="projectadministrator" required>
+                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
+                                <div class="col">
+                                    <select class="form-control editable-field" id="projectadministrator" name="projectadministrator" required>
                                     <option value="" disabled selected>Select Administrator</option>
                                     {% for option in admin_options %}
                                         <option value="{{ option }}">{{ option }}</option>
                                     {% endfor %}
                                 </select>
+                                </div>
+                                <label for="projectadministrator" class="col-auto col-form-label" style="padding-left: 0.5rem; color: var(--dark-blue-deep);">Administrator:</label>
                             </div>
                         </div>
                     </div>
