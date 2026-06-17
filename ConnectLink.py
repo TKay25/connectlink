@@ -11149,7 +11149,47 @@ def download_contract(project_id):
 
             # Build work scope table HTML from linked quotation if available
             work_scope_html = ""
-            if quotation_id:
+            
+            # PRIORITY 1: Check if this project has adjusted schedules stored
+            try:
+                adjusted_schedules_json_idx = column_names.index('adjusted_schedules_json')
+                adjusted_schedules_json_str = row[adjusted_schedules_json_idx]
+                if adjusted_schedules_json_str:
+                    import json as json_module
+                    adjusted_schedules = json_module.loads(adjusted_schedules_json_str)
+                    if adjusted_schedules and len(adjusted_schedules) > 0:
+                        work_scope_rows = ""
+                        for idx, schedule in enumerate(adjusted_schedules, 1):
+                            work_scope = schedule.get('workScope', 'Task')
+                            start_date_str = schedule.get('startDate', '')
+                            end_date_str = schedule.get('endDate', '')
+                            days = schedule.get('days', '')
+                            work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{idx}. {work_scope}</td><td style='text-align: center; padding: 8px;'>{start_date_str}</td><td style='text-align: center; padding: 8px;'>{end_date_str}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days}</td></tr>"
+                        
+                        work_scope_html = f"""
+                            <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
+                            <table class="payment-table" style="margin-top: 12px; margin-bottom: 20px; font-size: 12px;">
+                                <thead>
+                                    <tr style="background: #1E2A56; color: white;">
+                                        <th style="width: 45%; text-align: left; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Work Scope</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Start Date</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">End Date</th>
+                                        <th style="width: 12%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Days</th>
+                                    </tr>
+                                </thead>
+                                <tbody style="font-size: 11px;">
+                                    {work_scope_rows}
+                                </tbody>
+                            </table>
+                            <div class="page-break"></div>
+                        """
+            except (ValueError, IndexError):
+                pass
+            except Exception as e:
+                print(f"Note: Could not parse project adjusted schedules: {e}")
+            
+            # PRIORITY 2: Fall back to linked quotation schedules + date offset
+            if not work_scope_html and quotation_id:
                 try:
                     # Fetch work schedules from quotation
                     cursor.execute("""
@@ -16779,6 +16819,13 @@ def update_project():
             quotation_clause = ", quotation_id = %s"
             values.append(quotation_id)
         
+        # Capture adjusted_schedules_json if provided
+        adjusted_schedules_clause = ""
+        adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
+        if adjusted_schedules_json_str:
+            adjusted_schedules_clause = ", adjusted_schedules_json = %s"
+            values.append(adjusted_schedules_json_str)
+        
         query = f"""
             UPDATE connectlinkdatabase
             SET 
@@ -16824,6 +16871,7 @@ def update_project():
                 installment9duedate = %s,
                 installment10duedate = %s
                 {quotation_clause}
+                {adjusted_schedules_clause}
             WHERE id = %s
         """
         
@@ -20822,45 +20870,39 @@ def get_quotation_schedule(quotation_id):
 
 @app.route('/api/update-project-schedule/<int:project_id>', methods=['POST'])
 def update_project_schedule(project_id):
-    """Update work schedule dates for a project"""
+    """Update work schedule dates for a project - saves to project's adjusted_schedules_json"""
     try:
         data = request.json
         schedules = data.get('schedules', [])
         
         with get_db() as (cursor, connection):
-            # Get the quotation_id from the project
+            # Verify project exists
             cursor.execute("""
-                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+                SELECT id FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             result = cursor.fetchone()
             
-            if not result or not result[0]:
+            if not result:
                 return jsonify({
                     'success': False,
-                    'message': 'No quotation linked to this project'
-                }), 400
+                    'message': 'Project not found'
+                }), 404
             
-            quotation_id = result[0]
+            # Save schedules as project-specific adjusted_schedules_json
+            import json as json_module
+            adjusted_schedules_json = json_module.dumps(schedules)
             
-            # Update each schedule's start and end dates and days
-            for idx, schedule in enumerate(schedules):
-                cursor.execute("""
-                    UPDATE quotation_schedules
-                    SET start_date = %s, end_date = %s, days = %s
-                    WHERE quotation_id = %s AND task_order = %s
-                """, (
-                    schedule.get('startDate'),
-                    schedule.get('endDate'),
-                    schedule.get('days', 0),
-                    quotation_id,
-                    idx + 1
-                ))
+            cursor.execute("""
+                UPDATE connectlinkdatabase
+                SET adjusted_schedules_json = %s
+                WHERE id = %s
+            """, (adjusted_schedules_json, project_id))
             
             connection.commit()
             
             return jsonify({
                 'success': True,
-                'message': f'Successfully updated {len(schedules)} schedule items'
+                'message': f'Successfully saved {len(schedules)} schedule items to project'
             })
     except Exception as e:
         logging.error(f'Error updating project schedule: {str(e)}')

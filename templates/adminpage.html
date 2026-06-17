@@ -2848,48 +2848,48 @@ table.dataTable thead th.sorting_desc {
                             </div>
                             <!-- Payment Summary Cards -->
                             <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(185px,1fr)); gap:4px; margin-bottom:6px;">
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#059669,#10B981); border-radius:8px; padding:8px 12px;">
-                                    <div style="font-size:0.7rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:4px;">TODAY</div>
+                                <div class="payment-stat-card" style="background:#e8f0fe; border:1.5px solid #d0dbf0; border-radius:8px; padding:8px 12px;">
+                                    <div style="font-size:0.7rem; color:#1E2A56; text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:4px;">TODAY</div>
                                     <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                                        <span style="color:rgba(255,255,255,0.7);">Paid</span>
-                                        <span style="color:#fff; font-weight:700;">${{ "{:,.2f}".format(payment_stats.today_paid|default(0)) }}</span>
+                                        <span style="color:#5a678a;">Paid</span>
+                                        <span style="color:#1E2A56; font-weight:700;">${{ "{:,.2f}".format(payment_stats.today_paid|default(0)) }}</span>
                                     </div>
                                     <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                                        <span style="color:rgba(255,255,255,0.7);">Due</span>
-                                        <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.today_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.6rem;">({{ payment_stats.today_overdue_projects|default(0) }} projects)</span></span>
-                                    </div>
-                                </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#059669,#34D399); border-radius:8px; padding:8px 12px;">
-                                    <div style="font-size:0.7rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:4px;">THIS WEEK</div>
-                                    <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                                        <span style="color:rgba(255,255,255,0.7);">Paid</span>
-                                        <span style="color:#fff; font-weight:700;">${{ "{:,.2f}".format(payment_stats.week_paid|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.6rem;">({{ payment_stats.week_paid_projects|default(0) }} projects)</span></span>
-                                    </div>
-                                    <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                                        <span style="color:rgba(255,255,255,0.7);">Overdue</span>
-                                        <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.week_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.6rem;">({{ payment_stats.week_overdue_projects|default(0) }} projects)</span></span>
+                                        <span style="color:#5a678a;">Due</span>
+                                        <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.today_overdue|default(0)) }} <span style="color:#5a678a;font-size:0.6rem;">({{ payment_stats.today_overdue_projects|default(0) }} projects)</span></span>
                                     </div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#2563EB,#3B82F6); border-radius:8px; padding:8px 12px;">
-                                    <div style="font-size:0.7rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:4px;">THIS MONTH</div>
+                                <div class="payment-stat-card" style="background:#e8f0fe; border:1.5px solid #d0dbf0; border-radius:8px; padding:8px 12px;">
+                                    <div style="font-size:0.7rem; color:#1E2A56; text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:4px;">THIS WEEK</div>
                                     <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                                        <span style="color:rgba(255,255,255,0.7);">Paid</span>
-                                        <span style="color:#fff; font-weight:700;">${{ "{:,.2f}".format(payment_stats.month_paid|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.6rem;">({{ payment_stats.month_paid_projects|default(0) }} projects)</span></span>
+                                        <span style="color:#5a678a;">Paid</span>
+                                        <span style="color:#1E2A56; font-weight:700;">${{ "{:,.2f}".format(payment_stats.week_paid|default(0)) }} <span style="color:#5a678a;font-size:0.6rem;">({{ payment_stats.week_paid_projects|default(0) }} projects)</span></span>
                                     </div>
                                     <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                                        <span style="color:rgba(255,255,255,0.7);">Overdue</span>
-                                        <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.month_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.6rem;">({{ payment_stats.month_overdue_projects|default(0) }} projects)</span></span>
+                                        <span style="color:#5a678a;">Overdue</span>
+                                        <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.week_overdue|default(0)) }} <span style="color:#5a678a;font-size:0.6rem;">({{ payment_stats.week_overdue_projects|default(0) }} projects)</span></span>
                                     </div>
                                 </div>
-                                <div class="payment-stat-card" style="background:linear-gradient(135deg,#2563EB,#60A5FA); border-radius:8px; padding:8px 12px;">
-                                    <div style="font-size:0.7rem; color:rgba(255,255,255,0.85); text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:4px;">THIS YEAR</div>
+                                <div class="payment-stat-card" style="background:#e8f0fe; border:1.5px solid #d0dbf0; border-radius:8px; padding:8px 12px;">
+                                    <div style="font-size:0.7rem; color:#1E2A56; text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:4px;">THIS MONTH</div>
                                     <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                                        <span style="color:rgba(255,255,255,0.7);">Paid</span>
-                                        <span style="color:#fff; font-weight:700;">${{ "{:,.2f}".format(payment_stats.year_paid|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.6rem;">({{ payment_stats.year_paid_projects|default(0) }} projects)</span></span>
+                                        <span style="color:#5a678a;">Paid</span>
+                                        <span style="color:#1E2A56; font-weight:700;">${{ "{:,.2f}".format(payment_stats.month_paid|default(0)) }} <span style="color:#5a678a;font-size:0.6rem;">({{ payment_stats.month_paid_projects|default(0) }} projects)</span></span>
                                     </div>
                                     <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
-                                        <span style="color:rgba(255,255,255,0.7);">Overdue</span>
-                                        <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.year_overdue|default(0)) }} <span style="color:rgba(255,255,255,0.5);font-size:0.6rem;">({{ payment_stats.year_overdue_projects|default(0) }} projects)</span></span>
+                                        <span style="color:#5a678a;">Overdue</span>
+                                        <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.month_overdue|default(0)) }} <span style="color:#5a678a;font-size:0.6rem;">({{ payment_stats.month_overdue_projects|default(0) }} projects)</span></span>
+                                    </div>
+                                </div>
+                                <div class="payment-stat-card" style="background:#e8f0fe; border:1.5px solid #d0dbf0; border-radius:8px; padding:8px 12px;">
+                                    <div style="font-size:0.7rem; color:#1E2A56; text-transform:uppercase; letter-spacing:0.3px; font-weight:700; margin-bottom:4px;">THIS YEAR</div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
+                                        <span style="color:#5a678a;">Paid</span>
+                                        <span style="color:#1E2A56; font-weight:700;">${{ "{:,.2f}".format(payment_stats.year_paid|default(0)) }} <span style="color:#5a678a;font-size:0.6rem;">({{ payment_stats.year_paid_projects|default(0) }} projects)</span></span>
+                                    </div>
+                                    <div style="display:flex; justify-content:space-between; font-size:0.7rem;">
+                                        <span style="color:#5a678a;">Overdue</span>
+                                        <span style="color:#C12B3E; font-weight:700;">${{ "{:,.2f}".format(payment_stats.year_overdue|default(0)) }} <span style="color:#5a678a;font-size:0.6rem;">({{ payment_stats.year_overdue_projects|default(0) }} projects)</span></span>
                                     </div>
                                 </div>
                                 <div class="payment-stat-card" style="background:#e8f0fe; border:1.5px solid #d0dbf0; border-radius:8px; padding:8px 12px; text-align:center;">
@@ -3861,6 +3861,7 @@ table.dataTable thead th.sorting_desc {
             <div class="modal-body-custom" style="max-height: 450px; overflow-y: auto;">
                 <input type="hidden" id="updateProjectId" name="project_id">
                 <input type="hidden" id="updateProjectQuotationId" name="project_quotation_id">
+                <input type="hidden" id="updateProjectAdjustedSchedules" name="adjusted_schedules_json" value="">
                 
                 <div class="row mb-3 g-3">
                     <div class="col-lg-2 col-md-3 col-sm-6">
