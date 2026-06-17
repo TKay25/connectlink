@@ -13952,8 +13952,8 @@ def run1(userid):
 
 def get_installment_audit_data():
     with get_db() as (cursor, connection):
-        # Get all projects
-        query = "SELECT * FROM connectlinkdatabase;"
+        # Get all projects with LIMIT to avoid memory issues
+        query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 500;"
         cursor.execute(query)
         projects = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]

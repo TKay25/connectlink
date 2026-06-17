@@ -6373,6 +6373,11 @@ function openModal(modalId) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
         
+        // Load installments audit data when audit modal opens
+        if (modalId === 'auditInstallmentsModal') {
+            loadAuditData();
+        }
+        
         // Reinitialize Quill editor when New Project modal opens
         if (modalId === 'addnewProjectModal') {
             setTimeout(() => {
