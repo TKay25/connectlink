@@ -3394,6 +3394,7 @@ table.dataTable thead th.sorting_desc {
                                 <div>
                                     <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadWhatsAppChats()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                     <button class="btn btn-success" style="font-size:0.55rem;padding:2px 8px;" onclick="openBulkMessaging()"><i class="bi bi-megaphone"></i> Bulk Message</button>
+                                    <button class="btn btn-outline-secondary" style="font-size:0.55rem;padding:2px 8px;" onclick="checkWhatsAppDebug()"><i class="bi bi-bug"></i> Debug</button>
                                 </div>
                                 <span id="whatsappChatCount" style="font-size:0.55rem;color:var(--text-muted);">0 conversations</span>
                             </div>
@@ -19037,8 +19038,18 @@ function loadWhatsAppChats() {
         .then(r => r.json())
         .then(res => {
             if (!res.success || !res.data || !res.data.length) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-whatsapp"></i></div><div class="empty-title">No Conversations</div><div class="empty-desc">No WhatsApp chats found yet.</div></div>';
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-whatsapp"></i></div><div class="empty-title">No Conversations</div><div class="empty-desc">No WhatsApp chats found yet. Click Debug to check connection status.</div></div>';
                 document.getElementById('whatsappChatCount').textContent = '0 conversations';
+                // Auto-run debug silently to check
+                fetch('/api/whatsapp-debug').then(r=>r.json()).then(d=>{
+                    if(d.success && d.data){
+                        const info = d.data;
+                        if(info.table_exists && info.message_count > 0) {
+                            // Messages exist but weren't returned — retry
+                            setTimeout(loadWhatsAppChats, 1000);
+                        }
+                    }
+                }).catch(()=>{});
                 return;
             }
             const chats = res.data;
@@ -19073,6 +19084,49 @@ function loadWhatsAppChats() {
         .catch(err => {
             console.error('WhatsApp chats error:', err);
             container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div></div>';
+        });
+}
+
+function checkWhatsAppDebug() {
+    const container = document.getElementById('whatsappChatList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Running diagnostics...</div>';
+    
+    fetch('/api/whatsapp-debug')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="empty-title">Debug Error</div></div>';
+                return;
+            }
+            const d = res.data;
+            let html = '<div style="font-size:0.5rem;padding:4px;background:var(--bg-card);border-radius:6px;">';
+            html += `<div style="font-weight:700;margin-bottom:4px;">🔍 WhatsApp Diagnostics</div>`;
+            html += `<div>📋 Table exists: <b>${d.table_exists ? '✅ Yes' : '❌ No'}</b></div>`;
+            html += `<div>💬 Messages in DB: <b>${d.message_count}</b></div>`;
+            html += `<div>📱 Phone ID: <b>${d.phone_number_id}</b></div>`;
+            html += `<div>🔌 Meta API: <b>${d.meta_api_status}</b></div>`;
+            if (d.recent_messages && d.recent_messages.length > 0) {
+                html += `<div style="margin-top:4px;font-weight:700;">📨 Recent messages:</div>`;
+                d.recent_messages.forEach(m => {
+                    html += `<div style="padding:2px 0;border-bottom:1px solid var(--border-color);">
+                        <span style="color:var(--text-muted);">${m.direction === 'incoming' ? '📩' : '📤'}</span>
+                        <b>${m.name || m.phone}</b>: ${m.text}
+                        <span style="color:var(--text-muted);float:right;">${m.time}</span>
+                    </div>`;
+                });
+            } else {
+                html += `<div style="margin-top:4px;color:#ff9800;">⚠️ No messages in database. Messages only appear when someone sends a message via webhook.</div>`;
+            }
+            if (d.db_error) {
+                html += `<div style="color:red;">❌ DB Error: ${d.db_error}</div>`;
+            }
+            html += `<div style="margin-top:6px;"><button class="btn btn-primary" style="font-size:0.5rem;padding:2px 8px;" onclick="loadWhatsAppChats()"><i class="bi bi-arrow-clockwise"></i> Refresh Chats</button></div>`;
+            html += '</div>';
+            container.innerHTML = html;
+        })
+        .catch(err => {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Debug Connection Error</div></div>';
         });
 }
 

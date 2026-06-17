@@ -10993,12 +10993,55 @@ def change_password():
 
 @app.route('/api/whatsapp-chats', methods=['GET'])
 def whatsapp_chats():
-    """Get grouped WhatsApp conversations from whatsapp_messages table"""
+    """Get grouped WhatsApp conversations from Meta API + whatsapp_messages table"""
     user_uuid = session.get('user_uuid')
     user_id = session.get('user_id') or session.get('userid')
     if not user_uuid and not user_id:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     try:
+        # Step 1: Try fetching conversations from Meta Conversations API
+        try:
+            headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+            conv_url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/conversations?limit=100"
+            conv_resp = requests.get(conv_url, headers=headers, timeout=10)
+            if conv_resp.status_code == 200:
+                conv_data = conv_resp.json()
+                api_conversations = conv_data.get('data', [])
+                print(f"📞 Meta API returned {len(api_conversations)} conversations")
+                
+                if api_conversations:
+                    with get_db() as (save_cursor, save_conn):
+                        synced_count = 0
+                        for conv in api_conversations:
+                            conv_msg = conv.get('message', {})
+                            sender_wa_id = conv_msg.get('from', '')
+                            if not sender_wa_id or sender_wa_id == PHONE_NUMBER_ID:
+                                continue
+                            last_text = ''
+                            msg_type = conv_msg.get('type', '')
+                            if msg_type == 'text':
+                                text_data = conv_msg.get('text', {})
+                                last_text = text_data.get('body', '') if text_data else ''
+                            elif msg_type in ('image', 'document', 'audio', 'video'):
+                                last_text = f'[{msg_type.capitalize()}]'
+                            
+                            save_cursor.execute(
+                                "SELECT COUNT(*) FROM whatsapp_messages WHERE sender_phone = %s",
+                                (sender_wa_id,)
+                            )
+                            if save_cursor.fetchone()[0] == 0:
+                                save_cursor.execute("""
+                                    INSERT INTO whatsapp_messages 
+                                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                                    VALUES (%s, %s, %s, %s, 'incoming', 'received')
+                                """, (sender_wa_id, sender_wa_id, f"[Meta API] {last_text[:200]}" if last_text else "[Synced from Meta Conversations API]", msg_type or 'unknown'))
+                                synced_count += 1
+                        save_conn.commit()
+                        print(f"✅ Synced {synced_count} new conversations from Meta API")
+        except Exception as api_err:
+            print(f"⚠️ Meta Conversations API error (non-fatal): {api_err}")
+        
+        # Step 2: Query whatsapp_messages table for grouped conversations
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT sender_phone,
@@ -11028,10 +11071,70 @@ def whatsapp_chats():
                     'last_message': r[4] or '',
                     'status': r[5] or 'received'
                 })
-            return jsonify({'success': True, 'data': chats})
+            return jsonify({'success': True, 'data': chats, 'synced': True})
     except Exception as e:
         print(f"WhatsApp chats error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-debug', methods=['GET'])
+def whatsapp_debug():
+    """Diagnostic endpoint to check WhatsApp webhook and database status"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    result = {
+        'table_exists': False,
+        'message_count': 0,
+        'webhook_verify_token': VERIFY_TOKEN[:5] + '...',
+        'phone_number_id': PHONE_NUMBER_ID,
+        'meta_api_status': 'unknown',
+        'recent_messages': []
+    }
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'whatsapp_messages'
+                )
+            """)
+            result['table_exists'] = cursor.fetchone()[0]
+            
+            if result['table_exists']:
+                cursor.execute("SELECT COUNT(*) FROM whatsapp_messages")
+                result['message_count'] = cursor.fetchone()[0]
+                
+                cursor.execute("""
+                    SELECT sender_phone, sender_name, message_text, direction, created_at
+                    FROM whatsapp_messages
+                    ORDER BY id DESC LIMIT 10
+                """)
+                recent = cursor.fetchall()
+                for r in recent:
+                    result['recent_messages'].append({
+                        'phone': str(r[0]) if r[0] else '',
+                        'name': r[1] or '',
+                        'text': (r[2] or '')[:100],
+                        'direction': r[3] or '',
+                        'time': r[4].strftime('%Y-%m-%d %H:%M:%S') if r[4] else ''
+                    })
+    except Exception as db_err:
+        result['db_error'] = str(db_err)
+    
+    # Test Meta API connection
+    try:
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        test_url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}"
+        test_resp = requests.get(test_url, headers=headers, timeout=10)
+        result['meta_api_status'] = 'ok' if test_resp.status_code == 200 else f'error: {test_resp.status_code}'
+        if test_resp.status_code == 200:
+            result['meta_api_data'] = test_resp.json()
+    except Exception as api_err:
+        result['meta_api_status'] = f'exception: {api_err}'
+    
+    return jsonify({'success': True, 'data': result})
 
 @app.route('/api/whatsapp-messages/<phone_number>', methods=['GET'])
 def whatsapp_messages(phone_number):
