@@ -34,6 +34,7 @@ import time
 import random
 import logging
 from decimal import Decimal
+import gc
 import google.generativeai as genai
 from flask_cors import CORS
 import secrets
@@ -13464,15 +13465,27 @@ def run1(userid):
         today_date = datetime.now().strftime('%d %B %Y')
         applied_date = datetime.now().strftime('%Y-%m-%d')
 
-        enquiriesdataquery = f"SELECT * FROM connectlinkenquiries ORDER BY id DESC LIMIT 500;"
+        # IMPORTANT: Avoid SELECT * on enquiries - exclude large BLOB columns (plan, document)
+        enquiriesdataquery = """SELECT id, timestamp, clientwhatsapp, enqcategory, enq, 
+                               status, username, plan IS NOT NULL as has_plan
+                               FROM connectlinkenquiries ORDER BY id DESC LIMIT 200;"""
         cursor.execute(enquiriesdataquery)
         enquiriesdata = cursor.fetchall()
+        cols_enq = [desc[0] for desc in cursor.description]
 
-        enquiriesdatamain = pd.DataFrame(enquiriesdata, columns=['ID','Timestamp','Contact','Enquiry','Description','Document','Username','Status'])
+        enquiriesdatamain = pd.DataFrame(enquiriesdata, columns=cols_enq if cols_enq else ['id','timestamp','clientwhatsapp','enqcategory','enq','status','username','has_plan'])
+        enquiriesdatamain = enquiriesdatamain.rename(columns={
+            'id': 'ID', 'timestamp': 'Timestamp', 'clientwhatsapp': 'Contact', 
+            'enqcategory': 'Enquiry', 'enq': 'Description', 'status': 'Status', 'username': 'Username'
+        })
+        enquiriesdatamain['Document'] = enquiriesdatamain.apply(
+            lambda r: f'<button class="btn btn-sm btn-info view-plan-btn" data-enquiry-id="{r.get("ID",0)}">View Plan</button>' 
+            if r.get('has_plan', False) else '<span class="badge bg-secondary">No Plan</span>', axis=1
+        )
         enquiriesdatamain = enquiriesdatamain[['ID','Timestamp','Username','Contact','Enquiry','Description','Document','Status']]
         enquiriesdatamain_html = enquiriesdatamain.to_html(classes="table table-bordered table-theme", table_id="allenquiriesTable", index=False,  escape=False,)
 
-        usersdataquerytempenq = f"SELECT * FROM appenqtemp ORDER BY id DESC LIMIT 500;"
+        usersdataquerytempenq = f"SELECT * FROM appenqtemp ORDER BY id DESC LIMIT 200;"
         cursor.execute(usersdataquerytempenq)
         usersdataquerytempenqfetch = cursor.fetchall()
         print(usersdataquerytempenqfetch)
@@ -13527,7 +13540,8 @@ def run1(userid):
         # quotation_id column is already added during initialize_database_tables()
         # No need to check/add it again here
         
-        maindataquery = f"SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 500;"
+        # Only select needed columns to minimize memory - avoid large text fields if possible
+        maindataquery = f"SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
         cursor.execute(maindataquery)
         maindata = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
@@ -13950,6 +13964,18 @@ def run1(userid):
         # Calculate payment reminders data
         payment_reminders = get_payment_reminders_data(datamain2)
 
+        # === MEMORY CLEANUP ===
+        # Delete large DataFrames that are no longer needed
+        del datamain
+        del datamain2
+        del status_df
+        del enquiriesdata
+        del usersdata
+        del adminsdata
+        del maindata
+        del table_data
+        gc.collect()
+
         return {
             'payment_reminders': payment_reminders,
             'payment_stats': payment_stats,
@@ -13984,7 +14010,7 @@ def run1(userid):
 def get_installment_audit_data():
     with get_db() as (cursor, connection):
         # Get all projects with LIMIT to avoid memory issues
-        query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 500;"
+        query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
         cursor.execute(query)
         projects = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
@@ -14271,7 +14297,7 @@ def get_enquiries_data():
                        plan IS NOT NULL as has_plan, status, username
                 FROM connectlinkenquiries 
                 ORDER BY id DESC
-                LIMIT 500
+                LIMIT 200
             """)
             enquiries = cursor.fetchall()
             
