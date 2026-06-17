@@ -209,6 +209,77 @@
   font-size: 0.55rem;
   color: white;
 }
+/* User Dropdown Menu */
+.user-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(10,26,58,0.2);
+  border: 1px solid var(--gray-200);
+  z-index: 99999;
+  overflow: hidden;
+}
+.user-dropdown-menu .dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--gray-50);
+}
+.user-dropdown-menu .dropdown-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1E2A56, #C12B3E);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: white;
+  flex-shrink: 0;
+}
+.user-dropdown-menu .dropdown-user-name {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.7rem;
+}
+.user-dropdown-menu .dropdown-user-role {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+}
+.user-dropdown-menu .dropdown-divider {
+  height: 1px;
+  background: var(--gray-200);
+  margin: 0;
+}
+.user-dropdown-menu .dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 0.65rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.user-dropdown-menu .dropdown-item:hover {
+  background: var(--gray-50);
+}
+.user-dropdown-menu .dropdown-item i {
+  font-size: 0.8rem;
+  width: 20px;
+  text-align: center;
+}
+.user-dropdown-menu .dropdown-item.text-danger {
+  color: #d32f2f;
+}
+.user-dropdown-menu .dropdown-item.text-danger:hover {
+  background: #fef2f2;
+}
 /* Hide old sidebar */
 .sidebar {
   display: none !important;
@@ -2151,6 +2222,47 @@ table.dataTable thead th.sorting_desc {
         max-height: none;
     }
 
+    /* --- Sticky Table Headers --- */
+    .container2 thead,
+    .table-scroll-container thead {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+    }
+    .container2 table.dataTable thead,
+    .table-scroll-container table.dataTable thead {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+    }
+    .container2 table.dataTable thead th,
+    .table-scroll-container table.dataTable thead th {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: #1E2A56;
+        color: white;
+    }
+    /* Sticky DataTables filter inside scrollable containers */
+    .container2 .dataTables_wrapper .dataTables_filter,
+    .table-scroll-container .dataTables_wrapper .dataTables_filter {
+        position: sticky;
+        top: 0;
+        z-index: 25;
+        padding: 6px 4px;
+        background: white;
+        border-bottom: 1px solid var(--gray-200);
+    }
+    /* When filter is sticky above thead, offset thead below it */
+    .container2 .dataTables_wrapper .dataTables_filter + table.dataTable thead,
+    .table-scroll-container .dataTables_wrapper .dataTables_filter + table.dataTable thead {
+        top: 34px;
+    }
+    .container2 .dataTables_wrapper .dataTables_filter + table.dataTable thead th,
+    .table-scroll-container .dataTables_wrapper .dataTables_filter + table.dataTable thead th {
+        top: 34px;
+    }
+
     /* --- Card Hover Elevation --- */
     .card, .summary-card, .graph-card {
         transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -2685,12 +2797,33 @@ table.dataTable thead th.sorting_desc {
     <div class="brand">
         <img src="{{ url_for('static', filename='images/web-logo-white.png') }}" alt="ConnectLink">
     </div>
-    <div class="nav-actions">
-        <div class="user-badge">
+    <div class="nav-actions" style="position:relative;">
+        <div class="user-badge" onclick="toggleUserDropdown(event)" style="cursor:pointer;">
             <div class="avatar">{{ user_name[0]|upper }}</div>
             <span class="user-text">{{ user_name }}</span>
             <span class="user-role-text" style="font-size:0.55rem;opacity:0.7;margin-left:4px;">Admin</span>
             <i class="bi bi-chevron-down" style="font-size:0.6rem;opacity:0.6;margin-left:2px;"></i>
+        </div>
+        <!-- User Dropdown Menu -->
+        <div id="userDropdown" class="user-dropdown-menu" style="display:none;">
+            <div class="dropdown-header">
+                <div class="dropdown-avatar">{{ user_name[0]|upper }}</div>
+                <div>
+                    <div class="dropdown-user-name">{{ user_name }}</div>
+                    <div class="dropdown-user-role">Administrator</div>
+                </div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item" onclick="openProfileModal(); closeUserDropdown();">
+                <i class="bi bi-person-circle"></i> Profile
+            </div>
+            <div class="dropdown-item" onclick="closeUserDropdown();">
+                <i class="bi bi-gear"></i> Settings
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-item text-danger" onclick="handleLogout()">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </div>
         </div>
     </div>
 </nav>
@@ -3301,6 +3434,25 @@ table.dataTable thead th.sorting_desc {
             <button type="button" class="btn btn-primary" id="confirmSaveProjectBtn">
                 <i class="bi bi-check-circle"></i> Confirm & Save Project
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Profile Modal -->
+<div id="profileModal" class="modal-overlay">
+    <div class="modal-container" style="max-width: 500px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-person-circle"></i> My Profile</h3>
+            <button class="close-modal" onclick="closeModal('profileModal')"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto;">
+            <div id="profileContent" style="text-align:center;padding:20px;">
+                <div class="spinner-border text-primary"></div>
+                <div style="margin-top:10px;font-size:0.7rem;color:var(--text-muted);">Loading profile...</div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('profileModal')">Close</button>
         </div>
     </div>
 </div>
@@ -6419,6 +6571,91 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM ready');
 });
 
+// ==================== USER DROPDOWN & PROFILE ====================
+
+/** Toggle user dropdown menu */
+function toggleUserDropdown(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById('userDropdown');
+    if (!dropdown) return;
+    const isVisible = dropdown.style.display === 'block';
+    dropdown.style.display = isVisible ? 'none' : 'block';
+}
+
+/** Close user dropdown */
+function closeUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+/** Open profile modal and load user data */
+function openProfileModal() {
+    closeUserDropdown();
+    const modal = document.getElementById('profileModal');
+    if (!modal) return;
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    const content = document.getElementById('profileContent');
+    if (!content) return;
+    
+    // Load user profile data
+    fetch('/api/user-profile')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data) {
+                content.innerHTML = '<div style="color:#d32f2f;padding:20px;">Failed to load profile</div>';
+                return;
+            }
+            const u = res.data;
+            const initial = (u.name || 'U')[0].toUpperCase();
+            content.innerHTML = `
+                <div style="margin-bottom:16px;">
+                    <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#1E2A56,#C12B3E);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700;color:white;margin:0 auto 10px;">${initial}</div>
+                    <div style="font-size:1rem;font-weight:700;color:var(--text-primary);">${escapeHtml(u.name || '')}</div>
+                    <div style="font-size:0.6rem;color:var(--text-muted);">Administrator</div>
+                </div>
+                <div style="text-align:left;background:var(--gray-50);border-radius:8px;padding:12px;border:1px solid var(--gray-200);">
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-200);font-size:0.6rem;">
+                        <span style="color:var(--text-muted);">Email</span>
+                        <span style="color:var(--text-primary);font-weight:600;">${escapeHtml(u.email || '—')}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gray-200);font-size:0.6rem;">
+                        <span style="color:var(--text-muted);">WhatsApp</span>
+                        <span style="color:var(--text-primary);font-weight:600;">${escapeHtml(u.whatsapp || '—')}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:0.6rem;">
+                        <span style="color:var(--text-muted);">Member Since</span>
+                        <span style="color:var(--text-primary);font-weight:600;">${u.datecreated || '—'}</span>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(err => {
+            console.error('Profile fetch error:', err);
+            content.innerHTML = '<div style="color:#d32f2f;padding:20px;">Error loading profile</div>';
+        });
+}
+
+/** Handle logout */
+function handleLogout() {
+    closeUserDropdown();
+    if (confirm('Are you sure you want to logout?')) {
+        window.location.href = '/logout';
+    }
+}
+
+// Close dropdown when clicking anywhere else
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown && dropdown.style.display === 'block') {
+        const badge = document.querySelector('.user-badge');
+        if (badge && !badge.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    }
+});
+
 // Modal functions for blur overlay
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
@@ -6628,6 +6865,9 @@ function initializeDataTableForProjects() {
     });
     
     console.log('DataTable reinitialized with', table.rows.length, 'rows');
+    
+    // Re-apply sticky headers after DataTable re-init
+    setTimeout(setupStickyTableHeaders, 50);
 }
 
 // Initialize existing clients dropdown with search capability
@@ -11416,6 +11656,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.warn('DataTable initialization failed for allprojectsTable:', error);
         }
+        setTimeout(setupStickyTableHeaders, 50);
     }
     
     console.log('DataTable initialized with column visibility settings');
@@ -11568,7 +11809,50 @@ $(document).ready(function() {
         });
         console.log('✅ Audit results table initialized');
     }
+
+    // Setup sticky headers for all table containers
+    setupStickyTableHeaders();
 });
+
+/**
+ * Make table headers and search inputs sticky inside scrollable containers.
+ */
+function setupStickyTableHeaders() {
+    document.querySelectorAll('.container2, .table-scroll-container').forEach(container => {
+        // Find the DataTables filter inside this container
+        const filter = container.querySelector('.dataTables_filter');
+        const thead = container.querySelector('thead');
+        
+        if (filter) {
+            filter.style.position = 'sticky';
+            filter.style.top = '0';
+            filter.style.zIndex = '25';
+            filter.style.background = 'white';
+            filter.style.padding = '6px 4px';
+            filter.style.borderBottom = '1px solid var(--gray-200)';
+            
+            // Offset thead below the filter
+            if (thead) {
+                const filterHeight = filter.offsetHeight || 34;
+                thead.style.top = filterHeight + 'px';
+                thead.querySelectorAll('th').forEach(th => {
+                    th.style.top = filterHeight + 'px';
+                });
+            }
+        } else if (thead) {
+            thead.style.position = 'sticky';
+            thead.style.top = '0';
+            thead.style.zIndex = '20';
+            thead.querySelectorAll('th').forEach(th => {
+                th.style.position = 'sticky';
+                th.style.top = '0';
+                th.style.zIndex = '20';
+                th.style.background = '#1E2A56';
+                th.style.color = 'white';
+            });
+        }
+    });
+}
     
     // Auto-filter to latest month on page load
     const monthFilterElement = document.getElementById('monthFilter');

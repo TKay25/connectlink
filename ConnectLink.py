@@ -19464,7 +19464,7 @@ def build_quotation_pdf_document(quotation_id):
             filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
             
             # Format category for caption display
-            caption_category = "Single Storey Construction" if category == "construction_single" else "Double Storey Construction" if category == "construction_double" else category
+            caption_category = format_quotation_category(category)
             caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
             
             return pdf_bytes, filename, caption
@@ -19472,6 +19472,17 @@ def build_quotation_pdf_document(quotation_id):
     except Exception as e:
         logging.error(f'Error building quotation PDF: {str(e)}')
         raise
+
+
+def format_quotation_category(category, is_kitchen=False):
+    """Convert raw category value to user-friendly display name"""
+    if is_kitchen:
+        return "Kitchen & Cabinets"
+    if category == "construction_single":
+        return "Single Storey Construction"
+    if category == "construction_double":
+        return "Double Storey Construction"
+    return category.replace('_', ' ').title()
 
 
 def generate_quotation_html(client_name, quotation_date, category, total_cost, items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen=False):
@@ -19489,14 +19500,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
         payment_period_text = "5 months"
     
     # Format category for PDF display
-    if is_kitchen:
-        category_display = "Kitchen & Cabinets"
-    elif category == "construction_single":
-        category_display = "Single Storey Construction"
-    elif category == "construction_double":
-        category_display = "Double Storey Construction"
-    else:
-        category_display = category.replace('_', ' ').title()
+    category_display = format_quotation_category(category, is_kitchen)
     
     return f"""
     <!DOCTYPE html>
@@ -19684,6 +19688,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
     }
 
     size_str = str(int(float(project_size))) if project_size else '0'
+    display_category = format_quotation_category(category)
 
     payload = {
         "messaging_product": "whatsapp",
@@ -19697,7 +19702,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
                     "type": "body",
                     "parameters": [
                         {"type": "text", "text": client_name or "Valued Client"},
-                        {"type": "text", "text": category or "Construction"},
+                        {"type": "text", "text": display_category or "Construction"},
                         {"type": "text", "text": size_str}
                     ]
                 },
@@ -19963,9 +19968,10 @@ def send_quotation_whatsapp():
 
         safe_name = ''.join(char for char in str(client_name) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
         filename = f"Quotation_{safe_name}_{safe_qid}.pdf"
+        caption_category = format_quotation_category(snapshot_category)
         caption = (
             f"PROJECT QUOTATION\n\nClient: {client_name}\n"
-            f"Category: {snapshot_category or 'Construction'}\n"
+            f"Category: {caption_category}\n"
             f"Total: USD {float(snapshot_total_cost or 0):,.2f}\n\n"
             "Send 'Hello' for more options."
         )
