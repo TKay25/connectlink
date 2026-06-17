@@ -1714,96 +1714,62 @@ body {
 
         /* Quick Action Cards */
         .quick-action-card {
-            background: linear-gradient(135deg, rgba(193, 43, 62, 0.08) 0%, rgba(193, 43, 62, 0.02) 100%);
-            border: 1px solid rgba(193, 43, 62, 0.2);
-            border-radius: 6px;
-            padding: 8px 12px;
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 10px;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.2s ease;
             animation: fadeInUp 0.5s ease-out backwards;
-            min-height: 32px;
+            box-shadow: var(--shadow-sm);
         }
-
         .quick-action-card .action-icon {
-            width: 24px !important;
-            height: 24px !important;
-            font-size: 0.75rem !important;
-            border-radius: 4px !important;
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
             flex-shrink: 0;
-        }
-        .quick-action-card .action-icon i {
-            font-size: 0.75rem !important;
-        }
-        .quick-action-card .action-title {
-            font-size: 0.6rem !important;
-            font-weight: 600;
-            margin-bottom: 0;
-        }
-        .quick-action-card .action-description {
-            font-size: 0.6rem !important;
-            color: rgba(14, 31, 66, 0.5);
-            margin-top: 0;
-        }
-        .quick-action-card .action-arrow {
-            font-size: 0.7rem !important;
-        }
-        .quick-action-card .action-arrow i {
-            font-size: 0.65rem !important;
-        }
-
-        .quick-action-card:nth-child(1) { animation-delay: 0.2s; }
-        .quick-action-card:nth-child(2) { animation-delay: 0.3s; }
-        .quick-action-card:nth-child(3) { animation-delay: 0.4s; }
-        .quick-action-card:nth-child(4) { animation-delay: 0.5s; }
-
-        .quick-action-card:hover {
-            background: linear-gradient(135deg, rgba(193, 43, 62, 0.15) 0%, rgba(193, 43, 62, 0.08) 100%);
-            transform: translateY(-2px);
-            border-color: rgba(193, 43, 62, 0.4);
-            box-shadow: 0 4px 12px rgba(193, 43, 62, 0.15);
-        }
-
-        .action-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 8px;
-            background: linear-gradient(135deg, var(--crimson-bright) 0%, #E91E63 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-            flex-shrink: 0;
+            font-size: 0.85rem;
         }
-
-        .action-content {
-            flex: 1;
+        .quick-action-card .action-icon i { font-size: 0.85rem; }
+        .quick-action-card:nth-child(1) .action-icon { background: #e8f0fe; color: #1a73e8; }
+        .quick-action-card:nth-child(2) .action-icon { background: #e6f7e6; color: #2e7d32; }
+        .quick-action-card:nth-child(3) .action-icon { background: #fff3e0; color: #ef6c00; }
+        .quick-action-card:nth-child(4) .action-icon { background: #f3e8ff; color: #7c3aed; }
+        .quick-action-card .action-content { flex: 1; }
+        .quick-action-card .action-title {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 0.6rem;
+            margin-bottom: 1px;
         }
-
-        .action-title {
-            font-weight: 600;
-            color: var(--dark-blue-deep);
-            font-size: 0.75rem;
+        .quick-action-card .action-description {
+            color: var(--text-muted);
+            font-size: 0.5rem;
         }
-
-        .action-description {
-            color: rgba(14, 31, 66, 0.6);
-            font-size: 0.75rem;
-            margin-top: 2px;
+        .quick-action-card .action-arrow {
+            color: var(--gray-400);
+            font-size: 0.65rem;
+            transition: transform 0.2s ease;
         }
-
-        .action-arrow {
-            color: var(--crimson-bright);
-            font-size: 1.2rem;
-            transition: transform 0.3s ease;
+        .quick-action-card:hover {
+            border-color: var(--gray-300);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
-
         .quick-action-card:hover .action-arrow {
             transform: translateX(4px);
+            color: var(--crimson-bright);
         }
+        .quick-action-card:nth-child(1) { animation-delay: 0.15s; }
+        .quick-action-card:nth-child(2) { animation-delay: 0.25s; }
+        .quick-action-card:nth-child(3) { animation-delay: 0.35s; }
+        .quick-action-card:nth-child(4) { animation-delay: 0.45s; }
 
         /* Tab Navigation */
         .tab-navigation {
@@ -2702,57 +2668,38 @@ body {
                 <!-- Quick Actions Section - AT THE TOP -->
                 <div class="section-card" style="margin-bottom: 8px;">
                     <div class="section-body" style="padding: 6px 10px;">
-                        <div class="content-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-                            <div class="quick-action-card" onclick="openModal('addnewProjectModal')" style="padding: 4px 8px; min-height: 28px;">
-                                <div class="action-icon" style="width:20px;height:20px;font-size:0.55rem;">
-                                    <i class="bi bi-plus-circle"></i>
-                                </div>
+                        <div class="content-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                            <div class="quick-action-card" onclick="openModal('addnewProjectModal')">
+                                <div class="action-icon"><i class="bi bi-plus-circle"></i></div>
                                 <div class="action-content">
-                                    <div class="action-title" style="font-size:0.55rem;">New Project</div>
-                                    <div class="action-description" style="font-size:0.45rem;">Create a new project</div>
+                                    <div class="action-title">New Project</div>
+                                    <div class="action-description">Create a new project</div>
                                 </div>
-                                <div class="action-arrow" style="font-size:0.55rem;">
-                                    <i class="bi bi-arrow-right"></i>
-                                </div>
+                                <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
                             </div>
-
-                            <div class="quick-action-card" onclick="openModal('quotationgeneratorModal')" style="padding: 4px 8px; min-height: 28px;">
-                                <div class="action-icon" style="width:20px;height:20px;font-size:0.55rem;">
-                                    <i class="bi bi-file-text"></i>
-                                </div>
+                            <div class="quick-action-card" onclick="openModal('quotationgeneratorModal')">
+                                <div class="action-icon"><i class="bi bi-file-text"></i></div>
                                 <div class="action-content">
-                                    <div class="action-title" style="font-size:0.55rem;">Generate Quote</div>
-                                    <div class="action-description" style="font-size:0.45rem;">Create a quotation</div>
+                                    <div class="action-title">Generate Quote</div>
+                                    <div class="action-description">Create a quotation</div>
                                 </div>
-                                <div class="action-arrow" style="font-size:0.55rem;">
-                                    <i class="bi bi-arrow-right"></i>
-                                </div>
+                                <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
                             </div>
-
-                            <div class="quick-action-card" onclick="openModal('systemUserModal')" style="padding: 4px 8px; min-height: 28px;">
-                                <div class="action-icon" style="width:20px;height:20px;font-size:0.55rem;">
-                                    <i class="bi bi-people"></i>
-                                </div>
+                            <div class="quick-action-card" onclick="openModal('systemUserModal')">
+                                <div class="action-icon"><i class="bi bi-people"></i></div>
                                 <div class="action-content">
-                                    <div class="action-title" style="font-size:0.55rem;">Manage Users</div>
-                                    <div class="action-description" style="font-size:0.45rem;">System users & roles</div>
+                                    <div class="action-title">Manage Users</div>
+                                    <div class="action-description">System users & roles</div>
                                 </div>
-                                <div class="action-arrow" style="font-size:0.55rem;">
-                                    <i class="bi bi-arrow-right"></i>
-                                </div>
+                                <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
                             </div>
-
-                            <div class="quick-action-card" onclick="openModal('addcompAdminModal')" style="padding: 4px 8px; min-height: 28px;">
-                                <div class="action-icon" style="width:20px;height:20px;font-size:0.55rem;">
-                                    <i class="bi bi-shield-check"></i>
-                                </div>
+                            <div class="quick-action-card" onclick="openModal('addcompAdminModal')">
+                                <div class="action-icon"><i class="bi bi-shield-check"></i></div>
                                 <div class="action-content">
-                                    <div class="action-title" style="font-size:0.55rem;">Administrators</div>
-                                    <div class="action-description" style="font-size:0.45rem;">Manage admins</div>
+                                    <div class="action-title">Administrators</div>
+                                    <div class="action-description">Manage admins</div>
                                 </div>
-                                <div class="action-arrow" style="font-size:0.55rem;">
-                                    <i class="bi bi-arrow-right"></i>
-                                </div>
+                                <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
                             </div>
                         </div>
                     </div>
