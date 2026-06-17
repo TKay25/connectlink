@@ -283,6 +283,25 @@ def initialize_database_tables():
                 );
             """)
             
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS whatsapp_messages (
+                    id SERIAL PRIMARY KEY,
+                    sender_phone VARCHAR(20),
+                    sender_name VARCHAR(200),
+                    message_text TEXT,
+                    message_type VARCHAR(50),
+                    direction VARCHAR(10) DEFAULT 'incoming',
+                    status VARCHAR(50) DEFAULT 'received',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            # Add index for faster conversation lookup
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_sender
+                ON whatsapp_messages(sender_phone, created_at DESC);
+            """)
+            
             current_date = datetime.now().strftime('%Y-%m-%d')
             # Create connectlinkadmin table
             cursor.execute("""
@@ -1589,7 +1608,46 @@ def webhook():
                                     session['client'] = str(sender_number)
 
                                     message_type = message.get("type")
-
+                                    
+                                    # ---- SAVE ALL INCOMING MESSAGES ----
+                                    try:
+                                        # Extract message text based on type
+                                        msg_text = ""
+                                        if message_type == "text":
+                                            msg_text = message.get("text", {}).get("body", "")
+                                        elif message_type == "interactive":
+                                            interactive = message.get("interactive", {})
+                                            itype = interactive.get("type", "")
+                                            if itype == "list_reply":
+                                                msg_text = interactive.get("list_reply", {}).get("title", "") or interactive.get("list_reply", {}).get("id", "")
+                                            elif itype == "button_reply":
+                                                msg_text = interactive.get("button_reply", {}).get("title", "") or interactive.get("button_reply", {}).get("id", "")
+                                            elif itype == "nfm_reply":
+                                                msg_text = interactive.get("nfm_reply", {}).get("response_json", "")
+                                        elif message_type == "image":
+                                            msg_text = message.get("image", {}).get("caption", "") or "[Image]"
+                                        elif message_type == "document":
+                                            msg_text = message.get("document", {}).get("caption", "") or "[Document]"
+                                        elif message_type == "audio":
+                                            msg_text = "[Audio]"
+                                        elif message_type == "video":
+                                            msg_text = "[Video]"
+                                        elif message_type == "location":
+                                            msg_text = "[Location]"
+                                        
+                                        # Get sender name if possible
+                                        sender_name = profile_name or "Unknown"
+                                        
+                                        # Save to database (use a separate connection to avoid interfering)
+                                        with get_db() as (save_cursor, save_conn):
+                                            save_cursor.execute("""
+                                                INSERT INTO whatsapp_messages 
+                                                (sender_phone, sender_name, message_text, message_type, direction, status)
+                                                VALUES (%s, %s, %s, %s, 'incoming', 'received')
+                                            """, (sender_id, sender_name, msg_text[:500], message_type or 'unknown'))
+                                            save_conn.commit()
+                                    except Exception as save_err:
+                                        print(f"⚠️ Failed to save incoming message: {save_err}")
 
                                     #external_database_url = "postgresql://lmsdatabase_8ag3_user:6WD9lOnHkiU7utlUUjT88m4XgEYQMTLb@dpg-ctp9h0aj1k6c739h9di0-a.oregon-postgres.render.com/lmsdatabase_8ag3"
 
@@ -10936,22 +10994,23 @@ def change_password():
 @app.route('/api/whatsapp-chats', methods=['GET'])
 @login_required
 def whatsapp_chats():
-    """Get grouped WhatsApp conversations from enquiries"""
+    """Get grouped WhatsApp conversations from whatsapp_messages table"""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT clientwhatsapp, username,
+                SELECT sender_phone,
+                       MAX(sender_name) as contact_name,
                        COUNT(*) as msg_count,
-                       MAX(timestamp) as last_message_time,
-                       (SELECT enq FROM connectlinkenquiries sub 
-                        WHERE sub.clientwhatsapp = e.clientwhatsapp 
+                       MAX(created_at) as last_message_time,
+                       (SELECT message_text FROM whatsapp_messages sub 
+                        WHERE sub.sender_phone = w.sender_phone 
                         ORDER BY sub.id DESC LIMIT 1) as last_message,
-                       (SELECT status FROM connectlinkenquiries sub 
-                        WHERE sub.clientwhatsapp = e.clientwhatsapp 
-                        ORDER BY sub.id DESC LIMIT 1) as last_status
-                FROM connectlinkenquiries e
-                WHERE clientwhatsapp IS NOT NULL
-                GROUP BY clientwhatsapp, username
+                       (SELECT message_type FROM whatsapp_messages sub 
+                        WHERE sub.sender_phone = w.sender_phone 
+                        ORDER BY sub.id DESC LIMIT 1) as last_type
+                FROM whatsapp_messages w
+                WHERE sender_phone IS NOT NULL
+                GROUP BY sender_phone
                 ORDER BY last_message_time DESC
                 LIMIT 100
             """)
@@ -10964,7 +11023,7 @@ def whatsapp_chats():
                     'message_count': r[2],
                     'last_time': r[3].strftime('%d/%m/%Y %H:%M') if r[3] else '',
                     'last_message': r[4] or '',
-                    'status': r[5] or 'pending'
+                    'status': r[5] or 'received'
                 })
             return jsonify({'success': True, 'data': chats})
     except Exception as e:
@@ -10978,13 +11037,12 @@ def whatsapp_messages(phone_number):
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, timestamp, enq as message, enqcategory, status, username,
-                       plan IS NOT NULL as has_plan
-                FROM connectlinkenquiries
-                WHERE clientwhatsapp = %s
+                SELECT id, created_at, message_text, message_type, direction, sender_name
+                FROM whatsapp_messages
+                WHERE sender_phone LIKE %s
                 ORDER BY id ASC
                 LIMIT 200
-            """, (int(phone_number),))
+            """, (f"%{phone_number}%",))
             rows = cursor.fetchall()
             messages = []
             for r in rows:
@@ -10993,10 +11051,9 @@ def whatsapp_messages(phone_number):
                     'timestamp': r[1].strftime('%d/%m/%Y %H:%M') if r[1] else '',
                     'message': r[2] or '',
                     'category': r[3] or '',
-                    'status': r[4] or 'pending',
+                    'status': r[4] or 'received',
                     'username': r[5] or '',
-                    'has_plan': r[6],
-                    'is_incoming': True  # All from enquiries are incoming
+                    'is_incoming': r[4] == 'incoming'
                 })
             return jsonify({'success': True, 'data': messages})
     except Exception as e:
@@ -11057,6 +11114,19 @@ def whatsapp_send():
         
         resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
         resp_data = resp.json()
+        
+        # Save outgoing message to database
+        try:
+            user_name = session.get('user_name', 'Admin')
+            with get_db() as (save_cursor, save_conn):
+                save_cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                    VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                """, (recipient_clean, user_name, message[:500], 'text'))
+                save_conn.commit()
+        except Exception as save_err:
+            print(f"⚠️ Failed to save outgoing message: {save_err}")
         
         if resp.status_code == 200:
             return jsonify({'success': True, 'message': 'Message sent', 'data': resp_data})

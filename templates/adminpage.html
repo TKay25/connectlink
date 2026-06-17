@@ -3355,7 +3355,16 @@ table.dataTable thead th.sorting_desc {
                                                 <td><span class="badge bg-secondary">{{ enquiry.category }}</span></td>
                                                 <td>
                                                     <div class="message-container">
-                                                        <span class="message-preview">{{ enquiry.message[:20] if enquiry.message and enquiry.message|length > 20 else enquiry.message or 'No message' }}{% if enquiry.message and enquiry.message|length > 20 %}...{% endif %}</span>
+                                                        {% if enquiry.message and enquiry.message|length > 20 %}
+                                                            <span class="message-preview">{{ enquiry.message[:20] }}...</span>
+                                                            <a class="expand-message" data-id="{{ enquiry.id }}" style="font-size:10px;cursor:pointer;color:#3498db;">[view more]</a>
+                                                            <div id="message-full-{{ enquiry.id }}" class="message-full" style="display:none;font-size:10px;background:#f8f9fa;padding:4px;border-radius:4px;border:1px solid #dee2e6;margin-top:3px;word-wrap:break-word;white-space:pre-wrap;line-height:1.3;">
+                                                                {{ enquiry.message }}
+                                                                <a class="collapse-message" data-id="{{ enquiry.id }}" style="display:block;font-size:10px;cursor:pointer;color:#3498db;margin-top:2px;">[show less]</a>
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="message-preview">{{ enquiry.message or 'No message' }}</span>
+                                                        {% endif %}
                                                     </div>
                                                 </td>
                                                 <td>
@@ -3855,358 +3864,237 @@ table.dataTable thead th.sorting_desc {
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="modal-body-custom">
+        <div class="modal-body-custom" style="max-height:78vh;overflow-y:auto;padding:10px 14px;">
             <form id="addProjectForm">
-                <!-- Hidden field to store selected quotation ID -->
                 <input type="hidden" id="project_quotation_id" name="project_quotation_id" value="">
-                <!-- Hidden field to store adjusted schedule dates as JSON -->
                 <input type="hidden" id="adjusted_schedules_json" name="adjusted_schedules_json" value="">
                 
-                <!-- Row for side-by-side cards -->
-                <div class="row g-3">
-
-                    <!-- CLIENT DETAILS CARD -->
+                <!-- Top Row: 3 cards side by side -->
+                <div class="row g-2 mb-2">
+                    <!-- CLIENT DETAILS -->
                     <div class="col-md-4">
-                        <div class="card" style="padding:8px; background: var(--white);">
-                            <h6 style="background-color:#1E2A56; font-weight:800; color: white; text-align: center; padding: 1%; border-radius: 10px; font-size: 0.7rem;">CLIENT DETAILS</h6>
+                        <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                            <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-person"></i> CLIENT DETAILS</div>
+                            <div class="card-body" style="padding:8px;">
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:4px;">
+                                    <div class="col-8"><select class="form-control editable-field" id="existing_client_select" name="existing_client_select" style="font-size:0.55rem;padding:3px 6px;"><option value="" selected disabled>-- Search or Select Client --</option></select></div>
+                                    <label class="col-4 col-form-label fw-bold" style="font-size:0.5rem;padding:0;text-align:right;color:var(--text-muted);">Existing Client</label>
+                                </div>
+                                <small class="text-muted" style="font-size:0.45rem;display:block;text-align:right;margin-bottom:4px;">Auto-fills client &amp; next of kin</small>
+                                <hr style="margin:4px 0;border-top:1px dashed var(--border-color);">
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Full Name:</label>
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="client_name" name="client_name" required style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">National ID:</label>
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="client_national_id" name="client_national_id" required style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                                <div class="form-group row align-items-start g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Address:</label>
+                                    <div class="col-8"><textarea class="form-control editable-field" id="client_address" rows="2" name="client_address" required style="font-size:0.55rem;padding:3px 6px;"></textarea></div>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">WhatsApp:</label>
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="client_whatsapp_number" name="client_whatsapp_number" required style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:0;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Email:</label>
+                                    <div class="col-8"><input type="email" class="form-control editable-field" id="client_email" name="client_email" required style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <div class="col">
-                                    <select class="form-control editable-field" id="existing_client_select" name="existing_client_select" style="color: var(--dark-blue-deep); font-size: 0.65rem;">
-                                        <option value="" style="font-size: 0.65rem;" selected disabled>-- Search or Select Client --</option>
+                    <!-- NEXT OF KIN -->
+                    <div class="col-md-4">
+                        <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                            <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-people"></i> NEXT OF KIN</div>
+                            <div class="card-body" style="padding:8px;">
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Full Name:</label>
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="next_of_kin_name" name="next_of_kin_name" required style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                                <div class="form-group row align-items-start g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Address:</label>
+                                    <div class="col-8"><textarea class="form-control editable-field" id="next_of_kin_address" rows="2" name="next_of_kin_address" required style="font-size:0.55rem;padding:3px 6px;"></textarea></div>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Contact:</label>
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="next_of_kin_contact_number" name="next_of_kin_contact_number" required style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:0;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Relationship:</label>
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="relationship" name="relationship" required style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CONTRACTOR -->
+                    <div class="col-md-4">
+                        <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                            <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-building"></i> CONTRACTOR</div>
+                            <div class="card-body" style="padding:8px;">
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Name:</label>
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="contractor_name" value="ConnectLink Properties" readonly style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="contractorAddress" value="38A Coronation Avenue Greendale Harare" readonly style="font-size:0.55rem;padding:3px 6px;"></div>
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;text-align:right;color:var(--text-muted);">Address:</label>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <div class="col-8"><input type="text" class="form-control editable-field" id="contractorPhone" value="+263 773 368 558 ; +263 716 788 838" readonly style="font-size:0.55rem;padding:3px 6px;"></div>
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;text-align:right;color:var(--text-muted);">Contact:</label>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;color:var(--text-muted);">Email:</label>
+                                    <div class="col-8"><input type="email" class="form-control editable-field" id="contractor_email" value="info@connectlinkproperties.co.zw" readonly style="font-size:0.55rem;padding:3px 6px;"></div>
+                                </div>
+                                <div class="form-group row align-items-center g-1" style="margin-bottom:0;">
+                                    <div class="col-8"><select class="form-control editable-field" id="projectadministrator" name="projectadministrator" required style="font-size:0.55rem;padding:3px 6px;">
+                                        <option value="" disabled selected>Select Admin</option>
+                                        {% for option in admin_options %}
+                                            <option value="{{ option }}">{{ option }}</option>
+                                        {% endfor %}
+                                    </select></div>
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;text-align:right;color:var(--text-muted);">Admin:</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Row: 2 cards side by side -->
+                <div class="row g-2">
+                    <!-- PROJECT DETAILS -->
+                    <div class="col-md-6">
+                        <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                            <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-folder"></i> PROJECT DETAILS</div>
+                            <div class="card-body" style="padding:8px;">
+                                <div class="row g-1 mb-1">
+                                    <div class="col-6">
+                                        <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Project Name</label>
+                                        <input type="text" class="form-control editable-field" id="project_name" name="project_name" required style="font-size:0.55rem;padding:3px 6px;">
+                                    </div>
+                                    <div class="col-3">
+                                        <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Location</label>
+                                        <input type="text" class="form-control editable-field" id="project_location" name="project_location" required style="font-size:0.55rem;padding:3px 6px;">
+                                    </div>
+                                    <div class="col-3">
+                                        <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Start Date</label>
+                                        <input type="date" class="form-control editable-field" id="project_start_date" name="project_start_date" required style="font-size:0.55rem;padding:3px 6px;">
+                                    </div>
+                                </div>
+                                <div class="mb-1">
+                                    <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Project Scope</label>
+                                    <div id="projectScopeToolbar" style="margin-bottom:2px;">
+                                        <span class="ql-formats"><button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button><button class="ql-list" value="bullet"></button><button class="ql-list" value="ordered"></button></span>
+                                    </div>
+                                    <div id="projectScopeEditor" class="editable-field" style="height:80px;background:var(--bg-card);font-size:0.55rem;"></div>
+                                    <input type="hidden" id="project_description" name="project_description" required>
+                                </div>
+                                <div class="mb-1">
+                                    <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Link Quotation (Work Plan)</label>
+                                    <select class="form-control editable-field" id="project_quotation_select" name="project_quotation_select" style="font-size:0.55rem;padding:3px 6px;">
+                                        <option value="" selected disabled>-- Select a Quotation --</option>
                                     </select>
+                                    <small style="font-size:0.45rem;color:var(--text-muted);">Optional: displays work schedule in project PDF</small>
+                                    <div id="selected_quotation_preview" style="margin-top:4px;padding:3px 6px;background:var(--gray-50);border-left:3px solid var(--dark-blue-deep);display:none;font-size:0.55rem;">
+                                        <strong>Selected:</strong> <span id="selected_quotation_name"></span>
+                                    </div>
                                 </div>
-                                <label for="existing_client_select" class="col-auto col-form-label fw-bold" style="padding-left: 0.5rem; font-size: 0.65rem;">Select Existing Client:</label>
-                            </div>
-                            <small class="text-muted" style="font-size: 0.65rem; display: block; text-align: right; margin-top: 2px;">Selecting will auto-fill client and next of kin details</small>
-
-                            <hr style="margin: 0.5rem 0; border-top: 1px dashed #ccc;">
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="client_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Full Name:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="client_name" name="client_name" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="client_national_id" class="col-auto col-form-label" style="padding-right: 0.5rem;">National ID Number:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="client_national_id" name="client_national_id" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-start" style="margin-bottom: 0.5rem;">
-                                <label for="client_address" class="col-auto col-form-label" style="padding-right: 0.5rem;">Address:</label>
-                                <div class="col">
-                                    <textarea class="form-control editable-field" id="client_address" rows="3" name="client_address" required></textarea>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="client_whatsapp_number" class="col-auto col-form-label" style="padding-right: 0.5rem;">Whatsapp Number:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="client_whatsapp_number" name="client_whatsapp_number" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="client_email" class="col-auto col-form-label" style="padding-right: 0.5rem;">Email:</label>
-                                <div class="col">
-                                    <input type="email" class="form-control editable-field" id="client_email" name="client_email" required>
+                                <div class="row g-1">
+                                    <div class="col-6">
+                                        <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Duration (Days)</label>
+                                        <input type="number" class="form-control editable-field" id="months_to_completion" name="months_to_completion" required style="font-size:0.55rem;padding:3px 6px;">
+                                    </div>
+                                    <div class="col-6">
+                                        <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Agreement Date</label>
+                                        <input type="date" class="form-control editable-field" id="agreement_date" name="agreement_date" required style="font-size:0.55rem;padding:3px 6px;">
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- NEXT OF KIN DETAILS CARD -->
-                    <div class="col-md-4">
-                        <div class="card" style="padding:10px; background: var(--white);">
-                            <h6 style="background-color:#1E2A56; font-weight:800; color: white; text-align: center; padding: 1%; border-radius: 10px; font-size: 0.7rem;">NEXT OF KIN DETAILS</h6>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="next_of_kin_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Full Name:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="next_of_kin_name" name="next_of_kin_name" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="next_of_kin_address" class="col-auto col-form-label" style="padding-right: 0.5rem;">Address:</label>
-                                <div class="col">
-                                    <textarea class="form-control editable-field" id="next_of_kin_address" rows="3" name="next_of_kin_address" required></textarea>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="next_of_kin_contact_number" class="col-auto col-form-label" style="padding-right: 0.5rem;">Contact Number:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="next_of_kin_contact_number" name="next_of_kin_contact_number" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="relationship" class="col-auto col-form-label" style="padding-right: 0.5rem;">Relationship:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="relationship" name="relationship" required>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- CONTRACTOR DETAILS CARD -->
-                    <div class="col-md-4">
-                        <div class="card" style="padding:10px; background: var(--white);">
-                            <h6 style="background-color:#1E2A56; font-weight:800; color: white; text-align: center; padding: 1%; border-radius: 10px; font-size: 0.7rem;">CONTRACTOR DETAILS</h6>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="contractor_name" class="col-auto col-form-label" style="padding-right: 0.5rem; color: var(--dark-blue-deep);">Name:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="contractor_name" value="ConnectLink Properties" readonly>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="contractorAddress" value="38A Coronation Avenue Greendale Harare" readonly>
-                                </div>
-                                <label for="contractorAddress" class="col-auto col-form-label" style="padding-left: 0.5rem; color: var(--dark-blue-deep);">Address:</label>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="contractorPhone" value="+263 773 368 558 ; +263 716 788 838" readonly>
-                                </div>
-                                <label for="contractorPhone" class="col-auto col-form-label" style="padding-left: 0.5rem; color: var(--dark-blue-deep);">Contact Number</label>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="contractor_email" class="col-auto col-form-label" style="padding-right: 0.5rem; color: var(--dark-blue-deep);">Email:</label>
-                                <div class="col">
-                                    <input type="email" class="form-control editable-field" id="contractor_email" value="info@connectlinkproperties.co.zw" readonly>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <div class="col">
-                                    <select class="form-control editable-field" id="projectadministrator" name="projectadministrator" required>
-                                    <option value="" disabled selected>Select Administrator</option>
-                                    {% for option in admin_options %}
-                                        <option value="{{ option }}">{{ option }}</option>
-                                    {% endfor %}
-                                </select>
-                                </div>
-                                <label for="projectadministrator" class="col-auto col-form-label" style="padding-left: 0.5rem; color: var(--dark-blue-deep);">Administrator:</label>
-                            </div>
-                        </div>
-                    </div>
-
+                    <!-- PAYMENT TERMS -->
                     <div class="col-md-6">
-                        <div class="card" style="padding:10px; background: var(--white);">
-                            <h6 style="background-color:#1E2A56; font-weight:800; color: white; text-align: center; padding: 1%; border-radius: 10px; font-size: 0.7rem;">PROJECT DETAILS</h6>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="project_name" class="col-auto col-form-label" style="padding-right: 0.5rem;">Project Name:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="project_name" name="project_name" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label for="project_location" class="col-auto col-form-label" style="padding-right: 0.5rem;">Project Location:</label>
-                                <div class="col">
-                                    <input type="text" class="form-control editable-field" id="project_location" name="project_location" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group mb-3">
-                                <label for="projectScope" class="form-label fw-bold">Project Scope:</label>
-                                <div id="projectScopeToolbar">
-                                    <span class="ql-formats">
-                                        <button class="ql-bold"></button>
-                                        <button class="ql-italic"></button>
-                                        <button class="ql-underline"></button>
-                                    </span>
-                                    <span class="ql-formats">
-                                        <button class="ql-list" value="bullet"></button>
-                                        <button class="ql-list" value="ordered"></button>
-                                    </span>
-                                </div>
-                                <div id="projectScopeEditor" class="editable-field" style="height: 130px; background: #fff;"></div>
-                                <input type="hidden" id="project_description" name="project_description" required>
-                            </div>
-
-                            <div class="form-group mb-3">
-                                <label for="project_quotation_select" class="form-label fw-bold" style="font-size: 0.65rem;">Link Quotation (Work Plan):</label>
-                                <select class="form-control editable-field" id="project_quotation_select" name="project_quotation_select" style="color: var(--dark-blue-deep); font-size: 0.65rem;">
-                                    <option value="" selected disabled style="color: var(--dark-blue-deep);font-size: 0.65rem;">-- Select a Quotation to Link Work Plan --</option>
-                                </select>
-                                <small style="font-size: 0.65rem;">Optional: Select a quotation to display its work schedule in the project PDF</small>
-                                <div id="selected_quotation_preview" style="margin-top: 6px; padding: 4px; background: #f0f5ff; border-left: 3px solid #1E2A56; display: none; color: var(--dark-blue-deep);">
-                                    <strong style="color: #1E2A56;">Selected:</strong> <span id="selected_quotation_name" style="color: #2A3A78;"></span>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Project Start Date:</label>
-                                <div class="col">
-                                    <input type="date" class="form-control editable-field" id="project_start_date" name="project_start_date" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Project Duration (Days):</label>
-                                <div class="col">
-                                    <input type="number" class="form-control editable-field" id="months_to_completion" name="months_to_completion" required>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="card" style="padding:10px; background: var(--white);">
-                            <h6 style="background-color:#1E2A56; font-weight:800; color: white; text-align: center; padding: 1%; border-radius: 10px; font-size: 0.7rem;">PAYMENT TERMS</h6>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Contract Agreement Date:</label>
-                                <div class="col">
-                                    <input type="date" class="form-control editable-field" id="agreement_date" name="agreement_date" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Total Contract Price (USD):</label>
-                                <div class="col">
-                                    <input type="number" class="form-control editable-field" id="total_contract_price" name="total_contract_price" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Payment Method:</label>
-                                <select class="form-control editable-field" id="paymentMethod" name="payment_method" required>
-                                    <option value="" disabled selected>Select Payment Method</option>
-                                    <option value="Installments">Installments</option>
-                                    <option value="Once Off Payment">Once Off Payment</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group row align-items-start" id="bullet_payment_date" style="display: none; margin-bottom: 0.5rem;">
-                                <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Date Full Payment Made:</label>
-                                <div class="col">
-                                    <input type="date" class="form-control editable-field" id="bullet_payment_date" name="bullet_payment_date">
-                                </div>
-                            </div>
-
-                            <div id="paymentschedule" style="display: none;">
-                                <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                    <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Months To Pay:</label>
-                                    <div class="col">
-                                        <input type="number" class="form-control editable-field" id="monthstopay" name="months_to_pay" style="width: 40%;">
+                        <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                            <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-cash-coin"></i> PAYMENT TERMS</div>
+                            <div class="card-body" style="padding:8px;">
+                                <div class="row g-1 mb-1">
+                                    <div class="col-6">
+                                        <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Total Price (USD)</label>
+                                        <input type="number" class="form-control editable-field" id="total_contract_price" name="total_contract_price" required style="font-size:0.55rem;padding:3px 6px;">
                                     </div>
-                                </div>
-
-                                <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                    <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Late Payment Interest (% p.a):</label>
-                                    <div class="col">
-                                        <input type="number" class="form-control editable-field" id="late_payment_interest" name="late_payment_interest">
-                                    </div>
-                                </div>
-
-                                <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                    <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Deposit Paid (USD):</label>
-                                    <div class="col">
-                                        <input type="number" class="form-control editable-field" id="deposit_required" name="deposit_required">
-                                    </div>
-                                </div>
-
-                                <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                    <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Date Deposit Paid:</label>
-                                    <div class="col">
-                                        <input type="date" class="form-control editable-field" id="deposit_payment_date" name="deposit_payment_date">
-                                    </div>
-                                </div>
-
-                                <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                    <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Due Date For First Installment:</label>
-                                    <div class="col">
-                                        <input type="date" class="form-control editable-field" id="first_installment_due_date" name="first_installment_due_date">
-                                    </div>
-                                </div>
-
-                                <div class="form-group row align-items-center" style="margin-bottom: 0.5rem;">
-                                    <label class="col-auto col-form-label" style="padding-right: 0.5rem;">Installment Due Date Generator:</label>
-                                    <div class="col-auto">
-                                        <select class="form-control editable-field" id="due_date_type" name="due_date_type">
-                                            <option value="auto">Automatic</option>
-                                            <option value="manual">Manual</option>
+                                    <div class="col-6">
+                                        <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Payment Method</label>
+                                        <select class="form-control editable-field" id="paymentMethod" name="payment_method" required style="font-size:0.55rem;padding:3px 6px;">
+                                            <option value="" disabled selected>Select</option>
+                                            <option value="Installments">Installments</option>
+                                            <option value="Once Off Payment">Once Off</option>
                                         </select>
                                     </div>
                                 </div>
 
-                                <div id="manualInstallments" class="form-group" style="display:none; margin-top: 1rem;">
-                                    <label class="form-label fw-bold mb-2">Installment Schedule (Enter amounts and due dates for each installment)</label>
-                                    <div class="table-responsive">
-                                        <table class="table table-sm table-theme">
-                                            <thead>
-                                                <tr>
-                                                    <th>Installment</th>
-                                                    <th>Amount (USD)</th>
-                                                    <th>Due Date</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td>1</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment1amount" name="installment1amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment1duedate" name="installment1duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>2</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment2amount" name="installment2amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment2duedate" name="installment2duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>3</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment3amount" name="installment3amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment3duedate" name="installment3duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>4</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment4amount" name="installment4amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment4duedate" name="installment4duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>5</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment5amount" name="installment5amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment5duedate" name="installment5duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>6</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment6amount" name="installment6amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment6duedate" name="installment6duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>7</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment7amount" name="installment7amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment7duedate" name="installment7duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>8</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment8amount" name="installment8amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment8duedate" name="installment8duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>9</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment9amount" name="installment9amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment9duedate" name="installment9duedate"></td>
-                                                </tr>
-                                                <tr>
-                                                    <td>10</td>
-                                                    <td><input type="number" class="form-control form-control-sm" id="installment10amount" name="installment10amount" step="0.01"></td>
-                                                    <td><input type="date" class="form-control form-control-sm" id="installment10duedate" name="installment10duedate"></td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                                <div class="form-group row align-items-center g-1" id="bullet_payment_date" style="display:none;margin-bottom:3px;">
+                                    <div class="col-8"><input type="date" class="form-control editable-field" id="bullet_payment_date" name="bullet_payment_date" style="font-size:0.55rem;padding:3px 6px;"></div>
+                                    <label class="col-4 col-form-label" style="font-size:0.55rem;padding:0;text-align:right;color:var(--text-muted);">Full Payment Date</label>
+                                </div>
+
+                                <div id="paymentschedule" style="display:none;">
+                                    <div class="row g-1 mb-1">
+                                        <div class="col-4">
+                                            <label style="font-size:0.5rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Months To Pay</label>
+                                            <input type="number" class="form-control editable-field" id="monthstopay" name="months_to_pay" style="font-size:0.55rem;padding:3px 6px;">
+                                        </div>
+                                        <div class="col-4">
+                                            <label style="font-size:0.5rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Interest (% p.a.)</label>
+                                            <input type="number" class="form-control editable-field" id="late_payment_interest" name="late_payment_interest" style="font-size:0.55rem;padding:3px 6px;">
+                                        </div>
+                                        <div class="col-4">
+                                            <label style="font-size:0.5rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Due Date Gen</label>
+                                            <select class="form-control editable-field" id="due_date_type" name="due_date_type" style="font-size:0.55rem;padding:3px 6px;">
+                                                <option value="auto">Auto</option>
+                                                <option value="manual">Manual</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row g-1 mb-1">
+                                        <div class="col-6">
+                                            <label style="font-size:0.5rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Deposit (USD)</label>
+                                            <input type="number" class="form-control editable-field" id="deposit_required" name="deposit_required" style="font-size:0.55rem;padding:3px 6px;">
+                                        </div>
+                                        <div class="col-6">
+                                            <label style="font-size:0.5rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Deposit Date</label>
+                                            <input type="date" class="form-control editable-field" id="deposit_payment_date" name="deposit_payment_date" style="font-size:0.55rem;padding:3px 6px;">
+                                        </div>
+                                    </div>
+                                    <div class="row g-1 mb-1">
+                                        <div class="col-12">
+                                            <label style="font-size:0.5rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">First Installment Due</label>
+                                            <input type="date" class="form-control editable-field" id="first_installment_due_date" name="first_installment_due_date" style="font-size:0.55rem;padding:3px 6px;">
+                                        </div>
+                                    </div>
+
+                                    <div id="manualInstallments" style="display:none;">
+                                        <label style="font-size:0.5rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Installment Schedule</label>
+                                        <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border-color);border-radius:4px;">
+                                            <table class="table table-sm table-theme" style="font-size:0.5rem;margin:0;">
+                                                <thead><tr><th style="padding:3px 4px;">#</th><th style="padding:3px 4px;">Amount</th><th style="padding:3px 4px;">Due Date</th></tr></thead>
+                                                <tbody>
+                                                    {% for i in range(1, 11) %}
+                                                    <tr>
+                                                        <td style="padding:2px 4px;">{{ i }}</td>
+                                                        <td style="padding:2px 4px;"><input type="number" class="form-control form-control-sm" id="installment{{i}}amount" name="installment{{i}}amount" step="0.01" style="font-size:0.5rem;padding:2px 4px;"></td>
+                                                        <td style="padding:2px 4px;"><input type="date" class="form-control form-control-sm" id="installment{{i}}duedate" name="installment{{i}}duedate" style="font-size:0.5rem;padding:2px 4px;"></td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -4215,9 +4103,9 @@ table.dataTable thead th.sorting_desc {
                 </div>
             </form>
         </div>
-        <div class="modal-footer-custom">
-            <button type="button" class="btn btn-primary" id="saveProjectBtn"> <i class="bi bi-check-circle" style="margin-right: 7px;"></i>Save Project</button>
-            <button type="button" class="btn btn-danger" onclick="closeModal('addnewProjectModal')">Cancel</button>
+        <div class="modal-footer-custom" style="padding:6px 12px;">
+            <button type="button" class="btn btn-primary" id="saveProjectBtn" style="font-size:0.6rem;padding:4px 14px;"><i class="bi bi-check-circle"></i> Save Project</button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('addnewProjectModal')" style="font-size:0.6rem;padding:4px 14px;">Cancel</button>
         </div>
     </div>
 </div>
