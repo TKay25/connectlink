@@ -21,42 +21,66 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
     <style>
         :root {
-            --dark-blue-primary: #0A1A3A;
-            --dark-blue-deep: #0E1F42;
-            --dark-blue-card: #11264D;
-            --crimson-sidebar: #9B1D2C;
-            --crimson-dark-side: #7A1723;
-            --crimson-bright: #C12B3E;
-            --crimson-light: rgba(193, 43, 62, 0.08);
+            --primary: #4F46E5;
+            --primary-dark: #4338CA;
+            --primary-light: rgba(79, 70, 229, 0.08);
+            --primary-hover: #6366F1;
+            --primary-muted: rgba(79, 70, 229, 0.12);
+            --slate-50: #F8FAFC;
+            --slate-100: #F1F5F9;
+            --slate-200: #E2E8F0;
+            --slate-300: #CBD5E1;
+            --slate-400: #94A3B8;
+            --slate-500: #64748B;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1E293B;
+            --slate-900: #0F172A;
             --white: #FFFFFF;
-            --gray-50: #F8F9FC;
-            --gray-100: #F0F2F5;
-            --gray-200: #E2E6ED;
-            --gray-300: #CED4DE;
-            --gray-400: #9AA4BF;
-            --gray-500: #6B7A99;
-            --gray-600: #4A5568;
-            --text-primary: #1A202C;
-            --text-secondary: #4A5568;
-            --text-muted: #9AA4BF;
-            --shadow-sm: 0 1px 3px rgba(10,26,58,0.06);
-            --shadow-md: 0 4px 12px rgba(10,26,58,0.08);
-            --shadow-lg: 0 8px 30px rgba(10,26,58,0.12);
-            --shadow-xl: 0 12px 40px rgba(10,26,58,0.16);
+            --success: #10B981;
+            --success-light: rgba(16, 185, 129, 0.1);
+            --warning: #F59E0B;
+            --warning-light: rgba(245, 158, 11, 0.1);
+            --danger: #EF4444;
+            --danger-light: rgba(239, 68, 68, 0.1);
+            --info: #3B82F6;
+            --info-light: rgba(59, 130, 246, 0.1);
+            --text-primary: var(--slate-900);
+            --text-secondary: var(--slate-500);
+            --text-muted: var(--slate-400);
+            --bg-body: var(--slate-50);
+            --bg-card: var(--white);
+            --border-color: var(--slate-200);
+            --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+            --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.05);
             --radius-sm: 6px;
             --radius-md: 10px;
             --radius-lg: 16px;
             --radius-xl: 20px;
-            --sidebar-collapsed: 70px;
-            --sidebar-expanded: 150px;
-            --sidebar-icon-only: 72px;
             --nav-height: 52px;
+            /* Legacy aliases for backward compat */
+            --dark-blue-primary: var(--slate-900);
+            --dark-blue-deep: var(--slate-800);
+            --dark-blue-card: var(--slate-700);
+            --crimson-bright: var(--primary);
+            --crimson-sidebar: var(--primary-dark);
+            --crimson-dark-side: var(--primary-dark);
+            --crimson-light: var(--primary-light);
+            --gray-50: var(--slate-50);
+            --gray-100: var(--slate-100);
+            --gray-200: var(--slate-200);
+            --gray-300: var(--slate-300);
+            --gray-400: var(--slate-400);
+            --gray-500: var(--slate-500);
+            --gray-600: var(--slate-600);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { font-size: 13px; }
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--gray-50);
+            background: var(--bg-body);
             font-size: 0.6rem;
             line-height: 1.4;
             color: var(--text-primary);
@@ -74,10 +98,10 @@
   left: 0;
   width: 100%;
   z-index: 1050;
-  background: rgba(14, 31, 66, 0.92);
+  background: rgba(30, 41, 59, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(193, 43, 62, 0.15);
+  border-bottom: 1px solid rgba(79, 70, 229, 0.15);
   padding: 0 16px;
   display: flex;
   justify-content: space-between;
@@ -91,7 +115,7 @@
   left: 5%;
   width: 90%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--crimson-bright), transparent);
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
   opacity: 0.4;
 }
 .fixed-navbar .brand {
@@ -141,7 +165,7 @@
   color: white;
 }
 .fixed-navbar .nav-actions .btn-side.active {
-  background: rgba(193,43,62,0.2);
+  background: rgba(79,70,229,0.2);
   color: white;
 }
 .fixed-navbar .nav-actions .btn-side.active::after {
@@ -151,7 +175,7 @@
   left: 20%;
   width: 60%;
   height: 2px;
-  background: var(--crimson-bright);
+  background: var(--primary);
   border-radius: 2px;
 }
 .fixed-navbar .nav-actions .btn-side i {
@@ -177,7 +201,7 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--crimson-bright), #E91E63);
+  background: linear-gradient(135deg, var(--primary), #7C3AED);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -216,7 +240,7 @@ table thead th,
 .table th,
 table.dataTable thead th,
 .dataTables_wrapper table thead th {
-  background: var(--crimson-bright, #9B1D2C) !important;
+  background: var(--primary) !important;
   color: white !important;
   font-weight: 700 !important;
 }
@@ -240,7 +264,7 @@ table.dataTable thead th,
             transition: margin-left 0.28s;
             width: 100%;
             height: 100vh;
-            background: var(--gray-50);
+            background: var(--bg-body);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -251,14 +275,14 @@ table.dataTable thead th,
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--radius-md);
             padding: 4px 10px;
             margin-bottom: 4px;
             box-shadow: var(--shadow-sm);
             flex-shrink: 0;
             min-height: 36px;
-            border: 1px solid var(--gray-200);
+            border: 1px solid var(--border-color);
         }
         .employeetag {
             padding: 2px 8px;
@@ -300,23 +324,23 @@ table.dataTable thead th,
             background: var(--gray-100) !important;
         }
         .vertical-nav-link:hover i {
-            color: var(--crimson-bright);
+            color: var(--primary);
         }
         .vertical-nav-link.active {
-            color: var(--crimson-bright) !important;
-            background: var(--crimson-light) !important;
+            color: var(--primary) !important;
+            background: var(--primary-light) !important;
             font-weight: 600;
         }
         .vertical-nav-link.active i {
-            color: var(--crimson-bright);
+            color: var(--primary) !important;
         }
 
         /* ===== HORIZONTAL TAB NAV BAR (PROJECTS, PAYMENTS, etc.) ===== */
         .tab-nav-bar {
             width: 100%;
-            border-bottom: 2px solid rgba(193, 43, 62, 0.12);
+            border-bottom: 2px solid var(--primary-light);
             padding: 0;
-            background: #f8f9fc;
+            background: var(--slate-50);
             border-radius: 8px 8px 0 0;
             flex-shrink: 0;
         }
@@ -337,7 +361,7 @@ table.dataTable thead th,
             font-size: 0.65rem !important;
             font-weight: 600;
             padding: 5px 12px;
-            border: 1px solid rgba(193, 43, 62, 0.12);
+            border: 1px solid var(--primary-light);
             border-radius: 6px;
             background: transparent;
             color: var(--text-secondary);
@@ -355,15 +379,15 @@ table.dataTable thead th,
             transition: none;
         }
         .tab-nav-btn:hover {
-            background: rgba(193, 43, 62, 0.06);
-            color: var(--text-primary);
-            border-color: rgba(193, 43, 62, 0.25);
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
         }
         .tab-nav-btn.active {
-            background: var(--crimson-bright) !important;
+            background: var(--primary) !important;
             color: white !important;
-            border-color: var(--crimson-bright) !important;
-            box-shadow: 0 2px 8px rgba(193, 43, 62, 0.25);
+            border-color: var(--primary) !important;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
         }
         .tab-nav-btn.active i {
             color: white !important;
@@ -390,13 +414,13 @@ table.dataTable thead th,
             display: flex;
             flex-direction: row;
             border-radius: var(--radius-lg);
-            background: white;
+            background: var(--bg-card);
             box-shadow: var(--shadow-md);
             overflow: hidden;
             margin: 0;
             height: 100%;
             min-height: 100%;
-            border: 1px solid var(--gray-200);
+            border: 1px solid var(--border-color);
         }
 
         #admin-content .tab-content {
@@ -411,9 +435,9 @@ table.dataTable thead th,
 
         /* Cards — clean elevated */
         .card {
-            background: white;
+            background: var(--bg-card);
             border-radius: var(--radius-md);
-            border: 1px solid var(--gray-200);
+            border: 1px solid var(--border-color);
             box-shadow: var(--shadow-sm);
             padding: 0.6rem;
             margin-bottom: 0.6rem;
@@ -467,7 +491,7 @@ table.dataTable thead th,
 
 .modal-container {
     background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%);
-    border: 1px solid rgba(193, 43, 62, 0.1);
+    border: 1px solid rgba(79, 70, 229, 0.1);
     border-radius: 16px;
     width: auto;
     min-width: 420px;
@@ -477,7 +501,7 @@ table.dataTable thead th,
     overflow-x: hidden;
     box-shadow: 
         0 20px 25px -5px rgba(0, 0, 0, 0.1),
-        0 10px 10px -5px rgba(193, 43, 62, 0.08);
+        0 10px 10px -5px rgba(79, 70, 229, 0.08);
     animation: modalSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     display: flex;
     flex-direction: column;
@@ -564,7 +588,7 @@ table.dataTable thead th,
     right: -20%;
     width: 250px;
     height: 250px;
-    background: radial-gradient(circle, rgba(193, 43, 62, 0.12) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(79, 70, 229, 0.12) 0%, transparent 70%);
     pointer-events: none;
 }
 
@@ -620,7 +644,7 @@ table.dataTable thead th,
     border-color: var(--crimson-bright);
     color: white;
     transform: rotate(90deg);
-    box-shadow: 0 4px 12px rgba(193, 43, 62, 0.3);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
 .close-modal:active {
@@ -688,7 +712,7 @@ table.dataTable thead th,
             color: white;
         }
         .btn-danger:hover {
-            background: #A91D2E;
+            background: var(--primary-dark);
             box-shadow: var(--shadow-sm);
         }
         .btn-sm { padding: 2px 8px; font-size: 0.5rem !important; }
@@ -800,7 +824,7 @@ table.dataTable thead th,
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--crimson-bright);
-            box-shadow: 0 0 0 2px rgba(193, 43, 62, 0.12);
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
             outline: none;
         }
         .form-control::placeholder { color: var(--gray-400); }
@@ -1028,7 +1052,7 @@ table.dataTable thead th,
             background: linear-gradient(180deg, #FFFFFF 0%, #F8F9FC 100%);
             border-radius: 0 0 12px 12px;
             padding: 24px;
-            border: 1px solid rgba(193, 43, 62, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.1);
             border-top: none;
             overflow-y: auto;
             min-height: 400px;
@@ -1040,18 +1064,18 @@ table.dataTable thead th,
         }
 
         .tab-content::-webkit-scrollbar-track {
-            background: rgba(193, 43, 62, 0.05);
+            background: rgba(79, 70, 229, 0.05);
             border-radius: 8px;
         }
 
         .tab-content::-webkit-scrollbar-thumb {
-            background: rgba(193, 43, 62, 0.2);
+            background: rgba(79, 70, 229, 0.2);
             border-radius: 8px;
             transition: background 0.3s ease;
         }
 
         .tab-content::-webkit-scrollbar-thumb:hover {
-            background: rgba(193, 43, 62, 0.4);
+            background: rgba(79, 70, 229, 0.4);
         }
 
         .tab-pane {
@@ -1167,11 +1191,11 @@ table.dataTable thead th,
         /* Enhanced Modal Container */
         .modal-container {
             background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%);
-            border: 1px solid rgba(193, 43, 62, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.1);
             border-radius: 16px;
             box-shadow: 
                 0 20px 25px -5px rgba(0, 0, 0, 0.1),
-                0 10px 10px -5px rgba(193, 43, 62, 0.08);
+                0 10px 10px -5px rgba(79, 70, 229, 0.08);
             animation: modalSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
@@ -1191,7 +1215,7 @@ table.dataTable thead th,
             background: linear-gradient(135deg, var(--dark-blue-deep) 0%, var(--dark-blue-primary) 100%);
             padding: 10px 12px;
             border-radius: 16px 16px 0 0;
-            border-bottom: 1px solid rgba(193, 43, 62, 0.2);
+            border-bottom: 1px solid rgba(79, 70, 229, 0.2);
             position: relative;
             overflow: hidden;
         }
@@ -1203,7 +1227,7 @@ table.dataTable thead th,
             right: -50%;
             width: 300px;
             height: 300px;
-            background: radial-gradient(circle, rgba(193, 43, 62, 0.1) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(79, 70, 229, 0.1) 0%, transparent 70%);
             pointer-events: none;
         }
 
@@ -1226,7 +1250,7 @@ table.dataTable thead th,
 
         /* Enhanced Close Button */
         .close-modal {
-            background: rgba(193, 43, 62, 0.1);
+            background: rgba(79, 70, 229, 0.1);
             border: none;
             color: white;
             width: 36px;
@@ -1245,7 +1269,7 @@ table.dataTable thead th,
         .close-modal:hover {
             background: var(--crimson-bright);
             transform: rotate(90deg) scale(1.15);
-            box-shadow: 0 4px 12px rgba(193, 43, 62, 0.3);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
         }
 
         .close-modal:active {
@@ -1271,18 +1295,18 @@ table.dataTable thead th,
         }
 
         .modal-body-custom::-webkit-scrollbar-thumb {
-            background: rgba(193, 43, 62, 0.2);
+            background: rgba(79, 70, 229, 0.2);
             border-radius: 3px;
         }
 
         .modal-body-custom::-webkit-scrollbar-thumb:hover {
-            background: rgba(193, 43, 62, 0.4);
+            background: rgba(79, 70, 229, 0.4);
         }
 
         /* Enhanced Modal Footer */
         .modal-footer-custom {
             padding: 8px 12px;
-            border-top: 1px solid rgba(193, 43, 62, 0.1);
+            border-top: 1px solid rgba(79, 70, 229, 0.1);
             display: flex;
             justify-content: flex-end;
             gap: 8px;
@@ -1294,7 +1318,7 @@ table.dataTable thead th,
         /* Modern Form Controls in Modals */
         .modal-body-custom .form-control,
         .modal-body-custom .form-select {
-            border: 1px solid rgba(193, 43, 62, 0.2);
+            border: 1px solid rgba(79, 70, 229, 0.2);
             border-radius: 8px;
             padding: 8px 10px;
             font-size: 0.75rem;
@@ -1306,7 +1330,7 @@ table.dataTable thead th,
         .modal-body-custom .form-control:focus,
         .modal-body-custom .form-select:focus {
             border-color: var(--crimson-bright);
-            box-shadow: 0 0 0 3px rgba(193, 43, 62, 0.1);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
             background: white;
             color: var(--dark-blue-deep);
         }
@@ -1378,32 +1402,32 @@ table.dataTable thead th,
         }
 
         .modal-footer-custom .btn-danger {
-            background: linear-gradient(135deg, var(--crimson-bright) 0%, #E91E63 100%);
+            background: var(--danger);
             color: white;
         }
 
         .modal-footer-custom .btn-danger:hover {
-            background: linear-gradient(135deg, #A91D2E 0%, #C41C3B 100%);
+            background: #DC2626;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(193, 43, 62, 0.3);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
         }
 
         .modal-footer-custom .btn-secondary {
-            background: rgba(193, 43, 62, 0.1);
+            background: rgba(79, 70, 229, 0.1);
             color: var(--dark-blue-deep);
-            border: 1px solid rgba(193, 43, 62, 0.2);
+            border: 1px solid rgba(79, 70, 229, 0.2);
         }
 
         .modal-footer-custom .btn-secondary:hover {
-            background: rgba(193, 43, 62, 0.2);
-            border-color: rgba(193, 43, 62, 0.4);
+            background: rgba(79, 70, 229, 0.2);
+            border-color: rgba(79, 70, 229, 0.4);
             transform: translateY(-2px);
         }
 
         /* Modal Section Dividers */
         .modal-body-custom hr {
             border: none;
-            border-top: 1px solid rgba(193, 43, 62, 0.1);
+            border-top: 1px solid rgba(79, 70, 229, 0.1);
             margin: 20px 0;
         }
 
@@ -1418,26 +1442,26 @@ table.dataTable thead th,
         }
 
         .modal-body-custom .table thead th {
-            border-bottom: 2px solid rgba(193, 43, 62, 0.2);
+            border-bottom: 2px solid rgba(79, 70, 229, 0.2);
             color: var(--dark-blue-deep);
             font-weight: 700;
         }
 
         .modal-body-custom .table tbody tr:hover {
-            background: rgba(193, 43, 62, 0.05);
+            background: rgba(79, 70, 229, 0.05);
         }
 
         /* Modal Alert Styling */
         .modal-body-custom .alert {
-            border: 1px solid rgba(193, 43, 62, 0.2);
+            border: 1px solid rgba(79, 70, 229, 0.2);
             border-radius: 8px;
-            background: rgba(193, 43, 62, 0.05);
+            background: rgba(79, 70, 229, 0.05);
             color: var(--dark-blue-deep);
         }
 
         /* Modal Badge Styling */
         .modal-body-custom .badge {
-            background: linear-gradient(135deg, var(--crimson-bright) 0%, #E91E63 100%);
+            background: var(--primary);
             color: white;
             border-radius: 20px;
             padding: 4px 10px;
@@ -1453,8 +1477,8 @@ table.dataTable thead th,
         }
 
         .modal-body-custom .alert-danger {
-            background: rgba(193, 43, 62, 0.1);
-            border-color: rgba(193, 43, 62, 0.3);
+            background: rgba(79, 70, 229, 0.1);
+            border-color: rgba(79, 70, 229, 0.3);
             color: var(--crimson-bright);
         }
 
@@ -1466,12 +1490,12 @@ table.dataTable thead th,
 
         /* Modal Input Group Enhancement */
         .modal-body-custom .input-group .form-control {
-            border-color: rgba(193, 43, 62, 0.2);
+            border-color: rgba(79, 70, 229, 0.2);
         }
 
         .modal-body-custom .input-group-text {
             background: rgba(14, 31, 66, 0.05);
-            border-color: rgba(193, 43, 62, 0.2);
+            border-color: rgba(79, 70, 229, 0.2);
             color: var(--dark-blue-deep);
         }
 
@@ -1520,7 +1544,7 @@ table.dataTable thead th,
         /* Modern Header with User Profile */
         .modern-header {
             background: linear-gradient(135deg, var(--dark-blue-deep) 0%, var(--dark-blue-primary) 100%);
-            border-bottom: 1px solid rgba(193, 43, 62, 0.3);
+            border-bottom: 1px solid rgba(79, 70, 229, 0.3);
             padding: 12px 20px;
             display: flex;
             justify-content: space-between;
@@ -1565,7 +1589,7 @@ table.dataTable thead th,
             display: flex;
             align-items: center;
             gap: 12px;
-            background: rgba(193, 43, 62, 0.2);
+            background: rgba(79, 70, 229, 0.2);
             padding: 6px 12px;
             border-radius: 30px;
             cursor: pointer;
@@ -1573,7 +1597,7 @@ table.dataTable thead th,
         }
 
         .header-user-profile:hover {
-            background: rgba(193, 43, 62, 0.35);
+            background: rgba(79, 70, 229, 0.35);
             transform: translateY(-2px);
         }
 
@@ -1581,7 +1605,7 @@ table.dataTable thead th,
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #C12B3E, #E91E63);
+            background: linear-gradient(135deg, var(--primary), #7C3AED);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1644,18 +1668,18 @@ table.dataTable thead th,
         }
 
         .content-wrapper::-webkit-scrollbar-track {
-            background: rgba(193, 43, 62, 0.05);
+            background: rgba(79, 70, 229, 0.05);
             border-radius: 8px;
         }
 
         .content-wrapper::-webkit-scrollbar-thumb {
-            background: rgba(193, 43, 62, 0.2);
+            background: rgba(79, 70, 229, 0.2);
             border-radius: 8px;
             transition: background 0.3s ease;
         }
 
         .content-wrapper::-webkit-scrollbar-thumb:hover {
-            background: rgba(193, 43, 62, 0.4);
+            background: rgba(79, 70, 229, 0.4);
         }
 
         /* Dashboard Grid */
@@ -1670,7 +1694,7 @@ table.dataTable thead th,
         .section-card {
             background: white;
             border-radius: 12px;
-            border: 1px solid rgba(193, 43, 62, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.1);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
             overflow: hidden;
             animation: fadeInUp 0.5s ease-out backwards;
@@ -1684,17 +1708,17 @@ table.dataTable thead th,
 
         .section-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(193, 43, 62, 0.12);
-            border-color: rgba(193, 43, 62, 0.2);
+            box-shadow: 0 8px 24px rgba(79, 70, 229, 0.12);
+            border-color: rgba(79, 70, 229, 0.2);
         }
 
         .section-header {
             padding: 8px 10px;
-            border-bottom: 1px solid rgba(193, 43, 62, 0.1);
+            border-bottom: 1px solid rgba(79, 70, 229, 0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: linear-gradient(90deg, rgba(193, 43, 62, 0.05) 0%, transparent 100%);
+            background: linear-gradient(90deg, rgba(79, 70, 229, 0.05) 0%, transparent 100%);
         }
 
         .section-title {
@@ -1778,7 +1802,7 @@ table.dataTable thead th,
         .tab-navigation {
             display: flex;
             gap: 8px;
-            border-bottom: 2px solid rgba(193, 43, 62, 0.1);
+            border-bottom: 2px solid rgba(79, 70, 229, 0.1);
             margin-bottom: 16px;
             padding-bottom: 0;
         }
@@ -1799,7 +1823,7 @@ table.dataTable thead th,
 
         .tab-button:hover {
             color: var(--dark-blue-deep);
-            background: rgba(193, 43, 62, 0.05);
+            background: rgba(79, 70, 229, 0.05);
         }
 
         .tab-button.active {
@@ -1827,7 +1851,7 @@ table.dataTable thead th,
             padding: 16px 20px;
             text-align: center;
             font-size: 0.75rem;
-            border-top: 1px solid rgba(193, 43, 62, 0.2);
+            border-top: 1px solid rgba(79, 70, 229, 0.2);
             margin-top: auto;
         }
 
@@ -1839,26 +1863,26 @@ table.dataTable thead th,
         /* Improved Sidebar Styling */
         .sidebar {
             background: linear-gradient(180deg, var(--dark-blue-deep) 0%, var(--dark-blue-primary) 100%);
-            border-right: 1px solid rgba(193, 43, 62, 0.2);
+            border-right: 1px solid rgba(79, 70, 229, 0.2);
         }
 
         .sidebar .btn-side {
-            background: rgba(193, 43, 62, 0.05);
-            border: 1px solid rgba(193, 43, 62, 0.15);
+            background: rgba(79, 70, 229, 0.05);
+            border: 1px solid rgba(79, 70, 229, 0.15);
             color: rgba(255, 255, 255, 0.7);
         }
 
         .sidebar .btn-side:hover {
-            background: rgba(193, 43, 62, 0.25);
-            border-color: rgba(193, 43, 62, 0.4);
+            background: rgba(79, 70, 229, 0.25);
+            border-color: rgba(79, 70, 229, 0.4);
             color: white;
         }
 
         .sidebar .btn-side.active {
-            background: linear-gradient(135deg, var(--crimson-bright) 0%, #E91E63 100%);
-            border-color: var(--crimson-bright);
+            background: var(--primary);
+            border-color: var(--primary);
             color: white;
-            box-shadow: 0 4px 12px rgba(193, 43, 62, 0.4);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
         }
 
         /* Stats Grid */
@@ -1873,7 +1897,7 @@ table.dataTable thead th,
             background: white;
             border-radius: 8px;
             padding: 16px;
-            border: 1px solid rgba(193, 43, 62, 0.1);
+            border: 1px solid rgba(79, 70, 229, 0.1);
             animation: fadeInUp 0.5s ease-out backwards;
         }
 
@@ -1975,7 +1999,7 @@ table.dataTable thead th,
     .toast-notification {
         pointer-events: auto;
         background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%);
-        border: 1px solid rgba(193, 43, 62, 0.15);
+        border: 1px solid rgba(79, 70, 229, 0.15);
         border-left: 4px solid var(--crimson-bright);
         border-radius: 12px;
         padding: 12px 16px;
@@ -2056,7 +2080,7 @@ table.dataTable thead th,
         grid-template-columns: repeat(5, 1fr);
         gap: 12px;
         padding: 12px 0;
-        border-bottom: 1px solid rgba(193, 43, 62, 0.06);
+        border-bottom: 1px solid rgba(79, 70, 229, 0.06);
     }
     .skeleton-table-row .skeleton { height: 14px; }
     @keyframes skeletonShimmer {
@@ -2090,7 +2114,7 @@ table.dataTable thead th,
         overflow-y: auto;
         overflow-x: auto;
         border-radius: 8px;
-        border: 1px solid rgba(193, 43, 62, 0.08);
+        border: 1px solid rgba(79, 70, 229, 0.08);
     }
     .table-scroll-container table {
         margin-bottom: 0;
@@ -2102,12 +2126,12 @@ table.dataTable thead th,
     }
     .table-scroll-container::-webkit-scrollbar-thumb,
     .container2::-webkit-scrollbar-thumb {
-        background: rgba(193, 43, 62, 0.2);
+        background: rgba(79, 70, 229, 0.2);
         border-radius: 3px;
     }
     .table-scroll-container::-webkit-scrollbar-thumb:hover,
     .container2::-webkit-scrollbar-thumb:hover {
-        background: rgba(193, 43, 62, 0.4);
+        background: rgba(79, 70, 229, 0.4);
     }
     /* Scrollable table containers inside tab panes - dynamic max-height */
     .tab-pane .container2,
@@ -2136,7 +2160,7 @@ table.dataTable thead th,
     /* --- Enhanced Input Focus --- */
     .form-control:focus, .form-select:focus {
         border-color: var(--crimson-bright) !important;
-        box-shadow: 0 0 0 3px rgba(193, 43, 62, 0.15) !important;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
         background: white !important;
         transition: all 0.25s ease;
     }
@@ -2165,7 +2189,7 @@ table.dataTable thead th,
         color: white !important;
     }
     .badge.bg-danger {
-        background: linear-gradient(135deg, var(--crimson-bright) 0%, #d32f2f 100%) !important;
+        background: linear-gradient(135deg, var(--primary) 0%, #7C3AED 100%) !important;
     }
     .badge.bg-info {
         background: linear-gradient(135deg, #2196f3 0%, #1565c0 100%) !important;
@@ -2176,21 +2200,21 @@ table.dataTable thead th,
         transition: background 0.2s ease, transform 0.15s ease;
     }
     .table-theme tbody tr:hover td {
-        background: rgba(193, 43, 62, 0.06) !important;
+        background: rgba(79, 70, 229, 0.06) !important;
     }
     .table-theme tbody tr:active td {
-        background: rgba(193, 43, 62, 0.12) !important;
+        background: rgba(79, 70, 229, 0.12) !important;
     }
 
     /* --- Modern Scrollbar --- */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb {
-        background: rgba(193, 43, 62, 0.2);
+        background: rgba(79, 70, 229, 0.2);
         border-radius: 3px;
         transition: background 0.3s;
     }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(193, 43, 62, 0.4); }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(79, 70, 229, 0.4); }
 
     /* --- Button Ripple Enhancement --- */
     .btn {
@@ -2230,7 +2254,7 @@ table.dataTable thead th,
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: linear-gradient(135deg, var(--crimson-bright), #E91E63);
+        background: linear-gradient(135deg, var(--primary), #7C3AED);
         animation: pulseSpin 1.2s ease-in-out infinite;
     }
     @keyframes pulseSpin {
@@ -2249,7 +2273,7 @@ table.dataTable thead th,
         padding-top: 8px !important;
     }
     .dataTables_wrapper .dataTables_filter input {
-        border: 1px solid rgba(193, 43, 62, 0.2) !important;
+        border: 1px solid rgba(79, 70, 229, 0.2) !important;
         border-radius: 8px !important;
         padding: 4px 8px !important;
         font-size: 0.65rem !important;
@@ -2258,7 +2282,7 @@ table.dataTable thead th,
     }
     .dataTables_wrapper .dataTables_filter input:focus {
         border-color: var(--crimson-bright) !important;
-        box-shadow: 0 0 0 3px rgba(193, 43, 62, 0.12) !important;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
         outline: none !important;
     }
 
@@ -2422,7 +2446,7 @@ table.dataTable thead th,
     }
     .action-toolbar .search-input:focus {
         border-color: var(--crimson-bright);
-        box-shadow: 0 0 0 2px rgba(193, 43, 62, 0.1);
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
         outline: none;
     }
 
@@ -2522,7 +2546,7 @@ table.dataTable thead th,
         background: var(--crimson-bright);
         color: white;
         border: none;
-        box-shadow: 0 4px 16px rgba(193, 43, 62, 0.35);
+        box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -2533,7 +2557,7 @@ table.dataTable thead th,
     }
     .fab:hover {
         transform: scale(1.1);
-        box-shadow: 0 6px 24px rgba(193, 43, 62, 0.45);
+        box-shadow: 0 6px 24px rgba(79, 70, 229, 0.45);
     }
     .fab:active { transform: scale(0.95); }
 
@@ -2609,16 +2633,16 @@ table.dataTable thead th,
 
     <div class="eds-loader" id="edsLoader" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 26, 58, 0.96); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
         <!-- Spinner -->
-        <div style="width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.1); border-radius: 50%; border-top-color: #C12B3E; animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; margin-bottom: 24px;"></div>
+        <div style="width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.1); border-radius: 50%; border-top-color: var(--primary); animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; margin-bottom: 24px;"></div>
         
         <div class="eds-logo" style="margin-bottom: 16px;"><img src="{{ url_for('static', filename='images/web-logo-white.png') }}"  alt="Logo" class="logo" style="width: 120px; opacity: 0.9;"></div> 
 
-        <p style="font-weight: 700; color: white; font-size: 1.2rem; margin: 0 0 4px 0; letter-spacing: 0.5px; min-height: 30px; transition: opacity 0.3s ease;">Creating project <span style="color: #C12B3E;">...</span></p>
+        <p style="font-weight: 700; color: white; font-size: 1.2rem; margin: 0 0 4px 0; letter-spacing: 0.5px; min-height: 30px; transition: opacity 0.3s ease;">Creating project <span style="color: var(--primary);">...</span></p>
         
         <p style="color: rgba(255,255,255,0.5); font-size: 0.75rem; margin: 0 0 20px 0; letter-spacing: 0.3px; min-height: 20px; transition: opacity 0.3s ease;">Initializing project database</p>
 
         <div class="loader-bar" style="width: 200px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;">
-            <div class="loader-progress" style="height: 100%; background: linear-gradient(90deg, #C12B3E, #E91E63, #C12B3E); animation: loadingSlide 1.5s ease-in-out infinite;"></div>
+            <div class="loader-progress" style="height: 100%; background: linear-gradient(90deg, var(--primary), #7C3AED, var(--primary)); animation: loadingSlide 1.5s ease-in-out infinite;"></div>
         </div>
         
         <div class="eds-grid" style="display: grid; grid-template-columns: repeat(4, 40px); gap: 8px; margin-top: 20px;">
@@ -3554,7 +3578,7 @@ table.dataTable thead th,
 <!-- Delete Project Modal - Blur Overlay Version -->
 <div id="deleteprojectModal" class="modal-overlay">
     <div class="modal-container small">
-        <div class="modal-header-custom" style="background: var(--crimson-sidebar, #9B1D2C);">
+        <div class="modal-header-custom" style="background: var(--crimson-sidebar, var(--primary));">
             <h3><i class="bi bi-exclamation-triangle"></i> PROJECT REMOVAL CONFIRMATION</h3>
             <button class="close-modal" onclick="closeModal('deleteprojectModal')">
                 <i class="bi bi-x-lg"></i>
@@ -5108,7 +5132,7 @@ table.dataTable thead th,
                 <h6 class="fw-bold mb-2" style="font-size: 0.95em;">Kitchen & Cabinet Items</h6>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered" style="font-size: 0.7em;">
-                        <thead style="background-color: #9B1D2C; color: white;">
+                        <thead style="background-color: var(--primary); color: white;">
                             <tr>
                                 <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
                                 <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty</th>
@@ -5127,10 +5151,10 @@ table.dataTable thead th,
             </div>
 
             <!-- Total Cost Summary -->
-            <div class="mb-3 p-2 border rounded" style="background-color: #e8f4f8; border-left: 3px solid #9B1D2C; font-size: 0.92em;">
+            <div class="mb-3 p-2 border rounded" style="background-color: #e8f4f8; border-left: 3px solid var(--primary); font-size: 0.92em;">
                 <div class="d-flex justify-content-between align-items-center">
                     <span class="fw-bold" style="font-size: 0.95em;">Total Cost:</span>
-                    <span class="fw-bold" style="color: #9B1D2C; font-size: 1.1em;">USD <span id="kitchenPreviewTotalCost">0.00</span></span>
+                    <span class="fw-bold" style="color: var(--primary); font-size: 1.1em;">USD <span id="kitchenPreviewTotalCost">0.00</span></span>
                 </div>
             </div>
 
@@ -5175,7 +5199,7 @@ table.dataTable thead th,
 <!-- Remove User Modal - Blur Overlay Version -->
 <div id="removeUserModal" class="modal-overlay">
     <div class="modal-container">
-        <div class="modal-header-custom" style="background: var(--crimson-sidebar, #9B1D2C);">
+        <div class="modal-header-custom" style="background: var(--crimson-sidebar, var(--primary));">
             <h3><i class="bi bi-exclamation-triangle-fill"></i> USER REMOVAL CONFIRMATION</h3>
             <button class="close-modal" onclick="closeModal('removeUserModal')">
                 <i class="bi bi-x-lg"></i>
@@ -5677,7 +5701,7 @@ table.dataTable thead th,
                 </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered" style="font-size: 0.7em;">
-                        <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
+                        <thead style="background-color: var(--crimson-sidebar, var(--primary)); color: white;">
                             <tr>
                                 <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
                                 <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty (Sq.M)</th>
@@ -5694,10 +5718,10 @@ table.dataTable thead th,
             </div>
 
             <!-- Total Cost Summary -->
-            <div class="mb-3 p-2 border rounded" style="background-color: #e8f4f8; border-left: 3px solid var(--crimson-sidebar, #9B1D2C); font-size: 0.92em;">
+            <div class="mb-3 p-2 border rounded" style="background-color: #e8f4f8; border-left: 3px solid var(--crimson-sidebar, var(--primary)); font-size: 0.92em;">
                 <div class="d-flex justify-content-between align-items-center">
                     <span class="fw-bold" style="font-size: 0.95em;">Total Cost:</span>
-                    <span class="fw-bold" style="color: var(--crimson-sidebar, #9B1D2C); font-size: 1.1em;">USD <span id="quotationTotalCost">0.00</span></span>
+                    <span class="fw-bold" style="color: var(--crimson-sidebar, var(--primary)); font-size: 1.1em;">USD <span id="quotationTotalCost">0.00</span></span>
                 </div>
             </div>
 
@@ -9864,7 +9888,7 @@ function displayKitchenPreview() {
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity || 1}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${item.days || 1}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: var(--primary);">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
         </tr>`;
     });
     
@@ -10180,7 +10204,7 @@ async function generateKitchenPDF(outputMode = 'download') {
                 
                 <div style="display:flex; gap:16px; margin-bottom:20px;">
                     <div style="flex:1; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:12px;">
-                        <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong>. All prices are in <strong>USD</strong>.
+                        <strong style="color:var(--primary);">Important Note:</strong> This quotation is valid for <strong>30 days</strong>. All prices are in <strong>USD</strong>.
                         <div style="margin-top:8px;"><strong>Terms:</strong> 30% deposit required before work commences.</div>
                     </div>
                     <div style="flex:1; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px;">
@@ -11635,7 +11659,7 @@ function setSystemUserRowEditing(tr, isEditing) {
         const cell = cells[idx];
         cell.contentEditable = isEditing ? 'true' : 'false';
         cell.style.background = isEditing ? '#fff9db' : '';
-        cell.style.outline = isEditing ? '1px dashed #9B1D2C' : '';
+        cell.style.outline = isEditing ? '1px dashed var(--primary)' : '';
     });
 
     const editBtn = tr.querySelector('.system-user-edit-btn');
@@ -13144,11 +13168,11 @@ document.getElementById("confirmSaveProjectBtn").addEventListener("click", funct
     
     // Initialize loading messages similar to mainindex.html
     const loadingMessages = [
-        { main: 'Creating project <span style="color: #C12B3E;">...</span>', sub: 'Initializing project database' },
-        { main: 'Saving client details <span style="color: #C12B3E;">...</span>', sub: 'Storing client information' },
-        { main: 'Processing payment terms <span style="color: #C12B3E;">...</span>', sub: 'Configuring installments' },
-        { main: 'Generating project file <span style="color: #C12B3E;">...</span>', sub: 'Compiling project data' },
-        { main: 'Finalizing setup <span style="color: #C12B3E;">...</span>', sub: 'Almost there' }
+        { main: 'Creating project <span style="color: var(--primary);">...</span>', sub: 'Initializing project database' },
+        { main: 'Saving client details <span style="color: var(--primary);">...</span>', sub: 'Storing client information' },
+        { main: 'Processing payment terms <span style="color: var(--primary);">...</span>', sub: 'Configuring installments' },
+        { main: 'Generating project file <span style="color: var(--primary);">...</span>', sub: 'Compiling project data' },
+        { main: 'Finalizing setup <span style="color: var(--primary);">...</span>', sub: 'Almost there' }
     ];
     
     let currentMessageStep = 0;
@@ -14784,7 +14808,7 @@ function updateKitchenPreviewDisplay() {
     if (data.items && data.items.length > 0) {
         // Create thead with kitchen-specific headers
         tableHTML = `
-            <thead style="background-color: var(--crimson-sidebar, #9B1D2C); color: white;">
+            <thead style="background-color: var(--crimson-sidebar, var(--primary)); color: white;">
                 <tr>
                     <th style="font-size: 0.85em; padding: 4px 6px; text-align: left;">Item</th>
                     <th style="font-size: 0.85em; padding: 4px 6px; text-align: center;">Qty</th>
@@ -14806,15 +14830,15 @@ function updateKitchenPreviewDisplay() {
                 <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${item.quantity || 1}</td>
                 <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">USD ${(item.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${itemDays}</td>
-                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: var(--primary);">USD ${itemTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             </tr>`;
         });
         
         // Add total row
         tableHTML += `<table>
-            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
-            <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDays}</strong></td>
-            <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
+            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary);"><strong>TOTAL</strong></td>
+            <td style="text-align: center; font-weight: bold; border-top: 2px solid var(--primary); color: #2196F3;"><strong>${totalDays}</strong></td>
+            <td style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary); color: var(--primary);"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
         </table>`;
         
         tableHTML += `</tbody>`;
@@ -15075,7 +15099,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                 <!-- IMPORTANT NOTE & BANKING DETAILS -->
                 <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
                     <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;">
-                        <strong style="color: #d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                        <strong style="color: var(--primary);">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
                         <div style="margin-top: 8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
                         ${(() => {
                             const isConst = String(category || '').toLowerCase().includes('construction');
@@ -15110,7 +15134,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                 <div style="margin-bottom: 22px; text-align: center;">
                     <span style="display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;">
                         <i class="bi bi-info-circle-fill" style="margin-right: 6px;"></i>
-                        For a full breakdown of your quotation, <span style="color: #d32f2f;">see the detailed quotation table below</span>.
+                        For a full breakdown of your quotation, <span style="color: var(--primary);">see the detailed quotation table below</span>.
                     </span>
                 </div>` : ''}
 
@@ -15209,16 +15233,16 @@ function renderPreviewItemsTable(data) {
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center;">${qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right;">${formatCurrency(rate)}</td>
             <td style="font-size: 0.75rem; padding: 4px 6px; text-align: center; font-weight: 600; color: #2196F3;">${days}</td>
-            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: #9B1D2C;">${formatCurrency(total)}</td>
+            <td style="font-size: 0.75rem; padding: 4px 6px; text-align: right; font-weight: 700; color: var(--primary);">${formatCurrency(total)}</td>
         </tr>`;
     });
     
     // Add total row
     if (previewItems.length > 0) {
         tableHTML += `<tr>
-            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C;"><strong>TOTAL</strong></td>
-            <td style="text-align: center; font-weight: bold; border-top: 2px solid #9B1D2C; color: #2196F3;"><strong>${totalDaysSum}</strong></td>
-            <td style="text-align: right; font-weight: bold; border-top: 2px solid #9B1D2C; color: #9B1D2C;"><strong>${formatCurrency(totalCostPreview)}</strong></td>
+            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary);"><strong>TOTAL</strong></td>
+            <td style="text-align: center; font-weight: bold; border-top: 2px solid var(--primary); color: #2196F3;"><strong>${totalDaysSum}</strong></td>
+            <td style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary); color: var(--primary);"><strong>${formatCurrency(totalCostPreview)}</strong></td>
         </table>`;
     }
 
@@ -16001,7 +16025,7 @@ function renderGanttItemsList() {
             <div style="overflow-x: auto;">
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem;">
                     <thead>
-                        <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid #9B1D2C;">
+                        <tr style="background-color: #0A1A3A; color: white; border-bottom: 2px solid var(--primary);">
                             <th style="padding: 6px; text-align: left;">Sent At</th>
                             <th style="padding: 6px; text-align: left;">Client</th>
                             <th style="padding: 6px; text-align: left;">WhatsApp</th>
@@ -16031,7 +16055,7 @@ function renderGanttItemsList() {
                     <td style="padding: 6px;">${row.clientName || 'Client'}</td>
                     <td style="padding: 6px;">${row.whatsappNumber || 'N/A'}</td>
                     <td style="padding: 6px;">${row.category || 'N/A'}</td>
-                    <td style="padding: 6px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td style="padding: 6px; text-align: right; color: var(--primary); font-weight: bold;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td style="padding: 6px; text-align: center;">${formatSendTypeBadge(row.sendType)}</td>
                     <td style="padding: 6px; text-align: center;">${formatSendStatusBadge(row.sendStatus)}</td>
                     <td style="padding: 6px; text-align: center;">${dlBadge}</td>
@@ -16193,7 +16217,7 @@ function displayQuotations(quotations) {
                 <td style="padding: 4px 4px; text-align: left;">${escapeHtml(displayCategory)}</td>
                 <td style="padding: 4px 4px; text-align: center;">${quotation.projectSize || '0'}</td>
                 <td style="padding: 4px 4px; text-align: center;">${quotation.markup || '0'}%</td>
-                <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: #9B1D2C;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: var(--primary);">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 <td style="padding: 4px 4px; text-align: center;">${formattedDate}</td>
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${itemCount}</span></td>
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${taskCount}</span></td>
@@ -16333,7 +16357,7 @@ function deleteQuotation(quotationId, clientName) {
                 <td style="padding: 4px 4px; text-align: left;">${escapeHtml(displayCategory)}</td>
                 <td style="padding: 4px 4px; text-align: center;">${quotation.projectSize || '0'}</td>
                 <td style="padding: 4px 4px; text-align: center;">${quotation.markup || '0'}%</td>
-                <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: #9B1D2C;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: var(--primary);">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 <td style="padding: 4px 4px; text-align: center;">${formattedDate}</td>
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${itemCount}</span></td>
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${taskCount}</span></td>
@@ -16858,7 +16882,7 @@ function escapeHtml(text) {
                         <td style="padding: 4px; text-align: left;">${item.name || 'N/A'}</td>
                         <td style="padding: 4px; text-align: center;">${item.quantity || 0}</td>
                         <td style="padding: 4px; text-align: right;">USD ${(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style="padding: 4px; text-align: right; color: #9B1D2C; font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 4px; text-align: right; color: var(--primary); font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                 `;
             });
@@ -17434,18 +17458,18 @@ async function sendConstructionQuotationFromPortal(quotation) {
             /* Enhanced focus states */
             .form-control:focus-visible, .form-select:focus-visible {
                 outline: none;
-                border-color: #C12B3E;
+                border-color: var(--primary);
                 box-shadow: 0 0 0 3px rgba(193,43,62,0.2);
             }
 
             /* Smooth text selection */
             ::selection {
-                background: #C12B3E;
+                background: var(--primary);
                 color: white;
             }
 
             ::-moz-selection {
-                background: #C12B3E;
+                background: var(--primary);
                 color: white;
             }
         `;
