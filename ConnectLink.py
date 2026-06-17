@@ -10933,6 +10933,188 @@ def change_password():
         print(f"Change password error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/whatsapp-chats', methods=['GET'])
+@login_required
+def whatsapp_chats():
+    """Get grouped WhatsApp conversations from enquiries"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT clientwhatsapp, username,
+                       COUNT(*) as msg_count,
+                       MAX(timestamp) as last_message_time,
+                       (SELECT enq FROM connectlinkenquiries sub 
+                        WHERE sub.clientwhatsapp = e.clientwhatsapp 
+                        ORDER BY sub.id DESC LIMIT 1) as last_message,
+                       (SELECT status FROM connectlinkenquiries sub 
+                        WHERE sub.clientwhatsapp = e.clientwhatsapp 
+                        ORDER BY sub.id DESC LIMIT 1) as last_status
+                FROM connectlinkenquiries e
+                WHERE clientwhatsapp IS NOT NULL
+                GROUP BY clientwhatsapp, username
+                ORDER BY last_message_time DESC
+                LIMIT 100
+            """)
+            rows = cursor.fetchall()
+            chats = []
+            for r in rows:
+                chats.append({
+                    'whatsapp': str(r[0]),
+                    'name': r[1] or f"Unknown ({r[0]})",
+                    'message_count': r[2],
+                    'last_time': r[3].strftime('%d/%m/%Y %H:%M') if r[3] else '',
+                    'last_message': r[4] or '',
+                    'status': r[5] or 'pending'
+                })
+            return jsonify({'success': True, 'data': chats})
+    except Exception as e:
+        print(f"WhatsApp chats error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-messages/<phone_number>', methods=['GET'])
+@login_required
+def whatsapp_messages(phone_number):
+    """Get all messages for a specific WhatsApp conversation"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, timestamp, enq as message, enqcategory, status, username,
+                       plan IS NOT NULL as has_plan
+                FROM connectlinkenquiries
+                WHERE clientwhatsapp = %s
+                ORDER BY id ASC
+                LIMIT 200
+            """, (int(phone_number),))
+            rows = cursor.fetchall()
+            messages = []
+            for r in rows:
+                messages.append({
+                    'id': r[0],
+                    'timestamp': r[1].strftime('%d/%m/%Y %H:%M') if r[1] else '',
+                    'message': r[2] or '',
+                    'category': r[3] or '',
+                    'status': r[4] or 'pending',
+                    'username': r[5] or '',
+                    'has_plan': r[6],
+                    'is_incoming': True  # All from enquiries are incoming
+                })
+            return jsonify({'success': True, 'data': messages})
+    except Exception as e:
+        print(f"WhatsApp messages error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-send', methods=['POST'])
+@login_required
+def whatsapp_send():
+    """Send a WhatsApp message reply"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        recipient = data.get('recipient', '')
+        message = data.get('message', '').strip()
+        media_url = data.get('media_url', '')
+        media_type = data.get('media_type', '')  # 'image' or 'document'
+        
+        if not recipient or not message:
+            return jsonify({'success': False, 'message': 'Recipient and message required'}), 400
+        
+        # Normalise number
+        recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+        if recipient_clean.startswith('0'):
+            recipient_clean = '263' + recipient_clean[1:]
+        elif not recipient_clean.startswith('263'):
+            recipient_clean = '263' + recipient_clean
+        
+        headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        if media_url and media_type == 'image':
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'image',
+                'image': { 'link': media_url },
+                'caption': message
+            }
+        elif media_url and media_type == 'document':
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'document',
+                'document': { 'link': media_url, 'caption': message }
+            }
+        else:
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'text',
+                'text': { 'body': message }
+            }
+        
+        resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
+        resp_data = resp.json()
+        
+        if resp.status_code == 200:
+            return jsonify({'success': True, 'message': 'Message sent', 'data': resp_data})
+        else:
+            return jsonify({'success': False, 'message': str(resp_data)}), 400
+    except Exception as e:
+        print(f"WhatsApp send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-bulk-send', methods=['POST'])
+@login_required
+def whatsapp_bulk_send():
+    """Send bulk WhatsApp message to multiple recipients"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        recipients = data.get('recipients', [])  # list of phone numbers
+        message = data.get('message', '').strip()
+        
+        if not recipients or not message:
+            return jsonify({'success': False, 'message': 'Recipients and message required'}), 400
+        
+        results = []
+        headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        for recipient in recipients:
+            recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+            if recipient_clean.startswith('0'):
+                recipient_clean = '263' + recipient_clean[1:]
+            elif not recipient_clean.startswith('263'):
+                recipient_clean = '263' + recipient_clean
+            
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'text',
+                'text': { 'body': message }
+            }
+            try:
+                resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
+                results.append({
+                    'recipient': recipient,
+                    'success': resp.status_code == 200,
+                    'response': resp.json() if resp.status_code == 200 else str(resp.text)
+                })
+            except Exception as e:
+                results.append({'recipient': recipient, 'success': False, 'error': str(e)})
+        
+        return jsonify({'success': True, 'results': results})
+    except Exception as e:
+        print(f"WhatsApp bulk send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/export-enquiries')
 def export_enquiries():
     with get_db() as (cursor, connection):

@@ -2795,6 +2795,32 @@ table.dataTable thead th.sorting_desc {
         min-width: 0;
     }
     .action-toolbar .toolbar-spacer { flex: 1; }
+    /* WhatsApp Chat Styles */
+    #chatMessagesArea {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background: #e5ddd5 !important;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4d4d4' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    body.dark-theme #chatMessagesArea {
+        background: #1a2332 !important;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23333' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    #chatMessagesArea > div {
+        max-width: 80%;
+        padding: 6px 10px;
+        border-radius: 8px;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+        word-wrap: break-word;
+        position: relative;
+    }
+    #chatMessagesArea > div[style*="align-self:flex-start"] {
+        border-bottom-left-radius: 2px;
+    }
+    #chatMessagesArea > div[style*="align-self:flex-end"] {
+        border-bottom-right-radius: 2px;
+    }
     .action-toolbar .search-input {
         border: 1px solid var(--gray-300);
         border-radius: var(--radius-sm);
@@ -3130,27 +3156,32 @@ table.dataTable thead th.sorting_desc {
                         <ul class="nav nav-tabs tab-nav-list">
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn active" data-bs-toggle="tab" data-bs-target="#projects-tab">
-                                    <i class="bi bi-list-columns-reverse"></i> PROJECTS
+                                    <i class="bi bi-list-columns-reverse"></i> PROJECTS PORTAL
                                 </button>
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#payments-tab">
-                                    <i class="bi bi-cash-coin"></i> PAYMENTS
+                                    <i class="bi bi-cash-coin"></i> PAYMENTS PORTAL
                                 </button>
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#quotations-tab">
-                                    <i class="bi bi-file-earmark-text"></i> QUOTATIONS
+                                    <i class="bi bi-file-earmark-text"></i> QUOTATIONS PORTAL
                                 </button>
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#enquiries-tab">
-                                    <i class="bi bi-person-badge-fill"></i> ENQUIRIES
+                                    <i class="bi bi-person-badge-fill"></i> ENQUIRIES PORTAL
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#whatsapp-tab">
+                                    <i class="bi bi-whatsapp"></i> WHATSAPP CHATS PORTAL
                                 </button>
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#activity-tab">
-                                    <i class="bi bi-activity"></i> ACTIVITY
+                                    <i class="bi bi-activity"></i> SYSTEM USERS ACTIVITY PORTAL
                                 </button>
                             </li>
                             <li class="nav-item">
@@ -3160,7 +3191,7 @@ table.dataTable thead th.sorting_desc {
                             </li>
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#contractor-details-tab">
-                                    <i class="bi bi-building"></i> CONTRACTOR
+                                    <i class="bi bi-building"></i> CONTRACTOR DETAILS
                                 </button>
                             </li>
                         </ul>
@@ -3340,6 +3371,24 @@ table.dataTable thead th.sorting_desc {
                                             {% endfor %}
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- WHATSAPP MESSENGER TAB -->
+                        <div class="tab-pane fade" id="whatsapp-tab">
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;justify-content:space-between;">
+                                <div>
+                                    <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadWhatsAppChats()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                    <button class="btn btn-success" style="font-size:0.55rem;padding:2px 8px;" onclick="openBulkMessaging()"><i class="bi bi-megaphone"></i> Bulk Message</button>
+                                </div>
+                                <span id="whatsappChatCount" style="font-size:0.55rem;color:var(--text-muted);">0 conversations</span>
+                            </div>
+                            <div id="whatsappChatList" style="display:flex;flex-direction:column;gap:3px;max-height:55vh;overflow-y:auto;background:var(--bg-card);border-radius:6px;padding:4px;">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="bi bi-whatsapp"></i></div>
+                                    <div class="empty-title">WhatsApp Messenger</div>
+                                    <div class="empty-desc">Click Refresh to load WhatsApp conversations.</div>
                                 </div>
                             </div>
                         </div>
@@ -5795,6 +5844,72 @@ table.dataTable thead th.sorting_desc {
             <button type="button" class="btn btn-danger btn-sm" style="font-size: 0.85em; padding: 4px 14px;" onclick="closeModal('activityDetailModal')">
                 <i class="bi bi-x"></i> Close
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- WhatsApp Chat Modal -->
+<div id="whatsappChatModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:500px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-whatsapp"></i> <span id="chatModalTitle">Chat</span></h3>
+            <button class="close-modal" onclick="closeModal('whatsappChatModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom p-0 d-flex flex-column" style="height:65vh;">
+            <!-- Chat Messages Area -->
+            <div id="chatMessagesArea" style="flex:1;overflow-y:auto;padding:10px;background:#e5ddd5;display:flex;flex-direction:column;gap:4px;">
+                <div class="text-center py-4 text-muted" style="font-size:0.6rem;">
+                    <i class="bi bi-chat-dots"></i> Select a conversation to start chatting
+                </div>
+            </div>
+            <!-- Reply Bar -->
+            <div style="border-top:1px solid var(--border-color);padding:8px 10px;background:var(--bg-card);">
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('chatFileInput').click()" title="Attach file" style="padding:4px 8px;font-size:0.6rem;">
+                        <i class="bi bi-paperclip"></i>
+                    </button>
+                    <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx" onchange="handleChatFileSelect(event)">
+                    <div id="chatFilePreview" style="display:none;font-size:0.5rem;color:var(--text-muted);padding:2px 6px;background:var(--gray-50);border-radius:4px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                    <input type="text" id="chatMessageInput" class="form-control" placeholder="Type a message..." style="font-size:0.6rem;padding:6px 10px;flex:1;">
+                    <button class="btn btn-success btn-sm" onclick="sendChatMessage()" style="padding:4px 12px;font-size:0.6rem;">
+                        <i class="bi bi-send"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk WhatsApp Messaging Modal -->
+<div id="bulkMessagingModal" class="modal-overlay">
+    <div class="modal-container large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-megaphone"></i> Bulk WhatsApp Messaging</h3>
+            <button class="close-modal" onclick="closeModal('bulkMessagingModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height:70vh;overflow-y:auto;padding:14px 16px;">
+            <div class="mb-3">
+                <label style="font-size:0.6rem;font-weight:600;display:block;margin-bottom:6px;">Select Recipients</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;" id="bulkRecipientTags"></div>
+                <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;padding:6px;" id="bulkRecipientList"></div>
+                <div style="margin-top:6px;font-size:0.55rem;color:var(--text-muted);">
+                    <label><input type="checkbox" id="bulkSelectAll" onchange="toggleBulkSelectAll()"> Select All</label>
+                    <span id="bulkSelectedCount" style="margin-left:10px;">0 selected</span>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label style="font-size:0.6rem;font-weight:600;display:block;margin-bottom:4px;">Message</label>
+                <textarea class="form-control" id="bulkMessageText" rows="4" placeholder="Type your message here..." style="font-size:0.6rem;"></textarea>
+            </div>
+            <div id="bulkSendResult" style="font-size:0.55rem;"></div>
+        </div>
+        <div class="modal-footer-custom" style="padding:8px 12px;">
+            <button class="btn btn-danger btn-sm" onclick="closeModal('bulkMessagingModal')" style="font-size:0.65rem;padding:4px 14px;"><i class="bi bi-x"></i> Cancel</button>
+            <button class="btn btn-success btn-sm" onclick="sendBulkMessages()" style="font-size:0.65rem;padding:4px 14px;"><i class="bi bi-send"></i> Send to All Selected</button>
         </div>
     </div>
 </div>
@@ -16855,6 +16970,14 @@ function renderGanttItemsList() {
         console.warn('Quotations tab button not found');
     }
 
+    // Load WhatsApp chats when tab is shown
+    const whatsappTabButton = document.querySelector('button[data-bs-target="#whatsapp-tab"]');
+    if (whatsappTabButton) {
+        whatsappTabButton.addEventListener('shown.bs.tab', function(e) {
+            loadWhatsAppChats();
+        });
+    }
+
     // Load activity log when tab is shown
     const activityTabButton = document.querySelector('button[data-bs-target="#activity-tab"]');
     if (activityTabButton) {
@@ -18955,6 +19078,250 @@ function viewActivityDetails(element) {
         openModal('activityDetailModal');
     } catch(e) { console.error('Activity detail error:', e); }
 }
+
+// ===== WHATSAPP MESSENGER FUNCTIONS =====
+let whatsappRecipients = [];
+let currentChatPhone = '';
+let currentChatName = '';
+let chatFileData = null;
+
+function loadWhatsAppChats() {
+    const container = document.getElementById('whatsappChatList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>';
+    
+    fetch('/api/whatsapp-chats')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data || !res.data.length) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-whatsapp"></i></div><div class="empty-title">No Conversations</div><div class="empty-desc">No WhatsApp chats found yet.</div></div>';
+                document.getElementById('whatsappChatCount').textContent = '0 conversations';
+                return;
+            }
+            const chats = res.data;
+            document.getElementById('whatsappChatCount').textContent = chats.length + ' conversations';
+            whatsappRecipients = chats;
+            
+            let html = '<div style="display:flex;flex-direction:column;gap:2px;">';
+            chats.forEach(chat => {
+                const isNew = chat.status === 'pending' ? 'background:#dcf8c6;' : '';
+                const statusColor = chat.status === 'pending' ? '#25D366' : chat.status === 'completed' ? '#666' : '#ff9800';
+                html += `
+                    <div class="clickable-row" onclick="openChat('${chat.whatsapp}','${escapeHtml(chat.name)}')"
+                         style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;${isNew}border:1px solid var(--border-color);font-size:0.55rem;cursor:pointer;transition:all 0.15s;">
+                        <div style="width:32px;height:32px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-size:0.65rem;font-weight:700;">
+                            ${(chat.name || '?')[0].toUpperCase()}
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:600;color:var(--text-primary);font-size:0.6rem;">${escapeHtml(chat.name)}</div>
+                            <div style="font-size:0.48rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                ${escapeHtml(chat.last_message || 'No messages')}
+                            </div>
+                        </div>
+                        <div style="text-align:right;flex-shrink:0;">
+                            <div style="font-size:0.45rem;color:var(--text-muted);">${chat.last_time}</div>
+                            <div style="font-size:0.45rem;color:${statusColor};font-weight:600;">${chat.message_count} msgs</div>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        })
+        .catch(err => {
+            console.error('WhatsApp chats error:', err);
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div></div>';
+        });
+}
+
+function openChat(phone, name) {
+    currentChatPhone = phone;
+    currentChatName = name;
+    document.getElementById('chatModalTitle').textContent = name;
+    document.getElementById('chatMessageInput').value = '';
+    document.getElementById('chatFilePreview').style.display = 'none';
+    chatFileData = null;
+    
+    const area = document.getElementById('chatMessagesArea');
+    area.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading messages...</div>';
+    openModal('whatsappChatModal');
+    
+    fetch('/api/whatsapp-messages/' + phone)
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data) {
+                area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;">Failed to load messages</div>';
+                return;
+            }
+            const msgs = res.data;
+            if (!msgs.length) {
+                area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;"><i class="bi bi-chat-dots"></i> No messages yet</div>';
+                return;
+            }
+            area.innerHTML = '';
+            msgs.forEach(msg => {
+                const isIncoming = msg.is_incoming;
+                const time = msg.timestamp || '';
+                const bubbleStyle = isIncoming
+                    ? 'background:white;align-self:flex-start;border-bottom-left-radius:2px;'
+                    : 'background:#dcf8c6;align-self:flex-end;border-bottom-right-radius:2px;';
+                area.innerHTML += `
+                    <div style="max-width:80%;${bubbleStyle}padding:6px 10px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);">
+                        <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(msg.message)}</div>
+                        <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${time}</div>
+                    </div>`;
+            });
+            area.scrollTop = area.scrollHeight;
+        })
+        .catch(err => {
+            area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;">Error loading messages</div>';
+            console.error('Chat load error:', err);
+        });
+}
+
+function handleChatFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    chatFileData = file;
+    const preview = document.getElementById('chatFilePreview');
+    preview.textContent = '📎 ' + file.name;
+    preview.style.display = 'block';
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatMessageInput');
+    const message = input.value.trim();
+    const file = chatFileData;
+    
+    if (!message && !file) return;
+    if (!currentChatPhone) return;
+    
+    // If there's a file, upload first then send
+    if (file) {
+        // For now, send just the text with file name reference
+        // In production you'd upload to a server and get a URL
+        const fileName = file.name;
+        sendWhatsAppMessage(currentChatPhone, message || `📎 ${fileName} attached`);
+        chatFileData = null;
+        document.getElementById('chatFilePreview').style.display = 'none';
+        document.getElementById('chatFileInput').value = '';
+    } else {
+        sendWhatsAppMessage(currentChatPhone, message);
+    }
+    input.value = '';
+}
+
+function sendWhatsAppMessage(phone, text) {
+    fetch('/api/whatsapp-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient: phone, message: text })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            // Add outgoing message bubble
+            const area = document.getElementById('chatMessagesArea');
+            const now = new Date();
+            const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+            area.innerHTML += `
+                <div style="max-width:80%;background:#dcf8c6;align-self:flex-end;border-bottom-right-radius:2px;padding:6px 10px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);">
+                    <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(text)}</div>
+                    <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✓</div>
+                </div>`;
+            area.scrollTop = area.scrollHeight;
+        } else {
+            alert('Failed to send: ' + (res.message || 'Unknown error'));
+        }
+    })
+    .catch(err => {
+        console.error('Send error:', err);
+        alert('Failed to send message');
+    });
+}
+
+function openBulkMessaging() {
+    // Load chats as recipient options
+    const list = document.getElementById('bulkRecipientList');
+    const tags = document.getElementById('bulkRecipientTags');
+    tags.innerHTML = '';
+    document.getElementById('bulkMessageText').value = '';
+    document.getElementById('bulkSendResult').innerHTML = '';
+    
+    if (!whatsappRecipients.length) {
+        list.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.55rem;">Load WhatsApp chats first.</div>';
+    } else {
+        let html = '';
+        whatsappRecipients.forEach((chat, i) => {
+            html += `<label style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:0.55rem;border-bottom:1px solid var(--border-color);cursor:pointer;">
+                <input type="checkbox" class="bulk-recipient-cb" value="${chat.whatsapp}" data-name="${escapeHtml(chat.name)}">
+                <span>${escapeHtml(chat.name)} (${chat.whatsapp})</span>
+            </label>`;
+        });
+        list.innerHTML = html;
+    }
+    updateBulkSelectedCount();
+    openModal('bulkMessagingModal');
+}
+
+function toggleBulkSelectAll() {
+    const checked = document.getElementById('bulkSelectAll').checked;
+    document.querySelectorAll('.bulk-recipient-cb').forEach(cb => cb.checked = checked);
+    updateBulkSelectedCount();
+}
+
+function updateBulkSelectedCount() {
+    const count = document.querySelectorAll('.bulk-recipient-cb:checked').length;
+    document.getElementById('bulkSelectedCount').textContent = count + ' selected';
+}
+
+function sendBulkMessages() {
+    const message = document.getElementById('bulkMessageText').value.trim();
+    if (!message) { alert('Please enter a message.'); return; }
+    
+    const selected = [];
+    document.querySelectorAll('.bulk-recipient-cb:checked').forEach(cb => {
+        selected.push(cb.value);
+    });
+    if (!selected.length) { alert('Please select at least one recipient.'); return; }
+    
+    const btn = document.querySelector('#bulkMessagingModal .modal-footer-custom .btn-success');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+    
+    fetch('/api/whatsapp-bulk-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipients: selected, message: message })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            const results = res.results || [];
+            const sent = results.filter(r => r.success).length;
+            const failed = results.filter(r => !r.success).length;
+            document.getElementById('bulkSendResult').innerHTML = 
+                `<div style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Sent to ${sent}/${results.length} recipients${failed ? ' (' + failed + ' failed)' : ''}</div>`;
+        } else {
+            document.getElementById('bulkSendResult').innerHTML = 
+                `<div style="color:#d32f2f;">Failed: ${res.message || 'Unknown error'}</div>`;
+        }
+    })
+    .catch(err => {
+        document.getElementById('bulkSendResult').innerHTML = 
+            `<div style="color:#d32f2f;">Connection error</div>`;
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send"></i> Send to All Selected';
+    });
+}
+
+// Make checkbox listener available
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('bulk-recipient-cb')) {
+        updateBulkSelectedCount();
+    }
+});
 
 // Preload activity log when page loads
 document.addEventListener('DOMContentLoaded', function() {
