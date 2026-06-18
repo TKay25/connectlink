@@ -2876,6 +2876,19 @@ def webhook():
                                                                     
                                                                     response = requests.post(url, headers=headers, json=pdf_payload)
                                                                     response.raise_for_status()
+                                                                    
+                                                                    # Save to whatsapp_messages for chat portal visibility
+                                                                    try:
+                                                                        with get_db() as (save_cursor, save_conn):
+                                                                            save_cursor.execute("""
+                                                                                INSERT INTO whatsapp_messages 
+                                                                                (sender_phone, sender_name, message_text, message_type, direction, status, media_id, file_name)
+                                                                                VALUES (%s, %s, %s, 'document', 'outgoing', 'sent', %s, %s)
+                                                                            """, (recipient_number, 'ConnectLink Bot', f"[Document: {filename}]", media_id, filename))
+                                                                            save_conn.commit()
+                                                                    except Exception as save_err:
+                                                                        print(f"⚠️ Failed to save portfolio PDF message: {save_err}")
+                                                                    
                                                                     return response.json()
                                                                 
                                                                 # Generate PDF
@@ -4100,6 +4113,19 @@ def webhook():
                                                                     
                                                                     response = requests.post(url, headers=headers, json=pdf_payload)
                                                                     response.raise_for_status()
+                                                                    
+                                                                    # Save to whatsapp_messages for chat portal visibility
+                                                                    try:
+                                                                        with get_db() as (save_cursor, save_conn):
+                                                                            save_cursor.execute("""
+                                                                                INSERT INTO whatsapp_messages 
+                                                                                (sender_phone, sender_name, message_text, message_type, direction, status, media_id, file_name)
+                                                                                VALUES (%s, %s, %s, 'document', 'outgoing', 'sent', %s, %s)
+                                                                            """, (recipient_number, 'ConnectLink Bot', f"[Document: {filename}]", media_id, filename))
+                                                                            save_conn.commit()
+                                                                    except Exception as save_err:
+                                                                        print(f"⚠️ Failed to save cross-tab PDF message: {save_err}")
+                                                                    
                                                                     return response.json()
                                                                 
                                                                 # Generate PDF
@@ -20700,6 +20726,21 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
 
     if not send_data.get('messages'):
         raise ValueError(f"WhatsApp send returned no message confirmation: {send_data}")
+
+    # Save to whatsapp_messages for chat portal visibility
+    try:
+        with get_db() as (save_cursor, save_conn):
+            display_text = f"[Document: {filename}]"
+            if caption:
+                display_text += f" - {caption}"
+            save_cursor.execute("""
+                INSERT INTO whatsapp_messages 
+                (sender_phone, sender_name, message_text, message_type, direction, status, media_id, file_name)
+                VALUES (%s, %s, %s, 'document', 'outgoing', 'sent', %s, %s)
+            """, (recipient_number, 'ConnectLink Bot', display_text[:500], media_id, filename))
+            save_conn.commit()
+    except Exception as save_err:
+        print(f"⚠️ Failed to save sent document message: {save_err}")
 
     return send_data
 
