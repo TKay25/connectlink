@@ -301,6 +301,44 @@
             -moz-osx-font-smoothing: grayscale;
         }
 
+        /* Toggle Switch for Human/Bot Mode */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .switch .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .3s;
+            border-radius: 20px;
+        }
+        .switch .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        .switch input:checked + .slider {
+            background-color: var(--bs-success, #28a745);
+        }
+        .switch input:checked + .slider:before {
+            transform: translateX(16px);
+        }
+
         /* ===== BACKGROUND PATTERNS (from mainindex.html) ===== */
         .bg-layer {
             position: fixed;
@@ -5889,6 +5927,14 @@ table.dataTable thead th.sorting_desc {
     <div class="modal-container" style="max-width:500px;">
         <div class="modal-header-custom">
             <h3><i class="bi bi-whatsapp"></i> <span id="chatModalTitle">Chat</span></h3>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:0.5rem;color:var(--text-muted);">Bot</span>
+                <label class="switch" style="margin:0;">
+                    <input type="checkbox" id="humanModeToggle" onchange="toggleHumanMode()">
+                    <span class="slider round"></span>
+                </label>
+                <span style="font-size:0.5rem;color:var(--bs-success);font-weight:600;">Human</span>
+            </div>
             <button class="close-modal" onclick="closeModal('whatsappChatModal')">
                 <i class="bi bi-x-lg"></i>
             </button>
@@ -19452,10 +19498,44 @@ function checkWhatsAppDebug() {
 
 let chatRefreshInterval = null;
 
+function loadHumanMode(phone) {
+    const toggle = document.getElementById('humanModeToggle');
+    if (!toggle || !phone) return;
+    fetch(`/api/whatsapp-human-mode/${encodeURIComponent(phone)}`)
+        .then(r => r.json())
+        .then(res => {
+            toggle.checked = res.success && res.human_mode;
+        })
+        .catch(() => { toggle.checked = false; });
+}
+
+function toggleHumanMode() {
+    const toggle = document.getElementById('humanModeToggle');
+    if (!toggle || !currentChatPhone) return;
+    const humanMode = toggle.checked;
+    fetch('/api/whatsapp-toggle-human-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: currentChatPhone, human_mode: humanMode })
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast(res.message || `Human mode ${humanMode ? 'enabled' : 'disabled'}`, humanMode ? 'success' : 'info');
+            }
+        })
+        .catch(err => {
+            console.error('Toggle human mode error:', err);
+            toggle.checked = !humanMode;
+            showToast('Failed to toggle human mode', 'error');
+        });
+}
+
 function openChat(phone, name) {
     currentChatPhone = phone;
     currentChatName = name;
     document.getElementById('chatModalTitle').textContent = name;
+    loadHumanMode(phone);
     document.getElementById('chatMessageInput').value = '';
     document.getElementById('chatFilePreview').style.display = 'none';
     chatFileData = null;
@@ -19583,9 +19663,9 @@ function createMessageBubble(msg) {
         statusIcon = '<span style="color:#999;font-size:0.45rem;margin-left:3px;">✓</span>';
     }
     
-    // Show sender name for bot messages (outgoing from system)
+    // Show sender name only for bot/system outgoing messages (template sends, auto-replies), not manual admin replies
     let nameLabel = '';
-    if (msg.username && msg.username !== currentChatName) {
+    if (!isIncoming && isTemplate && msg.username) {
         nameLabel = `<div style="font-size:0.45rem;color:var(--primary);font-weight:600;margin-bottom:1px;">${escapeHtml(msg.username)}</div>`;
     }
     

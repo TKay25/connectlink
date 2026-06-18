@@ -326,6 +326,22 @@ def initialize_database_tables():
                 ON chatbot_interactions(interaction_type, created_at DESC);
             """)
             
+            # Create chat_human_mode table for toggling chatbot auto-replies per contact
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS chat_human_mode (
+                    id SERIAL PRIMARY KEY,
+                    sender_phone VARCHAR(20) NOT NULL UNIQUE,
+                    human_mode BOOLEAN NOT NULL DEFAULT FALSE,
+                    toggled_by VARCHAR(100),
+                    toggled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chat_human_mode_phone
+                ON chat_human_mode(sender_phone);
+            """)
+            
             current_date = datetime.now().strftime('%Y-%m-%d')
             # Create connectlinkadmin table
             cursor.execute("""
@@ -1308,6 +1324,16 @@ def webhook():
                     return response
 
                 def send_whatsapp_message(to, text, buttons=None, footer_text = None):
+
+                    # Check if human mode is enabled for this recipient — skip auto-reply if ON
+                    try:
+                        cursor.execute("SELECT human_mode FROM chat_human_mode WHERE sender_phone = %s", (to,))
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            print(f"🚫 Human mode ON for {to} — skipping chatbot auto-reply")
+                            return
+                    except Exception as e:
+                        print(f"⚠️ Human mode check error: {e}")
 
                     print("send mess initialised")
 
@@ -7117,6 +7143,15 @@ def webhook():
 
                                                                 def send_whatsapp_message(recipient_number, message):
                                                                     """Send text message via WhatsApp"""
+                                                                    # Check if human mode is enabled for this recipient
+                                                                    try:
+                                                                        cursor.execute("SELECT human_mode FROM chat_human_mode WHERE sender_phone = %s", (recipient_number,))
+                                                                        row = cursor.fetchone()
+                                                                        if row and row[0]:
+                                                                            print(f"🚫 Human mode ON for {recipient_number} — skipping chatbot auto-reply")
+                                                                            return True
+                                                                    except Exception as e:
+                                                                        print(f"⚠️ Human mode check error: {e}")
                                                                     try:
                                                                         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
                                                                         headers = {
@@ -11789,6 +11824,49 @@ def whatsapp_bulk_send():
         return jsonify({'success': True, 'results': results})
     except Exception as e:
         print(f"WhatsApp bulk send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-toggle-human-mode', methods=['POST'])
+def whatsapp_toggle_human_mode():
+    """Toggle human mode for a WhatsApp contact."""
+    try:
+        data = request.get_json()
+        phone = data.get('phone', '').strip()
+        human_mode = data.get('human_mode', False)
+        
+        if not phone:
+            return jsonify({'success': False, 'message': 'Phone number is required'}), 400
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO chat_human_mode (sender_phone, human_mode, toggled_at, updated_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (sender_phone)
+                DO UPDATE SET human_mode = %s, updated_at = CURRENT_TIMESTAMP
+            """, (phone, human_mode, human_mode))
+            connection.commit()
+        
+        status = 'enabled' if human_mode else 'disabled'
+        return jsonify({'success': True, 'message': f'Human mode {status} for {phone}', 'human_mode': human_mode})
+    except Exception as e:
+        print(f"Toggle human mode error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-human-mode/<phone>')
+def whatsapp_human_mode(phone):
+    """Check if human mode is enabled for a WhatsApp contact."""
+    try:
+        phone = phone.strip()
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT human_mode FROM chat_human_mode WHERE sender_phone = %s
+            """, (phone,))
+            row = cursor.fetchone()
+            human_mode = row[0] if row else False
+        
+        return jsonify({'success': True, 'human_mode': human_mode})
+    except Exception as e:
+        print(f"Check human mode error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/export-enquiries')
