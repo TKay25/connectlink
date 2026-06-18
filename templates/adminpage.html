@@ -3524,11 +3524,40 @@ table.dataTable thead th.sorting_desc {
 
                         <!-- ACTIVITY LOG TAB -->
                         <div class="tab-pane fade" id="activity-tab">
-                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; align-items:center;">
                                 <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadActivityLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                 <button class="btn btn-success" style="font-size:0.55rem;padding:2px 8px;" onclick="exportActivityExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
+                                <span id="activityLogCount" style="font-size:0.5rem;color:var(--text-muted);padding:0 4px;"></span>
+                                <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.55rem;padding:2px 8px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:120px;max-width:250px;" oninput="filterActivityLog()">
+                                <select id="activityLogFilter" style="font-size:0.55rem;padding:2px 8px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
+                                    <option value="">All actions</option>
+                                    <option value="quotation_created">Quotation Created</option>
+                                    <option value="quotation_edited">Quotation Edited</option>
+                                    <option value="quotation_sent">Quotation Sent</option>
+                                    <option value="quotation_downloaded">Quotation Downloaded</option>
+                                    <option value="quotation_deleted">Quotation Deleted</option>
+                                    <option value="project_created">Project Created</option>
+                                    <option value="project_updated">Project Updated</option>
+                                    <option value="project_deleted">Project Deleted</option>
+                                    <option value="contract_downloaded">Contract Downloaded</option>
+                                    <option value="enquiry_status_changed">Enquiry Status</option>
+                                    <option value="enquiry_plan_downloaded">Plan Downloaded</option>
+                                    <option value="enquiry_deleted">Enquiry Deleted</option>
+                                    <option value="user_login">User Login</option>
+                                    <option value="user_logout">User Logout</option>
+                                    <option value="user_created">User Created</option>
+                                    <option value="user_removed">User Removed</option>
+                                    <option value="user_updated">User Updated</option>
+                                    <option value="whatsapp_message_sent">WhatsApp Sent</option>
+                                    <option value="template_sent">Template Sent</option>
+                                    <option value="human_mode_toggled">Human Mode</option>
+                                    <option value="payment_reminder_sent">Payment Reminder</option>
+                                    <option value="installment_dates_updated">Installment Dates</option>
+                                    <option value="quotation_rates_updated">Rate Changes</option>
+                                    <option value="note_added">Notes Added</option>
+                                </select>
                             </div>
-                            <div class="container2" style="overflow-y:auto; background:#fafafa; border-radius:4px; padding:4px;">
+                            <div class="container2" style="overflow-y:auto; background:#fafafa; border-radius:4px; padding:4px; max-height:65vh;">
                                 <div id="activityLogContainer">
                                     <div class="empty-state">
                                         <div class="empty-icon"><i class="bi bi-clock-history"></i></div>
@@ -4044,6 +4073,13 @@ table.dataTable thead th.sorting_desc {
 
 <div id="addnewProjectModal" class="modal-overlay">
     <div class="modal-container xlarge">
+        <style>
+            #addnewProjectModal input.editable-field,
+            #addnewProjectModal select.editable-field,
+            #addnewProjectModal textarea.editable-field {
+                font-size: 0.75rem !important;
+            }
+        </style>
         <div class="modal-header-custom">
             <h3><i class="bi bi-briefcase-fill"></i> NEW PROJECT</h3>
             <button class="close-modal" onclick="closeModal('addnewProjectModal')">
@@ -10296,6 +10332,30 @@ document.getElementById('updateProjectForm')?.addEventListener('submit', async f
     const submitBtn = form.querySelector('button[type="submit"]');
     const loaderxyz = document.getElementById("edsLoader2");
     
+    // === CLIENT-SIDE DATE VALIDATION ===
+    const dateInputs = form.querySelectorAll('input[type="date"]');
+    let invalidDates = [];
+    dateInputs.forEach(input => {
+        if (input.value) {
+            const val = input.value; // YYYY-MM-DD
+            const year = parseInt(val.split('-')[0], 10);
+            if (isNaN(year) || year < 2000 || year > 2100) {
+                invalidDates.push(input.name || input.id);
+                input.style.border = '2px solid red';
+                input.style.backgroundColor = '#fff0f0';
+            } else {
+                input.style.border = '';
+                input.style.backgroundColor = '';
+            }
+        }
+    });
+    if (invalidDates.length > 0) {
+        alert('❌ Invalid date(s) detected in: ' + invalidDates.join(', ') + '.\\n\\nYear must be between 2000 and 2100. Please correct them before saving.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Save Changes';
+        return;
+    }
+    
     // Show loader
     if (loaderxyz) loaderxyz.style.display = "flex";
     submitBtn.disabled = true;
@@ -14459,6 +14519,35 @@ function backToProjectForm() {
 document.getElementById("confirmSaveProjectBtn").addEventListener("click", function () {
     document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
     let form = document.getElementById("addProjectForm");
+    
+    // === CLIENT-SIDE DATE VALIDATION - NEW PROJECT ===
+    const dateFields = [
+        { id: 'project_start_date', label: 'Project Start Date' },
+        { id: 'agreement_date', label: 'Agreement Date' },
+        { id: 'deposit_payment_date', label: 'Deposit Payment Date' },
+        { id: 'first_installment_due_date', label: 'First Installment Due Date' }
+    ];
+    let invalidDates = [];
+    dateFields.forEach(f => {
+        const el = document.getElementById(f.id);
+        if (el && el.value) {
+            const parts = el.value.split('-');
+            const year = parseInt(parts[0], 10);
+            if (isNaN(year) || year < 2000 || year > 2100) {
+                invalidDates.push(f.label + ' (' + el.value + ')');
+                el.style.border = '2px solid red';
+                el.style.backgroundColor = '#fff0f0';
+            } else {
+                el.style.border = '';
+                el.style.backgroundColor = '';
+            }
+        }
+    });
+    if (invalidDates.length > 0) {
+        alert('❌ Invalid date(s) detected:\\n\\n' + invalidDates.join('\\n') + '\\n\\nYear must be between 2000 and 2100. Please fix and try again.');
+        return;
+    }
+    
     let formData = new FormData(form);
     
     // DEBUG: Log what we're about to send
@@ -19151,71 +19240,133 @@ function logActivity(action_type, description, reference_type, reference_id, det
 }
 
 // --- Activity Log ---
+let _activityLogData = [];
+
 function loadActivityLog() {
     const container = document.getElementById('activityLogContainer');
     if (!container) return;
     container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>';
     
-    fetch('/api/activity-log?limit=200')
+    const filterVal = document.getElementById('activityLogFilter')?.value || '';
+    let url = '/api/activity-log?limit=500';
+    if (filterVal) url += '&action_type=' + encodeURIComponent(filterVal);
+    
+    fetch(url)
         .then(r => r.json())
         .then(res => {
             if (!res.success) { container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="empty-title">Failed to load</div><div class="empty-desc">' + (res.error || 'Unknown error') + '</div></div>'; return; }
-            
-            const data = res.data || [];
-            if (!data.length) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-clock-history"></i></div><div class="empty-title">No Activity Yet</div><div class="empty-desc">Activity log entries will appear here as actions are performed.<br><small style="color:#999;">If you\'ve created records, try creating a new one to trigger activity logging.</small></div></div>';
-                return;
-            }
-            
-            const actionIcons = {
-                'project_created': 'bi-folder-plus', 'payment_updated': 'bi-cash', 'quotation_created': 'bi-file-text',
-                'quotation_edited': 'bi-pencil', 'quotation_sent': 'bi-send', 'project_altered': 'bi-pencil-square',
-                'project_deleted': 'bi-folder-x', 'quotation_deleted': 'bi-file-x', 'enquiry_deleted': 'bi-chat-square-x',
-                'quotation_downloaded': 'bi-download', 'contract_downloaded': 'bi-file-pdf', 'payment_reminder_sent': 'bi-bell',
-                'audit_corrected': 'bi-gear', 'user_action': 'bi-person', 'enquiry_action': 'bi-chat-dots',
-                'contractor_edited': 'bi-building', 'system': 'bi-gear-wide'
-            };
-            const actionColors = {
-                'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
-                'quotation_edited': '#C12B3E', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
-                'project_deleted': '#d32f2f', 'quotation_deleted': '#d32f2f', 'enquiry_deleted': '#d32f2f',
-                'quotation_downloaded': '#7b1fa2', 'contract_downloaded': '#1565c0', 'payment_reminder_sent': '#e65100',
-                'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
-                'contractor_edited': '#37474f', 'system': '#546e7a'
-            };
-            
-            let html = '<div style="display:flex;flex-direction:column;gap:3px;">';
-            data.forEach(item => {
-                const icon = actionIcons[item.action_type] || 'bi-three-dots';
-                const color = actionColors[item.action_type] || '#666';
-                const time = item.created_at || '';
-                html += `
-                    <div class="clickable-row activity-log-item" data-item='${escapeHtml(JSON.stringify(item))}' 
-                         style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:white;border:1px solid var(--gray-200);border-radius:6px;font-size:0.55rem;transition:all 0.15s;" onclick="viewActivityDetails(this)">
-                        <div style="width:26px;height:26px;border-radius:6px;background:${color}15;color:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;">
-                            <i class="bi ${icon}"></i>
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.description)}</div>
-                            <div style="display:flex;gap:8px;font-size:0.48rem;color:var(--text-muted);">
-                                <span><i class="bi bi-person"></i> ${escapeHtml(item.user_name)}</span>
-                                <span><i class="bi bi-clock"></i> ${time}</span>
-                                ${item.reference_type ? `<span><i class="bi bi-tag"></i> ${item.reference_type}#${item.reference_id}</span>` : ''}
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:4px;">
-                            <span class="chip" style="font-size:0.45rem;padding:1px 6px;background:${color}15;color:${color};">${item.action_type.replace(/_/g,' ')}</span>
-                            <i class="bi bi-chevron-right" style="color:var(--gray-400);font-size:0.5rem;"></i>
-                        </div>
-                    </div>`;
-            });
-            html += '</div>';
-            container.innerHTML = html;
+            _activityLogData = res.data || [];
+            renderActivityLog(_activityLogData);
         })
         .catch(err => {
             console.error('loadActivityLog fetch error:', err);
             container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div><div class="empty-desc">Could not reach server. Check your connection.</div></div>';
         });
+}
+
+function filterActivityLog() {
+    if (!_activityLogData.length) {
+        loadActivityLog();
+        return;
+    }
+    const searchVal = (document.getElementById('activityLogSearch')?.value || '').toLowerCase().trim();
+    const filterVal = document.getElementById('activityLogFilter')?.value || '';
+    
+    // If filter changed, re-fetch from server
+    if (filterVal) {
+        loadActivityLog();
+        return;
+    }
+    
+    let filtered = _activityLogData;
+    if (searchVal) {
+        filtered = filtered.filter(item =>
+            (item.description || '').toLowerCase().includes(searchVal) ||
+            (item.user_name || '').toLowerCase().includes(searchVal) ||
+            (item.action_type || '').replace(/_/g, ' ').toLowerCase().includes(searchVal) ||
+            (item.reference_type || '').toLowerCase().includes(searchVal) ||
+            String(item.reference_id || '').includes(searchVal)
+        );
+    }
+    renderActivityLog(filtered);
+}
+
+function renderActivityLog(data) {
+    const container = document.getElementById('activityLogContainer');
+    if (!container) return;
+    
+    // Update count
+    const countEl = document.getElementById('activityLogCount');
+    if (countEl) {
+        if (data.length < _activityLogData.length) {
+            countEl.textContent = `Showing ${data.length} of ${_activityLogData.length} entries`;
+        } else {
+            countEl.textContent = `${data.length} entries`;
+        }
+    }
+    
+    if (!data.length) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-clock-history"></i></div><div class="empty-title">No Activity Yet</div><div class="empty-desc">Activity log entries will appear here as actions are performed.<br><small style="color:#999;">If you\'ve created records, try creating a new one to trigger activity logging.</small></div></div>';
+        return;
+    }
+    
+    const actionIcons = {
+        'project_created': 'bi-folder-plus', 'payment_updated': 'bi-cash', 'quotation_created': 'bi-file-text',
+        'quotation_edited': 'bi-pencil', 'quotation_sent': 'bi-send', 'project_altered': 'bi-pencil-square',
+        'project_deleted': 'bi-folder-x', 'quotation_deleted': 'bi-file-x', 'enquiry_deleted': 'bi-chat-square-x',
+        'quotation_downloaded': 'bi-download', 'contract_downloaded': 'bi-file-pdf', 'payment_reminder_sent': 'bi-bell',
+        'audit_corrected': 'bi-gear', 'user_action': 'bi-person', 'enquiry_action': 'bi-chat-dots',
+        'contractor_edited': 'bi-building', 'system': 'bi-gear-wide',
+        'user_login': 'bi-box-arrow-in-right', 'user_logout': 'bi-box-arrow-right',
+        'user_created': 'bi-person-plus', 'user_removed': 'bi-person-x', 'user_updated': 'bi-person-gear',
+        'project_updated': 'bi-arrow-repeat', 'enquiry_status_changed': 'bi-arrow-left-right',
+        'enquiry_plan_downloaded': 'bi-file-earmark-pdf', 'whatsapp_message_sent': 'bi-chat-left-text',
+        'template_sent': 'bi-megaphone', 'human_mode_toggled': 'bi-person-check',
+        'quotation_rates_updated': 'bi-calculator', 'installment_dates_updated': 'bi-calendar-check'
+    };
+    const actionColors = {
+        'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
+        'quotation_edited': '#C12B3E', 'quotation_sent': '#c62828', 'project_altered': '#1565c0',
+        'project_deleted': '#d32f2f', 'quotation_deleted': '#d32f2f', 'enquiry_deleted': '#d32f2f',
+        'quotation_downloaded': '#7b1fa2', 'contract_downloaded': '#1565c0', 'payment_reminder_sent': '#e65100',
+        'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
+        'contractor_edited': '#37474f', 'system': '#546e7a',
+        'user_login': '#0d6efd', 'user_logout': '#6c757d',
+        'user_created': '#198754', 'user_removed': '#dc3545', 'user_updated': '#fd7e14',
+        'project_updated': '#0dcaf0', 'enquiry_status_changed': '#6610f2',
+        'enquiry_plan_downloaded': '#d63384', 'whatsapp_message_sent': '#25D366',
+        'template_sent': '#ffc107', 'human_mode_toggled': '#20c997',
+        'quotation_rates_updated': '#7952b3', 'installment_dates_updated': '#157347',
+        'note_added': '#0d6efd'
+    };
+    
+    let html = '<div style="display:flex;flex-direction:column;gap:3px;">';
+    data.forEach(item => {
+        const icon = actionIcons[item.action_type] || 'bi-three-dots';
+        const color = actionColors[item.action_type] || '#666';
+        const time = item.created_at || '';
+        html += `
+            <div class="clickable-row activity-log-item" data-item='${escapeHtml(JSON.stringify(item))}' 
+                 style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:white;border:1px solid var(--gray-200);border-radius:6px;font-size:0.55rem;transition:all 0.15s;" onclick="viewActivityDetails(this)">
+                <div style="width:26px;height:26px;border-radius:6px;background:${color}15;color:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.6rem;">
+                    <i class="bi ${icon}"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.description)}</div>
+                    <div style="display:flex;gap:8px;font-size:0.48rem;color:var(--text-muted);">
+                        <span><i class="bi bi-person"></i> ${escapeHtml(item.user_name)}</span>
+                        <span><i class="bi bi-clock"></i> ${time}</span>
+                        ${item.reference_type ? `<span><i class="bi bi-tag"></i> ${item.reference_type}#${item.reference_id}</span>` : ''}
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;">
+                    <span class="chip" style="font-size:0.45rem;padding:1px 6px;background:${color}15;color:${color};">${item.action_type.replace(/_/g,' ')}</span>
+                    <i class="bi bi-chevron-right" style="color:var(--gray-400);font-size:0.5rem;"></i>
+                </div>
+            </div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
 }
 
 function exportActivityExcel() {
@@ -19299,7 +19450,14 @@ function viewActivityDetails(element) {
             'project_deleted': '#d32f2f', 'quotation_deleted': '#d32f2f', 'enquiry_deleted': '#d32f2f',
             'quotation_downloaded': '#7b1fa2', 'contract_downloaded': '#1565c0', 'payment_reminder_sent': '#e65100',
             'audit_corrected': '#6a1b9a', 'user_action': '#00838f', 'enquiry_action': '#4e342e',
-            'contractor_edited': '#37474f', 'system': '#546e7a'
+            'contractor_edited': '#37474f', 'system': '#546e7a',
+            'user_login': '#0d6efd', 'user_logout': '#6c757d',
+            'user_created': '#198754', 'user_removed': '#dc3545', 'user_updated': '#fd7e14',
+            'project_updated': '#0dcaf0', 'enquiry_status_changed': '#6610f2',
+            'enquiry_plan_downloaded': '#d63384', 'whatsapp_message_sent': '#25D366',
+            'template_sent': '#ffc107', 'human_mode_toggled': '#20c997',
+            'quotation_rates_updated': '#7952b3', 'installment_dates_updated': '#157347',
+            'note_added': '#0d6efd'
         };
         const color = actionColors[item.action_type] || '#666';
         

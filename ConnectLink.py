@@ -1127,6 +1127,49 @@ def initialize_database_tables():
 
             connection.commit()
             print("✅ Database tables initialized successfully!")
+
+            # Fix bad date year 72026 -> 2026 (reported by user)
+            try:
+                date_cols = [
+                    'projectstartdate', 'contractagreementdate', 'datedepositorbullet',
+                    'installment1duedate', 'installment1date',
+                    'installment2duedate', 'installment2date',
+                    'installment3duedate', 'installment3date',
+                    'installment4duedate', 'installment4date',
+                    'installment5duedate', 'installment5date',
+                    'installment6duedate', 'installment6date',
+                    'installment7duedate', 'installment7date',
+                    'installment8duedate', 'installment8date',
+                    'installment9duedate', 'installment9date',
+                    'installment10duedate', 'installment10date'
+                ]
+                for col in date_cols:
+                    try:
+                        cursor.execute(f"""
+                            UPDATE connectlinkdatabase
+                            SET {col} = ({col}::text || '')::date
+                            WHERE CAST(EXTRACT(YEAR FROM {col}) AS INTEGER) = 72026
+                        """)
+                        fixed_count = cursor.rowcount
+                        if fixed_count > 0:
+                            print(f"✅ Fixed 72026->2026 in {col} for {fixed_count} record(s)")
+                    except Exception as fix_err:
+                        # Simpler approach: use string replace on the text representation
+                        try:
+                            cursor.execute(f"""
+                                UPDATE connectlinkdatabase
+                                SET {col} = REPLACE({col}::text, '72026', '2026')::date
+                                WHERE {col}::text LIKE '72026%'
+                            """)
+                            fixed_count = cursor.rowcount
+                            if fixed_count > 0:
+                                print(f"✅ Fixed 72026->2026 in {col} for {fixed_count} record(s)")
+                        except Exception as fix_err2:
+                            print(f"Note: Could not fix {col}: {fix_err2}")
+                connection.commit()
+                print("✅ Bad date cleanup complete!")
+            except Exception as cleanup_err:
+                print(f"Note: Date cleanup error: {cleanup_err}")
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
 
@@ -10837,6 +10880,18 @@ def remove_system_user():
             cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (user_id,))
             connection.commit()
             
+            # Log user removal
+            try:
+                log_activity(
+                    'user_removed',
+                    f'System user (ID: {user_id}) removed',
+                    'user',
+                    user_id,
+                    {'removed_by': session.get('user_name', 'Unknown')}
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log user removal: {log_err}")
+            
             return jsonify({
                 'status': 'success',
                 'message': f'User has been removed successfully'
@@ -10878,6 +10933,18 @@ def update_system_user():
                 return jsonify({'status': 'error', 'message': 'User not found'}), 404
 
             connection.commit()
+
+            # Log user update
+            try:
+                log_activity(
+                    'user_updated',
+                    f'System user (ID: {user_id}) updated - name: {full_name}, email: {email}',
+                    'user',
+                    user_id,
+                    {'name': full_name, 'email': email, 'whatsapp': whatsapp, 'updated_by': session.get('user_name', 'Unknown')}
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log user update: {log_err}")
 
             return jsonify({
                 'status': 'success',
@@ -11548,6 +11615,24 @@ def whatsapp_send():
         except Exception as save_err:
             print(f"⚠️ Failed to save outgoing message: {save_err}")
         
+        # Log the WhatsApp message send
+        try:
+            log_activity(
+                'whatsapp_message_sent',
+                f'WhatsApp message sent to {recipient_clean} (status: {send_status})',
+                'whatsapp',
+                None,
+                {
+                    'recipient': recipient_clean,
+                    'message_preview': message[:100],
+                    'media_type': media_type or 'text',
+                    'status': send_status,
+                    'requires_template': requires_template
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log WhatsApp send activity: {log_err}")
+
         if resp.status_code == 200:
             return jsonify({'success': True, 'message': 'Message sent', 'data': resp_data})
         else:
@@ -11641,6 +11726,23 @@ def whatsapp_send_template():
         except Exception as save_err:
             print(f"⚠️ Failed to save template message: {save_err}")
         
+        # Log the template send
+        try:
+            log_activity(
+                'template_sent',
+                f'WhatsApp template "{template_name}" sent to {recipient_clean} (status: {send_status})',
+                'whatsapp',
+                None,
+                {
+                    'recipient': recipient_clean,
+                    'template_name': template_name,
+                    'parameters': parameters,
+                    'status': send_status
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log template send activity: {log_err}")
+
         if resp.status_code == 200:
             # Log success
             print(f"✅ Template '{template_name}' sent successfully to {recipient_clean}")
@@ -11861,7 +11963,19 @@ def whatsapp_toggle_human_mode():
             """, (phone_clean, human_mode, human_mode))
             connection.commit()
         
+        # Log the toggle
         status = 'enabled' if human_mode else 'disabled'
+        try:
+            log_activity(
+                'human_mode_toggled',
+                f'Human mode {status} for WhatsApp contact {phone_clean}',
+                'whatsapp',
+                None,
+                {'phone': phone_clean, 'human_mode': human_mode, 'status': status}
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log human mode toggle: {log_err}")
+        
         return jsonify({'success': True, 'message': f'Human mode {status} for {phone}', 'human_mode': human_mode})
     except Exception as e:
         print(f"Toggle human mode error: {e}")
@@ -13388,6 +13502,18 @@ def create_system_user():
 
             connection.commit()
 
+            # Log user creation
+            try:
+                log_activity(
+                    'user_created',
+                    f'System user created: {fullname} ({email})',
+                    'user',
+                    None,
+                    {'name': fullname, 'email': email, 'whatsapp': whatsapp}
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log user creation: {log_err}")
+
             return jsonify({"status": "success"})
 
         except Exception as e:
@@ -13501,6 +13627,24 @@ def add_note():
             """, (project_id, note_text, user_name, project_name, client_name, client_number, nextofkin_number, userid))  # Replace with actual user
             
             connection.commit()
+            
+            # Log the note addition
+            try:
+                log_activity(
+                    'note_added',
+                    f'Note added to project "{project_name}" for {client_name}: {note_text[:100]}{"..." if len(note_text) > 100 else ""}',
+                    'project',
+                    project_id,
+                    {
+                        'project_id': project_id,
+                        'project_name': project_name,
+                        'client_name': client_name,
+                        'note_preview': note_text[:200],
+                        'capturer': user_name
+                    }
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log note addition: {log_err}")
             
             return jsonify({'success': True, 'message': 'Note added successfully'})
             
@@ -17413,6 +17557,20 @@ def last_day_of_month(d):
 def clean_date_update(value):
     return value if value not in ("", None) else None
 
+def validate_date(date_str, field_label):
+    """Validate a date string. Returns (is_valid, error_message).
+    Checks: exists, valid YYYY-MM-DD format, year between 2000-2100."""
+    if not date_str or date_str == '':
+        return True, None  # Empty is allowed
+    try:
+        dt = datetime.strptime(str(date_str).strip(), '%Y-%m-%d')
+        year = dt.year
+        if year < 2000 or year > 2100:
+            return False, f"'{field_label}' has invalid year ({year}). Must be between 2000-2100."
+        return True, None
+    except ValueError:
+        return False, f"'{field_label}' has an invalid date format ('{date_str}'). Use YYYY-MM-DD."
+
 
 
 
@@ -17634,6 +17792,37 @@ def update_project():
             monthlyinstallment = (float(contractamount) - float(depositpaid))/int(monthstopay)
 
             first_installment_due_date = request.form.get('Installment1DueDate')
+            
+            # === VALIDATE ALL DATE FIELDS ===
+            date_fields_to_check = {
+                'Project Start Date': request.form.get('ProjectStartDate'),
+                'Deposit Date Paid': request.form.get('deposit_date_paid'),
+                'Installment 1 Due Date': request.form.get('Installment1DueDate'),
+                'Installment 2 Due Date': request.form.get('Installment2DueDate'),
+                'Installment 3 Due Date': request.form.get('Installment3DueDate'),
+                'Installment 4 Due Date': request.form.get('Installment4DueDate'),
+                'Installment 5 Due Date': request.form.get('Installment5DueDate'),
+                'Installment 6 Due Date': request.form.get('Installment6DueDate'),
+                'Installment 7 Due Date': request.form.get('Installment7DueDate'),
+                'Installment 8 Due Date': request.form.get('Installment8DueDate'),
+                'Installment 9 Due Date': request.form.get('Installment9DueDate'),
+                'Installment 10 Due Date': request.form.get('Installment10DueDate'),
+                'Installment 1 Paid Date': request.form.get('installment1_paid_date'),
+                'Installment 2 Paid Date': request.form.get('installment2_paid_date'),
+                'Installment 3 Paid Date': request.form.get('installment3_paid_date'),
+                'Installment 4 Paid Date': request.form.get('installment4_paid_date'),
+                'Installment 5 Paid Date': request.form.get('installment5_paid_date'),
+                'Installment 6 Paid Date': request.form.get('installment6_paid_date'),
+                'Installment 7 Paid Date': request.form.get('installment7_paid_date'),
+                'Installment 8 Paid Date': request.form.get('installment8_paid_date'),
+                'Installment 9 Paid Date': request.form.get('installment9_paid_date'),
+                'Installment 10 Paid Date': request.form.get('installment10_paid_date'),
+            }
+            for label, val in date_fields_to_check.items():
+                is_valid, err = validate_date(val, label)
+                if not is_valid:
+                    return jsonify({'success': False, 'error_message': err + f' Please correct it in Installment {label.split(" ")[1]}' if 'Installment' in label else err}), 400
+            
             first_installment_due_date_calc = datetime.strptime(first_installment_due_date, "%Y-%m-%d").date()
                             
             installment_due_dates = []
@@ -18022,6 +18211,23 @@ def update_project():
         cursor.execute(query, values)
         connection.commit()
 
+        # Log the project update
+        log_activity(
+            'project_updated',
+            f'Project "{project_name}" for {clientname} updated (completion: {completion_status}, method: {"installments" if int(monthstopay or 0) > 0 else "once-off"})',
+            'project',
+            project_id,
+            {
+                'project_id': project_id,
+                'client_name': clientname,
+                'project_name': project_name,
+                'completion_status': completion_status,
+                'payment_method': 'installments' if int(monthstopay or 0) > 0 else 'once-off',
+                'total_contract_amount': contractamount,
+                'updated_by': session.get('user_name', 'Unknown')
+            }
+        )
+
         flash("Project updated successfully!", "success")
         return jsonify({
             'success': True,
@@ -18143,6 +18349,18 @@ def contract_log():
                 agreement_date = request.form.get('agreement_date')
                 total_contract_price = request.form.get('total_contract_price')
                 latepaymentinterest = request.form.get('late_payment_interest')
+
+                # === VALIDATE ALL DATE FIELDS FOR NEW PROJECT ===
+                date_fields_to_check = {
+                    'Project Start Date': project_start_date,
+                    'Agreement Date': agreement_date,
+                    'Deposit Payment Date': request.form.get('deposit_payment_date'),
+                    'First Installment Due Date': request.form.get('first_installment_due_date'),
+                }
+                for label, val in date_fields_to_check.items():
+                    is_valid, err = validate_date(val, label)
+                    if not is_valid:
+                        return jsonify({'success': False, 'error_message': err}), 400
 
                 payment_method = request.form.get('payment_method')
 
@@ -18588,6 +18806,23 @@ def update_first_installment_date():
                 project_id
             ))
             connection.commit()
+
+        # Log installment date change
+        try:
+            log_activity(
+                'installment_dates_updated',
+                f'Installment dates updated for project #{project_id} — first date: {new_date_str}, {months_to_pay} installments',
+                'project',
+                project_id,
+                {
+                    'project_id': project_id,
+                    'first_installment_date': new_date_str,
+                    'months_to_pay': months_to_pay,
+                    'due_dates': [str(d) if d else '' for d in installment_due_dates]
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log installment date update: {log_err}")
 
         return jsonify({
             "success": True,
@@ -19953,6 +20188,18 @@ def save_quotation_rates():
                 ))
             
             connection.commit()
+            
+            # Log rate changes
+            try:
+                log_activity(
+                    'quotation_rates_updated',
+                    f'Quotation rates updated: {len(rates)} items saved',
+                    'settings',
+                    None,
+                    {'rate_count': len(rates), 'updated_by': session.get('user_name', 'Unknown')}
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log rate update: {log_err}")
             
             return jsonify({
                 'success': True,
@@ -21379,6 +21626,25 @@ def update_quotation(quotation_id):
                 """, (quotation_id, work_scope, start_date, end_date, days, idx + 1))
 
             connection.commit()
+
+        # Log the quotation update
+        try:
+            log_activity(
+                'quotation_edited',
+                f'Quotation #{quotation_id} for {client_name} ({category}) updated - Total: ${total_cost:,.2f}',
+                'quotation',
+                quotation_id,
+                {
+                    'client_name': client_name,
+                    'category': category,
+                    'total_cost': total_cost,
+                    'item_count': len(items),
+                    'project_size': project_size,
+                    'updated_by': session.get('user_name', 'Unknown')
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log quotation update: {log_err}")
 
         return jsonify({
             'success': True,

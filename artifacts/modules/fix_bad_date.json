@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "FixBadDate",
+  "file": "fix_bad_date.py",
+  "purpose": "<!-- main function",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "fix_bad_date → cursor.execute, cursor.fetchall"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "360f142d663c35c9",
+  "file_mtime": 1781769717169.813,
+  "file_size": 1154,
+  "file_birthtime": 1781769716822.286,
+  "generated_at": "2026-06-18T08:01:59.947618Z",
+  "stale": false
+}
