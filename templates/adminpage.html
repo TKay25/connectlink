@@ -5838,8 +5838,8 @@ table.dataTable thead th.sorting_desc {
                     <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx" onchange="handleChatFileSelect(event)">
                     <div id="chatFilePreview" style="display:none;font-size:0.5rem;color:var(--text-muted);padding:2px 6px;background:var(--gray-50);border-radius:4px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
                     <input type="text" id="chatMessageInput" class="form-control" placeholder="Type a message..." style="font-size:0.6rem;padding:6px 10px;flex:1;">
-                    <button class="btn btn-sm btn-outline-warning" onclick="toggleChatTemplateMode()" title="Send Meta Template (bypasses 24hr window)" style="padding:4px 8px;font-size:0.55rem;">
-                        <i class="bi bi-layout-text-window"></i>
+                    <button class="btn btn-sm btn-outline-warning" id="chatTemplateToggleBtn" onclick="toggleChatTemplateMode()" title="Toggle: Send Meta Template (bypasses 24hr window)" style="padding:4px 8px;font-size:0.55rem;">
+                        <i class="bi bi-layout-text-window"></i> Tpl
                     </button>
                     <button class="btn btn-success btn-sm" onclick="sendChatMessage()" style="padding:4px 12px;font-size:0.6rem;">
                         <i class="bi bi-send"></i>
@@ -5847,19 +5847,19 @@ table.dataTable thead th.sorting_desc {
                 </div>
                 <div id="chatReplyTemplate" style="display:none;flex-direction:column;gap:4px;">
                     <div style="display:flex;gap:4px;align-items:center;">
-                        <span style="font-size:0.5rem;font-weight:600;color:var(--text-muted);white-space:nowrap;">Template:</span>
+                        <span style="font-size:0.5rem;font-weight:600;color:#ef6c00;white-space:nowrap;"><i class="bi bi-layout-text-window"></i> Template:</span>
                         <input type="text" id="chatTemplateName" class="form-control" placeholder="Template name (e.g. enquiryupdate)" style="font-size:0.55rem;padding:3px 6px;flex:1;">
-                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleChatTemplateMode()" title="Back to text" style="padding:3px 6px;font-size:0.55rem;">
-                            <i class="bi bi-x"></i>
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleChatTemplateMode()" title="Switch to text mode" style="padding:3px 6px;font-size:0.5rem;white-space:nowrap;">
+                            <i class="bi bi-chat-dots"></i> Text
                         </button>
                     </div>
                     <div style="display:flex;gap:4px;align-items:center;">
                         <input type="text" id="chatTemplateParams" class="form-control" placeholder="Params (comma-separated, e.g. John,Project X)" style="font-size:0.55rem;padding:3px 6px;flex:1;">
                         <button class="btn btn-warning btn-sm" onclick="sendChatTemplate()" style="padding:3px 10px;font-size:0.55rem;white-space:nowrap;">
-                            <i class="bi bi-layout-text-window"></i> Send Template
+                            <i class="bi bi-send"></i> Send Template
                         </button>
                     </div>
-                    <div style="font-size:0.45rem;color:var(--text-muted);">Meta templates bypass the 24hr window. Use approved template names only.</div>
+                    <div style="font-size:0.45rem;color:#ef6c00;background:#fff3e0;padding:2px 6px;border-radius:3px;">Meta templates bypass the 24hr window. Use approved template names only.</div>
                 </div>
             </div>
         </div>
@@ -19373,6 +19373,18 @@ function openChat(phone, name) {
     document.getElementById('chatFilePreview').style.display = 'none';
     chatFileData = null;
     
+    // Reset to normal text mode when opening a new chat
+    document.getElementById('chatReplyNormal').style.display = 'flex';
+    document.getElementById('chatReplyTemplate').style.display = 'none';
+    document.getElementById('chatTemplateName').value = '';
+    document.getElementById('chatTemplateParams').value = '';
+    const toggleBtn = document.getElementById('chatTemplateToggleBtn');
+    if (toggleBtn) {
+        toggleBtn.className = 'btn btn-sm btn-outline-warning';
+        toggleBtn.innerHTML = '<i class="bi bi-layout-text-window"></i> Tpl';
+        toggleBtn.title = 'Send Meta Template (bypasses 24hr window)';
+    }
+    
     const area = document.getElementById('chatMessagesArea');
     area.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading messages...</div>';
     openModal('whatsappChatModal');
@@ -19620,18 +19632,31 @@ function sendWhatsAppMessage(phone, text) {
     });
 }
 
-let bulkMessagingMode = 'text'; // 'text' or 'template'
-
 // Toggle chat reply between text mode and template mode
 function toggleChatTemplateMode() {
     const normal = document.getElementById('chatReplyNormal');
     const tpl = document.getElementById('chatReplyTemplate');
-    if (normal.style.display === 'none') {
-        normal.style.display = 'flex';
-        tpl.style.display = 'none';
-    } else {
+    const toggleBtn = document.getElementById('chatTemplateToggleBtn');
+    const isTextMode = normal.style.display !== 'none';
+    
+    if (isTextMode) {
+        // Switch to template mode
         normal.style.display = 'none';
         tpl.style.display = 'flex';
+        if (toggleBtn) {
+            toggleBtn.className = 'btn btn-sm btn-warning';
+            toggleBtn.innerHTML = '<i class="bi bi-chat-dots"></i> Text';
+            toggleBtn.title = 'Switch to text message mode';
+        }
+    } else {
+        // Switch to text mode
+        normal.style.display = 'flex';
+        tpl.style.display = 'none';
+        if (toggleBtn) {
+            toggleBtn.className = 'btn btn-sm btn-outline-warning';
+            toggleBtn.innerHTML = '<i class="bi bi-layout-text-window"></i> Tpl';
+            toggleBtn.title = 'Send Meta Template (bypasses 24hr window)';
+        }
     }
 }
 
