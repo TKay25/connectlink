@@ -20060,15 +20060,13 @@ function sendChatMessage() {
     if (!message && !file) return;
     if (!currentChatPhone) return;
     
-    // If there's a file, upload first then send
+    // If there's a file, upload and send as actual WhatsApp document/image
     if (file) {
-        // For now, send just the text with file name reference
-        // In production you'd upload to a server and get a URL
-        const fileName = file.name;
-        sendWhatsAppMessage(currentChatPhone, message || `📎 ${fileName} attached`);
+        sendFileAsWhatsAppMedia(currentChatPhone, file, message);
         chatFileData = null;
         document.getElementById('chatFilePreview').style.display = 'none';
         document.getElementById('chatFileInput').value = '';
+        return;
     } else {
         sendWhatsAppMessage(currentChatPhone, message);
     }
@@ -20151,6 +20149,69 @@ function sendWhatsAppMessage(phone, text) {
                 <div style="font-size:0.45rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✗</div>`;
         }
         showToast('Network error sending message', 'error', 'Send Failed');
+    });
+}
+
+// Upload and send a file as a WhatsApp document/image
+function sendFileAsWhatsAppMedia(phone, file, caption) {
+    const area = document.getElementById('chatMessagesArea');
+    const now = new Date();
+    const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const pendingBubbleId = 'pending-' + Date.now();
+    
+    // Show pending bubble
+    area.innerHTML += `
+        <div id="${pendingBubbleId}" style="max-width:80%;background:#dcf8c6;align-self:flex-end;border-bottom-right-radius:2px;padding:6px 10px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);opacity:0.7;">
+            <div style="font-size:0.55rem;color:var(--text-muted);">📎 ${escapeHtml(file.name)}</div>
+            <div style="font-size:0.5rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ⏳</div>
+        </div>`;
+    area.scrollTop = area.scrollHeight;
+    
+    const formData = new FormData();
+    formData.append('recipient', phone);
+    formData.append('file', file);
+    formData.append('caption', caption || file.name);
+    
+    fetch('/api/whatsapp-send-file', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        const pendingBubble = document.getElementById(pendingBubbleId);
+        if (res.success) {
+            // Remove pending bubble — auto-refresh will load the real message from DB
+            if (pendingBubble) pendingBubble.remove();
+        } else {
+            if (pendingBubble) {
+                pendingBubble.style.background = '#fce4ec';
+                pendingBubble.style.border = '1px solid #ef5350';
+                pendingBubble.style.opacity = '1';
+                pendingBubble.innerHTML = `
+                    <div style="font-size:0.55rem;color:var(--text-muted);">📎 ${escapeHtml(file.name)}</div>
+                    <div style="font-size:0.55rem;color:#c62828;margin-top:4px;display:flex;align-items:center;gap:4px;">
+                        <i class="bi bi-x-circle-fill"></i> <strong>Failed to send file</strong>
+                    </div>
+                    <div style="font-size:0.45rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✗</div>`;
+            }
+            showToast('Failed to send file: ' + (res.message || 'Unknown error'), 'error', 'Upload Failed');
+        }
+    })
+    .catch(err => {
+        console.error('File send error:', err);
+        const pendingBubble = document.getElementById(pendingBubbleId);
+        if (pendingBubble) {
+            pendingBubble.style.background = '#fce4ec';
+            pendingBubble.style.border = '1px solid #ef5350';
+            pendingBubble.style.opacity = '1';
+            pendingBubble.innerHTML = `
+                <div style="font-size:0.55rem;color:var(--text-muted);">📎 ${escapeHtml(file.name)}</div>
+                <div style="font-size:0.55rem;color:#c62828;margin-top:4px;display:flex;align-items:center;gap:4px;">
+                    <i class="bi bi-x-circle-fill"></i> <strong>Network error</strong>
+                </div>
+                <div style="font-size:0.45rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✗</div>`;
+        }
+        showToast('Network error sending file', 'error', 'Upload Failed');
     });
 }
 

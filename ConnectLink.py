@@ -12150,6 +12150,115 @@ def whatsapp_bulk_send():
         print(f"WhatsApp bulk send error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/whatsapp-send-file', methods=['POST'])
+def whatsapp_send_file():
+    """Upload a file and send it as a WhatsApp document/image to a recipient"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        recipient = request.form.get('recipient', '').strip()
+        if not recipient:
+            return jsonify({'success': False, 'message': 'Recipient required'}), 400
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'success': False, 'message': 'Empty file'}), 400
+        
+        caption = request.form.get('caption', '').strip()
+        
+        # Normalise recipient number
+        recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+        if recipient_clean.startswith('0'):
+            recipient_clean = '263' + recipient_clean[1:]
+        elif not recipient_clean.startswith('263'):
+            recipient_clean = '263' + recipient_clean
+        
+        # Determine file type and MIME
+        filename = file.filename
+        file_bytes = file.read()
+        mime_type = file.content_type or 'application/octet-stream'
+        is_image = mime_type.startswith('image/')
+        msg_type = 'image' if is_image else 'document'
+        
+        # Step 1: Upload to WhatsApp Media API
+        upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+        upload_headers = {'Authorization': f'Bearer {ACCESS_TOKEN}'}
+        upload_files = {
+            'file': (filename, io.BytesIO(file_bytes), mime_type),
+            'type': (None, mime_type),
+            'messaging_product': (None, 'whatsapp')
+        }
+        upload_response = requests.post(upload_url, headers=upload_headers, files=upload_files, timeout=45)
+        upload_data = upload_response.json()
+        print(f"📤 WhatsApp media upload [{upload_response.status_code}]: {upload_data}")
+        
+        if upload_response.status_code != 200 or 'id' not in upload_data:
+            return jsonify({'success': False, 'message': f'Media upload failed: {upload_data.get("error", {}).get("message", str(upload_data))}'}), 500
+        
+        media_id = upload_data['id']
+        
+        # Step 2: Send the media message
+        send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        send_headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        if is_image:
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'image',
+                'image': {
+                    'id': media_id,
+                    'caption': caption or filename
+                }
+            }
+        else:
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'document',
+                'document': {
+                    'id': media_id,
+                    'filename': filename,
+                    'caption': caption or filename
+                }
+            }
+        
+        print(f"📨 Sending {msg_type} to {recipient_clean}")
+        send_response = requests.post(send_url, headers=send_headers, json=payload, timeout=45)
+        send_data = send_response.json()
+        print(f"📡 Send response [{send_response.status_code}]: {send_data}")
+        
+        if send_response.status_code != 200:
+            return jsonify({'success': False, 'message': f'Failed to send: {send_data.get("error", {}).get("message", str(send_data))}'}), 500
+        
+        # Step 3: Save to whatsapp_messages
+        try:
+            with get_db() as (save_cursor, save_conn):
+                user_name = session.get('user_name', 'Admin')
+                display_text = f"[{msg_type.capitalize()}: {filename}]"
+                if caption:
+                    display_text += f" - {caption}"
+                save_cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status, media_id, file_name)
+                    VALUES (%s, %s, %s, %s, 'outgoing', 'sent', %s, %s)
+                """, (recipient_clean, user_name, display_text[:500], msg_type, media_id, filename))
+                save_conn.commit()
+        except Exception as save_err:
+            print(f"⚠️ Failed to save sent file message: {save_err}")
+        
+        return jsonify({'success': True, 'message': f'{msg_type.capitalize()} sent successfully', 'media_id': media_id})
+        
+    except Exception as e:
+        print(f"WhatsApp send file error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/whatsapp-toggle-human-mode', methods=['POST'])
 def whatsapp_toggle_human_mode():
     """Toggle human mode for a WhatsApp contact."""
