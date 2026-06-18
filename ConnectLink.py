@@ -293,9 +293,21 @@ def initialize_database_tables():
                     message_type VARCHAR(50),
                     direction VARCHAR(10) DEFAULT 'incoming',
                     status VARCHAR(50) DEFAULT 'received',
+                    media_id VARCHAR(255),
+                    file_name VARCHAR(255),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            
+            # Add columns if they don't exist (for existing tables)
+            try:
+                cursor.execute("ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_id VARCHAR(255)")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255)")
+            except Exception:
+                pass
             
             # Add index for faster conversation lookup
             cursor.execute("""
@@ -1506,11 +1518,36 @@ def webhook():
                         
                         if response.status_code != 200:
                             print("❌ Error response:", response.json())
+                        else:
+                            # Save to whatsapp_messages for chat portal visibility
+                            try:
+                                with get_db() as (save_cursor, save_conn):
+                                    buttons_summary = ', '.join([b.get('reply', {}).get('title', '') for b in (buttons or [])])
+                                    display_text = f"{text[:300]} [Buttons: {buttons_summary[:100]}]"
+                                    save_cursor.execute("""
+                                        INSERT INTO whatsapp_messages 
+                                        (sender_phone, sender_name, message_text, message_type, direction, status)
+                                        VALUES (%s, %s, %s, 'interactive', 'outgoing', 'sent')
+                                    """, (recipient, 'ConnectLink Bot', display_text[:500]))
+                                    save_conn.commit()
+                            except Exception as save_err:
+                                print(f"⚠️ Failed to save button message: {save_err}")
                         
                         return response
                         
                     except Exception as e:
                         print(f"❌ Error sending WhatsApp button message: {str(e)}")
+                        # Save failed attempt
+                        try:
+                            with get_db() as (save_cursor, save_conn):
+                                save_cursor.execute("""
+                                    INSERT INTO whatsapp_messages 
+                                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                                    VALUES (%s, %s, %s, 'interactive', 'outgoing', 'failed')
+                                """, (recipient, 'ConnectLink Bot', f"{text[:300]} [FAILED: {str(e)[:100]}]"))
+                                save_conn.commit()
+                        except Exception:
+                            pass
                         return None
                     
                 def send_whatsapp_list_message(recipient, text, header_text, sections, footer_text=None):
@@ -1553,10 +1590,36 @@ def webhook():
                         print("📌 Footer:", footer_text)
                         print("📡 WhatsApp API Response Status:", response.status_code)
                         
+                        if response.status_code == 200:
+                            # Save to whatsapp_messages for chat portal visibility
+                            try:
+                                with get_db() as (save_cursor, save_conn):
+                                    sections_summary = ' | '.join([s.get('title', '') for s in (sections or [])])
+                                    display_text = f"{text[:250]} [Options: {sections_summary[:150]}]"
+                                    save_cursor.execute("""
+                                        INSERT INTO whatsapp_messages 
+                                        (sender_phone, sender_name, message_text, message_type, direction, status)
+                                        VALUES (%s, %s, %s, 'interactive', 'outgoing', 'sent')
+                                    """, (recipient, 'ConnectLink Bot', display_text[:500]))
+                                    save_conn.commit()
+                            except Exception as save_err:
+                                print(f"⚠️ Failed to save list message: {save_err}")
+                        
                         return response
                         
                     except Exception as e:
                         print(f"❌ Error sending WhatsApp list message: {str(e)}")
+                        # Save failed attempt
+                        try:
+                            with get_db() as (save_cursor, save_conn):
+                                save_cursor.execute("""
+                                    INSERT INTO whatsapp_messages 
+                                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                                    VALUES (%s, %s, %s, 'interactive', 'outgoing', 'failed')
+                                """, (recipient, 'ConnectLink Bot', f"{text[:300]} [FAILED: {str(e)[:100]}]"))
+                                save_conn.commit()
+                        except Exception:
+                            pass
                         return None
 
 
@@ -1729,6 +1792,8 @@ def webhook():
                                     try:
                                         # Extract message text based on type
                                         msg_text = ""
+                                        media_id = None
+                                        file_name = None
                                         if message_type == "text":
                                             msg_text = message.get("text", {}).get("body", "")
                                         elif message_type == "interactive":
@@ -1741,9 +1806,13 @@ def webhook():
                                             elif itype == "nfm_reply":
                                                 msg_text = interactive.get("nfm_reply", {}).get("response_json", "")
                                         elif message_type == "image":
-                                            msg_text = message.get("image", {}).get("caption", "") or "[Image]"
+                                            img_info = message.get("image", {})
+                                            msg_text = img_info.get("caption", "") or "[Image]"
                                         elif message_type == "document":
-                                            msg_text = message.get("document", {}).get("caption", "") or "[Document]"
+                                            doc_info = message.get("document", {})
+                                            media_id = doc_info.get("id", "")
+                                            file_name = doc_info.get("filename", "")
+                                            msg_text = doc_info.get("caption", "") or f"[Document: {file_name}]"
                                         elif message_type == "audio":
                                             msg_text = "[Audio]"
                                         elif message_type == "video":
@@ -1758,9 +1827,9 @@ def webhook():
                                         with get_db() as (save_cursor, save_conn):
                                             save_cursor.execute("""
                                                 INSERT INTO whatsapp_messages 
-                                                (sender_phone, sender_name, message_text, message_type, direction, status)
-                                                VALUES (%s, %s, %s, %s, 'incoming', 'received')
-                                            """, (sender_id, sender_name, msg_text[:500], message_type or 'unknown'))
+                                                (sender_phone, sender_name, message_text, message_type, direction, status, media_id, file_name)
+                                                VALUES (%s, %s, %s, %s, 'incoming', 'received', %s, %s)
+                                            """, (sender_id, sender_name, msg_text[:500], message_type or 'unknown', media_id, file_name))
                                             save_conn.commit()
                                     except Exception as save_err:
                                         print(f"⚠️ Failed to save incoming message: {save_err}")
@@ -11519,7 +11588,7 @@ def whatsapp_messages(phone_number):
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, created_at, message_text, message_type, direction, sender_name, status
+                SELECT id, created_at, message_text, message_type, direction, sender_name, status, media_id, file_name
                 FROM whatsapp_messages
                 WHERE sender_phone LIKE %s
                 ORDER BY id ASC
@@ -11536,11 +11605,50 @@ def whatsapp_messages(phone_number):
                     'direction': r[4] or '',
                     'status': r[6] or 'received',
                     'username': r[5] or '',
-                    'is_incoming': r[4] == 'incoming'
+                    'is_incoming': r[4] == 'incoming',
+                    'media_id': r[7] or '',
+                    'file_name': r[8] or ''
                 })
             return jsonify({'success': True, 'data': messages})
     except Exception as e:
         print(f"WhatsApp messages error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-media-download/<media_id>', methods=['GET'])
+def whatsapp_media_download(media_id):
+    """Download a media file from WhatsApp using its media_id"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        # Step 1: Get media download URL from WhatsApp
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        media_info_url = f"https://graph.facebook.com/v19.0/{media_id}"
+        media_resp = requests.get(media_info_url, headers=headers)
+        if media_resp.status_code != 200:
+            return jsonify({'success': False, 'message': 'Failed to get media info'}), 400
+        media_info = media_resp.json()
+        download_url = media_info.get('url')
+        mime_type = media_info.get('mime_type', 'application/octet-stream')
+        file_extension = media_info.get('file_extension', 'bin')
+        if not download_url:
+            return jsonify({'success': False, 'message': 'No download URL found'}), 400
+        
+        # Step 2: Download the actual file
+        file_resp = requests.get(download_url, headers=headers)
+        if file_resp.status_code != 200:
+            return jsonify({'success': False, 'message': 'Failed to download file'}), 400
+        
+        # Step 3: Stream the file back to the browser
+        filename = f"whatsapp_media_{media_id[:8]}.{file_extension}"
+        response = make_response(file_resp.content)
+        response.headers.set('Content-Type', mime_type)
+        response.headers.set('Content-Disposition', f'attachment; filename="{filename}"')
+        return response
+        
+    except Exception as e:
+        print(f"WhatsApp media download error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-send', methods=['POST'])

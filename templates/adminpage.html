@@ -20005,11 +20005,28 @@ function createMessageBubble(msg) {
         nameLabel = `<div style="font-size:0.45rem;color:var(--primary);font-weight:600;margin-bottom:1px;">${escapeHtml(msg.username)}</div>`;
     }
     
+    // Build message content
+    let messageContent = `<div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(msg.message)}</div>`;
+    
+    // Add download button for document/image messages with media_id
+    if (msg.media_id && (msg.category === 'document' || msg.category === 'image')) {
+        const fileDisplayName = msg.file_name || (msg.category === 'image' ? 'Image' : 'Document');
+        const icon = msg.category === 'image' ? '📷' : '📄';
+        messageContent += `
+            <div style="margin-top:6px;padding:4px 8px;background:#f0f0f0;border-radius:6px;display:flex;align-items:center;gap:6px;">
+                <span style="font-size:0.7rem;">${icon}</span>
+                <span style="font-size:0.55rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(fileDisplayName)}</span>
+                <a href="/api/whatsapp-media-download/${encodeURIComponent(msg.media_id)}" target="_blank" style="font-size:0.55rem;padding:2px 8px;background:#075e54;color:white;border-radius:4px;text-decoration:none;white-space:nowrap;">
+                    <i class="bi bi-download"></i> Download
+                </a>
+            </div>`;
+    }
+    
     bubble.style.cssText = `max-width:80%;background:${bgColor};${alignStyle}padding:5px 8px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);margin-bottom:4px;`;
     bubble.innerHTML = `
         ${typeLabel}
         ${nameLabel}
-        <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(msg.message)}</div>
+        ${messageContent}
         ${statusLabel}
         <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:1px;">${time}${statusIcon}</div>`;
     

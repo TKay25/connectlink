@@ -41,18 +41,18 @@
     "secrets"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 10639"
+    "INSTRUCTIONS @ line 10708"
   ],
   "token_controls": [
-    "max_length = 0 @ line 15598",
-    "max_length = len(str(cell.value)) @ line 15603",
-    "adjusted_width = min(max_length + 2, 50) @ line 15606",
-    "max_length = 0 @ line 16415",
-    "max_length = cell_length @ line 16422",
-    "adjusted_width = min(max_length + 2, 50) @ line 16425",
-    "max_length = 0 @ line 17258",
-    "max_length = cell_length @ line 17265",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 17268"
+    "max_length = 0 @ line 15706",
+    "max_length = len(str(cell.value)) @ line 15711",
+    "adjusted_width = min(max_length + 2, 50) @ line 15714",
+    "max_length = 0 @ line 16523",
+    "max_length = cell_length @ line 16530",
+    "adjusted_width = min(max_length + 2, 50) @ line 16533",
+    "max_length = 0 @ line 17366",
+    "max_length = cell_length @ line 17373",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 17376"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1781691732172.6877,
   "file_size": 1328874,
   "file_birthtime": 1776794366250.55,
-  "generated_at": "2026-06-18T13:30:25.260045Z",
+  "generated_at": "2026-06-18T14:05:33.244560Z",
   "stale": false
 }
