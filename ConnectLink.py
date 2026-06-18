@@ -1342,15 +1342,42 @@ def webhook():
                         print("📡 WhatsApp API Response Text:", response.text)
 
                         response.raise_for_status()  # will throw if not 2xx
+                        resp_json = response.json()
 
                         print("✅ Message sent successfully.")
-                        print("📝 Response JSON:", response.json())
+                        print("📝 Response JSON:", resp_json)
+
+                        # Save outgoing bot message to whatsapp_messages for chat portal visibility
+                        try:
+                            with get_db() as (save_cursor, save_conn):
+                                sender_name = 'ConnectLink Bot'
+                                save_cursor.execute("""
+                                    INSERT INTO whatsapp_messages 
+                                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                                    VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                                """, (to, sender_name, text[:500], 'text'))
+                                save_conn.commit()
+                        except Exception as save_err:
+                            print(f"⚠️ Failed to save outgoing bot message: {save_err}")
 
                         print("done trying")
-                        return response.json()
+                        return resp_json
                     
                     except requests.exceptions.RequestException as e:
                         print("❌ WhatsApp API Error:", e)
+                        # Save failed message to whatsapp_messages too
+                        try:
+                            with get_db() as (save_cursor, save_conn):
+                                sender_name = 'ConnectLink Bot'
+                                error_detail = str(e)[:200]
+                                save_cursor.execute("""
+                                    INSERT INTO whatsapp_messages 
+                                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                                    VALUES (%s, %s, %s, %s, 'outgoing', 'failed')
+                                """, (to, sender_name, f"{text[:300]} [FAILED: {error_detail}]", 'text'))
+                                save_conn.commit()
+                        except Exception as save_err:
+                            print(f"⚠️ Failed to save failed bot message: {save_err}")
                         return {"error": str(e)}
 
                 def send_whatsapp_button_message(recipient, text, buttons, footer_text=None):
@@ -11103,7 +11130,7 @@ def whatsapp_messages(phone_number):
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, created_at, message_text, message_type, direction, sender_name
+                SELECT id, created_at, message_text, message_type, direction, sender_name, status
                 FROM whatsapp_messages
                 WHERE sender_phone LIKE %s
                 ORDER BY id ASC
@@ -11117,7 +11144,8 @@ def whatsapp_messages(phone_number):
                     'timestamp': r[1].strftime('%d/%m/%Y %H:%M') if r[1] else '',
                     'message': r[2] or '',
                     'category': r[3] or '',
-                    'status': r[4] or 'received',
+                    'direction': r[4] or '',
+                    'status': r[6] or 'received',
                     'username': r[5] or '',
                     'is_incoming': r[4] == 'incoming'
                 })
@@ -11181,15 +11209,29 @@ def whatsapp_send():
         resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
         resp_data = resp.json()
         
+        # Check for 24-hour window error
+        requires_template = False
+        send_status = 'sent'
+        error_detail = ''
+        if resp.status_code != 200:
+            error_text = str(resp_data)
+            requires_template = is_template_window_error(error_text)
+            send_status = 'failed'
+            error_detail = error_text[:300]
+        
         # Save outgoing message to database
         try:
             user_name = session.get('user_name', 'Admin')
+            status_note = 'failed_24hr_window' if requires_template else send_status
+            message_to_save = message[:500]
+            if requires_template:
+                message_to_save = message[:400] + ' [⚠️ Outside 24hr window - message not delivered]'
             with get_db() as (save_cursor, save_conn):
                 save_cursor.execute("""
                     INSERT INTO whatsapp_messages 
                     (sender_phone, sender_name, message_text, message_type, direction, status)
-                    VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
-                """, (recipient_clean, user_name, message[:500], 'text'))
+                    VALUES (%s, %s, %s, %s, 'outgoing', %s)
+                """, (recipient_clean, user_name, message_to_save, 'text', status_note))
                 save_conn.commit()
         except Exception as save_err:
             print(f"⚠️ Failed to save outgoing message: {save_err}")
@@ -11197,7 +11239,12 @@ def whatsapp_send():
         if resp.status_code == 200:
             return jsonify({'success': True, 'message': 'Message sent', 'data': resp_data})
         else:
-            return jsonify({'success': False, 'message': str(resp_data)}), 400
+            return jsonify({
+                'success': False,
+                'message': str(resp_data),
+                'requires_template': requires_template,
+                'hint': 'This number is outside the 24-hour customer service window. The customer needs to message first before you can reply.' if requires_template else None
+            }), 400
     except Exception as e:
         print(f"WhatsApp send error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500

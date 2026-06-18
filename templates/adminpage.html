@@ -19130,6 +19130,8 @@ function checkWhatsAppDebug() {
         });
 }
 
+let chatRefreshInterval = null;
+
 function openChat(phone, name) {
     currentChatPhone = phone;
     currentChatName = name;
@@ -19142,38 +19144,118 @@ function openChat(phone, name) {
     area.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading messages...</div>';
     openModal('whatsappChatModal');
     
+    // Clear any existing refresh interval
+    if (chatRefreshInterval) {
+        clearInterval(chatRefreshInterval);
+        chatRefreshInterval = null;
+    }
+    
+    loadChatMessages(phone, area);
+    
+    // Auto-refresh every 10 seconds to show bot-sent messages
+    chatRefreshInterval = setInterval(() => {
+        if (currentChatPhone && document.getElementById('whatsappChatModal')?.classList.contains('active')) {
+            loadChatMessages(currentChatPhone, document.getElementById('chatMessagesArea'), true);
+        } else {
+            clearInterval(chatRefreshInterval);
+            chatRefreshInterval = null;
+        }
+    }, 10000);
+}
+
+function loadChatMessages(phone, area, appendOnly) {
     fetch('/api/whatsapp-messages/' + phone)
         .then(r => r.json())
         .then(res => {
             if (!res.success || !res.data) {
-                area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;">Failed to load messages</div>';
+                if (!appendOnly) area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;">Failed to load messages</div>';
                 return;
             }
             const msgs = res.data;
             if (!msgs.length) {
-                area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;"><i class="bi bi-chat-dots"></i> No messages yet</div>';
+                if (!appendOnly) area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;"><i class="bi bi-chat-dots"></i> No messages yet</div>';
                 return;
             }
-            area.innerHTML = '';
-            msgs.forEach(msg => {
-                const isIncoming = msg.is_incoming;
-                const time = msg.timestamp || '';
-                const bubbleStyle = isIncoming
-                    ? 'background:white;align-self:flex-start;border-bottom-left-radius:2px;'
-                    : 'background:#dcf8c6;align-self:flex-end;border-bottom-right-radius:2px;';
-                area.innerHTML += `
-                    <div style="max-width:80%;${bubbleStyle}padding:6px 10px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);">
-                        <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(msg.message)}</div>
-                        <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${time}</div>
-                    </div>`;
-            });
+            
+            if (appendOnly) {
+                // Only append new messages (not already in the DOM)
+                const existingIds = new Set();
+                area.querySelectorAll('[data-msg-id]').forEach(el => existingIds.add(el.dataset.msgId));
+                msgs.forEach(msg => {
+                    if (!existingIds.has('msg-' + msg.id)) {
+                        area.appendChild(createMessageBubble(msg));
+                    }
+                });
+            } else {
+                area.innerHTML = '';
+                msgs.forEach(msg => {
+                    area.appendChild(createMessageBubble(msg));
+                });
+            }
             area.scrollTop = area.scrollHeight;
         })
         .catch(err => {
-            area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;">Error loading messages</div>';
+            if (!appendOnly) {
+                area.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.6rem;">Error loading messages</div>';
+            }
             console.error('Chat load error:', err);
         });
 }
+
+function createMessageBubble(msg) {
+    const isIncoming = msg.is_incoming;
+    const time = msg.timestamp || '';
+    const bubble = document.createElement('div');
+    bubble.dataset.msgId = 'msg-' + msg.id;
+    
+    // Determine styling based on status
+    let bgColor, alignStyle, statusIcon = '', statusLabel = '';
+    const status = msg.status || '';
+    
+    if (isIncoming) {
+        bgColor = 'white';
+        alignStyle = 'align-self:flex-start;border-bottom-left-radius:2px;';
+    } else if (status === 'failed_24hr_window') {
+        bgColor = '#fff3e0';
+        alignStyle = 'align-self:flex-end;border-bottom-right-radius:2px;border:1px solid #ffcc02;';
+        statusIcon = '<span style="color:#ef6c00;font-size:0.45rem;margin-left:3px;">⚠️</span>';
+        statusLabel = '<div style="font-size:0.5rem;color:#ef6c00;margin-top:2px;"><i class="bi bi-exclamation-triangle-fill"></i> Outside 24hr window — not delivered</div>';
+    } else if (status === 'failed') {
+        bgColor = '#fce4ec';
+        alignStyle = 'align-self:flex-end;border-bottom-right-radius:2px;border:1px solid #ef5350;';
+        statusIcon = '<span style="color:#c62828;font-size:0.45rem;margin-left:3px;">✗</span>';
+        statusLabel = '<div style="font-size:0.5rem;color:#c62828;margin-top:2px;"><i class="bi bi-x-circle-fill"></i> Failed to send</div>';
+    } else {
+        bgColor = '#dcf8c6';
+        alignStyle = 'align-self:flex-end;border-bottom-right-radius:2px;';
+        statusIcon = '<span style="color:#999;font-size:0.45rem;margin-left:3px;">✓</span>';
+    }
+    
+    // Show sender name for bot messages (outgoing from system)
+    let nameLabel = '';
+    if (msg.username && msg.username !== currentChatName) {
+        nameLabel = `<div style="font-size:0.45rem;color:var(--primary);font-weight:600;margin-bottom:1px;">${escapeHtml(msg.username)}</div>`;
+    }
+    
+    bubble.style.cssText = `max-width:80%;background:${bgColor};${alignStyle}padding:5px 8px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);margin-bottom:4px;`;
+    bubble.innerHTML = `
+        ${nameLabel}
+        <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(msg.message)}</div>
+        ${statusLabel}
+        <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:1px;">${time}${statusIcon}</div>`;
+    
+    return bubble;
+}
+
+// Close chat modal - clear refresh interval
+const origCloseModalFn = closeModal;
+closeModal = function(modalId) {
+    if (modalId === 'whatsappChatModal' && chatRefreshInterval) {
+        clearInterval(chatRefreshInterval);
+        chatRefreshInterval = null;
+    }
+    origCloseModalFn(modalId);
+};
 
 function handleChatFileSelect(event) {
     const file = event.target.files[0];
@@ -19208,6 +19290,19 @@ function sendChatMessage() {
 }
 
 function sendWhatsAppMessage(phone, text) {
+    const area = document.getElementById('chatMessagesArea');
+    const now = new Date();
+    const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    
+    // Optimistically add a pending bubble
+    const pendingBubbleId = 'pending-' + Date.now();
+    area.innerHTML += `
+        <div id="${pendingBubbleId}" style="max-width:80%;background:#dcf8c6;align-self:flex-end;border-bottom-right-radius:2px;padding:6px 10px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);opacity:0.7;">
+            <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(text)}</div>
+            <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ⏳</div>
+        </div>`;
+    area.scrollTop = area.scrollHeight;
+    
     fetch('/api/whatsapp-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -19215,24 +19310,59 @@ function sendWhatsAppMessage(phone, text) {
     })
     .then(r => r.json())
     .then(res => {
+        const pendingBubble = document.getElementById(pendingBubbleId);
+        if (!pendingBubble) return;
+        
         if (res.success) {
-            // Add outgoing message bubble
-            const area = document.getElementById('chatMessagesArea');
-            const now = new Date();
-            const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-            area.innerHTML += `
-                <div style="max-width:80%;background:#dcf8c6;align-self:flex-end;border-bottom-right-radius:2px;padding:6px 10px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);">
-                    <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(text)}</div>
-                    <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✓</div>
-                </div>`;
-            area.scrollTop = area.scrollHeight;
+            // Mark as sent
+            pendingBubble.style.opacity = '1';
+            const timeDiv = pendingBubble.querySelector('div:last-child');
+            if (timeDiv) timeDiv.textContent = timeStr + ' ✓';
+        } else if (res.requires_template) {
+            // 24-hour window error - mark with warning
+            pendingBubble.style.background = '#fff3e0';
+            pendingBubble.style.border = '1px solid #ffcc02';
+            pendingBubble.style.opacity = '1';
+            pendingBubble.innerHTML = `
+                <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(text)}</div>
+                <div style="font-size:0.55rem;color:#ef6c00;margin-top:4px;display:flex;align-items:center;gap:4px;">
+                    <i class="bi bi-exclamation-triangle-fill"></i> <strong>Not delivered</strong> — outside 24hr customer service window
+                </div>
+                <div style="font-size:0.45rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ⚠️</div>`;
+            showToast(
+                'Cannot reply to <strong>' + escapeHtml(currentChatName || phone) + '</strong> — outside 24-hour customer service window. The customer needs to send a message first.',
+                'warning',
+                '⚠️ 24hr Window Closed'
+            );
         } else {
-            alert('Failed to send: ' + (res.message || 'Unknown error'));
+            // Other failure
+            pendingBubble.style.background = '#fce4ec';
+            pendingBubble.style.border = '1px solid #ef5350';
+            pendingBubble.style.opacity = '1';
+            pendingBubble.innerHTML = `
+                <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(text)}</div>
+                <div style="font-size:0.55rem;color:#c62828;margin-top:4px;display:flex;align-items:center;gap:4px;">
+                    <i class="bi bi-x-circle-fill"></i> <strong>Failed to send</strong>
+                </div>
+                <div style="font-size:0.45rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✗</div>`;
+            showToast('Failed to send message: ' + (res.message || 'Unknown error'), 'error', 'Send Failed');
         }
     })
     .catch(err => {
         console.error('Send error:', err);
-        alert('Failed to send message');
+        const pendingBubble = document.getElementById(pendingBubbleId);
+        if (pendingBubble) {
+            pendingBubble.style.background = '#fce4ec';
+            pendingBubble.style.border = '1px solid #ef5350';
+            pendingBubble.style.opacity = '1';
+            pendingBubble.innerHTML = `
+                <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(text)}</div>
+                <div style="font-size:0.55rem;color:#c62828;margin-top:4px;display:flex;align-items:center;gap:4px;">
+                    <i class="bi bi-x-circle-fill"></i> <strong>Network error</strong>
+                </div>
+                <div style="font-size:0.45rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✗</div>`;
+        }
+        showToast('Network error sending message', 'error', 'Send Failed');
     });
 }
 
