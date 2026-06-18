@@ -6997,7 +6997,7 @@ def webhook():
 
                                                                                 <div class="section-header">WATER PROVISION</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
+                                                                                    <p style="font-size:11px;">The Client shall provide water or a suitable water supply and water storage tank(s) of at least 5000 liters for construction activities at their own expense.</p>
                                                                                 </div>
 
                                                                                 <!-- Page break -->
@@ -12986,7 +12986,7 @@ def download_contract(project_id):
 
                     <div class="section-header">WATER PROVISION</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">The Client shall provide water or a suitable water supply for construction activities at their own expense.</p>
+                        <p style="font-size:11px;">The Client shall provide water or a suitable water supply and water storage tank(s) of at least 5000 liters for construction activities at their own expense.</p>
                     </div>
 
                     <!-- Page break -->
@@ -13175,6 +13175,68 @@ def download_contract(project_id):
 
         except Exception as e:
             return str(e), 500
+
+
+@app.route('/send-contract-whatsapp', methods=['POST'])
+def send_contract_whatsapp():
+    """Send a contract PDF to a client via WhatsApp"""
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        whatsapp_number = data.get('whatsapp_number', '').strip()
+        
+        if not project_id or not whatsapp_number:
+            return jsonify({'success': False, 'error': 'Project ID and WhatsApp number are required'}), 400
+        
+        # Clean phone number
+        phone_clean = re.sub(r'[^0-9]', '', str(whatsapp_number))
+        if phone_clean.startswith('0'):
+            phone_clean = '263' + phone_clean[1:]
+        elif not phone_clean.startswith('263'):
+            phone_clean = '263' + phone_clean
+        
+        # Get project details
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT clientname, projectname FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            project = cursor.fetchone()
+            if not project:
+                return jsonify({'success': False, 'error': 'Project not found'}), 404
+            
+            client_name = project[0] or 'Client'
+            project_name = project[1] or 'Contract'
+        
+        # Generate contract PDF by calling download_contract internally
+        with app.test_client() as client:
+            resp = client.get(f'/download_contract/{project_id}')
+            if resp.status_code != 200:
+                return jsonify({'success': False, 'error': 'Failed to generate contract PDF'}), 500
+            pdf_bytes = resp.data
+        
+        safe_name = ''.join(char for char in str(client_name) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+        filename = f"Contract_{safe_name}_{project_id}.pdf"
+        caption = f"CONTRACT\n\nClient: {client_name}\nProject: {project_name}\n\nConnectLink Properties"
+        
+        # Send via WhatsApp
+        whatsapp_resp = send_pdf_document_whatsapp(phone_clean, pdf_bytes, filename, caption)
+        
+        if whatsapp_resp and whatsapp_resp.get('messages'):
+            log_activity(
+                'contract_sent_whatsapp',
+                f'Contract for {client_name} ({project_name}) sent via WhatsApp to {phone_clean}',
+                'project',
+                project_id,
+                {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean}
+            )
+            return jsonify({'success': True, 'message': 'Contract sent via WhatsApp'})
+        else:
+            error_msg = str(whatsapp_resp) if whatsapp_resp else 'WhatsApp API returned no response'
+            return jsonify({'success': False, 'error': error_msg}), 500
+    
+    except Exception as e:
+        logging.error(f"Error sending contract via WhatsApp: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/delete_project', methods=['POST'])
@@ -13718,7 +13780,7 @@ def get_filtered_projects(month_filter):
                 datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
             
             # Add Action column (same as in your run1 function)
-            datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download</a><button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button><button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button></div>''', axis=1)
+            datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row.get('clientname', '')}" onclick="return handleDownloadClick(this)">Download</a><button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button><button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button></div>''', axis=1)
             
             # Reorder columns to match your original table
             # Put Action column at the end
@@ -14865,7 +14927,7 @@ def run1(userid):
         )
         
         # Step 5: Create Action column AFTER everything else
-        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
+        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row['clientname']}" data-client-wa-number="{row['clientwanumber']}" onclick="return handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
         
         # Step 6: Sort by ID
         datamain = datamain.sort_values('id', ascending=False)

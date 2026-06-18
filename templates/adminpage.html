@@ -5941,6 +5941,46 @@ table.dataTable thead th.sorting_desc {
     </div>
 </div>
 
+<!-- Download/Send Contract Modal -->
+<div id="downloadContractModal" class="modal-overlay">
+    <div class="modal-container small">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-file-earmark-pdf"></i> Contract Action</h3>
+            <button class="close-modal" onclick="closeModal('downloadContractModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="padding:16px;">
+            <p style="font-size:0.75rem; margin-bottom:12px;">Contract for: <strong id="dcModalClientName"></strong></p>
+            <input type="hidden" id="dcModalContractUrl" value="">
+            <input type="hidden" id="dcModalProjectId" value="">
+            
+            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+                <button class="btn btn-primary" style="font-size:0.7rem; padding:8px;" onclick="downloadContractDirect()">
+                    <i class="bi bi-download me-2"></i> Download PDF
+                </button>
+                <button class="btn btn-success" style="font-size:0.7rem; padding:8px;" onclick="toggleWhatsAppSendContract()">
+                    <i class="bi bi-whatsapp me-2"></i> Send via WhatsApp
+                </button>
+            </div>
+            
+            <div id="dcWhatsAppSection" style="display:none; border-top:1px solid var(--gray-200); padding-top:12px;">
+                <label style="font-size:0.6rem; font-weight:700; display:block; margin-bottom:4px;">WhatsApp Number</label>
+                <div style="display:flex; gap:6px;">
+                    <input type="text" id="dcWhatsAppNumber" class="form-control" style="font-size:0.7rem; flex:1;" placeholder="2637XXXXXXXX">
+                    <button class="btn btn-success" style="font-size:0.6rem; padding:4px 12px;" onclick="sendContractViaWhatsApp()">
+                        <i class="bi bi-send me-1"></i> Send
+                    </button>
+                </div>
+                <div id="dcSendResult" style="margin-top:6px; font-size:0.6rem;"></div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" style="font-size:0.6rem;padding:4px 14px;" onclick="closeModal('downloadContractModal')">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Activity Detail Modal -->
 <div id="activityDetailModal" class="modal-overlay">
     <div class="modal-container large">
@@ -14262,19 +14302,72 @@ $(document).on('click', '.update-project-btn', function () {
 <script>
 
 function handleDownloadClick(button) {
-    const originalText = button.textContent;
-    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Downloading...';
-    button.disabled = true;
+    const projectId = button.dataset.id || button.getAttribute('data-id');
+    const clientName = button.dataset.clientName || button.getAttribute('data-client-name') || 'Client';
+    const clientWa = button.dataset.clientWaNumber || button.getAttribute('data-client-wa-number') || '';
+    const downloadUrl = button.href || `/download_contract/${projectId}`;
+    
+    document.getElementById('dcModalClientName').textContent = clientName;
+    document.getElementById('dcModalContractUrl').value = downloadUrl;
+    document.getElementById('dcModalProjectId').value = projectId;
+    document.getElementById('dcWhatsAppNumber').value = clientWa;
+    document.getElementById('dcWhatsAppSection').style.display = 'none';
+    document.getElementById('dcSendResult').innerHTML = '';
+    
+    openModal('downloadContractModal');
+    return false;
+}
 
-    // Trigger download
-    const downloadUrl = button.dataset.url; // e.g., /download_contract/123
-    window.location.href = downloadUrl;
+function downloadContractDirect() {
+    const url = document.getElementById('dcModalContractUrl').value;
+    if (url) {
+        closeModal('downloadContractModal');
+        window.open(url, '_blank');
+    }
+}
 
-    // Fallback: remove spinner after 3 seconds (UI only)
-    setTimeout(() => {
-        button.innerHTML = originalText;
-        button.disabled = false;
-    }, 3000);
+function toggleWhatsAppSendContract() {
+    const section = document.getElementById('dcWhatsAppSection');
+    section.style.display = section.style.display === 'none' ? 'block' : 'none';
+}
+
+async function sendContractViaWhatsApp() {
+    const projectId = document.getElementById('dcModalProjectId').value;
+    const phone = document.getElementById('dcWhatsAppNumber').value.trim();
+    const resultDiv = document.getElementById('dcSendResult');
+    
+    if (!phone) {
+        resultDiv.innerHTML = '<span style="color:#d32f2f;">Please enter a WhatsApp number.</span>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<span style="color:#666;"><i class="bi bi-arrow-repeat"></i> Sending...</span>';
+    
+    try {
+        // Use the contract download endpoint, then send via WhatsApp
+        const btn = document.querySelector('#dcWhatsAppSection .btn-success');
+        if (btn) { btn.disabled = true; }
+        
+        const response = await fetch('/send-contract-whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: projectId, whatsapp_number: phone })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            resultDiv.innerHTML = '<span style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Contract sent via WhatsApp!</span>';
+            setTimeout(() => closeModal('downloadContractModal'), 1500);
+        } else {
+            resultDiv.innerHTML = '<span style="color:#d32f2f;">❌ ' + (data.error || 'Failed to send') + '</span>';
+        }
+    } catch (err) {
+        resultDiv.innerHTML = '<span style="color:#d32f2f;">❌ Network error: ' + err.message + '</span>';
+    } finally {
+        const btn = document.querySelector('#dcWhatsAppSection .btn-success');
+        if (btn) { btn.disabled = false; }
+    }
 }
 
 
