@@ -17187,6 +17187,15 @@ def download_enquiry_plan(enquiry_id):
             # Create filename
             filename = f"enquiry_plan_{enquiry_id}_{client_whatsapp}_{timestamp.strftime('%Y%m%d')}.pdf"
             
+            # Log the plan download
+            log_activity(
+                'enquiry_plan_downloaded',
+                f'Plan document downloaded for enquiry #{enquiry_id} (Client: {client_whatsapp})',
+                'enquiry',
+                enquiry_id,
+                {'client_whatsapp': str(client_whatsapp) if client_whatsapp else '', 'filename': filename, 'downloaded_by': session.get('user_name', 'Unknown')}
+            )
+            
             # Return PDF file
             return send_file(
                 io.BytesIO(plan_data),
@@ -17211,6 +17220,21 @@ def update_enquiry_status(enquiry_id):
             return jsonify({'status': 'error', 'message': 'Status is required'}), 400
         
         with get_db() as (cursor, connection):
+            # Fetch current enquiry info for logging
+            cursor.execute("""
+                SELECT id, enq, enqcategory, clientwhatsapp, username, status
+                FROM connectlinkenquiries WHERE id = %s
+            """, (enquiry_id,))
+            enquiry = cursor.fetchone()
+            
+            if not enquiry:
+                return jsonify({'status': 'error', 'message': 'Enquiry not found'}), 404
+            
+            old_status = enquiry[5] or 'pending'
+            enq_text = (enquiry[1] or '')[:60]
+            enq_category = enquiry[2] or 'General'
+            client_number = str(enquiry[3]) if enquiry[3] else ''
+            
             cursor.execute("""
                 UPDATE connectlinkenquiries 
                 SET status = %s
@@ -17219,6 +17243,21 @@ def update_enquiry_status(enquiry_id):
             """, (new_status, enquiry_id))
             
             connection.commit()
+            
+            # Log the status change
+            log_activity(
+                'enquiry_status_changed',
+                f'Enquiry #{enquiry_id} status changed from {old_status} to {new_status} - "{enq_text}" ({enq_category})',
+                'enquiry',
+                enquiry_id,
+                {
+                    'old_status': old_status,
+                    'new_status': new_status,
+                    'category': enq_category,
+                    'client_whatsapp': client_number,
+                    'updated_by': session.get('user_name', 'Unknown')
+                }
+            )
             
             return jsonify({
                 'status': 'success',
