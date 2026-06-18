@@ -1365,7 +1365,23 @@ def webhook():
                         }
 
                     response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
-                    print("📡 Button message response:", response.json())
+                    print("📡 Button image message response:", response.status_code)
+                    
+                    # Save to whatsapp_messages for chat portal visibility
+                    if response.status_code == 200:
+                        try:
+                            with get_db() as (save_cursor, save_conn):
+                                buttons_summary = ', '.join([b.get('reply', {}).get('title', '') for b in (buttons or [])])
+                                display_text = f"{text[:250]} [Buttons: {buttons_summary[:100]}]"
+                                save_cursor.execute("""
+                                    INSERT INTO whatsapp_messages 
+                                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                                    VALUES (%s, %s, %s, 'interactive', 'outgoing', 'sent')
+                                """, (recipient, 'ConnectLink Bot', display_text[:500]))
+                                save_conn.commit()
+                        except Exception as save_err:
+                            print(f"⚠️ Failed to save button image message: {save_err}")
+                    
                     return response
 
                 def send_whatsapp_message(to, text, buttons=None, footer_text = None):
@@ -3314,7 +3330,20 @@ def webhook():
                                                                         "text": {"body": message}
                                                                     }
                                                                     
-                                                                    requests.post(url, headers=headers, json=payload)
+                                                                    resp = requests.post(url, headers=headers, json=payload)
+                                                                    
+                                                                    # Save to whatsapp_messages for chat portal visibility
+                                                                    if resp.status_code == 200:
+                                                                        try:
+                                                                            with get_db() as (save_cursor, save_conn):
+                                                                                save_cursor.execute("""
+                                                                                    INSERT INTO whatsapp_messages 
+                                                                                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                                                                                    VALUES (%s, %s, %s, 'text', 'outgoing', 'sent')
+                                                                                """, (recipient_number, 'ConnectLink Bot', message[:500]))
+                                                                                save_conn.commit()
+                                                                        except Exception as save_err:
+                                                                            print(f"⚠️ Failed to save text message: {save_err}")
                                                                 except Exception as e:
                                                                     print(f"Error sending text: {e}")
 
@@ -7280,6 +7309,20 @@ def webhook():
                                                                         }
                                                                         
                                                                         response = requests.post(url, headers=headers, json=payload)
+                                                                        
+                                                                        # Save to whatsapp_messages for chat portal visibility
+                                                                        if response.status_code == 200:
+                                                                            try:
+                                                                                with get_db() as (save_cursor, save_conn):
+                                                                                    save_cursor.execute("""
+                                                                                        INSERT INTO whatsapp_messages 
+                                                                                        (sender_phone, sender_name, message_text, message_type, direction, status)
+                                                                                        VALUES (%s, %s, %s, 'text', 'outgoing', 'sent')
+                                                                                    """, (recipient_number, 'ConnectLink Bot', message[:500]))
+                                                                                    save_conn.commit()
+                                                                            except Exception as save_err:
+                                                                                print(f"⚠️ Failed to save bot message: {save_err}")
+                                                                        
                                                                         return response.status_code == 200
                                                                         
                                                                     except Exception as e:
