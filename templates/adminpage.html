@@ -3511,11 +3511,20 @@ table.dataTable thead th.sorting_desc {
                                 <div>
                                     <button class="btn btn-primary" style="padding:4px 12px;" onclick="loadWhatsAppChats()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                     <button class="btn btn-success" style="padding:4px 12px;" onclick="openBulkMessaging()"><i class="bi bi-megaphone"></i> Bulk Message</button>
+                                    <button class="btn btn-outline-info" style="padding:4px 12px;" onclick="syncWhatsAppHistory()" title="Pull historical contacts from interactions log"><i class="bi bi-clock-history"></i> Sync History</button>
                                     <button class="btn btn-outline-secondary" style="padding:4px 12px;" onclick="checkWhatsAppDebug()"><i class="bi bi-bug"></i> Debug</button>
                                 </div>
                                 <span id="whatsappChatCount" style="font-size:0.55rem;color:var(--text-muted);">0 conversations</span>
                             </div>
-                            <div id="whatsappChatList" style="display:flex;flex-direction:column;gap:3px;max-height:48vh;overflow-y:auto;background:var(--bg-card);border-radius:6px;padding:4px;">
+                            <div style="padding:4px 4px 6px;">
+                                <div style="display:flex;gap:4px;">
+                                    <input type="text" id="whatsappSearchInput" class="form-control" placeholder="Search name or number..." style="font-size:0.6rem;padding:4px 8px;flex:1;" oninput="filterWhatsAppChats()">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="startNewWhatsAppChat()" title="Start new chat with a phone number" style="font-size:0.55rem;padding:3px 8px;white-space:nowrap;">
+                                        <i class="bi bi-plus-circle"></i> New
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="whatsappChatList" style="display:flex;flex-direction:column;gap:3px;max-height:42vh;overflow-y:auto;background:var(--bg-card);border-radius:6px;padding:4px;">
                                 <div class="empty-state">
                                     <div class="empty-icon"><i class="bi bi-whatsapp"></i></div>
                                     <div class="empty-title">WhatsApp Messenger</div>
@@ -19770,6 +19779,7 @@ function loadWhatsAppChats() {
                         </div>
                         <div style="flex:1;min-width:0;">
                             <div style="font-weight:600;color:var(--text-primary);font-size:0.6rem;">${escapeHtml(chat.name)}</div>
+                            <div style="font-size:0.45rem;color:var(--gray-400);">${chat.whatsapp}</div>
                             <div style="font-size:0.48rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                 ${escapeHtml(chat.last_message || 'No messages')}
                             </div>
@@ -19786,6 +19796,67 @@ function loadWhatsAppChats() {
         .catch(err => {
             console.error('WhatsApp chats error:', err);
             container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div></div>';
+        });
+}
+
+// Filter WhatsApp chats by name or number
+function filterWhatsAppChats() {
+    const input = document.getElementById('whatsappSearchInput');
+    const filter = input ? input.value.toLowerCase().trim() : '';
+    const container = document.getElementById('whatsappChatList');
+    if (!container) return;
+    const items = container.querySelectorAll('.clickable-row');
+    let visibleCount = 0;
+    items.forEach(item => {
+        const text = item.textContent.toLowerCase();
+        if (!filter || text.includes(filter)) {
+            item.style.display = 'flex';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    document.getElementById('whatsappChatCount').textContent = visibleCount + ' conversation' + (visibleCount !== 1 ? 's' : '');
+}
+
+// Start a new chat with a manually entered phone number
+function startNewWhatsAppChat() {
+    const number = prompt('Enter WhatsApp number with country code (e.g. 2637XXXXXXX):');
+    if (!number) return;
+    const cleaned = number.replace(/[^0-9]/g, '');
+    if (cleaned.length < 8) {
+        showToast('Please enter a valid phone number with country code', 'error', 'Invalid Number');
+        return;
+    }
+    const name = prompt('Enter a name for this contact (optional):') || cleaned;
+    openChat(cleaned, name);
+}
+
+// Sync historical contacts from chatbot_interactions into whatsapp_messages
+function syncWhatsAppHistory() {
+    if (!confirm('This will pull historical contacts from the interactions log. Continue?')) return;
+    const btn = event.target;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Syncing...';
+    btn.disabled = true;
+    
+    fetch('/api/whatsapp-sync-history', { method: 'POST' })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast(res.message || 'History synced!', 'success', 'Sync Complete');
+                loadWhatsAppChats(); // Refresh the chat list
+            } else {
+                showToast(res.message || 'Sync failed', 'error', 'Sync Error');
+            }
+        })
+        .catch(err => {
+            console.error('Sync error:', err);
+            showToast('Network error during sync', 'error', 'Sync Error');
+        })
+        .finally(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
         });
 }
 

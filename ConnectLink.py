@@ -11434,19 +11434,53 @@ def whatsapp_chats():
                 WHERE sender_phone IS NOT NULL
                 GROUP BY sender_phone
                 ORDER BY last_message_time DESC
-                LIMIT 100
+                LIMIT 500
             """)
             rows = cursor.fetchall()
+            
+            # Also get any additional contacts from chatbot_interactions not in whatsapp_messages
+            cursor.execute("""
+                SELECT DISTINCT sender_phone, MAX(sender_name) as contact_name
+                FROM chatbot_interactions
+                WHERE sender_phone IS NOT NULL
+                  AND sender_phone NOT IN (
+                      SELECT DISTINCT sender_phone FROM whatsapp_messages WHERE sender_phone IS NOT NULL
+                  )
+                GROUP BY sender_phone
+                ORDER BY MAX(created_at) DESC
+                LIMIT 200
+            """)
+            extra_rows = cursor.fetchall()
+            
             chats = []
+            seen_phones = set()
+            
             for r in rows:
+                phone = str(r[0])
+                seen_phones.add(phone)
                 chats.append({
-                    'whatsapp': str(r[0]),
-                    'name': r[1] or f"Unknown ({r[0]})",
+                    'whatsapp': phone,
+                    'name': r[1] or f"Unknown ({phone})",
                     'message_count': r[2],
                     'last_time': r[3].strftime('%d/%m/%Y %H:%M') if r[3] else '',
                     'last_message': r[4] or '',
                     'status': r[5] or 'received'
                 })
+            
+            # Add extra contacts from chatbot_interactions
+            for r in extra_rows:
+                phone = str(r[0])
+                if phone not in seen_phones:
+                    seen_phones.add(phone)
+                    chats.append({
+                        'whatsapp': phone,
+                        'name': r[1] or f"Unknown ({phone})",
+                        'message_count': 0,
+                        'last_time': '',
+                        'last_message': '(Historical contact)',
+                        'status': 'received'
+                    })
+            
             return jsonify({'success': True, 'data': chats})
     except Exception as e:
         print(f"WhatsApp chats error: {e}")
@@ -12386,6 +12420,79 @@ def whatsapp_human_mode(phone):
         return jsonify({'success': True, 'human_mode': human_mode})
     except Exception as e:
         print(f"Check human mode error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-sync-history', methods=['POST'])
+def whatsapp_sync_history():
+    """Sync historical contacts from chatbot_interactions into whatsapp_messages"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        synced = 0
+        with get_db() as (cursor, connection):
+            # Sync phone numbers from chatbot_interactions not yet in whatsapp_messages
+            cursor.execute("""
+                SELECT DISTINCT ci.sender_phone, 
+                       MAX(ci.sender_name) as contact_name,
+                       MIN(ci.created_at) as first_seen
+                FROM chatbot_interactions ci
+                WHERE ci.sender_phone IS NOT NULL
+                  AND ci.sender_phone NOT IN (
+                      SELECT DISTINCT sender_phone FROM whatsapp_messages WHERE sender_phone IS NOT NULL
+                  )
+                GROUP BY ci.sender_phone
+                ORDER BY MIN(ci.created_at) ASC
+            """)
+            rows = cursor.fetchall()
+            
+            for r in rows:
+                phone = r[0]
+                name = r[1] or f"Unknown ({phone})"
+                first_seen = r[2] if r[2] else datetime.now()
+                cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status, created_at)
+                    VALUES (%s, %s, %s, 'text', 'incoming', 'received', %s)
+                """, (phone, name, '(📜 Historical contact from interactions log)', first_seen))
+                synced += 1
+            
+            # Also sync interaction labels as individual message entries
+            cursor.execute("""
+                SELECT ci.sender_phone, ci.sender_name, ci.interaction_label, ci.interaction_type, ci.created_at
+                FROM chatbot_interactions ci
+                WHERE ci.sender_phone IS NOT NULL
+                  AND ci.interaction_label IS NOT NULL
+                  AND ci.interaction_label != ''
+                  AND ci.sender_phone NOT IN (
+                      SELECT DISTINCT sender_phone FROM whatsapp_messages WHERE sender_phone IS NOT NULL
+                  )
+                ORDER BY ci.id ASC
+            """)
+            interaction_rows = cursor.fetchall()
+            
+            for r in interaction_rows:
+                phone = r[0]
+                name = r[1] or 'Unknown'
+                label = r[2]
+                itype = r[3] or 'interactive'
+                ts = r[4] if r[4] else datetime.now()
+                cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status, created_at)
+                    VALUES (%s, %s, %s, %s, 'incoming', 'received', %s)
+                """, (phone, name, f"[{itype}: {label[:200]}]", itype, ts))
+                synced += 1
+            
+            connection.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Synced {synced} historical entries from interactions log',
+            'synced': synced
+        })
+    except Exception as e:
+        print(f"WhatsApp sync history error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/export-enquiries')
