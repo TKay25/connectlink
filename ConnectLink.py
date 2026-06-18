@@ -1328,7 +1328,13 @@ def webhook():
 
                     # Check if human mode is enabled for this recipient — skip auto-reply if ON
                     try:
-                        cursor.execute("SELECT human_mode FROM chat_human_mode WHERE sender_phone = %s", (to,))
+                        to_digits = re.sub(r'[^0-9]', '', str(to))
+                        # Match by exact or trailing 9-12 digits (handles +263, 263, 0 prefix variations)
+                        cursor.execute("""
+                            SELECT human_mode FROM chat_human_mode 
+                            WHERE sender_phone = %s 
+                               OR RIGHT(sender_phone, 9) = RIGHT(%s, 9)
+                        """, (to, to_digits))
                         row = cursor.fetchone()
                         if row and row[0]:
                             print(f"🚫 Human mode ON for {to} — skipping chatbot auto-reply")
@@ -7146,7 +7152,12 @@ def webhook():
                                                                     """Send text message via WhatsApp"""
                                                                     # Check if human mode is enabled for this recipient
                                                                     try:
-                                                                        cursor.execute("SELECT human_mode FROM chat_human_mode WHERE sender_phone = %s", (recipient_number,))
+                                                                        to_digits = re.sub(r'[^0-9]', '', str(recipient_number))
+                                                                        cursor.execute("""
+                                                                            SELECT human_mode FROM chat_human_mode 
+                                                                            WHERE sender_phone = %s 
+                                                                               OR RIGHT(sender_phone, 9) = RIGHT(%s, 9)
+                                                                        """, (recipient_number, to_digits))
                                                                         row = cursor.fetchone()
                                                                         if row and row[0]:
                                                                             print(f"🚫 Human mode ON for {recipient_number} — skipping chatbot auto-reply")
@@ -11838,13 +11849,16 @@ def whatsapp_toggle_human_mode():
         if not phone:
             return jsonify({'success': False, 'message': 'Phone number is required'}), 400
         
+        # Normalize: remove non-digits
+        phone_clean = re.sub(r'[^0-9]', '', phone)
+        
         with get_db() as (cursor, connection):
             cursor.execute("""
                 INSERT INTO chat_human_mode (sender_phone, human_mode, toggled_at, updated_at)
                 VALUES (%s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT (sender_phone)
                 DO UPDATE SET human_mode = %s, updated_at = CURRENT_TIMESTAMP
-            """, (phone, human_mode, human_mode))
+            """, (phone_clean, human_mode, human_mode))
             connection.commit()
         
         status = 'enabled' if human_mode else 'disabled'

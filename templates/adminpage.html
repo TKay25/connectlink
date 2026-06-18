@@ -19756,14 +19756,16 @@ function sendWhatsAppMessage(phone, text) {
     .then(r => r.json())
     .then(res => {
         const pendingBubble = document.getElementById(pendingBubbleId);
-        if (!pendingBubble) return;
         
         if (res.success) {
-            // Mark as sent
-            pendingBubble.style.opacity = '1';
-            const timeDiv = pendingBubble.querySelector('div:last-child');
-            if (timeDiv) timeDiv.textContent = timeStr + ' ✓';
-        } else if (res.requires_template) {
+            // Remove the pending bubble — the auto-refresh will load the real message from DB
+            if (pendingBubble) pendingBubble.remove();
+            return;
+        }
+        
+        if (!pendingBubble) return;
+        
+        if (res.requires_template) {
             // 24-hour window error - mark with warning
             pendingBubble.style.background = '#fff3e0';
             pendingBubble.style.border = '1px solid #ffcc02';
