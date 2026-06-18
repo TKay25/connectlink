@@ -13718,7 +13718,7 @@ def get_filtered_projects(month_filter):
                 datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
             
             # Add Action column (same as in your run1 function)
-            datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a><button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View Project</button><button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button></div>''', axis=1)
+            datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download</a><button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button><button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button></div>''', axis=1)
             
             # Reorder columns to match your original table
             # Put Action column at the end
@@ -14865,7 +14865,7 @@ def run1(userid):
         )
         
         # Step 5: Create Action column AFTER everything else
-        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download Contract</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View Project</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
+        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="/download_contract/{row['id']}" class="btn btn-primary download-contract-btn" data-id="{row['id']}" onclick="handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
         
         # Step 6: Sort by ID
         datamain = datamain.sort_values('id', ascending=False)
@@ -18983,12 +18983,12 @@ def get_updated_table_data():
                        class="btn btn-primary download-contract-btn" 
                        data-id="{project_id}" 
                        onclick="handleDownloadClick(this)">
-                       Download Contract
+                       Download
                     </a>
                     <button class="btn btn-primary view-project-btn" 
                             onclick="openModal('viewprojectModal')" 
                             data-id="{project_id}">
-                        View Project
+                        View
                     </button>
                     <button class="btn btn-primary notes-btn" 
                             onclick="openModal('notesModal')" 
