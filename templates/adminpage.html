@@ -2581,6 +2581,8 @@ table.dataTable thead th.sorting_desc {
         max-height: none;
     }
 
+    /* --- Sticky Table Headers (handled by JS to avoid DataTables conflicts) --- */
+
     /* --- Card Hover Elevation --- */
     .card, .summary-card, .graph-card {
         transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -7743,6 +7745,8 @@ function initializeDataTableForProjects() {
     
     console.log('DataTable reinitialized with', table.rows.length, 'rows');
     
+    // Re-apply sticky headers after DataTable re-init
+    setTimeout(setupStickyTableHeaders, 50);
 }
 
 // Initialize existing clients dropdown with search capability
@@ -12664,6 +12668,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.warn('DataTable initialization failed for allprojectsTable:', error);
         }
+        setTimeout(setupStickyTableHeaders, 50);
     }
     
     console.log('DataTable initialized with column visibility settings');
@@ -12817,7 +12822,62 @@ $(document).ready(function() {
         console.log('✅ Audit results table initialized');
     }
 
+    // Setup sticky headers for all table containers
+    setupStickyTableHeaders();
 });
+
+/**
+ * Make table headers and search inputs sticky inside scrollable containers.
+ * Uses a wrapper approach to avoid breaking DataTables internal layout.
+ */
+function setupStickyTableHeaders() {
+    document.querySelectorAll('.container2, .table-scroll-container').forEach(container => {
+        // For DataTables: move the filter outside the scrollable wrapper into a sticky bar
+        const wrapper = container.querySelector('.dataTables_wrapper');
+        if (wrapper) {
+            const filter = wrapper.querySelector('.dataTables_filter');
+            if (filter && !container.querySelector('.sticky-filter-bar')) {
+                // Create a fixed filter bar above the scrollable area
+                const filterBar = document.createElement('div');
+                filterBar.className = 'sticky-filter-bar';
+                filterBar.style.cssText = 'position:sticky;top:0;z-index:25;background:white;padding:6px 8px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:flex-end;align-items:center;gap:8px;';
+                // Clone the filter into the bar
+                filterBar.innerHTML = filter.outerHTML;
+                container.insertBefore(filterBar, wrapper);
+                // Hide the original filter inside the wrapper
+                filter.style.display = 'none';
+            }
+            
+            // Make thead sticky - wrap in a container if needed
+            const table = wrapper.querySelector('table');
+            if (table) {
+                const thead = table.querySelector('thead');
+                if (thead) {
+                    // Apply sticky directly to th elements only (not thead itself)
+                    thead.querySelectorAll('th').forEach(th => {
+                        th.style.position = 'sticky';
+                        th.style.top = '0';
+                        th.style.zIndex = '10';
+                        th.style.background = '#1E2A56';
+                        th.style.color = 'white';
+                    });
+                }
+            }
+        } else {
+            // Non-DataTables tables
+            const thead = container.querySelector('thead');
+            if (thead) {
+                thead.querySelectorAll('th').forEach(th => {
+                    th.style.position = 'sticky';
+                    th.style.top = '0';
+                    th.style.zIndex = '10';
+                    th.style.background = '#1E2A56';
+                    th.style.color = 'white';
+                });
+            }
+        }
+    });
+}
     
     // Auto-filter to latest month on page load
     const monthFilterElement = document.getElementById('monthFilter');
