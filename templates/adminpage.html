@@ -3529,6 +3529,9 @@ table.dataTable thead th.sorting_desc {
                                 <button class="btn btn-success" style="font-size:0.55rem;padding:2px 8px;" onclick="exportActivityExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
                                 <span id="activityLogCount" style="font-size:0.5rem;color:var(--text-muted);padding:0 4px;"></span>
                                 <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.55rem;padding:2px 8px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:120px;max-width:250px;" oninput="filterActivityLog()">
+                                <select id="activityLogUserFilter" style="font-size:0.55rem;padding:2px 8px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
+                                    <option value="">All users</option>
+                                </select>
                                 <select id="activityLogFilter" style="font-size:0.55rem;padding:2px 8px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
                                     <option value="">All actions</option>
                                     <option value="quotation_created">Quotation Created</option>
@@ -19247,9 +19250,29 @@ function loadActivityLog() {
     if (!container) return;
     container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>';
     
+    // Populate user filter dropdown on first load
+    const userSelect = document.getElementById('activityLogUserFilter');
+    if (userSelect && userSelect.options.length <= 1) {
+        fetch('/api/activity-log-users')
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.users) {
+                    res.users.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u;
+                        opt.textContent = u;
+                        userSelect.appendChild(opt);
+                    });
+                }
+            })
+            .catch(() => {});
+    }
+    
     const filterVal = document.getElementById('activityLogFilter')?.value || '';
+    const userVal = document.getElementById('activityLogUserFilter')?.value || '';
     let url = '/api/activity-log?limit=500';
     if (filterVal) url += '&action_type=' + encodeURIComponent(filterVal);
+    if (userVal) url += (filterVal ? '&' : '') + '&user_name=' + encodeURIComponent(userVal);
     
     fetch(url)
         .then(r => r.json())
@@ -19271,9 +19294,10 @@ function filterActivityLog() {
     }
     const searchVal = (document.getElementById('activityLogSearch')?.value || '').toLowerCase().trim();
     const filterVal = document.getElementById('activityLogFilter')?.value || '';
+    const userVal = document.getElementById('activityLogUserFilter')?.value || '';
     
-    // If filter changed, re-fetch from server
-    if (filterVal) {
+    // If filter or user changed, re-fetch from server
+    if (filterVal || userVal) {
         loadActivityLog();
         return;
     }

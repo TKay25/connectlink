@@ -9380,25 +9380,29 @@ def handle_activity_log():
     try:
         limit = request.args.get('limit', 100, type=int)
         action_filter = request.args.get('action_type', '')
+        user_filter = request.args.get('user_name', '')
         
         with get_db() as (cursor, connection):
+            conditions = []
+            params = []
+            
             if action_filter:
-                cursor.execute("""
-                    SELECT id, action_type, description, user_name, reference_type, reference_id, 
-                           details, created_at
-                    FROM activity_log
-                    WHERE action_type = %s
-                    ORDER BY created_at DESC
-                    LIMIT %s
-                """, (action_filter, limit))
-            else:
-                cursor.execute("""
-                    SELECT id, action_type, description, user_name, reference_type, reference_id, 
-                           details, created_at
-                    FROM activity_log
-                    ORDER BY created_at DESC
-                    LIMIT %s
-                """, (limit,))
+                conditions.append("action_type = %s")
+                params.append(action_filter)
+            if user_filter:
+                conditions.append("user_name = %s")
+                params.append(user_filter)
+            
+            where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+            
+            cursor.execute(f"""
+                SELECT id, action_type, description, user_name, reference_type, reference_id, 
+                       details, created_at
+                FROM activity_log
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT %s
+            """, tuple(params) + (limit,))
             
             rows = cursor.fetchall()
             activities = []
@@ -9417,6 +9421,22 @@ def handle_activity_log():
             return jsonify({'success': True, 'data': activities, 'count': len(activities)})
     except Exception as e:
         print(f"❌ Error fetching activity log: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/activity-log-users', methods=['GET'])
+def get_activity_log_users():
+    """Get distinct user names from activity_log"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT DISTINCT user_name FROM activity_log
+                WHERE user_name IS NOT NULL
+                ORDER BY user_name
+            """)
+            users = [row[0] for row in cursor.fetchall()]
+            return jsonify({'success': True, 'users': users})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
