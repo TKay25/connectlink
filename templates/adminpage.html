@@ -14305,7 +14305,7 @@ function handleDownloadClick(button) {
     const projectId = button.dataset.id || button.getAttribute('data-id');
     const clientName = button.dataset.clientName || button.getAttribute('data-client-name') || 'Client';
     const clientWa = button.dataset.clientWaNumber || button.getAttribute('data-client-wa-number') || '';
-    const downloadUrl = button.href || `/download_contract/${projectId}`;
+    const downloadUrl = `/download_contract/${projectId}`;
     
     document.getElementById('dcModalClientName').textContent = clientName;
     document.getElementById('dcModalContractUrl').value = downloadUrl;
