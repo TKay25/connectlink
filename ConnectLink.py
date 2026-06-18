@@ -11421,7 +11421,6 @@ def whatsapp_messages(phone_number):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-send', methods=['POST'])
-@login_required
 def whatsapp_send():
     """Send a WhatsApp message reply"""
     user_uuid = session.get('user_uuid')
@@ -11516,7 +11515,6 @@ def whatsapp_send():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-send-template', methods=['POST'])
-@login_required
 def whatsapp_send_template():
     """Send a Meta-approved WhatsApp template message (for 24hr window bypass)"""
     user_uuid = session.get('user_uuid')
@@ -11614,7 +11612,6 @@ def whatsapp_send_template():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-bulk-send-template', methods=['POST'])
-@login_required
 def whatsapp_bulk_send_template():
     """Send a template to multiple recipients (bulk)"""
     user_uuid = session.get('user_uuid')
@@ -11729,7 +11726,6 @@ def whatsapp_bulk_send_template():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-bulk-send', methods=['POST'])
-@login_required
 def whatsapp_bulk_send():
     """Send bulk WhatsApp message to multiple recipients"""
     user_uuid = session.get('user_uuid')
