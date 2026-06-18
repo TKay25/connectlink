@@ -174,11 +174,21 @@
         body.dark-theme .container2 {
             background: var(--bg-card) !important;
         }
+        body.dark-theme .choices__inner {
+            background: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
         body.dark-theme .choices__list--dropdown .choices__item {
             background-color: var(--bg-card) !important;
+            color: var(--text-primary) !important;
         }
         body.dark-theme .choices__list--dropdown {
             background-color: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme .choices__input {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
         }
         body.dark-theme .clickable-row,
         body.dark-theme .activity-log-item {
@@ -1215,12 +1225,43 @@ table.dataTable thead th.sorting_desc {
         }
 
         /* Choices.js Dropdown Styling */
-        .choices__list--dropdown .choices__item { color: var(--text-primary) !important; background-color: white !important; }
+        .choices { margin-bottom: 0 !important; font-size: 0.52rem !important; }
+        .choices__inner { 
+            background: var(--bg-card) !important; 
+            border: 1px solid var(--border-color) !important; 
+            border-radius: var(--radius-sm) !important; 
+            padding: 1px 4px !important; 
+            min-height: 22px !important;
+            font-size: 0.52rem !important;
+        }
+        .choices__list--single { padding: 1px 12px 1px 2px !important; }
+        .choices__list--dropdown { 
+            background: var(--bg-card) !important; 
+            border: 1px solid var(--border-color) !important;
+            z-index: 9999 !important;
+        }
+        .choices__list--dropdown .choices__item { 
+            color: var(--text-primary) !important; 
+            background-color: var(--bg-card) !important; 
+            font-size: 0.52rem !important;
+            padding: 3px 6px !important;
+            word-break: break-word !important;
+        }
         .choices__list--dropdown .choices__item--selectable { color: var(--text-primary) !important; }
         .choices__list--dropdown .choices__item--selectable:hover { background-color: var(--gray-100) !important; }
         .choices__list--dropdown .choices__item--selectable.is-highlighted { background-color: var(--dark-blue-deep) !important; color: white !important; }
-        .choices__item { color: var(--text-primary) !important; }
-        .choices__input::placeholder { color: var(--gray-400) !important; }
+        .choices__item { color: var(--text-primary) !important; font-size: 0.52rem !important; }
+        .choices__input { 
+            font-size: 0.52rem !important; 
+            padding: 2px 4px !important;
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+        }
+        .choices__input::placeholder { color: var(--gray-400) !important; font-size: 0.5rem !important; }
+        .choices__placeholder { color: var(--gray-400) !important; opacity: 1 !important; }
+        .choices__list--dropdown .choices__list { max-height: 250px !important; }
+        .choices__no-results { font-size: 0.5rem !important; padding: 4px 6px !important; color: var(--text-muted) !important; }
+        .choices__loading { font-size: 0.5rem !important; padding: 4px 6px !important; color: var(--text-muted) !important; }
         
         /* Quill Editor Styling */
         .ql-editor { color: var(--text-primary) !important; }
@@ -7605,6 +7646,17 @@ function initializeProjectQuotationsDropdown() {
         return;
     }
     
+    // Destroy existing Choices instance if any
+    if (window.quotationChoicesInstance) {
+        try { window.quotationChoicesInstance.destroy(); } catch(e) {}
+        window.quotationChoicesInstance = null;
+    }
+    
+    // Add placeholder attribute for Choices.js compatibility
+    if (!selectElement.hasAttribute('placeholder')) {
+        selectElement.setAttribute('placeholder', '-- Select a Quotation to Link Work Plan --');
+    }
+    
     // Fetch all quotations
     fetch('/api/get-quotations')
         .then(response => {
@@ -7621,7 +7673,7 @@ function initializeProjectQuotationsDropdown() {
                 // Add each quotation as an option
                 data.data.forEach(quotation => {
                     const option = document.createElement('option');
-                    option.value = JSON.stringify(quotation); // Store full quotation object as value
+                    option.value = JSON.stringify(quotation);
                     const formattedCategory = formatCategoryName(quotation.category);
                     option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
                     selectElement.appendChild(option);
@@ -7629,53 +7681,32 @@ function initializeProjectQuotationsDropdown() {
                 
                 console.log(`Loaded ${data.data.length} quotations`);
                 
-                // Initialize Choices.js for better search capability
-                const choicesInstance = new Choices(selectElement, {
+                // Remove inline height/padding styles that conflict with Choices.js
+                selectElement.style.padding = '';
+                selectElement.style.fontSize = '';
+                selectElement.style.height = '';
+                
+                // Initialize Choices.js for full search capability
+                window.quotationChoicesInstance = new Choices(selectElement, {
                     removeItemButton: false,
-                    allowHTML: true,
+                    allowHTML: false,
+                    searchEnabled: true,
+                    searchFields: ['label', 'value'],
+                    placeholder: true,
                     placeholderValue: '-- Select a Quotation to Link Work Plan --',
-                    noResultsText: 'No quotations found',
+                    searchPlaceholderValue: 'Search quotations...',
+                    noResultsText: 'No quotations found matching "<span class="choices__no-results-highlight">{searchQuery}</span>"',
                     noChoicesText: 'No quotations available',
-                    itemSelectText: 'Click to select',
+                    itemSelectText: '',
                     shouldSort: true,
                     shouldSortItems: true,
-                    searchResultLimit: 10
+                    searchResultLimit: -1, // Show all results
+                    loadingText: 'Loading quotations...'
                 });
                 
-                // Add change event listener
-                selectElement.addEventListener('change', function() {
-                    if (this.value) {
-                        try {
-                            const selectedQuotation = JSON.parse(this.value);
-                            selectProjectQuotation(selectedQuotation);
-                        } catch (e) {
-                            console.error('Error parsing selected quotation:', e);
-                        }
-                    } else {
-                        // Quotation deselected - reset duration field and start date to editable state
-                        document.getElementById('selected_quotation_preview').style.display = 'none';
-                        const durationField = document.getElementById('months_to_completion');
-                        durationField.value = '';
-                        durationField.readOnly = false;
-                        durationField.style.backgroundColor = '';
-                        durationField.title = '';
-                        
-                        // Reset project start date
-                        const startDateField = document.getElementById('project_start_date');
-                        startDateField.value = '';
-                        
-                        // Reset total contract price
-                        const priceField = document.getElementById('total_contract_price');
-                        priceField.value = '';
-                        priceField.readOnly = false;
-                        priceField.style.backgroundColor = '';
-                        priceField.title = '';
-                        
-                        // Clear stored quotation data
-                        document.getElementById('project_quotation_id').value = '';
-                        window.selectedQuotation = null;
-                    }
-                });
+                // Remove inline change listener and re-attach via Choices.js
+                selectElement.removeEventListener('change', handleQuotationSelect);
+                selectElement.addEventListener('change', handleQuotationSelect);
             } else {
                 console.log('No quotations found');
                 selectElement.innerHTML = '<option value="" selected disabled>No quotations available</option>';
@@ -7685,6 +7716,41 @@ function initializeProjectQuotationsDropdown() {
             console.error('Error fetching quotations:', error);
             selectElement.innerHTML = '<option value="" selected disabled>Error loading quotations</option>';
         });
+}
+
+// Separate handler for quotation selection
+function handleQuotationSelect() {
+    const selectElement = document.getElementById('project_quotation_select');
+    if (!selectElement) return;
+    
+    if (selectElement.value) {
+        try {
+            const selectedQuotation = JSON.parse(selectElement.value);
+            selectProjectQuotation(selectedQuotation);
+        } catch (e) {
+            console.error('Error parsing selected quotation:', e);
+        }
+    } else {
+        // Quotation deselected - reset fields
+        document.getElementById('selected_quotation_preview').style.display = 'none';
+        const durationField = document.getElementById('months_to_completion');
+        durationField.value = '';
+        durationField.readOnly = false;
+        durationField.style.backgroundColor = '';
+        durationField.title = '';
+        
+        const startDateField = document.getElementById('project_start_date');
+        startDateField.value = '';
+        
+        const priceField = document.getElementById('total_contract_price');
+        priceField.value = '';
+        priceField.readOnly = false;
+        priceField.style.backgroundColor = '';
+        priceField.title = '';
+        
+        document.getElementById('project_quotation_id').value = '';
+        window.selectedQuotation = null;
+    }
 }
 
 // Handle quotation selection for project
