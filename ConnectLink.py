@@ -19389,7 +19389,7 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
 
     return send_data
 
-def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_message=None):
+def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_message=None, send_whatsapp_message=None):
     """Fetch enquiry attachment from DB and send as WhatsApp PDF"""
     
     print(f"🔍 Starting PDF delivery for enquiry {enquiry_id} to {recipient_number}")
@@ -19451,7 +19451,7 @@ File size: {file_size_mb:.1f} MB
         
         if send_text_message:
             send_text_message(recipient_number, link_message)
-        else:
+        elif send_whatsapp_message:
             send_whatsapp_message(recipient_number, link_message)
         return True
 
@@ -19476,7 +19476,7 @@ File size: {file_size_mb:.1f} MB
         
         if send_text_message:
             send_text_message(recipient_number, link_message)
-        else:
+        elif send_whatsapp_message:
             send_whatsapp_message(recipient_number, link_message)
         return True
 
@@ -21434,6 +21434,229 @@ def update_project_schedule(project_id):
             'error': str(e)
         }), 500
 
+@app.route('/api/existing-clients', methods=['GET'])
+def get_existing_clients():
+    """Retrieve all unique existing clients from projects"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get all unique clients with their details from connectlinkdatabase
+            cursor.execute("""
+                SELECT DISTINCT 
+                    clientname,
+                    clientidnumber,
+                    clientaddress,
+                    clientwanumber,
+                    clientemail,
+                    clientnextofkinname,
+                    clientnextofkinaddress,
+                    clientnextofkinphone,
+                    nextofkinrelationship
+                FROM connectlinkdatabase
+                WHERE clientname IS NOT NULL AND clientname != ''
+                ORDER BY clientname ASC
+            """)
+            
+            clients = cursor.fetchall()
+            
+            result = []
+            for client in clients:
+                result.append({
+                    'clientName': client[0],
+                    'clientId': client[1],
+                    'clientAddress': client[2],
+                    'clientWhatsapp': client[3],
+                    'clientEmail': client[4],
+                    'nextOfKinName': client[5],
+                    'nextOfKinAddress': client[6],
+                    'nextOfKinPhone': client[7],
+                    'nextOfKinRelationship': client[8]
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching existing clients: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }), 500
+
+@app.route('/api/get-project-schedule/<int:project_id>', methods=['GET'])
+def get_project_schedule(project_id):
+    """Retrieve work schedule for a project - uses project-specific adjusted schedules if available"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get the project's data including quotation_id and adjusted_schedules_json
+            cursor.execute("""
+                SELECT quotation_id, adjusted_schedules_json FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            result = cursor.fetchone()
+            
+            if not result:
+                return jsonify({
+                    'success': True,
+                    'schedules': [],
+                    'message': 'Project not found'
+                })
+            
+            quotation_id = result[0]
+            adjusted_schedules_json_str = result[1]
+            
+            # PRIORITY 1: If this project has adjusted schedules stored, use those
+            if adjusted_schedules_json_str:
+                try:
+                    import json
+                    schedule_list = json.loads(adjusted_schedules_json_str)
+                    print(f"✅ Returning {len(schedule_list)} project-specific adjusted schedules for project {project_id}")
+                    return jsonify({
+                        'success': True,
+                        'schedules': schedule_list,
+                        'source': 'project_adjusted',
+                        'quotationId': quotation_id
+                    })
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ Could not parse project adjusted schedules: {e}")
+                    # Fall through to use quotation schedules as fallback
+            
+            # PRIORITY 2: If no project-specific schedules, get schedules from the linked quotation
+            if not quotation_id:
+                return jsonify({
+                    'success': True,
+                    'schedules': [],
+                    'message': 'No quotation linked to this project'
+                })
+            
+            # Get schedules from the linked quotation
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order ASC
+            """, (quotation_id,))
+            
+            schedules = cursor.fetchall()
+            
+            schedule_list = [
+                {
+                    'workScope': schedule[0],
+                    'startDate': schedule[1].isoformat() if schedule[1] else None,
+                    'endDate': schedule[2].isoformat() if schedule[2] else None,
+                    'days': int(schedule[3]) if schedule[3] else 0
+                }
+                for schedule in schedules
+            ]
+            
+            print(f"✅ Returning {len(schedule_list)} quotation schedules for project {project_id} (from quotation {quotation_id})")
+            
+            return jsonify({
+                'success': True,
+                'schedules': schedule_list,
+                'source': 'quotation',
+                'quotationId': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching project schedule: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/get-quotation-schedule/<int:quotation_id>', methods=['GET'])
+def get_quotation_schedule(quotation_id):
+    """Retrieve work schedule for a quotation (used for auto-populating project duration)"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get the schedules from the quotation
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order ASC
+            """, (quotation_id,))
+            
+            schedules = cursor.fetchall()
+            
+            schedule_list = [
+                {
+                    'workScope': schedule[0],
+                    'startDate': schedule[1].isoformat() if schedule[1] else None,
+                    'endDate': schedule[2].isoformat() if schedule[2] else None,
+                    'days': int(schedule[3]) if schedule[3] else 0
+                }
+                for schedule in schedules
+            ]
+            
+            # Calculate total days
+            total_days = sum(int(schedule[3]) if schedule[3] else 0 for schedule in schedules)
+            
+            return jsonify({
+                'success': True,
+                'schedules': schedule_list,
+                'totalDays': total_days,
+                'quotationId': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotation schedule: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/update-project-schedule/<int:project_id>', methods=['POST'])
+def update_project_schedule(project_id):
+    """Update work schedule dates for a project"""
+    try:
+        data = request.json
+        schedules = data.get('schedules', [])
+        
+        with get_db() as (cursor, connection):
+            # Get the quotation_id from the project
+            cursor.execute("""
+                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            result = cursor.fetchone()
+            
+            if not result or not result[0]:
+                return jsonify({
+                    'success': False,
+                    'message': 'No quotation linked to this project'
+                }), 400
+            
+            quotation_id = result[0]
+            
+            # Update each schedule's start and end dates and days
+            for idx, schedule in enumerate(schedules):
+                cursor.execute("""
+                    UPDATE quotation_schedules
+                    SET start_date = %s, end_date = %s, days = %s
+                    WHERE quotation_id = %s AND task_order = %s
+                """, (
+                    schedule.get('startDate'),
+                    schedule.get('endDate'),
+                    schedule.get('days', 0),
+                    quotation_id,
+                    idx + 1
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully updated {len(schedules)} schedule items'
+            })
+    except Exception as e:
+        logging.error(f'Error updating project schedule: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/work-plans', methods=['GET'])
 def get_work_plans():
     """Get work plans filtered by date range with cost proration based on overlapping days"""
@@ -21511,6 +21734,232 @@ def get_work_plans():
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+
+# ===== PAGINATED API ENDPOINTS =====
+
+@app.route('/api/users/paginated', methods=['GET'])
+def get_users_paginated():
+    """Get paginated list of users with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 50
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM users 
+                    WHERE LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM users")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            users = []
+            for row in rows:
+                users.append({
+                    'id': row[0],
+                    'username': row[1] or '',
+                    'email': row[2] or '',
+                    'full_name': row[3] or '',
+                    'role': row[4] or '',
+                    'created_at': row[5].strftime('%d/%m/%Y %H:%M') if row[5] else ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': users,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated users: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/admins/paginated', methods=['GET'])
+def get_admins_paginated():
+    """Get paginated list of admins with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 20
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM users 
+                    WHERE role = 'admin' AND (LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s)
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE role = 'admin' AND (LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s)
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE role = 'admin'
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            admins = []
+            for row in rows:
+                admins.append({
+                    'id': row[0],
+                    'username': row[1] or '',
+                    'email': row[2] or '',
+                    'full_name': row[3] or '',
+                    'role': row[4] or '',
+                    'created_at': row[5].strftime('%d/%m/%Y %H:%M') if row[5] else ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': admins,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated admins: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/enquiries/paginated', methods=['GET'])
+def get_enquiries_paginated():
+    """Get paginated list of enquiries with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 100))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 100
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM connectlinkenquiries 
+                    WHERE LOWER(clientwhatsapp) LIKE %s OR LOWER(enqcategory) LIKE %s OR LOWER(enq) LIKE %s OR LOWER(username) LIKE %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM connectlinkenquiries")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                           plan IS NOT NULL as has_plan, status, username
+                    FROM connectlinkenquiries 
+                    WHERE LOWER(clientwhatsapp) LIKE %s OR LOWER(enqcategory) LIKE %s OR LOWER(enq) LIKE %s OR LOWER(username) LIKE %s
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                           plan IS NOT NULL as has_plan, status, username
+                    FROM connectlinkenquiries 
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            enquiries = []
+            for row in rows:
+                enquiries.append({
+                    'id': row[0],
+                    'timestamp': row[1].strftime('%d/%m/%Y %H:%M') if row[1] else '',
+                    'clientwhatsapp': row[2] or '',
+                    'enqcategory': row[3] or '',
+                    'enq': row[4] or '',
+                    'has_plan': row[5],
+                    'status': row[6] or '',
+                    'username': row[7] or ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': enquiries,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated enquiries: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
         }), 500
 
 if __name__ == "__main__":
