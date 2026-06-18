@@ -1823,6 +1823,8 @@ def webhook():
                                                 msg_text = interactive.get("nfm_reply", {}).get("response_json", "")
                                         elif message_type == "image":
                                             img_info = message.get("image", {})
+                                            media_id = img_info.get("id", "")
+                                            file_name = img_info.get("caption", "") or "Image"
                                             msg_text = img_info.get("caption", "") or "[Image]"
                                         elif message_type == "document":
                                             doc_info = message.get("document", {})
@@ -1830,9 +1832,15 @@ def webhook():
                                             file_name = doc_info.get("filename", "")
                                             msg_text = doc_info.get("caption", "") or f"[Document: {file_name}]"
                                         elif message_type == "audio":
+                                            audio_info = message.get("audio", {})
+                                            media_id = audio_info.get("id", "")
+                                            file_name = "Audio"
                                             msg_text = "[Audio]"
                                         elif message_type == "video":
-                                            msg_text = "[Video]"
+                                            video_info = message.get("video", {})
+                                            media_id = video_info.get("id", "")
+                                            file_name = video_info.get("caption", "") or "Video"
+                                            msg_text = video_info.get("caption", "") or "[Video]"
                                         elif message_type == "location":
                                             msg_text = "[Location]"
                                         
@@ -11665,6 +11673,21 @@ def whatsapp_media_download(media_id):
     if not user_uuid and not user_id:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     try:
+        # Step 0: Look up original filename from database
+        original_filename = None
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT file_name FROM whatsapp_messages
+                    WHERE media_id = %s AND file_name IS NOT NULL AND file_name != ''
+                    ORDER BY id DESC LIMIT 1
+                """, (media_id,))
+                row = cursor.fetchone()
+                if row and row[0]:
+                    original_filename = row[0]
+        except Exception:
+            pass
+        
         # Step 1: Get media download URL from WhatsApp
         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
         media_info_url = f"https://graph.facebook.com/v19.0/{media_id}"
@@ -11674,17 +11697,44 @@ def whatsapp_media_download(media_id):
         media_info = media_resp.json()
         download_url = media_info.get('url')
         mime_type = media_info.get('mime_type', 'application/octet-stream')
-        file_extension = media_info.get('file_extension', 'bin')
+        api_extension = media_info.get('file_extension', '')
+        
         if not download_url:
             return jsonify({'success': False, 'message': 'No download URL found'}), 400
         
-        # Step 2: Download the actual file
+        # Step 2: Determine the best filename with correct extension
+        if original_filename:
+            # Use the original filename the client sent
+            filename = original_filename
+        else:
+            # Derive extension: try API extension, then mime_type mapping
+            ext = api_extension if api_extension else ''
+            if not ext:
+                mime_map = {
+                    'application/pdf': 'pdf',
+                    'image/jpeg': 'jpg',
+                    'image/png': 'png',
+                    'image/gif': 'gif',
+                    'image/webp': 'webp',
+                    'text/plain': 'txt',
+                    'text/csv': 'csv',
+                    'application/msword': 'doc',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+                    'application/vnd.ms-excel': 'xls',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+                    'audio/mpeg': 'mp3',
+                    'audio/ogg': 'ogg',
+                    'video/mp4': 'mp4',
+                }
+                ext = mime_map.get(mime_type, 'bin')
+            filename = f"whatsapp_media_{media_id[:8]}.{ext}"
+        
+        # Step 3: Download the actual file
         file_resp = requests.get(download_url, headers=headers)
         if file_resp.status_code != 200:
             return jsonify({'success': False, 'message': 'Failed to download file'}), 400
         
-        # Step 3: Stream the file back to the browser
-        filename = f"whatsapp_media_{media_id[:8]}.{file_extension}"
+        # Step 4: Stream the file back to the browser
         response = make_response(file_resp.content)
         response.headers.set('Content-Type', mime_type)
         response.headers.set('Content-Disposition', f'attachment; filename="{filename}"')
