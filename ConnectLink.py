@@ -1144,28 +1144,17 @@ def initialize_database_tables():
                     'installment10duedate', 'installment10date'
                 ]
                 for col in date_cols:
-                    try:
-                        cursor.execute(f"""
-                            UPDATE connectlinkdatabase
-                            SET {col} = ({col}::text || '')::date
-                            WHERE CAST(EXTRACT(YEAR FROM {col}) AS INTEGER) = 72026
-                        """)
-                        fixed_count = cursor.rowcount
-                        if fixed_count > 0:
-                            print(f"✅ Fixed 72026->2026 in {col} for {fixed_count} record(s)")
-                    except Exception as fix_err:
-                        # Simpler approach: use string replace on the text representation
-                        try:
-                            cursor.execute(f"""
-                                UPDATE connectlinkdatabase
-                                SET {col} = REPLACE({col}::text, '72026', '2026')::date
-                                WHERE {col}::text LIKE '72026%'
-                            """)
-                            fixed_count = cursor.rowcount
-                            if fixed_count > 0:
-                                print(f"✅ Fixed 72026->2026 in {col} for {fixed_count} record(s)")
-                        except Exception as fix_err2:
-                            print(f"Note: Could not fix {col}: {fix_err2}")
+                    # Use to_char to get YYYY-MM-DD string, replace bad year, cast back
+                    cursor.execute(f"""
+                        UPDATE connectlinkdatabase
+                        SET {col} = REPLACE(TO_CHAR({col}, 'YYYY-MM-DD'), '72026', '2026')::date
+                        WHERE {col} IS NOT NULL
+                        AND TO_CHAR({col}, 'YYYY') = '72026'
+                    """)
+                    fixed_count = cursor.rowcount
+                    if fixed_count > 0:
+                        print(f"✅ Fixed 72026->2026 in {col} for {fixed_count} record(s)")
+                        connection.commit()
                 connection.commit()
                 print("✅ Bad date cleanup complete!")
             except Exception as cleanup_err:
@@ -14782,6 +14771,30 @@ def run1(userid):
         ######### maindata
         # quotation_id column is already added during initialize_database_tables()
         # No need to check/add it again here
+        
+        # Quick fix: repair any date with year 72026 -> 2026 before fetching
+        try:
+            for repair_col in ['projectstartdate','contractagreementdate','datedepositorbullet',
+                               'installment1duedate','installment1date',
+                               'installment2duedate','installment2date',
+                               'installment3duedate','installment3date',
+                               'installment4duedate','installment4date',
+                               'installment5duedate','installment5date',
+                               'installment6duedate','installment6date',
+                               'installment7duedate','installment7date',
+                               'installment8duedate','installment8date',
+                               'installment9duedate','installment9date',
+                               'installment10duedate','installment10date']:
+                cursor.execute(f"""
+                    UPDATE connectlinkdatabase 
+                    SET {repair_col} = (regexp_replace({repair_col}::text, '^72026', '2026'))::date 
+                    WHERE {repair_col}::text LIKE '72026%'
+                """)
+                if cursor.rowcount > 0:
+                    print(f"🔧 Repaired 72026->2026 in {repair_col}")
+                    connection.commit()
+        except Exception as repair_err:
+            print(f"Note: date repair skipped: {repair_err}")
         
         # Only select needed columns to minimize memory - avoid large text fields if possible
         maindataquery = f"SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
