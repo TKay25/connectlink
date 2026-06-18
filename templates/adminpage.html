@@ -2680,6 +2680,7 @@ table.dataTable thead th.sorting_desc {
     .stat-card .stat-icon.red { background: #fce4ec; color: #c62828; }
     .stat-card .stat-icon.amber { background: #fff3e0; color: #ef6c00; }
     .stat-card .stat-icon.purple { background: #fce8eb; color: #C12B3E; }
+    .stat-card .stat-icon.orange { background: #fff3e0; color: #ef6c00; }
     .stat-card .stat-body { flex: 1; min-width: 0; }
     .stat-card .stat-label {
         font-size: 0.5rem;
@@ -3388,6 +3389,38 @@ table.dataTable thead th.sorting_desc {
 
                         <!-- WHATSAPP MESSENGER TAB -->
                         <div class="tab-pane fade" id="whatsapp-tab">
+                            <!-- Stats Cards Row -->
+                            <div id="whatsappStatsRow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:4px;margin-bottom:6px;">
+                                <div class="stat-card" style="padding:5px 8px;">
+                                    <div class="stat-icon green" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-chat-dots"></i></div>
+                                    <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Today</div><div class="stat-value" id="statToday" style="font-size:0.7rem;">—</div></div>
+                                </div>
+                                <div class="stat-card" style="padding:5px 8px;">
+                                    <div class="stat-icon blue" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-calendar-day"></i></div>
+                                    <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Yesterday</div><div class="stat-value" id="statYesterday" style="font-size:0.7rem;">—</div></div>
+                                </div>
+                                <div class="stat-card" style="padding:5px 8px;">
+                                    <div class="stat-icon purple" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-calendar-week"></i></div>
+                                    <div class="stat-body">
+                                        <div class="stat-label" style="font-size:0.45rem;">This Week</div>
+                                        <div class="stat-value" id="statThisWeek" style="font-size:0.7rem;">—</div>
+                                        <div id="statWeekChange" style="font-size:0.4rem;color:var(--text-muted);margin-top:1px;"></div>
+                                    </div>
+                                </div>
+                                <div class="stat-card" style="padding:5px 8px;">
+                                    <div class="stat-icon orange" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-calendar-month"></i></div>
+                                    <div class="stat-body">
+                                        <div class="stat-label" style="font-size:0.45rem;">This Month</div>
+                                        <div class="stat-value" id="statThisMonth" style="font-size:0.7rem;">—</div>
+                                        <div id="statMonthChange" style="font-size:0.4rem;color:var(--text-muted);margin-top:1px;"></div>
+                                    </div>
+                                </div>
+                                <div class="stat-card highlight" style="padding:5px 8px;background:linear-gradient(135deg,var(--dark-blue-deep),#1a3a6a);">
+                                    <div class="stat-icon" style="width:22px;height:22px;font-size:0.5rem;background:rgba(255,255,255,0.15);color:white;"><i class="bi bi-people-fill"></i></div>
+                                    <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;color:rgba(255,255,255,0.7);">Total Contacts</div><div class="stat-value" id="statTotal" style="font-size:0.7rem;color:white;">—</div></div>
+                                </div>
+                            </div>
+                            <!-- Chat Controls -->
                             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;justify-content:space-between;">
                                 <div>
                                     <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadWhatsAppChats()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
@@ -3396,7 +3429,7 @@ table.dataTable thead th.sorting_desc {
                                 </div>
                                 <span id="whatsappChatCount" style="font-size:0.55rem;color:var(--text-muted);">0 conversations</span>
                             </div>
-                            <div id="whatsappChatList" style="display:flex;flex-direction:column;gap:3px;max-height:55vh;overflow-y:auto;background:var(--bg-card);border-radius:6px;padding:4px;">
+                            <div id="whatsappChatList" style="display:flex;flex-direction:column;gap:3px;max-height:48vh;overflow-y:auto;background:var(--bg-card);border-radius:6px;padding:4px;">
                                 <div class="empty-state">
                                     <div class="empty-icon"><i class="bi bi-whatsapp"></i></div>
                                     <div class="empty-title">WhatsApp Messenger</div>
@@ -19029,10 +19062,48 @@ let currentChatPhone = '';
 let currentChatName = '';
 let chatFileData = null;
 
+function loadWhatsAppChatStats() {
+    fetch('/api/whatsapp-chat-stats')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data) return;
+            const d = res.data;
+            document.getElementById('statToday').textContent = d.today || 0;
+            document.getElementById('statYesterday').textContent = d.yesterday || 0;
+            document.getElementById('statThisWeek').textContent = d.this_week || 0;
+            document.getElementById('statThisMonth').textContent = d.this_month || 0;
+            document.getElementById('statTotal').textContent = d.total || 0;
+            
+            // Week-over-week change
+            const weekEl = document.getElementById('statWeekChange');
+            if (d.week_change_pct !== undefined && d.last_week !== undefined) {
+                const arrow = d.week_change_pct >= 0 ? '📈' : '📉';
+                const color = d.week_change_pct >= 0 ? '#10B981' : '#EF4444';
+                weekEl.innerHTML = `${arrow} <span style="color:${color};">${d.week_change_pct}%</span> vs last week (<span style="color:var(--text-muted);">${d.last_week}</span>)`;
+            } else {
+                weekEl.textContent = '';
+            }
+            
+            // Month-over-month change
+            const monthEl = document.getElementById('statMonthChange');
+            if (d.month_change_pct !== undefined && d.last_month !== undefined) {
+                const arrow = d.month_change_pct >= 0 ? '📈' : '📉';
+                const color = d.month_change_pct >= 0 ? '#10B981' : '#EF4444';
+                monthEl.innerHTML = `${arrow} <span style="color:${color};">${d.month_change_pct}%</span> vs last month (<span style="color:var(--text-muted);">${d.last_month}</span>)`;
+            } else {
+                monthEl.textContent = '';
+            }
+        })
+        .catch(err => console.error('Chat stats error:', err));
+}
+
 function loadWhatsAppChats() {
     const container = document.getElementById('whatsappChatList');
     if (!container) return;
     container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>';
+    
+    // Load stats cards
+    loadWhatsAppChatStats();
     
     fetch('/api/whatsapp-chats')
         .then(r => r.json())

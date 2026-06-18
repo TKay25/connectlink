@@ -11060,6 +11060,91 @@ def whatsapp_chats():
         print(f"WhatsApp chats error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/whatsapp-chat-stats', methods=['GET'])
+def whatsapp_chat_stats():
+    """Get new chat initiation statistics (first-time contacts)"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            # Find each unique sender's first ever incoming message timestamp
+            cursor.execute("""
+                SELECT sender_phone, MIN(created_at) as first_contact
+                FROM whatsapp_messages
+                WHERE direction = 'incoming'
+                GROUP BY sender_phone
+            """)
+            rows = cursor.fetchall()
+            
+            total_unique = len(rows)
+            
+            today = datetime.now().date()
+            yesterday = today - timedelta(days=1)
+            
+            # This week: Monday to Sunday
+            this_week_start = today - timedelta(days=today.weekday())  # Monday
+            last_week_start = this_week_start - timedelta(days=7)
+            last_week_end = this_week_start - timedelta(days=1)
+            
+            # This month
+            this_month_start = today.replace(day=1)
+            last_month_end = this_month_start - timedelta(days=1)
+            last_month_start = last_month_end.replace(day=1)
+            
+            today_count = 0
+            yesterday_count = 0
+            this_week_count = 0
+            last_week_count = 0
+            this_month_count = 0
+            last_month_count = 0
+            
+            for r in rows:
+                contact_date = r[1].date() if r[1] else None
+                if not contact_date:
+                    continue
+                if contact_date == today:
+                    today_count += 1
+                if contact_date == yesterday:
+                    yesterday_count += 1
+                if this_week_start <= contact_date <= today:
+                    this_week_count += 1
+                if last_week_start <= contact_date <= last_week_end:
+                    last_week_count += 1
+                if contact_date >= this_month_start and contact_date <= today:
+                    this_month_count += 1
+                if last_month_start <= contact_date <= last_month_end:
+                    last_month_count += 1
+            
+            # Calculate week-over-week and month-over-month change
+            week_change_pct = 0
+            if last_week_count > 0:
+                week_change_pct = round(((this_week_count - last_week_count) / last_week_count) * 100, 1)
+            elif this_week_count > 0:
+                week_change_pct = 100
+            
+            month_change_pct = 0
+            if last_month_count > 0:
+                month_change_pct = round(((this_month_count - last_month_count) / last_month_count) * 100, 1)
+            elif this_month_count > 0:
+                month_change_pct = 100
+            
+            return jsonify({'success': True, 'data': {
+                'today': today_count,
+                'yesterday': yesterday_count,
+                'this_week': this_week_count,
+                'last_week': last_week_count,
+                'week_change_pct': week_change_pct,
+                'this_month': this_month_count,
+                'last_month': last_month_count,
+                'month_change_pct': month_change_pct,
+                'total': total_unique
+            }})
+    except Exception as e:
+        print(f"WhatsApp chat stats error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/whatsapp-debug', methods=['GET'])
 def whatsapp_debug():
     """Diagnostic endpoint to check WhatsApp webhook and database status"""
@@ -21257,223 +21342,6 @@ def save_project_schedule():
             })
     except Exception as e:
         logging.error(f'Error saving project schedule: {str(e)}')
-        if 'connection' in locals():
-            connection.rollback()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/existing-clients', methods=['GET'])
-def get_existing_clients():
-    """Retrieve all unique existing clients from projects"""
-    try:
-        with get_db() as (cursor, connection):
-            # Get all unique clients with their details from connectlinkdatabase
-            cursor.execute("""
-                SELECT DISTINCT 
-                    clientname,
-                    clientidnumber,
-                    clientaddress,
-                    clientwanumber,
-                    clientemail,
-                    clientnextofkinname,
-                    clientnextofkinaddress,
-                    clientnextofkinphone,
-                    nextofkinrelationship
-                FROM connectlinkdatabase
-                WHERE clientname IS NOT NULL AND clientname != ''
-                ORDER BY clientname ASC
-            """)
-            
-            clients = cursor.fetchall()
-            
-            result = []
-            for client in clients:
-                result.append({
-                    'clientName': client[0],
-                    'clientId': client[1],
-                    'clientAddress': client[2],
-                    'clientWhatsapp': client[3],
-                    'clientEmail': client[4],
-                    'nextOfKinName': client[5],
-                    'nextOfKinAddress': client[6],
-                    'nextOfKinPhone': client[7],
-                    'nextOfKinRelationship': client[8]
-                })
-            
-            return jsonify({
-                'success': True,
-                'data': result,
-                'count': len(result)
-            })
-    except Exception as e:
-        logging.error(f'Error fetching existing clients: {str(e)}')
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'data': []
-        }), 500
-
-@app.route('/api/get-project-schedule/<int:project_id>', methods=['GET'])
-def get_project_schedule(project_id):
-    """Retrieve work schedule for a project - uses project-specific adjusted schedules if available"""
-    try:
-        with get_db() as (cursor, connection):
-            # Get the project's data including quotation_id and adjusted_schedules_json
-            cursor.execute("""
-                SELECT quotation_id, adjusted_schedules_json FROM connectlinkdatabase WHERE id = %s
-            """, (project_id,))
-            result = cursor.fetchone()
-            
-            if not result:
-                return jsonify({
-                    'success': True,
-                    'schedules': [],
-                    'message': 'Project not found'
-                })
-            
-            quotation_id = result[0]
-            adjusted_schedules_json_str = result[1]
-            
-            # PRIORITY 1: If this project has adjusted schedules stored, use those
-            if adjusted_schedules_json_str:
-                try:
-                    import json
-                    schedule_list = json.loads(adjusted_schedules_json_str)
-                    print(f"✅ Returning {len(schedule_list)} project-specific adjusted schedules for project {project_id}")
-                    return jsonify({
-                        'success': True,
-                        'schedules': schedule_list,
-                        'source': 'project_adjusted',
-                        'quotationId': quotation_id
-                    })
-                except json.JSONDecodeError as e:
-                    print(f"⚠️ Could not parse project adjusted schedules: {e}")
-                    # Fall through to use quotation schedules as fallback
-            
-            # PRIORITY 2: If no project-specific schedules, get schedules from the linked quotation
-            if not quotation_id:
-                return jsonify({
-                    'success': True,
-                    'schedules': [],
-                    'message': 'No quotation linked to this project'
-                })
-            
-            # Get schedules from the linked quotation
-            cursor.execute("""
-                SELECT work_scope, start_date, end_date, days
-                FROM quotation_schedules
-                WHERE quotation_id = %s
-                ORDER BY task_order ASC
-            """, (quotation_id,))
-            
-            schedules = cursor.fetchall()
-            
-            schedule_list = [
-                {
-                    'workScope': schedule[0],
-                    'startDate': schedule[1].isoformat() if schedule[1] else None,
-                    'endDate': schedule[2].isoformat() if schedule[2] else None,
-                    'days': int(schedule[3]) if schedule[3] else 0
-                }
-                for schedule in schedules
-            ]
-            
-            print(f"✅ Returning {len(schedule_list)} quotation schedules for project {project_id} (from quotation {quotation_id})")
-            
-            return jsonify({
-                'success': True,
-                'schedules': schedule_list,
-                'source': 'quotation',
-                'quotationId': quotation_id
-            })
-    except Exception as e:
-        logging.error(f'Error fetching project schedule: {str(e)}')
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/get-quotation-schedule/<int:quotation_id>', methods=['GET'])
-def get_quotation_schedule(quotation_id):
-    """Retrieve work schedule for a quotation (used for auto-populating project duration)"""
-    try:
-        with get_db() as (cursor, connection):
-            # Get the schedules from the quotation
-            cursor.execute("""
-                SELECT work_scope, start_date, end_date, days
-                FROM quotation_schedules
-                WHERE quotation_id = %s
-                ORDER BY task_order ASC
-            """, (quotation_id,))
-            
-            schedules = cursor.fetchall()
-            
-            schedule_list = [
-                {
-                    'workScope': schedule[0],
-                    'startDate': schedule[1].isoformat() if schedule[1] else None,
-                    'endDate': schedule[2].isoformat() if schedule[2] else None,
-                    'days': int(schedule[3]) if schedule[3] else 0
-                }
-                for schedule in schedules
-            ]
-            
-            # Calculate total days
-            total_days = sum(int(schedule[3]) if schedule[3] else 0 for schedule in schedules)
-            
-            return jsonify({
-                'success': True,
-                'schedules': schedule_list,
-                'totalDays': total_days,
-                'quotationId': quotation_id
-            })
-    except Exception as e:
-        logging.error(f'Error fetching quotation schedule: {str(e)}')
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/update-project-schedule/<int:project_id>', methods=['POST'])
-def update_project_schedule(project_id):
-    """Update work schedule dates for a project - saves to project's adjusted_schedules_json"""
-    try:
-        data = request.json
-        schedules = data.get('schedules', [])
-        
-        with get_db() as (cursor, connection):
-            # Verify project exists
-            cursor.execute("""
-                SELECT id FROM connectlinkdatabase WHERE id = %s
-            """, (project_id,))
-            result = cursor.fetchone()
-            
-            if not result:
-                return jsonify({
-                    'success': False,
-                    'message': 'Project not found'
-                }), 404
-            
-            # Save schedules as project-specific adjusted_schedules_json
-            import json as json_module
-            adjusted_schedules_json = json_module.dumps(schedules)
-            
-            cursor.execute("""
-                UPDATE connectlinkdatabase
-                SET adjusted_schedules_json = %s
-                WHERE id = %s
-            """, (adjusted_schedules_json, project_id))
-            
-            connection.commit()
-            
-            return jsonify({
-                'success': True,
-                'message': f'Successfully saved {len(schedules)} schedule items to project'
-            })
-    except Exception as e:
-        logging.error(f'Error updating project schedule: {str(e)}')
         if 'connection' in locals():
             connection.rollback()
         return jsonify({
