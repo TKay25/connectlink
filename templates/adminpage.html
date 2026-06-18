@@ -14320,16 +14320,28 @@ function handleDownloadClick(button) {
 
 function downloadContractDirect() {
     const url = document.getElementById('dcModalContractUrl').value;
-    if (url) {
-        closeModal('downloadContractModal');
-        // Use the same trigger as the original download button
-        const tempLink = document.createElement('a');
-        tempLink.href = url;
-        tempLink.style.display = 'none';
-        document.body.appendChild(tempLink);
-        tempLink.click();
-        document.body.removeChild(tempLink);
-    }
+    const btn = document.querySelector('#downloadContractModal .btn-primary');
+    if (!url) return;
+    
+    // Show spinner on button
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Downloading...';
+    btn.disabled = true;
+    
+    // Close modal and trigger download
+    closeModal('downloadContractModal');
+    const tempLink = document.createElement('a');
+    tempLink.href = url;
+    tempLink.style.display = 'none';
+    document.body.appendChild(tempLink);
+    tempLink.click();
+    document.body.removeChild(tempLink);
+    
+    // Reset button after delay (modal is closed, but in case it reopens)
+    setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }, 4000);
 }
 
 function toggleWhatsAppSendContract() {
