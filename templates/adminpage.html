@@ -14322,7 +14322,13 @@ function downloadContractDirect() {
     const url = document.getElementById('dcModalContractUrl').value;
     if (url) {
         closeModal('downloadContractModal');
-        window.open(url, '_blank');
+        // Use the same trigger as the original download button
+        const tempLink = document.createElement('a');
+        tempLink.href = url;
+        tempLink.style.display = 'none';
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
     }
 }
 
