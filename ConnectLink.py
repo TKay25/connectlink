@@ -11334,6 +11334,219 @@ def whatsapp_send():
         print(f"WhatsApp send error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/whatsapp-send-template', methods=['POST'])
+@login_required
+def whatsapp_send_template():
+    """Send a Meta-approved WhatsApp template message (for 24hr window bypass)"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        recipient = data.get('recipient', '')
+        template_name = data.get('template_name', '').strip()
+        parameters = data.get('parameters', [])  # list of text params for body
+        
+        if not recipient or not template_name:
+            return jsonify({'success': False, 'message': 'Recipient and template_name required'}), 400
+        
+        # Normalise number
+        recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+        if recipient_clean.startswith('0'):
+            recipient_clean = '263' + recipient_clean[1:]
+        elif not recipient_clean.startswith('263'):
+            recipient_clean = '263' + recipient_clean
+        recipient_e164 = f"+{recipient_clean}"
+        
+        headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Build payload
+        components = []
+        if parameters:
+            components.append({
+                "type": "body",
+                "parameters": [{"type": "text", "text": str(p)} for p in parameters]
+            })
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient_e164,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": "en"}
+            }
+        }
+        if components:
+            payload["template"]["components"] = components
+        
+        resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
+        resp_data = resp.json()
+        
+        # Determine outcome
+        send_status = 'sent'
+        error_detail = ''
+        if resp.status_code != 200:
+            error_text = str(resp_data)
+            # Check for common template errors
+            if 'not found' in error_text.lower() or 'template' in error_text.lower():
+                send_status = 'failed_template_not_found'
+            else:
+                send_status = 'failed'
+            error_detail = error_text[:300]
+        
+        # Save to whatsapp_messages
+        try:
+            user_name = session.get('user_name', 'Admin')
+            display_text = f"[Template: {template_name}] " + (parameters[0] if parameters else '')
+            if send_status != 'sent':
+                display_text += f' [FAILED: {error_detail[:100]}]'
+            with get_db() as (save_cursor, save_conn):
+                save_cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                    VALUES (%s, %s, %s, %s, 'outgoing', %s)
+                """, (recipient_clean, user_name, display_text[:500], 'template', send_status))
+                save_conn.commit()
+        except Exception as save_err:
+            print(f"⚠️ Failed to save template message: {save_err}")
+        
+        if resp.status_code == 200:
+            # Log success
+            print(f"✅ Template '{template_name}' sent successfully to {recipient_clean}")
+            return jsonify({'success': True, 'message': f'Template sent', 'data': resp_data})
+        else:
+            error_msg = str(resp_data)
+            logging.error(f"Template '{template_name}' failed for {recipient_clean}: {error_msg}")
+            return jsonify({
+                'success': False,
+                'message': error_msg,
+                'template_failed': True,
+                'error_category': send_status
+            }), 400
+    except Exception as e:
+        print(f"WhatsApp template send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-bulk-send-template', methods=['POST'])
+@login_required
+def whatsapp_bulk_send_template():
+    """Send a template to multiple recipients (bulk)"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        recipients = data.get('recipients', [])
+        template_name = data.get('template_name', '').strip()
+        parameters = data.get('parameters', [])
+        
+        if not recipients or not template_name:
+            return jsonify({'success': False, 'message': 'Recipients and template_name required'}), 400
+        
+        results = []
+        success_count = 0
+        fail_count = 0
+        
+        for recipient in recipients:
+            try:
+                # Normalise number
+                recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+                if recipient_clean.startswith('0'):
+                    recipient_clean = '263' + recipient_clean[1:]
+                elif not recipient_clean.startswith('263'):
+                    recipient_clean = '263' + recipient_clean
+                recipient_e164 = f"+{recipient_clean}"
+                
+                headers = {
+                    'Authorization': f'Bearer {ACCESS_TOKEN}',
+                    'Content-Type': 'application/json'
+                }
+                
+                components = []
+                if parameters:
+                    components.append({
+                        "type": "body",
+                        "parameters": [{"type": "text", "text": str(p)} for p in parameters]
+                    })
+                
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": recipient_e164,
+                    "type": "template",
+                    "template": {
+                        "name": template_name,
+                        "language": {"code": "en"}
+                    }
+                }
+                if components:
+                    payload["template"]["components"] = components
+                
+                resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
+                resp_data = resp.json()
+                
+                send_status = 'sent'
+                error_detail = ''
+                if resp.status_code != 200:
+                    error_text = str(resp_data)
+                    if 'not found' in error_text.lower() or 'template' in error_text.lower():
+                        send_status = 'failed_template_not_found'
+                    else:
+                        send_status = 'failed'
+                    error_detail = error_text[:300]
+                    fail_count += 1
+                else:
+                    success_count += 1
+                
+                # Save to whatsapp_messages
+                try:
+                    user_name = session.get('user_name', 'Admin')
+                    display_text = f"[Template: {template_name}] " + (parameters[0] if parameters else '')
+                    if send_status != 'sent':
+                        display_text += f' [FAILED: {error_detail[:100]}]'
+                    with get_db() as (save_cursor, save_conn):
+                        save_cursor.execute("""
+                            INSERT INTO whatsapp_messages 
+                            (sender_phone, sender_name, message_text, message_type, direction, status)
+                            VALUES (%s, %s, %s, %s, 'outgoing', %s)
+                        """, (recipient_clean, user_name, display_text[:500], 'template', send_status))
+                        save_conn.commit()
+                except Exception as save_err:
+                    print(f"⚠️ Failed to save bulk template message: {save_err}")
+                
+                results.append({
+                    'recipient': recipient,
+                    'success': resp.status_code == 200,
+                    'status': send_status,
+                    'error': error_detail if send_status != 'sent' else None
+                })
+            except Exception as e:
+                fail_count += 1
+                results.append({
+                    'recipient': recipient,
+                    'success': False,
+                    'status': 'failed',
+                    'error': str(e)[:200]
+                })
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'summary': {
+                'total': len(recipients),
+                'sent': success_count,
+                'failed': fail_count
+            }
+        })
+    except Exception as e:
+        print(f"Bulk template send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/whatsapp-bulk-send', methods=['POST'])
 @login_required
 def whatsapp_bulk_send():

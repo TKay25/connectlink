@@ -5790,16 +5790,35 @@ table.dataTable thead th.sorting_desc {
             </div>
             <!-- Reply Bar -->
             <div style="border-top:1px solid var(--border-color);padding:8px 10px;background:var(--bg-card);">
-                <div style="display:flex;gap:6px;align-items:center;">
+                <div id="chatReplyNormal" style="display:flex;gap:6px;align-items:center;">
                     <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('chatFileInput').click()" title="Attach file" style="padding:4px 8px;font-size:0.6rem;">
                         <i class="bi bi-paperclip"></i>
                     </button>
                     <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx" onchange="handleChatFileSelect(event)">
                     <div id="chatFilePreview" style="display:none;font-size:0.5rem;color:var(--text-muted);padding:2px 6px;background:var(--gray-50);border-radius:4px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
                     <input type="text" id="chatMessageInput" class="form-control" placeholder="Type a message..." style="font-size:0.6rem;padding:6px 10px;flex:1;">
+                    <button class="btn btn-sm btn-outline-warning" onclick="toggleChatTemplateMode()" title="Send Meta Template (bypasses 24hr window)" style="padding:4px 8px;font-size:0.55rem;">
+                        <i class="bi bi-layout-text-window"></i>
+                    </button>
                     <button class="btn btn-success btn-sm" onclick="sendChatMessage()" style="padding:4px 12px;font-size:0.6rem;">
                         <i class="bi bi-send"></i>
                     </button>
+                </div>
+                <div id="chatReplyTemplate" style="display:none;flex-direction:column;gap:4px;">
+                    <div style="display:flex;gap:4px;align-items:center;">
+                        <span style="font-size:0.5rem;font-weight:600;color:var(--text-muted);white-space:nowrap;">Template:</span>
+                        <input type="text" id="chatTemplateName" class="form-control" placeholder="Template name (e.g. enquiryupdate)" style="font-size:0.55rem;padding:3px 6px;flex:1;">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleChatTemplateMode()" title="Back to text" style="padding:3px 6px;font-size:0.55rem;">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                    <div style="display:flex;gap:4px;align-items:center;">
+                        <input type="text" id="chatTemplateParams" class="form-control" placeholder="Params (comma-separated, e.g. John,Project X)" style="font-size:0.55rem;padding:3px 6px;flex:1;">
+                        <button class="btn btn-warning btn-sm" onclick="sendChatTemplate()" style="padding:3px 10px;font-size:0.55rem;white-space:nowrap;">
+                            <i class="bi bi-layout-text-window"></i> Send Template
+                        </button>
+                    </div>
+                    <div style="font-size:0.45rem;color:var(--text-muted);">Meta templates bypass the 24hr window. Use approved template names only.</div>
                 </div>
             </div>
         </div>
@@ -5830,8 +5849,13 @@ table.dataTable thead th.sorting_desc {
                             </div>
                         </div>
                     </div>
-                    <!-- Message Composer -->
-                    <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                    <!-- Message Mode Toggle -->
+                    <div style="display:flex;gap:4px;margin-bottom:4px;">
+                        <button class="btn btn-sm btn-primary" id="bulkModeTextBtn" onclick="setBulkMode('text')" style="font-size:0.5rem;padding:2px 8px;"><i class="bi bi-chat-dots"></i> Text</button>
+                        <button class="btn btn-sm btn-outline-warning" id="bulkModeTemplateBtn" onclick="setBulkMode('template')" style="font-size:0.5rem;padding:2px 8px;"><i class="bi bi-layout-text-window"></i> Template</button>
+                    </div>
+                    <!-- Message Composer - Text Mode -->
+                    <div id="bulkTextComposer" class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
                         <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-pencil"></i> Message</div>
                         <div class="card-body" style="padding:8px;">
                             <div class="mb-1">
@@ -5859,6 +5883,25 @@ table.dataTable thead th.sorting_desc {
                                 <div id="bulkImagePreviewBox" style="display:none;margin-top:4px;padding:4px;border:1px solid var(--border-color);border-radius:6px;text-align:center;max-width:160px;">
                                     <img id="bulkImagePreview" style="max-width:150px;max-height:100px;border-radius:4px;">
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Message Composer - Template Mode -->
+                    <div id="bulkTemplateComposer" class="card border" style="border-radius:var(--radius-md);overflow:hidden;display:none;">
+                        <div class="card-header" style="background:#ef6c00;color:white;padding:5px 10px;font-size:0.6rem;font-weight:700;"><i class="bi bi-layout-text-window"></i> Template Message <span style="font-size:0.45rem;font-weight:400;">(bypasses 24hr window)</span></div>
+                        <div class="card-body" style="padding:8px;">
+                            <div class="mb-1">
+                                <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Template Name *</label>
+                                <input type="text" class="form-control" id="bulkTemplateName" placeholder="e.g. enquiryupdate" style="font-size:0.55rem;padding:4px 8px;">
+                                <small style="font-size:0.45rem;color:var(--text-muted);">Must be an approved Meta template name</small>
+                            </div>
+                            <div class="mb-1">
+                                <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Parameters (comma-separated)</label>
+                                <input type="text" class="form-control" id="bulkTemplateParams" placeholder="e.g. John Doe,Project ABC,15 April 2026" style="font-size:0.55rem;padding:4px 8px;">
+                                <small style="font-size:0.45rem;color:var(--text-muted);">Leave empty if template has no variables</small>
+                            </div>
+                            <div class="mt-2" style="font-size:0.5rem;color:#ef6c00;background:#fff3e0;padding:4px 8px;border-radius:4px;">
+                                <i class="bi bi-info-circle"></i> Templates work even when the 24hr customer service window is closed.
                             </div>
                         </div>
                     </div>
@@ -7931,7 +7974,7 @@ function updateGanttDatesWithProjectStartDate(newStartDate) {
         offsetDays: offsetDays
     });
     
-    // Update all Gantt chart input fields with offset
+    // Update all Gantt chart input fields with offset, then cascade
     const startDateInputs = document.querySelectorAll('.gantt-start-date');
     const endDateInputs = document.querySelectorAll('.gantt-end-date');
     
@@ -7946,6 +7989,11 @@ function updateGanttDatesWithProjectStartDate(newStartDate) {
         const newDate = new Date(originalDate.getTime() + offsetMs);
         input.value = newDate.toISOString().split('T')[0];
     });
+    
+    // Cascade from row 1 to ensure day gaps are maintained
+    if (document.querySelectorAll('.gantt-start-date').length > 1) {
+        cascadeFromRow(1);
+    }
 }
 
 function populateGanttTable(schedules) {
@@ -7995,61 +8043,107 @@ function populateGanttTable(schedules) {
     attachGanttCalculationListeners();
 }
 
+// Calculate the number of days between two date strings (YYYY-MM-DD)
+function calculateDaysDifference(startDateStr, endDateStr) {
+    if (!startDateStr || !endDateStr) return 0;
+    const start = new Date(startDateStr + 'T12:00:00');
+    const end = new Date(endDateStr + 'T12:00:00');
+    const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
+    return Math.max(0, diff);
+}
+
+// Helper: add days to a date string (YYYY-MM-DD)
+function addDaysToDate(dateStr, days) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T12:00:00');
+    date.setDate(date.getDate() + parseInt(days));
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+// Cascade schedule changes forward from a given row index
+function cascadeFromRow(startIndex) {
+    const rows = document.querySelectorAll('#ganttScheduleBody tr');
+    if (!rows.length) return;
+    for (let i = startIndex; i < rows.length; i++) {
+        const startInput = rows[i].querySelector('.gantt-start-date');
+        const endInput = rows[i].querySelector('.gantt-end-date');
+        const daysInput = rows[i].querySelector('.gantt-days');
+        if (!startInput || !endInput || !daysInput) continue;
+        
+        // For each subsequent row: start = previous row's end + 1 day
+        const prevRow = rows[i - 1];
+        if (!prevRow) continue;
+        const prevEnd = prevRow.querySelector('.gantt-end-date')?.value;
+        if (prevEnd) {
+            const nextStart = addDaysToDate(prevEnd, 1);
+            startInput.value = nextStart;
+            const days = parseInt(daysInput.value) || 0;
+            if (days > 0) {
+                endInput.value = addDaysToDate(nextStart, days);
+            } else {
+                endInput.value = nextStart;
+            }
+        }
+    }
+}
+
 function attachGanttCalculationListeners() {
     const startDateInputs = document.querySelectorAll('.gantt-start-date');
     const endDateInputs = document.querySelectorAll('.gantt-end-date');
     const daysInputs = document.querySelectorAll('.gantt-days');
     
-    // Helper function to add days to a date
-    function addDaysToDate(dateStr, days) {
-        const date = new Date(dateStr);
-        date.setDate(date.getDate() + parseInt(days));
-        return date.toISOString().split('T')[0];
+    // Recalc current row's end date, then cascade forward
+    function recalcAndCascade(index) {
+        const row = document.querySelector(`#gantt-row-${index}`);
+        if (!row) return;
+        const startInput = row.querySelector('.gantt-start-date');
+        const endInput = row.querySelector('.gantt-end-date');
+        const daysInput = row.querySelector('.gantt-days');
+        const days = parseInt(daysInput.value) || 0;
+        
+        // Recalc this row's end date from start + days
+        if (startInput.value && days > 0) {
+            endInput.value = addDaysToDate(startInput.value, days);
+        } else if (startInput.value) {
+            endInput.value = startInput.value;
+        }
+        // Cascade forward from next row
+        cascadeFromRow(parseInt(index) + 1);
     }
-
     
     startDateInputs.forEach(input => {
         input.addEventListener('change', function() {
-            const index = this.getAttribute('data-index');
-            const startDate = this.value;
-            const daysInput = document.querySelector(`.gantt-days[data-index="${index}"]`);
-            const endDateInput = document.querySelector(`.gantt-end-date[data-index="${index}"]`);
-            const days = parseInt(daysInput.value) || 0;
-            
-            if (startDate && days > 0) {
-                const newEndDate = addDaysToDate(startDate, days);
-                endDateInput.value = newEndDate;
-            }
+            const index = parseInt(this.getAttribute('data-index'));
+            recalcAndCascade(index);
         });
     });
     
     endDateInputs.forEach(input => {
         input.addEventListener('change', function() {
-            const index = this.getAttribute('data-index');
+            const index = parseInt(this.getAttribute('data-index'));
+            const row = document.querySelector(`#gantt-row-${index}`);
+            if (!row) return;
+            const startInput = row.querySelector('.gantt-start-date');
+            const daysInput = row.querySelector('.gantt-days');
             const endDate = this.value;
-            const startDateInput = document.querySelector(`.gantt-start-date[data-index="${index}"]`);
-            const daysInput = document.querySelector(`.gantt-days[data-index="${index}"]`);
-            const startDate = startDateInput.value;
+            const startDate = startInput.value;
             
+            // Recalc days from start to end
             if (startDate && endDate) {
-                const calculatedDays = calculateDaysDifference(startDate, endDate);
-                daysInput.value = calculatedDays;
+                daysInput.value = calculateDaysDifference(startDate, endDate);
             }
+            // Cascade forward from next row
+            cascadeFromRow(index + 1);
         });
     });
     
     daysInputs.forEach(input => {
         input.addEventListener('change', function() {
-            const index = this.getAttribute('data-index');
-            const days = parseInt(this.value) || 0;
-            const startDateInput = document.querySelector(`.gantt-start-date[data-index="${index}"]`);
-            const endDateInput = document.querySelector(`.gantt-end-date[data-index="${index}"]`);
-            const startDate = startDateInput.value;
-            
-            if (startDate && days > 0) {
-                const newEndDate = addDaysToDate(startDate, days);
-                endDateInput.value = newEndDate;
-            }
+            const index = parseInt(this.getAttribute('data-index'));
+            recalcAndCascade(index);
         });
     });
 }
@@ -8088,6 +8182,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return response.json();
             })
             .then(data => {
+                // Update stored schedules so future cascading uses saved values
+                window.ganttSchedules = updatedSchedules;
                 alert('Work schedule updated successfully!');
                 closeModal('ganttChartModal');
             })
@@ -19279,13 +19375,33 @@ function createMessageBubble(msg) {
     const bubble = document.createElement('div');
     bubble.dataset.msgId = 'msg-' + msg.id;
     
+    const isTemplate = msg.category === 'template' || (msg.message && msg.message.startsWith('[Template:'));
+    
     // Determine styling based on status
-    let bgColor, alignStyle, statusIcon = '', statusLabel = '';
+    let bgColor, alignStyle, statusIcon = '', statusLabel = '', typeLabel = '';
     const status = msg.status || '';
     
     if (isIncoming) {
         bgColor = 'white';
         alignStyle = 'align-self:flex-start;border-bottom-left-radius:2px;';
+    } else if (isTemplate) {
+        // Template messages (amber style)
+        if (status === 'failed_template_not_found') {
+            bgColor = '#fce4ec';
+            alignStyle = 'align-self:flex-end;border-bottom-right-radius:2px;border:1px solid #ef5350;';
+            statusIcon = '<span style="color:#c62828;font-size:0.45rem;margin-left:3px;">✗</span>';
+            statusLabel = '<div style="font-size:0.5rem;color:#c62828;margin-top:2px;"><i class="bi bi-x-circle-fill"></i> Template not found — check name</div>';
+        } else if (status === 'failed') {
+            bgColor = '#fce4ec';
+            alignStyle = 'align-self:flex-end;border-bottom-right-radius:2px;border:1px solid #ef5350;';
+            statusIcon = '<span style="color:#c62828;font-size:0.45rem;margin-left:3px;">✗</span>';
+            statusLabel = '<div style="font-size:0.5rem;color:#c62828;margin-top:2px;"><i class="bi bi-x-circle-fill"></i> Template failed</div>';
+        } else {
+            bgColor = '#fff8e1';
+            alignStyle = 'align-self:flex-end;border-bottom-right-radius:2px;border:1px solid #ffcc02;';
+            statusIcon = '<span style="color:#ef6c00;font-size:0.45rem;margin-left:3px;">✓</span>';
+        }
+        typeLabel = '<div style="font-size:0.45rem;color:#ef6c00;font-weight:600;margin-bottom:1px;"><i class="bi bi-layout-text-window"></i> Template Message</div>';
     } else if (status === 'failed_24hr_window') {
         bgColor = '#fff3e0';
         alignStyle = 'align-self:flex-end;border-bottom-right-radius:2px;border:1px solid #ffcc02;';
@@ -19310,6 +19426,7 @@ function createMessageBubble(msg) {
     
     bubble.style.cssText = `max-width:80%;background:${bgColor};${alignStyle}padding:5px 8px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);margin-bottom:4px;`;
     bubble.innerHTML = `
+        ${typeLabel}
         ${nameLabel}
         <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(msg.message)}</div>
         ${statusLabel}
@@ -19437,6 +19554,174 @@ function sendWhatsAppMessage(phone, text) {
     });
 }
 
+let bulkMessagingMode = 'text'; // 'text' or 'template'
+
+// Toggle chat reply between text mode and template mode
+function toggleChatTemplateMode() {
+    const normal = document.getElementById('chatReplyNormal');
+    const tpl = document.getElementById('chatReplyTemplate');
+    if (normal.style.display === 'none') {
+        normal.style.display = 'flex';
+        tpl.style.display = 'none';
+    } else {
+        normal.style.display = 'none';
+        tpl.style.display = 'flex';
+    }
+}
+
+// Send a Meta template from chat
+function sendChatTemplate() {
+    const templateName = document.getElementById('chatTemplateName').value.trim();
+    const paramsStr = document.getElementById('chatTemplateParams').value.trim();
+    if (!templateName) { showToast('Please enter a template name', 'warning', 'Template Required'); return; }
+    if (!currentChatPhone) return;
+    
+    const params = paramsStr ? paramsStr.split(',').map(p => p.trim()) : [];
+    
+    const area = document.getElementById('chatMessagesArea');
+    const now = new Date();
+    const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    
+    // Add pending bubble
+    const id = 'tpl-' + Date.now();
+    area.innerHTML += `<div id="${id}" style="max-width:80%;background:#fff3e0;align-self:flex-end;border-bottom-right-radius:2px;border:1px solid #ffcc02;padding:5px 8px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);opacity:0.7;">
+        <div style="font-size:0.5rem;color:#ef6c00;font-weight:600;margin-bottom:2px;"><i class="bi bi-layout-text-window"></i> Template: ${escapeHtml(templateName)}</div>
+        <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(paramsStr || '(no params)')}</div>
+        <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ⏳</div>
+    </div>`;
+    area.scrollTop = area.scrollHeight;
+    
+    fetch('/api/whatsapp-send-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient: currentChatPhone, template_name: templateName, parameters: params })
+    })
+    .then(r => r.json())
+    .then(res => {
+        const bubble = document.getElementById(id);
+        if (!bubble) return;
+        bubble.style.opacity = '1';
+        if (res.success) {
+            bubble.style.border = '1px solid #10B981';
+            const timeDiv = bubble.querySelector('div:last-child');
+            if (timeDiv) timeDiv.textContent = timeStr + ' ✓';
+            showToast('Template "' + templateName + '" sent successfully', 'success', 'Template Sent');
+        } else {
+            bubble.style.background = '#fce4ec';
+            bubble.style.border = '1px solid #ef5350';
+            const errCat = res.error_category || 'failed';
+            const errMsg = errCat === 'failed_template_not_found' 
+                ? 'Template not found - check the name' 
+                : 'Template send failed';
+            bubble.innerHTML = `
+                <div style="font-size:0.5rem;color:#c62828;font-weight:600;margin-bottom:2px;"><i class="bi bi-layout-text-window"></i> Template: ${escapeHtml(templateName)}</div>
+                <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(paramsStr || '(no params)')}</div>
+                <div style="font-size:0.5rem;color:#c62828;margin-top:3px;"><i class="bi bi-x-circle-fill"></i> ${errMsg}</div>
+                <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✗</div>`;
+            showToast(errMsg + ': ' + templateName, 'error', 'Template Failed');
+        }
+    })
+    .catch(err => {
+        const bubble = document.getElementById(id);
+        if (bubble) {
+            bubble.style.background = '#fce4ec';
+            bubble.style.border = '1px solid #ef5350';
+        }
+        showToast('Network error sending template', 'error', 'Template Failed');
+    });
+    
+    // Clear and switch back to text mode
+    document.getElementById('chatTemplateName').value = '';
+    document.getElementById('chatTemplateParams').value = '';
+    toggleChatTemplateMode();
+}
+
+// Set bulk messaging mode (text/template)
+function setBulkMode(mode) {
+    bulkMessagingMode = mode;
+    const textBtn = document.getElementById('bulkModeTextBtn');
+    const tplBtn = document.getElementById('bulkModeTemplateBtn');
+    const textComp = document.getElementById('bulkTextComposer');
+    const tplComp = document.getElementById('bulkTemplateComposer');
+    const footerBtn = document.querySelector('#bulkMessagingModal .modal-footer-custom .btn-success');
+    
+    if (mode === 'text') {
+        textBtn.className = 'btn btn-sm btn-primary';
+        tplBtn.className = 'btn btn-sm btn-outline-warning';
+        textComp.style.display = 'block';
+        tplComp.style.display = 'none';
+        footerBtn.innerHTML = '<i class="bi bi-send"></i> Send to All Selected';
+        footerBtn.onclick = sendBulkMessages;
+    } else {
+        textBtn.className = 'btn btn-sm btn-outline-primary';
+        tplBtn.className = 'btn btn-sm btn-warning';
+        textComp.style.display = 'none';
+        tplComp.style.display = 'block';
+        footerBtn.innerHTML = '<i class="bi bi-layout-text-window"></i> Send Template to All Selected';
+        footerBtn.onclick = sendBulkTemplate;
+    }
+}
+
+// Send bulk template
+function sendBulkTemplate() {
+    const templateName = document.getElementById('bulkTemplateName').value.trim();
+    const paramsStr = document.getElementById('bulkTemplateParams').value.trim();
+    if (!templateName) { alert('Please enter a template name.'); return; }
+    
+    const params = paramsStr ? paramsStr.split(',').map(p => p.trim()) : [];
+    
+    const selected = [];
+    document.querySelectorAll('.bulk-recipient-cb:checked').forEach(cb => {
+        selected.push(cb.value);
+    });
+    if (!selected.length) { alert('Please select at least one recipient.'); return; }
+    
+    const btn = document.querySelector('#bulkMessagingModal .modal-footer-custom .btn-success');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending templates...';
+    
+    fetch('/api/whatsapp-bulk-send-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipients: selected, template_name: templateName, parameters: params })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            const summary = res.summary || {};
+            const results = res.results || [];
+            const sent = summary.sent || 0;
+            const failed = summary.failed || 0;
+            
+            let resultHtml = `<div style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Template sent to ${sent}/${results.length} recipients`;
+            if (failed > 0) {
+                resultHtml += ` <span style="color:#d32f2f;">(${failed} failed)</span>`;
+                // Show failure details
+                const failedDetails = results.filter(r => !r.success);
+                if (failedDetails.length > 0) {
+                    resultHtml += `<div style="margin-top:4px;font-size:0.5rem;color:#666;">`;
+                    failedDetails.forEach(f => {
+                        resultHtml += `<div>✗ ${f.recipient}: ${f.error || 'Unknown'}</div>`;
+                    });
+                    resultHtml += `</div>`;
+                }
+            }
+            resultHtml += `</div>`;
+            document.getElementById('bulkSendResult').innerHTML = resultHtml;
+        } else {
+            document.getElementById('bulkSendResult').innerHTML = `<div style="color:#d32f2f;">Failed: ${res.message || 'Unknown error'}</div>`;
+        }
+    })
+    .catch(err => {
+        document.getElementById('bulkSendResult').innerHTML = `<div style="color:#d32f2f;">Connection error</div>`;
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-layout-text-window"></i> Send Template to All Selected';
+        btn.onclick = sendBulkTemplate;
+    });
+}
+
 let bulkImageFile = null;
 
 function openBulkMessaging() {
@@ -19463,6 +19748,10 @@ function openBulkMessaging() {
         });
         list.innerHTML = html;
     }
+    // Reset to text mode
+    setBulkMode('text');
+    document.getElementById('bulkTemplateName').value = '';
+    document.getElementById('bulkTemplateParams').value = '';
     updateBulkSelectedCount();
     openModal('bulkMessagingModal');
 }
