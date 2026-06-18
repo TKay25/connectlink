@@ -216,10 +216,10 @@ body {
     background: var(--accent);
     color: white;
     border: none;
-    padding: 10px 24px;
+    padding: 12px 26px;
     border-radius: var(--radius-lg);
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: all var(--transition-base);
     display: inline-flex;
@@ -261,10 +261,10 @@ body {
     background: var(--gray-100);
     color: var(--gray-700);
     border: 1px solid var(--gray-200);
-    padding: 10px 24px;
+    padding: 12px 26px;
     border-radius: var(--radius-lg);
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: all var(--transition-base);
     display: inline-flex;
@@ -282,10 +282,10 @@ body {
     background: transparent;
     color: var(--accent);
     border: 2px solid var(--accent);
-    padding: 10px 24px;
+    padding: 12px 26px;
     border-radius: var(--radius-lg);
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 1rem;
     cursor: pointer;
     transition: all var(--transition-base);
     display: inline-flex;
@@ -299,8 +299,8 @@ body {
 }
 
 .btn-small {
-    padding: 6px 16px;
-    font-size: 0.75rem;
+    padding: 8px 18px;
+    font-size: 0.875rem;
     border-radius: var(--radius-md);
 }
 
@@ -324,18 +324,18 @@ body {
 
 .form-label {
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 1rem;
     color: var(--gray-700);
 }
 
 .form-input,
 .form-select,
 .form-textarea {
-    padding: 10px 16px;
+    padding: 12px 18px;
     border: 1px solid var(--gray-200);
     border-radius: var(--radius-lg);
     font-family: inherit;
-    font-size: 0.875rem;
+    font-size: 1rem;
     transition: all var(--transition-base);
     background: white;
 }
@@ -358,13 +358,26 @@ body {
 }
 
 .form-help-text {
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     color: var(--gray-500);
 }
 
 .form-error {
     color: var(--danger);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Global input/select/textarea font-size bump */
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+select,
+textarea {
+    font-size: 1rem;
+}
+
+select.form-select,
+input.form-control,
+textarea.form-control {
+    font-size: 1rem;
 }
 
 /* ==================== BADGES ==================== */

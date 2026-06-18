@@ -627,12 +627,14 @@ body {
 }
 .table-theme th,
 .table-theme td,
-.form-control,
-.form-select,
-.btn,
-.employeetag,
-.nav-link {
+.employeetag {
   font-size: 0.55rem !important;
+}
+.btn {
+  font-size: 0.8rem !important;
+}
+.nav-link {
+  font-size: 0.8rem !important;
 }
 /* Dark blue header + white font on ALL table headers across the system */
 table thead th,
@@ -652,8 +654,8 @@ table.dataTable thead th.sorting_desc {
   background-position: center right;
 }
 .vertical-nav-link {
-  font-size: 0.65rem !important;
-  padding: 5px 12px !important;
+  font-size: 0.8rem !important;
+  padding: 6px 14px !important;
 }
 .summary-card .details h5 {
   font-size: 0.5rem;
@@ -765,9 +767,9 @@ table.dataTable thead th.sorting_desc {
             margin: 0;
         }
         .tab-nav-btn {
-            font-size: 0.65rem !important;
+            font-size: 0.8rem !important;
             font-weight: 600;
-            padding: 5px 12px;
+            padding: 6px 14px;
             border: 1px solid var(--primary-light);
             border-radius: 6px;
             background: transparent;
@@ -782,7 +784,7 @@ table.dataTable thead th.sorting_desc {
             text-decoration: none;
         }
         .tab-nav-btn i {
-            font-size: 0.6rem;
+            font-size: 0.75rem;
             transition: none;
         }
         .tab-nav-btn:hover {
@@ -1120,7 +1122,7 @@ table.dataTable thead th.sorting_desc {
             background: var(--primary-dark);
             box-shadow: var(--shadow-sm);
         }
-        .btn-sm { padding: 2px 8px; font-size: 0.5rem !important; }
+        .btn-sm { padding: 4px 10px; font-size: 0.75rem !important; }
         .btn-outline-primary {
             background: transparent;
             border: 1px solid var(--dark-blue-deep);
@@ -2579,8 +2581,6 @@ table.dataTable thead th.sorting_desc {
         max-height: none;
     }
 
-    /* --- Sticky Table Headers (handled by JS to avoid DataTables conflicts) --- */
-
     /* --- Card Hover Elevation --- */
     .card, .summary-card, .graph-card {
         transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -3290,16 +3290,16 @@ table.dataTable thead th.sorting_desc {
                         <!-- PROJECTS TAB -->
                         <div class="tab-pane fade show active" id="projects-tab">
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('downloadPortfolioModal')"><i class="bi bi-download"></i> Master File</button>
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('workPlanModal')"><i class="bi bi-calendar-check"></i> Work Plan</button>
-                                <button id="aiAssistantBtn" class="btn btn-danger" style="font-size:0.55rem; padding:2px 8px; cursor:pointer;"><i class="bi bi-robot"></i> Ask AI</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="openModal('downloadPortfolioModal')"><i class="bi bi-download"></i> Master File</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="openModal('workPlanModal')"><i class="bi bi-calendar-check"></i> Work Plan</button>
+                                <button id="aiAssistantBtn" class="btn btn-danger" style="padding:4px 12px; cursor:pointer;"><i class="bi bi-robot"></i> Ask AI</button>
                             </div>
                             <div class="container" style="padding:4px; background:#fafafa; border-radius:4px;">
                                 <div class="row mb-2 align-items-center">
                                     <div class="col-md-3">
                                         <div class="input-group" style="font-size:0.55rem;">
                                             <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-calendar-month"></i></span>
-                                            <select class="form-select" id="monthFilter" style="font-size:0.55rem;padding:0.1rem 0.3rem;">
+                                            <select class="form-select" id="monthFilter" style="font-size:0.8rem;padding:0.2rem 0.5rem;">
                                                 {% for month in month_options %}
                                                     <option value="{{ month.value }}" {% if loop.first %}selected{% endif %}>{{ month.display }}</option>
                                                 {% endfor %}
@@ -3309,13 +3309,13 @@ table.dataTable thead th.sorting_desc {
                                     <div class="col-md-2">
                                         <div class="input-group" style="font-size:0.55rem;">
                                             <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-search"></i></span>
-                                            <input type="text" class="form-control" id="tableSearch" placeholder="Search..." style="font-size:0.55rem;padding:0.1rem 0.3rem;">
+                                            <input type="text" class="form-control" id="tableSearch" placeholder="Search..." style="font-size:0.8rem;padding:0.2rem 0.5rem;">
                                         </div>
                                     </div>
                                     <div class="col-md-2">
                                         <div class="input-group" style="font-size:0.55rem;">
                                             <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-list-ol"></i></span>
-                                            <select class="form-select" id="projectsPageLength" style="font-size:0.55rem;padding:0.1rem 0.3rem;">
+                                            <select class="form-select" id="projectsPageLength" style="font-size:0.8rem;padding:0.2rem 0.5rem;">
                                                 <option value="25">25 entries</option>
                                                 <option value="50">50 entries</option>
                                                 <option value="100">100 entries</option>
@@ -3330,7 +3330,7 @@ table.dataTable thead th.sorting_desc {
                                 </div>
                                 <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 2px;font-size:0.5rem;color:var(--text-muted);">
                                     <span id="projectsTableInfo"></span>
-                                    <button class="btn btn-primary" id="loadMoreProjectsBtn" style="font-size:0.5rem;padding:2px 8px;display:none;" onclick="loadMoreProjects()">
+                                    <button class="btn btn-primary" id="loadMoreProjectsBtn" style="padding:4px 12px;display:none;" onclick="loadMoreProjects()">
                                         <i class="bi bi-plus-circle"></i> Load More Projects
                                     </button>
                                 </div>
@@ -3340,10 +3340,10 @@ table.dataTable thead th.sorting_desc {
                         <!-- PAYMENTS TAB -->
                         <div class="tab-pane fade" id="payments-tab">
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" id="exportcashflowBtn"><i class="bi bi-download"></i> Cashflow</button>
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('downloadInstallmentsModal')"><i class="bi bi-download"></i> Installments</button>
-                                <button class="btn btn-danger" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('auditInstallmentsModal')"><i class="bi bi-credit-card-2-front-fill"></i> Audit</button>
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="Pushpaymentreminders()"><i class="bi bi-credit-card-2-front-fill"></i> Reminders</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" id="exportcashflowBtn"><i class="bi bi-download"></i> Cashflow</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="openModal('downloadInstallmentsModal')"><i class="bi bi-download"></i> Installments</button>
+                                <button class="btn btn-danger" style="padding:4px 12px;" onclick="openModal('auditInstallmentsModal')"><i class="bi bi-credit-card-2-front-fill"></i> Audit</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="Pushpaymentreminders()"><i class="bi bi-credit-card-2-front-fill"></i> Reminders</button>
                             </div>
                             <!-- Payment Summary Cards -->
                             <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(185px,1fr)); gap:4px; margin-bottom:6px;">
@@ -3409,8 +3409,8 @@ table.dataTable thead th.sorting_desc {
                         <!-- QUOTATIONS TAB -->
                         <div class="tab-pane fade" id="quotations-tab">
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openSentQuotationsModal()"><i class="bi bi-whatsapp"></i> Sent Quotations</button>
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="reloadQuotations()"><i class="bi bi-arrow-clockwise"></i> Reload</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="openSentQuotationsModal()"><i class="bi bi-whatsapp"></i> Sent Quotations</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="reloadQuotations()"><i class="bi bi-arrow-clockwise"></i> Reload</button>
                             </div>
                             <div id="quotationsContainer" style="color:var(--dark-blue-deep); padding:4px; font-size:0.6rem; background:#fafafa; border-radius:4px; min-height:100px;">
                                 <p class="text-muted text-center" style="padding:20px;">Click Reload to load quotations...</p>
@@ -3420,14 +3420,14 @@ table.dataTable thead th.sorting_desc {
                         <!-- ENQUIRIES TAB -->
                         <div class="tab-pane fade" id="enquiries-tab">
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="downloadenquiries()"><i class="bi bi-download"></i> Enquiries</button>
-                                <button class="btn btn-primary" style="font-size:0.55rem; padding:2px 8px;" onclick="openModal('viewEnquiriesModal')"><i class="bi bi-search"></i> View Interim</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="downloadenquiries()"><i class="bi bi-download"></i> Enquiries</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="openModal('viewEnquiriesModal')"><i class="bi bi-search"></i> View Interim</button>
                             </div>
                             <div class="container" style="padding:4px; background:#fafafa; border-radius:4px;">
                                 <div class="row mb-2">
-                                    <div class="col-md-4"><input type="text" class="form-control" id="enquirySearch" placeholder="Search..." style="font-size:0.55rem;padding:0.1rem 0.3rem;"></div>
-                                    <div class="col-md-4"><select class="form-select" id="categoryFilter" style="font-size:0.55rem;padding:0.1rem 0.3rem;"><option value="">All Categories</option><option>Kitchen & Cabinets</option><option>Building</option><option>Renovation</option></select></div>
-                                    <div class="col-md-4"><select class="form-select" id="statusFilter" style="font-size:0.55rem;padding:0.1rem 0.3rem;"><option value="">All Status</option><option>pending</option><option>in_progress</option><option>completed</option></select></div>
+                                    <div class="col-md-4"><input type="text" class="form-control" id="enquirySearch" placeholder="Search..." style="font-size:0.8rem;padding:0.2rem 0.5rem;"></div>
+                                    <div class="col-md-4"><select class="form-select" id="categoryFilter" style="font-size:0.8rem;padding:0.2rem 0.5rem;"><option value="">All Categories</option><option>Kitchen & Cabinets</option><option>Building</option><option>Renovation</option></select></div>
+                                    <div class="col-md-4"><select class="form-select" id="statusFilter" style="font-size:0.8rem;padding:0.2rem 0.5rem;"><option value="">All Status</option><option>pending</option><option>in_progress</option><option>completed</option></select></div>
                                 </div>
                                 <div class="container2" style="overflow-y:auto;">
                                     <table class="table-theme" id="enquiriesTabTable">
@@ -3455,7 +3455,7 @@ table.dataTable thead th.sorting_desc {
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <select class="form-select status-select" style="font-size:11px;" data-id="{{ enquiry.id }}">
+                                                    <select class="form-select status-select" style="font-size:0.85rem;" data-id="{{ enquiry.id }}">
                                                         <option value="pending" {% if enquiry.status == 'pending' %}selected{% endif %}>Pending</option>
                                                         <option value="in_progress" {% if enquiry.status == 'in_progress' %}selected{% endif %}>In Progress</option>
                                                         <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
@@ -3507,9 +3507,9 @@ table.dataTable thead th.sorting_desc {
                             <!-- Chat Controls -->
                             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;justify-content:space-between;">
                                 <div>
-                                    <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadWhatsAppChats()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
-                                    <button class="btn btn-success" style="font-size:0.55rem;padding:2px 8px;" onclick="openBulkMessaging()"><i class="bi bi-megaphone"></i> Bulk Message</button>
-                                    <button class="btn btn-outline-secondary" style="font-size:0.55rem;padding:2px 8px;" onclick="checkWhatsAppDebug()"><i class="bi bi-bug"></i> Debug</button>
+                                    <button class="btn btn-primary" style="padding:4px 12px;" onclick="loadWhatsAppChats()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                    <button class="btn btn-success" style="padding:4px 12px;" onclick="openBulkMessaging()"><i class="bi bi-megaphone"></i> Bulk Message</button>
+                                    <button class="btn btn-outline-secondary" style="padding:4px 12px;" onclick="checkWhatsAppDebug()"><i class="bi bi-bug"></i> Debug</button>
                                 </div>
                                 <span id="whatsappChatCount" style="font-size:0.55rem;color:var(--text-muted);">0 conversations</span>
                             </div>
@@ -3525,14 +3525,14 @@ table.dataTable thead th.sorting_desc {
                         <!-- ACTIVITY LOG TAB -->
                         <div class="tab-pane fade" id="activity-tab">
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; align-items:center;">
-                                <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadActivityLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
-                                <button class="btn btn-success" style="font-size:0.55rem;padding:2px 8px;" onclick="exportActivityExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="loadActivityLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                <button class="btn btn-success" style="padding:4px 12px;" onclick="exportActivityExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
                                 <span id="activityLogCount" style="font-size:0.5rem;color:var(--text-muted);padding:0 4px;"></span>
-                                <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.55rem;padding:2px 8px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:120px;max-width:250px;" oninput="filterActivityLog()">
-                                <select id="activityLogUserFilter" style="font-size:0.55rem;padding:2px 8px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
+                                <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:120px;max-width:250px;" oninput="filterActivityLog()">
+                                <select id="activityLogUserFilter" style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
                                     <option value="">All users</option>
                                 </select>
-                                <select id="activityLogFilter" style="font-size:0.55rem;padding:2px 8px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
+                                <select id="activityLogFilter" style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
                                     <option value="">All actions</option>
                                     <option value="quotation_created">Quotation Created</option>
                                     <option value="quotation_edited">Quotation Edited</option>
@@ -3601,7 +3601,7 @@ table.dataTable thead th.sorting_desc {
                         <div class="tab-pane fade" id="analytics-tab">
                             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;justify-content:space-between;">
                                 <div>
-                                    <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadCustomerAnalytics()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                    <button class="btn btn-primary" style="padding:4px 12px;" onclick="loadCustomerAnalytics()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                 </div>
                                 <span id="analyticsLastUpdated" style="font-size:0.5rem;color:var(--text-muted);"></span>
                             </div>
@@ -3701,7 +3701,7 @@ table.dataTable thead th.sorting_desc {
                                     </div>
                                 </div>
                                 <!-- Edit button -->
-                                <button class="btn btn-primary" style="font-size:0.55rem;padding:4px 14px;border-radius:8px;" onclick="openModal('editContractorModal')"><i class="bi bi-pencil-square me-1"></i>Edit Contractor Details</button>
+                                <button class="btn btn-primary" style="padding:6px 16px;border-radius:8px;" onclick="openModal('editContractorModal')"><i class="bi bi-pencil-square me-1"></i>Edit Contractor Details</button>
                             </div>
                         </div>
 
@@ -3728,17 +3728,17 @@ table.dataTable thead th.sorting_desc {
                                 <div class="card-body" style="padding:14px;">
                                     <div class="mb-3">
                                         <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">Full Name</label>
-                                        <input type="text" class="form-control" id="settingsName" style="font-size:0.6rem;padding:6px 10px;">
+                                        <input type="text" class="form-control" id="settingsName" style="font-size:0.9rem;padding:8px 12px;">
                                     </div>
                                     <div class="mb-3">
                                         <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">Email Address</label>
-                                        <input type="email" class="form-control" id="settingsEmail" style="font-size:0.6rem;padding:6px 10px;">
+                                        <input type="email" class="form-control" id="settingsEmail" style="font-size:0.9rem;padding:8px 12px;">
                                     </div>
                                     <div class="mb-3">
                                         <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">WhatsApp Number</label>
-                                        <input type="text" class="form-control" id="settingsWhatsapp" style="font-size:0.6rem;padding:6px 10px;">
+                                        <input type="text" class="form-control" id="settingsWhatsapp" style="font-size:0.9rem;padding:8px 12px;">
                                     </div>
-                                    <button class="btn btn-primary" onclick="saveProfileSettings()" style="font-size:0.6rem;padding:6px 16px;">
+                                    <button class="btn btn-primary" onclick="saveProfileSettings()" style="padding:8px 20px;">
                                         <i class="bi bi-check-circle"></i> Save Profile
                                     </button>
                                     <div id="profileSaveMsg" style="font-size:0.55rem;margin-top:6px;"></div>
@@ -3753,15 +3753,15 @@ table.dataTable thead th.sorting_desc {
                                 <div class="card-body" style="padding:14px;">
                                     <div class="mb-3">
                                         <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">Current Password</label>
-                                        <input type="password" class="form-control" id="settingsCurrentPwd" style="font-size:0.6rem;padding:6px 10px;">
+                                        <input type="password" class="form-control" id="settingsCurrentPwd" style="font-size:0.9rem;padding:8px 12px;">
                                     </div>
                                     <div class="mb-3">
                                         <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">New Password</label>
-                                        <input type="password" class="form-control" id="settingsNewPwd" style="font-size:0.6rem;padding:6px 10px;">
+                                        <input type="password" class="form-control" id="settingsNewPwd" style="font-size:0.9rem;padding:8px 12px;">
                                     </div>
                                     <div class="mb-3">
                                         <label style="font-size:0.6rem;font-weight:600;color:var(--text-primary);display:block;margin-bottom:4px;">Confirm New Password</label>
-                                        <input type="password" class="form-control" id="settingsConfirmPwd" style="font-size:0.6rem;padding:6px 10px;">
+                                        <input type="password" class="form-control" id="settingsConfirmPwd" style="font-size:0.9rem;padding:8px 12px;">
                                     </div>
                                     <button class="btn btn-primary" onclick="changePassword()" style="font-size:0.6rem;padding:6px 16px;">
                                         <i class="bi bi-check-circle"></i> Update Password
@@ -4103,7 +4103,7 @@ table.dataTable thead th.sorting_desc {
                                 <!-- Existing Client Select -->
                                 <div class="form-group row align-items-center g-1" style="margin-bottom:3px;">
                                     <div class="col-8">
-                                        <select class="form-control editable-field" id="existing_client_select" name="existing_client_select" style="font-size:0.6rem;padding:3px 6px;">
+                                        <select class="form-control editable-field" id="existing_client_select" name="existing_client_select" style="font-size:0.9rem;padding:6px 10px;">
                                             <option value="" selected disabled>-- Search or Select Client --</option>
                                         </select>
                                     </div>
@@ -4115,23 +4115,23 @@ table.dataTable thead th.sorting_desc {
                                 <div class="row g-1">
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Full Name</label>
-                                        <input type="text" class="form-control editable-field" id="client_name" name="client_name" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="client_name" name="client_name" required style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">National ID</label>
-                                        <input type="text" class="form-control editable-field" id="client_national_id" name="client_national_id" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="client_national_id" name="client_national_id" required style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">WhatsApp</label>
-                                        <input type="text" class="form-control editable-field" id="client_whatsapp_number" name="client_whatsapp_number" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="client_whatsapp_number" name="client_whatsapp_number" required style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Email</label>
-                                        <input type="email" class="form-control editable-field" id="client_email" name="client_email" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="email" class="form-control editable-field" id="client_email" name="client_email" required style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-12">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Address</label>
-                                        <textarea class="form-control editable-field" id="client_address" rows="1" name="client_address" required style="font-size:0.6rem;padding:3px 6px;"></textarea>
+                                        <textarea class="form-control editable-field" id="client_address" rows="1" name="client_address" required style="font-size:0.9rem;padding:6px 10px;"></textarea>
                                     </div>
                                 </div>
 
@@ -4142,19 +4142,19 @@ table.dataTable thead th.sorting_desc {
                                 <div class="row g-1">
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Full Name</label>
-                                        <input type="text" class="form-control editable-field" id="next_of_kin_name" name="next_of_kin_name" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="next_of_kin_name" name="next_of_kin_name" required style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Relationship</label>
-                                        <input type="text" class="form-control editable-field" id="relationship" name="relationship" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="relationship" name="relationship" required style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Contact</label>
-                                        <input type="text" class="form-control editable-field" id="next_of_kin_contact_number" name="next_of_kin_contact_number" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="next_of_kin_contact_number" name="next_of_kin_contact_number" required style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Address</label>
-                                        <input type="text" class="form-control editable-field" id="next_of_kin_address" name="next_of_kin_address" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="next_of_kin_address" name="next_of_kin_address" required style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                 </div>
 
@@ -4165,23 +4165,23 @@ table.dataTable thead th.sorting_desc {
                                 <div class="row g-1">
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Name</label>
-                                        <input type="text" class="form-control editable-field" id="contractor_name" value="ConnectLink Properties" readonly style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="contractor_name" value="ConnectLink Properties" readonly style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Email</label>
-                                        <input type="email" class="form-control editable-field" id="contractor_email" value="info@connectlinkproperties.co.zw" readonly style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="email" class="form-control editable-field" id="contractor_email" value="info@connectlinkproperties.co.zw" readonly style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Contact</label>
-                                        <input type="text" class="form-control editable-field" id="contractorPhone" value="+263 773 368 558 ; +263 716 788 838" readonly style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="contractorPhone" value="+263 773 368 558 ; +263 716 788 838" readonly style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-6">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Address</label>
-                                        <input type="text" class="form-control editable-field" id="contractorAddress" value="38A Coronation Avenue Greendale Harare" readonly style="font-size:0.6rem;padding:3px 6px;">
+                                        <input type="text" class="form-control editable-field" id="contractorAddress" value="38A Coronation Avenue Greendale Harare" readonly style="font-size:0.9rem;padding:6px 10px;">
                                     </div>
                                     <div class="col-12">
                                         <label style="font-size:0.6rem;font-weight:700;color:var(--text-primary);display:block;">Admin</label>
-                                        <select class="form-control editable-field" id="projectadministrator" name="projectadministrator" required style="font-size:0.6rem;padding:3px 6px;">
+                                        <select class="form-control editable-field" id="projectadministrator" name="projectadministrator" required style="font-size:0.9rem;padding:6px 10px;">
                                             <option value="" disabled selected>Select Admin</option>
                                             {% for option in admin_options %}
                                                 <option value="{{ option }}">{{ option }}</option>
@@ -4493,7 +4493,7 @@ table.dataTable thead th.sorting_desc {
                     <div class="col-md-6">
                         <label for="otherDetails_quotation_select" class="form-label fw-bold">Link Quotation (Work Plan):</label>
                         <select class="form-control editable-field" id="otherDetails_quotation_select" name="quotation_select" style="color: var(--dark-blue-deep); font-size: 0.65rem;">
-                            <option value="" selected disabled style="color: var(--dark-blue-deep);font-size: 0.65rem;">-- Select a Quotation to Link Work Plan --</option>
+                            <option value="" selected disabled style="color: var(--dark-blue-deep);font-size: 0.85rem;">-- Select a Quotation to Link Work Plan --</option>
                         </select>
                         <small style="font-size: 0.65rem;">Select a quotation to update the work plan attached to this project</small>
                         <div id="otherDetails_selected_quotation_preview" style="margin-top: 6px; padding: 4px; background: #f0f5ff; border-left: 3px solid #1E2A56; display: none; color: var(--dark-blue-deep);">
@@ -6097,15 +6097,15 @@ table.dataTable thead th.sorting_desc {
                         <div class="card-body" style="padding:8px;">
                             <div class="mb-1">
                                 <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Header (optional)</label>
-                                <input type="text" class="form-control" id="bulkHeaderText" placeholder="e.g. *Attention Valued Client*" style="font-size:0.55rem;padding:4px 8px;" oninput="updateBulkPreview()">
+                                <input type="text" class="form-control" id="bulkHeaderText" placeholder="e.g. *Attention Valued Client*" style="font-size:0.85rem;padding:8px 12px;" oninput="updateBulkPreview()">
                             </div>
                             <div class="mb-1">
                                 <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Body *</label>
-                                <textarea class="form-control" id="bulkBodyText" rows="3" placeholder="Main message content..." style="font-size:0.55rem;padding:4px 8px;resize:vertical;" oninput="updateBulkPreview()"></textarea>
+                                <textarea class="form-control" id="bulkBodyText" rows="3" placeholder="Main message content..." style="font-size:0.85rem;padding:8px 12px;resize:vertical;" oninput="updateBulkPreview()"></textarea>
                             </div>
                             <div class="mb-1">
                                 <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Footer (optional)</label>
-                                <input type="text" class="form-control" id="bulkFooterText" placeholder="e.g. ConnectLink Properties Team" style="font-size:0.55rem;padding:4px 8px;" oninput="updateBulkPreview()">
+                                <input type="text" class="form-control" id="bulkFooterText" placeholder="e.g. ConnectLink Properties Team" style="font-size:0.85rem;padding:8px 12px;" oninput="updateBulkPreview()">
                             </div>
                             <div class="mb-1">
                                 <label style="font-size:0.55rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:2px;">Attach Image (optional)</label>
@@ -6165,7 +6165,7 @@ table.dataTable thead th.sorting_desc {
         </div>
         <div class="modal-footer-custom" style="padding:6px 12px;gap:6px;">
             <button class="btn btn-danger btn-sm" onclick="closeModal('bulkMessagingModal')" style="font-size:0.6rem;padding:4px 14px;"><i class="bi bi-x"></i> Cancel</button>
-            <button class="btn btn-success btn-sm" onclick="sendBulkMessages()" style="font-size:0.6rem;padding:4px 14px;"><i class="bi bi-send"></i> Send to All Selected</button>
+            <button class="btn btn-success btn-sm" onclick="sendBulkMessages()" style="padding:6px 16px;"><i class="bi bi-send"></i> Send to All Selected</button>
         </div>
     </div>
 </div>
@@ -7743,8 +7743,6 @@ function initializeDataTableForProjects() {
     
     console.log('DataTable reinitialized with', table.rows.length, 'rows');
     
-    // Re-apply sticky headers after DataTable re-init
-    setTimeout(setupStickyTableHeaders, 50);
 }
 
 // Initialize existing clients dropdown with search capability
@@ -7767,7 +7765,7 @@ function initializeExistingClientsDropdown() {
         .then(data => {
             if (data.success && data.data && data.data.length > 0) {
                 // Clear existing options except the placeholder
-                selectElement.innerHTML = '<option value="" style="font-size: 0.65rem;" selected disabled>-- Search or Select Client --</option>';
+                selectElement.innerHTML = '<option value="" style="font-size: 0.85rem;" selected disabled>-- Search or Select Client --</option>';
                 
                 // Add each client as an option
                 data.data.forEach(client => {
@@ -12666,7 +12664,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.warn('DataTable initialization failed for allprojectsTable:', error);
         }
-        setTimeout(setupStickyTableHeaders, 50);
     }
     
     console.log('DataTable initialized with column visibility settings');
@@ -12820,62 +12817,7 @@ $(document).ready(function() {
         console.log('✅ Audit results table initialized');
     }
 
-    // Setup sticky headers for all table containers
-    setupStickyTableHeaders();
 });
-
-/**
- * Make table headers and search inputs sticky inside scrollable containers.
- * Uses a wrapper approach to avoid breaking DataTables internal layout.
- */
-function setupStickyTableHeaders() {
-    document.querySelectorAll('.container2, .table-scroll-container').forEach(container => {
-        // For DataTables: move the filter outside the scrollable wrapper into a sticky bar
-        const wrapper = container.querySelector('.dataTables_wrapper');
-        if (wrapper) {
-            const filter = wrapper.querySelector('.dataTables_filter');
-            if (filter && !container.querySelector('.sticky-filter-bar')) {
-                // Create a fixed filter bar above the scrollable area
-                const filterBar = document.createElement('div');
-                filterBar.className = 'sticky-filter-bar';
-                filterBar.style.cssText = 'position:sticky;top:0;z-index:25;background:white;padding:6px 8px;border-bottom:1px solid var(--gray-200);display:flex;justify-content:flex-end;align-items:center;gap:8px;';
-                // Clone the filter into the bar
-                filterBar.innerHTML = filter.outerHTML;
-                container.insertBefore(filterBar, wrapper);
-                // Hide the original filter inside the wrapper
-                filter.style.display = 'none';
-            }
-            
-            // Make thead sticky - wrap in a container if needed
-            const table = wrapper.querySelector('table');
-            if (table) {
-                const thead = table.querySelector('thead');
-                if (thead) {
-                    // Apply sticky directly to th elements only (not thead itself)
-                    thead.querySelectorAll('th').forEach(th => {
-                        th.style.position = 'sticky';
-                        th.style.top = '0';
-                        th.style.zIndex = '10';
-                        th.style.background = '#1E2A56';
-                        th.style.color = 'white';
-                    });
-                }
-            }
-        } else {
-            // Non-DataTables tables
-            const thead = container.querySelector('thead');
-            if (thead) {
-                thead.querySelectorAll('th').forEach(th => {
-                    th.style.position = 'sticky';
-                    th.style.top = '0';
-                    th.style.zIndex = '10';
-                    th.style.background = '#1E2A56';
-                    th.style.color = 'white';
-                });
-            }
-        }
-    });
-}
     
     // Auto-filter to latest month on page load
     const monthFilterElement = document.getElementById('monthFilter');
