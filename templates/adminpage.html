@@ -7745,8 +7745,10 @@ function initializeDataTableForProjects() {
     
     console.log('DataTable reinitialized with', table.rows.length, 'rows');
     
-    // Re-apply sticky headers after DataTable re-init
-    setTimeout(setupStickyTableHeaders, 50);
+    // Re-apply sticky headers after DataTable re-init (defensive check)
+    if (typeof setupStickyTableHeaders === 'function') {
+        setTimeout(setupStickyTableHeaders, 50);
+    }
 }
 
 // Initialize existing clients dropdown with search capability
@@ -12668,7 +12670,10 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.warn('DataTable initialization failed for allprojectsTable:', error);
         }
-        setTimeout(setupStickyTableHeaders, 50);
+        // Re-apply sticky headers after DataTable re-init (defensive check)
+        if (typeof setupStickyTableHeaders === 'function') {
+            setTimeout(setupStickyTableHeaders, 50);
+        }
     }
     
     console.log('DataTable initialized with column visibility settings');
@@ -12822,8 +12827,10 @@ $(document).ready(function() {
         console.log('✅ Audit results table initialized');
     }
 
-    // Setup sticky headers for all table containers
-    setupStickyTableHeaders();
+    // Setup sticky headers for all table containers (defensive check)
+    if (typeof setupStickyTableHeaders === 'function') {
+        setupStickyTableHeaders();
+    }
 });
 
 /**
