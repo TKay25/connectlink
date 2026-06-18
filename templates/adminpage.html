@@ -8249,6 +8249,14 @@ function attachGanttCalculationListeners() {
         }
         // Cascade forward from next row
         cascadeFromRow(parseInt(index) + 1);
+        
+        // Sync project start date when first row's start date changes
+        if (parseInt(index) === 0 && startInput.value) {
+            const projStartField = document.getElementById('updateProjectStartDate');
+            if (projStartField) {
+                projStartField.value = startInput.value;
+            }
+        }
     }
     
     startDateInputs.forEach(input => {
@@ -8324,10 +8332,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 showToast('Work schedule updated! Changes saved to quotation and project.', 'success', 'Schedule Saved');
                 closeModal('ganttChartModal');
                 
-                // Also update the project start date and quotation preview if they exist
+                // Always sync project start date with first schedule's start date
                 if (updatedSchedules.length > 0 && updatedSchedules[0].startDate) {
                     const startDateField = document.getElementById('updateProjectStartDate');
-                    if (startDateField && !startDateField.value) {
+                    if (startDateField) {
                         startDateField.value = updatedSchedules[0].startDate;
                     }
                 }

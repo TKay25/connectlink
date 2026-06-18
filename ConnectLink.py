@@ -22057,11 +22057,23 @@ def update_project_schedule(project_id):
             # 2️⃣ Also save as project-specific adjusted_schedules_json so GET always returns latest
             import json as json_module
             adjusted_schedules_json = json_module.dumps(schedules)
-            cursor.execute("""
-                UPDATE connectlinkdatabase
-                SET adjusted_schedules_json = %s
-                WHERE id = %s
-            """, (adjusted_schedules_json, project_id))
+            
+            # 3️⃣ Sync project start date with first schedule's start date
+            first_start_date = schedules[0].get('startDate') if schedules else None
+            
+            if first_start_date:
+                cursor.execute("""
+                    UPDATE connectlinkdatabase
+                    SET adjusted_schedules_json = %s,
+                        projectstartdate = %s::date
+                    WHERE id = %s
+                """, (adjusted_schedules_json, first_start_date, project_id))
+            else:
+                cursor.execute("""
+                    UPDATE connectlinkdatabase
+                    SET adjusted_schedules_json = %s
+                    WHERE id = %s
+                """, (adjusted_schedules_json, project_id))
             
             connection.commit()
             
