@@ -17901,6 +17901,11 @@ def landing_page():
     """Landing page with product cards"""
     return render_template('mainindex.html')  # Or send_from_directory for static HTML
 
+@app.route('/privacy-policy')
+def privacy_policy():
+    """Privacy Policy page (required for WhatsApp Business API compliance)"""
+    return render_template('privacy_policy.html')
+
 @app.route('/pos-system.html')
 def pos_system():
     """POS System page"""
