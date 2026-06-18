@@ -11439,18 +11439,22 @@ def whatsapp_chats():
             rows = cursor.fetchall()
             
             # Also get any additional contacts from chatbot_interactions not in whatsapp_messages
-            cursor.execute("""
-                SELECT DISTINCT sender_phone, MAX(sender_name) as contact_name
-                FROM chatbot_interactions
-                WHERE sender_phone IS NOT NULL
-                  AND sender_phone NOT IN (
-                      SELECT DISTINCT sender_phone FROM whatsapp_messages WHERE sender_phone IS NOT NULL
-                  )
-                GROUP BY sender_phone
-                ORDER BY MAX(created_at) DESC
-                LIMIT 200
-            """)
-            extra_rows = cursor.fetchall()
+            extra_rows = []
+            try:
+                cursor.execute("""
+                    SELECT DISTINCT sender_phone, MAX(sender_name) as contact_name
+                    FROM chatbot_interactions
+                    WHERE sender_phone IS NOT NULL
+                      AND sender_phone NOT IN (
+                          SELECT DISTINCT sender_phone FROM whatsapp_messages WHERE sender_phone IS NOT NULL
+                      )
+                    GROUP BY sender_phone
+                    ORDER BY MAX(created_at) DESC
+                    LIMIT 200
+                """)
+                extra_rows = cursor.fetchall()
+            except Exception:
+                pass  # chatbot_interactions table may not exist yet
             
             chats = []
             seen_phones = set()
