@@ -17793,6 +17793,13 @@ def update_project():
         depositdatepaid = request.form.get('deposit_date_paid')
 
         quotation_id_str = request.form.get('project_quotation_id')
+
+        def safe_int(v):
+            try:
+                return int(v) if v not in (None, "") else None
+            except Exception:
+                return None
+
         quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
     
         if int(monthstopay) == 0:
@@ -17846,13 +17853,6 @@ def update_project():
 
             paymentmethod = "Installments"
             
-            # Capture quotation_id from form
-            def safe_int(v):
-                try:
-                    return int(v) if v not in (None, "") else None
-                except Exception:
-                    return None
-
             installment1amountupdate = request.form.get('Installment1Amount')
             installment2amountupdate = request.form.get('Installment2Amount')
             installment3amountupdate = request.form.get('Installment3Amount')
