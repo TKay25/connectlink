@@ -3234,6 +3234,11 @@ table.dataTable thead th.sorting_desc {
                                 </button>
                             </li>
                             <li class="nav-item">
+                                <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#analytics-tab">
+                                    <i class="bi bi-bar-chart-fill"></i> CUSTOMER ANALYTICS
+                                </button>
+                            </li>
+                            <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#contractor-details-tab">
                                     <i class="bi bi-building"></i> CONTRACTOR DETAILS
                                 </button>
@@ -3519,6 +3524,72 @@ table.dataTable thead th.sorting_desc {
                             <div class="dashboard-graphs">
                                 <div class="graph-card" style="padding:6px; flex:1; min-width:140px;"><h6 style="font-size:0.55rem;font-weight:700;margin-bottom:4px;color:var(--dark-blue-deep);text-align:center;">Completed vs Ongoing</h6><canvas id="leaveByTypeChart" width="160" height="60"></canvas></div>
                                 <div class="graph-card" style="padding:6px; flex:1; min-width:140px;"><h6 style="font-size:0.55rem;font-weight:700;margin-bottom:4px;color:var(--dark-blue-deep);text-align:center;">By Location</h6><canvas id="projectsByLocationChart" width="160" height="60"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- CUSTOMER ANALYTICS TAB -->
+                        <div class="tab-pane fade" id="analytics-tab">
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;justify-content:space-between;">
+                                <div>
+                                    <button class="btn btn-primary" style="font-size:0.55rem;padding:2px 8px;" onclick="loadCustomerAnalytics()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                </div>
+                                <span id="analyticsLastUpdated" style="font-size:0.5rem;color:var(--text-muted);"></span>
+                            </div>
+                            <!-- Top Stat Cards -->
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:4px;margin-bottom:6px;">
+                                <div class="stat-card" style="padding:5px 8px;">
+                                    <div class="stat-icon blue" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-chat-dots"></i></div>
+                                    <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Total Chats</div><div class="stat-value" id="analyticsTotalChats" style="font-size:0.7rem;">—</div></div>
+                                </div>
+                                <div class="stat-card" style="padding:5px 8px;">
+                                    <div class="stat-icon green" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-arrow-repeat"></i></div>
+                                    <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">→ Projects</div><div class="stat-value" id="analyticsConverted" style="font-size:0.7rem;">—</div></div>
+                                </div>
+                                <div class="stat-card" style="padding:5px 8px;">
+                                    <div class="stat-icon purple" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-percent"></i></div>
+                                    <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Conversion Rate</div><div class="stat-value" id="analyticsConversionRate" style="font-size:0.7rem;">—</div></div>
+                                </div>
+                                <div class="stat-card" style="padding:5px 8px;">
+                                    <div class="stat-icon orange" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-hand-index-thumb"></i></div>
+                                    <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;">Total Interactions</div><div class="stat-value" id="analyticsTotalInteractions" style="font-size:0.7rem;">—</div></div>
+                                </div>
+                            </div>
+                            <!-- Two-column layout -->
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                                        <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:4px 10px;font-size:0.55rem;font-weight:700;"><i class="bi bi-hand-index-thumb"></i> Button / Menu Clicks</div>
+                                        <div class="card-body" style="padding:6px 8px;max-height:260px;overflow-y:auto;">
+                                            <div id="analyticsButtonClicks" style="font-size:0.5rem;color:var(--text-muted);">Loading...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                                        <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:4px 10px;font-size:0.55rem;font-weight:700;"><i class="bi bi-chat-square-text"></i> Keyword Usage</div>
+                                        <div class="card-body" style="padding:6px 8px;max-height:260px;overflow-y:auto;">
+                                            <div id="analyticsKeywordUsage" style="font-size:0.5rem;color:var(--text-muted);">Loading...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-2 mt-2">
+                                <div class="col-md-6">
+                                    <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                                        <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:4px 10px;font-size:0.55rem;font-weight:700;"><i class="bi bi-tags"></i> Category Interest</div>
+                                        <div class="card-body" style="padding:6px 8px;max-height:200px;overflow-y:auto;">
+                                            <div id="analyticsCategoryClicks" style="font-size:0.5rem;color:var(--text-muted);">Loading...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                                        <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:4px 10px;font-size:0.55rem;font-weight:700;"><i class="bi bi-calendar-range"></i> 30-Day Activity</div>
+                                        <div class="card-body" style="padding:6px 8px;max-height:200px;overflow-y:auto;">
+                                            <div id="analyticsTimeline" style="font-size:0.5rem;color:var(--text-muted);">Loading...</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -8250,8 +8321,16 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 // Update stored schedules so future cascading uses saved values
                 window.ganttSchedules = updatedSchedules;
-                alert('Work schedule updated successfully!');
+                showToast('Work schedule updated! Changes saved to quotation and project.', 'success', 'Schedule Saved');
                 closeModal('ganttChartModal');
+                
+                // Also update the project start date and quotation preview if they exist
+                if (updatedSchedules.length > 0 && updatedSchedules[0].startDate) {
+                    const startDateField = document.getElementById('updateProjectStartDate');
+                    if (startDateField && !startDateField.value) {
+                        startDateField.value = updatedSchedules[0].startDate;
+                    }
+                }
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -19973,6 +20052,144 @@ function sendBulkMessages() {
         btn.innerHTML = '<i class="bi bi-send"></i> Send to All Selected';
     });
 }
+
+// ============ CUSTOMER ANALYTICS ============
+function loadCustomerAnalytics() {
+    document.getElementById('analyticsLastUpdated').textContent = 'Loading...';
+    
+    fetch('/api/customer-analytics')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data) {
+                document.getElementById('analyticsButtonClicks').textContent = 'Failed to load';
+                return;
+            }
+            const d = res.data;
+            const now = new Date();
+            document.getElementById('analyticsLastUpdated').textContent = 'Updated: ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+            
+            // Stat cards
+            document.getElementById('analyticsTotalChats').textContent = d.total_chats || 0;
+            document.getElementById('analyticsConverted').textContent = d.chats_converted_to_projects || 0;
+            document.getElementById('analyticsConversionRate').textContent = (d.conversion_rate || 0) + '%';
+            document.getElementById('analyticsTotalInteractions').textContent = d.total_interactions || 0;
+            
+            // Button clicks
+            const btnContainer = document.getElementById('analyticsButtonClicks');
+            if (d.button_clicks && d.button_clicks.length > 0) {
+                const maxCount = Math.max(...d.button_clicks.map(b => b.count));
+                let html = '';
+                d.button_clicks.forEach(b => {
+                    const pct = maxCount > 0 ? Math.round((b.count / maxCount) * 100) : 0;
+                    const icon = b.key.includes('kitchen') ? '🍳' : b.key.includes('building') ? '🏗️' : b.key.includes('renovation') ? '🔨' : b.key.includes('portfolio') ? '📁' : b.key.includes('notes') ? '📝' : b.key.includes('enquiry') ? '📩' : b.key.includes('main_menu') ? '🏠' : b.key.includes('payment') ? '💰' : b.key.includes('project') ? '📊' : '🔘';
+                    html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+                        <span style="width:16px;text-align:center;">${icon}</span>
+                        <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(b.key)}</span>
+                        <span style="font-weight:700;color:var(--primary);min-width:24px;text-align:right;">${b.count}</span>
+                        <div style="width:60px;height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:3px;"></div>
+                        </div>
+                    </div>`;
+                });
+                btnContainer.innerHTML = html;
+            } else {
+                btnContainer.innerHTML = '<div style="color:var(--text-muted);">No button clicks recorded yet</div>';
+            }
+            
+            // Keyword usage
+            const kwContainer = document.getElementById('analyticsKeywordUsage');
+            if (d.keyword_usage && d.keyword_usage.length > 0) {
+                const maxKw = Math.max(...d.keyword_usage.map(k => k.count));
+                let html = '';
+                d.keyword_usage.forEach(k => {
+                    const pct = maxKw > 0 ? Math.round((k.count / maxKw) * 100) : 0;
+                    html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+                        <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔑 ${escapeHtml(k.keyword)}</span>
+                        <span style="font-weight:700;color:#ef6c00;min-width:24px;text-align:right;">${k.count}</span>
+                        <div style="width:50px;height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:#ef6c00;border-radius:3px;"></div>
+                        </div>
+                    </div>`;
+                });
+                kwContainer.innerHTML = html;
+            } else {
+                kwContainer.innerHTML = '<div style="color:var(--text-muted);">No keyword usage yet</div>';
+            }
+            
+            // Category interest
+            const catContainer = document.getElementById('analyticsCategoryClicks');
+            if (d.category_clicks && d.category_clicks.length > 0) {
+                const maxCat = Math.max(...d.category_clicks.map(c => c.count));
+                let html = '';
+                const catIcons = {'kitchen': '🍳', 'building': '🏗️', 'renovation': '🔨', 'uncategorized': '📋'};
+                d.category_clicks.forEach(c => {
+                    const pct = maxCat > 0 ? Math.round((c.count / maxCat) * 100) : 0;
+                    const icon = Object.keys(catIcons).find(k => c.category.toLowerCase().includes(k)) ? catIcons[Object.keys(catIcons).find(k => c.category.toLowerCase().includes(k))] : '📌';
+                    html += `<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+                        <span>${icon}</span>
+                        <span style="flex:1;">${escapeHtml(c.category)}</span>
+                        <span style="font-weight:700;color:var(--primary);">${c.count}</span>
+                        <div style="width:50px;height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:3px;"></div>
+                        </div>
+                    </div>`;
+                });
+                catContainer.innerHTML = html;
+            } else {
+                catContainer.innerHTML = '<div style="color:var(--text-muted);">No category data yet</div>';
+            }
+            
+            // Timeline (30-day activity)
+            const tlContainer = document.getElementById('analyticsTimeline');
+            if (d.timeline && d.timeline.length > 0) {
+                const maxDay = Math.max(...d.timeline.map(t => {
+                    const vals = Object.values(t).filter(v => typeof v === 'number');
+                    return vals.length > 0 ? Math.max(...vals) : 0;
+                }));
+                let html = '<div style="font-size:0.45rem;">';
+                d.timeline.slice(-14).forEach(t => { // Show last 14 days
+                    const date = t.date || 'unknown';
+                    const clicks = t.button_click || 0;
+                    const selects = t.list_select || 0;
+                    const keywords = t.keyword || 0;
+                    const total = clicks + selects + keywords;
+                    const pct = maxDay > 0 ? Math.round((total / maxDay) * 100) : 0;
+                    html += `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px;">
+                        <span style="width:60px;flex-shrink:0;color:var(--text-muted);">${date.slice(-5)}</span>
+                        <div style="flex:1;height:8px;background:var(--gray-200);border-radius:4px;overflow:hidden;display:flex;">
+                            ${clicks > 0 ? `<div style="height:100%;width:${Math.round((clicks/total)*100)}%;background:var(--primary);" title="Clicks: ${clicks}"></div>` : ''}
+                            ${selects > 0 ? `<div style="height:100%;width:${Math.round((selects/total)*100)}%;background:#10B981;" title="Selects: ${selects}"></div>` : ''}
+                            ${keywords > 0 ? `<div style="height:100%;width:${Math.round((keywords/total)*100)}%;background:#ef6c00;" title="Keywords: ${keywords}"></div>` : ''}
+                        </div>
+                        <span style="width:20px;text-align:right;font-weight:600;">${total}</span>
+                    </div>`;
+                });
+                html += '<div style="margin-top:4px;display:flex;gap:10px;font-size:0.45rem;">'
+                    + '<span><span style="color:var(--primary);">■</span> Clicks</span>'
+                    + '<span><span style="color:#10B981;">■</span> Selects</span>'
+                    + '<span><span style="color:#ef6c00;">■</span> Keywords</span>'
+                    + '</div>';
+                html += '</div>';
+                tlContainer.innerHTML = html;
+            } else {
+                tlContainer.innerHTML = '<div style="color:var(--text-muted);">No activity in last 30 days</div>';
+            }
+        })
+        .catch(err => {
+            console.error('Analytics error:', err);
+            document.getElementById('analyticsButtonClicks').textContent = 'Error loading data';
+        });
+}
+
+// Auto-load analytics when tab is shown
+document.addEventListener('DOMContentLoaded', function() {
+    const analyticsTab = document.querySelector('[data-bs-target="#analytics-tab"]');
+    if (analyticsTab) {
+        analyticsTab.addEventListener('shown.bs.tab', function() {
+            loadCustomerAnalytics();
+        });
+    }
+});
 
 // Make checkbox listener available
 document.addEventListener('change', function(e) {

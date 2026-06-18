@@ -302,6 +302,30 @@ def initialize_database_tables():
                 ON whatsapp_messages(sender_phone, created_at DESC);
             """)
             
+            # Create chatbot_interactions table for tracking menu/button clicks and keywords
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS chatbot_interactions (
+                    id SERIAL PRIMARY KEY,
+                    sender_phone VARCHAR(20),
+                    sender_name VARCHAR(200),
+                    interaction_type VARCHAR(50) NOT NULL,
+                    interaction_key VARCHAR(200),
+                    interaction_label VARCHAR(500),
+                    category VARCHAR(100),
+                    matched_project_id INT,
+                    metadata JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chatbot_interactions_sender
+                ON chatbot_interactions(sender_phone, created_at DESC);
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chatbot_interactions_type
+                ON chatbot_interactions(interaction_type, created_at DESC);
+            """)
+            
             current_date = datetime.now().strftime('%Y-%m-%d')
             # Create connectlinkadmin table
             cursor.execute("""
@@ -1748,6 +1772,36 @@ def webhook():
 
                                                             print("📋 User submitted flow response:", form_response)
 
+
+                                                        # Log button/list interaction for analytics
+                                                        if button_id:
+                                                            log_chatbot_interaction(sender_id, admin_name, 'button_click', button_id, button_id)
+                                                        if selected_option:
+                                                            log_chatbot_interaction(sender_id, admin_name, 'list_select', selected_option, selected_option)
+
+                                                        # Keyword matching for text messages
+                                                        if not button_id and not selected_option and message_type == "text":
+                                                            kw_match = resolve_chatbot_keyword(msg_text)
+                                                            if kw_match:
+                                                                keyword, handler_id = kw_match
+                                                                print(f"🔑 Keyword match: '{keyword}' → handler: {handler_id}")
+                                                                log_chatbot_interaction(sender_id, admin_name, 'keyword', keyword, handler_id)
+                                                                # Map keyword handler to the corresponding action
+                                                                if handler_id == 'main_menu':
+                                                                    button_id = 'main_menu'
+                                                                elif handler_id in ('projects', 'getportfolio', 'getnotes', 'portfolio'):
+                                                                    button_id = handler_id if handler_id in ('portfolio', 'projects', 'main_menu') else 'portfolio'
+                                                                    if handler_id == 'getportfolio':
+                                                                        selected_option = 'getportfolio'
+                                                                    elif handler_id == 'getnotes':
+                                                                        selected_option = 'getnotes'
+                                                                elif handler_id == 'enquirylog':
+                                                                    button_id = 'enquirylog'
+                                                                elif handler_id in ('kitchen_cabinels', 'building', 'renovation', 'other'):
+                                                                    selected_option = handler_id
+                                                                    button_id = ''
+                                                                elif handler_id == 'paymenthist':
+                                                                    button_id = 'paymenthist'
 
                                                         if button_id == "portfolio":
 
@@ -5152,6 +5206,28 @@ def webhook():
                                                                 button_id = interactive.get("button_reply", {}).get("id")
                                                                 print(f"🔘 Button clicked: {button_id}")
                                                                 selected_option = ""
+
+                                                            # Log button/list interaction for analytics
+                                                            if button_id:
+                                                                log_chatbot_interaction(sender_id, profile_name or 'Client', 'button_click', button_id, button_id)
+                                                            if selected_option:
+                                                                log_chatbot_interaction(sender_id, profile_name or 'Client', 'list_select', selected_option, selected_option)
+
+                                                            # Keyword matching for text messages from clients
+                                                            if not button_id and not selected_option and message_type == "text":
+                                                                kw_match = resolve_chatbot_keyword(msg_text)
+                                                                if kw_match:
+                                                                    keyword, handler_id = kw_match
+                                                                    print(f"🔑 Client keyword match: '{keyword}' → handler: {handler_id}")
+                                                                    log_chatbot_interaction(sender_id, profile_name or 'Client', 'keyword', keyword, handler_id)
+                                                                    if handler_id in ('contracts', 'my contracts'):
+                                                                        button_id = 'contracts'
+                                                                    elif handler_id in ('paymenthist', 'payments_schedule', 'payments', 'payment history'):
+                                                                        button_id = 'paymenthist'
+                                                                    elif handler_id == 'enquiries':
+                                                                        button_id = 'enquiries'
+                                                                    elif handler_id == 'main_menu':
+                                                                        button_id = 'main_menu'
 
                                                             elif interactive.get("type") == "nfm_reply":
 
@@ -11143,6 +11219,109 @@ def whatsapp_chat_stats():
             }})
     except Exception as e:
         print(f"WhatsApp chat stats error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/customer-analytics', methods=['GET'])
+def customer_analytics():
+    """Get customer analytics: chatbot interactions, chats-to-projects conversion, keyword usage"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            # 1️⃣ Button clicks by type (quotation categories, menu items)
+            cursor.execute("""
+                SELECT 
+                    COALESCE(NULLIF(interaction_key, ''), 'unknown') as key_name,
+                    COUNT(*) as count
+                FROM chatbot_interactions
+                WHERE interaction_type IN ('button_click', 'list_select')
+                GROUP BY interaction_key
+                ORDER BY count DESC
+                LIMIT 30
+            """)
+            button_clicks = [{'key': r[0], 'count': r[1]} for r in cursor.fetchall()]
+            
+            # 2️⃣ Keyword usage
+            cursor.execute("""
+                SELECT 
+                    COALESCE(NULLIF(interaction_key, ''), 'unknown') as keyword,
+                    COUNT(*) as count
+                FROM chatbot_interactions
+                WHERE interaction_type = 'keyword'
+                GROUP BY interaction_key
+                ORDER BY count DESC
+                LIMIT 20
+            """)
+            keyword_usage = [{'keyword': r[0], 'count': r[1]} for r in cursor.fetchall()]
+            
+            # 3️⃣ Interactions by category (quotation categories)
+            cursor.execute("""
+                SELECT 
+                    COALESCE(NULLIF(category, ''), 'uncategorized') as cat,
+                    COUNT(*) as count
+                FROM chatbot_interactions
+                GROUP BY category
+                ORDER BY count DESC
+            """)
+            category_clicks = [{'category': r[0], 'count': r[1]} for r in cursor.fetchall()]
+            
+            # 4️⃣ Chats that became projects: WhatsApp senders matched to clientwanumber in projects
+            cursor.execute("""
+                SELECT COUNT(DISTINCT wm.sender_phone) as converted_count
+                FROM whatsapp_messages wm
+                INNER JOIN connectlinkdatabase cd 
+                    ON RIGHT(wm.sender_phone, 9) LIKE '%' || REPLACE(REPLACE(cd.clientwanumber::TEXT, '+', ''), ' ', '') || '%'
+                WHERE wm.direction = 'incoming'
+            """)
+            chats_converted = cursor.fetchone()[0] or 0
+            
+            # 5️⃣ Total unique WhatsApp conversations
+            cursor.execute("""
+                SELECT COUNT(DISTINCT sender_phone) FROM whatsapp_messages WHERE direction = 'incoming'
+            """)
+            total_chats = cursor.fetchone()[0] or 0
+            
+            # 6️⃣ Interactions over time (last 30 days)
+            cursor.execute("""
+                SELECT DATE(created_at) as day, interaction_type, COUNT(*) as count
+                FROM chatbot_interactions
+                WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+                GROUP BY DATE(created_at), interaction_type
+                ORDER BY day ASC
+            """)
+            timeline_raw = {}
+            for r in cursor.fetchall():
+                day = r[0].strftime('%Y-%m-%d') if r[0] else 'unknown'
+                itype = r[1] or 'unknown'
+                count = r[2]
+                if day not in timeline_raw:
+                    timeline_raw[day] = {}
+                timeline_raw[day][itype] = count
+            timeline = [{'date': d, **stats} for d, stats in timeline_raw.items()]
+            
+            # 7️⃣ Total interactions count
+            cursor.execute("SELECT COUNT(*) FROM chatbot_interactions")
+            total_interactions = cursor.fetchone()[0] or 0
+            
+            # 8️⃣ Conversion rate
+            conversion_rate = round((chats_converted / total_chats * 100), 1) if total_chats > 0 else 0
+            
+            return jsonify({'success': True, 'data': {
+                'button_clicks': button_clicks,
+                'keyword_usage': keyword_usage,
+                'category_clicks': category_clicks,
+                'chats_converted_to_projects': chats_converted,
+                'total_chats': total_chats,
+                'conversion_rate': conversion_rate,
+                'total_interactions': total_interactions,
+                'timeline': timeline
+            }})
+    except Exception as e:
+        print(f"Customer analytics error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-debug', methods=['GET'])
@@ -19996,6 +20175,111 @@ def is_template_window_error(error_text):
     )
 
 
+def log_chatbot_interaction(sender_phone, sender_name, interaction_type, interaction_key, interaction_label, category=None, matched_project_id=None, metadata=None):
+    """Log a chatbot interaction (button click, menu selection, keyword match) for analytics."""
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("""
+                INSERT INTO chatbot_interactions 
+                (sender_phone, sender_name, interaction_type, interaction_key, interaction_label, category, matched_project_id, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                str(sender_phone)[:20] if sender_phone else None,
+                str(sender_name)[:200] if sender_name else None,
+                str(interaction_type)[:50],
+                str(interaction_key)[:200] if interaction_key else None,
+                str(interaction_label)[:500] if interaction_label else None,
+                str(category)[:100] if category else None,
+                int(matched_project_id) if matched_project_id else None,
+                json.dumps(metadata) if metadata else None
+            ))
+            conn.commit()
+    except Exception as e:
+        print(f"⚠️ Failed to log chatbot interaction: {e}")
+
+
+# Keyword map for chatbot menu navigation
+# Maps user-typed keywords to the same handler IDs used by button/list clicks
+CHATBOT_KEYWORDS = {
+    # Main menu
+    'main menu': 'main_menu',
+    'menu': 'main_menu',
+    'home': 'main_menu',
+    'back': 'main_menu',
+    'start': 'main_menu',
+    
+    # Projects
+    'projects': 'projects',
+    'project': 'projects',
+    'my projects': 'projects',
+    
+    # Portfolio
+    'portfolio': 'portfolio',
+    'my portfolio': 'portfolio',
+    'portfolio download': 'portfolio',
+    'master file': 'getportfolio',
+    'my file': 'getportfolio',
+    'get master file': 'getportfolio',
+    'download portfolio': 'getportfolio',
+    
+    # Notes
+    'notes': 'getnotes',
+    'my notes': 'getnotes',
+    'get notes': 'getnotes',
+    
+    # Enquiries
+    'enquiries': 'enquiries',
+    'enquiry': 'enquiries',
+    'my enquiries': 'enquiries',
+    'enquiry log': 'enquirylog',
+    
+    # Quotation categories
+    'kitchen': 'kitchen_cabinels',
+    'kitchen & cabinets': 'kitchen_cabinels',
+    'cabinets': 'kitchen_cabinels',
+    'building': 'building',
+    'construction': 'building',
+    'single storey': 'building',
+    'double storey': 'building',
+    'renovation': 'renovation',
+    'renovate': 'renovation',
+    'other': 'other',
+    
+    # Payments
+    'payment': 'paymenthist',
+    'payments': 'paymenthist',
+    'payment history': 'paymenthist',
+    'my payments': 'paymenthist',
+    'payments schedule': 'payments_schedule',
+    'payment schedule': 'payments_schedule',
+    
+    # Contracts
+    'contract': 'contracts',
+    'contracts': 'contracts',
+    'my contracts': 'contracts',
+    
+    # Contact / About
+    'contact': 'contact_us',
+    'contact us': 'contact_us',
+    'about': 'about_us',
+    'about us': 'about_us',
+}
+
+def resolve_chatbot_keyword(text):
+    """Check if user typed text matches any chatbot keyword. Returns (matched_key, handler_id) or None."""
+    if not text:
+        return None
+    text_lower = text.strip().lower()
+    # Check exact matches first
+    if text_lower in CHATBOT_KEYWORDS:
+        return (text_lower, CHATBOT_KEYWORDS[text_lower])
+    # Check partial matches (if user types something containing a keyword)
+    for keyword, handler_id in CHATBOT_KEYWORDS.items():
+        if keyword in text_lower:
+            return (keyword, handler_id)
+    return None
+
+
 def create_quotation_share_token(quotation_id):
     """Create a short-lived token for quotation sharing via WhatsApp quick-reply template button.
     Token format: quotation_{id}_{random_hex} so webhook can extract quotation_id directly."""
@@ -21736,7 +22020,7 @@ def get_quotation_schedule(quotation_id):
 
 @app.route('/api/update-project-schedule/<int:project_id>', methods=['POST'])
 def update_project_schedule(project_id):
-    """Update work schedule dates for a project"""
+    """Update work schedule dates for a project - saves to both quotation_schedules and project's adjusted_schedules_json"""
     try:
         data = request.json
         schedules = data.get('schedules', [])
@@ -21756,7 +22040,7 @@ def update_project_schedule(project_id):
             
             quotation_id = result[0]
             
-            # Update each schedule's start and end dates and days
+            # 1️⃣ Update quotation_schedules (affects all projects using this quotation)
             for idx, schedule in enumerate(schedules):
                 cursor.execute("""
                     UPDATE quotation_schedules
@@ -21770,11 +22054,20 @@ def update_project_schedule(project_id):
                     idx + 1
                 ))
             
+            # 2️⃣ Also save as project-specific adjusted_schedules_json so GET always returns latest
+            import json as json_module
+            adjusted_schedules_json = json_module.dumps(schedules)
+            cursor.execute("""
+                UPDATE connectlinkdatabase
+                SET adjusted_schedules_json = %s
+                WHERE id = %s
+            """, (adjusted_schedules_json, project_id))
+            
             connection.commit()
             
             return jsonify({
                 'success': True,
-                'message': f'Successfully updated {len(schedules)} schedule items'
+                'message': f'Work schedule updated for project and quotation #{quotation_id} ({len(schedules)} items)'
             })
     except Exception as e:
         logging.error(f'Error updating project schedule: {str(e)}')
