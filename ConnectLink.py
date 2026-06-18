@@ -14,6 +14,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import seaborn as sns
 import psycopg2
+import psycopg2.extras
 from psycopg2 import sql
 from db_helper import get_db, execute_query
 import openpyxl
@@ -9310,7 +9311,7 @@ def log_activity(action_type, description, reference_type=None, reference_id=Non
                 user_name,
                 reference_type,
                 reference_id,
-                json.dumps(details) if details else None
+                psycopg2.extras.Json(details) if details else None
             ))
             connection.commit()
     except Exception as e:

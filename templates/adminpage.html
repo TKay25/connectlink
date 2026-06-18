@@ -12348,14 +12348,26 @@ document.addEventListener('click', function(e) {
     if (e.target.classList.contains('expand-message')) {
         const enquiryId = e.target.getAttribute('data-id');
         document.querySelector(`#message-full-${enquiryId}`).style.display = 'block';
-        e.target.parentElement.style.display = 'none';
+        // Hide the preview span and the "view more" link, NOT the whole parent container
+        const container = e.target.closest('.message-container');
+        if (container) {
+            const preview = container.querySelector('.message-preview');
+            if (preview) preview.style.display = 'none';
+        }
+        e.target.style.display = 'none';
     }
     
     // Collapse message
     if (e.target.classList.contains('collapse-message')) {
         const enquiryId = e.target.getAttribute('data-id');
         document.querySelector(`#message-full-${enquiryId}`).style.display = 'none';
-        document.querySelector(`#enquiry-row-${enquiryId} .message-preview`).style.display = 'block';
+        const container = e.target.closest('.message-container');
+        if (container) {
+            const preview = container.querySelector('.message-preview');
+            if (preview) preview.style.display = 'inline';
+        }
+        const expandLink = document.querySelector(`#enquiry-row-${enquiryId} .expand-message`);
+        if (expandLink) expandLink.style.display = 'inline';
     }
     
     // Status update
