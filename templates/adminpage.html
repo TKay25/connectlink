@@ -11450,7 +11450,7 @@ async function generateKitchenPDF(outputMode = 'download') {
     
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
-    const monthlyInstallment = balanceAmount / 6;
+    const monthlyInstallment = balanceAmount / 3;  // Kitchen: 3 months
     
     const htmlContent = `
         <div style="font-family: 'Roboto', Arial, sans-serif; background:#ffffff; color:#1E2A56; padding:0;">
@@ -11474,7 +11474,7 @@ async function generateKitchenPDF(outputMode = 'download') {
                         <div><div style="font-size:10px; color:#5a678a;">Total Amount</div><div style="font-size:13px; font-weight:900;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Deposit (30%)</div><div style="font-size:13px; font-weight:700;">USD ${depositAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Balance</div><div style="font-size:13px; font-weight:700;">USD ${balanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
-                        <div><div style="font-size:10px; color:#5a678a;">Monthly (6 months)</div><div style="font-size:13px; font-weight:700;">USD ${monthlyInstallment.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                        <div><div style="font-size:10px; color:#5a678a;">Monthly (3 months)</div><div style="font-size:13px; font-weight:700;">USD ${monthlyInstallment.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Duration</div><div style="font-size:13px; font-weight:700; color:#2196F3;">${totalDays} Days</div></div>
                     </div>
                 </div>

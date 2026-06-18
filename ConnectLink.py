@@ -20784,7 +20784,7 @@ def build_quotation_pdf_document(quotation_id):
             client_name = quotation[1] or 'Client'
             quotation_date = quotation[2].strftime('%d %B %Y') if quotation[2] else ''
             category = quotation[3] or ''
-            is_kitchen = (category == 'kitchen')
+            is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
             total_cost = float(quotation[5]) if quotation[5] else 0
 
             # Get schedules
@@ -21704,7 +21704,7 @@ def save_quotation():
         items = data.get('items', [])
         schedules = data.get('schedules', [])
         
-        is_kitchen = (category == 'kitchen')
+        is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
         
         # DEBUG: Print what we received
         print(f"\n=== SAVING QUOTATION ===")
@@ -21946,7 +21946,7 @@ def get_quotations():
             for quotation in quotations:
                 quotation_id = quotation[0]
                 category = quotation[4] or ''
-                is_kitchen = (category == 'kitchen')
+                is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
                 
                 if is_kitchen:
                     items = kitchen_items.get(quotation_id, [])
