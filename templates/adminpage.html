@@ -14300,12 +14300,26 @@ $(document).on('click', '.update-project-btn', function () {
 </script>
 
 <script>
+let _dcTableButton = null;
+let _dcTableOrigText = '';
+
+// Restore table button spinner if modal closed without action
+document.addEventListener('click', function(e) {
+    if (e.target.closest('#downloadContractModal') && !e.target.closest('.modal-container')) {
+        restoreTableButton();
+    }
+});
 
 function handleDownloadClick(button) {
     const projectId = button.dataset.id || button.getAttribute('data-id');
     const clientName = button.dataset.clientName || button.getAttribute('data-client-name') || 'Client';
     const clientWa = button.dataset.clientWaNumber || button.getAttribute('data-client-wa-number') || '';
     const downloadUrl = `/download_contract/${projectId}`;
+    
+    _dcTableButton = button;
+    _dcTableOrigText = button.textContent;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    button.style.pointerEvents = 'none';
     
     document.getElementById('dcModalClientName').textContent = clientName;
     document.getElementById('dcModalContractUrl').value = downloadUrl;
@@ -14318,30 +14332,39 @@ function handleDownloadClick(button) {
     return false;
 }
 
+function restoreTableButton() {
+    if (_dcTableButton) {
+        _dcTableButton.innerHTML = _dcTableOrigText;
+        _dcTableButton.style.pointerEvents = '';
+        _dcTableButton = null;
+    }
+}
+
 function downloadContractDirect() {
     const url = document.getElementById('dcModalContractUrl').value;
     const btn = document.querySelector('#downloadContractModal .btn-primary');
     if (!url) return;
     
-    // Show spinner on button
+    // Show spinner on modal button
     const originalHtml = btn.innerHTML;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Downloading...';
     btn.disabled = true;
     
-    // Close modal and trigger download
-    closeModal('downloadContractModal');
-    const tempLink = document.createElement('a');
-    tempLink.href = url;
-    tempLink.style.display = 'none';
-    document.body.appendChild(tempLink);
-    tempLink.click();
-    document.body.removeChild(tempLink);
-    
-    // Reset button after delay (modal is closed, but in case it reopens)
     setTimeout(() => {
+        closeModal('downloadContractModal');
+        // Trigger download — table button still has its spinner
+        const tempLink = document.createElement('a');
+        tempLink.href = url;
+        tempLink.style.display = 'none';
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+        // Reset modal button
         btn.innerHTML = originalHtml;
         btn.disabled = false;
-    }, 4000);
+        // Keep spinner on table button until download finishes
+        setTimeout(restoreTableButton, 3000);
+    }, 600);
 }
 
 function toggleWhatsAppSendContract() {
@@ -14362,7 +14385,6 @@ async function sendContractViaWhatsApp() {
     resultDiv.innerHTML = '<span style="color:#666;"><i class="bi bi-arrow-repeat"></i> Sending...</span>';
     
     try {
-        // Use the contract download endpoint, then send via WhatsApp
         const btn = document.querySelector('#dcWhatsAppSection .btn-success');
         if (btn) { btn.disabled = true; }
         
