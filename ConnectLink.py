@@ -20954,9 +20954,9 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
         monthly = balance / 3 if balance else 0
         payment_period_text = "3 months"
     else:
-        payment_months = 5
-        monthly = balance / 5 if balance else 0
-        payment_period_text = "5 months"
+        payment_months = 6
+        monthly = balance / 6 if balance else 0
+        payment_period_text = "6 months"
     
     # Format category for PDF display
     category_display = format_quotation_category(category, is_kitchen)
@@ -21023,7 +21023,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
             
             <!-- IMPORTANT NOTE & BANKING DETAILS -->
             <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
-                <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;'>
+                <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 13px; line-height: 1.7;'>
                     <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
                 </div>
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 13px; line-height: 1.8;'>
