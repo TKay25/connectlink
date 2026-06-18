@@ -10918,6 +10918,7 @@ def login():
                             session['userid'] = int(hw_user[0])  # For backward compatibility
                             session['user_name'] = hw_user[3]
                             
+                            log_activity('user_login', f'Hardware user {email_or_username} logged in with role {hw_user[4]}', 'user', hw_user[0], {'username': email_or_username, 'role': hw_user[4]})
                             print(f"✅ Hardware user {email_or_username} logged in successfully with role: {hw_user[4]}")
                             return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/pos-system.html'}), 200
                         else:
@@ -10952,6 +10953,7 @@ def login():
                         session['userid'] = int(np.int64(userid))
                         session['user_name'] = user_name
 
+                        log_activity('user_login', f'Building projects user {user_name} logged in', 'user', userid, {'username': user_name, 'email': email_or_username})
                         # Return JSON response instead of redirect
                         return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/dashboard'}), 200
 
@@ -19746,6 +19748,9 @@ def generate_deposit_receipt_html(row, effective_date, logo_base64):
 
 @app.route('/logout')
 def logout():
+    # Log the logout activity before clearing session
+    user_name = session.get('user_name') or session.get('username') or 'Unknown'
+    log_activity('user_logout', f'User {user_name} logged out', 'user', session.get('userid') or session.get('user_id'))
     # Clear the session data to log the user out
     session.clear()
     # Redirect to the landing page or login page after logout

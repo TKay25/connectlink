@@ -1,5 +1,5 @@
 {
-  "last_sync": "2026-06-18T04:28:21.811Z",
+  "last_sync": "2026-06-18T06:36:37.465Z",
   "module_count": 38,
   "empty_project": false,
   "planning_ready": true,
@@ -38,30 +38,5 @@
       "source": "test_pagination_api.py"
     }
   ],
-  "recent_deletions": [
-    {
-      "rel": "templates/Untitled-2.html",
-      "ts": "2026-06-17T16:16:45.115Z"
-    },
-    {
-      "rel": "templates/system_overview.html",
-      "ts": "2026-06-17T16:16:45.060Z"
-    },
-    {
-      "rel": "templates/login.html",
-      "ts": "2026-06-17T16:16:44.985Z"
-    },
-    {
-      "rel": "templates/login hardware.html",
-      "ts": "2026-06-17T16:16:44.928Z"
-    },
-    {
-      "rel": "templates/cv.html",
-      "ts": "2026-06-17T16:16:44.873Z"
-    },
-    {
-      "rel": "templates/copy.html",
-      "ts": "2026-06-17T16:16:44.819Z"
-    }
-  ]
+  "recent_deletions": []
 }
