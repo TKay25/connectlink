@@ -21026,13 +21026,13 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;'>
                     <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
                 </div>
-                <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;'>
-                    <strong style='display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;'>Banking Details</strong>
-                    <div><strong>Bank:</strong> ZB BANK</div>
-                    <div><strong>Branch:</strong> Msasa</div>
-                    <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
-                    <div><strong>Account No:</strong> 450600586638405</div>
-                    <div><strong>Account Type:</strong> USD Account</div>
+                <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 13px; line-height: 1.8;'>
+                    <strong style='display: block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A; font-size: 14px;'>Banking Details</strong>
+                    <div style='font-size: 13px;'><strong>Bank:</strong> ZB BANK</div>
+                    <div style='font-size: 13px;'><strong>Branch:</strong> Msasa</div>
+                    <div style='font-size: 13px;'><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+                    <div style='font-size: 13px;'><strong>Account No:</strong> 450600586638405</div>
+                    <div style='font-size: 13px;'><strong>Account Type:</strong> USD Account</div>
                 </div>
             </div>
             
