@@ -1333,6 +1333,21 @@ def webhook():
 
 
                 def send_whatsapp_button_image_message(recipient, text, image_url, buttons, footer_text=None):
+                    # Check if human mode is enabled for this recipient
+                    try:
+                        to_digits = re.sub(r'[^0-9]', '', str(recipient))
+                        cursor.execute("""
+                            SELECT human_mode FROM chat_human_mode 
+                            WHERE sender_phone = %s 
+                               OR RIGHT(sender_phone, 9) = RIGHT(%s, 9)
+                        """, (recipient, to_digits))
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            print(f"🚫 Human mode ON for {recipient} — skipping chatbot auto-reply (button image message)")
+                            return None
+                    except Exception as e:
+                        print(f"⚠️ Human mode check error in button_image_message: {e}")
+                    
                     headers = {
                         "Authorization": f"Bearer {ACCESS_TOKEN}",
                         "Content-Type": "application/json"
@@ -1499,6 +1514,21 @@ def webhook():
 
                 def send_whatsapp_button_message(recipient, text, buttons, footer_text=None):
                     """Send WhatsApp interactive button message with footer"""
+                    # Check if human mode is enabled for this recipient
+                    try:
+                        to_digits = re.sub(r'[^0-9]', '', str(recipient))
+                        cursor.execute("""
+                            SELECT human_mode FROM chat_human_mode 
+                            WHERE sender_phone = %s 
+                               OR RIGHT(sender_phone, 9) = RIGHT(%s, 9)
+                        """, (recipient, to_digits))
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            print(f"🚫 Human mode ON for {recipient} — skipping chatbot auto-reply (button message)")
+                            return None
+                    except Exception as e:
+                        print(f"⚠️ Human mode check error in button_message: {e}")
+                    
                     try:
                         headers = {
                             "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -1568,6 +1598,21 @@ def webhook():
                     
                 def send_whatsapp_list_message(recipient, text, header_text, sections, footer_text=None):
                     """Send WhatsApp interactive list message"""
+                    # Check if human mode is enabled for this recipient
+                    try:
+                        to_digits = re.sub(r'[^0-9]', '', str(recipient))
+                        cursor.execute("""
+                            SELECT human_mode FROM chat_human_mode 
+                            WHERE sender_phone = %s 
+                               OR RIGHT(sender_phone, 9) = RIGHT(%s, 9)
+                        """, (recipient, to_digits))
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            print(f"🚫 Human mode ON for {recipient} — skipping chatbot auto-reply (list message)")
+                            return None
+                    except Exception as e:
+                        print(f"⚠️ Human mode check error in list_message: {e}")
+                    
                     try:
                         headers = {
                             "Authorization": f"Bearer {ACCESS_TOKEN}",
