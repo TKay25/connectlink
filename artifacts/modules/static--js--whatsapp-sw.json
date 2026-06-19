@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "WhatsappSw",
+  "file": "static/js/whatsapp-sw.js",
+  "purpose": "ConnectLink WhatsApp - Service Worker",
+  "entry_function": "fetch",
+  "entry_flows": [],
+  "public_api": [
+    "fetch",
+    "if",
+    "for"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "87b297bcefd7fc21",
+  "file_mtime": 1781896996100.6794,
+  "file_size": 2641,
+  "file_birthtime": 1781896996007.5544,
+  "generated_at": "2026-06-19T19:41:50.125099Z",
+  "stale": false
+}

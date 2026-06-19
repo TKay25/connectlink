@@ -11788,6 +11788,62 @@ def whatsapp_messages(phone_number):
         print(f"WhatsApp messages error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+# API: Get new/recent WhatsApp messages across all conversations (for notifications)
+@app.route('/api/whatsapp-new-messages', methods=['GET'])
+def whatsapp_new_messages():
+    """Get new messages since a given last_msg_id for notification polling"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        last_id = request.args.get('last_msg_id', 0, type=int)
+        
+        with get_db() as (cursor, connection):
+            # Get new incoming messages since last_id
+            cursor.execute("""
+                SELECT id, created_at, message_text, message_type, direction, sender_name, status, sender_phone
+                FROM whatsapp_messages
+                WHERE id > %s
+                ORDER BY id ASC
+                LIMIT 50
+            """, (last_id,))
+            rows = cursor.fetchall()
+            
+            new_messages = []
+            max_id = last_id
+            for r in rows:
+                mid = r[0]
+                if mid > max_id: max_id = mid
+                new_messages.append({
+                    'id': mid,
+                    'timestamp': r[1].strftime('%d/%m/%Y %H:%M') if r[1] else '',
+                    'message': r[2] or '',
+                    'category': r[3] or '',
+                    'direction': r[4] or '',
+                    'sender_name': r[5] or '',
+                    'status': r[6] or 'received',
+                    'sender_phone': r[7] or '',
+                    'is_incoming': r[4] == 'incoming'
+                })
+            
+            # Also get total pending incoming count for badge
+            cursor.execute("""
+                SELECT COUNT(*) FROM whatsapp_messages
+                WHERE direction = 'incoming' AND status = 'received'
+            """)
+            pending_incoming = cursor.fetchone()[0] or 0
+            
+            return jsonify({
+                'success': True,
+                'new_messages': new_messages,
+                'max_id': max_id,
+                'pending_count': pending_incoming
+            })
+    except Exception as e:
+        print(f"WhatsApp new messages error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/whatsapp-media-download/<media_id>', methods=['GET'])
 def whatsapp_media_download(media_id):
     """Download a media file from WhatsApp using its media_id"""
@@ -18227,6 +18283,11 @@ def whatsapp_pwa_manifest():
 def pwa_service_worker():
     return app.send_static_file('js/sw.js')
 
+# PWA: WhatsApp App Service Worker
+@app.route('/whatsapp-sw.js')
+def whatsapp_service_worker():
+    return app.send_static_file('js/whatsapp-sw.js')
+
 # Add these routes to your Flask app
 
 @app.route('/')
@@ -23576,5 +23637,58 @@ def get_enquiries_paginated():
             'message': str(e)
         }), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port = 55, debug = True)
+# API: Get pending enquiries count + latest for notifications
+@app.route('/api/enquiries/pending-summary', methods=['GET'])
+def get_enquiries_pending_summary():
+    """Returns count of pending enquiries and any new ones since a given last_id."""
+    try:
+        last_id = request.args.get('last_id', 0, type=int)
+        
+        with get_db() as (cursor, connection):
+            # Get pending count
+            cursor.execute("""
+                SELECT COUNT(*) FROM connectlinkenquiries 
+                WHERE status = 'pending' OR status IS NULL OR status = ''
+            """)
+            pending_count = cursor.fetchone()[0]
+            
+            # Get latest enquiries (for notifications)
+            cursor.execute("""
+                SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                       plan IS NOT NULL as has_plan, status, username
+                FROM connectlinkenquiries 
+                WHERE id > %s
+                ORDER BY id DESC
+                LIMIT 10
+            """, (last_id,))
+            
+            new_rows = cursor.fetchall()
+            new_enquiries = []
+            for row in new_rows:
+                new_enquiries.append({
+                    'id': row[0],
+                    'timestamp': row[1].strftime('%d/%m/%Y %H:%M') if row[1] else '',
+                    'clientwhatsapp': row[2] or '',
+                    'category': row[3] or 'General',
+                    'message': row[4] or '',
+                    'has_plan': row[5],
+                    'status': row[6] or 'pending',
+                    'username': row[7] or 'Unknown'
+                })
+            
+            # Also get latest temp enquiries count for badge
+            cursor.execute("SELECT COUNT(*) FROM appenqtemp")
+            temp_count = cursor.fetchone()[0]
+            
+            return jsonify({
+                'success': True,
+                'pending_count': pending_count,
+                'temp_count': temp_count,
+                'total_unread': pending_count + temp_count,
+                'new_enquiries': new_enquiries,
+                'max_id': max([e['id'] for e in new_enquiries]) if new_enquiries else last_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching pending summary: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+

@@ -542,9 +542,200 @@
             .chat-panel.full { display: flex; }
             .chat-panel.hidden { display: none; }
             .chat-header .back-btn { display: flex; }
+            /* Enquiries responsive */
+            .enquiry-table-wrap { overflow-x: auto; }
+            .enquiry-table-wrap table { font-size: 0.7rem; }
+            .enquiry-table-wrap th, .enquiry-table-wrap td { padding: 4px 6px !important; white-space: nowrap; }
         }
         @media (min-width: 769px) {
             .sidebar-panel.hidden { display: flex; }
+        }
+
+        /* ===== TAB NAVIGATION ===== */
+        .app-tabs {
+            display: flex;
+            background: var(--header-bg);
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+        }
+        .app-tabs .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            padding: 10px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            position: relative;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .app-tabs .tab-btn:hover { color: white; background: rgba(255,255,255,0.08); }
+        .app-tabs .tab-btn.active { color: white; border-bottom: 2px solid white; margin-bottom: -2px; }
+        .app-tabs .tab-btn .badge-count {
+            background: #25D366;
+            color: white;
+            font-size: 0.55rem;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+        }
+
+        /* ===== ENQUIRIES SECTION ===== */
+        .enquiries-section {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+        .enquiries-section::-webkit-scrollbar { width: 4px; }
+        .enquiries-section::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+        body.dark-theme .enquiries-section { background: var(--sidebar-bg-dark); }
+
+        .enquiry-card {
+            display: flex;
+            flex-direction: column;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        body.dark-theme .enquiry-card { border-color: var(--border-color-dark); }
+        .enquiry-card:hover { background: var(--hover-bg); }
+        body.dark-theme .enquiry-card:hover { background: var(--hover-bg-dark); }
+        .enquiry-card .eq-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .enquiry-card .eq-client {
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+        }
+        body.dark-theme .enquiry-card .eq-client { color: #e9edef; }
+        .enquiry-card .eq-time { font-size: 0.65rem; color: var(--text-secondary); flex-shrink: 0; }
+        .enquiry-card .eq-category {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+        body.dark-theme .enquiry-card .eq-category { background: #1b4332; color: #6fcf97; }
+        .enquiry-card .eq-message {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            line-height: 1.3;
+        }
+        .enquiry-card .eq-status {
+            font-size: 0.6rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        .eq-status.pending { background: #fff3e0; color: #ef6c00; }
+        .eq-status.in_progress { background: #e3f2fd; color: #1565c0; }
+        .eq-status.completed { background: #e8f5e9; color: #2e7d32; }
+        body.dark-theme .eq-status.pending { background: #3e2723; color: #ffb74d; }
+        body.dark-theme .eq-status.in_progress { background: #1a237e; color: #90caf9; }
+        body.dark-theme .eq-status.completed { background: #1b5e20; color: #81c784; }
+
+        .eq-actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+        .eq-actions button {
+            padding: 3px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .eq-actions button:hover { opacity: 0.85; }
+        .eq-actions .btn-status { background: var(--whatsapp-teal); color: white; }
+        .eq-actions .btn-whatsapp { background: #25D366; color: white; }
+        .eq-actions .btn-delete { background: #ef5350; color: white; }
+        .eq-actions .btn-plan { background: #1565c0; color: white; }
+
+        /* Enquiry detail expanded */
+        .enquiry-expanded { display: none; padding: 8px 14px 12px; background: var(--hover-bg); border-bottom: 1px solid var(--border-color); }
+        body.dark-theme .enquiry-expanded { background: var(--hover-bg-dark); border-color: var(--border-color-dark); }
+        .enquiry-expanded.show { display: block; }
+        .enquiry-expanded .eq-full-message {
+            font-size: 0.75rem;
+            line-height: 1.5;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: var(--input-bg);
+            border-radius: 6px;
+        }
+        body.dark-theme .enquiry-expanded .eq-full-message { background: var(--input-bg-dark); color: #e9edef; }
+        .enquiry-expanded .eq-meta {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .enquiry-expanded .eq-meta a { color: #25D366; text-decoration: none; font-weight: 600; }
+
+        /* Enquiries filter bar */
+        .enq-filter-bar {
+            display: flex;
+            padding: 8px 12px;
+            gap: 6px;
+            flex-wrap: wrap;
+            background: var(--sidebar-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        body.dark-theme .enq-filter-bar { background: var(--sidebar-bg-dark); border-color: var(--border-color-dark); }
+        .enq-filter-bar input, .enq-filter-bar select {
+            border: none;
+            background: var(--input-bg);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            outline: none;
+            color: var(--text-primary);
+            flex: 1;
+            min-width: 100px;
+        }
+        body.dark-theme .enq-filter-bar input, body.dark-theme .enq-filter-bar select { background: var(--input-bg-dark); color: #e9edef; }
+        .enq-filter-bar .enq-count {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+        .enq-filter-bar .refresh-enq-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 4px;
         }
 
         /* Loading */
@@ -602,14 +793,47 @@
                 <button onclick="refreshChats()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
             </div>
         </div>
-        <div class="search-bar">
-            <div class="search-inner">
-                <i class="bi bi-search"></i>
-                <input type="text" id="searchInput" placeholder="Search or start new chat" oninput="filterChats()">
+
+        <!-- Tab Navigation -->
+        <div class="app-tabs">
+            <button class="tab-btn active" id="tabChats" onclick="switchTab('chats')">
+                <i class="bi bi-chat-dots"></i> Chats
+            </button>
+            <button class="tab-btn" id="tabEnquiries" onclick="switchTab('enquiries')">
+                <i class="bi bi-person-badge"></i> Enquiries
+                <span class="badge-count" id="enquiryBadge" style="display:none;">0</span>
+            </button>
+        </div>
+
+        <!-- Chats View -->
+        <div id="chatsView">
+            <div class="search-bar">
+                <div class="search-inner">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search or start new chat" oninput="filterChats()">
+                </div>
+            </div>
+            <div class="conversation-list" id="conversationList">
+                <div class="loading-spinner"><div class="spinner"></div></div>
             </div>
         </div>
-        <div class="conversation-list" id="conversationList">
-            <div class="loading-spinner"><div class="spinner"></div></div>
+
+        <!-- Enquiries View -->
+        <div id="enquiriesView" style="display:none;flex-direction:column;flex:1;min-height:0;">
+            <div class="enq-filter-bar">
+                <input type="text" id="enqSearch" placeholder="Search enquiries..." oninput="filterEnquiries()">
+                <select id="enqStatusFilter" onchange="filterEnquiries()">
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                </select>
+                <span class="enq-count" id="enqCount">0 enquiries</span>
+                <button class="refresh-enq-btn" onclick="loadEnquiries()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+            <div class="enquiries-section" id="enquiriesList">
+                <div class="loading-spinner"><div class="spinner"></div></div>
+            </div>
         </div>
     </div>
 
@@ -1279,9 +1503,402 @@ function toggleTheme() {
     }
 })();
 
+// ==================== TAB SWITCHING ====================
+function switchTab(tab) {
+    document.getElementById('tabChats').classList.toggle('active', tab === 'chats');
+    document.getElementById('tabEnquiries').classList.toggle('active', tab === 'enquiries');
+    document.getElementById('chatsView').style.display = tab === 'chats' ? 'block' : 'none';
+    document.getElementById('enquiriesView').style.display = tab === 'enquiries' ? 'flex' : 'none';
+
+    if (tab === 'enquiries') {
+        loadEnquiries();
+    }
+}
+
+// ==================== ENQUIRIES ====================
+let allEnquiries = [];
+let enqLastMaxId = 0;
+
+function loadEnquiries() {
+    const list = document.getElementById('enquiriesList');
+    list.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+
+    fetch('/api/enquiries/paginated?per_page=200')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.status || res.status !== 'success') {
+                list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:0.85rem;">Failed to load enquiries</div>';
+                return;
+            }
+            allEnquiries = res.data || [];
+            enqLastMaxId = allEnquiries.length > 0 ? Math.max(...allEnquiries.map(e => e.id)) : enqLastMaxId;
+            renderEnquiries(allEnquiries);
+            updateEnquiryBadge();
+        })
+        .catch(err => {
+            console.error('Enquiries error:', err);
+            list.innerHTML = '<div style="text-align:center;padding:40px;color:#c62828;font-size:0.85rem;"><i class="bi bi-wifi-off" style="font-size:2rem;display:block;margin-bottom:12px;"></i>Connection error</div>';
+        });
+}
+
+function renderEnquiries(enquiries) {
+    const list = document.getElementById('enquiriesList');
+    document.getElementById('enqCount').textContent = enquiries.length + ' enquiries';
+
+    if (!enquiries.length) {
+        list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:0.85rem;"><i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:12px;opacity:0.4;"></i>No enquiries found</div>';
+        return;
+    }
+
+    let html = '';
+    enquiries.forEach(eq => {
+        const statusClass = (eq.status || 'pending').toLowerCase();
+        const statusLabel = statusClass === 'in_progress' ? 'In Progress' : statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+        const shortMsg = (eq.enq || eq.message || 'No message').substring(0, 80);
+        const hasMore = (eq.enq || eq.message || '').length > 80;
+        const waLink = eq.clientwhatsapp ? 'https://wa.me/' + eq.clientwhatsapp.replace(/[^0-9]/g, '') : '#';
+
+        html += `
+            <div class="enquiry-card" onclick="toggleEnquiryExpand(${eq.id})">
+                <div class="eq-top">
+                    <span class="eq-client">${escapeHtml(eq.username || eq.clientwhatsapp || 'Unknown')}</span>
+                    <span class="eq-time">${eq.timestamp || ''}</span>
+                </div>
+                <div>
+                    <span class="eq-category">${escapeHtml(eq.enqcategory || eq.category || 'General')}</span>
+                    <span class="eq-status ${statusClass}">${statusLabel}</span>
+                </div>
+                <div class="eq-message">${escapeHtml(shortMsg)}${hasMore ? '...' : ''}</div>
+                <div class="eq-actions">
+                    <button class="btn-status" onclick="event.stopPropagation();updateEnquiryStatus(${eq.id},'${statusClass}')">
+                        <i class="bi bi-arrow-repeat"></i> ${statusClass === 'pending' ? 'Start' : statusClass === 'in_progress' ? 'Complete' : 'Reopen'}
+                    </button>
+                    <button class="btn-whatsapp" onclick="event.stopPropagation();window.open('${waLink}','_blank')">
+                        <i class="bi bi-whatsapp"></i> Chat
+                    </button>
+                    ${eq.has_plan ? `<button class="btn-plan" onclick="event.stopPropagation();window.open('/api/enquiries/${eq.id}/plan','_blank')"><i class="bi bi-file-pdf"></i> Plan</button>` : ''}
+                    <button class="btn-delete" onclick="event.stopPropagation();deleteEnquiry(${eq.id})"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+            <div class="enquiry-expanded" id="enqExpand_${eq.id}">
+                <div class="eq-full-message">${escapeHtml(eq.enq || eq.message || 'No message')}</div>
+                <div class="eq-meta">
+                    <span><strong>WhatsApp:</strong> <a href="${waLink}" target="_blank">${eq.clientwhatsapp || 'N/A'}</a></span>
+                    <span><strong>Status:</strong> ${statusLabel}</span>
+                    <span><strong>Category:</strong> ${escapeHtml(eq.enqcategory || eq.category || 'General')}</span>
+                </div>
+            </div>`;
+    });
+    list.innerHTML = html;
+}
+
+function toggleEnquiryExpand(id) {
+    const el = document.getElementById('enqExpand_' + id);
+    if (el) el.classList.toggle('show');
+}
+
+function filterEnquiries() {
+    const q = document.getElementById('enqSearch').value.toLowerCase().trim();
+    const status = document.getElementById('enqStatusFilter').value;
+    let filtered = allEnquiries;
+    if (q) filtered = filtered.filter(e => (e.username||'').toLowerCase().includes(q) || (e.clientwhatsapp||'').includes(q) || (e.enq||e.message||'').toLowerCase().includes(q));
+    if (status) filtered = filtered.filter(e => (e.status||'pending').toLowerCase() === status);
+    renderEnquiries(filtered);
+}
+
+function updateEnquiryStatus(id, currentStatus) {
+    let newStatus;
+    if (currentStatus === 'pending') newStatus = 'in_progress';
+    else if (currentStatus === 'in_progress') newStatus = 'completed';
+    else newStatus = 'pending';
+
+    fetch('/api/enquiries/' + id + '/status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === 'success' || res.success) {
+            showToast('Enquiry #' + id + ' updated to ' + newStatus, 'success', 'Status Updated');
+            loadEnquiries();
+            updateEnquiryBadge();
+        } else {
+            showToast('Failed to update status', 'error', 'Error');
+        }
+    })
+    .catch(err => {
+        console.error('Status update error:', err);
+        showToast('Error updating status', 'error', 'Error');
+    });
+}
+
+function deleteEnquiry(id) {
+    if (!confirm('Delete enquiry #' + id + '? This cannot be undone.')) return;
+    const passcode = prompt('Enter admin passcode to confirm deletion:');
+    if (!passcode) return;
+
+    fetch('/api/enquiries/' + id + '/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ admin_passcode: passcode })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            showToast('Enquiry #' + id + ' deleted', 'success', 'Deleted');
+            loadEnquiries();
+            updateEnquiryBadge();
+        } else {
+            showToast('Failed to delete: ' + (res.error || 'Incorrect passcode?'), 'error', 'Delete Failed');
+        }
+    })
+    .catch(err => {
+        console.error('Delete error:', err);
+        showToast('Error deleting enquiry', 'error', 'Error');
+    });
+}
+
+// ==================== NOTIFICATIONS & BADGE ====================
+let notificationEnabled = false;
+let notifyLastMaxId = 0;
+let lastSeenMsgId = 0;
+
+function requestNotificationPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+        notificationEnabled = true;
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+            notificationEnabled = permission === 'granted';
+            if (notificationEnabled) {
+                showToast('Notifications enabled!', 'success', 'Notifications');
+            }
+        });
+    }
+}
+
+function showNotification(title, body, tag) {
+    if (!notificationEnabled) return;
+    
+    // Send via service worker (works even when app is backgrounded on mobile)
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+            type: 'showNotification',
+            title: title,
+            body: body,
+            tag: tag || 'whatsapp',
+            url: '/whatsapp-app',
+            action: tag && tag.startsWith('enquiry-') ? 'enquiries' : 'chats'
+        });
+    }
+    
+    // Also try regular Notification API for foreground
+    try {
+        const n = new Notification(title, {
+            body: body,
+            icon: '/static/images/reqlogo.png',
+            badge: '/static/images/reqlogo.png',
+            tag: tag || 'whatsapp',
+            requireInteraction: true,
+            vibrate: [200, 100, 200],
+            silent: false
+        });
+        n.onclick = function() {
+            window.focus();
+            const targetTab = tag && tag.startsWith('enquiry-') ? 'enquiries' : 'chats';
+            switchTab(targetTab);
+            this.close();
+        };
+        // Play a notification sound
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 800;
+            gain.gain.value = 0.1;
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+            setTimeout(() => {
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.frequency.value = 1000;
+                gain2.gain.value = 0.1;
+                osc2.start();
+                osc2.stop(ctx.currentTime + 0.15);
+            }, 200);
+        } catch (e) { /* audio not supported */ }
+    } catch (e) {
+        console.log('Notification error:', e);
+    }
+}
+
+// Listen for messages from service worker (e.g., tab switch on notification click)
+if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', event => {
+        const data = event.data;
+        if (data && data.type === 'switchTab') {
+            switchTab(data.tab || 'chats');
+        }
+    });
+}
+
+async function updateAppBadge(count) {
+    const badge = document.getElementById('enquiryBadge');
+    // Add total unread WhatsApp + enquiries for badge
+    const pendingWhatsApp = document.getElementById('whatsappBadge');
+    
+    if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'inline-flex';
+        try {
+            if (navigator.setAppBadge) await navigator.setAppBadge(count);
+            else if (navigator.setExperimentalAppBadge) await navigator.setExperimentalAppBadge(count);
+        } catch (e) { /* badge not supported */ }
+        const baseTitle = 'ConnectLink WhatsApp';
+        document.title = '(' + count + ') ' + baseTitle;
+        const metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) metaTheme.content = count > 0 ? '#C12B3E' : '#075E54';
+    } else {
+        badge.style.display = 'none';
+        document.title = 'ConnectLink WhatsApp';
+        try {
+            if (navigator.clearAppBadge) await navigator.clearAppBadge();
+            else if (navigator.setExperimentalAppBadge) await navigator.setExperimentalAppBadge(0);
+        } catch (e) { /* badge not supported */ }
+        const metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) metaTheme.content = '#075E54';
+    }
+}
+
+function updateEnquiryBadge() {
+    const pending = allEnquiries.filter(e => (e.status || 'pending') === 'pending');
+    updateAppBadge(pending.length);
+}
+
+async function checkForNewEnquiries() {
+    try {
+        const res = await fetch('/api/enquiries/pending-summary?last_id=' + notifyLastMaxId);
+        const data = await res.json();
+        if (!data.success) return;
+
+        // Update badge with combined count
+        const totalUnread = data.pending_count + data.temp_count;
+        // We'll combine with WhatsApp count in checkForNewMessages
+        window._enquiryUnreadCount = totalUnread;
+
+        if (data.new_enquiries && data.new_enquiries.length > 0) {
+            data.new_enquiries.forEach(eq => {
+                if (eq.id > notifyLastMaxId && eq.status === 'pending') {
+                    showNotification(
+                        '📩 New Enquiry from ' + (eq.username || eq.clientwhatsapp || 'Unknown'),
+                        (eq.category || 'General') + ': ' + (eq.message || '').substring(0, 100),
+                        'enquiry-' + eq.id
+                    );
+                }
+            });
+            notifyLastMaxId = data.max_id || notifyLastMaxId;
+        }
+    } catch (e) {
+        // Silent fail for polling
+    }
+}
+
+// ==================== WHATSAPP MESSAGE NOTIFICATION POLLING ====================
+async function checkForNewMessages() {
+    if (!currentPhone) {
+        // Only poll for message list updates when no chat is open
+        // We use the chats list to detect new messages
+        try {
+            const res = await fetch('/api/whatsapp-new-messages?last_msg_id=' + lastSeenMsgId);
+            const data = await res.json();
+            if (!data.success) return;
+
+            // Track max ID
+            if (data.max_id > lastSeenMsgId) lastSeenMsgId = data.max_id;
+
+            // Show notifications for new incoming messages
+            if (data.new_messages && data.new_messages.length > 0) {
+                data.new_messages.forEach(msg => {
+                    if (msg.is_incoming && msg.id > lastSeenMsgId - data.new_messages.length) {
+                        const senderName = msg.sender_name || msg.sender_phone || 'Unknown';
+                        const msgPreview = (msg.message || '').substring(0, 120);
+                        showNotification(
+                            '💬 ' + senderName,
+                            msgPreview || 'Sent a message',
+                            'msg-' + msg.id
+                        );
+                    }
+                });
+            }
+
+            // Update badge: combine WhatsApp pending + enquiry pending
+            const waPending = data.pending_count || 0;
+            const enqPending = window._enquiryUnreadCount || 0;
+            const totalBadge = waPending + enqPending;
+            
+            const badge = document.getElementById('enquiryBadge');
+            if (totalBadge > 0) {
+                badge.textContent = totalBadge > 99 ? '99+' : totalBadge;
+                badge.style.display = 'inline-flex';
+                document.title = '(' + totalBadge + ') ConnectLink WhatsApp';
+                const metaTheme = document.querySelector('meta[name="theme-color"]');
+                if (metaTheme) metaTheme.content = '#C12B3E';
+                try {
+                    if (navigator.setAppBadge) await navigator.setAppBadge(totalBadge);
+                } catch (e) {}
+            } else {
+                badge.style.display = 'none';
+                document.title = 'ConnectLink WhatsApp';
+                const metaTheme = document.querySelector('meta[name="theme-color"]');
+                if (metaTheme) metaTheme.content = '#075E54';
+                try {
+                    if (navigator.clearAppBadge) await navigator.clearAppBadge();
+                } catch (e) {}
+            }
+        } catch (e) {
+            // Silent fail
+        }
+    }
+}
+
 // ==================== INIT ====================
 document.addEventListener('DOMContentLoaded', function() {
     loadChats();
+    loadEnquiries();
+
+    // Request notification permission
+    requestNotificationPermission();
+
+    // Initialise last seen message ID from current time
+    lastSeenMsgId = Math.floor(Date.now() / 1000); // fallback timestamp
+
+    // Poll for new WhatsApp messages every 15 seconds
+    setInterval(checkForNewMessages, 15000);
+
+    // Poll for new enquiries every 30 seconds
+    setInterval(checkForNewEnquiries, 30000);
+
+    // Also check on page visibility change (user switches back to tab)
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            checkForNewMessages();
+            checkForNewEnquiries();
+            if (document.getElementById('enquiriesView').style.display !== 'none') {
+                loadEnquiries();
+            }
+        }
+    });
+
+    // Initial badge checks after 2 seconds
+    setTimeout(() => {
+        checkForNewMessages();
+        checkForNewEnquiries();
+    }, 2000);
 });
 
 // Handle window resize for mobile responsiveness
@@ -1290,6 +1907,19 @@ window.addEventListener('resize', function() {
         document.getElementById('sidebarPanel').classList.remove('hidden');
     }
 });
+
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/whatsapp-sw.js', { scope: '/whatsapp-app' })
+            .then(function(reg) {
+                console.log('WhatsApp app SW registered:', reg.scope);
+            })
+            .catch(function(err) {
+                console.log('SW registration failed:', err);
+            });
+    });
+}
 </script>
 </body>
 </html>
