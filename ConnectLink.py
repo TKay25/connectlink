@@ -19075,10 +19075,24 @@ def update_project():
         """, (project_id,))
         old_row = cursor.fetchone()
         
+        # If project not found, skip change detection
+        if old_row is None:
+            values.append(project_id)
+            cursor.execute(query, tuple(values))
+            connection.commit()
+            log_activity('project_updated', f'Project updated but old data could not be fetched', 'project', project_id)
+            flash("Project updated successfully!", "success")
+            return jsonify({'success': True, 'message': 'Project updated successfully!'})
+        
         def ov(idx):
             """Get old value at index, return as string or empty"""
             v = old_row[idx] if old_row else None
-            return str(v) if v is not None else ''
+            if v is None:
+                return ''
+            # Normalize Decimal values to avoid "5000.00" vs "5000" mismatches
+            if isinstance(v, Decimal):
+                return str(v.normalize())
+            return str(v)
         
         old_clientname = ov(0)
         old_projectname = ov(1)
@@ -19098,9 +19112,16 @@ def update_project():
         cursor.execute(query, values)
         connection.commit()
 
-        # Helper: format value for display
+        # Helper: format value for display and comparison
         def fmt(v):
-            return str(v) if v else ''
+            if v is None or v == '':
+                return ''
+            s = str(v)
+            # Normalize numeric strings for fair comparison with Decimal values
+            try:
+                return str(Decimal(s).normalize())
+            except:
+                return s
 
         changes = []
 
@@ -19119,7 +19140,7 @@ def update_project():
                 changes.append((key, label, old_val, new_val))
 
         # Quotation link change
-        new_qid = fmt(quotation_id) if quotation_id else ''
+        new_qid = str(quotation_id) if quotation_id else ''
         if old_quotation_id != new_qid:
             changes.append(('quotation_link', 'Quotation', old_quotation_id, new_qid))
 
