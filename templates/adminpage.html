@@ -626,6 +626,37 @@
         body.dark-theme #constructionDetailsContainer [style*="color:#2196F3"][style*="font-weight:bold"] {
             color: #60a5fa !important;
         }
+        body.dark-theme #constructionDetailsContainer [style*="color:#2196F3"] {
+            color: #60a5fa !important;
+        }
+        body.dark-theme #constructionDetailsContainer .fw-bold {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #constructionDetailsContainer .small.fw-bold {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #constructionDetailsContainer .form-label.fw-bold {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #constructionDetailsContainer strong {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #constructionDetailsContainer strong[style*="color: #2196F3"],
+        body.dark-theme #constructionDetailsContainer strong[style*="color:#2196F3"] {
+            color: #60a5fa !important;
+        }
+        body.dark-theme #constructionDetailsContainer small.text-muted {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme #constructionItemsList .fw-bold {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #constructionItemsList small strong {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #constructionItemsList small strong[style*="color"] {
+            color: #60a5fa !important;
+        }
         /* Gantt chart builder dark mode */
         body.dark-theme #ganttItemsList {
             background: var(--bg-card) !important;
@@ -674,6 +705,39 @@
             color: #60a5fa !important;
         }
         body.dark-theme #ganttChartBuilderModal h5 {
+            color: var(--text-primary) !important;
+        }
+        /* Construction items - text visibility fixes */
+        body.dark-theme #constructionItemsList p.text-muted {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme #selectedItemsDropZone p.text-muted#emptyDropZoneMsg {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme #constructionDetailsContainer #displaySqm,
+        body.dark-theme #constructionDetailsContainer #displayMarkup {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #constructionDetailsContainer .alert-light span strong {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #constructionItemsList .badge.bg-secondary {
+            background: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+        /* Quotation generator notes textarea dark mode */
+        body.dark-theme #quotationGeneratorNotes {
+            background: #252b45 !important;
+            border-color: #3a4058 !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #quotationGeneratorNotes::placeholder {
+            color: var(--text-muted) !important;
+        }
+        body.dark-theme #quotationGeneratorNotesContainer small.text-muted {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme #quotationGeneratorNotesContainer .form-label {
             color: var(--text-primary) !important;
         }
         /* Quotation preview modal dark mode */
@@ -4358,6 +4422,23 @@ table.dataTable thead th.sorting_desc {
             </button>
         </div>
         <div class="modal-body-custom">
+            <style>
+                #quotationTableOptionsModal .form-check-input {
+                    width: 1.2em !important;
+                    height: 1.2em !important;
+                    margin-top: 0.15em !important;
+                    cursor: pointer;
+                }
+                #quotationTableOptionsModal .form-check-label {
+                    font-size: 0.85rem !important;
+                    cursor: pointer;
+                    padding-left: 4px;
+                }
+                #quotationTableOptionsModal p {
+                    font-size: 0.85rem !important;
+                    margin-bottom: 16px !important;
+                }
+            </style>
             <p style="margin-bottom: 12px;">Select where the Construction Items table should appear in your PDF, or exclude it entirely.</p>
             <div class="form-check mb-2">
                 <input class="form-check-input" type="radio" name="quotationTableOption" id="quotationTableOptionExclude" value="exclude" checked>
@@ -6884,6 +6965,18 @@ table.dataTable thead th.sorting_desc {
             </button>
         </div>
         <div class="modal-body-custom">
+            <style>
+                #quotationgeneratorModal .form-inline-group label,
+                #quotationgeneratorModal .form-label {
+                    font-size: 0.65rem !important;
+                    font-weight: 700 !important;
+                    color: var(--text-primary) !important;
+                }
+                #quotationgeneratorModal .form-control,
+                #quotationgeneratorModal .form-select {
+                    font-size: 0.75rem !important;
+                }
+            </style>
             <form id="quotationGeneratorForm" method="POST" onsubmit="return false;">
                 <!-- Category Dropdown -->
                 <div class="form-inline-group">
@@ -7053,6 +7146,15 @@ table.dataTable thead th.sorting_desc {
                             </table>
                         </div>
                     </div>
+                </div>
+
+                <!-- Quotation Notes -->
+                <div class="mb-3" id="quotationGeneratorNotesContainer" style="margin-top:10px;">
+                    <label class="form-label fw-bold d-block">
+                        <i class="bi bi-sticky-fill"></i> Notes (optional)
+                    </label>
+                    <textarea id="quotationGeneratorNotes" class="form-control" rows="3" placeholder="Add notes or comments to include in the quotation PDF..." style="font-size:0.75rem;resize:vertical;"></textarea>
+                    <small class="text-muted">These notes will appear in the PDF below the summary box.</small>
                 </div>
 
 <!-- Add Kitchen/Cabinet Item Modal -->
@@ -12012,6 +12114,7 @@ async function generateKitchenPDF(outputMode = 'download') {
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
     const monthlyInstallment = balanceAmount / 3;  // Kitchen: 3 months
+    const kitchenNotes = data.notes || '';
     
     const htmlContent = `
         <div style="font-family: 'Roboto', Arial, sans-serif; background:#ffffff; color:#1E2A56; padding:14px 16px;">
@@ -12039,6 +12142,12 @@ async function generateKitchenPDF(outputMode = 'download') {
                         <div><div style="font-size:10px; color:#5a678a;">Duration</div><div style="font-size:13px; font-weight:700; color:#2196F3;">${totalDays} Days</div></div>
                     </div>
                 </div>
+                
+                ${kitchenNotes ? `
+                <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px; font-size:12px; line-height:1.6; color:#1E2A56; white-space:pre-wrap;">
+                    <strong style="display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.3px;">Quotation Notes</strong>
+                    ${escapeHtml(kitchenNotes)}
+                </div>` : ''}
                 
                 <h4 style="background:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0;">KITCHEN & CABINET ITEMS</h4>
                 <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px;">
@@ -16496,6 +16605,7 @@ $('#generateQuotationBtn').click(function() {
         });
         
         // Store data for kitchen
+        const quotationNotes = $('#quotationGeneratorNotes').val().trim() || '';
         window.kitchenQuotationData = {
             category: category,
             clientName: clientName,
@@ -16504,7 +16614,8 @@ $('#generateQuotationBtn').click(function() {
             items: itemsForQuotation,
             schedules: schedules,
             totalCost: totalCost,
-            totalDays: totalDays
+            totalDays: totalDays,
+            notes: quotationNotes
         };
         
         console.log('Kitchen quotation data saved:', window.kitchenQuotationData);
@@ -16760,6 +16871,7 @@ $('#generateQuotationBtn').click(function() {
 
     // Store data for later use
     const markupAmount = totalCost - baseCost;
+    const quotationNotes = $('#quotationGeneratorNotes').val().trim() || '';
     window.quotationData = {
         category: category,
         clientName: clientName,
@@ -16782,7 +16894,7 @@ $('#generateQuotationBtn').click(function() {
         totalCost: totalCost,
         orderedConstructionItems: orderedConstructionItems || [],
         isFullHouseMode: isFullHouseMode,
-        notes: ''
+        notes: quotationNotes
     };
 
     // DEBUG: Log final quotationData
@@ -16835,7 +16947,7 @@ $('#generateQuotationBtn').click(function() {
         markup: markup,
         totalCost: totalCost,
         isFullHouseMode: isFullHouseMode,
-        notes: ''
+        notes: quotationNotes
     };
 
     // ADD THIS CONFIRMATION LOG
