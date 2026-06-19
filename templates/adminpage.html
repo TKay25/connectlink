@@ -6629,7 +6629,7 @@ table.dataTable thead th.sorting_desc {
                     <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('chatFileInput').click()" title="Attach file" style="padding:4px 8px;font-size:0.7rem;">
                         <i class="bi bi-paperclip"></i>
                     </button>
-                    <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx" onchange="handleChatFileSelect(event)">
+                    <input type="file" id="chatFileInput" style="display:none;" accept="image/*,audio/*,.pdf,.doc,.docx" onchange="handleChatFileSelect(event)">
                     <div id="chatFilePreview" style="display:none;font-size:0.7rem;color:#0A2B3E;padding:4px 10px;background:#e8f0fe;border:1px solid #0A2B3E;border-radius:6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;"></div>
                     <input type="text" id="chatMessageInput" class="form-control" placeholder="Type a message..." style="font-size:0.7rem;padding:6px 10px;flex:1;">
                     <button class="btn btn-sm btn-outline-warning" id="chatTemplateToggleBtn" onclick="toggleChatTemplateMode()" title="Toggle: Send Meta Template (bypasses 24hr window)" style="padding:4px 8px;font-size:0.7rem;">
@@ -21171,9 +21171,9 @@ function createMessageBubble(msg) {
     let messageContent = `<div style="font-size:0.7rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(msg.message)}</div>`;
     
     // Add download button for document/image messages with media_id
-    if (msg.media_id && (msg.category === 'document' || msg.category === 'image')) {
-        const fileDisplayName = msg.file_name || (msg.category === 'image' ? 'Image' : 'Document');
-        const icon = msg.category === 'image' ? '📷' : '📄';
+    if (msg.media_id && (msg.category === 'document' || msg.category === 'image' || msg.category === 'audio')) {
+        const fileDisplayName = msg.file_name || (msg.category === 'image' ? 'Image' : msg.category === 'audio' ? 'Audio' : 'Document');
+        const icon = msg.category === 'image' ? '📷' : msg.category === 'audio' ? '🎵' : '📄';
         messageContent += `
             <div style="margin-top:6px;padding:4px 8px;background:#f0f0f0;border-radius:6px;display:flex;align-items:center;gap:6px;">
                 <span style="font-size:0.7rem;">${icon}</span>

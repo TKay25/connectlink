@@ -12360,7 +12360,8 @@ def whatsapp_send_file():
         file_bytes = file.read()
         mime_type = file.content_type or 'application/octet-stream'
         is_image = mime_type.startswith('image/')
-        msg_type = 'image' if is_image else 'document'
+        is_audio = mime_type.startswith('audio/')
+        msg_type = 'audio' if is_audio else 'image' if is_image else 'document'
         
         # Step 1: Upload to WhatsApp Media API
         upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
@@ -12394,6 +12395,15 @@ def whatsapp_send_file():
                 'image': {
                     'id': media_id,
                     'caption': caption or filename
+                }
+            }
+        elif is_audio:
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'audio',
+                'audio': {
+                    'id': media_id
                 }
             }
         else:

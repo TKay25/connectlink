@@ -887,7 +887,7 @@
                     <button class="attach-btn" onclick="document.getElementById('fileInput').click()" title="Attach file">
                         <i class="bi bi-paperclip"></i>
                     </button>
-                    <input type="file" id="fileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx" onchange="handleFileSelect(event)">
+                    <input type="file" id="fileInput" style="display:none;" accept="image/*,audio/*,.pdf,.doc,.docx" onchange="handleFileSelect(event)">
                     <input type="text" id="messageInput" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendMessage()">
                     <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send"><i class="bi bi-send-fill"></i></button>
                 </div>
@@ -1217,9 +1217,9 @@ function createBubble(msg) {
 
     let messageContent = '<div style="word-wrap:break-word;">' + escapeHtml(msg.message) + '</div>';
 
-    if (msg.media_id && (msg.category === 'document' || msg.category === 'image')) {
-        const fileDisp = msg.file_name || (msg.category === 'image' ? 'Image' : 'Document');
-        const icon = msg.category === 'image' ? '📷' : '📄';
+    if (msg.media_id && (msg.category === 'document' || msg.category === 'image' || msg.category === 'audio')) {
+        const fileDisp = msg.file_name || (msg.category === 'image' ? 'Image' : msg.category === 'audio' ? 'Audio' : 'Document');
+        const icon = msg.category === 'image' ? '📷' : msg.category === 'audio' ? '🎵' : '📄';
         messageContent += `
             <div style="margin-top:6px;padding:4px 8px;background:rgba(0,0,0,0.05);border-radius:6px;display:flex;align-items:center;gap:6px;">
                 <span style="font-size:0.8rem;">${icon}</span>
