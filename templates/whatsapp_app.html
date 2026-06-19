@@ -1762,8 +1762,8 @@ function deleteEnquiry(id) {
 
 // ==================== NOTIFICATIONS & BADGE ====================
 let notificationEnabled = false;
-let notifyLastMaxId = 0;
-let lastSeenMsgId = 0;
+let notifyLastMaxId = parseInt(localStorage.getItem('enqLastMaxId') || '0', 10);
+let lastSeenMsgId = parseInt(localStorage.getItem('msgLastMaxId') || '0', 10);
 
 function requestNotificationPermission() {
     if (!('Notification' in window)) {
@@ -1934,7 +1934,10 @@ async function checkForNewEnquiries() {
                     );
                 }
             });
-            notifyLastMaxId = data.max_id || notifyLastMaxId;
+            if (data.max_id > notifyLastMaxId) {
+                notifyLastMaxId = data.max_id;
+                localStorage.setItem('enqLastMaxId', String(notifyLastMaxId));
+            }
         }
     } catch (e) {
         console.log('📩 Enquiry poll failed:', e);
@@ -1949,7 +1952,10 @@ async function checkForNewMessages() {
         if (!data.success) return;
 
         // Track max ID
-        if (data.max_id > lastSeenMsgId) lastSeenMsgId = data.max_id;
+        if (data.max_id > lastSeenMsgId) {
+            lastSeenMsgId = data.max_id;
+            localStorage.setItem('msgLastMaxId', String(lastSeenMsgId));
+        }
 
         // Show notifications for new incoming messages
         if (data.new_messages && data.new_messages.length > 0) {
@@ -2004,13 +2010,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Request notification permission
     requestNotificationPermission();
 
-    // Initialise last seen message ID by fetching current max from server
-    fetch('/api/whatsapp-new-messages?last_msg_id=0')
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) lastSeenMsgId = data.max_id;
-        })
-        .catch(() => {});
+    // Seed last seen IDs from server (only needed for first ever visit)
+    if (!lastSeenMsgId) {
+        fetch('/api/whatsapp-new-messages?last_msg_id=0')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.max_id) {
+                    lastSeenMsgId = data.max_id;
+                    localStorage.setItem('msgLastMaxId', String(lastSeenMsgId));
+                }
+            })
+            .catch(() => {});
+    }
+    if (!notifyLastMaxId) {
+        fetch('/api/enquiries/pending-summary?last_id=0')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.max_id) {
+                    notifyLastMaxId = data.max_id;
+                    localStorage.setItem('enqLastMaxId', String(notifyLastMaxId));
+                }
+            })
+            .catch(() => {});
+    }
 
     // Poll for new WhatsApp messages every 15 seconds
     setInterval(checkForNewMessages, 15000);
