@@ -190,6 +190,34 @@
         }
         body.dark-theme .conv-name { color: #e9edef; }
         .conv-time { font-size: 0.65rem; color: var(--text-secondary); flex-shrink: 0; }
+        .enq-tag {
+            font-size: 0.55rem;
+            background: #1565c0;
+            color: white;
+            padding: 1px 6px;
+            border-radius: 8px;
+            margin-left: 4px;
+            vertical-align: middle;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+        .enq-dot {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            font-size: 0.55rem;
+            background: #1565c0;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--sidebar-bg);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        body.dark-theme .enq-dot { border-color: var(--sidebar-bg-dark); }
         .conv-preview {
             font-size: 0.7rem;
             color: var(--text-secondary);
@@ -911,6 +939,29 @@
     </div>
 </div>
 
+<!-- Enquiry Chat Chooser Modal -->
+<div class="modal-overlay" id="enquiryChatModal">
+    <div class="modal-box" style="max-width:360px;">
+        <div class="modal-head">
+            <span><i class="bi bi-whatsapp"></i> Open Chat</span>
+            <button onclick="closeEnquiryChatModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:0.75rem;margin-bottom:6px;color:var(--text-secondary);">Contact: <strong id="enqChatContactName" style="color:var(--text-primary);"></strong></p>
+            <p style="font-size:0.7rem;margin-bottom:14px;color:var(--text-secondary);">How would you like to open this chat?</p>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="openEnquiryInAppChat()">
+                    <i class="bi bi-chat-dots"></i> Open in Chat Section
+                </button>
+                <button class="btn-primary" onclick="openEnquiryInWhatsAppWeb()">
+                    <i class="bi bi-box-arrow-up-right"></i> Open WhatsApp Web
+                </button>
+                <button class="btn-cancel" onclick="closeEnquiryChatModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Bot Mode Warning Modal -->
 <div class="modal-overlay" id="botWarningModal">
     <div class="modal-box">
@@ -998,12 +1049,17 @@ function renderChatList(chats) {
         const isActive = currentPhone === chat.whatsapp;
         const statusColor = chat.status === 'pending' ? '#25D366' : chat.status === 'completed' ? '#667781' : '#ff9800';
         const newBg = chat.status === 'pending' ? 'background:#e8f5e9;' : '';
+        const chatPhone = (chat.whatsapp||'').replace(/[^0-9]/g, '');
+        const hasEnquiry = enquiryPhones.has(chatPhone);
         html += `
             <div class="conv-item${isActive?' active':''}" onclick="openChat('${chat.whatsapp}','${escapeHtml(chat.name)}')" style="${newBg}">
-                <div class="conv-avatar" style="background:#25D366;">${initial}</div>
+                <div class="conv-avatar" style="background:#25D366;position:relative;">
+                    ${initial}
+                    ${hasEnquiry?'<span class="enq-dot" title="Has enquiries"><i class="bi bi-person-badge"></i></span>':''}
+                </div>
                 <div class="conv-info">
                     <div class="conv-name">
-                        <span>${escapeHtml(chat.name)}</span>
+                        <span>${escapeHtml(chat.name)}${hasEnquiry?' <span class="enq-tag">Enquiry</span>':''}</span>
                         <span class="conv-time">${chat.last_time||''}</span>
                     </div>
                     <div class="conv-preview">${escapeHtml(chat.last_message||'No messages')}</div>
@@ -1518,6 +1574,17 @@ function switchTab(tab) {
 // ==================== ENQUIRIES ====================
 let allEnquiries = [];
 let enqLastMaxId = 0;
+let enquiryPhones = new Set();
+
+function buildEnquiryPhoneSet() {
+    enquiryPhones = new Set();
+    allEnquiries.forEach(eq => {
+        const phone = String(eq.clientwhatsapp || '').replace(/[^0-9]/g, '');
+        if (phone) enquiryPhones.add(phone);
+    });
+    // Re-render chat list to show/hide badges
+    if (chatData.length) renderChatList(chatData);
+}
 
 function loadEnquiries() {
     const list = document.getElementById('enquiriesList');
@@ -1532,6 +1599,7 @@ function loadEnquiries() {
             }
             allEnquiries = res.data || [];
             enqLastMaxId = allEnquiries.length > 0 ? Math.max(...allEnquiries.map(e => e.id)) : enqLastMaxId;
+            buildEnquiryPhoneSet();
             renderEnquiries(allEnquiries);
             updateEnquiryBadge();
         })
@@ -1574,7 +1642,7 @@ function renderEnquiries(enquiries) {
                     <button class="btn-status" onclick="event.stopPropagation();updateEnquiryStatus(${eq.id},'${statusClass}')">
                         <i class="bi bi-arrow-repeat"></i> ${statusClass === 'pending' ? 'Start' : statusClass === 'in_progress' ? 'Complete' : 'Reopen'}
                     </button>
-                    <button class="btn-whatsapp" onclick="event.stopPropagation();window.open('${waLink}','_blank')">
+                    <button class="btn-whatsapp" onclick="event.stopPropagation();openEnquiryChat('${waPhone}','${escapeHtml(eq.username || eq.clientwhatsapp || 'Unknown')}')">
                         <i class="bi bi-whatsapp"></i> Chat
                     </button>
                     ${eq.has_plan ? `<button class="btn-plan" onclick="event.stopPropagation();window.open('/api/enquiries/${eq.id}/plan','_blank')"><i class="bi bi-file-pdf"></i> Plan</button>` : ''}
@@ -1584,7 +1652,7 @@ function renderEnquiries(enquiries) {
             <div class="enquiry-expanded" id="enqExpand_${eq.id}">
                 <div class="eq-full-message">${escapeHtml(eq.enq || eq.message || 'No message')}</div>
                 <div class="eq-meta">
-                    <span><strong>WhatsApp:</strong> <a href="${waLink}" target="_blank">${eq.clientwhatsapp || 'N/A'}</a></span>
+                    <span><strong>WhatsApp:</strong> <a href="#" onclick="event.preventDefault();openEnquiryChat('${waPhone}','${escapeHtml(eq.username || eq.clientwhatsapp || 'Unknown')}')">${eq.clientwhatsapp || 'N/A'}</a></span>
                     <span><strong>Status:</strong> ${statusLabel}</span>
                     <span><strong>Category:</strong> ${escapeHtml(eq.enqcategory || eq.category || 'General')}</span>
                 </div>
@@ -1632,6 +1700,38 @@ function updateEnquiryStatus(id, currentStatus) {
         console.error('Status update error:', err);
         showToast('Error updating status', 'error', 'Error');
     });
+}
+
+// ==================== ENQUIRY CHAT CHOOSER ====================
+let _enqChatPhone = '';
+let _enqChatName = '';
+
+function openEnquiryChat(phone, name) {
+    _enqChatPhone = String(phone).replace(/[^0-9]/g, '');
+    _enqChatName = name || _enqChatPhone;
+    document.getElementById('enqChatContactName').textContent = _enqChatName;
+    document.getElementById('enquiryChatModal').classList.add('active');
+}
+
+function closeEnquiryChatModal() {
+    document.getElementById('enquiryChatModal').classList.remove('active');
+}
+
+function openEnquiryInAppChat() {
+    closeEnquiryChatModal();
+    // Switch to Chats tab and open the conversation
+    switchTab('chats');
+    // Find the contact in chat data to get proper name
+    let contactName = _enqChatName;
+    const found = chatData.find(c => (c.whatsapp||'').replace(/[^0-9]/g, '') === _enqChatPhone);
+    if (found) contactName = found.name;
+    openChat(_enqChatPhone, contactName);
+}
+
+function openEnquiryInWhatsAppWeb() {
+    closeEnquiryChatModal();
+    const waLink = _enqChatPhone ? 'https://wa.me/' + _enqChatPhone : '#';
+    window.open(waLink, '_blank');
 }
 
 function deleteEnquiry(id) {
