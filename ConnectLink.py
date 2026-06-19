@@ -9868,6 +9868,9 @@ def api_login():
                 session['role'] = hw_user[4]
                 
                 print(f"✅ Hardware user {username} logged in via API with role: {hw_user[4]}")
+                
+                log_activity('user_login', f'Hardware user {username} logged in via API with role {hw_user[4]}', 'user', hw_user[0], {'username': username, 'role': hw_user[4], 'method': 'api'})
+                
                 return jsonify({
                     'success': True,
                     'user': {
@@ -9901,6 +9904,9 @@ def api_login():
             execute_query("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s", (user[0],), commit=True)
             
             print(f"✅ System user {username} logged in via API")
+            
+            log_activity('user_login', f'System user {username} logged in via API with role {user[4]}', 'user', user[0], {'username': username, 'email': user[2], 'role': user[4], 'method': 'api'})
+            
             return jsonify({
                 'success': True,
                 'user': {
@@ -9921,6 +9927,8 @@ def api_login():
 
 @app.route('/api/logoutpos', methods=['POST','GET'])
 def api_logout():
+    user_name = session.get('username') or session.get('user_name') or 'Unknown'
+    log_activity('user_logout', f'User {user_name} logged out from POS', 'user', session.get('user_id') or session.get('userid'))
     session.clear()
     return render_template('mainindex.html')  # Or send_from_directory for static HTML
 
@@ -11057,6 +11065,8 @@ def export_projects_portfolio():
 
             output.seek(0)
 
+            log_activity('export_portfolio', f'Projects portfolio exported to Excel ({len(df_projects)} projects, {len(df_notes)} notes)', 'project', None, {'projects': len(df_projects), 'notes': len(df_notes), 'format': 'excel'})
+            
             # ========= SEND THE FILE =========
             return send_file(
                 output,
@@ -12250,6 +12260,8 @@ def whatsapp_bulk_send_template():
                     'error': str(e)[:200]
                 })
         
+        log_activity('bulk_template_sent', f'Bulk template "{template_name}" sent to {len(recipients)} recipients (sent: {success_count}, failed: {fail_count})', 'whatsapp', None, {'template_name': template_name, 'total': len(recipients), 'sent': success_count, 'failed': fail_count, 'parameters': parameters})
+        
         return jsonify({
             'success': True,
             'results': results,
@@ -12323,6 +12335,10 @@ def whatsapp_bulk_send():
                 })
             except Exception as e:
                 results.append({'recipient': recipient, 'success': False, 'error': str(e)})
+        
+        success_count = sum(1 for r in results if r.get('success'))
+        fail_count = sum(1 for r in results if not r.get('success'))
+        log_activity('bulk_message_sent', f'Bulk message sent to {len(recipients)} recipients (success: {success_count}, failed: {fail_count})', 'whatsapp', None, {'total': len(recipients), 'sent': success_count, 'failed': fail_count, 'message_preview': message[:100]})
         
         return jsonify({'success': True, 'results': results})
     except Exception as e:
@@ -12441,6 +12457,8 @@ def whatsapp_send_file():
                 save_conn.commit()
         except Exception as save_err:
             print(f"⚠️ Failed to save sent file message: {save_err}")
+        
+        log_activity('whatsapp_file_sent', f'{msg_type.capitalize()} file "{filename}" sent to {recipient_clean}', 'whatsapp', None, {'recipient': recipient_clean, 'filename': filename, 'msg_type': msg_type, 'caption': caption[:100] if caption else ''})
         
         return jsonify({'success': True, 'message': f'{msg_type.capitalize()} sent successfully', 'media_id': media_id})
         
@@ -12677,6 +12695,8 @@ def whatsapp_sync_history():
             
             connection.commit()
         
+        log_activity('whatsapp_history_synced', f'Synced {synced} historical entries from interactions log into whatsapp_messages', 'whatsapp', None, {'synced_count': synced})
+        
         return jsonify({
             'success': True, 
             'message': f'Synced {synced} historical entries from interactions log',
@@ -12702,6 +12722,8 @@ def export_enquiries():
                 df_empty = pd.DataFrame(columns=['No enquiries found'])
                 df_empty.to_excel(output, index=False, sheet_name="Enquiries")
                 output.seek(0)
+                
+                log_activity('export_enquiries', 'Enquiries exported to Excel (0 rows - empty)', 'enquiry', None, {'rows_exported': 0, 'format': 'excel'})
                 
                 return send_file(
                     output,
@@ -12822,6 +12844,8 @@ def export_enquiries():
                     df_stats.to_excel(writer, index=False, sheet_name="Statistics")
             
             output.seek(0)
+            
+            log_activity('export_enquiries', f'Enquiries exported to Excel ({len(rows)} rows)', 'enquiry', None, {'rows_exported': len(rows), 'format': 'excel'})
             
             # ========= SEND THE FILE =========
             return send_file(
@@ -14220,6 +14244,8 @@ def download_payments_history(project_id):
 
             pdf = HTML(string=html, base_url=request.host_url).write_pdf()
 
+            log_activity('download_payments_history', f'Payments history PDF downloaded for project {project_id} - {row[1]}', 'project', project_id, {'client_name': row[1], 'project_name': row[10], 'format': 'pdf'})
+            
             response = make_response(pdf)
             response.headers["Content-Type"] = "application/pdf"
             response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[10]} payments history_{project_id}_ConnectLink Properties.pdf"
@@ -14285,6 +14311,9 @@ def add_admin():
                 VALUES (%s, %s)
             """, (adminName, adminPhone))
             connection.commit()
+            
+            log_activity('admin_added', f'Admin "{adminName}" added with contact {adminPhone}', 'admin', None, {'name': adminName, 'contact': adminPhone})
+            
             return jsonify({"status": "success"})
 
         except Exception as e:
@@ -14301,8 +14330,16 @@ def remove_admin():
     with get_db() as (cursor, connection):
 
         try:
+            # Fetch admin name before removing
+            cursor.execute("SELECT name FROM connectlinkadmin WHERE id=%s", (admin_id,))
+            admin_row = cursor.fetchone()
+            admin_name = admin_row[0] if admin_row else 'Unknown'
+            
             cursor.execute("DELETE FROM connectlinkadmin WHERE id=%s", (admin_id,))
             connection.commit()
+            
+            log_activity('admin_removed', f'Admin "{admin_name}" (ID: {admin_id}) removed', 'admin', admin_id, {'name': admin_name})
+            
             return jsonify({"status": "success"})
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)})
@@ -16748,6 +16785,9 @@ def export_cashflow():
             
             # Create response
             filename = f"cashflow_report_{current_timestamp.strftime('%d_%B_%Y_%H%M')}.xlsx"
+            
+            log_activity('export_cashflow', f'Cashflow report exported to Excel', 'project', None, {'format': 'excel', 'filename': filename})
+            
             response = make_response(output.getvalue())
             response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
@@ -17115,6 +17155,8 @@ def download_portfolio():
                 filename = f"Project_Portfolio_{month_name}_{year}_{timestamp}.xlsx"
             else:
                 filename = f"Project_Portfolio_All_{timestamp}.xlsx"
+            
+            log_activity('download_portfolio', f'Project portfolio downloaded ({len(active_projects)} projects, month: {month or "all"})', 'project', None, {'projects': len(active_projects), 'month': month or 'all', 'format': 'excel'})
             
             # 8. Return Excel file
             output.seek(0)
@@ -19019,16 +19061,134 @@ def update_project():
             WHERE id = %s
         """
         
+        # Fetch old project data BEFORE update (for change detection)
+        cursor.execute("""
+            SELECT clientname, projectname, projectdescription, projectcompletionstatus,
+                   totalcontractamount, depositorbullet, datedepositorbullet, quotation_id,
+                   installment1amount, installment2amount, installment3amount, installment4amount, installment5amount,
+                   installment6amount, installment7amount, installment8amount, installment9amount, installment10amount,
+                   installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate,
+                   installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate,
+                   installment1date, installment2date, installment3date, installment4date, installment5date,
+                   installment6date, installment7date, installment8date, installment9date, installment10date
+            FROM connectlinkdatabase WHERE id = %s
+        """, (project_id,))
+        old_row = cursor.fetchone()
+        
+        def ov(idx):
+            """Get old value at index, return as string or empty"""
+            v = old_row[idx] if old_row else None
+            return str(v) if v is not None else ''
+        
+        old_clientname = ov(0)
+        old_projectname = ov(1)
+        old_projscope = ov(2)
+        old_status = ov(3)
+        old_contract = ov(4)
+        old_deposit = ov(5)
+        old_deposit_date = ov(6)
+        old_quotation_id = ov(7)
+        old_inst_amounts = [ov(8+i) for i in range(10)]
+        old_inst_duedates = [ov(18+i) for i in range(10)]
+        old_inst_dates = [ov(28+i) for i in range(10)]
+
         values.append(project_id)
         values = tuple(values)
 
         cursor.execute(query, values)
         connection.commit()
 
-        # Log the project update
+        # Helper: format value for display
+        def fmt(v):
+            return str(v) if v else ''
+
+        changes = []
+
+        # Check each field for changes
+        field_checks = [
+            ('client_name', 'Client Name', old_clientname, fmt(clientname)),
+            ('project_name', 'Project Name', old_projectname, fmt(project_name)),
+            ('project_scope', 'Project Scope', old_projscope, fmt(projscope)),
+            ('completion_status', 'Completion Status', old_status, fmt(completion_status)),
+            ('contract_amount', 'Total Contract Amount', old_contract, fmt(contractamount)),
+            ('deposit_amount', 'Deposit Amount', old_deposit, fmt(depositpaid)),
+            ('deposit_date', 'Deposit Date', old_deposit_date, fmt(depositdatepaid)),
+        ]
+        for key, label, old_val, new_val in field_checks:
+            if old_val != new_val:
+                changes.append((key, label, old_val, new_val))
+
+        # Quotation link change
+        new_qid = fmt(quotation_id) if quotation_id else ''
+        if old_quotation_id != new_qid:
+            changes.append(('quotation_link', 'Quotation', old_quotation_id, new_qid))
+
+        # Installment amount changes
+        new_inst_amounts = [
+            fmt(installment1amount), fmt(installment2amount), fmt(installment3amount),
+            fmt(installment4amount), fmt(installment5amount), fmt(installment6amount),
+            fmt(installment7amount), fmt(installment8amount), fmt(installment9amount), fmt(installment10amount)
+        ]
+        for i in range(10):
+            if old_inst_amounts[i] != new_inst_amounts[i]:
+                changes.append((f'installment{i+1}_amount', f'Installment #{i+1} Amount', old_inst_amounts[i], new_inst_amounts[i]))
+
+        # Installment due date changes
+        new_inst_duedates = [
+            fmt(installment1_duedate), fmt(installment2_duedate), fmt(installment3_duedate),
+            fmt(installment4_duedate), fmt(installment5_duedate), fmt(installment6_duedate),
+            fmt(installment7_duedate), fmt(installment8_duedate), fmt(installment9_duedate), fmt(installment10_duedate)
+        ]
+        for i in range(10):
+            if old_inst_duedates[i] != new_inst_duedates[i]:
+                changes.append((f'installment{i+1}_duedate', f'Installment #{i+1} Due Date', old_inst_duedates[i], new_inst_duedates[i]))
+
+        # Installment paid date changes
+        new_inst_dates = [
+            fmt(installment1_date), fmt(installment2_date), fmt(installment3_date),
+            fmt(installment4_date), fmt(installment5_date), fmt(installment6_date),
+            fmt(installment7_date), fmt(installment8_date), fmt(installment9_date), fmt(installment10_date)
+        ]
+        for i in range(10):
+            old_d = old_inst_dates[i]
+            new_d = new_inst_dates[i]
+            if old_d != new_d:
+                if not old_d and new_d:
+                    changes.append((f'installment{i+1}_paid', f'Installment #{i+1} Paid', '', new_d))
+                else:
+                    changes.append((f'installment{i+1}_date', f'Installment #{i+1} Paid Date', old_d, new_d))
+
+        # Log each individual change
+        for key, label, old_val, new_val in changes:
+            if key.endswith('_paid') and not old_val and new_val:
+                action_type = 'installment_paid'
+                desc = f'{label} for "{project_name}" ({clientname}) - payment recorded on {new_val}'
+            elif key == 'quotation_link':
+                action_type = 'quotation_linked' if new_val else 'quotation_unlinked'
+                desc = f'Quotation {"#"+new_val if new_val else "unlinked"} for project "{project_name}" ({clientname})'
+            else:
+                action_type = 'project_field_changed'
+                desc = f'{label} changed for "{project_name}" ({clientname}): {old_val or "(empty)"} → {new_val or "(empty)"}'
+            
+            log_activity(
+                action_type,
+                desc,
+                'project',
+                project_id,
+                {
+                    'project_id': project_id,
+                    'client_name': clientname,
+                    'field': key,
+                    'old_value': old_val,
+                    'new_value': new_val,
+                    'updated_by': session.get('user_name', 'Unknown')
+                }
+            )
+
+        # Also log a summary update
         log_activity(
             'project_updated',
-            f'Project "{project_name}" for {clientname} updated (completion: {completion_status}, method: {"installments" if int(monthstopay or 0) > 0 else "once-off"})',
+            f'Project "{project_name}" for {clientname} updated ({len(changes)} field(s) changed, completion: {completion_status})',
             'project',
             project_id,
             {
@@ -19036,8 +19196,7 @@ def update_project():
                 'client_name': clientname,
                 'project_name': project_name,
                 'completion_status': completion_status,
-                'payment_method': 'installments' if int(monthstopay or 0) > 0 else 'once-off',
-                'total_contract_amount': contractamount,
+                'fields_changed': len(changes),
                 'updated_by': session.get('user_name', 'Unknown')
             }
         )
@@ -22777,16 +22936,54 @@ def save_quotation_notes():
     try:
         data = request.get_json()
         quotation_id = data.get('quotation_id')
-        notes = data.get('notes', '')
+        notes = data.get('notes', '').strip()
         
         if not quotation_id:
             return jsonify({'success': False, 'message': 'Quotation ID is required'}), 400
+        
+        # Fetch old notes for comparison
+        old_notes = ''
+        client_name = 'Unknown'
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT notes, client_name FROM quotations WHERE id = %s
+            """, (quotation_id,))
+            row = cursor.fetchone()
+            if row:
+                old_notes = (row[0] or '').strip()
+                client_name = row[1] or 'Unknown'
         
         with get_db() as (cursor, connection):
             cursor.execute("""
                 UPDATE quotations SET notes = %s WHERE id = %s
             """, (notes, quotation_id))
             connection.commit()
+        
+        # Log the action
+        if old_notes and notes and old_notes != notes:
+            log_activity(
+                'quotation_note_edited',
+                f'Quotation #{quotation_id} for {client_name} - note edited',
+                'quotation',
+                quotation_id,
+                {'client_name': client_name, 'old_note_preview': old_notes[:100], 'new_note_preview': notes[:100]}
+            )
+        elif not old_notes and notes:
+            log_activity(
+                'quotation_note_added',
+                f'Quotation #{quotation_id} for {client_name} - note added',
+                'quotation',
+                quotation_id,
+                {'client_name': client_name, 'note_preview': notes[:100]}
+            )
+        elif old_notes and not notes:
+            log_activity(
+                'quotation_note_removed',
+                f'Quotation #{quotation_id} for {client_name} - note removed',
+                'quotation',
+                quotation_id,
+                {'client_name': client_name, 'removed_note_preview': old_notes[:100]}
+            )
         
         return jsonify({'success': True, 'message': 'Notes saved successfully'})
     except Exception as e:
