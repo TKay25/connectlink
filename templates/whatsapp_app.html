@@ -1556,7 +1556,8 @@ function renderEnquiries(enquiries) {
         const statusLabel = statusClass === 'in_progress' ? 'In Progress' : statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
         const shortMsg = (eq.enq || eq.message || 'No message').substring(0, 80);
         const hasMore = (eq.enq || eq.message || '').length > 80;
-        const waLink = eq.clientwhatsapp ? 'https://wa.me/' + eq.clientwhatsapp.replace(/[^0-9]/g, '') : '#';
+        const waPhone = String(eq.clientwhatsapp || '');
+        const waLink = waPhone ? 'https://wa.me/' + waPhone.replace(/[^0-9]/g, '') : '#';
 
         html += `
             <div class="enquiry-card" onclick="toggleEnquiryExpand(${eq.id})">
@@ -1601,7 +1602,7 @@ function filterEnquiries() {
     const q = document.getElementById('enqSearch').value.toLowerCase().trim();
     const status = document.getElementById('enqStatusFilter').value;
     let filtered = allEnquiries;
-    if (q) filtered = filtered.filter(e => (e.username||'').toLowerCase().includes(q) || (e.clientwhatsapp||'').includes(q) || (e.enq||e.message||'').toLowerCase().includes(q));
+    if (q) filtered = filtered.filter(e => (e.username||'').toLowerCase().includes(q) || String(e.clientwhatsapp||'').includes(q) || (e.enq||e.message||'').toLowerCase().includes(q));
     if (status) filtered = filtered.filter(e => (e.status||'pending').toLowerCase() === status);
     renderEnquiries(filtered);
 }
