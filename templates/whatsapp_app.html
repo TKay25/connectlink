@@ -1883,6 +1883,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Poll for new enquiries every 30 seconds
     setInterval(checkForNewEnquiries, 30000);
 
+    // Auto-refresh the conversation list every 5 minutes
+    setInterval(refreshChats, 300000);
+
     // Also check on page visibility change (user switches back to tab)
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden) {
