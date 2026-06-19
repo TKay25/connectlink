@@ -19120,6 +19120,91 @@ function saveCurrentQuotationNote() {
         }
     });
 }
+
+/**
+ * Check if the note has unsaved changes. If so, ask user to save before proceeding.
+ * @param {Function} callback - Function to call after handling the note save decision
+ */
+async function checkUnsavedNote(callback) {
+    const q = typeof currentViewingQuotation !== 'undefined' ? currentViewingQuotation : window.currentViewingQuotation;
+    if (!q || !q.id) {
+        if (callback) callback();
+        return;
+    }
+    
+    const currentNoteHtml = quillDetailsNotes ? quillDetailsNotes.root.innerHTML.trim() : '';
+    const savedNoteHtml = (q.notes || '').trim();
+    
+    // Normalise HTML for comparison (handle Quill's wrapping)
+    const normalize = (html) => html.replace(/^<p>\s*<\/p>$/, '').replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
+    
+    if (normalize(currentNoteHtml) === normalize(savedNoteHtml)) {
+        // No changes - proceed silently
+        if (callback) callback();
+        return;
+    }
+    
+    // Changes detected - show confirmation modal
+    const shouldSave = await new Promise((resolve) => {
+        const confirmId = 'unsavedNoteConfirm_' + Date.now();
+        const modalHtml = `
+            <div id="${confirmId}" class="modal-overlay" style="display:flex;z-index:99999;">
+                <div class="modal-container small" style="max-width:400px;">
+                    <div class="modal-header-custom">
+                        <h3><i class="bi bi-pencil-square"></i> Unsaved Note</h3>
+                        <button class="close-modal" id="${confirmId}_close">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body-custom" style="padding:16px;">
+                        <p style="font-size:0.75rem;margin-bottom:12px;">The note for this quotation has unsaved changes.</p>
+                        <p style="font-size:0.75rem;margin-bottom:16px;">Would you like to save the note before proceeding?</p>
+                        <div style="display:flex;gap:8px;justify-content:flex-end;">
+                            <button class="btn btn-outline-secondary" id="${confirmId}_discard" style="font-size:0.65rem;padding:6px 16px;">
+                                <i class="bi bi-x"></i> No, discard changes
+                            </button>
+                            <button class="btn btn-primary" id="${confirmId}_save" style="font-size:0.65rem;padding:6px 16px;">
+                                <i class="bi bi-check-circle"></i> Yes, save note
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = modalHtml;
+        const modalEl = wrapper.firstChild;
+        document.body.appendChild(modalEl);
+        
+        const cleanup = (result) => {
+            modalEl.remove();
+            resolve(result);
+        };
+        
+        document.getElementById(confirmId + '_save').addEventListener('click', () => cleanup(true));
+        document.getElementById(confirmId + '_discard').addEventListener('click', () => cleanup(false));
+        document.getElementById(confirmId + '_close').addEventListener('click', () => cleanup(false));
+        
+        // Close on overlay click
+        modalEl.addEventListener('click', (e) => {
+            if (e.target === modalEl) cleanup(false);
+        });
+    });
+    
+    if (shouldSave) {
+        // Click the Save Note button and wait for save to complete
+        const btn = document.getElementById('saveQuotationNoteBtn');
+        if (btn) {
+            // Save the note
+            saveCurrentQuotationNote();
+            // Wait a moment for the save to complete
+            await new Promise(r => setTimeout(r, 600));
+        }
+    }
+    
+    if (callback) callback();
+}
+
 // Add this to your document ready or after modal is defined
 $(document).ready(function() {
     // Download PDF button in modal
@@ -19129,24 +19214,25 @@ $(document).ready(function() {
             const textSpan = $('#downloadBtnText');
             const spinner = $('#downloadBtnSpinner');
             
-            // Show spinner, hide text
-            textSpan.addClass('d-none');
-            spinner.removeClass('d-none');
-            btn.disabled = true;
-            
-            try {
-                await downloadQuotationPDFFromPortal(currentViewingQuotation.id);
-            } catch (error) {
-                console.error('Download error:', error);
-                alert('Error downloading PDF: ' + error.message);
-            } finally {
-                // Hide spinner, show text
-                textSpan.removeClass('d-none');
-                spinner.addClass('d-none');
-                btn.disabled = false;
-            }
+            // Check if note has unsaved changes before proceeding
+            await checkUnsavedNote(async () => {
+                textSpan.addClass('d-none');
+                spinner.removeClass('d-none');
+                btn.disabled = true;
+                
+                try {
+                    await downloadQuotationPDFFromPortal(currentViewingQuotation.id);
+                } catch (error) {
+                    console.error('Download error:', error);
+                    showToast('Error downloading PDF: ' + error.message, 'error', 'Download Failed');
+                } finally {
+                    textSpan.removeClass('d-none');
+                    spinner.addClass('d-none');
+                    btn.disabled = false;
+                }
+            });
         } else {
-            alert('No quotation selected');
+            showToast('No quotation selected', 'warning', 'No Selection');
         }
     });
 
@@ -19157,24 +19243,25 @@ $(document).ready(function() {
             const textSpan = $('#sendBtnText');
             const spinner = $('#sendBtnSpinner');
             
-            // Show spinner, hide text
-            textSpan.addClass('d-none');
-            spinner.removeClass('d-none');
-            btn.disabled = true;
-            
-            try {
-                await sendQuotationFromPortal(currentViewingQuotation.id);
-            } catch (error) {
-                console.error('Send error:', error);
-                alert('Error sending quotation: ' + error.message);
-            } finally {
-                // Hide spinner, show text
-                textSpan.removeClass('d-none');
-                spinner.addClass('d-none');
-                btn.disabled = false;
-            }
+            // Check if note has unsaved changes before proceeding
+            await checkUnsavedNote(async () => {
+                textSpan.addClass('d-none');
+                spinner.removeClass('d-none');
+                btn.disabled = true;
+                
+                try {
+                    await sendQuotationFromPortal(currentViewingQuotation.id);
+                } catch (error) {
+                    console.error('Send error:', error);
+                    showToast('Error sending quotation: ' + error.message, 'error', 'Send Failed');
+                } finally {
+                    textSpan.removeClass('d-none');
+                    spinner.addClass('d-none');
+                    btn.disabled = false;
+                }
+            });
         } else {
-            alert('No quotation selected');
+            showToast('No quotation selected', 'warning', 'No Selection');
         }
     });
     
