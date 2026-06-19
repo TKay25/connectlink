@@ -20630,6 +20630,9 @@ function viewActivityDetails(element) {
                         </div>`;
                 }
                 
+                // Strip HTML tags for clean text display
+                const stripHtml = (s) => s.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+                
                 if (hasNoteEdit) {
                     const oldNote = details.old_note_preview !== null ? String(details.old_note_preview) : '';
                     const newNote = details.new_note_preview !== null ? String(details.new_note_preview) : '';
@@ -20639,12 +20642,12 @@ function viewActivityDetails(element) {
                             <div style="display:flex;gap:8px;align-items:stretch;">
                                 <div style="flex:1;background:#fce4e4;border:1px solid #f5c6c6;border-radius:6px;padding:8px 10px;">
                                     <div style="font-size:0.6rem;text-transform:uppercase;color:#b71c1c;margin-bottom:2px;"><i class="bi bi-dash-circle"></i> Before</div>
-                                    <div style="font-size:0.7rem;color:#b71c1c;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(oldNote)}</div>
+                                    <div style="font-size:0.7rem;color:#b71c1c;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(stripHtml(oldNote))}</div>
                                 </div>
                                 <div style="display:flex;align-items:center;color:#999;font-size:1rem;"><i class="bi bi-arrow-right"></i></div>
                                 <div style="flex:1;background:#e4fce4;border:1px solid #c6f5c6;border-radius:6px;padding:8px 10px;">
                                     <div style="font-size:0.6rem;text-transform:uppercase;color:#1b7a1b;margin-bottom:2px;"><i class="bi bi-check-circle"></i> After</div>
-                                    <div style="font-size:0.7rem;color:#1b7a1b;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(newNote)}</div>
+                                    <div style="font-size:0.7rem;color:#1b7a1b;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(stripHtml(newNote))}</div>
                                 </div>
                             </div>
                         </div>`;
@@ -20656,7 +20659,7 @@ function viewActivityDetails(element) {
                         <div style="margin-bottom:8px;">
                             <div style="font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Quotation Note Added</div>
                             <div style="background:#e4fce4;border:1px solid #c6f5c6;border-radius:6px;padding:8px 10px;">
-                                <div style="font-size:0.7rem;color:#1b7a1b;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(note)}</div>
+                                <div style="font-size:0.7rem;color:#1b7a1b;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(stripHtml(note))}</div>
                             </div>
                         </div>`;
                 }
@@ -20667,7 +20670,7 @@ function viewActivityDetails(element) {
                         <div style="margin-bottom:8px;">
                             <div style="font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Quotation Note Removed</div>
                             <div style="background:#fce4e4;border:1px solid #f5c6c6;border-radius:6px;padding:8px 10px;">
-                                <div style="font-size:0.7rem;color:#b71c1c;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(note)}</div>
+                                <div style="font-size:0.7rem;color:#b71c1c;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(stripHtml(note))}</div>
                             </div>
                         </div>`;
                 }
