@@ -392,6 +392,14 @@
             background: #151b30;
             border-color: var(--border-color);
         }
+        body.dark-theme .btn-group[style*="var(--bg-card)"] {
+            background: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme [style*="background:transparent"][onclick*="setUniversalMode"] {
+            color: var(--text-secondary) !important;
+            border-color: var(--border-color) !important;
+        }
         body.dark-theme .breadcrumb-item,
         body.dark-theme .breadcrumb-item.active {
             color: var(--text-secondary);
@@ -472,6 +480,14 @@
         body.dark-theme .stat-card .stat-icon.purple {
             background: rgba(193,43,62,0.15) !important;
             color: var(--primary) !important;
+        }
+        body.dark-theme #botModeWarningModal .alert-warning {
+            background: rgba(245,158,11,0.15) !important;
+            border-color: rgba(245,158,11,0.3) !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #botModeWarningModal [style*="background:var(--gray-50)"] {
+            background: rgba(255,255,255,0.04) !important;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { font-size: 14px; }
@@ -3689,6 +3705,22 @@ table.dataTable thead th.sorting_desc {
                                     <div class="stat-icon" style="width:22px;height:22px;font-size:0.5rem;background:rgba(255,255,255,0.15);color:white;"><i class="bi bi-people-fill"></i></div>
                                     <div class="stat-body"><div class="stat-label" style="font-size:0.45rem;color:rgba(255,255,255,0.7);">Total Contacts</div><div class="stat-value" id="statTotal" style="font-size:0.7rem;color:white;">—</div></div>
                                 </div>
+                                <!-- Chat Mode Stats Card -->
+                                <div class="stat-card" style="padding:5px 8px;border-left:3px solid var(--primary);">
+                                    <div class="stat-icon purple" style="width:22px;height:22px;font-size:0.5rem;"><i class="bi bi-robot"></i></div>
+                                    <div class="stat-body">
+                                        <div class="stat-label" style="font-size:0.45rem;">Bot / Human Mode</div>
+                                        <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
+                                            <span style="font-size:0.6rem;font-weight:700;color:var(--success);">
+                                                <i class="bi bi-robot"></i> <span id="statBotCount">—</span>
+                                            </span>
+                                            <span style="font-size:0.55rem;color:var(--text-muted);">|</span>
+                                            <span style="font-size:0.6rem;font-weight:700;color:var(--primary);">
+                                                <i class="bi bi-person"></i> <span id="statHumanCount">—</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <!-- Chat Controls -->
                             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;justify-content:space-between;">
@@ -3697,6 +3729,16 @@ table.dataTable thead th.sorting_desc {
                                     <button class="btn btn-success" style="padding:4px 12px;" onclick="openBulkMessaging()"><i class="bi bi-megaphone"></i> Bulk Message</button>
                                     <button class="btn btn-outline-info" style="padding:4px 12px;" onclick="syncWhatsAppHistory()" title="Pull historical contacts from interactions log"><i class="bi bi-clock-history"></i> Sync History</button>
                                     <button class="btn btn-outline-secondary" style="padding:4px 12px;" onclick="checkWhatsAppDebug()"><i class="bi bi-bug"></i> Debug</button>
+                                    <!-- Universal Mode Toggle -->
+                                    <div class="btn-group ms-1" style="display:inline-flex;align-items:center;gap:4px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:2px 6px;">
+                                        <span style="font-size:0.55rem;font-weight:600;color:var(--text-secondary);margin-right:2px;"><i class="bi bi-globe2"></i> ALL:</span>
+                                        <button id="universalBotBtn" class="btn btn-sm" style="font-size:0.55rem;padding:2px 8px;border-radius:4px;background:var(--success);color:white;font-weight:600;" onclick="setUniversalMode(false)">
+                                            <i class="bi bi-robot"></i> Bot
+                                        </button>
+                                        <button id="universalHumanBtn" class="btn btn-sm" style="font-size:0.55rem;padding:2px 8px;border-radius:4px;background:transparent;color:var(--text-secondary);border:1px solid var(--border-color);font-weight:500;" onclick="setUniversalMode(true)">
+                                            <i class="bi bi-person"></i> Human
+                                        </button>
+                                    </div>
                                 </div>
                                 <span id="whatsappChatCount" style="font-size:0.55rem;color:var(--text-muted);">0 conversations</span>
                             </div>
@@ -6252,6 +6294,42 @@ table.dataTable thead th.sorting_desc {
                     </div>
                     <div style="font-size:0.45rem;color:#ef6c00;background:#fff3e0;padding:2px 6px;border-radius:3px;">Meta templates bypass the 24hr window. Use approved template names only.</div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bot Mode Warning Modal - shown when trying to send to a bot-mode chat -->
+<div id="botModeWarningModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:440px;">
+        <div class="modal-header-custom" style="background:var(--warning);">
+            <h3><i class="bi bi-exclamation-triangle-fill"></i> Bot Mode Active</h3>
+            <button class="close-modal" onclick="closeModal('botModeWarningModal'); window._pendingSendAction = null;">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="padding:16px;">
+            <div class="alert alert-warning" style="font-size:0.75rem;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px;">
+                <i class="bi bi-robot" style="font-size:1rem;flex-shrink:0;margin-top:2px;"></i>
+                <div>
+                    <strong>This chat is currently in Bot mode.</strong><br>
+                    The AI chatbot will auto-reply to <strong id="botWarningContactName">this contact</strong> unless you switch to Human mode.
+                </div>
+            </div>
+            <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:12px;padding:8px;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--primary);">
+                <i class="bi bi-info-circle"></i> 
+                <span id="botWarningMessagePreview" style="font-weight:500;">Sending a message in Bot mode means the AI may also respond to the customer's future messages.</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                <button class="btn btn-success" id="botModeSwitchAndSendBtn" style="padding:8px 16px;font-size:0.7rem;justify-content:center;" onclick="switchToHumanAndSend()">
+                    <i class="bi bi-arrow-repeat"></i> Switch from Bot to Human & Send
+                </button>
+                <button class="btn btn-primary" id="botModeSendAnywayBtn" style="padding:8px 16px;font-size:0.7rem;justify-content:center;" onclick="sendAnywayInBotMode()">
+                    <i class="bi bi-send"></i> Send Anyway (Bot stays active)
+                </button>
+                <button class="btn btn-outline-secondary" style="padding:6px 16px;font-size:0.65rem;justify-content:center;" onclick="closeModal('botModeWarningModal'); window._pendingSendAction = null;">
+                    Cancel
+                </button>
             </div>
         </div>
     </div>
@@ -19886,6 +19964,73 @@ let currentChatPhone = '';
 let currentChatName = '';
 let chatFileData = null;
 
+function loadChatModeStats() {
+    fetch('/api/whatsapp-chat-mode-stats')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) return;
+            document.getElementById('statBotCount').textContent = res.bot_mode_count || 0;
+            document.getElementById('statHumanCount').textContent = res.human_mode_count || 0;
+        })
+        .catch(err => console.error('Chat mode stats error:', err));
+}
+
+function setUniversalMode(humanMode) {
+    const btnBot = document.getElementById('universalBotBtn');
+    const btnHuman = document.getElementById('universalHumanBtn');
+    const mode = humanMode ? 'Human' : 'Bot';
+    
+    // Show loading state
+    btnBot.disabled = true;
+    btnHuman.disabled = true;
+    
+    fetch('/api/whatsapp-universal-toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ human_mode: humanMode })
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast(res.message, 'success');
+                // Update button styles
+                if (humanMode) {
+                    btnBot.style.background = 'transparent';
+                    btnBot.style.color = 'var(--text-secondary)';
+                    btnBot.style.border = '1px solid var(--border-color)';
+                    btnBot.style.fontWeight = '500';
+                    btnHuman.style.background = 'var(--primary)';
+                    btnHuman.style.color = 'white';
+                    btnHuman.style.border = 'none';
+                    btnHuman.style.fontWeight = '600';
+                } else {
+                    btnHuman.style.background = 'transparent';
+                    btnHuman.style.color = 'var(--text-secondary)';
+                    btnHuman.style.border = '1px solid var(--border-color)';
+                    btnHuman.style.fontWeight = '500';
+                    btnBot.style.background = 'var(--success)';
+                    btnBot.style.color = 'white';
+                    btnBot.style.border = 'none';
+                    btnBot.style.fontWeight = '600';
+                }
+                // Refresh mode stats
+                loadChatModeStats();
+                // Refresh chat list to show updated mode indicators
+                loadWhatsAppChats();
+            } else {
+                showToast(res.message || 'Failed to toggle', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('Universal toggle error:', err);
+            showToast('Failed to apply universal mode', 'error');
+        })
+        .finally(() => {
+            btnBot.disabled = false;
+            btnHuman.disabled = false;
+        });
+}
+
 function loadWhatsAppChatStats() {
     fetch('/api/whatsapp-chat-stats')
         .then(r => r.json())
@@ -19928,6 +20073,7 @@ function loadWhatsAppChats() {
     
     // Load stats cards
     loadWhatsAppChatStats();
+    loadChatModeStats();
     
     fetch('/api/whatsapp-chats')
         .then(r => r.json())
@@ -20122,6 +20268,130 @@ function toggleHumanMode() {
         });
 }
 
+/** Switch chat from Bot to Human mode, then send the pending message */
+function switchToHumanAndSend() {
+    const pending = window._pendingSendAction;
+    if (!pending || !pending.phone) {
+        closeModal('botModeWarningModal');
+        return;
+    }
+    
+    // Close the warning modal
+    closeModal('botModeWarningModal');
+    
+    // Toggle human mode ON
+    const toggle = document.getElementById('humanModeToggle');
+    if (toggle) {
+        toggle.checked = true;
+    }
+    
+    // API call to enable human mode
+    fetch('/api/whatsapp-toggle-human-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: pending.phone, human_mode: true })
+    })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('Switched to Human mode ✓', 'success');
+            }
+        })
+        .catch(err => {
+            console.error('Switch to human mode error:', err);
+        })
+        .finally(() => {
+            // Send the pending message after toggling
+            executePendingSend(pending);
+        });
+}
+
+/** Send the message anyway, keeping bot mode active */
+function sendAnywayInBotMode() {
+    const pending = window._pendingSendAction;
+    if (!pending || !pending.phone) {
+        closeModal('botModeWarningModal');
+        return;
+    }
+    
+    closeModal('botModeWarningModal');
+    executePendingSend(pending);
+}
+
+/** Execute the stored pending send action */
+function executePendingSend(pending) {
+    if (!pending) return;
+    
+    if (pending.isTemplate) {
+        // Template send path - rebuild and send
+        const templateName = pending.templateName;
+        const params = pending.templateParams || [];
+        
+        const area = document.getElementById('chatMessagesArea');
+        const now = new Date();
+        const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        const id = 'tpl-' + Date.now();
+        area.innerHTML += `<div id="${id}" style="max-width:80%;background:#fff3e0;align-self:flex-end;border-bottom-right-radius:2px;border:1px solid #ffcc02;padding:5px 8px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,0.05);opacity:0.7;">
+            <div style="font-size:0.5rem;color:#ef6c00;font-weight:600;margin-bottom:2px;"><i class="bi bi-layout-text-window"></i> Template: ${escapeHtml(templateName)}</div>
+            <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(params.join(', ') || '(no params)')}</div>
+            <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ⏳</div>
+        </div>`;
+        area.scrollTop = area.scrollHeight;
+        
+        fetch('/api/whatsapp-send-template', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipient: pending.phone, template_name: templateName, parameters: params })
+        })
+        .then(r => r.json())
+        .then(res => {
+            const bubble = document.getElementById(id);
+            if (!bubble) return;
+            bubble.style.opacity = '1';
+            if (res.success) {
+                bubble.style.border = '1px solid #10B981';
+                const timeDiv = bubble.querySelector('div:last-child');
+                if (timeDiv) timeDiv.textContent = timeStr + ' ✓';
+                showToast('Template "' + templateName + '" sent successfully', 'success', 'Template Sent');
+            } else {
+                bubble.style.background = '#fce4ec';
+                bubble.style.border = '1px solid #ef5350';
+                const errMsg = 'Template send failed';
+                bubble.innerHTML = `
+                    <div style="font-size:0.5rem;color:#c62828;font-weight:600;margin-bottom:2px;"><i class="bi bi-layout-text-window"></i> Template: ${escapeHtml(templateName)}</div>
+                    <div style="font-size:0.6rem;color:var(--text-primary);word-wrap:break-word;">${escapeHtml(params.join(', ') || '(no params)')}</div>
+                    <div style="font-size:0.5rem;color:#c62828;margin-top:3px;"><i class="bi bi-x-circle-fill"></i> ${errMsg}</div>
+                    <div style="font-size:0.4rem;color:#999;text-align:right;margin-top:2px;">${timeStr} ✗</div>`;
+                showToast(errMsg + ': ' + templateName, 'error', 'Template Failed');
+            }
+        })
+        .catch(err => {
+            const bubble = document.getElementById(id);
+            if (bubble) {
+                bubble.style.background = '#fce4ec';
+                bubble.style.border = '1px solid #ef5350';
+            }
+            showToast('Network error sending template', 'error', 'Template Failed');
+        });
+        
+        document.getElementById('chatTemplateName').value = '';
+        document.getElementById('chatTemplateParams').value = '';
+    } else if (pending.file) {
+        // File send path
+        sendFileAsWhatsAppMedia(pending.phone, pending.file, pending.message);
+        chatFileData = null;
+        document.getElementById('chatFilePreview').style.display = 'none';
+        document.getElementById('chatFileInput').value = '';
+    } else if (pending.message) {
+        // Text send path
+        sendWhatsAppMessage(pending.phone, pending.message);
+    }
+    
+    // Clear input
+    document.getElementById('chatMessageInput').value = '';
+    window._pendingSendAction = null;
+}
+
 function openChat(phone, name) {
     currentChatPhone = phone;
     currentChatName = name;
@@ -20130,6 +20400,7 @@ function openChat(phone, name) {
     document.getElementById('chatMessageInput').value = '';
     document.getElementById('chatFilePreview').style.display = 'none';
     chatFileData = null;
+    window._pendingSendAction = null;
     
     // Reset to normal text mode when opening a new chat
     document.getElementById('chatReplyNormal').style.display = 'flex';
@@ -20315,13 +20586,38 @@ function sendChatMessage() {
     if (!message && !file) return;
     if (!currentChatPhone) return;
     
+    // Check if human mode is OFF (bot mode) — if so, warn the user
+    const humanToggle = document.getElementById('humanModeToggle');
+    if (humanToggle && !humanToggle.checked) {
+        // Store pending send details
+        window._pendingSendAction = {
+            phone: currentChatPhone,
+            message: message,
+            file: file,
+            name: currentChatName || currentChatPhone
+        };
+        
+        // Show warning modal
+        document.getElementById('botWarningContactName').textContent = currentChatName || currentChatPhone;
+        const previewEl = document.getElementById('botWarningMessagePreview');
+        if (message) {
+            previewEl.textContent = 'Message: "' + message.substring(0, 80) + (message.length > 80 ? '..."' : '"');
+        } else if (file) {
+            previewEl.textContent = 'Sending file: ' + (file.name || 'attachment');
+        } else {
+            previewEl.textContent = 'Sending a message in Bot mode means the AI may also respond to the customer\'s future messages.';
+        }
+        
+        openModal('botModeWarningModal');
+        return;
+    }
+    
     // If there's a file, upload and send as actual WhatsApp document/image
     if (file) {
         sendFileAsWhatsAppMedia(currentChatPhone, file, message);
         chatFileData = null;
         document.getElementById('chatFilePreview').style.display = 'none';
         document.getElementById('chatFileInput').value = '';
-        return;
     } else {
         sendWhatsAppMessage(currentChatPhone, message);
     }
@@ -20504,6 +20800,24 @@ function sendChatTemplate() {
     const paramsStr = document.getElementById('chatTemplateParams').value.trim();
     if (!templateName) { showToast('Please enter a template name', 'warning', 'Template Required'); return; }
     if (!currentChatPhone) return;
+    
+    // Check if human mode is OFF (bot mode) — warn the user for template sends too
+    const humanToggle = document.getElementById('humanModeToggle');
+    if (humanToggle && !humanToggle.checked) {
+        window._pendingSendAction = {
+            phone: currentChatPhone,
+            message: '[Template: ' + templateName + '] ' + paramsStr,
+            file: null,
+            name: currentChatName || currentChatPhone,
+            isTemplate: true,
+            templateName: templateName,
+            templateParams: paramsStr ? paramsStr.split(',').map(p => p.trim()) : []
+        };
+        document.getElementById('botWarningContactName').textContent = currentChatName || currentChatPhone;
+        document.getElementById('botWarningMessagePreview').textContent = 'Sending template "' + templateName + '" in Bot mode.';
+        openModal('botModeWarningModal');
+        return;
+    }
     
     const params = paramsStr ? paramsStr.split(',').map(p => p.trim()) : [];
     

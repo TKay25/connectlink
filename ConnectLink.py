@@ -12426,6 +12426,113 @@ def whatsapp_human_mode(phone):
         print(f"Check human mode error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/whatsapp-universal-toggle', methods=['POST'])
+def whatsapp_universal_toggle():
+    """Toggle ALL WhatsApp contacts to human or bot mode (overrides individual settings)."""
+    try:
+        data = request.get_json()
+        human_mode = data.get('human_mode', False)
+        
+        with get_db() as (cursor, connection):
+            # Get all unique sender phones from whatsapp_messages
+            cursor.execute("""
+                SELECT DISTINCT sender_phone FROM whatsapp_messages
+                WHERE sender_phone IS NOT NULL AND sender_phone != ''
+            """)
+            phones = [row[0] for row in cursor.fetchall()]
+            
+            # Also get phones from chatbot_interactions
+            cursor.execute("""
+                SELECT DISTINCT sender_phone FROM chatbot_interactions
+                WHERE sender_phone IS NOT NULL AND sender_phone != ''
+                  AND sender_phone NOT IN (SELECT DISTINCT sender_phone FROM whatsapp_messages
+                                           WHERE sender_phone IS NOT NULL AND sender_phone != '')
+            """)
+            phones.extend([row[0] for row in cursor.fetchall()])
+            
+            toggled = 0
+            for phone in phones:
+                phone_clean = re.sub(r'[^0-9]', '', phone)
+                if not phone_clean:
+                    continue
+                cursor.execute("""
+                    INSERT INTO chat_human_mode (sender_phone, human_mode, toggled_at, updated_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (sender_phone)
+                    DO UPDATE SET human_mode = %s, updated_at = CURRENT_TIMESTAMP
+                """, (phone_clean, human_mode, human_mode))
+                toggled += 1
+            
+            connection.commit()
+        
+        status = 'Human' if human_mode else 'Bot'
+        try:
+            log_activity(
+                'universal_mode_toggled',
+                f'Universal mode set to {status} for {toggled} contacts',
+                'whatsapp',
+                None,
+                {'human_mode': human_mode, 'contacts_affected': toggled}
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log universal toggle: {log_err}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'All {toggled} contacts switched to {status} mode',
+            'human_mode': human_mode,
+            'contacts_affected': toggled
+        })
+    except Exception as e:
+        print(f"Universal toggle error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-chat-mode-stats')
+def whatsapp_chat_mode_stats():
+    """Get count of chats on bot mode vs human mode."""
+    try:
+        with get_db() as (cursor, connection):
+            # Count distinct contacts with human_mode = TRUE
+            cursor.execute("""
+                SELECT COUNT(DISTINCT chm.sender_phone)
+                FROM chat_human_mode chm
+                WHERE chm.human_mode = TRUE
+            """)
+            human_count = cursor.fetchone()[0] or 0
+            
+            # Count distinct contacts with human_mode = FALSE (explicitly set to bot)
+            cursor.execute("""
+                SELECT COUNT(DISTINCT chm.sender_phone)
+                FROM chat_human_mode chm
+                WHERE chm.human_mode = FALSE
+            """)
+            bot_explicit = cursor.fetchone()[0] or 0
+            
+            # Total unique contacts
+            cursor.execute("""
+                SELECT COUNT(DISTINCT sender_phone) FROM (
+                    SELECT sender_phone FROM whatsapp_messages
+                    WHERE sender_phone IS NOT NULL AND sender_phone != ''
+                    UNION
+                    SELECT sender_phone FROM chatbot_interactions
+                    WHERE sender_phone IS NOT NULL AND sender_phone != ''
+                ) all_contacts
+            """)
+            total_contacts = cursor.fetchone()[0] or 0
+            
+            # Bot mode = total - human_count (includes explicit bot + unset/default)
+            bot_count = total_contacts - human_count
+        
+        return jsonify({
+            'success': True,
+            'human_mode_count': human_count,
+            'bot_mode_count': bot_count,
+            'total_contacts': total_contacts
+        })
+    except Exception as e:
+        print(f"Chat mode stats error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/whatsapp-sync-history', methods=['POST'])
 def whatsapp_sync_history():
     """Sync historical contacts from chatbot_interactions into whatsapp_messages"""
