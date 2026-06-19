@@ -20757,13 +20757,59 @@ function viewActivityDetails(element) {
 
 // Helper: view project from activity log
 function viewProjectFromActivity(projectId) {
-    const btn = document.createElement('a');
-    btn.className = 'view-project-btn';
-    btn.setAttribute('data-id', projectId);
-    btn.style.display = 'none';
-    document.body.appendChild(btn);
-    btn.click();
-    btn.remove();
+    openModal('viewprojectModal');
+    document.getElementById('projectDetailsBody').innerHTML = '<tr><td colspan="2" class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Loading project...</td></tr>';
+    
+    fetch(`/get_project/${projectId}`)
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        if (!data || !data.id) {
+            document.getElementById('projectDetailsBody').innerHTML = '<tr><td colspan="2" class="text-center text-danger">Project not found</td></tr>';
+            return;
+        }
+        
+        const fieldOrder = [
+            "id","datecaptured","capturer","capturerid","clientname","clientidnumber","clientaddress",
+            "clientwanumber","clientemail","clientnextofkinname","clientnextofkinaddress",
+            "clientnextofkinphone","nextofkinrelationship","projectname","projectlocation",
+            "projectdescription","projectadministratorname","projectstartdate","projectduration",
+            "contractagreementdate","totalcontractamount","latepaymentinterest","paymentmethod",
+            "monthstopay","depositorbullet","datedepositorbullet","monthlyinstallment",
+            "installment1amount","installment1duedate","installment1date",
+            "installment2amount","installment2duedate","installment2date",
+            "installment3amount","installment3duedate","installment3date",
+            "installment4amount","installment4duedate","installment4date",
+            "installment5amount","installment5duedate","installment5date",
+            "installment6amount","installment6duedate","installment6date",
+            "projectcompletionstatus","latepaymentinterest","momid",
+            "installment7amount","installment7duedate","installment7date",
+            "installment8amount","installment8duedate","installment8date",
+            "installment9amount","installment9duedate","installment9date",
+            "installment10amount","installment10duedate","installment10date"
+        ];
+        
+        const tbody = document.getElementById('projectDetailsBody');
+        tbody.innerHTML = '';
+        fieldOrder.forEach(key => {
+            if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
+                const row = document.createElement('tr');
+                const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).trim();
+                let val = String(data[key]);
+                if (key.toLowerCase().includes('amount') || key.toLowerCase().includes('installment') && !key.toLowerCase().includes('date') && !key.toLowerCase().includes('duedate')) {
+                    if (!isNaN(parseFloat(val))) val = '$' + parseFloat(val).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+                row.innerHTML = `<th style="width:30%;text-transform:capitalize;">${displayKey}</th><td>${val}</td>`;
+                tbody.appendChild(row);
+            }
+        });
+    })
+    .catch(err => {
+        console.error('View project error:', err);
+        document.getElementById('projectDetailsBody').innerHTML = `<tr><td colspan="2" class="text-center text-danger">Failed to load project: ${err.message}</td></tr>`;
+    });
 }
 
 // ===== WHATSAPP MESSENGER FUNCTIONS =====
