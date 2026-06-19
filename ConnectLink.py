@@ -12436,12 +12436,15 @@ def whatsapp_send_file():
                 }
             }
         elif is_audio:
+            # Send audio as a document so client can always download & play it
             payload = {
                 'messaging_product': 'whatsapp',
                 'to': recipient_clean,
-                'type': 'audio',
-                'audio': {
-                    'id': media_id
+                'type': 'document',
+                'document': {
+                    'id': media_id,
+                    'filename': filename,
+                    'caption': caption or filename
                 }
             }
         else:

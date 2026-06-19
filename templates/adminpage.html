@@ -6628,6 +6628,9 @@ table.dataTable thead th.sorting_desc {
         <div class="modal-header-custom">
             <h3><i class="bi bi-whatsapp"></i> <span id="chatModalTitle">Chat</span></h3>
             <div style="display:flex;align-items:center;gap:6px;">
+                <button class="btn btn-sm btn-outline-success" id="chatCallBtn" onclick="callOnWhatsApp()" title="Call on WhatsApp" style="padding:2px 6px;font-size:0.7rem;display:none;">
+                    <i class="bi bi-telephone"></i>
+                </button>
                 <span style="font-size:0.75rem;color:var(--text-muted);font-weight:500;">Bot</span>
                 <label class="switch" style="margin:0;">
                     <input type="checkbox" id="humanModeToggle" onchange="toggleHumanMode()">
@@ -21246,10 +21249,21 @@ function executePendingSend(pending) {
     window._pendingSendAction = null;
 }
 
+function callOnWhatsApp() {
+    if (currentChatPhone) {
+        const cleanPhone = currentChatPhone.replace(/[^0-9]/g, '');
+        window.open(`https://wa.me/${cleanPhone}`, '_blank');
+    }
+}
+
 function openChat(phone, name) {
     currentChatPhone = phone;
     currentChatName = name;
     document.getElementById('chatModalTitle').textContent = name;
+    // Show call button with the contact's phone
+    const callBtn = document.getElementById('chatCallBtn');
+    callBtn.style.display = 'inline-flex';
+    callBtn.title = `Call ${name} on WhatsApp`;
     loadHumanMode(phone);
     document.getElementById('chatMessageInput').value = '';
     document.getElementById('chatFilePreview').style.display = 'none';
