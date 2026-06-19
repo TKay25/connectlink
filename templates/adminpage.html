@@ -6613,7 +6613,8 @@ table.dataTable thead th.sorting_desc {
         <div class="modal-body-custom" style="max-height: 70vh; overflow-y: auto; padding: 12px 16px;">
             <div id="activityDetailContent"></div>
         </div>
-        <div class="modal-footer-custom" style="padding: 8px 12px;">
+        <div class="modal-footer-custom" style="padding: 8px 12px;display:flex;gap:6px;justify-content:space-between;">
+            <span id="activityActionBtn"></span>
             <button type="button" class="btn btn-danger btn-sm" style="font-size: 0.85em; padding: 4px 14px;" onclick="closeModal('activityDetailModal')">
                 <i class="bi bi-x"></i> Close
             </button>
@@ -20593,22 +20594,108 @@ function viewActivityDetails(element) {
                 </div>`;
         }
         
-        // Detailed breakdown
+        // Detailed breakdown with change diff detection
         if (item.details && item.details !== 'null') {
             try {
                 const details = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
-                let detailHtml = '';
+                let changeHtml = '';
+                let otherHtml = '';
+                const skipKeys = ['old_value','new_value','old_note_preview','new_note_preview','note_preview','removed_note_preview'];
+                
+                // Detect change pairs and render them as diff
+                const hasChange = details.old_value !== undefined && details.old_value !== null &&
+                                  details.new_value !== undefined && details.new_value !== null;
+                const hasNoteEdit = details.old_note_preview !== undefined && details.new_note_preview !== undefined;
+                const hasNoteAdd = details.note_preview !== undefined && details.note_preview !== null;
+                const hasNoteRemove = details.removed_note_preview !== undefined && details.removed_note_preview !== null;
+                
+                if (hasChange) {
+                    const oldVal = details.old_value !== null && details.old_value !== undefined ? String(details.old_value) : '';
+                    const newVal = details.new_value !== null && details.new_value !== undefined ? String(details.new_value) : '';
+                    const fieldLabel = details.field ? details.field.replace(/_/g,' ') : 'Field';
+                    changeHtml += `
+                        <div style="margin-bottom:8px;">
+                            <div style="font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">${escapeHtml(fieldLabel)}</div>
+                            <div style="display:flex;gap:8px;align-items:stretch;">
+                                <div style="flex:1;background:#fce4e4;border:1px solid #f5c6c6;border-radius:6px;padding:8px 10px;">
+                                    <div style="font-size:0.6rem;text-transform:uppercase;color:#b71c1c;margin-bottom:2px;"><i class="bi bi-dash-circle"></i> From</div>
+                                    <div style="font-size:0.7rem;color:#b71c1c;word-break:break-all;line-height:1.4;">${oldVal ? escapeHtml(oldVal) : '<em style="color:#999;">(empty)</em>'}</div>
+                                </div>
+                                <div style="display:flex;align-items:center;color:#999;font-size:1rem;"><i class="bi bi-arrow-right"></i></div>
+                                <div style="flex:1;background:#e4fce4;border:1px solid #c6f5c6;border-radius:6px;padding:8px 10px;">
+                                    <div style="font-size:0.6rem;text-transform:uppercase;color:#1b7a1b;margin-bottom:2px;"><i class="bi bi-check-circle"></i> To</div>
+                                    <div style="font-size:0.7rem;color:#1b7a1b;word-break:break-all;line-height:1.4;">${newVal ? escapeHtml(newVal) : '<em style="color:#999;">(empty)</em>'}</div>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+                
+                if (hasNoteEdit) {
+                    const oldNote = details.old_note_preview !== null ? String(details.old_note_preview) : '';
+                    const newNote = details.new_note_preview !== null ? String(details.new_note_preview) : '';
+                    changeHtml += `
+                        <div style="margin-bottom:8px;">
+                            <div style="font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Quotation Note</div>
+                            <div style="display:flex;gap:8px;align-items:stretch;">
+                                <div style="flex:1;background:#fce4e4;border:1px solid #f5c6c6;border-radius:6px;padding:8px 10px;">
+                                    <div style="font-size:0.6rem;text-transform:uppercase;color:#b71c1c;margin-bottom:2px;"><i class="bi bi-dash-circle"></i> Before</div>
+                                    <div style="font-size:0.7rem;color:#b71c1c;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(oldNote)}</div>
+                                </div>
+                                <div style="display:flex;align-items:center;color:#999;font-size:1rem;"><i class="bi bi-arrow-right"></i></div>
+                                <div style="flex:1;background:#e4fce4;border:1px solid #c6f5c6;border-radius:6px;padding:8px 10px;">
+                                    <div style="font-size:0.6rem;text-transform:uppercase;color:#1b7a1b;margin-bottom:2px;"><i class="bi bi-check-circle"></i> After</div>
+                                    <div style="font-size:0.7rem;color:#1b7a1b;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(newNote)}</div>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+                
+                if (hasNoteAdd) {
+                    const note = details.note_preview !== null ? String(details.note_preview) : '';
+                    changeHtml += `
+                        <div style="margin-bottom:8px;">
+                            <div style="font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Quotation Note Added</div>
+                            <div style="background:#e4fce4;border:1px solid #c6f5c6;border-radius:6px;padding:8px 10px;">
+                                <div style="font-size:0.7rem;color:#1b7a1b;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(note)}</div>
+                            </div>
+                        </div>`;
+                }
+                
+                if (hasNoteRemove) {
+                    const note = details.removed_note_preview !== null ? String(details.removed_note_preview) : '';
+                    changeHtml += `
+                        <div style="margin-bottom:8px;">
+                            <div style="font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Quotation Note Removed</div>
+                            <div style="background:#fce4e4;border:1px solid #f5c6c6;border-radius:6px;padding:8px 10px;">
+                                <div style="font-size:0.7rem;color:#b71c1c;word-break:break-word;line-height:1.4;max-height:80px;overflow-y:auto;">${escapeHtml(note)}</div>
+                            </div>
+                        </div>`;
+                }
+                
+                // Render remaining fields as regular key-value
                 for (const [k, v] of Object.entries(details)) {
+                    if (skipKeys.includes(k)) continue;
                     const val = v !== null && v !== undefined ? String(v) : '';
-                    detailHtml += `<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--gray-200);">
+                    otherHtml += `<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--gray-200);">
                         <span style="font-weight:600;color:var(--text-muted);flex:0 0 130px;font-size:0.7rem;">${k.replace(/_/g,' ')}</span>
                         <span style="color:var(--text-primary);font-size:0.7rem;word-break:break-all;">${escapeHtml(val)}</span>
                     </div>`;
                 }
-                html += `<div style="background:var(--gray-50);border-radius:10px;padding:12px 14px;border:1px solid var(--gray-200);">
-                    <div style="font-size:0.7rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:6px;"><i class="bi bi-list-ul"></i> Details</div>
-                    ${detailHtml}
-                </div>`;
+                
+                let combinedHtml = '';
+                if (changeHtml) {
+                    combinedHtml += `<div style="margin-bottom:${otherHtml ? '10' : '0'}px;">${changeHtml}</div>`;
+                }
+                if (otherHtml) {
+                    combinedHtml += otherHtml;
+                }
+                
+                if (combinedHtml) {
+                    html += `<div style="background:var(--gray-50);border-radius:10px;padding:12px 14px;border:1px solid var(--gray-200);">
+                        <div style="font-size:0.7rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;margin-bottom:6px;"><i class="bi bi-list-ul"></i> Details</div>
+                        ${combinedHtml}
+                    </div>`;
+                }
             } catch(e) {}
         }
         
@@ -20616,8 +20703,64 @@ function viewActivityDetails(element) {
         
         // Populate and show the modal
         document.getElementById('activityDetailContent').innerHTML = html;
+        
+        // Determine contextual action button
+        const actionBtn = document.getElementById('activityActionBtn');
+        const at = item.action_type || '';
+        const refType = item.reference_type || '';
+        const refId = item.reference_id;
+        let details = {};
+        try { details = typeof item.details === 'string' ? JSON.parse(item.details) : (item.details || {}); } catch(e) {}
+        
+        // Project-related actions
+        const projectActions = ['project_created','project_updated','project_field_changed','project_deleted',
+            'contract_downloaded','contract_sent_whatsapp','note_added','installment_paid',
+            'installment_date_changed','installment_dates_updated','payment_reminder_sent',
+            'project_altered','audit_corrected'];
+        // Quotation-related actions
+        const quotationActions = ['quotation_created','quotation_edited','quotation_sent','quotation_deleted',
+            'quotation_downloaded','quotation_linked','quotation_unlinked',
+            'quotation_note_added','quotation_note_edited','quotation_note_removed','quotation_rates_updated'];
+        // WhatsApp chat-related actions
+        const whatsappActions = ['whatsapp_message_sent','template_sent','bulk_template_sent',
+            'bulk_message_sent','whatsapp_file_sent','whatsapp_history_synced','human_mode_toggled',
+            'universal_mode_toggled'];
+        
+        actionBtn.innerHTML = '';
+        
+        if (projectActions.includes(at) && refId) {
+            const pid = details.project_id || refId;
+            actionBtn.innerHTML = `<button class="btn btn-info btn-sm" style="font-size:0.7rem;padding:4px 14px;" onclick="closeModal('activityDetailModal');viewProjectFromActivity(${pid})">
+                <i class="bi bi-folder2-open"></i> View Project
+            </button>`;
+        } else if (quotationActions.includes(at) && refId) {
+            actionBtn.innerHTML = `<button class="btn btn-warning btn-sm" style="font-size:0.7rem;padding:4px 14px;" onclick="closeModal('activityDetailModal');viewQuotationDetails(${refId})">
+                <i class="bi bi-file-text"></i> View Quotation
+            </button>`;
+        } else if (whatsappActions.includes(at)) {
+            const waPhone = details.recipient || details.whatsapp_number || details.phone || '';
+            const waName = details.client_name || details.recipient_name || waPhone || 'Contact';
+            if (waPhone) {
+                const cleanPhone = waPhone.replace(/[^0-9]/g, '');
+                actionBtn.innerHTML = `<button class="btn btn-success btn-sm" style="font-size:0.7rem;padding:4px 14px;" onclick="closeModal('activityDetailModal');openChat('${cleanPhone}','${escapeHtml(waName)}')">
+                    <i class="bi bi-whatsapp"></i> Open Chat
+                </button>`;
+            }
+        }
+        
         openModal('activityDetailModal');
     } catch(e) { console.error('Activity detail error:', e); }
+}
+
+// Helper: view project from activity log
+function viewProjectFromActivity(projectId) {
+    const btn = document.createElement('a');
+    btn.className = 'view-project-btn';
+    btn.setAttribute('data-id', projectId);
+    btn.style.display = 'none';
+    document.body.appendChild(btn);
+    btn.click();
+    btn.remove();
 }
 
 // ===== WHATSAPP MESSENGER FUNCTIONS =====

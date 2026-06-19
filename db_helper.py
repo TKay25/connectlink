@@ -38,6 +38,8 @@ def get_db():
     try:
         connection = psycopg2.connect(external_database_url)
         cursor = connection.cursor()
+        # Set session timezone to Zimbabwe (UTC+2) so all CURRENT_TIMESTAMP/NOW() return local time
+        cursor.execute("SET TIME ZONE 'Africa/Harare'")
         yield cursor, connection
     except Exception as e:
         if connection:
