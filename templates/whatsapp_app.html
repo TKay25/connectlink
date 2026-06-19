@@ -885,6 +885,9 @@
                     <div class="chat-contact-status" id="chatContactStatus">Click to load messages</div>
                 </div>
                 <div class="chat-actions">
+                    <button class="action-btn" id="chatCallBtn" onclick="callOnWhatsApp()" title="Call on WhatsApp" style="display:none;padding:4px 8px;font-size:0.85rem;color:#25D366;">
+                        <i class="bi bi-telephone"></i>
+                    </button>
                     <div class="mode-toggle">
                         <span class="active" id="botLabel">Bot</span>
                         <label class="switch">
@@ -1093,6 +1096,13 @@ function startNewChat() {
 }
 
 // ==================== OPEN CHAT ====================
+function callOnWhatsApp() {
+    if (currentPhone) {
+        const cleanPhone = currentPhone.replace(/[^0-9]/g, '');
+        window.open(`https://wa.me/${cleanPhone}`, '_blank');
+    }
+}
+
 function openChat(phone, name) {
     currentPhone = phone;
     currentName = name;
@@ -1104,6 +1114,7 @@ function openChat(phone, name) {
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('activeChatArea').style.display = 'flex';
     document.getElementById('chatContactName').textContent = name;
+    document.getElementById('chatCallBtn').style.display = 'inline-block';
     document.getElementById('chatContactStatus').textContent = 'Loading...';
     document.getElementById('chatAvatar').textContent = (name||'?')[0].toUpperCase();
     document.getElementById('messageInput').value = '';
