@@ -1817,6 +1817,39 @@ table.dataTable thead th.sorting_desc {
         .ql-editor { color: var(--text-primary) !important; }
         .ql-editor.ql-blank::before { color: var(--gray-400) !important; }
         
+        /* Quill dark mode overrides */
+        body.dark-theme .ql-toolbar {
+            background: #252b45 !important;
+            border-color: #3a4058 !important;
+        }
+        body.dark-theme .ql-toolbar .ql-stroke {
+            stroke: var(--text-secondary) !important;
+        }
+        body.dark-theme .ql-toolbar .ql-fill {
+            fill: var(--text-secondary) !important;
+        }
+        body.dark-theme .ql-toolbar button:hover .ql-stroke,
+        body.dark-theme .ql-toolbar button.ql-active .ql-stroke {
+            stroke: var(--primary) !important;
+        }
+        body.dark-theme .ql-toolbar button:hover .ql-fill,
+        body.dark-theme .ql-toolbar button.ql-active .ql-fill {
+            fill: var(--primary) !important;
+        }
+        body.dark-theme .ql-toolbar button:hover {
+            background: rgba(255,255,255,0.06) !important;
+        }
+        body.dark-theme .ql-container {
+            border-color: #3a4058 !important;
+        }
+        body.dark-theme .ql-editor {
+            color: var(--text-primary) !important;
+            background: #1a1f35 !important;
+        }
+        body.dark-theme .ql-editor.ql-blank::before {
+            color: var(--gray-500) !important;
+        }
+        
         /* loader */
         .eds-loader { background: rgba(10,26,58,0.96); backdrop-filter: blur(8px); }
         .loader-progress { background: var(--crimson-bright); }
@@ -4041,7 +4074,7 @@ table.dataTable thead th.sorting_desc {
                                     <button class="btn btn-outline-secondary" style="padding:4px 12px;" onclick="checkWhatsAppDebug()"><i class="bi bi-bug"></i> Debug</button>
                                     <!-- Universal Mode Toggle -->
                                     <div class="btn-group ms-1" style="display:inline-flex;align-items:center;gap:4px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:2px 6px;">
-                                        <span style="font-size:0.55rem;font-weight:600;color:var(--text-secondary);margin-right:2px;"><i class="bi bi-globe2"></i> ALL:</span>
+                                        <span style="font-size:0.55rem;font-weight:600;color:var(--text-secondary);margin-right:2px;"><i class="bi bi-globe2"></i> ALL CHATS MODE:</span>
                                         <button id="universalBotBtn" class="btn btn-sm" style="font-size:0.55rem;padding:2px 8px;border-radius:4px;background:var(--success);color:white;font-weight:600;" onclick="setUniversalMode(false)">
                                             <i class="bi bi-robot"></i> Bot
                                         </button>
@@ -7153,7 +7186,17 @@ table.dataTable thead th.sorting_desc {
                     <label class="form-label fw-bold d-block">
                         <i class="bi bi-sticky-fill"></i> Notes (optional)
                     </label>
-                    <textarea id="quotationGeneratorNotes" class="form-control" rows="3" placeholder="Add notes or comments to include in the quotation PDF..." style="font-size:0.75rem;resize:vertical;"></textarea>
+                    <!-- Quill Toolbar -->
+                    <div id="quotationNotesToolbar" style="border:1px solid var(--border-color);border-bottom:none;border-radius:6px 6px 0 0;padding:4px 6px;background:var(--bg-card);display:flex;gap:3px;flex-wrap:wrap;">
+                        <button class="ql-bold" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;font-weight:700;" title="Bold"><b>B</b></button>
+                        <button class="ql-italic" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;font-style:italic;" title="Italic"><i>I</i></button>
+                        <button class="ql-underline" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;text-decoration:underline;" title="Underline"><u>U</u></button>
+                        <span style="width:1px;height:28px;background:var(--border-color);margin:0 2px;"></span>
+                        <button class="ql-list" value="ordered" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;" title="Numbered List">1.</button>
+                        <button class="ql-list" value="bullet" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;" title="Bulleted List">•</button>
+                    </div>
+                    <!-- Quill Editor -->
+                    <div id="quotationGeneratorNotes" style="min-height:80px;font-size:0.75rem;border:1px solid var(--border-color);border-radius:0 0 6px 6px;background:var(--bg-card);color:var(--text-primary);"></div>
                     <small class="text-muted">These notes will appear in the PDF below the summary box.</small>
                 </div>
 
@@ -8213,6 +8256,31 @@ function openModal(modalId) {
         // Load data when download portfolio modal opens
         if (modalId === 'downloadPortfolioModal') {
             loadDownloadOptions();
+        }
+
+        // Initialize Quill editor for quotation generator notes
+        if (modalId === 'quotationgeneratorModal') {
+            setTimeout(() => {
+                try {
+                    const editorEl = document.getElementById('quotationGeneratorNotes');
+                    if (editorEl && !editorEl.classList.contains('ql-container')) {
+                        // Clear any existing content
+                        if (quillGeneratorNotes) {
+                            quillGeneratorNotes = null;
+                        }
+                        editorEl.innerHTML = '';
+                        quillGeneratorNotes = new Quill('#quotationGeneratorNotes', {
+                            theme: 'snow',
+                            modules: {
+                                toolbar: '#quotationNotesToolbar'
+                            },
+                            placeholder: 'Add notes or comments to include in the quotation PDF...'
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error initializing notes Quill:', e);
+                }
+            }, 100);
         }
 
         // Load interim enquiries on first open for this custom modal system
@@ -12144,9 +12212,15 @@ async function generateKitchenPDF(outputMode = 'download') {
                 </div>
                 
                 ${kitchenNotes ? `
-                <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px; font-size:12px; line-height:1.6; color:#1E2A56; white-space:pre-wrap;">
-                    <strong style="display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.3px;">Quotation Notes</strong>
-                    ${escapeHtml(kitchenNotes)}
+                <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
+                    <div style="border:1.5px solid #1E2A56; border-radius:10px; overflow:hidden;">
+                        <div style="background:#1E2A56; color:white; padding:6px 14px; font-size:11px; font-weight:800; letter-spacing:0.5px; text-align:center; text-transform:uppercase;">
+                            <i class="bi bi-sticky-fill"></i> Quotation Notes
+                        </div>
+                        <div style="padding:12px 16px; font-size:12px; line-height:1.6; color:#1E2A56; background:#fafbff; min-height:40px;">
+                            ${kitchenNotes}
+                        </div>
+                    </div>
                 </div>` : ''}
                 
                 <h4 style="background:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0;">KITCHEN & CABINET ITEMS</h4>
@@ -15846,6 +15920,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Global variables for quotation and Gantt chart
+let quillGeneratorNotes = null;
+let quillDetailsNotes = null;
 
     // Quotation Generator Modal Logic
     $(document).ready(function() {
@@ -16605,7 +16681,7 @@ $('#generateQuotationBtn').click(function() {
         });
         
         // Store data for kitchen
-        const quotationNotes = $('#quotationGeneratorNotes').val().trim() || '';
+        const quotationNotes = quillGeneratorNotes ? quillGeneratorNotes.root.innerHTML : '';
         window.kitchenQuotationData = {
             category: category,
             clientName: clientName,
@@ -16871,7 +16947,7 @@ $('#generateQuotationBtn').click(function() {
 
     // Store data for later use
     const markupAmount = totalCost - baseCost;
-    const quotationNotes = $('#quotationGeneratorNotes').val().trim() || '';
+    const quotationNotes = quillGeneratorNotes ? quillGeneratorNotes.root.innerHTML : '';
     window.quotationData = {
         category: category,
         clientName: clientName,
@@ -17283,10 +17359,14 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
 
                 ${quotationNotes ? `
                 <!-- QUOTATION NOTES -->
-                <div style="page-break-inside: avoid; break-inside: avoid;">
-                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION NOTES</h4>
-                    <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px; font-size: 12px; line-height: 1.6; color: #1E2A56; white-space: pre-wrap;">
-                        ${escapeHtml(quotationNotes)}
+                <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
+                    <div style="border: 1.5px solid #1E2A56; border-radius: 10px; overflow: hidden;">
+                        <div style="background: #1E2A56; color: white; padding: 6px 14px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-align: center; text-transform: uppercase;">
+                            <i class="bi bi-sticky-fill"></i> Quotation Notes
+                        </div>
+                        <div style="padding: 12px 16px; font-size: 12px; line-height: 1.6; color: #1E2A56; background: #fafbff; min-height: 40px;">
+                            ${quotationNotes}
+                        </div>
                     </div>
                 </div>` : ''}
 
@@ -18383,7 +18463,7 @@ function displayQuotations(quotations) {
                 <thead style="position: sticky; top: 0; background-color: #0A1A3A; z-index: 10;">
                     <tr style="color: white;">
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">ID</th>
-                        <th style="padding: 5px 4px; text-align: left; border: 1px solid #1E2A56;">Client Name</th>
+                        <th style="padding: 5px 4px; text-align: left; width: 130px; border: 1px solid #1E2A56;">Client Name</th>
                         <th style="padding: 5px 4px; text-align: left; border: 1px solid #1E2A56;">Category</th>
                         <th style="padding: 5px 4px; text-align: center; width: 65px; border: 1px solid #1E2A56;">Size</th>
                         <th style="padding: 5px 4px; text-align: center; width: 60px; border: 1px solid #1E2A56;">Markup</th>
@@ -18392,7 +18472,7 @@ function displayQuotations(quotations) {
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Items</th>
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Tasks</th>
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Notes</th>
-                        <th style="padding: 5px 4px; text-align: center; width: 110px; border: 1px solid #1E2A56;">Actions</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 140px; border: 1px solid #1E2A56;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -18425,7 +18505,7 @@ function displayQuotations(quotations) {
         html += `
             <tr style="border-bottom: 1px solid #e8e8e8;" id="quotation-row-${quotation.id}">
                 <td style="padding: 4px 4px; text-align: center; font-weight: 600;">${quotation.id}</td>
-                <td style="padding: 4px 4px; text-align: left;">${escapeHtml(quotation.clientName || 'N/A')}</td>
+                <td style="padding: 4px 4px; text-align: left; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(quotation.clientName || 'N/A')}</td>
                 <td style="padding: 4px 4px; text-align: left;">${escapeHtml(displayCategory)}</td>
                 <td style="padding: 4px 4px; text-align: center;">${quotation.projectSize || '0'}</td>
                 <td style="padding: 4px 4px; text-align: center;">${quotation.markup || '0'}%</td>
@@ -18435,8 +18515,8 @@ function displayQuotations(quotations) {
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${taskCount}</span></td>
                 <td style="padding: 4px 4px; text-align: center;">
                     ${quotation.notes && quotation.notes.trim() ? 
-                        `<span style="color:var(--success);font-size:0.55rem;" title="${escapeHtml(quotation.notes.substring(0, 80))}${quotation.notes.length > 80 ? '...' : ''}"><i class="bi bi-sticky-fill"></i></span>` : 
-                        `<span style="color:var(--text-muted);font-size:0.5rem;"><i class="bi bi-sticky"></i></span>`}
+                        `<span style="color:var(--success);font-size:0.85rem;" title="${escapeHtml(quotation.notes.substring(0, 80))}${quotation.notes.length > 80 ? '...' : ''}"><i class="bi bi-sticky-fill"></i></span>` : 
+                        `<span style="color:var(--text-muted);font-size:0.75rem;"><i class="bi bi-sticky"></i></span>`}
                 </td>
                 <td style="padding: 4px 4px; text-align: center;">
                     <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px; margin-right: 4px;">
@@ -18959,26 +19039,60 @@ function displayQuotationDetailsInModal(quotation) {
                 </button>
             </div>
             <div style="padding:8px 10px;">
-                <textarea id="quotationNoteEditor" style="width:100%;min-height:70px;font-size:0.6rem;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;background:var(--bg-card);color:var(--text-primary);resize:vertical;font-family:inherit;" placeholder="Add notes or comments about this quotation...">${escapeHtml(notes)}</textarea>
-                <div id="quotationNoteStatus" style="font-size:0.45rem;color:var(--text-muted);margin-top:3px;text-align:right;"></div>
+                <!-- Quill Toolbar for details notes -->
+                <div id="quotationDetailsNotesToolbar" style="border:1px solid var(--border-color);border-bottom:none;border-radius:6px 6px 0 0;padding:4px 6px;background:var(--bg-card);display:flex;gap:3px;flex-wrap:wrap;">
+                    <button class="ql-bold" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;font-weight:700;" title="Bold"><b>B</b></button>
+                    <button class="ql-italic" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;font-style:italic;" title="Italic"><i>I</i></button>
+                    <button class="ql-underline" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;text-decoration:underline;" title="Underline"><u>U</u></button>
+                    <span style="width:1px;height:28px;background:var(--border-color);margin:0 2px;"></span>
+                    <button class="ql-list" value="ordered" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;" title="Numbered List">1.</button>
+                    <button class="ql-list" value="bullet" style="width:28px;height:28px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);cursor:pointer;" title="Bulleted List">•</button>
+                </div>
+                <!-- Quill Editor for details notes -->
+                <div id="quotationNoteEditor" style="min-height:70px;font-size:0.6rem;padding:6px 8px;border:1px solid var(--border-color);border-radius:0 0 6px 6px;background:var(--bg-card);color:var(--text-primary);">${notes}</div>
             </div>
         </div>
     `;
     
     contentDiv.innerHTML = html;
+    
+    // Initialize Quill for the details notes editor
+    setTimeout(() => {
+        try {
+            const editorEl = document.getElementById('quotationNoteEditor');
+            if (editorEl && !editorEl.classList.contains('ql-container')) {
+                // Save existing content before init
+                const existingContent = editorEl.innerHTML;
+                quillDetailsNotes = new Quill('#quotationNoteEditor', {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: '#quotationDetailsNotesToolbar'
+                    },
+                    placeholder: 'Add notes or comments about this quotation...'
+                });
+                // Set the existing content
+                if (existingContent && existingContent !== '<br>') {
+                    quillDetailsNotes.root.innerHTML = existingContent;
+                }
+            }
+        } catch (e) {
+            console.error('Error initializing details Quill:', e);
+        }
+    }, 50);
 }
 
 /** Save the note for the currently viewed quotation */
 function saveCurrentQuotationNote() {
     const q = typeof currentViewingQuotation !== 'undefined' ? currentViewingQuotation : window.currentViewingQuotation;
-    if (!q || !q.id) return;
+    if (!q || !q.id) {
+        showToast('No quotation selected to save notes to.', 'warning', 'No Quotation');
+        return;
+    }
     
-    const notes = document.getElementById('quotationNoteEditor')?.value?.trim() || '';
-    const statusEl = document.getElementById('quotationNoteStatus');
+    const notes = quillDetailsNotes ? quillDetailsNotes.root.innerHTML : '';
     const btn = document.getElementById('saveQuotationNoteBtn');
     
-    if (btn) btn.disabled = true;
-    if (statusEl) statusEl.textContent = 'Saving...';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:8px;height:8px;"></span> Saving...'; }
     
     fetch('/api/save-quotation-notes', {
         method: 'POST',
@@ -18988,22 +19102,22 @@ function saveCurrentQuotationNote() {
     .then(r => r.json())
     .then(res => {
         if (res.success) {
-            if (statusEl) {
-                statusEl.textContent = '✓ Saved';
-                setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
-            }
+            showToast('Quotation note saved successfully!', 'success', 'Note Saved');
             // Update the local copy
             q.notes = notes;
         } else {
-            if (statusEl) statusEl.textContent = '✗ Save failed';
+            showToast('Failed to save note: ' + (res.error || 'Unknown error'), 'error', 'Save Failed');
         }
     })
     .catch(err => {
         console.error('Save note error:', err);
-        if (statusEl) statusEl.textContent = '✗ Error saving';
+        showToast('Error saving note. Check console for details.', 'error', 'Error');
     })
     .finally(() => {
-        if (btn) btn.disabled = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle"></i> Save Note';
+        }
     });
 }
 // Add this to your document ready or after modal is defined
