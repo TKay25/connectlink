@@ -11192,6 +11192,16 @@ def Dashboard():
         else:
                 return render_template('mainindex.html')
 
+# Dedicated WhatsApp App Page
+@app.route('/whatsapp-app')
+def whatsapp_app():
+    user_uuid = session.get('user_uuid')
+    user_name = session.get('user_name')
+    userid = session.get('userid')
+    if user_uuid:
+        return render_template('whatsapp_app.html', user_name=user_name, userid=userid)
+    return render_template('mainindex.html')
+
 @app.route('/login', methods=['POST'])
 def login():
     if request.method == 'POST':
@@ -18166,6 +18176,36 @@ def pwa_manifest():
         "theme_color": "#1E293B",
         "orientation": "any",
         "categories": ["business", "productivity"],
+        "icons": [
+            {
+                "src": "/static/images/pwa-icon-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "/static/images/pwa-icon-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    })
+
+# PWA: Manifest for WhatsApp App (separate installable app)
+@app.route('/whatsapp-manifest.json')
+def whatsapp_pwa_manifest():
+    return jsonify({
+        "name": "ConnectLink WhatsApp",
+        "short_name": "CL Chat",
+        "description": "ConnectLink WhatsApp Chat",
+        "start_url": "/whatsapp-app",
+        "scope": "/whatsapp-app",
+        "display": "standalone",
+        "background_color": "#075E54",
+        "theme_color": "#075E54",
+        "orientation": "portrait",
+        "categories": ["business", "communication"],
         "icons": [
             {
                 "src": "/static/images/pwa-icon-192.png",

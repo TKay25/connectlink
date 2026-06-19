@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ConnectLink WhatsApp</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/reqlogo.jpg') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ConnectLink Chat">
+    <meta name="application-name" content="ConnectLink Chat">
+    <meta name="theme-color" content="#075E54">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/whatsapp-manifest.json">
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/reqlogo.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/static/images/reqlogo.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/static/images/reqlogo.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/static/images/reqlogo.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --whatsapp-green: #075E54;
+            --whatsapp-green-dark: #054d44;
+            --whatsapp-teal: #128C7E;
+            --whatsapp-teal-light: #25D366;
+            --chat-bg: #e5ddd5;
+            --chat-bg-dark: #0b141a;
+            --outgoing-msg: #dcf8c6;
+            --outgoing-msg-dark: #005c4b;
+            --incoming-msg: #ffffff;
+            --incoming-msg-dark: #202c33;
+            --sidebar-bg: #ffffff;
+            --sidebar-bg-dark: #111b21;
+            --header-bg: #075E54;
+            --header-text: #ffffff;
+            --text-primary: #111b21;
+            --text-secondary: #667781;
+            --border-color: #e9edef;
+            --border-color-dark: #313d45;
+            --hover-bg: #f0f2f5;
+            --hover-bg-dark: #202c33;
+            --input-bg: #f0f2f5;
+            --input-bg-dark: #2a3942;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        html, body { height: 100%; overflow: hidden; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { display: flex; background: var(--sidebar-bg); color: var(--text-primary); }
+        body.dark-theme { background: var(--sidebar-bg-dark); color: #e9edef; }
+
+        /* ===== APP CONTAINER ===== */
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            max-width: 100%;
+            margin: 0 auto;
+            background: var(--sidebar-bg);
+        }
+        body.dark-theme .app-container { background: var(--sidebar-bg-dark); }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar-panel {
+            width: 380px;
+            min-width: 380px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            background: var(--sidebar-bg);
+            height: 100vh;
+        }
+        body.dark-theme .sidebar-panel {
+            border-color: var(--border-color-dark);
+            background: var(--sidebar-bg-dark);
+        }
+
+        /* Sidebar Header */
+        .sidebar-header {
+            background: var(--header-bg);
+            color: white;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 59px;
+            flex-shrink: 0;
+        }
+        .sidebar-header .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-header .brand img { height: 32px; border-radius: 4px; }
+        .sidebar-header .brand span { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.3px; }
+        .sidebar-header .header-actions { display: flex; gap: 6px; align-items: center; }
+        .sidebar-header .header-actions button {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .sidebar-header .header-actions button:hover { background: rgba(255,255,255,0.25); }
+        .sidebar-header .header-actions .theme-btn { font-size: 0.85rem; }
+
+        /* Search Bar */
+        .search-bar {
+            padding: 8px 12px;
+            background: var(--sidebar-bg);
+            flex-shrink: 0;
+        }
+        body.dark-theme .search-bar { background: var(--sidebar-bg-dark); }
+        .search-bar .search-inner {
+            display: flex;
+            align-items: center;
+            background: var(--input-bg);
+            border-radius: 8px;
+            padding: 0 12px;
+            gap: 8px;
+        }
+        body.dark-theme .search-bar .search-inner { background: var(--input-bg-dark); }
+        .search-bar .search-inner i { color: var(--text-secondary); font-size: 0.85rem; }
+        .search-bar input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 8px 0;
+            font-size: 0.8rem;
+            outline: none;
+            color: var(--text-primary);
+        }
+        body.dark-theme .search-bar input { color: #e9edef; }
+        .search-bar input::placeholder { color: var(--text-secondary); }
+
+        /* Conversation List */
+        .conversation-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .conversation-list::-webkit-scrollbar { width: 4px; }
+        .conversation-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+
+        .conv-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background 0.12s;
+            border-bottom: 1px solid var(--border-color);
+        }
+        body.dark-theme .conv-item { border-color: var(--border-color-dark); }
+        .conv-item:hover { background: var(--hover-bg); }
+        body.dark-theme .conv-item:hover { background: var(--hover-bg-dark); }
+        .conv-item.active { background: #f0f2f5; }
+        body.dark-theme .conv-item.active { background: #2a3942; }
+
+        .conv-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: var(--whatsapp-teal-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: white;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .conv-info { flex: 1; min-width: 0; }
+        .conv-name {
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        body.dark-theme .conv-name { color: #e9edef; }
+        .conv-time { font-size: 0.65rem; color: var(--text-secondary); flex-shrink: 0; }
+        .conv-preview {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+        .conv-badge {
+            background: var(--whatsapp-teal-light);
+            color: white;
+            font-size: 0.6rem;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 2px;
+        }
+
+        /* ===== MAIN CHAT AREA ===== */
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            min-width: 0;
+            background: var(--chat-bg);
+        }
+        body.dark-theme .chat-panel {
+            background: var(--chat-bg-dark);
+        }
+
+        /* Chat Header */
+        .chat-header {
+            background: var(--header-bg);
+            color: white;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 59px;
+            flex-shrink: 0;
+        }
+        .chat-header .back-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.3rem;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .chat-header .chat-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .chat-header .chat-info { flex: 1; min-width: 0; }
+        .chat-header .chat-info .chat-contact-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .chat-header .chat-info .chat-contact-status {
+            font-size: 0.65rem;
+            opacity: 0.8;
+            margin-top: 1px;
+        }
+        .chat-header .chat-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .chat-header .chat-actions .mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,255,255,0.12);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 500;
+        }
+        .chat-header .chat-actions .mode-toggle span { opacity: 0.7; transition: opacity 0.2s; }
+        .chat-header .chat-actions .mode-toggle span.active { opacity: 1; font-weight: 700; }
+        /* Custom Toggle Switch */
+        .switch { position: relative; display: inline-block; width: 32px; height: 18px; margin: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.25); transition: .3s; border-radius: 18px;
+        }
+        .switch .slider:before {
+            position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px;
+            background-color: white; transition: .3s; border-radius: 50%;
+        }
+        .switch input:checked + .slider { background-color: #25D366; }
+        .switch input:checked + .slider:before { transform: translateX(14px); }
+
+        /* Chat Messages Area */
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4d4d4' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        body.dark-theme .messages-area {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23333' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        .messages-area::-webkit-scrollbar { width: 4px; }
+        .messages-area::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 4px; }
+
+        /* Empty state */
+        .empty-chat-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+            background: var(--sidebar-bg);
+        }
+        body.dark-theme .empty-chat-state { background: var(--sidebar-bg-dark); }
+        .empty-chat-state .empty-icon { font-size: 4rem; color: var(--text-secondary); margin-bottom: 16px; opacity: 0.4; }
+        .empty-chat-state h3 { font-size: 1.1rem; color: var(--text-primary); margin-bottom: 8px; }
+        body.dark-theme .empty-chat-state h3 { color: #e9edef; }
+        .empty-chat-state p { font-size: 0.8rem; color: var(--text-secondary); max-width: 300px; }
+
+        /* Message Bubble */
+        .msg-bubble {
+            max-width: 80%;
+            padding: 6px 10px;
+            border-radius: 8px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+            word-wrap: break-word;
+            position: relative;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        .msg-bubble.outgoing {
+            align-self: flex-end;
+            background: var(--outgoing-msg);
+            border-bottom-right-radius: 2px;
+        }
+        body.dark-theme .msg-bubble.outgoing {
+            background: var(--outgoing-msg-dark);
+            color: #e9edef;
+        }
+        .msg-bubble.incoming {
+            align-self: flex-start;
+            background: var(--incoming-msg);
+            border-bottom-left-radius: 2px;
+        }
+        body.dark-theme .msg-bubble.incoming {
+            background: var(--incoming-msg-dark);
+            color: #e9edef;
+        }
+        .msg-bubble .msg-time {
+            font-size: 0.6rem;
+            color: #999;
+            text-align: right;
+            margin-top: 3px;
+        }
+        body.dark-theme .msg-bubble .msg-time { color: rgba(255,255,255,0.4); }
+        .msg-bubble .msg-label { font-size: 0.65rem; font-weight: 600; margin-bottom: 2px; }
+        .msg-bubble .msg-label.template { color: #ef6c00; }
+        .msg-bubble .msg-label.outgoing { color: var(--whatsapp-teal); }
+        .msg-bubble .msg-status { font-size: 0.6rem; margin-top: 2px; }
+        .msg-bubble .msg-status.error { color: #c62828; }
+        .msg-bubble .msg-status.warning { color: #ef6c00; }
+
+        /* Reply Bar */
+        .reply-bar {
+            padding: 8px 12px;
+            background: var(--sidebar-bg);
+            border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        body.dark-theme .reply-bar {
+            background: var(--sidebar-bg-dark);
+            border-color: var(--border-color-dark);
+        }
+        .reply-bar .reply-inner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .reply-bar .reply-inner input[type="text"] {
+            flex: 1;
+            border: none;
+            background: var(--input-bg);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            outline: none;
+            color: var(--text-primary);
+        }
+        body.dark-theme .reply-bar .reply-inner input[type="text"] {
+            background: var(--input-bg-dark);
+            color: #e9edef;
+        }
+        .reply-bar .reply-inner input::placeholder { color: var(--text-secondary); }
+        .reply-bar .reply-inner .attach-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            transition: color 0.2s;
+        }
+        .reply-bar .reply-inner .attach-btn:hover { color: var(--whatsapp-teal); }
+        .reply-bar .reply-inner .send-btn {
+            background: var(--whatsapp-teal-light);
+            border: none;
+            color: white;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .reply-bar .reply-inner .send-btn:hover { background: #20b859; }
+        .reply-bar .reply-inner .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* File Preview */
+        .file-preview {
+            display: none;
+            padding: 6px 12px;
+            background: var(--input-bg);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            align-items: center;
+            gap: 8px;
+        }
+        body.dark-theme .file-preview { background: var(--input-bg-dark); }
+        .file-preview .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .file-preview .remove-file {
+            background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1rem; padding: 2px;
+        }
+
+        /* Template Reply Bar */
+        .template-bar {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .template-bar .tpl-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .template-bar .tpl-row input {
+            flex: 1;
+            border: none;
+            background: var(--input-bg);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            outline: none;
+            color: var(--text-primary);
+        }
+        body.dark-theme .template-bar .tpl-row input { background: var(--input-bg-dark); color: #e9edef; }
+        .template-bar .tpl-row button {
+            white-space: nowrap;
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .template-bar .tpl-info {
+            font-size: 0.65rem;
+            color: #ef6c00;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        body.dark-theme .template-bar .tpl-info { color: #ffa726; }
+        .template-bar .btn-warning { background: #ff9800; color: white; }
+        .template-bar .btn-warning:hover { background: #f57c00; }
+        .template-bar .btn-outline { background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); }
+        .template-bar .btn-outline:hover { background: var(--input-bg); }
+
+        /* Bot Mode Warning Modal (in-page) */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 9999;
+            display: none; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: var(--sidebar-bg); border-radius: 12px; max-width: 420px;
+            width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2); overflow: hidden;
+        }
+        body.dark-theme .modal-box { background: #1f2c33; }
+        .modal-box .modal-head {
+            background: var(--whatsapp-green); color: white; padding: 12px 16px;
+            font-weight: 700; font-size: 0.9rem; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        .modal-box .modal-head button {
+            background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer;
+        }
+        .modal-box .modal-body { padding: 16px; }
+        .modal-box .modal-body p { font-size: 0.8rem; margin-bottom: 12px; line-height: 1.5; color: var(--text-primary); }
+        body.dark-theme .modal-box .modal-body p { color: #e9edef; }
+        .modal-box .modal-actions { display: flex; flex-direction: column; gap: 6px; }
+        .modal-box .modal-actions button {
+            padding: 10px 16px; border: none; border-radius: 8px; font-size: 0.8rem;
+            font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            justify-content: center; transition: opacity 0.2s;
+        }
+        .modal-box .modal-actions button:hover { opacity: 0.9; }
+        .modal-box .modal-actions .btn-success { background: #25D366; color: white; }
+        .modal-box .modal-actions .btn-primary { background: var(--whatsapp-teal); color: white; }
+        .modal-box .modal-actions .btn-cancel { background: var(--input-bg); color: var(--text-secondary); }
+        body.dark-theme .modal-box .modal-actions .btn-cancel { background: #2a3942; color: #aebac1; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .sidebar-panel {
+                width: 100%;
+                min-width: 100%;
+            }
+            .sidebar-panel.hidden { display: none; }
+            .chat-panel.full { display: flex; }
+            .chat-panel.hidden { display: none; }
+            .chat-header .back-btn { display: flex; }
+        }
+        @media (min-width: 769px) {
+            .sidebar-panel.hidden { display: flex; }
+        }
+
+        /* Loading */
+        .loading-spinner { display: flex; align-items: center; justify-content: center; padding: 40px; }
+        .loading-spinner .spinner { width: 24px; height: 24px; border: 3px solid var(--border-color); border-top-color: var(--whatsapp-teal-light); border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast-container-global {
+            position: fixed; top: 70px; right: 20px; z-index: 99999;
+            display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+        }
+        .toast-notification {
+            pointer-events: auto;
+            background: white; border-radius: 10px; padding: 12px 16px;
+            min-width: 280px; max-width: 380px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            display: flex; align-items: flex-start; gap: 10px;
+            animation: toastIn 0.3s ease; font-size: 0.75rem;
+            border-left: 4px solid #075E54;
+        }
+        body.dark-theme .toast-notification { background: #1f2c33; color: #e9edef; }
+        .toast-notification.toast-success { border-left-color: #25D366; }
+        .toast-notification.toast-error { border-left-color: #ef5350; }
+        .toast-notification.toast-warning { border-left-color: #ff9800; }
+        .toast-notification.toast-info { border-left-color: #075E54; }
+        .toast-notification.toast-exit { animation: toastOut 0.3s ease forwards; }
+        .toast-notification .toast-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+        .toast-notification.toast-success .toast-icon { color: #25D366; }
+        .toast-notification.toast-error .toast-icon { color: #ef5350; }
+        .toast-notification.toast-warning .toast-icon { color: #ff9800; }
+        .toast-notification .toast-content { flex: 1; }
+        .toast-notification .toast-title { font-weight: 700; font-size: 0.75rem; margin-bottom: 2px; }
+        .toast-notification .toast-message { color: #667781; font-size: 0.7rem; line-height: 1.4; }
+        body.dark-theme .toast-notification .toast-message { color: #aebac1; }
+        .toast-notification .toast-close {
+            background: none; border: none; color: #999; cursor: pointer; font-size: 1rem; padding: 2px;
+        }
+        @keyframes toastIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes toastOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <!-- ===== SIDEBAR ===== -->
+    <div class="sidebar-panel" id="sidebarPanel">
+        <div class="sidebar-header">
+            <div class="brand">
+                <img src="{{ url_for('static', filename='images/web-logo-white.png') }}" alt="ConnectLink">
+                <span>WhatsApp</span>
+            </div>
+            <div class="header-actions">
+                <button class="theme-btn" onclick="toggleTheme()" title="Toggle dark mode"><i class="bi bi-moon-fill"></i></button>
+                <button onclick="startNewChat()" title="New chat"><i class="bi bi-plus-lg"></i></button>
+                <button onclick="refreshChats()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+        </div>
+        <div class="search-bar">
+            <div class="search-inner">
+                <i class="bi bi-search"></i>
+                <input type="text" id="searchInput" placeholder="Search or start new chat" oninput="filterChats()">
+            </div>
+        </div>
+        <div class="conversation-list" id="conversationList">
+            <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+    </div>
+
+    <!-- ===== MAIN CHAT PANEL ===== -->
+    <div class="chat-panel" id="chatPanel">
+        <!-- When no chat selected -->
+        <div class="empty-chat-state" id="emptyState">
+            <div class="empty-icon"><i class="bi bi-whatsapp"></i></div>
+            <h3>ConnectLink WhatsApp</h3>
+            <p>Select a conversation from the sidebar or start a new chat</p>
+        </div>
+
+        <!-- Active chat (hidden initially) -->
+        <div id="activeChatArea" style="display:none;flex-direction:column;height:100%;">
+            <!-- Chat Header -->
+            <div class="chat-header">
+                <button class="back-btn" onclick="showSidebar()" id="backBtn"><i class="bi bi-arrow-left"></i></button>
+                <div class="chat-avatar" id="chatAvatar">?</div>
+                <div class="chat-info">
+                    <div class="chat-contact-name" id="chatContactName">Contact</div>
+                    <div class="chat-contact-status" id="chatContactStatus">Click to load messages</div>
+                </div>
+                <div class="chat-actions">
+                    <div class="mode-toggle">
+                        <span class="active" id="botLabel">Bot</span>
+                        <label class="switch">
+                            <input type="checkbox" id="humanModeToggle" onchange="toggleHumanMode()">
+                            <span class="slider"></span>
+                        </label>
+                        <span id="humanLabel">Human</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="messages-area" id="messagesArea">
+                <div class="empty-chat-state" style="padding:20px;">
+                    <p style="font-size:0.8rem;color:var(--text-secondary);"><i class="bi bi-chat-dots"></i> No messages yet</p>
+                </div>
+            </div>
+
+            <!-- File Preview -->
+            <div class="file-preview" id="filePreview">
+                <span class="file-name" id="fileName">📎 file.pdf</span>
+                <button class="remove-file" onclick="clearFile()">&times;</button>
+            </div>
+
+            <!-- Reply Bar - Text Mode -->
+            <div class="reply-bar" id="replyBarNormal">
+                <div class="reply-inner">
+                    <button class="attach-btn" onclick="document.getElementById('fileInput').click()" title="Attach file">
+                        <i class="bi bi-paperclip"></i>
+                    </button>
+                    <input type="file" id="fileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx" onchange="handleFileSelect(event)">
+                    <input type="text" id="messageInput" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendMessage()">
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send"><i class="bi bi-send-fill"></i></button>
+                </div>
+            </div>
+
+            <!-- Reply Bar - Template Mode -->
+            <div class="reply-bar" id="replyBarTemplate" style="display:none;">
+                <div class="template-bar" style="display:flex;">
+                    <div class="tpl-row">
+                        <input type="text" id="templateName" placeholder="Template name (e.g. enquiryupdate)">
+                        <button class="btn-outline" onclick="toggleTemplateMode()" title="Switch to text"><i class="bi bi-chat-dots"></i> Text</button>
+                    </div>
+                    <div class="tpl-row">
+                        <input type="text" id="templateParams" placeholder="Params (comma-separated, e.g. John,Project X)">
+                        <button class="btn-warning" onclick="sendTemplate()"><i class="bi bi-send"></i> Send</button>
+                    </div>
+                    <div class="tpl-info"><i class="bi bi-info-circle"></i> Meta templates bypass the 24hr window. Use approved template names only.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bot Mode Warning Modal -->
+<div class="modal-overlay" id="botWarningModal">
+    <div class="modal-box">
+        <div class="modal-head">
+            <span><i class="bi bi-exclamation-triangle-fill"></i> Bot Mode Active</span>
+            <button onclick="closeBotWarning()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p><strong>This chat is currently in Bot mode.</strong><br>
+            The AI chatbot will auto-reply to <strong id="warnContactName">this contact</strong> unless you switch to Human mode.</p>
+            <p id="warnMessagePreview" style="font-size:0.75rem;padding:8px;background:var(--input-bg);border-radius:6px;border-left:3px solid var(--whatsapp-teal);">
+                Sending a message in Bot mode means the AI may also respond.
+            </p>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="switchToHumanAndSend()"><i class="bi bi-arrow-repeat"></i> Switch from Bot to Human &amp; Send</button>
+                <button class="btn-primary" onclick="sendAnywayInBotMode()"><i class="bi bi-send"></i> Send Anyway (Bot stays active)</button>
+                <button class="btn-cancel" onclick="closeBotWarning()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== GLOBAL STATE ====================
+let currentPhone = null;
+let currentName = '';
+let chatFileData = null;
+let refreshInterval = null;
+let chatData = [];
+let pendingSend = null;
+
+// ==================== TOAST SYSTEM ====================
+function showToast(message, type, title) {
+    if (!type) type = 'info';
+    if (!title) { const titles = {success:'Success',error:'Error',warning:'Warning',info:'Info'}; title = titles[type]||'Info'; }
+    let container = document.getElementById('toast-container-global');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container-global';
+        container.className = 'toast-container-global';
+        document.body.appendChild(container);
+    }
+    const icons = {success:'<i class="bi bi-check-circle-fill"></i>',error:'<i class="bi bi-x-circle-fill"></i>',warning:'<i class="bi bi-exclamation-triangle-fill"></i>',info:'<i class="bi bi-info-circle-fill"></i>'};
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification toast-' + type;
+    toast.innerHTML = '<div class="toast-icon">'+(icons[type]||icons.info)+'</div><div class="toast-content"><div class="toast-title">'+title+'</div><div class="toast-message">'+message+'</div></div><button class="toast-close" onclick="this.parentElement.classList.add(\'toast-exit\');setTimeout(()=>this.parentElement.remove(),300)">&times;</button>';
+    container.appendChild(toast);
+    setTimeout(() => { if(toast.parentNode) { toast.classList.add('toast-exit'); setTimeout(()=>{if(toast.parentNode)toast.remove()},300); } }, 4000);
+}
+
+// ==================== ESCAPE HTML ====================
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ==================== CHAT LIST ====================
+function loadChats() {
+    const list = document.getElementById('conversationList');
+    list.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    fetch('/api/whatsapp-chats')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.data || !res.data.length) {
+                list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:0.85rem;"><i class="bi bi-whatsapp" style="font-size:2rem;display:block;margin-bottom:12px;opacity:0.4;"></i>No conversations yet</div>';
+                chatData = [];
+                return;
+            }
+            chatData = res.data;
+            renderChatList(chatData);
+        })
+        .catch(err => {
+            console.error('Chats error:', err);
+            list.innerHTML = '<div style="text-align:center;padding:40px;color:#c62828;font-size:0.85rem;"><i class="bi bi-wifi-off" style="font-size:2rem;display:block;margin-bottom:12px;"></i>Connection error</div>';
+        });
+}
+
+function renderChatList(chats) {
+    const list = document.getElementById('conversationList');
+    let html = '';
+    chats.forEach(chat => {
+        const initial = (chat.name||'?')[0].toUpperCase();
+        const isActive = currentPhone === chat.whatsapp;
+        const statusColor = chat.status === 'pending' ? '#25D366' : chat.status === 'completed' ? '#667781' : '#ff9800';
+        const newBg = chat.status === 'pending' ? 'background:#e8f5e9;' : '';
+        html += `
+            <div class="conv-item${isActive?' active':''}" onclick="openChat('${chat.whatsapp}','${escapeHtml(chat.name)}')" style="${newBg}">
+                <div class="conv-avatar" style="background:#25D366;">${initial}</div>
+                <div class="conv-info">
+                    <div class="conv-name">
+                        <span>${escapeHtml(chat.name)}</span>
+                        <span class="conv-time">${chat.last_time||''}</span>
+                    </div>
+                    <div class="conv-preview">${escapeHtml(chat.last_message||'No messages')}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    <div style="font-size:0.65rem;color:${statusColor};font-weight:600;">${chat.message_count||0}</div>
+                </div>
+            </div>`;
+    });
+    list.innerHTML = html;
+}
+
+function filterChats() {
+    const q = document.getElementById('searchInput').value.toLowerCase().trim();
+    const filtered = q ? chatData.filter(c => (c.name||'').toLowerCase().includes(q) || (c.whatsapp||'').includes(q)) : chatData;
+    renderChatList(filtered);
+}
+
+function refreshChats() {
+    loadChats();
+    if (currentPhone) loadMessages(currentPhone, false);
+}
+
+function startNewChat() {
+    const number = prompt('Enter WhatsApp number with country code (e.g. 2637XXXXXXX):');
+    if (!number) return;
+    const cleaned = number.replace(/[^0-9]/g, '');
+    if (cleaned.length < 8) { showToast('Please enter a valid phone number', 'error', 'Invalid Number'); return; }
+    const name = prompt('Enter a name for this contact (optional):') || cleaned;
+    openChat(cleaned, name);
+}
+
+// ==================== OPEN CHAT ====================
+function openChat(phone, name) {
+    currentPhone = phone;
+    currentName = name;
+    chatFileData = null;
+    pendingSend = null;
+    clearFile();
+
+    // Update UI
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('activeChatArea').style.display = 'flex';
+    document.getElementById('chatContactName').textContent = name;
+    document.getElementById('chatContactStatus').textContent = 'Loading...';
+    document.getElementById('chatAvatar').textContent = (name||'?')[0].toUpperCase();
+    document.getElementById('messageInput').value = '';
+    document.getElementById('replyBarNormal').style.display = 'flex';
+    document.getElementById('replyBarTemplate').style.display = 'none';
+
+    // Highlight in sidebar
+    document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+    const items = document.querySelectorAll('.conv-item');
+    items.forEach(item => {
+        if (item.getAttribute('onclick') && item.getAttribute('onclick').includes(phone)) {
+            item.classList.add('active');
+        }
+    });
+
+    // Mobile: show chat panel
+    if (window.innerWidth <= 768) {
+        document.getElementById('sidebarPanel').classList.add('hidden');
+    }
+
+    // Load human mode
+    loadHumanMode(phone);
+
+    // Load messages
+    loadMessages(phone);
+
+    // Start auto-refresh
+    if (refreshInterval) clearInterval(refreshInterval);
+    refreshInterval = setInterval(() => {
+        if (currentPhone) loadMessages(currentPhone, true);
+    }, 10000);
+
+    // Update conversation list to reflect active state
+    renderChatList(chatData);
+}
+
+function showSidebar() {
+    document.getElementById('sidebarPanel').classList.remove('hidden');
+}
+
+function loadHumanMode(phone) {
+    const toggle = document.getElementById('humanModeToggle');
+    if (!toggle || !phone) return;
+    fetch('/api/whatsapp-human-mode/' + encodeURIComponent(phone))
+        .then(r => r.json())
+        .then(res => {
+            toggle.checked = res.success && res.human_mode;
+            updateModeLabels();
+        })
+        .catch(() => { toggle.checked = false; updateModeLabels(); });
+}
+
+function updateModeLabels() {
+    const toggle = document.getElementById('humanModeToggle');
+    const bot = document.getElementById('botLabel');
+    const human = document.getElementById('humanLabel');
+    if (!toggle || !bot || !human) return;
+    if (toggle.checked) {
+        bot.classList.remove('active');
+        human.classList.add('active');
+        document.getElementById('chatContactStatus').textContent = 'Human mode — you reply manually';
+    } else {
+        bot.classList.add('active');
+        human.classList.remove('active');
+        document.getElementById('chatContactStatus').textContent = 'Bot mode — AI auto-replies';
+    }
+}
+
+function toggleHumanMode() {
+    const toggle = document.getElementById('humanModeToggle');
+    if (!toggle || !currentPhone) return;
+    const humanMode = toggle.checked;
+    fetch('/api/whatsapp-toggle-human-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: currentPhone, human_mode: humanMode })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) { toggle.checked = !humanMode; }
+        updateModeLabels();
+        if (humanMode) showToast('Switched to Human mode for ' + currentName, 'success', 'Mode Changed');
+        else showToast('Switched to Bot mode for ' + currentName, 'info', 'Mode Changed');
+    })
+    .catch(() => { toggle.checked = !humanMode; updateModeLabels(); });
+}
+
+// ==================== MESSAGES ====================
+function loadMessages(phone, appendOnly) {
+    const area = document.getElementById('messagesArea');
+    if (!phone) return;
+
+    fetch('/api/whatsapp-messages/' + phone)
+        .then(r => r.json())
+        .then(res => {
+            document.getElementById('chatContactStatus').textContent = 'Last active: just now';
+            if (!res.success || !res.data) {
+                if (!appendOnly) area.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:0.8rem;">Failed to load messages</div>';
+                return;
+            }
+            const msgs = res.data;
+            if (!msgs.length) {
+                if (!appendOnly) area.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:0.8rem;"><i class="bi bi-chat-dots" style="font-size:2rem;display:block;margin-bottom:8px;opacity:0.4;"></i>No messages yet</div>';
+                return;
+            }
+
+            if (appendOnly) {
+                const existingIds = new Set();
+                area.querySelectorAll('[data-msg-id]').forEach(el => existingIds.add(el.dataset.msgId));
+                msgs.forEach(msg => {
+                    if (!existingIds.has('msg-' + msg.id)) {
+                        area.appendChild(createBubble(msg));
+                    }
+                });
+            } else {
+                area.innerHTML = '';
+                msgs.forEach(msg => {
+                    area.appendChild(createBubble(msg));
+                });
+            }
+            area.scrollTop = area.scrollHeight;
+        })
+        .catch(err => {
+            if (!appendOnly) area.innerHTML = '<div style="text-align:center;padding:40px;color:#c62828;font-size:0.8rem;">Error loading messages</div>';
+            console.error('Messages load error:', err);
+        });
+}
+
+function createBubble(msg) {
+    const isIncoming = msg.is_incoming;
+    const time = msg.timestamp || '';
+    const bubble = document.createElement('div');
+    bubble.dataset.msgId = 'msg-' + msg.id;
+
+    const isTemplate = msg.category === 'template' || (msg.message && msg.message.startsWith('[Template:'));
+    let bgColor, alignStyle, statusIcon = '', typeLabel = '', statusLabel = '', nameLabel = '';
+
+    if (isIncoming) {
+        bgColor = 'var(--incoming-msg)';
+        alignStyle = '';
+    } else {
+        const status = msg.status || 'sent';
+        if (isTemplate && status === 'pending') {
+            bgColor = '#fff3e0'; alignStyle = 'border:1px solid #ffcc02;background:#fff3e0;';
+            statusIcon = '<span style="color:#ef6c00;font-size:0.65rem;margin-left:3px;">⏳</span>';
+        } else if (status === 'failed_24hr_window') {
+            bgColor = '#fff3e0'; alignStyle = 'border:1px solid #ffcc02;background:#fff3e0;';
+            statusIcon = '<span style="color:#ef6c00;font-size:0.65rem;margin-left:3px;">⚠️</span>';
+            statusLabel = '<div class="msg-status warning"><i class="bi bi-exclamation-triangle-fill"></i> Outside 24hr window</div>';
+        } else if (status === 'failed') {
+            bgColor = '#fce4ec'; alignStyle = 'border:1px solid #ef5350;background:#fce4ec;';
+            statusIcon = '<span style="color:#c62828;font-size:0.65rem;margin-left:3px;">✗</span>';
+            statusLabel = '<div class="msg-status error"><i class="bi bi-x-circle-fill"></i> Failed to send</div>';
+        } else {
+            bgColor = 'var(--outgoing-msg)';
+            statusIcon = '<span style="color:#999;font-size:0.65rem;margin-left:3px;">✓</span>';
+        }
+
+        if (isTemplate && msg.username) {
+            nameLabel = '<div class="msg-label outgoing" style="color:var(--whatsapp-teal);">' + escapeHtml(msg.username) + '</div>';
+        }
+    }
+
+    if (isTemplate) {
+        typeLabel = '<div class="msg-label template"><i class="bi bi-layout-text-window"></i> Template Message</div>';
+    }
+
+    let messageContent = '<div style="word-wrap:break-word;">' + escapeHtml(msg.message) + '</div>';
+
+    if (msg.media_id && (msg.category === 'document' || msg.category === 'image')) {
+        const fileDisp = msg.file_name || (msg.category === 'image' ? 'Image' : 'Document');
+        const icon = msg.category === 'image' ? '📷' : '📄';
+        messageContent += `
+            <div style="margin-top:6px;padding:4px 8px;background:rgba(0,0,0,0.05);border-radius:6px;display:flex;align-items:center;gap:6px;">
+                <span style="font-size:0.8rem;">${icon}</span>
+                <span style="font-size:0.75rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(fileDisp)}</span>
+                <a href="/api/whatsapp-media-download/${encodeURIComponent(msg.media_id)}" target="_blank" style="font-size:0.7rem;padding:2px 8px;background:#075e54;color:white;border-radius:4px;text-decoration:none;white-space:nowrap;">
+                    <i class="bi bi-download"></i> Download
+                </a>
+            </div>`;
+    }
+
+    bubble.className = 'msg-bubble ' + (isIncoming ? 'incoming' : 'outgoing');
+    bubble.style.cssText = (isIncoming ? '' : alignStyle || '');
+    bubble.innerHTML = typeLabel + nameLabel + messageContent + statusLabel + '<div class="msg-time">' + time + statusIcon + '</div>';
+    return bubble;
+}
+
+// ==================== SEND MESSAGE ====================
+function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    const file = chatFileData;
+
+    if (!text && !file) return;
+    if (!currentPhone) return;
+
+    const toggle = document.getElementById('humanModeToggle');
+    if (toggle && !toggle.checked) {
+        pendingSend = { phone: currentPhone, message: text, file: file, name: currentName };
+        document.getElementById('warnContactName').textContent = currentName || currentPhone;
+        const preview = document.getElementById('warnMessagePreview');
+        if (text) preview.innerHTML = 'Message: "' + escapeHtml(text.substring(0, 80)) + (text.length > 80 ? '..."' : '"');
+        else if (file) preview.innerHTML = 'Sending file: ' + escapeHtml(file.name);
+        else preview.innerHTML = 'Sending a message in Bot mode means the AI may also respond.';
+        document.getElementById('botWarningModal').classList.add('active');
+        return;
+    }
+
+    if (file) {
+        sendFile(currentPhone, file, text);
+        chatFileData = null;
+        clearFile();
+    } else {
+        sendText(currentPhone, text);
+    }
+    input.value = '';
+}
+
+function sendText(phone, text) {
+    const area = document.getElementById('messagesArea');
+    const now = new Date();
+    const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const id = 'pending-' + Date.now();
+
+    area.innerHTML += '<div id="' + id + '" class="msg-bubble outgoing" style="opacity:0.7;background:var(--outgoing-msg);align-self:flex-end;border-bottom-right-radius:2px;"><div style="word-wrap:break-word;">' + escapeHtml(text) + '</div><div class="msg-time">' + timeStr + ' ⏳</div></div>';
+    area.scrollTop = area.scrollHeight;
+
+    fetch('/api/whatsapp-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient: phone, message: text })
+    })
+    .then(r => r.json())
+    .then(res => {
+        const bubble = document.getElementById(id);
+        if (res.success) { if (bubble) bubble.remove(); return; }
+        if (!bubble) return;
+        if (res.requires_template) {
+            bubble.style.background = '#fff3e0'; bubble.style.border = '1px solid #ffcc02'; bubble.style.opacity = '1';
+            bubble.innerHTML = '<div style="word-wrap:break-word;">' + escapeHtml(text) + '</div><div class="msg-status warning"><i class="bi bi-exclamation-triangle-fill"></i> Not delivered — outside 24hr window. Use template.</div><div class="msg-time">' + timeStr + ' ⚠️</div>';
+            showToast('Outside 24hr window. Use a Meta template to reach ' + escapeHtml(currentName || phone), 'warning', '24hr Window Closed');
+        } else {
+            bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350'; bubble.style.opacity = '1';
+            bubble.innerHTML = '<div style="word-wrap:break-word;">' + escapeHtml(text) + '</div><div class="msg-status error"><i class="bi bi-x-circle-fill"></i> Failed to send</div><div class="msg-time">' + timeStr + ' ✗</div>';
+            showToast('Failed to send message', 'error', 'Send Failed');
+        }
+    })
+    .catch(err => {
+        console.error('Send error:', err);
+        const bubble = document.getElementById(id);
+        if (bubble) { bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350'; bubble.style.opacity = '1';
+            bubble.innerHTML = '<div style="word-wrap:break-word;">' + escapeHtml(text) + '</div><div class="msg-status error"><i class="bi bi-x-circle-fill"></i> Network error</div><div class="msg-time">' + timeStr + ' ✗</div>'; }
+        showToast('Network error sending message', 'error', 'Send Failed');
+    });
+}
+
+function sendFile(phone, file, caption) {
+    const area = document.getElementById('messagesArea');
+    const now = new Date();
+    const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const id = 'pending-' + Date.now();
+
+    area.innerHTML += '<div id="' + id + '" class="msg-bubble outgoing" style="opacity:0.7;background:var(--outgoing-msg);align-self:flex-end;border-bottom-right-radius:2px;"><div style="word-wrap:break-word;font-size:0.75rem;color:var(--text-secondary);">📎 ' + escapeHtml(file.name) + '</div>' + (caption ? '<div style="word-wrap:break-word;margin-top:4px;">' + escapeHtml(caption) + '</div>' : '') + '<div class="msg-time">' + timeStr + ' ⏳</div></div>';
+    area.scrollTop = area.scrollHeight;
+
+    const formData = new FormData();
+    formData.append('recipient', phone);
+    formData.append('file', file);
+    if (caption) formData.append('caption', caption);
+
+    fetch('/api/whatsapp-send-file', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        const bubble = document.getElementById(id);
+        if (res.success) { if (bubble) bubble.remove(); return; }
+        if (bubble) {
+            bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350'; bubble.style.opacity = '1';
+            bubble.innerHTML = '<div style="word-wrap:break-word;font-size:0.75rem;">📎 ' + escapeHtml(file.name) + '</div><div class="msg-status error"><i class="bi bi-x-circle-fill"></i> Failed to send file</div><div class="msg-time">' + timeStr + ' ✗</div>';
+        }
+        showToast('Failed to send file: ' + (res.message || 'Unknown error'), 'error', 'Upload Failed');
+    })
+    .catch(err => {
+        console.error('File send error:', err);
+        const bubble = document.getElementById(id);
+        if (bubble) { bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350'; bubble.style.opacity = '1';
+            bubble.innerHTML = '<div style="word-wrap:break-word;font-size:0.75rem;">📎 ' + escapeHtml(file.name) + '</div><div class="msg-status error"><i class="bi bi-x-circle-fill"></i> Network error</div><div class="msg-time">' + timeStr + ' ✗</div>'; }
+        showToast('Network error sending file', 'error', 'Upload Failed');
+    });
+}
+
+// ==================== FILE HANDLING ====================
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    chatFileData = file;
+    const preview = document.getElementById('filePreview');
+    document.getElementById('fileName').textContent = '📎 ' + file.name;
+    preview.style.display = 'flex';
+}
+
+function clearFile() {
+    chatFileData = null;
+    document.getElementById('filePreview').style.display = 'none';
+    document.getElementById('fileInput').value = '';
+}
+
+// ==================== TEMPLATE MODE ====================
+function toggleTemplateMode() {
+    const normal = document.getElementById('replyBarNormal');
+    const tpl = document.getElementById('replyBarTemplate');
+    if (normal.style.display !== 'none') {
+        normal.style.display = 'none';
+        tpl.style.display = 'block';
+    } else {
+        normal.style.display = 'flex';
+        tpl.style.display = 'none';
+    }
+}
+
+function sendTemplate() {
+    const tplName = document.getElementById('templateName').value.trim();
+    const paramsStr = document.getElementById('templateParams').value.trim();
+    if (!tplName) { showToast('Please enter a template name', 'warning', 'Template Required'); return; }
+    if (!currentPhone) return;
+
+    const toggle = document.getElementById('humanModeToggle');
+    if (toggle && !toggle.checked) {
+        pendingSend = { phone: currentPhone, message: '[Template: ' + tplName + '] ' + paramsStr, file: null, name: currentName, isTemplate: true, templateName: tplName, templateParams: paramsStr ? paramsStr.split(',').map(p => p.trim()) : [] };
+        document.getElementById('warnContactName').textContent = currentName || currentPhone;
+        document.getElementById('warnMessagePreview').textContent = 'Sending template "' + tplName + '" in Bot mode.';
+        document.getElementById('botWarningModal').classList.add('active');
+        return;
+    }
+
+    const params = paramsStr ? paramsStr.split(',').map(p => p.trim()) : [];
+    const area = document.getElementById('messagesArea');
+    const now = new Date();
+    const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const id = 'tpl-' + Date.now();
+
+    area.innerHTML += '<div id="' + id + '" class="msg-bubble outgoing" style="opacity:0.7;border:1px solid #ffcc02;background:#fff3e0;align-self:flex-end;border-bottom-right-radius:2px;"><div class="msg-label template"><i class="bi bi-layout-text-window"></i> Template: ' + escapeHtml(tplName) + '</div><div style="word-wrap:break-word;">' + escapeHtml(paramsStr || '(no params)') + '</div><div class="msg-time">' + timeStr + ' ⏳</div></div>';
+    area.scrollTop = area.scrollHeight;
+
+    fetch('/api/whatsapp-send-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient: currentPhone, template_name: tplName, parameters: params })
+    })
+    .then(r => r.json())
+    .then(res => {
+        const bubble = document.getElementById(id);
+        if (!bubble) return;
+        bubble.style.opacity = '1';
+        if (res.success) {
+            bubble.style.border = '1px solid #10B981';
+            const t = bubble.querySelector('.msg-time');
+            if (t) t.textContent = timeStr + ' ✓';
+            showToast('Template "' + tplName + '" sent successfully', 'success', 'Template Sent');
+        } else {
+            bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350';
+            const errMsg = (res.error_category === 'failed_template_not_found') ? 'Template not found' : 'Template send failed';
+            bubble.innerHTML = '<div class="msg-label template" style="color:#c62828;"><i class="bi bi-layout-text-window"></i> Template: ' + escapeHtml(tplName) + '</div><div style="word-wrap:break-word;">' + escapeHtml(paramsStr || '') + '</div><div class="msg-status error"><i class="bi bi-x-circle-fill"></i> ' + errMsg + '</div><div class="msg-time">' + timeStr + ' ✗</div>';
+            showToast(errMsg + ': ' + tplName, 'error', 'Template Failed');
+        }
+    })
+    .catch(err => {
+        const bubble = document.getElementById(id);
+        if (bubble) { bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350'; }
+        showToast('Network error sending template', 'error', 'Template Failed');
+    });
+
+    document.getElementById('templateName').value = '';
+    document.getElementById('templateParams').value = '';
+    toggleTemplateMode();
+}
+
+// ==================== BOT WARNING HANDLERS ====================
+function closeBotWarning() {
+    document.getElementById('botWarningModal').classList.remove('active');
+    pendingSend = null;
+}
+
+function switchToHumanAndSend() {
+    const toggle = document.getElementById('humanModeToggle');
+    if (toggle && currentPhone) {
+        toggle.checked = true;
+        fetch('/api/whatsapp-toggle-human-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: currentPhone, human_mode: true })
+        }).then(r => r.json()).catch(() => {});
+        updateModeLabels();
+    }
+    document.getElementById('botWarningModal').classList.remove('active');
+    executePendingSend(pendingSend);
+}
+
+function sendAnywayInBotMode() {
+    document.getElementById('botWarningModal').classList.remove('active');
+    executePendingSend(pendingSend);
+}
+
+function executePendingSend(p) {
+    if (!p) return;
+    if (p.file) {
+        sendFile(p.phone, p.file, p.message);
+    } else if (p.isTemplate) {
+        // Re-send as template
+        const params = p.templateParams || [];
+        const area = document.getElementById('messagesArea');
+        const now = new Date();
+        const timeStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        const id = 'tpl-' + Date.now();
+        area.innerHTML += '<div id="' + id + '" class="msg-bubble outgoing" style="opacity:0.7;border:1px solid #ffcc02;background:#fff3e0;align-self:flex-end;border-bottom-right-radius:2px;"><div class="msg-label template"><i class="bi bi-layout-text-window"></i> Template: ' + escapeHtml(p.templateName) + '</div><div style="word-wrap:break-word;">' + escapeHtml((p.templateParams||[]).join(', ')) + '</div><div class="msg-time">' + timeStr + ' ⏳</div></div>';
+        area.scrollTop = area.scrollHeight;
+        fetch('/api/whatsapp-send-template', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipient: p.phone, template_name: p.templateName, parameters: params })
+        }).then(r => r.json()).then(res => {
+            const bubble = document.getElementById(id);
+            if (!bubble) return;
+            bubble.style.opacity = '1';
+            if (res.success) { bubble.style.border = '1px solid #10B981'; const t = bubble.querySelector('.msg-time'); if (t) t.textContent = timeStr + ' ✓'; }
+            else { bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350'; bubble.innerHTML = '<div class="msg-label template" style="color:#c62828;"><i class="bi bi-layout-text-window"></i> Template: ' + escapeHtml(p.templateName) + '</div><div style="word-wrap:break-word;">' + escapeHtml((p.templateParams||[]).join(', ')) + '</div><div class="msg-status error"><i class="bi bi-x-circle-fill"></i> Failed</div><div class="msg-time">' + timeStr + ' ✗</div>'; }
+        }).catch(() => { const bubble = document.getElementById(id); if (bubble) { bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350'; } });
+    } else {
+        sendText(p.phone, p.message);
+    }
+    pendingSend = null;
+}
+
+// ==================== THEME TOGGLE ====================
+function toggleTheme() {
+    document.body.classList.toggle('dark-theme');
+    const isDark = document.body.classList.contains('dark-theme');
+    localStorage.setItem('whatsappTheme', isDark ? 'dark' : 'light');
+    const btn = document.querySelector('.theme-btn i');
+    if (btn) btn.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+}
+
+// Apply saved theme on load
+(function() {
+    const saved = localStorage.getItem('whatsappTheme');
+    if (saved === 'dark') {
+        document.body.classList.add('dark-theme');
+        const btn = document.querySelector('.theme-btn i');
+        if (btn) btn.className = 'bi bi-sun-fill';
+    }
+})();
+
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', function() {
+    loadChats();
+});
+
+// Handle window resize for mobile responsiveness
+window.addEventListener('resize', function() {
+    if (window.innerWidth > 768) {
+        document.getElementById('sidebarPanel').classList.remove('hidden');
+    }
+});
+</script>
+</body>
+</html>
