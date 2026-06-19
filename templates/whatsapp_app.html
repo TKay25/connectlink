@@ -806,7 +806,7 @@
         </div>
 
         <!-- Chats View -->
-        <div id="chatsView">
+        <div id="chatsView" style="display:flex;flex-direction:column;flex:1;min-height:0;">
             <div class="search-bar">
                 <div class="search-inner">
                     <i class="bi bi-search"></i>
@@ -1507,7 +1507,7 @@ function toggleTheme() {
 function switchTab(tab) {
     document.getElementById('tabChats').classList.toggle('active', tab === 'chats');
     document.getElementById('tabEnquiries').classList.toggle('active', tab === 'enquiries');
-    document.getElementById('chatsView').style.display = tab === 'chats' ? 'block' : 'none';
+    document.getElementById('chatsView').style.display = tab === 'chats' ? 'flex' : 'none';
     document.getElementById('enquiriesView').style.display = tab === 'enquiries' ? 'flex' : 'none';
 
     if (tab === 'enquiries') {
