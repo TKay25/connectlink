@@ -207,6 +207,95 @@
         body.dark-theme .table-striped > tbody > tr:nth-of-type(odd) {
             background: rgba(255,255,255,0.03) !important;
         }
+        /* Dark mode table backgrounds - override white table backgrounds */
+        body.dark-theme .table-theme {
+            background: var(--bg-card) !important;
+        }
+        body.dark-theme .table-theme td {
+            border-bottom-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme .table-theme tbody tr:nth-child(even) td {
+            background-color: rgba(255,255,255,0.03) !important;
+        }
+        body.dark-theme .table-theme tbody tr:hover td {
+            background: rgba(255,255,255,0.06) !important;
+        }
+        body.dark-theme .table-theme tbody tr:nth-child(even):hover td {
+            background-color: rgba(255,255,255,0.07) !important;
+        }
+        body.dark-theme #admin-content .tab-content {
+            background: var(--bg-card) !important;
+        }
+        body.dark-theme .dataTables_wrapper .dataTables_info {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme .dataTables_wrapper .dataTables_filter input {
+            background: #252b45 !important;
+            border-color: #3a4058 !important;
+            color: var(--text-primary) !important;
+        }
+        /* DataTables generic table background override */
+        body.dark-theme table.dataTable {
+            background: var(--bg-card) !important;
+        }
+        body.dark-theme table.dataTable tbody td {
+            background: var(--bg-card) !important;
+        }
+        body.dark-theme table.dataTable.stripe tbody tr.odd,
+        body.dark-theme table.dataTable.display tbody tr.odd {
+            background-color: rgba(255,255,255,0.03) !important;
+        }
+        body.dark-theme table.dataTable.hover tbody tr:hover,
+        body.dark-theme table.dataTable.display tbody tr:hover {
+            background-color: rgba(255,255,255,0.06) !important;
+        }
+        body.dark-theme .dataTables_wrapper .dataTables_paginate .paginate_button {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--primary) !important;
+            border-color: var(--primary) !important;
+            color: white !important;
+        }
+        body.dark-theme .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: rgba(255,255,255,0.08) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme .dataTables_wrapper .dataTables_length label,
+        body.dark-theme .dataTables_wrapper .dataTables_filter label {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme .clickable-row:hover td {
+            background: rgba(255,255,255,0.06) !important;
+        }
+        body.dark-theme .content-card {
+            background: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme .content-card .card-header-custom {
+            background: rgba(255,255,255,0.04) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme .user-dropdown-menu {
+            background: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme .user-dropdown-menu .dropdown-header {
+            background: rgba(255,255,255,0.04) !important;
+        }
+        body.dark-theme .user-dropdown-menu .dropdown-divider {
+            background: var(--border-color) !important;
+        }
+        body.dark-theme .user-dropdown-menu .dropdown-item:hover {
+            background: rgba(255,255,255,0.06) !important;
+        }
+        body.dark-theme .user-dropdown-menu .dropdown-item.text-danger:hover {
+            background: rgba(193,43,62,0.15) !important;
+        }
+        body.dark-theme .table-scroll-x::-webkit-scrollbar-thumb {
+            background: var(--border-color) !important;
+        }
         body.dark-theme .modal-body-custom {
             color: var(--text-primary);
         }

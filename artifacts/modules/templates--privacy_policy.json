@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PrivacyPolicy",
+  "file": "templates/privacy_policy.html",
+  "purpose": "<!-- Describe what PrivacyPolicy does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "a555b77e59c5a6e1",
+  "file_mtime": 1781799224315.3494,
+  "file_size": 10326,
+  "file_birthtime": 1781797587121.697,
+  "generated_at": "2026-06-19T16:55:50.046Z",
+  "stale": false
+}
