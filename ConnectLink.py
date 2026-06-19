@@ -18244,13 +18244,13 @@ def pwa_manifest():
         "categories": ["business", "productivity"],
         "icons": [
             {
-                "src": "/static/images/pwa-icon-192.png",
+                "src": "/static/images/reqlogo.png",
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any maskable"
             },
             {
-                "src": "/static/images/pwa-icon-512.png",
+                "src": "/static/images/reqlogo.png",
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any maskable"
@@ -18274,13 +18274,13 @@ def whatsapp_pwa_manifest():
         "categories": ["business", "communication"],
         "icons": [
             {
-                "src": "/static/images/pwa-icon-192.png",
+                "src": "/static/images/reqlogo.png",
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any maskable"
             },
             {
-                "src": "/static/images/pwa-icon-512.png",
+                "src": "/static/images/reqlogo.png",
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any maskable"
