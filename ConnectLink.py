@@ -295,6 +295,7 @@ def initialize_database_tables():
                     status VARCHAR(50) DEFAULT 'received',
                     media_id VARCHAR(255),
                     file_name VARCHAR(255),
+                    replied_to_id INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
@@ -302,6 +303,39 @@ def initialize_database_tables():
             # Add columns if they don't exist (for existing tables)
             try:
                 cursor.execute("ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_id VARCHAR(255)")
+            except Exception:
+                pass
+            try:
+                cursor.execute("ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS replied_to_id INTEGER")
+            except Exception:
+                pass
+            
+            # Create bulk_send_logs table for tracking
+            try:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS bulk_send_logs (
+                        id SERIAL PRIMARY KEY,
+                        bulk_id VARCHAR(50) NOT NULL,
+                        recipient VARCHAR(20) NOT NULL,
+                        success BOOLEAN DEFAULT FALSE,
+                        status VARCHAR(50) DEFAULT 'failed',
+                        error_detail TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+            except Exception:
+                pass
+            
+            # Create quick_replies table
+            try:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS quick_replies (
+                        id SERIAL PRIMARY KEY,
+                        title VARCHAR(100) NOT NULL,
+                        content TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
             except Exception:
                 pass
             try:
@@ -11791,7 +11825,8 @@ def whatsapp_messages(phone_number):
                     'username': r[5] or '',
                     'is_incoming': r[4] == 'incoming',
                     'media_id': r[7] or '',
-                    'file_name': r[8] or ''
+                    'file_name': r[8] or '',
+                    'read_at': ''  # Placeholder — webhook updates this for outgoing msgs
                 })
             return jsonify({'success': True, 'data': messages})
     except Exception as e:
@@ -12005,11 +12040,12 @@ def whatsapp_send():
             if requires_template:
                 message_to_save = message[:400] + ' [⚠️ Outside 24hr window - message not delivered]'
             with get_db() as (save_cursor, save_conn):
+                replied_to = data.get('replied_to_id')
                 save_cursor.execute("""
                     INSERT INTO whatsapp_messages 
-                    (sender_phone, sender_name, message_text, message_type, direction, status)
-                    VALUES (%s, %s, %s, %s, 'outgoing', %s)
-                """, (recipient_clean, user_name, message_to_save, 'text', status_note))
+                    (sender_phone, sender_name, message_text, message_type, direction, status, replied_to_id)
+                    VALUES (%s, %s, %s, %s, 'outgoing', %s, %s)
+                """, (recipient_clean, user_name, message_to_save, 'text', status_note, replied_to))
                 save_conn.commit()
         except Exception as save_err:
             print(f"⚠️ Failed to save outgoing message: {save_err}")
@@ -12262,9 +12298,26 @@ def whatsapp_bulk_send_template():
         
         log_activity('bulk_template_sent', f'Bulk template "{template_name}" sent to {len(recipients)} recipients (sent: {success_count}, failed: {fail_count})', 'whatsapp', None, {'template_name': template_name, 'total': len(recipients), 'sent': success_count, 'failed': fail_count, 'parameters': parameters})
         
+        # Save detailed logs
+        import uuid
+        tpl_bulk_id = str(uuid.uuid4())[:8]
+        try:
+            with get_db() as (log_cursor, log_conn):
+                for r in results:
+                    log_cursor.execute("""
+                        INSERT INTO bulk_send_logs (bulk_id, recipient, success, status, error_detail)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (tpl_bulk_id, r.get('recipient',''), r.get('success',False),
+                          r.get('status','failed'),
+                          r.get('error') if not r.get('success') else None))
+                log_conn.commit()
+        except Exception as log_err:
+            print(f"⚠️ Failed to save bulk template logs: {log_err}")
+        
         return jsonify({
             'success': True,
             'results': results,
+            'bulk_id': tpl_bulk_id,
             'summary': {
                 'total': len(recipients),
                 'sent': success_count,
@@ -12340,9 +12393,111 @@ def whatsapp_bulk_send():
         fail_count = sum(1 for r in results if not r.get('success'))
         log_activity('bulk_message_sent', f'Bulk message sent to {len(recipients)} recipients (success: {success_count}, failed: {fail_count})', 'whatsapp', None, {'total': len(recipients), 'sent': success_count, 'failed': fail_count, 'message_preview': message[:100]})
         
-        return jsonify({'success': True, 'results': results})
+        # Save detailed logs
+        import uuid
+        bulk_id = str(uuid.uuid4())[:8]
+        try:
+            with get_db() as (log_cursor, log_conn):
+                for r in results:
+                    log_cursor.execute("""
+                        INSERT INTO bulk_send_logs (bulk_id, recipient, success, status, error_detail)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (bulk_id, r.get('recipient',''), r.get('success',False),
+                          'sent' if r.get('success') else 'failed',
+                          r.get('error') or r.get('response','') if not r.get('success') else None))
+                log_conn.commit()
+        except Exception as log_err:
+            print(f"⚠️ Failed to save bulk send logs: {log_err}")
+        
+        return jsonify({'success': True, 'results': results, 'bulk_id': bulk_id})
     except Exception as e:
         print(f"WhatsApp bulk send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# ==================== QUICK REPLIES API ====================
+@app.route('/api/quick-replies', methods=['GET'])
+def get_quick_replies():
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, title, content FROM quick_replies ORDER BY title ASC")
+            rows = cursor.fetchall()
+            return jsonify({'success': True, 'data': [{'id': r[0], 'title': r[1], 'content': r[2]} for r in rows]})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/quick-replies', methods=['POST'])
+def save_quick_reply():
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        if not title or not content:
+            return jsonify({'success': False, 'message': 'Title and content required'}), 400
+        with get_db() as (cursor, connection):
+            cursor.execute("INSERT INTO quick_replies (title, content) VALUES (%s, %s)", (title, content))
+            connection.commit()
+            reply_id = cursor.lastrowid
+            return jsonify({'success': True, 'id': reply_id, 'message': 'Quick reply saved'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# ==================== BULK SEND LOGS API ====================
+@app.route('/api/bulk-send-logs', methods=['GET'])
+def get_bulk_send_logs():
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, bulk_id, recipient, success, status, error_detail, created_at
+                FROM bulk_send_logs
+                ORDER BY created_at DESC
+                LIMIT 500
+            """)
+            rows = cursor.fetchall()
+            logs = []
+            for r in rows:
+                logs.append({
+                    'id': r[0], 'bulk_id': r[1], 'recipient': r[2],
+                    'success': r[3], 'status': r[4],
+                    'error': r[5] or '',
+                    'time': r[6].strftime('%d/%m/%Y %H:%M') if r[6] else ''
+                })
+            # Group by bulk_id for summary
+            cursor.execute("""
+                SELECT bulk_id, COUNT(*) as total,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as sent,
+                       SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failed
+                FROM bulk_send_logs
+                GROUP BY bulk_id
+                ORDER BY MAX(created_at) DESC
+                LIMIT 50
+            """)
+            summaries = []
+            for r in cursor.fetchall():
+                summaries.append({'bulk_id': r[0], 'total': r[1], 'sent': r[2], 'failed': r[3]})
+            return jsonify({'success': True, 'logs': logs, 'summaries': summaries})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/quick-replies/<int:reply_id>', methods=['DELETE'])
+def delete_quick_reply(reply_id):
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM quick_replies WHERE id = %s", (reply_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Quick reply deleted'})
+    except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/whatsapp-send-file', methods=['POST'])

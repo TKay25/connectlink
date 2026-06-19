@@ -445,6 +445,16 @@
             transition: color 0.2s;
         }
         .reply-bar .reply-inner .attach-btn:hover { color: var(--whatsapp-teal); }
+        .reply-bar .reply-inner .emoji-btn { background:none;border:none;color:var(--text-secondary);font-size:1.2rem;cursor:pointer;padding:4px;display:flex;align-items:center;transition:color 0.2s; }
+        .reply-bar .reply-inner .emoji-btn:hover { color: var(--whatsapp-teal); }
+        .emoji-picker { position:absolute;bottom:56px;left:8px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:8px;width:280px;max-height:200px;overflow-y:auto;display:none;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,0.15); }
+        .emoji-picker.show { display:flex;flex-wrap:wrap;gap:2px; }
+        .emoji-picker .emoji-item { width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;cursor:pointer;border-radius:6px;transition:background 0.15s; }
+        .emoji-picker .emoji-item:hover { background:var(--hover-bg); }
+        .date-filter-btn.active { background:#25D366 !important; color:white !important; border-color:#25D366 !important; }
+        .date-filter-btn:hover:not(.active) { background:var(--hover-bg); }
+        .messages-area.drag-over::after { content:'Drop file here'; position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(7,94,84,0.85);display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:600;color:white;border-radius:8px;z-index:50;pointer-events:none; }
+        .messages-area { position:relative; }
         .reply-bar .reply-inner .send-btn {
             background: var(--whatsapp-teal-light);
             border: none;
@@ -831,6 +841,9 @@
                 <i class="bi bi-person-badge"></i> Enquiries
                 <span class="badge-count" id="enquiryBadge" style="display:none;">0</span>
             </button>
+            <button class="tab-btn" id="tabBulk" onclick="switchTab('bulk')">
+                <i class="bi bi-send"></i> Bulk
+            </button>
         </div>
 
         <!-- Chats View -->
@@ -840,6 +853,14 @@
                     <i class="bi bi-search"></i>
                     <input type="text" id="searchInput" placeholder="Search or start new chat" oninput="filterChats()">
                 </div>
+            </div>
+            <div style="display:flex;gap:3px;padding:4px 10px;border-bottom:1px solid var(--border-color);flex-wrap:wrap;">
+                <button class="date-filter-btn active" data-period="" onclick="setDateFilter(this)" style="flex:1;min-width:40px;padding:3px 4px;font-size:0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.15s;">All</button>
+                <button class="date-filter-btn" data-period="today" onclick="setDateFilter(this)" style="flex:1;min-width:40px;padding:3px 4px;font-size:0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.15s;">Today</button>
+                <button class="date-filter-btn" data-period="yesterday" onclick="setDateFilter(this)" style="flex:1;min-width:40px;padding:3px 4px;font-size:0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.15s;">Yest</button>
+                <button class="date-filter-btn" data-period="this_week" onclick="setDateFilter(this)" style="flex:1;min-width:40px;padding:3px 4px;font-size:0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.15s;">Week</button>
+                <button class="date-filter-btn" data-period="this_month" onclick="setDateFilter(this)" style="flex:1;min-width:40px;padding:3px 4px;font-size:0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.15s;">Month</button>
+                <button class="date-filter-btn" data-period="this_year" onclick="setDateFilter(this)" style="flex:1;min-width:40px;padding:3px 4px;font-size:0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;text-align:center;transition:all 0.15s;">Year</button>
             </div>
             <div class="conversation-list" id="conversationList">
                 <div class="loading-spinner"><div class="spinner"></div></div>
@@ -861,6 +882,39 @@
             </div>
             <div class="enquiries-section" id="enquiriesList">
                 <div class="loading-spinner"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- Bulk Messaging View -->
+        <div id="bulkView" style="display:none;flex-direction:column;flex:1;min-height:0;">
+            <div style="padding:10px;border-bottom:1px solid var(--border-color);">
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:0.75rem;font-weight:600;color:var(--text-primary);"><i class="bi bi-send"></i> Bulk Messaging</span>
+                    <span style="font-size:0.65rem;color:var(--text-secondary);flex:1;" id="bulkSelectedCount">0 recipients selected</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-bottom:6px;">
+                    <input type="text" id="bulkFilterInput" placeholder="Filter contacts..." style="flex:1;padding:6px 10px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;" oninput="renderBulkContacts()">
+                    <label style="font-size:0.7rem;display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text-primary);">
+                        <input type="checkbox" id="bulkSelectAll" onchange="toggleAllBulk()"> Select all
+                    </label>
+                </div>
+                <div id="bulkContactList" style="max-height:180px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;padding:4px;background:var(--bg-card);"></div>
+            </div>
+            <div style="padding:8px 10px;border-bottom:1px solid var(--border-color);">
+                <div id="bulkTextMode" style="display:flex;flex-direction:column;gap:4px;">
+                    <textarea id="bulkMessageInput" placeholder="Type message to send to all selected recipients..." style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;resize:none;min-height:60px;font-family:inherit;"></textarea>
+                </div>
+                <div id="bulkTemplateMode" style="display:none;flex-direction:column;gap:4px;">
+                    <input type="text" id="bulkTemplateName" placeholder="Template name (e.g. enquiryupdate)" style="padding:6px 10px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;">
+                    <input type="text" id="bulkTemplateParams" placeholder="Params (comma-separated, e.g. John,Project X)" style="padding:6px 10px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;">
+                </div>
+                <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
+                    <button class="btn-outline" onclick="toggleBulkMode()" id="bulkModeToggleBtn" style="font-size:0.65rem;padding:4px 8px;"><i class="bi bi-layout-text-window"></i> Template</button>
+                    <button class="send-btn" onclick="previewBulkSend()" style="font-size:0.7rem;padding:6px 16px;background:#25D366;color:white;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:4px;margin-left:auto;">
+                        <i class="bi bi-send"></i> Send Bulk
+                    </button>
+                </div>
+                <div id="bulkSendResult" style="font-size:0.7rem;margin-top:4px;"></div>
             </div>
         </div>
     </div>
@@ -888,6 +942,9 @@
                     <button class="action-btn" id="chatCallBtn" onclick="callOnWhatsApp()" title="Call on WhatsApp" style="display:none;padding:4px 8px;font-size:0.85rem;color:#25D366;">
                         <i class="bi bi-telephone"></i>
                     </button>
+                    <button class="action-btn" id="chatSearchBtn" onclick="toggleChatSearch()" title="Search messages" style="display:none;padding:4px 8px;font-size:0.85rem;color:var(--text-secondary);">
+                        <i class="bi bi-search"></i>
+                    </button>
                     <div class="mode-toggle">
                         <span class="active" id="botLabel">Bot</span>
                         <label class="switch">
@@ -896,6 +953,16 @@
                         </label>
                         <span id="humanLabel">Human</span>
                     </div>
+                </div>
+            </div>
+
+            <!-- Message Search Bar -->
+            <div id="chatSearchBar" style="display:none;padding:6px 10px;background:var(--bg-card);border-bottom:1px solid var(--border-color);">
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <i class="bi bi-search" style="color:var(--text-secondary);font-size:0.8rem;"></i>
+                    <input type="text" id="chatSearchInput" placeholder="Search in this chat..." style="flex:1;border:none;background:transparent;font-size:0.75rem;outline:none;color:var(--text-primary);" oninput="filterMessages()" onkeydown="if(event.key==='Escape')toggleChatSearch()">
+                    <span id="chatSearchCount" style="font-size:0.65rem;color:var(--text-secondary);white-space:nowrap;"></span>
+                    <button onclick="toggleChatSearch()" style="background:none;border:none;color:var(--text-secondary);font-size:0.8rem;cursor:pointer;"><i class="bi bi-x"></i></button>
                 </div>
             </div>
 
@@ -914,14 +981,44 @@
 
             <!-- Reply Bar - Text Mode -->
             <div class="reply-bar" id="replyBarNormal">
-                <div class="reply-inner">
+                <div class="reply-inner" style="position:relative;">
                     <button class="attach-btn" onclick="document.getElementById('fileInput').click()" title="Attach file">
                         <i class="bi bi-paperclip"></i>
                     </button>
+                    <button class="emoji-btn" onclick="toggleEmojiPicker()" title="Emoji" id="emojiBtn">
+                        <i class="bi bi-emoji-smile"></i>
+                    </button>
+                    <button class="emoji-btn" onclick="toggleQuickReplies()" title="Quick replies" style="font-size:0.9rem;">
+                        <i class="bi bi-speedometer2"></i>
+                    </button>
+                    <div class="emoji-picker" id="emojiPicker"></div>
                     <input type="file" id="fileInput" style="display:none;" accept="image/*,audio/*,.pdf,.doc,.docx" onchange="handleFileSelect(event)">
                     <input type="text" id="messageInput" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendMessage()">
                     <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send"><i class="bi bi-send-fill"></i></button>
                 </div>
+            </div>
+
+            <!-- Quick Replies Panel -->
+            <div id="quickRepliesPanel" style="display:none;padding:8px 10px;background:var(--bg-card);border-top:1px solid var(--border-color);max-height:160px;overflow-y:auto;flex-direction:column;gap:4px;">
+                <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+                    <span style="font-size:0.7rem;font-weight:600;color:var(--text-primary);flex:1;"><i class="bi bi-speedometer2"></i> Quick Replies</span>
+                    <button onclick="toggleQuickReplies()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:0.7rem;" title="Close">✕</button>
+                </div>
+                <div id="quickRepliesList" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+                <div style="display:flex;gap:4px;margin-top:4px;">
+                    <input type="text" id="qrTitle" placeholder="Label" style="flex:0 0 90px;font-size:0.7rem;padding:3px 6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-input);color:var(--text-primary);">
+                    <input type="text" id="qrContent" placeholder="Message text..." style="flex:1;font-size:0.7rem;padding:3px 6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-input);color:var(--text-primary);">
+                    <button onclick="saveQuickReply()" style="padding:3px 10px;font-size:0.7rem;background:#25D366;color:white;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;"><i class="bi bi-plus"></i> Add</button>
+                </div>
+            </div>
+
+            <!-- Reply Preview Bar -->
+            <div id="replyPreviewBar" style="display:none;padding:6px 10px;background:#f0fdf4;border-top:2px solid #25D366;align-items:center;gap:6px;font-size:0.7rem;">
+                <div style="flex:1;overflow:hidden;">
+                    <div style="font-weight:600;color:#075e54;font-size:0.65rem;">Replying</div>
+                    <div id="replyPreviewText" style="color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                </div>
+                <button onclick="cancelReply()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:0.8rem;"><i class="bi bi-x"></i></button>
             </div>
 
             <!-- Reply Bar - Template Mode -->
@@ -960,6 +1057,42 @@
                     <i class="bi bi-box-arrow-up-right"></i> Open WhatsApp Web
                 </button>
                 <button class="btn-cancel" onclick="closeEnquiryChatModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Send Confirmation Modal -->
+<div class="modal-overlay" id="bulkConfirmModal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box" style="max-width:400px;">
+        <div class="modal-head">
+            <span><i class="bi bi-send"></i> Confirm Bulk Send</span>
+            <button onclick="document.getElementById('bulkConfirmModal').style.display='none'">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="bulkConfirmContent" style="font-size:0.75rem;line-height:1.5;"></div>
+            <div class="modal-actions" style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end;">
+                <button class="btn-cancel" onclick="document.getElementById('bulkConfirmModal').style.display='none'" style="font-size:0.7rem;">Cancel</button>
+                <button class="send-btn" id="bulkConfirmSendBtn" onclick="executeBulkSend()" style="font-size:0.7rem;padding:6px 16px;background:#25D366;color:white;border:none;border-radius:6px;cursor:pointer;">
+                    <i class="bi bi-send"></i> Confirm Send
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Forward Message Modal -->
+<div class="modal-overlay" id="forwardModal" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box" style="max-width:360px;">
+        <div class="modal-head">
+            <span><i class="bi bi-forward"></i> Forward Message</span>
+            <button onclick="document.getElementById('forwardModal').style.display='none'">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="text" id="forwardSearchInput" placeholder="Search contacts..." oninput="filterForwardContacts()" style="width:100%;padding:6px 10px;font-size:0.75rem;border:1px solid var(--border-color);border-radius:6px;margin-bottom:8px;background:var(--bg-input);color:var(--text-primary);outline:none;">
+            <div id="forwardContactList" style="max-height:260px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;"></div>
+            <div class="modal-actions" style="margin-top:10px;">
+                <button class="btn-cancel" onclick="document.getElementById('forwardModal').style.display='none'">Cancel</button>
             </div>
         </div>
     </div>
@@ -1044,15 +1177,39 @@ function loadChats() {
         });
 }
 
+// Pinned chats (localStorage)
+function getPinnedChats() {
+    try { return JSON.parse(localStorage.getItem('pinnedChats')||'[]'); } catch(e) { return []; }
+}
+function togglePinChat(phone) {
+    let pinned = getPinnedChats();
+    const clean = phone.replace(/[^0-9]/g, '');
+    const idx = pinned.indexOf(clean);
+    if (idx > -1) pinned.splice(idx,1); else pinned.push(clean);
+    localStorage.setItem('pinnedChats', JSON.stringify(pinned));
+    filterChats();
+}
+
 function renderChatList(chats) {
     const list = document.getElementById('conversationList');
+    const pinned = getPinnedChats();
+    // Sort: pinned first, then by last message time
+    const sorted = [...chats].sort((a,b) => {
+        const aPinned = pinned.includes((a.whatsapp||'').replace(/[^0-9]/g, ''));
+        const bPinned = pinned.includes((b.whatsapp||'').replace(/[^0-9]/g, ''));
+        if (aPinned !== bPinned) return aPinned ? -1 : 1;
+        const tA = a.last_time || '';
+        const tB = b.last_time || '';
+        return tB.localeCompare(tA);
+    });
     let html = '';
-    chats.forEach(chat => {
+    sorted.forEach(chat => {
         const initial = (chat.name||'?')[0].toUpperCase();
         const isActive = currentPhone === chat.whatsapp;
         const statusColor = chat.status === 'pending' ? '#25D366' : chat.status === 'completed' ? '#667781' : '#ff9800';
         const newBg = chat.status === 'pending' ? 'background:#e8f5e9;' : '';
         const chatPhone = (chat.whatsapp||'').replace(/[^0-9]/g, '');
+        const isPinned = pinned.includes(chatPhone);
         const hasEnquiry = enquiryPhones.has(chatPhone);
         html += `
             <div class="conv-item${isActive?' active':''}" onclick="openChat('${chat.whatsapp}','${escapeHtml(chat.name)}')" style="${newBg}">
@@ -1062,12 +1219,13 @@ function renderChatList(chats) {
                 </div>
                 <div class="conv-info">
                     <div class="conv-name">
-                        <span>${escapeHtml(chat.name)}${hasEnquiry?' <span class="enq-tag">Enquiry</span>':''}</span>
+                        <span>${escapeHtml(chat.name)}${isPinned?' <i class="bi bi-pin-angle-fill" style="color:#25D366;font-size:0.6rem;"></i>':''}${hasEnquiry?' <span class="enq-tag">Enquiry</span>':''}</span>
                         <span class="conv-time">${chat.last_time||''}</span>
                     </div>
                     <div class="conv-preview">${escapeHtml(chat.last_message||'No messages')}</div>
                 </div>
-                <div style="text-align:right;flex-shrink:0;">
+                <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                    <span onclick="event.stopPropagation();togglePinChat('${chat.whatsapp}')" style="cursor:pointer;font-size:0.7rem;color:${isPinned?'#25D366':'#ccc'};padding:2px 4px;" title="${isPinned?'Unpin':'Pin chat'}"><i class="bi bi-pin${isPinned?'-angle-fill':''}"></i></span>
                     <div style="font-size:0.65rem;color:${statusColor};font-weight:600;">${chat.message_count||0}</div>
                 </div>
             </div>`;
@@ -1075,9 +1233,50 @@ function renderChatList(chats) {
     list.innerHTML = html;
 }
 
+let _dateFilterPeriod = '';
+
+function setDateFilter(btn) {
+    document.querySelectorAll('.date-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _dateFilterPeriod = btn.dataset.period || '';
+    filterChats();
+}
+
+function matchesDatePeriod(lastTimeStr, period) {
+    if (!period || !lastTimeStr) return !period; // show all if no period set
+    // Parse DD/MM/YYYY HH:MM
+    const parts = lastTimeStr.split(' ');
+    const dateParts = parts[0] ? parts[0].split('/') : [];
+    if (dateParts.length !== 3) return false;
+    const d = new Date(parseInt(dateParts[2]), parseInt(dateParts[1])-1, parseInt(dateParts[0]));
+    if (isNaN(d.getTime())) return false;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    
+    switch(period) {
+        case 'today': return d.getTime() === today.getTime();
+        case 'yesterday': return d.getTime() === yesterday.getTime();
+        case 'this_week': return d >= startOfWeek;
+        case 'this_month': return d >= startOfMonth;
+        case 'this_year': return d >= startOfYear;
+        default: return true;
+    }
+}
+
 function filterChats() {
     const q = document.getElementById('searchInput').value.toLowerCase().trim();
-    const filtered = q ? chatData.filter(c => (c.name||'').toLowerCase().includes(q) || (c.whatsapp||'').includes(q)) : chatData;
+    let filtered = q ? chatData.filter(c => (c.name||'').toLowerCase().includes(q) || (c.whatsapp||'').includes(q)) : [...chatData];
+    if (_dateFilterPeriod) {
+        filtered = filtered.filter(c => matchesDatePeriod(c.last_time, _dateFilterPeriod));
+    }
     renderChatList(filtered);
 }
 
@@ -1103,6 +1302,46 @@ function callOnWhatsApp() {
     }
 }
 
+// ==================== CHAT SEARCH ====================
+let _allMessages = [];
+
+function toggleChatSearch() {
+    const bar = document.getElementById('chatSearchBar');
+    const input = document.getElementById('chatSearchInput');
+    if (bar.style.display !== 'none') {
+        bar.style.display = 'none';
+        input.value = '';
+        filterMessages();
+    } else {
+        bar.style.display = 'block';
+        input.focus();
+        // Collect all visible message texts
+        _allMessages = [];
+        document.querySelectorAll('#messagesArea .msg-bubble').forEach(el => {
+            _allMessages.push({ el, text: (el.textContent||'').toLowerCase() });
+        });
+        document.getElementById('chatSearchCount').textContent = _allMessages.length + ' msgs';
+    }
+}
+
+function filterMessages() {
+    const q = document.getElementById('chatSearchInput').value.toLowerCase().trim();
+    let matchCount = 0;
+    _allMessages.forEach(({ el, text }) => {
+        if (!q) {
+            el.style.display = '';
+            el.style.background = '';
+        } else if (text.includes(q)) {
+            el.style.display = '';
+            el.style.background = '#fff3cd';
+            matchCount++;
+        } else {
+            el.style.display = 'none';
+        }
+    });
+    document.getElementById('chatSearchCount').textContent = q ? matchCount + ' / ' + _allMessages.length + ' matches' : _allMessages.length + ' msgs';
+}
+
 function openChat(phone, name) {
     currentPhone = phone;
     currentName = name;
@@ -1115,6 +1354,9 @@ function openChat(phone, name) {
     document.getElementById('activeChatArea').style.display = 'flex';
     document.getElementById('chatContactName').textContent = name;
     document.getElementById('chatCallBtn').style.display = 'inline-block';
+    document.getElementById('chatSearchBtn').style.display = 'inline-block';
+    document.getElementById('chatSearchBar').style.display = 'none';
+    document.getElementById('chatSearchInput').value = '';
     document.getElementById('chatContactStatus').textContent = 'Loading...';
     document.getElementById('chatAvatar').textContent = (name||'?')[0].toUpperCase();
     document.getElementById('messageInput').value = '';
@@ -1216,6 +1458,7 @@ function loadMessages(phone, appendOnly) {
                 return;
             }
             const msgs = res.data;
+            _allMessagesData = msgs; // Store for forwarding
             if (!msgs.length) {
                 if (!appendOnly) area.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:0.8rem;"><i class="bi bi-chat-dots" style="font-size:2rem;display:block;margin-bottom:8px;opacity:0.4;"></i>No messages yet</div>';
                 return;
@@ -1256,7 +1499,7 @@ function createBubble(msg) {
         bgColor = 'var(--incoming-msg)';
         alignStyle = '';
     } else {
-        const status = msg.status || 'sent';
+        const status = (msg.status || 'sent').toLowerCase();
         if (isTemplate && status === 'pending') {
             bgColor = '#fff3e0'; alignStyle = 'border:1px solid #ffcc02;background:#fff3e0;';
             statusIcon = '<span style="color:#ef6c00;font-size:0.65rem;margin-left:3px;">⏳</span>';
@@ -1268,6 +1511,13 @@ function createBubble(msg) {
             bgColor = '#fce4ec'; alignStyle = 'border:1px solid #ef5350;background:#fce4ec;';
             statusIcon = '<span style="color:#c62828;font-size:0.65rem;margin-left:3px;">✗</span>';
             statusLabel = '<div class="msg-status error"><i class="bi bi-x-circle-fill"></i> Failed to send</div>';
+        } else if (status === 'read') {
+            bgColor = 'var(--outgoing-msg)';
+            statusIcon = '<span style="color:#53bdeb;font-size:0.65rem;margin-left:3px;">✓✓</span>';
+            if (msg.read_at) statusLabel = '<div class="msg-status" style="color:#53bdeb;font-size:0.6rem;">Seen ' + escapeHtml(msg.read_at) + '</div>';
+        } else if (status === 'delivered') {
+            bgColor = 'var(--outgoing-msg)';
+            statusIcon = '<span style="color:#999;font-size:0.65rem;margin-left:3px;">✓✓</span>';
         } else {
             bgColor = 'var(--outgoing-msg)';
             statusIcon = '<span style="color:#999;font-size:0.65rem;margin-left:3px;">✓</span>';
@@ -1299,8 +1549,80 @@ function createBubble(msg) {
 
     bubble.className = 'msg-bubble ' + (isIncoming ? 'incoming' : 'outgoing');
     bubble.style.cssText = (isIncoming ? '' : alignStyle || '');
-    bubble.innerHTML = typeLabel + nameLabel + messageContent + statusLabel + '<div class="msg-time">' + time + statusIcon + '</div>';
+    const forwardBtn = `<span onclick="event.stopPropagation();startForward(${msg.id})" style="font-size:0.55rem;color:#999;cursor:pointer;margin-left:6px;" title="Forward">↗</span>`;
+    const replyBtn = `<span onclick="event.stopPropagation();setReply(${msg.id},'${escapeHtml((msg.message||'').substring(0,100))}','${msg.category}')" style="font-size:0.55rem;color:#999;cursor:pointer;margin-left:4px;" title="Reply">↩</span>`;
+    bubble.innerHTML = typeLabel + nameLabel + messageContent + statusLabel + '<div class="msg-time">' + time + statusIcon + replyBtn + forwardBtn + '</div>';
     return bubble;
+}
+
+// ==================== FORWARD MESSAGE ====================
+let forwardMsgContent = '';
+let forwardMsgId = null;
+let _allMessagesData = [];
+
+function startForward(msgId) {
+    const msg = _allMessagesData.find(m => m.id === msgId);
+    if (!msg) return;
+    forwardMessage(msgId, msg.message || '(file)');
+}
+
+function forwardMessage(msgId, preview) {
+    forwardMsgId = msgId;
+    forwardMsgContent = preview;
+    // Populate contact list from chatData
+    const list = document.getElementById('forwardContactList');
+    if (!chatData.length) {
+        list.innerHTML = '<div style="font-size:0.7rem;color:var(--text-secondary);padding:10px;">No contacts available</div>';
+    } else {
+        list.innerHTML = chatData.filter(c => c.whatsapp !== currentPhone).map(c =>
+            `<div onclick="sendForward('${c.whatsapp}')" style="padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:8px;font-size:0.75rem;">
+                <span style="width:28px;height:28px;border-radius:50%;background:#25D366;color:white;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.7rem;flex-shrink:0;">${(c.name||'?')[0].toUpperCase()}</span>
+                <span style="flex:1;">${escapeHtml(c.name||c.whatsapp)}</span>
+                <span style="color:var(--text-secondary);font-size:0.65rem;">${(c.whatsapp||'').replace(/[^0-9]/g,'').slice(-8)}</span>
+             </div>`
+        ).join('');
+    }
+    document.getElementById('forwardModal').style.display = 'flex';
+    document.getElementById('forwardSearchInput').value = '';
+    document.getElementById('forwardSearchInput').focus();
+}
+
+function filterForwardContacts() {
+    const q = document.getElementById('forwardSearchInput').value.toLowerCase();
+    const items = document.querySelectorAll('#forwardContactList > div');
+    items.forEach(el => {
+        el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function sendForward(targetPhone) {
+    if (!forwardMsgId || !targetPhone) return;
+    // Send message text to the target
+    const msg = _allMessagesData ? _allMessagesData.find(m => m.id === forwardMsgId) : null;
+    const text = msg ? msg.message : forwardMsgContent;
+    if (text) {
+        sendText(targetPhone, '📩 Forwarded: ' + text);
+    }
+    document.getElementById('forwardModal').style.display = 'none';
+    forwardMsgId = null;
+    showToast('Message forwarded', 'success', 'Forwarded');
+}
+
+// ==================== REPLY TO MESSAGE ====================
+let repliedToId = null;
+
+function setReply(msgId, msgText, category) {
+    repliedToId = msgId;
+    const bar = document.getElementById('replyPreviewBar');
+    bar.style.display = 'flex';
+    const icon = category === 'image' ? '📷' : category === 'audio' ? '🎵' : category === 'document' ? '📄' : '💬';
+    document.getElementById('replyPreviewText').textContent = icon + ' ' + (msgText||'').substring(0, 100);
+    document.getElementById('messageInput').focus();
+}
+
+function cancelReply() {
+    repliedToId = null;
+    document.getElementById('replyPreviewBar').style.display = 'none';
 }
 
 // ==================== SEND MESSAGE ====================
@@ -1346,8 +1668,9 @@ function sendText(phone, text) {
     fetch('/api/whatsapp-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: phone, message: text })
+        body: JSON.stringify({ recipient: phone, message: text, replied_to_id: repliedToId })
     })
+    cancelReply();
     .then(r => r.json())
     .then(res => {
         const bubble = document.getElementById(id);
@@ -1423,6 +1746,115 @@ function clearFile() {
     chatFileData = null;
     document.getElementById('filePreview').style.display = 'none';
     document.getElementById('fileInput').value = '';
+}
+
+// ==================== EMOJI PICKER ====================
+const EMOJIS = ['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🙂','😉','😌','😍','🥰','😘','😗','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫣','🤫','🤔','🫡','🤐','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥴','😵','🤯','🥳','😎','🧐','😕','😟','🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😤','😡','🤬','👋','🤚','🖐','✋','🖖','👌','🤌','🤏','✌','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','💪','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','👀','👅','👄','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💕','💞','💗','💖','💘','💝','💟','❣️','💌','💋','💯','💢','💥','💫','💦','💨','🕳️','💬','🗨️','🗯️','💭','🫧','🔥','⭐','🌟','✨','💡','📌','📍','🎯','🏆','🎉','🎊','🎈','🎁','🎀','🪄','🔮','📱','💻','⌚','📷','🎥','🔒','🔑','🗝️','🔔','🛡️','📍','📎','🖇️','📃','📄','📑','📊','📈','📉','🗓️','📅','📆','💰','💸','💳','📞','🖨️','✉️','📩','📨','📧','📦','📤','📥','📌','📍','🚀','✈️','🏠','🏗️','🔨','🪚','🔧','⚙️','🧰','🪛','🔩','⛓️','🧲','💎','🧿','🗿','🪪','🎫','🏷️','🛒','📋','📁','🗂️','📂','🖊️','🖋️','✒️','📝','📌','🔍','🔎','🌍','🌈','⚡','🌊','🔥','❄️','☀️','🌙','⭐','☁️','🌧️','⛈️','🌤️','🌪️','🌫️'];
+
+function toggleEmojiPicker() {
+    const picker = document.getElementById('emojiPicker');
+    picker.classList.toggle('show');
+}
+
+function insertEmoji(emoji) {
+    const input = document.getElementById('messageInput');
+    const cursor = input.selectionStart || 0;
+    const text = input.value;
+    input.value = text.slice(0, cursor) + emoji + text.slice(cursor);
+    input.focus();
+    input.selectionStart = input.selectionEnd = cursor + emoji.length;
+    document.getElementById('emojiPicker').classList.remove('show');
+}
+
+// Close emoji picker on outside click
+document.addEventListener('click', function(e) {
+    const picker = document.getElementById('emojiPicker');
+    const btn = document.getElementById('emojiBtn');
+    if (picker && btn && !picker.contains(e.target) && !btn.contains(e.target)) {
+        picker.classList.remove('show');
+    }
+});
+
+// Init emoji grid on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const picker = document.getElementById('emojiPicker');
+    if (picker) {
+        picker.innerHTML = EMOJIS.map(e => `<span class="emoji-item" onclick="insertEmoji('${e}')">${e}</span>`).join('');
+    }
+});
+
+// ==================== QUICK REPLIES ====================
+let quickRepliesData = [];
+
+function toggleQuickReplies() {
+    const panel = document.getElementById('quickRepliesPanel');
+    if (panel.style.display !== 'none') {
+        panel.style.display = 'none';
+    } else {
+        panel.style.display = 'flex';
+        loadQuickReplies();
+    }
+}
+
+function loadQuickReplies() {
+    fetch('/api/quick-replies')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) return;
+            quickRepliesData = res.data || [];
+            const list = document.getElementById('quickRepliesList');
+            if (!quickRepliesData.length) {
+                list.innerHTML = '<div style="font-size:0.7rem;color:var(--text-secondary);padding:4px 0;">No saved replies yet. Add one below.</div>';
+                return;
+            }
+            list.innerHTML = quickRepliesData.map(qr =>
+                `<span style="display:inline-flex;align-items:center;gap:2px;padding:3px 8px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:12px;font-size:0.65rem;cursor:pointer;" onclick="insertQuickReply(${qr.id})" title="${escapeHtml(qr.content)}">
+                    ${escapeHtml(qr.title)}
+                    <span onclick="event.stopPropagation();deleteQuickReply(${qr.id})" style="color:#c62828;margin-left:2px;font-size:0.6rem;cursor:pointer;">&times;</span>
+                </span>`
+            ).join('');
+        });
+}
+
+function insertQuickReply(id) {
+    const qr = quickRepliesData.find(r => r.id === id);
+    if (!qr) return;
+    const input = document.getElementById('messageInput');
+    input.value = qr.content;
+    input.focus();
+    document.getElementById('quickRepliesPanel').style.display = 'none';
+}
+
+function saveQuickReply() {
+    const title = document.getElementById('qrTitle').value.trim();
+    const content = document.getElementById('qrContent').value.trim();
+    if (!title || !content) { showToast('Enter both label and message', 'warning', 'Quick Reply'); return; }
+    fetch('/api/quick-replies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            document.getElementById('qrTitle').value = '';
+            document.getElementById('qrContent').value = '';
+            loadQuickReplies();
+            showToast('Quick reply saved', 'success', 'Quick Reply');
+        } else {
+            showToast(res.message || 'Failed to save', 'error', 'Error');
+        }
+    });
+}
+
+function deleteQuickReply(id) {
+    if (!confirm('Delete this quick reply?')) return;
+    fetch('/api/quick-replies/' + id, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) loadQuickReplies();
+            else showToast(res.message || 'Failed to delete', 'error', 'Error');
+        });
 }
 
 // ==================== TEMPLATE MODE ====================
@@ -1574,11 +2006,182 @@ function toggleTheme() {
 function switchTab(tab) {
     document.getElementById('tabChats').classList.toggle('active', tab === 'chats');
     document.getElementById('tabEnquiries').classList.toggle('active', tab === 'enquiries');
+    document.getElementById('tabBulk').classList.toggle('active', tab === 'bulk');
     document.getElementById('chatsView').style.display = tab === 'chats' ? 'flex' : 'none';
     document.getElementById('enquiriesView').style.display = tab === 'enquiries' ? 'flex' : 'none';
+    document.getElementById('bulkView').style.display = tab === 'bulk' ? 'flex' : 'none';
 
     if (tab === 'enquiries') {
         loadEnquiries();
+    }
+    if (tab === 'bulk') {
+        renderBulkContacts();
+    }
+}
+
+// ==================== BULK MESSAGING ====================
+let _bulkMode = 'text'; // 'text' or 'template'
+
+function toggleBulkMode() {
+    const btn = document.getElementById('bulkModeToggleBtn');
+    if (_bulkMode === 'text') {
+        _bulkMode = 'template';
+        document.getElementById('bulkTextMode').style.display = 'none';
+        document.getElementById('bulkTemplateMode').style.display = 'flex';
+        btn.innerHTML = '<i class="bi bi-chat-dots"></i> Text';
+    } else {
+        _bulkMode = 'text';
+        document.getElementById('bulkTextMode').style.display = 'flex';
+        document.getElementById('bulkTemplateMode').style.display = 'none';
+        btn.innerHTML = '<i class="bi bi-layout-text-window"></i> Template';
+    }
+}
+
+function renderBulkContacts() {
+    const q = (document.getElementById('bulkFilterInput').value || '').toLowerCase().trim();
+    const list = document.getElementById('bulkContactList');
+    if (!chatData.length) {
+        list.innerHTML = '<div style="font-size:0.7rem;color:var(--text-secondary);padding:10px;text-align:center;">No contacts loaded</div>';
+        return;
+    }
+    const filtered = q ? chatData.filter(c => (c.name||'').toLowerCase().includes(q) || (c.whatsapp||'').includes(q)) : chatData;
+    list.innerHTML = filtered.map(c => {
+        const phoneClean = (c.whatsapp||'').replace(/[^0-9]/g, '');
+        return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;border-bottom:1px solid var(--border-color);font-size:0.7rem;color:var(--text-primary);">
+            <input type="checkbox" class="bulk-cb" value="${escapeHtml(c.whatsapp)}" onchange="updateBulkCount()" style="cursor:pointer;">
+            <span style="width:24px;height:24px;border-radius:50%;background:#25D366;color:white;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:600;flex-shrink:0;">${(c.name||'?')[0].toUpperCase()}</span>
+            <span style="flex:1;">${escapeHtml(c.name||c.whatsapp)}</span>
+            <span style="color:var(--text-secondary);font-size:0.6rem;">${phoneClean.slice(-6)}</span>
+        </label>`;
+    }).join('');
+    updateBulkCount();
+}
+
+function toggleAllBulk() {
+    const checked = document.getElementById('bulkSelectAll').checked;
+    document.querySelectorAll('.bulk-cb').forEach(cb => cb.checked = checked);
+    updateBulkCount();
+}
+
+function updateBulkCount() {
+    const count = document.querySelectorAll('.bulk-cb:checked').length;
+    document.getElementById('bulkSelectedCount').textContent = count + ' recipient' + (count !== 1 ? 's' : '') + ' selected';
+}
+
+function previewBulkSend() {
+    const selected = [];
+    document.querySelectorAll('.bulk-cb:checked').forEach(cb => selected.push(cb.value));
+    if (!selected.length) { showToast('Select at least one recipient', 'warning', 'Bulk Send'); return; }
+
+    let content = '';
+    if (_bulkMode === 'text') {
+        const msg = document.getElementById('bulkMessageInput').value.trim();
+        if (!msg) { showToast('Enter a message', 'warning', 'Bulk Send'); return; }
+        const preview = msg.length > 80 ? msg.substring(0, 80) + '...' : msg;
+        content = `<div style="margin-bottom:8px;"><strong>Mode:</strong> Text Message</div>
+            <div style="margin-bottom:8px;"><strong>Recipients:</strong> ${selected.length}</div>
+            <div style="margin-bottom:8px;padding:8px;background:#f5f5f5;border-radius:6px;font-size:0.7rem;word-wrap:break-word;">${escapeHtml(preview)}</div>
+            <div style="font-size:0.65rem;color:var(--text-secondary);">Message will be sent as-is to all selected contacts.</div>`;
+        document.getElementById('bulkConfirmSendBtn').dataset.mode = 'text';
+    } else {
+        const tplName = document.getElementById('bulkTemplateName').value.trim();
+        if (!tplName) { showToast('Enter a template name', 'warning', 'Bulk Send'); return; }
+        content = `<div style="margin-bottom:8px;"><strong>Mode:</strong> Meta Template</div>
+            <div style="margin-bottom:8px;"><strong>Template:</strong> ${escapeHtml(tplName)}</div>
+            <div style="margin-bottom:8px;"><strong>Recipients:</strong> ${selected.length}</div>
+            <div style="font-size:0.65rem;color:var(--text-secondary);">Template will be delivered even outside the 24hr window.</div>`;
+        document.getElementById('bulkConfirmSendBtn').dataset.mode = 'template';
+    }
+    // List recipient names
+    const names = selected.map(p => {
+        const c = chatData.find(c => c.whatsapp === p);
+        return c ? c.name : p;
+    }).join(', ');
+    content += `<div style="margin-top:6px;font-size:0.65rem;color:var(--text-secondary);max-height:60px;overflow-y:auto;">To: ${escapeHtml(names.substring(0,200))}</div>`;
+
+    document.getElementById('bulkConfirmContent').innerHTML = content;
+    document.getElementById('bulkConfirmModal').style.display = 'flex';
+}
+
+function executeBulkSend() {
+    const mode = document.getElementById('bulkConfirmSendBtn').dataset.mode;
+    const selected = [];
+    document.querySelectorAll('.bulk-cb:checked').forEach(cb => selected.push(cb.value));
+    if (!selected.length) return;
+
+    const btn = document.getElementById('bulkConfirmSendBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+    document.getElementById('bulkConfirmModal').style.display = 'none';
+
+    const resultDiv = document.getElementById('bulkSendResult');
+    resultDiv.innerHTML = '<div style="color:#666;"><span class="spinner-border spinner-border-sm"></span> Sending to ' + selected.length + ' recipients...</div>';
+
+    if (mode === 'template') {
+        const tplName = document.getElementById('bulkTemplateName').value.trim();
+        const paramsStr = document.getElementById('bulkTemplateParams').value.trim();
+        const params = paramsStr ? paramsStr.split(',').map(s => s.trim()) : [];
+        fetch('/api/whatsapp-bulk-send-template', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipients: selected, template_name: tplName, parameters: params })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const results = res.results || [];
+                const sent = results.filter(r => r.success).length;
+                const failed = results.filter(r => !r.success).length;
+                let html = `<div style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Template sent to ${sent}/${results.length}`;
+                if (failed > 0) {
+                    const fid = 'bf_' + Date.now();
+                    html += ` <span style="color:#d32f2f;">(${failed} failed)</span>`;
+                    html += `<div><a href="#" onclick="document.getElementById('${fid}').style.display=document.getElementById('${fid}').style.display==='none'?'block':'none';return false;" style="font-size:0.6rem;color:#c62828;">Show ${failed} failure details</a></div>`;
+                    html += `<div id="${fid}" style="display:none;max-height:100px;overflow-y:auto;background:#fce4ec;border-radius:4px;padding:4px 8px;font-size:0.6rem;">`;
+                    results.filter(r => !r.success).forEach(f => {
+                        html += `<div style="padding:2px 0;color:#b71c1c;"><strong>${escapeHtml(f.recipient||'?')}:</strong> ${escapeHtml(String(f.error||'Unknown').substring(0,150))}</div>`;
+                    });
+                    html += `</div>`;
+                }
+                html += `</div>`;
+                resultDiv.innerHTML = html;
+            } else {
+                resultDiv.innerHTML = `<div style="color:#d32f2f;">Failed: ${escapeHtml(res.message||'Unknown error')}</div>`;
+            }
+        })
+        .catch(err => resultDiv.innerHTML = '<div style="color:#d32f2f;">Connection error</div>');
+    } else {
+        const msg = document.getElementById('bulkMessageInput').value.trim();
+        fetch('/api/whatsapp-bulk-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipients: selected, message: msg })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const results = res.results || [];
+                const sent = results.filter(r => r.success).length;
+                const failed = results.filter(r => !r.success).length;
+                let html = `<div style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Sent to ${sent}/${results.length}`;
+                if (failed > 0) {
+                    const fid = 'bf_' + Date.now();
+                    html += ` <span style="color:#d32f2f;">(${failed} failed)</span>`;
+                    html += `<div><a href="#" onclick="document.getElementById('${fid}').style.display=document.getElementById('${fid}').style.display==='none'?'block':'none';return false;" style="font-size:0.6rem;color:#c62828;">Show ${failed} failure details</a></div>`;
+                    html += `<div id="${fid}" style="display:none;max-height:100px;overflow-y:auto;background:#fce4ec;border-radius:4px;padding:4px 8px;font-size:0.6rem;">`;
+                    results.filter(r => !r.success).forEach(f => {
+                        const errMsg = f.error || f.response || 'Unknown';
+                        html += `<div style="padding:2px 0;color:#b71c1c;"><strong>${escapeHtml(f.recipient||'?')}:</strong> ${escapeHtml(String(errMsg).substring(0,150))}</div>`;
+                    });
+                    html += `</div>`;
+                }
+                html += `</div>`;
+                resultDiv.innerHTML = html;
+            } else {
+                resultDiv.innerHTML = `<div style="color:#d32f2f;">Failed: ${escapeHtml(res.message||'Unknown error')}</div>`;
+            }
+        })
+        .catch(err => resultDiv.innerHTML = '<div style="color:#d32f2f;">Connection error</div>');
     }
 }
 
@@ -2020,6 +2623,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Request notification permission
     requestNotificationPermission();
+
+    // Drag & drop files onto messages area
+    const msgArea = document.getElementById('messagesArea');
+    if (msgArea) {
+        ['dragenter','dragover'].forEach(evt => {
+            msgArea.addEventListener(evt, e => { e.preventDefault(); msgArea.classList.add('drag-over'); });
+        });
+        ['dragleave','drop'].forEach(evt => {
+            msgArea.addEventListener(evt, e => { e.preventDefault(); msgArea.classList.remove('drag-over'); });
+        });
+        msgArea.addEventListener('drop', e => {
+            e.preventDefault();
+            msgArea.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length && currentPhone) {
+                const file = files[0];
+                const preview = document.getElementById('filePreview');
+                if (preview) {
+                    preview.style.display = 'flex';
+                    preview.querySelector('.file-preview-name').textContent = file.name;
+                    preview.querySelector('.file-preview-size').textContent = (file.size / 1024).toFixed(1) + ' KB';
+                }
+                // Store file for sending
+                const fi = document.getElementById('fileInput');
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                fi.files = dt.files;
+            }
+        });
+    }
 
     // Seed last seen IDs from server (only needed for first ever visit)
     if (!lastSeenMsgId) {

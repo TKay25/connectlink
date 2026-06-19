@@ -21807,15 +21807,13 @@ function sendBulkTemplate() {
             let resultHtml = `<div style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Template sent to ${sent}/${results.length} recipients`;
             if (failed > 0) {
                 resultHtml += ` <span style="color:#d32f2f;">(${failed} failed)</span>`;
-                // Show failure details
-                const failedDetails = results.filter(r => !r.success);
-                if (failedDetails.length > 0) {
-                    resultHtml += `<div style="margin-top:4px;font-size:0.7rem;color:#666;">`;
-                    failedDetails.forEach(f => {
-                        resultHtml += `<div>✗ ${f.recipient}: ${f.error || 'Unknown'}</div>`;
-                    });
-                    resultHtml += `</div>`;
-                }
+                const failId = 'tplFail_' + Date.now();
+                resultHtml += `<div style="margin-top:4px;"><a href="#" onclick="document.getElementById('${failId}').style.display=document.getElementById('${failId}').style.display==='none'?'block':'none';return false;" style="font-size:0.65rem;color:#c62828;">Show ${failed} failure details</a></div>`;
+                resultHtml += `<div id="${failId}" style="display:none;margin-top:4px;max-height:120px;overflow-y:auto;background:#fce4ec;border-radius:4px;padding:4px 8px;font-size:0.65rem;">`;
+                results.filter(r => !r.success).forEach(f => {
+                    resultHtml += `<div style="padding:2px 0;border-bottom:1px solid #f5c6c6;color:#b71c1c;"><strong>${escapeHtml(f.recipient||'?')}:</strong> ${escapeHtml(String(f.error||'Unknown').substring(0,150))}</div>`;
+                });
+                resultHtml += `</div>`;
             }
             resultHtml += `</div>`;
             document.getElementById('bulkSendResult').innerHTML = resultHtml;
@@ -21977,8 +21975,20 @@ function sendBulkMessages() {
             const results = res.results || [];
             const sent = results.filter(r => r.success).length;
             const failed = results.filter(r => !r.success).length;
-            document.getElementById('bulkSendResult').innerHTML = 
-                `<div style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Sent to ${sent}/${results.length} recipients${failed ? ' (' + failed + ' failed)' : ''}</div>`;
+            let html = `<div style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Sent to ${sent}/${results.length} recipients${failed ? ' (' + failed + ' failed)' : ''}</div>`;
+            // Show failure details if any
+            const failures = results.filter(r => !r.success);
+            if (failures.length) {
+                const failId = 'bulkFailDetails_' + Date.now();
+                html += `<div style="margin-top:4px;"><a href="#" onclick="document.getElementById('${failId}').style.display=document.getElementById('${failId}').style.display==='none'?'block':'none';return false;" style="font-size:0.65rem;color:#c62828;">Show ${failures.length} failure details</a></div>`;
+                html += `<div id="${failId}" style="display:none;margin-top:4px;max-height:120px;overflow-y:auto;background:#fce4ec;border-radius:4px;padding:4px 8px;font-size:0.65rem;">`;
+                failures.forEach(f => {
+                    const errMsg = f.error || f.response || 'Unknown error';
+                    html += `<div style="padding:2px 0;border-bottom:1px solid #f5c6c6;color:#b71c1c;"><strong>${escapeHtml(f.recipient||'?')}:</strong> ${escapeHtml(String(errMsg).substring(0,150))}</div>`;
+                });
+                html += `</div>`;
+            }
+            document.getElementById('bulkSendResult').innerHTML = html;
         } else {
             document.getElementById('bulkSendResult').innerHTML = 
                 `<div style="color:#d32f2f;">Failed: ${res.message || 'Unknown error'}</div>`;
