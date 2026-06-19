@@ -477,6 +477,10 @@ def initialize_database_tables():
                 ALTER TABLE quotations 
                 ADD COLUMN IF NOT EXISTS client_whatsapp VARCHAR(20)
             """)
+            cursor.execute("""
+                ALTER TABLE quotations 
+                ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''
+            """)
 
             # Create quotation_items table to store construction items
             cursor.execute("""
@@ -22544,7 +22548,7 @@ def get_quotations():
             # Get quotations
             cursor.execute("""
                 SELECT id, client_name, client_whatsapp, quotation_date, 
-                       category, project_size, total_cost, markup_percentage
+                       category, project_size, total_cost, markup_percentage, notes
                 FROM quotations
                 ORDER BY id DESC
             """)
@@ -22643,6 +22647,7 @@ def get_quotations():
                     'projectSize': float(quotation[5]) if quotation[5] else 0,
                     'totalCost': float(quotation[6]) if quotation[6] else 0,
                     'markup': float(quotation[7]) if quotation[7] else 0,
+                    'notes': quotation[8] or '',
                     'items': items,
                     'schedules': schedules_by_quotation.get(quotation_id, [])
                 })
@@ -22653,6 +22658,29 @@ def get_quotations():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e), 'data': [], 'count': 0}), 500
+
+
+@app.route('/api/save-quotation-notes', methods=['POST'])
+def save_quotation_notes():
+    """Save or update notes for a quotation."""
+    try:
+        data = request.get_json()
+        quotation_id = data.get('quotation_id')
+        notes = data.get('notes', '')
+        
+        if not quotation_id:
+            return jsonify({'success': False, 'message': 'Quotation ID is required'}), 400
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE quotations SET notes = %s WHERE id = %s
+            """, (notes, quotation_id))
+            connection.commit()
+        
+        return jsonify({'success': True, 'message': 'Notes saved successfully'})
+    except Exception as e:
+        print(f"Save notes error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/api/get-sent-quotations', methods=['GET'])

@@ -489,6 +489,252 @@
         body.dark-theme #botModeWarningModal [style*="background:var(--gray-50)"] {
             background: rgba(255,255,255,0.04) !important;
         }
+        /* Dark mode - Quotations Portal fixes */
+        body.dark-theme #quotationsContainer {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme [style*="color:var(--dark-blue-deep)"] {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #quotationsContainer table {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #quotationsContainer div[style*="background: white"],
+        body.dark-theme #quotationsContainer div[style*="background:white"],
+        body.dark-theme #quotationsContainer div[style*="background:#fff"] {
+            background: var(--bg-card) !important;
+        }
+        body.dark-theme #quotationsContainer td {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #quotationsContainer tr[style*="border-bottom"] {
+            border-bottom-color: var(--border-color) !important;
+        }
+        body.dark-theme #quotationsContainer .badge.bg-secondary {
+            background: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+        /* Sent quotations table dark mode */
+        body.dark-theme #sentQuotationsContainer table {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #sentQuotationsContainer td {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #sentQuotationsContainer tr[style*="background-color: #fff"],
+        body.dark-theme #sentQuotationsContainer tr[style*="background-color:#fff"] {
+            background-color: var(--bg-card) !important;
+        }
+        body.dark-theme #sentQuotationsContainer tr[style*="background-color: #f9f9f9"],
+        body.dark-theme #sentQuotationsContainer tr[style*="background-color:#f9f9f9"] {
+            background-color: rgba(255,255,255,0.03) !important;
+        }
+        /* Sent quotations badge spans - override light bg colors with dark-friendly versions */
+        body.dark-theme [style*="background:#d1e7dd"] { background: rgba(16,185,129,0.15) !important; }
+        body.dark-theme [style*="background:#d4edda"] { background: rgba(16,185,129,0.15) !important; }
+        body.dark-theme [style*="background:#fff3cd"] { background: rgba(245,158,11,0.15) !important; }
+        body.dark-theme [style*="background:#f8d7da"] { background: rgba(239,68,68,0.15) !important; }
+        body.dark-theme [style*="background:#d1ecf1"] { background: rgba(6,182,212,0.15) !important; }
+        /* Fix dark text on dark backgrounds - make text white on these badges */
+        body.dark-theme [style*="background:#d1e7dd"],
+        body.dark-theme [style*="background:#d4edda"],
+        body.dark-theme [style*="background:#fff3cd"],
+        body.dark-theme [style*="background:#f8d7da"],
+        body.dark-theme [style*="background:#d1ecf1"] {
+            color: var(--text-primary) !important;
+        }
+        /* Keep red/danger text visible - don't override those */
+        body.dark-theme [style*="background:#f8d7da"] {
+            color: #fca5a5 !important;
+        }
+        /* Fix dark text colors on badge labels that become invisible in dark mode */
+        body.dark-theme [style*="color:#0c5460"] { color: #93c5fd !important; }
+        body.dark-theme [style*="color:#155724"] { color: #86efac !important; }
+        body.dark-theme [style*="color:#721c24"] { color: #fca5a5 !important; }
+        body.dark-theme [style*="color:#856404"] { color: #fcd34d !important; }
+        body.dark-theme [style*="color:#0f5132"] { color: #86efac !important; }
+        body.dark-theme [style*="color:#842029"] { color: #fca5a5 !important; }
+        body.dark-theme [style*="color:#7a5a00"] { color: #fcd34d !important; }
+        body.dark-theme [style*="color:#0A2B3E"] { color: var(--text-primary) !important; }
+        body.dark-theme [style*="color:#0a2b3e"] { color: var(--text-primary) !important; }
+        body.dark-theme [style*="color:#1E2A56"] { color: var(--text-primary) !important; }
+        body.dark-theme [style*="color:#1e2a56"] { color: var(--text-primary) !important; }
+        body.dark-theme [style*="color:#2A3A78"] { color: var(--text-primary) !important; }
+        body.dark-theme [style*="color:#2a3a78"] { color: var(--text-primary) !important; }
+        body.dark-theme [style*="color:#5a678a"] { color: var(--text-secondary) !important; }
+        body.dark-theme [style*="border: 1px solid #dee2e6"],
+        body.dark-theme [style*="border:1px solid #dee2e6"] { border-color: var(--border-color) !important; }
+        /* Fix the quotations table header row's border color */
+        body.dark-theme #quotationsContainer th[style*="border: 1px solid #1E2A56"] {
+            border-color: var(--border-color) !important;
+        }
+        /* Fix the auto-refresh pending bubble background in chat */
+        body.dark-theme [style*="background:#dcf8c6"] {
+            background: rgba(16,185,129,0.2) !important;
+        }
+        /* Quotation notes editor dark mode */
+        body.dark-theme #quotationNoteEditor {
+            background: #252b45 !important;
+            border-color: #3a4058 !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme [id="saveQuotationNoteBtn"] {
+            background: rgba(255,255,255,0.15) !important;
+        }
+        /* Sent quotations summary bar */
+        body.dark-theme #sentQuotationsSummary {
+            color: var(--text-secondary) !important;
+        }
+        /* Quotation generator modal dark mode */
+        body.dark-theme #constructionItemsList .construction-item-row {
+            background: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme #constructionItemsList .construction-item-row:nth-child(even) {
+            background: rgba(255,255,255,0.03) !important;
+        }
+        body.dark-theme #constructionItemsList .border,
+        body.dark-theme #constructionItemsList > div[class*="border"] {
+            border-color: var(--border-color) !important;
+            background: var(--bg-card) !important;
+        }
+        body.dark-theme #constructionItemsList small.text-muted {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme #constructionItemsList strong[style*="color: #2196F3"] {
+            color: #60a5fa !important;
+        }
+        body.dark-theme #selectedItemsDropZone {
+            background: rgba(33,150,243,0.08) !important;
+            border-color: rgba(33,150,243,0.3) !important;
+        }
+        body.dark-theme .selected-item-drag {
+            background: var(--bg-card) !important;
+            border-color: rgba(33,150,243,0.4) !important;
+        }
+        body.dark-theme .selected-item-drag div[style*="color: #333"] {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme .selected-item-drag span[style*="color: #999"],
+        body.dark-theme .selected-item-drag small[style*="color: #999"] {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme #constructionDetailsContainer .alert-light {
+            background: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme #constructionDetailsContainer [style*="color:#2196F3"][style*="font-weight:bold"] {
+            color: #60a5fa !important;
+        }
+        /* Gantt chart builder dark mode */
+        body.dark-theme #ganttItemsList {
+            background: var(--bg-card) !important;
+        }
+        body.dark-theme #ganttItemsList table {
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme #ganttItemsList thead tr {
+            background-color: rgba(255,255,255,0.06) !important;
+        }
+        body.dark-theme #ganttItemsList thead tr th {
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme #ganttItemsList tbody tr {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme #ganttItemsList tbody tr:nth-child(even) {
+            background-color: rgba(255,255,255,0.03) !important;
+        }
+        body.dark-theme #ganttItemsList tbody tr td {
+            border-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #ganttItemsList [style*="color: #999"] {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme #ganttItemsList td[style*="color: #2196F3"],
+        body.dark-theme #ganttItemsList [style*="color: #2196F3"][style*="font-weight: bold"] {
+            color: #60a5fa !important;
+        }
+        body.dark-theme #ganttFullHouseDisplayModeContainer,
+        body.dark-theme #fullHouseDisplayModeContainer {
+            background: rgba(255,152,0,0.1) !important;
+            border-color: rgba(255,152,0,0.3) !important;
+        }
+        body.dark-theme #ganttChartBuilderModal [style*="background-color: #e8f5e9"] {
+            background: rgba(16,185,129,0.1) !important;
+            border-color: rgba(16,185,129,0.3) !important;
+        }
+        body.dark-theme #ganttChartBuilderModal [style*="color: #666"] {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme #ganttChartBuilderModal [style*="color: #2196F3"] {
+            color: #60a5fa !important;
+        }
+        body.dark-theme #ganttChartBuilderModal h5 {
+            color: var(--text-primary) !important;
+        }
+        /* Quotation preview modal dark mode */
+        body.dark-theme #quotationPreviewModal .border.rounded[style*="background-color: #f8f9fa"],
+        body.dark-theme #kitchenPreviewModal .border.rounded[style*="background-color: #f8f9fa"] {
+            background: var(--bg-card) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme #quotationPreviewModal [style*="background-color: #e8f4f8"],
+        body.dark-theme #kitchenPreviewModal [style*="background-color: #e8f4f8"],
+        body.dark-theme #quotationPreviewModal .alert-info,
+        body.dark-theme #kitchenPreviewModal .alert-info {
+            background: rgba(33,150,243,0.1) !important;
+            border-color: rgba(33,150,243,0.2) !important;
+        }
+        body.dark-theme #quotationPreviewModal .table-bordered,
+        body.dark-theme #kitchenPreviewModal .table-bordered {
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme #quotationPreviewModal .table-bordered td,
+        body.dark-theme #kitchenPreviewModal .table-bordered td {
+            border-color: var(--border-color) !important;
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #quotationPreviewModal .table-bordered thead th,
+        body.dark-theme #kitchenPreviewModal .table-bordered thead th {
+            background: var(--dark-blue-deep) !important;
+            color: white !important;
+        }
+        body.dark-theme #quotationPreviewModal p strong,
+        body.dark-theme #kitchenPreviewModal p strong {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme #quotationPreviewModal [style*="color: var(--crimson-sidebar"],
+        body.dark-theme #quotationPreviewModal [style*="color: var(--crimson-sidebar"],
+        body.dark-theme #kitchenPreviewModal [style*="color: var(--primary)"] {
+            color: var(--primary) !important;
+        }
+        body.dark-theme #quotationPreviewModal .text-muted,
+        body.dark-theme #kitchenPreviewModal .text-muted {
+            color: var(--text-secondary) !important;
+        }
+        /* Quotation rates modal dark mode */
+        body.dark-theme #quotationRatesTable tbody td {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+        body.dark-theme #quotationRatesTable tbody input {
+            background: #252b45 !important;
+            border-color: #3a4058 !important;
+            color: var(--text-primary) !important;
+        }
+        /* Kitchen preview modal additional fixes */
+        body.dark-theme #kitchenPreviewModal .border.rounded[style*="background-color: #e8f4f8"] {
+            background: rgba(33,150,243,0.1) !important;
+        }
+        body.dark-theme #kitchenPreviewModal [style*="border-left: 3px solid #2196F3"] {
+            border-left-color: #60a5fa !important;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { font-size: 14px; }
         body {
@@ -16535,7 +16781,8 @@ $('#generateQuotationBtn').click(function() {
         markupAmount: markupAmount,
         totalCost: totalCost,
         orderedConstructionItems: orderedConstructionItems || [],
-        isFullHouseMode: isFullHouseMode
+        isFullHouseMode: isFullHouseMode,
+        notes: ''
     };
 
     // DEBUG: Log final quotationData
@@ -16587,7 +16834,8 @@ $('#generateQuotationBtn').click(function() {
         baseCost: baseCost,
         markup: markup,
         totalCost: totalCost,
-        isFullHouseMode: isFullHouseMode
+        isFullHouseMode: isFullHouseMode,
+        notes: ''
     };
 
     // ADD THIS CONFIRMATION LOG
@@ -16750,6 +16998,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     const totalCost = data.totalCost || 0;
     const items = data.items || [];
     const schedules = ganttData || [];
+    const quotationNotes = data.notes || '';
 
     // Helper function to format date
     const formatPdfDate = (value) => {
@@ -16919,6 +17168,15 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                         })()}
                     </div>
                 </div>
+
+                ${quotationNotes ? `
+                <!-- QUOTATION NOTES -->
+                <div style="page-break-inside: avoid; break-inside: avoid;">
+                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION NOTES</h4>
+                    <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px; font-size: 12px; line-height: 1.6; color: #1E2A56; white-space: pre-wrap;">
+                        ${escapeHtml(quotationNotes)}
+                    </div>
+                </div>` : ''}
 
                 <!-- IMPORTANT NOTE & BANKING DETAILS -->
                 <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
@@ -18021,6 +18279,7 @@ function displayQuotations(quotations) {
                         <th style="padding: 5px 4px; text-align: center; width: 75px; border: 1px solid #1E2A56;">Date</th>
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Items</th>
                         <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Tasks</th>
+                        <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">Notes</th>
                         <th style="padding: 5px 4px; text-align: center; width: 110px; border: 1px solid #1E2A56;">Actions</th>
                     </tr>
                 </thead>
@@ -18062,6 +18321,11 @@ function displayQuotations(quotations) {
                 <td style="padding: 4px 4px; text-align: center;">${formattedDate}</td>
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${itemCount}</span></td>
                 <td style="padding: 4px 4px; text-align: center;"><span class="badge bg-secondary">${taskCount}</span></td>
+                <td style="padding: 4px 4px; text-align: center;">
+                    ${quotation.notes && quotation.notes.trim() ? 
+                        `<span style="color:var(--success);font-size:0.55rem;" title="${escapeHtml(quotation.notes.substring(0, 80))}${quotation.notes.length > 80 ? '...' : ''}"><i class="bi bi-sticky-fill"></i></span>` : 
+                        `<span style="color:var(--text-muted);font-size:0.5rem;"><i class="bi bi-sticky"></i></span>`}
+                </td>
                 <td style="padding: 4px 4px; text-align: center;">
                     <button class="btn btn-sm btn-primary view-quotation-btn" data-id="${quotation.id}" style="padding: 2px 6px; margin-right: 4px;">
                         <i class="bi bi-eye"></i> View
@@ -18572,7 +18836,63 @@ function displayQuotationDetailsInModal(quotation) {
         html += `</tbody></table></div></div>`;
     }
     
+    // Notes Section
+    const notes = quotation.notes || '';
+    html += `
+        <div style="background:white; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; margin-bottom:10px;">
+            <div style="background:var(--dark-blue-deep); color:white; padding:6px 10px; font-size:0.55rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="bi bi-sticky-fill"></i> Notes</span>
+                <button class="btn btn-sm" id="saveQuotationNoteBtn" style="font-size:0.5rem;padding:2px 8px;background:rgba(255,255,255,0.2);color:white;border:none;border-radius:4px;cursor:pointer;" onclick="saveCurrentQuotationNote()">
+                    <i class="bi bi-check-circle"></i> Save Note
+                </button>
+            </div>
+            <div style="padding:8px 10px;">
+                <textarea id="quotationNoteEditor" style="width:100%;min-height:70px;font-size:0.6rem;padding:6px 8px;border:1px solid var(--gray-300);border-radius:6px;background:var(--bg-card);color:var(--text-primary);resize:vertical;font-family:inherit;" placeholder="Add notes or comments about this quotation...">${escapeHtml(notes)}</textarea>
+                <div id="quotationNoteStatus" style="font-size:0.45rem;color:var(--text-muted);margin-top:3px;text-align:right;"></div>
+            </div>
+        </div>
+    `;
+    
     contentDiv.innerHTML = html;
+}
+
+/** Save the note for the currently viewed quotation */
+function saveCurrentQuotationNote() {
+    const q = window.currentViewingQuotation;
+    if (!q || !q.id) return;
+    
+    const notes = document.getElementById('quotationNoteEditor')?.value?.trim() || '';
+    const statusEl = document.getElementById('quotationNoteStatus');
+    const btn = document.getElementById('saveQuotationNoteBtn');
+    
+    if (btn) btn.disabled = true;
+    if (statusEl) statusEl.textContent = 'Saving...';
+    
+    fetch('/api/save-quotation-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quotation_id: q.id, notes: notes })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            if (statusEl) {
+                statusEl.textContent = '✓ Saved';
+                setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2000);
+            }
+            // Update the local copy
+            q.notes = notes;
+        } else {
+            if (statusEl) statusEl.textContent = '✗ Save failed';
+        }
+    })
+    .catch(err => {
+        console.error('Save note error:', err);
+        if (statusEl) statusEl.textContent = '✗ Error saving';
+    })
+    .finally(() => {
+        if (btn) btn.disabled = false;
+    });
 }
 // Add this to your document ready or after modal is defined
 $(document).ready(function() {
@@ -18849,7 +19169,8 @@ async function downloadConstructionQuotationPDFFromPortal(quotation) {
             inhouseRate: item.unitRate,
             clientPrice: item.totalPrice,
             total: item.totalPrice
-        }))
+        })),
+        notes: quotation.notes || ''
     };
 
     // Convert schedules to gantt format
@@ -19084,7 +19405,8 @@ async function sendConstructionQuotationFromPortal(quotation) {
             inhouseRate: item.unitRate,
             clientPrice: item.totalPrice,
             total: item.totalPrice
-        }))
+        })),
+        notes: quotation.notes || ''
     };
     
     const ganttData = (quotation.schedules || []).map(s => ({
