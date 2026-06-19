@@ -18970,7 +18970,7 @@ function displayQuotationDetailsInModal(quotation) {
 
 /** Save the note for the currently viewed quotation */
 function saveCurrentQuotationNote() {
-    const q = window.currentViewingQuotation;
+    const q = typeof currentViewingQuotation !== 'undefined' ? currentViewingQuotation : window.currentViewingQuotation;
     if (!q || !q.id) return;
     
     const notes = document.getElementById('quotationNoteEditor')?.value?.trim() || '';
