@@ -12374,9 +12374,31 @@ def whatsapp_send_file():
         # Determine file type and MIME
         filename = file.filename
         file_bytes = file.read()
-        mime_type = file.content_type or 'application/octet-stream'
-        is_image = mime_type.startswith('image/')
-        is_audio = mime_type.startswith('audio/')
+        
+        # Normalise MIME type: use file extension map (more reliable than browser content_type)
+        ext = (filename.rsplit('.', 1)[-1] if '.' in filename else '').lower()
+        audio_ext_map = {
+            'mp3': 'audio/mpeg', 'aac': 'audio/aac', 'm4a': 'audio/mp4',
+            'mp4': 'audio/mp4', 'ogg': 'audio/ogg', 'opus': 'audio/ogg',
+            'amr': 'audio/amr', 'wav': 'audio/mpeg', '3gp': 'audio/amr'
+        }
+        image_ext_map = {
+            'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+            'gif': 'image/gif', 'webp': 'image/webp'
+        }
+        
+        browser_mime = (file.content_type or '').lower()
+        is_audio = ext in audio_ext_map or browser_mime.startswith('audio/')
+        is_image = ext in image_ext_map or browser_mime.startswith('image/')
+        
+        # Use extension-based MIME for audio to avoid unsupported types from browsers
+        if is_audio and ext in audio_ext_map:
+            mime_type = audio_ext_map[ext]
+        elif is_image and ext in image_ext_map:
+            mime_type = image_ext_map[ext]
+        else:
+            mime_type = browser_mime or 'application/octet-stream'
+        
         msg_type = 'audio' if is_audio else 'image' if is_image else 'document'
         
         # Step 1: Upload to WhatsApp Media API

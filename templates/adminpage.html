@@ -7884,6 +7884,9 @@ async function saveAndDownloadQuotation() {
         
         alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id})`);
         
+        // Store ID so Send flow reuses this quotation instead of creating another
+        window.editingQuotationId = result.quotation_id;
+        
         if (saveBtn) {
             saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
         }
@@ -17667,6 +17670,7 @@ $('#sendQuotationBtn').click(async function() {
         }
         
         if (isEditing) { window.editingQuotationId = null; }
+        else { window.editingQuotationId = saveResult.quotation_id; }
 
         // Generate and send PDF...
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
