@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConnectLink WhatsApp App — Complete User Guide</title>
+    <style>
+        @page { margin: 1cm; size: A4; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', -apple-system, Roboto, sans-serif; background: #f4f6f9; color: #1a1a2e; line-height: 1.6; font-size: 10pt; }
+        @media print { body { background: white; font-size: 9pt; } }
+
+        .page { max-width: 210mm; margin: 0 auto; padding: 12px 16px; }
+        @media print { .page { padding: 0; max-width: 100%; } }
+
+        /* Cover */
+        .cover { background: linear-gradient(135deg, #075e54 0%, #128C7E 50%, #25D366 100%); color: white; padding: 30px 24px; border-radius: 12px; margin-bottom: 16px; text-align: center; }
+        @media print { .cover { border-radius: 0; padding: 24px; } }
+        .cover h1 { font-size: 24pt; margin-bottom: 4px; }
+        .cover .sub { font-size: 10pt; opacity: 0.9; }
+        .cover .meta { font-size: 7pt; opacity: 0.7; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px; }
+
+        /* TOC */
+        .toc { background: white; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; column-count: 2; column-gap: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        @media (max-width:600px) { .toc { column-count: 1; } }
+        .toc h2 { font-size: 11pt; color: #075e54; margin-bottom: 6px; column-span: all; border-bottom: 2px solid #25D366; padding-bottom: 4px; }
+        .toc a { color: #333; text-decoration: none; font-size: 8pt; display: block; padding: 2px 0 2px 16px; position: relative; break-inside: avoid; }
+        .toc a::before { content: attr(data-num); position: absolute; left: 0; color: #25D366; font-weight: 700; font-size: 7pt; }
+        .toc a:hover { color: #075e54; }
+
+        /* Sections */
+        .section { background: white; border-radius: 10px; padding: 16px 18px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); page-break-inside: avoid; }
+        @media print { .section { box-shadow: none; border: 1px solid #e5e7eb; } }
+        .section h2 { font-size: 12pt; color: #075e54; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 2px solid #25D366; display: flex; align-items: center; gap: 6px; }
+        .section h2 .num { display: inline-flex; width: 22px; height: 22px; background: #25D366; color: white; border-radius: 50%; align-items: center; justify-content: center; font-size: 9pt; font-weight: 700; flex-shrink: 0; }
+        .section h3 { font-size: 9pt; color: #128C7E; margin: 10px 0 3px; }
+        .section p, .section li { font-size: 8pt; color: #374151; margin-bottom: 3px; }
+        .section ul, .section ol { padding-left: 18px; }
+        .section li { margin-bottom: 2px; }
+
+        /* Numbered steps */
+        .steps { counter-reset: step; margin: 6px 0; padding: 0; list-style: none; }
+        .steps li { counter-increment: step; position: relative; padding: 4px 0 4px 28px; font-size: 8pt; color: #374151; border-bottom: 1px solid #f3f4f6; margin-bottom: 0; }
+        .steps li:last-child { border-bottom: none; }
+        .steps li::before { content: counter(step); position: absolute; left: 0; top: 4px; width: 20px; height: 20px; background: #075e54; color: white; border-radius: 50%; font-size: 7pt; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+        /* Mockup illustrations */
+        .mockup { border: 1.5px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin: 10px 0; page-break-inside: avoid; }
+        .mockup .bar { background: #075e54; color: white; padding: 6px 10px; font-size: 7pt; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .mockup .bar .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.4); }
+        .mockup .body { padding: 10px; background: #fafafa; position: relative; min-height: 60px; }
+        .mockup .body .row { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
+        .mockup .body .row:last-child { border-bottom: none; }
+        .mockup .body .avatar { width: 24px; height: 24px; border-radius: 50%; background: #25D366; color: white; display: flex; align-items: center; justify-content: center; font-size: 6pt; font-weight: 700; flex-shrink: 0; }
+        .mockup .body .col { flex: 1; }
+        .mockup .body .col .name { font-size: 7pt; font-weight: 600; color: #1a1a2e; }
+        .mockup .body .col .preview { font-size: 6pt; color: #999; }
+
+        .circled { display: inline-flex; width: 18px; height: 18px; background: #ef6c00; color: white; border-radius: 50%; align-items: center; justify-content: center; font-size: 6pt; font-weight: 700; flex-shrink: 0; margin-right: 3px; }
+
+        .bubble { display: inline-block; padding: 5px 8px; border-radius: 6px; font-size: 7pt; max-width: 75%; margin: 2px 0; }
+        .bubble.out { background: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .bubble.in { background: white; border: 1px solid #e5e7eb; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .chat-window { display: flex; flex-direction: column; gap: 3px; padding: 8px; background: #e5ddd5; border-radius: 4px; min-height: 70px; }
+
+        .f-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px; margin: 6px 0; }
+        .f-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; font-size: 7pt; }
+        .f-card strong { display: block; color: #075e54; font-size: 8pt; margin-bottom: 1px; }
+        .f-card .ficon { font-size: 14pt; display: block; margin-bottom: 2px; }
+
+        .tip { background: #e8f5e9; border-left: 3px solid #25D366; padding: 6px 10px; border-radius: 4px; margin: 6px 0; font-size: 7pt; }
+        .tip strong { color: #075e54; }
+        .warn { background: #fff3e0; border-left: 3px solid #ef6c00; padding: 6px 10px; border-radius: 4px; margin: 6px 0; font-size: 7pt; }
+        .info { background: #e3f2fd; border-left: 3px solid #1a73e8; padding: 6px 10px; border-radius: 4px; margin: 6px 0; font-size: 7pt; }
+
+        kbd { background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 1px 4px; font-size: 7pt; font-family: monospace; }
+
+        .status-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
+        .status-icon { display: flex; align-items: center; gap: 3px; font-size: 7pt; padding: 3px 8px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px; }
+        .status-icon .s { font-size: 9pt; }
+
+        .footer { text-align: center; padding: 12px; color: #999; font-size: 7pt; border-top: 1px solid #e5e7eb; margin-top: 8px; }
+
+        .pb { page-break-before: always; }
+        @media screen { .pb { margin-top: 24px; padding-top: 16px; border-top: 2px dashed #ddd; } }
+
+        .caption { font-size: 6pt; color: #999; text-align: center; padding: 2px; font-style: italic; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+<!-- Cover -->
+<div class="cover">
+    <h1>💬 ConnectLink WhatsApp</h1>
+    <div class="sub">Complete User Guide — Every Feature Explained Step by Step</div>
+    <div style="font-size:8pt;opacity:0.85;margin-top:4px;">Construction Project Management &bull; Zimbabwe (UTC+2)</div>
+    <div class="meta">Version 1.0 &bull; June 2026 &bull; ConnectLink Properties</div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+    <h2>📋 Table of Contents</h2>
+    <a href="#s1" data-num="1">Getting Started — The Interface</a>
+    <a href="#s2" data-num="2">Chat List &amp; Sidebar</a>
+    <a href="#s3" data-num="3">Sending a Text Message</a>
+    <a href="#s4" data-num="4">Attaching Files (Images, Audio, Documents)</a>
+    <a href="#s5" data-num="5">Bot Mode vs Human Mode</a>
+    <a href="#s6" data-num="6">Meta Templates (24hr Window Bypass)</a>
+    <a href="#s7" data-num="7">Replying to a Message</a>
+    <a href="#s8" data-num="8">Forwarding a Message</a>
+    <a href="#s9" data-num="9">Quick Replies (Saved Snippets)</a>
+    <a href="#s10" data-num="10">Bulk Messaging</a>
+    <a href="#s11" data-num="11">Emoji Picker</a>
+    <a href="#s12" data-num="12">Searching Messages</a>
+    <a href="#s13" data-num="13">Pinning Chats &amp; Date Filters</a>
+    <a href="#s14" data-num="14">Reading Message Status</a>
+    <a href="#s15" data-num="15">WhatsApp Calls</a>
+    <a href="#s16" data-num="16">Enquiries Tab</a>
+    <a href="#s17" data-num="17">Notifications &amp; App Badge</a>
+    <a href="#s18" data-num="18">Drag &amp; Drop Files</a>
+    <a href="#s19" data-num="19">Troubleshooting</a>
+</div>
+
+<!-- 1 -->
+<div class="section" id="s1">
+    <h2><span class="num">1</span> Getting Started — The Interface</h2>
+    <p>The WhatsApp app is a standalone PWA at <code>/whatsapp-app</code>. It has a sidebar (chat list) and a main chat panel.</p>
+    <div class="mockup">
+        <div class="bar"><span class="dot"></span> <span class="dot"></span> <span class="dot"></span> &nbsp; ConnectLink WhatsApp</div>
+        <div class="body" style="display:flex;gap:0;padding:0;min-height:160px;">
+            <div style="flex:0 0 44%;border-right:1px solid #e5e7eb;padding:8px;background:#fafafa;">
+                <div style="display:flex;gap:4px;margin-bottom:6px;">
+                    <div style="flex:1;height:18px;background:#e5e7eb;border-radius:3px;"></div>
+                    <div style="width:18px;height:18px;background:#25D366;border-radius:3px;display:flex;align-items:center;justify-content:center;color:white;font-size:6pt;"><span class="circled" style="width:14px;height:14px;font-size:5pt;">1</span></div>
+                </div>
+                <div class="row"><div class="avatar">J</div><div class="col"><div class="name">John Dube</div><div class="preview">Payment received</div></div></div>
+                <div class="row"><div class="avatar">M</div><div class="col"><div class="name">Mary Sibanda</div><div class="preview">When can we start?</div></div></div>
+                <div class="row" style="background:#e8f5e9;border-radius:4px;"><div class="avatar">T</div><div class="col"><div class="name">Takudzwa <span style="font-size:5pt;color:#25D366;">📌</span></div><div class="preview">Thanks!</div></div></div>
+            </div>
+            <div style="flex:1;padding:8px;display:flex;flex-direction:column;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #e5e7eb;">
+                    <span style="font-size:7pt;font-weight:600;">John Dube</span>
+                    <div style="display:flex;gap:3px;">
+                        <span style="font-size:6pt;color:#999;">Bot</span>
+                        <span style="width:16px;height:9px;background:#ccc;border-radius:4px;display:inline-block;"></span>
+                        <span style="font-size:6pt;color:#25D366;">Human</span>
+                        <span style="font-size:7pt;color:#25D366;">📞</span>
+                        <span style="font-size:7pt;color:#999;">🔍</span>
+                    </div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:3px;padding:4px;background:#e5ddd5;border-radius:4px;min-height:60px;">
+                    <div style="align-self:flex-start;background:white;padding:4px 6px;border-radius:4px;font-size:6pt;max-width:70%;">Site visit tomorrow?</div>
+                    <div style="align-self:flex-end;background:#dcf8c6;padding:4px 6px;border-radius:4px;font-size:6pt;max-width:70%;">Yes, 9am!</div>
+                </div>
+                <div style="display:flex;gap:3px;margin-top:4px;">
+                    <span style="font-size:7pt;">😀</span><span style="font-size:7pt;">📎</span>
+                    <div style="flex:1;height:18px;background:#e5e7eb;border-radius:3px;"></div>
+                    <span style="font-size:7pt;color:#25D366;">➤</span>
+                </div>
+            </div>
+        </div>
+        <div style="padding:3px 10px;background:#f0f0f0;font-size:6pt;color:#999;display:flex;gap:12px;flex-wrap:wrap;">
+            <span><span class="circled" style="width:13px;height:13px;font-size:5pt;">1</span> Tab bar (Chats/Enquiries/Bulk)</span>
+            <span><span class="circled" style="width:13px;height:13px;font-size:5pt;">2</span> Bot/Human toggle</span>
+            <span><span class="circled" style="width:13px;height:13px;font-size:5pt;">3</span> Chat messages area</span>
+            <span><span class="circled" style="width:13px;height:13px;font-size:5pt;">4</span> Input bar</span>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Open <code>/whatsapp-app</code> in your browser. On mobile, add to home screen for PWA mode.</li>
+        <li>Grant notification permission when prompted.</li>
+        <li>The sidebar shows conversations; the right panel shows the selected chat.</li>
+        <li>On mobile, the sidebar fills the screen — tap a chat to open it, tap the back arrow to return.</li>
+    </ol>
+</div>
+
+<!-- 2 -->
+<div class="section" id="s2">
+    <h2><span class="num">2</span> Chat List &amp; Sidebar</h2>
+    <div class="mockup">
+        <div class="bar">📋 Chat List</div>
+        <div class="body">
+            <div class="row">
+                <span class="circled" style="width:14px;height:14px;font-size:5pt;">1</span>
+                <div class="avatar" style="background:#075e54;">J</div>
+                <div class="col"><div class="name">John Dube <span style="font-size:5pt;color:#25D366;">📌</span></div><div class="preview">Payment received</div></div>
+                <div style="text-align:right;font-size:5pt;color:#999;">14:30<br><span style="color:#25D366;">3</span></div>
+                <span style="font-size:6pt;color:#ccc;">📌</span>
+            </div>
+            <div class="row">
+                <span class="circled" style="width:14px;height:14px;font-size:5pt;">2</span>
+                <div class="avatar" style="background:#e91e63;">M</div>
+                <div class="col"><div class="name">Mary S. <span style="font-size:5pt;background:#25D366;color:white;padding:1px 4px;border-radius:2px;">Enquiry</span></div><div class="preview">Need quotation</div></div>
+                <div style="text-align:right;font-size:5pt;color:#999;">Yesterday<br><span style="color:#ff9800;">1</span></div>
+                <span style="font-size:6pt;color:#ccc;">📍</span>
+            </div>
+        </div>
+        <div style="padding:3px 10px;background:#f0f0f0;font-size:6pt;color:#999;display:flex;gap:10px;flex-wrap:wrap;">
+            <span><span class="circled" style="width:12px;height:12px;font-size:4pt;">1</span> Pinned chat (📌)</span>
+            <span><span class="circled" style="width:12px;height:12px;font-size:4pt;">2</span> Enquiry badge</span>
+            <span><span class="circled" style="width:12px;height:12px;font-size:4pt;">3</span> Unread count + timestamp</span>
+        </div>
+    </div>
+    <ul>
+        <li><strong>Avatar</strong> — first letter of the name on a green background</li>
+        <li><strong>📌 Pin</strong> — click to pin/unpin; pinned chats sort to the top</li>
+        <li><strong>Enquiry tag</strong> — <span style="background:#25D366;color:white;padding:1px 4px;border-radius:2px;font-size:6pt;">Enquiry</span> badge for contacts with open enquiries</li>
+        <li><strong>Unread count</strong> — number of unread messages (color = status)</li>
+        <li><strong>Search box</strong> — filter contacts by name or phone number</li>
+        <li><strong>Date filters</strong> — All / Today / Yesterday / Week / Month / Year buttons</li>
+    </ul>
+</div>
+
+<!-- 3 -->
+<div class="section pb" id="s3">
+    <h2><span class="num">3</span> Sending a Text Message</h2>
+    <div class="mockup">
+        <div class="bar">✉️ Sending</div>
+        <div class="body" style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;"><div class="chat-window">
+                <div class="bubble out" style="align-self:flex-end;">Hi John, confirming tomorrow's site visit at 9am.</div>
+                <div class="bubble out" style="align-self:flex-end;opacity:0.7;">Sending... <span style="color:#999;">⏳</span></div>
+            </div></div>
+            <div style="flex:1;min-width:160px;"><div style="background:#f0f0f0;border-radius:6px;padding:6px;display:flex;gap:4px;align-items:center;">
+                <span>😀</span><span>📎</span>
+                <span style="flex:1;height:20px;background:white;border-radius:3px;border:1px solid #ddd;padding:2px 5px;font-size:6pt;color:#999;">Type a message...</span>
+                <span style="background:#25D366;color:white;padding:3px 8px;border-radius:3px;font-size:6pt;">Send</span>
+            </div></div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Select a chat from the sidebar.</li>
+        <li>Type your message in the input bar at the bottom.</li>
+        <li>Press <kbd>Enter</kbd> or click the <strong>Send</strong> button.</li>
+        <li>A pending bubble with ⏳ appears, then updates to ✓ when sent.</li>
+    </ol>
+    <div class="warn"><strong>24hr window:</strong> Free-form messages only work within 24 hours of the client's last message. Otherwise use a Meta Template (Section 6).</div>
+</div>
+
+<!-- 4 -->
+<div class="section" id="s4">
+    <h2><span class="num">4</span> Attaching Files</h2>
+    <div class="mockup">
+        <div class="bar">📎 Attachments</div>
+        <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:150px;background:#e5ddd5;border-radius:4px;padding:8px;">
+                <div class="bubble out" style="display:flex;align-items:center;gap:4px;"><span>📷</span> site.jpg <span style="font-size:5pt;background:#075e54;color:white;padding:1px 4px;border-radius:2px;">DL</span></div>
+                <div class="bubble out" style="margin-top:3px;"><span>🎵</span> audio.mp3</div>
+            </div>
+            <div style="flex:1;min-width:120px;font-size:7pt;">
+                <strong>Supported:</strong>
+                <ul><li>📷 Images: JPG, PNG, GIF</li><li>🎵 Audio: MP3, M4A, OGG</li><li>📄 Docs: PDF, DOC, DOCX</li></ul>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click the <strong>📎 paperclip</strong> icon in the input bar.</li>
+        <li>Select a file (image, audio, or document).</li>
+        <li>A preview appears above the input bar.</li>
+        <li>Optionally type a caption, then press <kbd>Enter</kbd> to send.</li>
+        <li>Audio files are sent as downloadable documents for reliable playback.</li>
+    </ol>
+</div>
+
+<!-- 5 -->
+<div class="section" id="s5">
+    <h2><span class="num">5</span> Bot Mode vs Human Mode</h2>
+    <div class="mockup">
+        <div class="bar">🤖 Bot / Human Toggle</div>
+        <div class="body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+            <div style="display:flex;align-items:center;gap:6px;background:#f0f0f0;padding:6px 12px;border-radius:6px;">
+                <span style="font-size:8pt;color:#999;">Bot</span>
+                <span style="width:30px;height:16px;background:#ccc;border-radius:8px;position:relative;display:inline-block;">
+                    <span style="position:absolute;width:12px;height:12px;background:#25D366;border-radius:50%;top:2px;right:2px;"></span>
+                </span>
+                <span style="font-size:8pt;font-weight:700;color:#25D366;">Human</span>
+            </div>
+            <div style="flex:1;min-width:160px;background:#f9fafb;padding:8px;border-radius:6px;border:1px solid #e5e7eb;font-size:7pt;">
+                <strong style="color:#075e54;">Human mode ON:</strong> AI auto-replies disabled. Full manual control.
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Each chat has a toggle switch in the header: <strong>Bot</strong> ⇄ <strong>Human</strong>.</li>
+        <li><strong>Bot mode</strong> (default) — the AI chatbot auto-replies to incoming messages.</li>
+        <li><strong>Human mode</strong> — the AI does NOT reply; you handle the conversation manually.</li>
+        <li>Toggle anytime — setting is saved per-contact in the database.</li>
+    </ol>
+</div>
+
+<!-- 6 -->
+<div class="section pb" id="s6">
+    <h2><span class="num">6</span> Meta Templates (24hr Window Bypass)</h2>
+    <div class="mockup">
+        <div class="bar">📋 Template Mode</div>
+        <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:150px;">
+                <div style="background:#fff3e0;border:1px solid #ffcc02;border-radius:6px;padding:6px;">
+                    <div style="font-size:6pt;color:#ef6c00;font-weight:600;">📋 Template Message</div>
+                    <div style="font-size:7pt;">enquiryupdate sent to John</div>
+                    <div style="font-size:5pt;color:#999;">✓ Delivered via Meta template</div>
+                </div>
+            </div>
+            <div style="flex:1;min-width:120px;font-size:7pt;">
+                <strong>Common templates:</strong>
+                <ul><li><code>enquiryupdate</code></li><li><code>quotationdownload</code></li><li><code>overduereminderfin</code></li><li><code>duereminderfin</code></li></ul>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click the <kbd>Tpl</kbd> button next to the input bar to switch to template mode.</li>
+        <li>Enter the exact <strong>template name</strong> as approved in Meta (e.g., <code>enquiryupdate</code>).</li>
+        <li>Enter <strong>parameters</strong> as comma-separated values (e.g., <code>John,Project X,50</code>).</li>
+        <li>Click <strong>Send</strong> — templates bypass the 24-hour window.</li>
+        <li>To switch back, click <kbd>Text</kbd>.</li>
+    </ol>
+    <div class="warn"><strong>Tip:</strong> Template names must match Meta's catalog exactly. Wrong names will fail.</div>
+</div>
+
+<!-- 7 -->
+<div class="section" id="s7">
+    <h2><span class="num">7</span> Replying to a Message</h2>
+    <div class="mockup">
+        <div class="bar">↩️ Reply</div>
+        <div class="body" style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;">
+                <div class="chat-window">
+                    <div class="bubble in" style="cursor:pointer;">When do we start?</div>
+                    <div style="display:flex;gap:4px;justify-content:flex-end;"><span style="font-size:6pt;color:#999;cursor:pointer;">↩</span><span style="font-size:6pt;color:#999;cursor:pointer;">↗</span></div>
+                </div>
+            </div>
+            <div style="flex:1;min-width:160px;">
+                <div style="background:#f0fdf4;border-top:2px solid #25D366;border-radius:3px;padding:4px 8px;display:flex;align-items:center;gap:4px;">
+                    <div style="flex:1;"><div style="font-size:5pt;font-weight:600;color:#075e54;">Replying</div><div style="font-size:6pt;color:#999;">When do we start?</div></div>
+                    <span style="font-size:7pt;cursor:pointer;">✕</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click any message bubble (incoming or outgoing).</li>
+        <li>A green "Replying" bar appears above the input showing the quoted message.</li>
+        <li>Type your reply and press <kbd>Enter</kbd>. The replied-to ID is stored in the database.</li>
+        <li>Click <strong>✕</strong> on the reply bar to cancel.</li>
+    </ol>
+</div>
+
+<!-- 8 -->
+<div class="section" id="s8">
+    <h2><span class="num">8</span> Forwarding a Message</h2>
+    <div class="mockup">
+        <div class="bar">↗️ Forward</div>
+        <div class="body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+            <div style="text-align:center;font-size:7pt;">Click <strong>↗</strong> on message → Select contact → Forwarded with 📩 prefix</div>
+            <div style="flex:1;min-width:150px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:8px;">
+                <strong style="font-size:7pt;color:#075e54;">Pick a contact</strong>
+                <div class="row" style="cursor:pointer;"><div class="avatar">M</div><div class="col"><div class="name">Mary Sibanda</div></div></div>
+                <div class="row" style="cursor:pointer;"><div class="avatar" style="background:#e91e63;">P</div><div class="col"><div class="name">Peter Nyoni</div></div></div>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click the <strong>↗</strong> (forward) icon on any message.</li>
+        <li>A contact picker modal opens — search or scroll to find the recipient.</li>
+        <li>Click the contact — the message is forwarded with "📩 Forwarded:" prefix.</li>
+    </ol>
+</div>
+
+<!-- 9 -->
+<div class="section pb" id="s9">
+    <h2><span class="num">9</span> Quick Replies (Saved Snippets)</h2>
+    <div class="mockup">
+        <div class="bar">⚡ Quick Replies</div>
+        <div class="body">
+            <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px;">
+                <span style="background:#e8f5e9;border:1px solid #c8e6c9;padding:2px 6px;border-radius:10px;font-size:6pt;cursor:pointer;">Greeting ✕</span>
+                <span style="background:#e8f5e9;border:1px solid #c8e6c9;padding:2px 6px;border-radius:10px;font-size:6pt;cursor:pointer;">Payment Link ✕</span>
+                <span style="background:#e8f5e9;border:1px solid #c8e6c9;padding:2px 6px;border-radius:10px;font-size:6pt;cursor:pointer;">Site Visit ✕</span>
+            </div>
+            <div style="display:flex;gap:3px;">
+                <input placeholder="Label" style="width:60px;font-size:6pt;padding:2px 4px;border:1px solid #ddd;border-radius:3px;">
+                <input placeholder="Message text..." style="flex:1;font-size:6pt;padding:2px 4px;border:1px solid #ddd;border-radius:3px;">
+                <span style="background:#25D366;color:white;padding:2px 6px;border-radius:3px;font-size:6pt;cursor:pointer;">+ Add</span>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click the <strong>⚡ speedometer</strong> icon in the input bar to open the panel.</li>
+        <li>Click any chip to insert its message into the input bar.</li>
+        <li>To add: enter a <strong>Label</strong> and <strong>Message text</strong>, click <strong>+ Add</strong>.</li>
+        <li>To delete: click the <strong>✕</strong> on any chip. Stored server-side, available across devices.</li>
+    </ol>
+</div>
+
+<!-- 10 -->
+<div class="section" id="s10">
+    <h2><span class="num">10</span> Bulk Messaging</h2>
+    <div class="mockup">
+        <div class="bar">📤 Bulk</div>
+        <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:150px;font-size:7pt;">
+                <strong>1. Select recipients</strong> using checkboxes. Use <strong>Select all</strong> or the filter box.
+            </div>
+            <div style="flex:1;min-width:150px;font-size:7pt;">
+                <strong>2. Compose:</strong> Header (bold), Body (required), Footer (small), optional 📷 image.
+            </div>
+            <div style="flex:1;min-width:150px;font-size:7pt;">
+                <strong>3. Preview</strong> updates live. Click <strong>Send Bulk</strong> → confirm popup → sent.
+            </div>
+        </div>
+        <div style="padding:4px 10px;background:#f0fdf4;border-top:1px solid #c8e6c9;font-size:6pt;">
+            <strong>Preview:</strong> Header in bold → Body text → Footer in gray. Failures show per-recipient error details.
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click the <strong>Bulk</strong> tab. Select recipients via checkboxes.</li>
+        <li>Enter Header (optional bold), Body (required), Footer (optional small text).</li>
+        <li>Optionally attach an image using the 📷 button.</li>
+        <li>Review the live preview panel.</li>
+        <li>Click <strong>Send Bulk</strong> → review the confirmation popup → <strong>Confirm Send</strong>.</li>
+        <li>For <strong>Template mode</strong>, click <kbd>Template</kbd>, enter name + params, then send.</li>
+        <li>Results show sent/failed counts. Click <strong>"Show failure details"</strong> for per-recipient errors.</li>
+    </ol>
+</div>
+
+<!-- 11 -->
+<div class="section pb" id="s11">
+    <h2><span class="num">11</span> Emoji Picker</h2>
+    <div class="mockup">
+        <div class="bar">😀 Emoji Picker</div>
+        <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <div style="display:flex;gap:2px;flex-wrap:wrap;max-width:180px;">
+                <span style="font-size:12pt;">😀😂😍🤔👍🎉❤️🔥💡📌🏠💰</span>
+            </div>
+            <div style="flex:1;font-size:7pt;">Click the <strong>😀 smiley</strong> icon in the input bar. Pick from 280+ emojis. Click outside to close.</div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click the <strong>😀 smiley</strong> icon in the input bar.</li>
+        <li>Click any emoji from the grid — it's inserted at the cursor position.</li>
+        <li>Click outside the picker to close it.</li>
+    </ol>
+</div>
+
+<!-- 12 -->
+<div class="section" id="s12">
+    <h2><span class="num">12</span> Searching Messages</h2>
+    <div class="mockup">
+        <div class="bar">🔍 Message Search</div>
+        <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;">
+                <div style="display:flex;gap:3px;align-items:center;background:#f0f0f0;padding:3px 6px;border-radius:4px;margin-bottom:4px;">
+                    <span style="font-size:6pt;">🔍</span>
+                    <input placeholder="Search..." style="flex:1;font-size:6pt;padding:2px;border:none;background:transparent;outline:none;">
+                    <span style="font-size:5pt;color:#999;">3/12</span>
+                    <span style="font-size:6pt;cursor:pointer;">✕</span>
+                </div>
+                <div class="chat-window" style="min-height:40px;">
+                    <div class="bubble in" style="background:#fff3cd;">🔍 ...<strong>foundation</strong> work?</div>
+                    <div class="bubble out">Yes, start next week</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Open a chat, click the <strong>🔍 search</strong> icon in the header.</li>
+        <li>Type your search term — matching messages are highlighted in yellow.</li>
+        <li>Press <kbd>Esc</kbd> or click <strong>✕</strong> to close search.</li>
+    </ol>
+</div>
+
+<!-- 13 -->
+<div class="section" id="s13">
+    <h2><span class="num">13</span> Pinning Chats &amp; Date Filters</h2>
+    <div class="mockup">
+        <div class="bar">📌 Pin &amp; 📅 Date Filters</div>
+        <div class="body">
+            <div style="display:flex;gap:2px;margin-bottom:6px;flex-wrap:wrap;">
+                <span style="background:#25D366;color:white;padding:1px 6px;border-radius:3px;font-size:5pt;">All</span>
+                <span style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:5pt;">Today</span>
+                <span style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:5pt;">Yest</span>
+                <span style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:5pt;">Week</span>
+                <span style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:5pt;">Month</span>
+                <span style="background:#f0f0f0;padding:1px 6px;border-radius:3px;font-size:5pt;">Year</span>
+            </div>
+            <p style="font-size:7pt;">Pinned chats (📌) stay at the top. Date filters combine with text search.</p>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click the <strong>📌 pin icon</strong> on any chat to pin/unpin. Stored in browser.</li>
+        <li>Use <strong>date filter buttons</strong> to show chats from: Today, Yesterday, Week, Month, Year.</li>
+    </ol>
+</div>
+
+<!-- 14 -->
+<div class="section pb" id="s14">
+    <h2><span class="num">14</span> Reading Message Status</h2>
+    <div class="status-row">
+        <span class="status-icon"><span class="s">✓</span> Sent</span>
+        <span class="status-icon"><span class="s">✓✓</span> Delivered</span>
+        <span class="status-icon"><span style="color:#53bdeb;">✓✓</span> Read</span>
+        <span class="status-icon"><span style="color:#c62828;">✗</span> Failed</span>
+        <span class="status-icon"><span style="color:#ef6c00;">⚠️</span> 24hr</span>
+        <span class="status-icon"><span style="color:#ef6c00;">⏳</span> Pending</span>
+    </div>
+    <ul style="font-size:7pt;margin-top:4px;">
+        <li><strong>✓</strong> gray — sent to WhatsApp servers</li>
+        <li><strong>✓✓</strong> gray — delivered to recipient's device</li>
+        <li><strong>✓✓</strong> blue — recipient read the message</li>
+        <li><strong>✗</strong> red — sending failed</li>
+        <li><strong>⚠️</strong> orange — outside 24hr window</li>
+        <li><strong>⏳</strong> orange — template pending</li>
+    </ul>
+</div>
+
+<!-- 15 -->
+<div class="section" id="s15">
+    <h2><span class="num">15</span> WhatsApp Calls</h2>
+    <div class="mockup">
+        <div class="bar">📞 Call</div>
+        <div class="body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <span style="background:#25D366;color:white;padding:3px 6px;border-radius:3px;font-size:8pt;">📞</span>
+            <span style="font-size:7pt;">Click the phone icon in chat header → opens <code>wa.me/{number}</code> in new tab</span>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Open any chat — the <strong>📞</strong> icon appears in the header.</li>
+        <li>Click it — opens <code>wa.me/{phone}</code> in a new tab.</li>
+        <li>From there, tap voice/video call in WhatsApp to call the contact.</li>
+    </ol>
+    <div class="info">WhatsApp Cloud API does not support initiating calls directly. The deep link opens WhatsApp where you can call manually.</div>
+</div>
+
+<!-- 16 -->
+<div class="section" id="s16">
+    <h2><span class="num">16</span> Enquiries Tab</h2>
+    <div class="mockup">
+        <div class="bar">📋 Enquiries</div>
+        <div class="body">
+            <div style="display:flex;gap:3px;margin-bottom:4px;flex-wrap:wrap;">
+                <input placeholder="Search..." style="flex:1;font-size:6pt;padding:2px 4px;border:1px solid #ddd;border-radius:3px;min-width:80px;">
+                <select style="font-size:6pt;padding:2px;border:1px solid #ddd;border-radius:3px;"><option>All</option><option>Pending</option></select>
+            </div>
+            <div class="row">
+                <div class="avatar" style="background:#e91e63;">M</div>
+                <div class="col"><div class="name">Mary S. <span style="background:#ff9800;color:white;padding:1px 4px;border-radius:2px;font-size:5pt;">Pending</span></div><div class="preview">Kitchen quote needed</div></div>
+                <span style="font-size:6pt;color:#25D366;">💬</span>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Click the <strong>Enquiries</strong> tab to view client enquiries.</li>
+        <li>Filter by status: All / Pending / In Progress / Completed.</li>
+        <li><strong>💬 Open Chat</strong> — opens the chat in the WhatsApp app.</li>
+        <li><strong>📱 WhatsApp Web</strong> — opens <code>wa.me</code> in a new tab.</li>
+    </ol>
+</div>
+
+<!-- 17 -->
+<div class="section" id="s17">
+    <h2><span class="num">17</span> Notifications &amp; App Badge</h2>
+    <div class="mockup">
+        <div class="bar">🔔 Notifications</div>
+        <div class="body" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:120px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:8px;text-align:center;">
+                <div style="font-size:14pt;">🔔</div>
+                <div style="font-size:7pt;font-weight:600;">New message from John</div>
+                <div style="font-size:6pt;color:#999;">"Is the quotation ready?"</div>
+            </div>
+            <div style="flex:1;font-size:7pt;">
+                <ul><li>Polling: every 15s (messages) / 30s (enquiries)</li><li>Browser notifications when app is in background</li><li>App badge count on PWA icon (mobile)</li></ul>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Allow notification permission when prompted.</li>
+        <li>New messages trigger desktop notifications (when app is backgrounded).</li>
+        <li>The Enquiries tab shows a count badge for new/updated enquiries.</li>
+    </ol>
+</div>
+
+<!-- 18 -->
+<div class="section" id="s18">
+    <h2><span class="num">18</span> Drag &amp; Drop Files</h2>
+    <div class="mockup">
+        <div class="bar">📎 Drag &amp; Drop</div>
+        <div class="body" style="text-align:center;padding:14px;">
+            <div style="border:2px dashed #25D366;border-radius:8px;padding:14px;background:#f0fdf4;">
+                <div style="font-size:16pt;">📁</div>
+                <div style="font-size:8pt;font-weight:600;color:#075e54;">Drop file here</div>
+                <div style="font-size:6pt;color:#999;">Drag images, audio, or documents onto the chat area</div>
+            </div>
+        </div>
+    </div>
+    <ol class="steps">
+        <li>Drag a file from your file manager onto the messages area.</li>
+        <li>A green "Drop file here" overlay appears.</li>
+        <li>Release to attach — same as clicking the paperclip.</li>
+    </ol>
+</div>
+
+<!-- 19 -->
+<div class="section" id="s19">
+    <h2><span class="num">19</span> Troubleshooting</h2>
+    <div class="warn"><strong>Messages not sending?</strong> Check if you're outside the 24-hour window. Use a Meta Template instead.</div>
+    <div class="warn"><strong>File send failed?</strong> File may be too large (&gt;16MB) or unsupported format.</div>
+    <div class="warn"><strong>Chat list not loading?</strong> Check server is running and DB is connected. Press F12 → Console tab for errors.</div>
+    <div class="warn"><strong>Notifications not appearing?</strong> Ensure notification permission is granted. iOS PWA notifications have limited support.</div>
+    <div class="info"><strong>Need help?</strong> Check the browser console (F12) for errors and share them with support.</div>
+</div>
+
+<div class="footer">
+    ConnectLink WhatsApp App &bull; Complete User Guide &bull; June 2026
+</div>
+
+</div>
+</body>
+</html>

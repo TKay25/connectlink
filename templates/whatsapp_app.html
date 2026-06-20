@@ -902,20 +902,43 @@
             </div>
             <div style="padding:8px 10px;border-bottom:1px solid var(--border-color);">
                 <div id="bulkTextMode" style="display:flex;flex-direction:column;gap:4px;">
-                    <textarea id="bulkMessageInput" placeholder="Type message to send to all selected recipients..." style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;resize:none;min-height:60px;font-family:inherit;"></textarea>
+                    <input type="text" id="bulkHeaderInput" placeholder="Header (optional, bold text above message)" style="width:100%;padding:5px 8px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-input);color:var(--text-primary);outline:none;font-weight:600;">
+                    <textarea id="bulkBodyInput" placeholder="Body message (required)..." style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;resize:none;min-height:50px;font-family:inherit;"></textarea>
+                    <input type="text" id="bulkFooterInput" placeholder="Footer (optional, small text at bottom)" style="width:100%;padding:5px 8px;font-size:0.65rem;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-input);color:var(--text-muted);outline:none;">
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                        <button class="emoji-btn" onclick="document.getElementById('bulkImageInput').click()" style="font-size:0.85rem;padding:3px 6px;" title="Attach image">
+                            <i class="bi bi-image"></i>
+                        </button>
+                        <input type="file" id="bulkImageInput" style="display:none;" accept="image/*" onchange="handleBulkImage(event)">
+                        <span id="bulkImageName" style="font-size:0.65rem;color:var(--text-secondary);display:none;"></span>
+                        <button class="btn-outline" onclick="toggleBulkMode()" id="bulkModeToggleBtn" style="font-size:0.65rem;padding:3px 8px;margin-left:auto;"><i class="bi bi-layout-text-window"></i> Template</button>
+                    </div>
                 </div>
                 <div id="bulkTemplateMode" style="display:none;flex-direction:column;gap:4px;">
                     <input type="text" id="bulkTemplateName" placeholder="Template name (e.g. enquiryupdate)" style="padding:6px 10px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;">
                     <input type="text" id="bulkTemplateParams" placeholder="Params (comma-separated, e.g. John,Project X)" style="padding:6px 10px;font-size:0.7rem;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;">
                 </div>
+                <!-- Message Preview -->
+                <div id="bulkPreviewArea" style="margin-top:6px;border:1px dashed var(--border-color);border-radius:8px;padding:10px;background:var(--bg-card);display:none;">
+                    <div style="font-size:0.6rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;letter-spacing:0.3px;"><i class="bi bi-eye"></i> Preview</div>
+                    <div id="bulkPreviewContent" style="font-size:0.75rem;line-height:1.5;color:var(--text-primary);"></div>
+                </div>
                 <div style="display:flex;gap:6px;margin-top:6px;align-items:center;">
-                    <button class="btn-outline" onclick="toggleBulkMode()" id="bulkModeToggleBtn" style="font-size:0.65rem;padding:4px 8px;"><i class="bi bi-layout-text-window"></i> Template</button>
-                    <button class="send-btn" onclick="previewBulkSend()" style="font-size:0.7rem;padding:6px 16px;background:#25D366;color:white;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:4px;margin-left:auto;">
+                    <button class="send-btn" onclick="previewBulkSend()" style="font-size:0.7rem;padding:6px 16px;background:#25D366;color:white;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:4px;">
                         <i class="bi bi-send"></i> Send Bulk
                     </button>
+                    <button class="btn-outline" onclick="updateBulkPreview()" style="font-size:0.65rem;padding:3px 8px;" title="Refresh preview"><i class="bi bi-arrow-clockwise"></i></button>
                 </div>
                 <div id="bulkSendResult" style="font-size:0.7rem;margin-top:4px;"></div>
             </div>
+            <script>
+            // Re-init preview listeners for this view
+            document.addEventListener('input', function(e) {
+                if (e.target.id === 'bulkHeaderInput' || e.target.id === 'bulkBodyInput' || e.target.id === 'bulkFooterInput') {
+                    updateBulkPreview();
+                }
+            });
+            </script>
         </div>
     </div>
 
@@ -2054,6 +2077,42 @@ function toggleBulkMode() {
         document.getElementById('bulkTemplateMode').style.display = 'none';
         btn.innerHTML = '<i class="bi bi-layout-text-window"></i> Template';
     }
+}
+
+// ==================== BULK PREVIEW & IMAGE ====================
+let bulkImageFile = null;
+
+function handleBulkImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    bulkImageFile = file;
+    document.getElementById('bulkImageName').textContent = '📷 ' + file.name;
+    document.getElementById('bulkImageName').style.display = 'inline';
+    updateBulkPreview();
+}
+
+function updateBulkPreview() {
+    const header = document.getElementById('bulkHeaderInput').value.trim();
+    const body = document.getElementById('bulkBodyInput').value.trim();
+    const footer = document.getElementById('bulkFooterInput').value.trim();
+    const preview = document.getElementById('bulkPreviewArea');
+    const content = document.getElementById('bulkPreviewContent');
+    
+    if (!header && !body && !footer && !bulkImageFile) {
+        preview.style.display = 'none';
+        return;
+    }
+    
+    let html = '';
+    if (bulkImageFile) {
+        html += '<div style="margin-bottom:6px;padding:6px;background:#f0f0f0;border-radius:6px;text-align:center;font-size:0.65rem;color:#666;"><i class="bi bi-image"></i> ' + escapeHtml(bulkImageFile.name) + '</div>';
+    }
+    if (header) html += '<div style="font-weight:700;font-size:0.8rem;margin-bottom:3px;">' + escapeHtml(header) + '</div>';
+    if (body) html += '<div style="margin-bottom:3px;word-wrap:break-word;">' + escapeHtml(body) + '</div>';
+    if (footer) html += '<div style="font-size:0.6rem;color:var(--text-muted);margin-top:3px;border-top:1px solid var(--border-color);padding-top:3px;">' + escapeHtml(footer) + '</div>';
+    
+    content.innerHTML = html;
+    preview.style.display = 'block';
 }
 
 function renderBulkContacts() {
