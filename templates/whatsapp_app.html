@@ -1153,7 +1153,7 @@ function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
-    return div.innerHTML;
+    return div.innerHTML.replace(/'/g, "&#39;");
 }
 
 // ==================== CHAT LIST ====================
@@ -1574,13 +1574,14 @@ function forwardMessage(msgId, preview) {
     if (!chatData.length) {
         list.innerHTML = '<div style="font-size:0.7rem;color:var(--text-secondary);padding:10px;">No contacts available</div>';
     } else {
-        list.innerHTML = chatData.filter(c => c.whatsapp !== currentPhone).map(c =>
-            `<div onclick="sendForward('${c.whatsapp}')" style="padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:8px;font-size:0.75rem;">
+        list.innerHTML = chatData.filter(c => c.whatsapp !== currentPhone).map(c => {
+            const safePhone = (c.whatsapp||'').replace(/'/g, "&#39;");
+            return `<div onclick="sendForward('${safePhone}')" style="padding:6px 8px;cursor:pointer;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:8px;font-size:0.75rem;">
                 <span style="width:28px;height:28px;border-radius:50%;background:#25D366;color:white;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:0.7rem;flex-shrink:0;">${(c.name||'?')[0].toUpperCase()}</span>
                 <span style="flex:1;">${escapeHtml(c.name||c.whatsapp)}</span>
                 <span style="color:var(--text-secondary);font-size:0.65rem;">${(c.whatsapp||'').replace(/[^0-9]/g,'').slice(-8)}</span>
-             </div>`
-        ).join('');
+             </div>`;
+        }).join('');
     }
     document.getElementById('forwardModal').style.display = 'flex';
     document.getElementById('forwardSearchInput').value = '';
@@ -1665,16 +1666,26 @@ function sendText(phone, text) {
     area.innerHTML += '<div id="' + id + '" class="msg-bubble outgoing" style="opacity:0.7;background:var(--outgoing-msg);align-self:flex-end;border-bottom-right-radius:2px;"><div style="word-wrap:break-word;">' + escapeHtml(text) + '</div><div class="msg-time">' + timeStr + ' ⏳</div></div>';
     area.scrollTop = area.scrollHeight;
 
+    const repId = repliedToId;
+    cancelReply();
     fetch('/api/whatsapp-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: phone, message: text, replied_to_id: repliedToId })
+        body: JSON.stringify({ recipient: phone, message: text, replied_to_id: repId })
     })
-    cancelReply();
     .then(r => r.json())
     .then(res => {
         const bubble = document.getElementById(id);
-        if (res.success) { if (bubble) bubble.remove(); return; }
+        if (res.success) {
+            if (bubble) {
+                // Update pending bubble to show sent state instead of removing it
+                bubble.style.opacity = '1';
+                bubble.style.background = 'var(--outgoing-msg)';
+                const timeDiv = bubble.querySelector('.msg-time');
+                if (timeDiv) timeDiv.innerHTML = timeStr + ' <span style="color:#999;font-size:0.65rem;">✓</span>';
+            }
+            return;
+        }
         if (!bubble) return;
         if (res.requires_template) {
             bubble.style.background = '#fff3e0'; bubble.style.border = '1px solid #ffcc02'; bubble.style.opacity = '1';
@@ -1716,7 +1727,15 @@ function sendFile(phone, file, caption) {
     .then(r => r.json())
     .then(res => {
         const bubble = document.getElementById(id);
-        if (res.success) { if (bubble) bubble.remove(); return; }
+        if (res.success) {
+            if (bubble) {
+                bubble.style.opacity = '1';
+                bubble.style.background = 'var(--outgoing-msg)';
+                const timeDiv = bubble.querySelector('.msg-time');
+                if (timeDiv) timeDiv.innerHTML = timeStr + ' <span style="color:#999;font-size:0.65rem;">✓</span>';
+            }
+            return;
+        }
         if (bubble) {
             bubble.style.background = '#fce4ec'; bubble.style.border = '1px solid #ef5350'; bubble.style.opacity = '1';
             bubble.innerHTML = '<div style="word-wrap:break-word;font-size:0.75rem;">📎 ' + escapeHtml(file.name) + '</div><div class="msg-status error"><i class="bi bi-x-circle-fill"></i> Failed to send file</div><div class="msg-time">' + timeStr + ' ✗</div>';

@@ -6084,6 +6084,18 @@ def webhook():
 
                                                                 print(response.status_code)
                                                                 print(response.text)
+                                                                
+                                                                # Save to whatsapp_messages for chat UI
+                                                                try:
+                                                                    with get_db() as (save_cursor, save_conn):
+                                                                        save_cursor.execute("""
+                                                                            INSERT INTO whatsapp_messages 
+                                                                            (sender_phone, sender_name, message_text, message_type, direction, status)
+                                                                            VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                                                                        """, (sender_id, 'ConnectLink Bot', '[Template: enquiries] Enquiry form sent', 'template'))
+                                                                        save_conn.commit()
+                                                                except Exception as save_err:
+                                                                    print(f"⚠️ Failed to save enquiry template to messages: {save_err}")
 
                                                                 continue
 
@@ -8793,14 +8805,17 @@ def webhook():
                                                                 print(response.status_code)
                                                                 print(response.text)
 
-
-
-
-
-
-
-
-
+                                                                # Save to whatsapp_messages for chat UI
+                                                                try:
+                                                                    with get_db() as (save_cursor, save_conn):
+                                                                        save_cursor.execute("""
+                                                                            INSERT INTO whatsapp_messages 
+                                                                            (sender_phone, sender_name, message_text, message_type, direction, status)
+                                                                            VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                                                                        """, (sender_id, 'ConnectLink Bot', '[Template: enquiries] Enquiry form sent', 'template'))
+                                                                        save_conn.commit()
+                                                                except Exception as save_err:
+                                                                    print(f"⚠️ Failed to save enquiry template to messages: {save_err}")
 
                                                                 continue
 
@@ -8847,7 +8862,17 @@ def webhook():
                                                                 print(response.status_code)
                                                                 print(response.text)
 
-
+                                                                # Save to whatsapp_messages for chat UI
+                                                                try:
+                                                                    with get_db() as (save_cursor, save_conn):
+                                                                        save_cursor.execute("""
+                                                                            INSERT INTO whatsapp_messages 
+                                                                            (sender_phone, sender_name, message_text, message_type, direction, status)
+                                                                            VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                                                                        """, (sender_id, 'ConnectLink Bot', '[Template: enquiries] Enquiry form sent (enquirylogx)', 'template'))
+                                                                        save_conn.commit()
+                                                                except Exception as save_err:
+                                                                    print(f"⚠️ Failed to save enquiry template to messages: {save_err}")
 
                                                                 continue
 
@@ -15457,6 +15482,18 @@ def send_meta_template():
         if response.status_code == 200:
             message_id = response_data.get('messages', [{}])[0].get('id', '')
             
+            # Save to whatsapp_messages for chat UI visibility
+            try:
+                with get_db() as (save_cursor, save_conn):
+                    save_cursor.execute("""
+                        INSERT INTO whatsapp_messages 
+                        (sender_phone, sender_name, message_text, message_type, direction, status)
+                        VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                    """, (clean_number, 'ConnectLink Bot', f'[Template: {template_name}] Payment reminder for {project_name} - ${amount_due:,.2f}', 'template'))
+                    save_conn.commit()
+            except Exception as save_err:
+                print(f"⚠️ Failed to save reminder template to messages: {save_err}")
+            
             # INSERT INTO DATABASE ON SUCCESS
             with get_db() as (cursor, connection):
                 # First, ensure the table exists with your exact schema
@@ -20424,7 +20461,22 @@ def send_template_with_button(to_number, project_id, receipt_type):
     
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
-        return response.json()
+        resp_data = response.json()
+        
+        # Save to whatsapp_messages for chat UI visibility
+        if response.status_code == 200:
+            try:
+                with get_db() as (save_cursor, save_conn):
+                    save_cursor.execute("""
+                        INSERT INTO whatsapp_messages 
+                        (sender_phone, sender_name, message_text, message_type, direction, status)
+                        VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                    """, (to_number, 'ConnectLink Bot', f'[Template: {config["template_name"]}] {receipt_type.replace("_"," ")}', 'template'))
+                    save_conn.commit()
+            except Exception as save_err:
+                print(f"⚠️ Failed to save receipt template to messages: {save_err}")
+        
+        return resp_data
     except Exception as e:
         print(f"❌ Error: {e}")
         return {"error": {"message": str(e)}}
@@ -22343,6 +22395,18 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
     if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
         error_payload = response_data.get('error', response_data)
         raise ValueError(f"Template send failed: {error_payload}")
+
+    # Save to whatsapp_messages so it appears in chat UI
+    try:
+        with get_db() as (save_cursor, save_conn):
+            save_cursor.execute("""
+                INSERT INTO whatsapp_messages 
+                (sender_phone, sender_name, message_text, message_type, direction, status)
+                VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+            """, (recipient_number, 'ConnectLink Bot', f'[Template: {QUOTATION_DOWNLOAD_TEMPLATE_NAME}] {client_name}', 'template'))
+            save_conn.commit()
+    except Exception as save_err:
+        print(f"⚠️ Failed to save quotation template to messages: {save_err}")
 
     return response_data
 
