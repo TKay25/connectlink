@@ -11503,19 +11503,25 @@ def whatsapp_chats():
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT sender_phone,
-                       MAX(sender_name) as contact_name,
+                SELECT w.sender_phone,
+                       COALESCE(
+                           (SELECT sub.sender_name FROM whatsapp_messages sub
+                            WHERE sub.sender_phone = w.sender_phone
+                              AND sub.direction = 'incoming'
+                            ORDER BY sub.id DESC LIMIT 1),
+                           MAX(w.sender_name)
+                       ) as contact_name,
                        COUNT(*) as msg_count,
-                       MAX(created_at) as last_message_time,
-                       (SELECT message_text FROM whatsapp_messages sub 
-                        WHERE sub.sender_phone = w.sender_phone 
+                       MAX(w.created_at) as last_message_time,
+                       (SELECT sub.message_text FROM whatsapp_messages sub
+                        WHERE sub.sender_phone = w.sender_phone
                         ORDER BY sub.id DESC LIMIT 1) as last_message,
-                       (SELECT message_type FROM whatsapp_messages sub 
-                        WHERE sub.sender_phone = w.sender_phone 
+                       (SELECT sub.message_type FROM whatsapp_messages sub
+                        WHERE sub.sender_phone = w.sender_phone
                         ORDER BY sub.id DESC LIMIT 1) as last_type
                 FROM whatsapp_messages w
-                WHERE sender_phone IS NOT NULL
-                GROUP BY sender_phone
+                WHERE w.sender_phone IS NOT NULL
+                GROUP BY w.sender_phone
                 ORDER BY last_message_time DESC
                 LIMIT 500
             """)

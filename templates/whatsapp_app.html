@@ -1213,17 +1213,27 @@ function togglePinChat(phone) {
     filterChats();
 }
 
+function parseChatTime(timeStr) {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(' ');
+    const dateParts = parts[0] ? parts[0].split('/') : [];
+    if (dateParts.length !== 3) return 0;
+    const timeParts = parts[1] ? parts[1].split(':') : ['00','00'];
+    return new Date(
+        parseInt(dateParts[2]), parseInt(dateParts[1])-1, parseInt(dateParts[0]),
+        parseInt(timeParts[0]||0), parseInt(timeParts[1]||0)
+    ).getTime();
+}
+
 function renderChatList(chats) {
     const list = document.getElementById('conversationList');
     const pinned = getPinnedChats();
-    // Sort: pinned first, then by last message time
+    // Sort: pinned first, then by last message time (descending)
     const sorted = [...chats].sort((a,b) => {
         const aPinned = pinned.includes((a.whatsapp||'').replace(/[^0-9]/g, ''));
         const bPinned = pinned.includes((b.whatsapp||'').replace(/[^0-9]/g, ''));
         if (aPinned !== bPinned) return aPinned ? -1 : 1;
-        const tA = a.last_time || '';
-        const tB = b.last_time || '';
-        return tB.localeCompare(tA);
+        return parseChatTime(b.last_time) - parseChatTime(a.last_time);
     });
     let html = '';
     sorted.forEach(chat => {
@@ -1649,6 +1659,18 @@ function cancelReply() {
     document.getElementById('replyPreviewBar').style.display = 'none';
 }
 
+// Bring current chat to top of list after sending
+function bumpChatToTop() {
+    if (!currentPhone || !chatData.length) return;
+    const idx = chatData.findIndex(c => c.whatsapp === currentPhone);
+    if (idx > 0) {
+        const chat = chatData.splice(idx, 1)[0];
+        chat.last_time = new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        chatData.unshift(chat);
+        filterChats();
+    }
+}
+
 // ==================== SEND MESSAGE ====================
 function sendMessage() {
     const input = document.getElementById('messageInput');
@@ -1700,6 +1722,7 @@ function sendText(phone, text) {
     .then(res => {
         const bubble = document.getElementById(id);
         if (res.success) {
+            bumpChatToTop();
             if (bubble) {
                 // Update pending bubble to show sent state instead of removing it
                 bubble.style.opacity = '1';
