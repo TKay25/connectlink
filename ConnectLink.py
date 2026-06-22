@@ -647,6 +647,15 @@ def initialize_database_tables():
                 ADD COLUMN IF NOT EXISTS download_click_whatsapp VARCHAR(20)
             """)
 
+            cursor.execute("""
+                ALTER TABLE quotation_share_links
+                ADD COLUMN IF NOT EXISTS pdf_data BYTEA
+            """)
+            cursor.execute("""
+                ALTER TABLE quotation_share_links
+                ADD COLUMN IF NOT EXISTS pdf_filename VARCHAR(255) DEFAULT ''
+            """)
+
             #cursor.execute("""
             #    UPDATE connectlinkdatabase 
             #    SET projectname = 'Bulawayo Full House Construction'
@@ -5378,11 +5387,10 @@ def webhook():
 
                                                             if qid:
                                                                 mark_quotation_download_clicked(payload, sender_id)
-                                                                send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
                                                                 deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
                                                                 return jsonify({"status": "received"}), 200
                                                             else:
-                                                                send_text_message(sender_id, "❌ Invalid quotation reference.")
+                                                                print("❌ Invalid quotation reference in button payload.")
                                                                 return jsonify({"status": "received"}), 200
 
                                                         elif matched_type and project_id:
@@ -21909,15 +21917,28 @@ def resolve_chatbot_keyword(text):
 
 def create_quotation_share_token(quotation_id):
     """Create a short-lived token for quotation sharing via WhatsApp quick-reply template button.
+    Pre-generates the PDF and stores it in the DB so the share URL always works instantly.
     Token format: quotation_{id}_{random_hex} so webhook can extract quotation_id directly."""
     token = f"quotation_{quotation_id}_{uuid.uuid4().hex[:12]}"
     expiry = datetime.now() + timedelta(hours=QUOTATION_SHARE_TOKEN_HOURS)
 
+    # Pre-generate the PDF so the share page doesn't need to regenerate it
+    pdf_bytes = None
+    pdf_filename = ''
+    try:
+        result = build_quotation_pdf_document(quotation_id)
+        if result:
+            pdf_bytes = result[0]
+            pdf_filename = result[1]
+    except Exception as e:
+        print(f"⚠️ Could not pre-generate PDF for share token: {e}")
+        # Non-fatal — will try again when user visits the share link
+
     with get_db() as (cursor, connection):
         cursor.execute("""
-            INSERT INTO quotation_share_links (quotation_id, share_token, expires_at)
-            VALUES (%s, %s, %s)
-        """, (quotation_id, token, expiry))
+            INSERT INTO quotation_share_links (quotation_id, share_token, expires_at, pdf_data, pdf_filename)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (quotation_id, token, expiry, pdf_bytes, pdf_filename))
         connection.commit()
 
     return token
@@ -21969,7 +21990,14 @@ def quotation_share_view(share_token):
         from weasyprint import HTML
         pdf_data = build_quotation_pdf_document_by_token(share_token)
         if not pdf_data:
-            return "<h2>Invalid or expired link</h2><p>This quotation link is not valid or has expired.</p>", 404
+            return """
+            <html><body style="font-family:Arial;text-align:center;padding:60px 20px;">
+                <h2 style="color:#d32f2f;">Link Not Available</h2>
+                <p>This quotation link is invalid, expired, or the quotation could not be generated.</p>
+                <p style="color:#666;font-size:14px;">Please contact ConnectLink on WhatsApp for a new link.</p>
+                <hr style="max-width:300px;margin:30px auto;">
+                <p style="color:#999;font-size:12px;">ConnectLink Agency (Pvt) Ltd</p>
+            </body></html>""", 404
         
         pdf_bytes, filename = pdf_data
         response = make_response(pdf_bytes)
@@ -21978,32 +22006,48 @@ def quotation_share_view(share_token):
         return response
     except Exception as e:
         print(f"Quotation share error: {e}")
+        return """
+        <html><body style="font-family:Arial;text-align:center;padding:60px 20px;">
+            <h2 style="color:#d32f2f;">Something Went Wrong</h2>
+            <p>We couldn't generate your quotation PDF right now.</p>
+            <p style="color:#666;font-size:14px;">Please try again later or contact ConnectLink on WhatsApp.</p>
+        </body></html>""", 500
         return f"<h2>Error</h2><p>Could not generate PDF. Please contact support.</p>", 500
 
 def build_quotation_pdf_document_by_token(share_token):
-    """Build PDF for a quotation accessed via share token. Returns (pdf_bytes, filename) or None."""
+    """Build PDF for a quotation accessed via share token.
+    Uses pre-stored PDF from create_quotation_share_token if available,
+    otherwise falls back to on-the-fly generation.
+    Returns (pdf_bytes, filename) or None."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT q.id, q.client_name, q.quotation_date, q.category, q.project_size,
-                       q.total_cost, q.markup_percentage, q.notes, ql.expires_at
+                       q.total_cost, q.markup_percentage, q.notes, ql.expires_at,
+                       ql.pdf_data, ql.pdf_filename
                 FROM quotations q
                 JOIN quotation_share_links ql ON ql.quotation_id = q.id
                 WHERE ql.share_token = %s
             """, (share_token,))
             row = cursor.fetchone()
             if not row:
+                print(f"Share token not found in DB: {share_token[:60]}...")
                 return None
             expiry = row[8]
             if expiry and expiry < datetime.now():
+                print(f"Share token expired: {share_token[:60]}... (expired at {expiry})")
                 return None
-            
+
+            # Use pre-stored PDF if available
+            stored_pdf = row[9]  # pdf_data bytea
+            stored_filename = row[10]  # pdf_filename
+            if stored_pdf:
+                return (bytes(stored_pdf), stored_filename or f"Quotation_{row[1] or 'Client'}_{row[0]}.pdf")
+
+            # Fallback: generate on-the-fly
             qid = row[0]
             client_name = row[1] or 'Client'
             category = row[3] or ''
-            is_kitchen = category.lower() in ('kitchen', 'kitchen_cabinets')
-            
-            # Delegate to existing PDF builder
             return build_quotation_pdf_bytes(qid, client_name, category)
     except Exception as e:
         print(f"build_quotation_pdf_document_by_token error: {e}")
@@ -22360,7 +22404,7 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
     """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
     # Ensure we have a valid DB share token for fallback URL
     db_share_token = create_quotation_share_token(quotation_id)
-    
+
     try:
         pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
     except LookupError:
@@ -22384,8 +22428,7 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
     try:
         send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption)
         mark_quotation_download_send_result(share_token, True, recipient_number)
-        
-        # Log the quotation download from WhatsApp
+
         log_activity(
             'quotation_downloaded',
             f'Quotation #{quotation_id} downloaded via WhatsApp by {recipient_number}',
@@ -22393,20 +22436,22 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
             quotation_id,
             {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token}
         )
-        
+
         print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
         return True
     except Exception as exc:
         logging.exception("Error sending quotation PDF %s", quotation_id)
         mark_quotation_download_send_result(share_token, False, recipient_number)
         share_url = get_quotation_share_url(db_share_token)
+        # Note: the db_share_token was created above with pre-generated PDF stored in DB,
+        # so the share URL will work instantly when the user visits it.
         if send_text_message and share_url:
             send_text_message(
                 recipient_number,
-                f"⚠️ We couldn't send the PDF on WhatsApp just now. You can still open your quotation here:\n{share_url}"
+                f"⚠️ Could not send PDF directly. Open & download your quotation here:\n{share_url}"
             )
         elif send_text_message:
-            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+            send_text_message(recipient_number, "❌ Failed to send your quotation. Please contact us directly.")
         print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
         return False
 
