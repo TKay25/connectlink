@@ -19445,6 +19445,7 @@ async function downloadKitchenQuotationPDFFromPortal(quotation) {
             days: item.days || 1,
             totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || 0))
         })),
+        notes: quotation.notes || '',
         schedules: (quotation.schedules || []).map(schedule => ({
             workScope: schedule.workScope,
             startDate: schedule.startDate,
@@ -19656,6 +19657,7 @@ async function sendKitchenQuotationFromPortal(quotation) {
             days: item.days || 1,
             totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || 0))
         })),
+        notes: quotation.notes || '',
         schedules: (quotation.schedules || []).map(schedule => ({
             workScope: schedule.workScope,
             startDate: schedule.startDate,
