@@ -19163,30 +19163,41 @@ function saveCurrentQuotationNote() {
  * @param {Function} callback - Function to call after handling the note
  */
 async function checkUnsavedNote(callback) {
+    console.log('checkUnsavedNote: start');
     try {
-        // Try to auto-save the note if it has real content
         let hasContent = false;
         try {
             if (typeof quillDetailsNotes !== 'undefined' && quillDetailsNotes && quillDetailsNotes.root) {
                 var html = (quillDetailsNotes.root.innerHTML || '').trim();
                 var text = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
                 hasContent = text.length > 0;
+                console.log('checkUnsavedNote: quillDetailsNotes found, hasContent=' + hasContent + ', text="' + text.substring(0,50) + '"');
+            } else {
+                console.log('checkUnsavedNote: quillDetailsNotes not available (null/undefined/no root)');
             }
         } catch (quillErr) {
-            console.warn('checkUnsavedNote: quillDetailsNotes not accessible:', quillErr);
+            console.warn('checkUnsavedNote: quillDetailsNotes error:', quillErr);
         }
         
         if (hasContent) {
+            console.log('checkUnsavedNote: has content, calling saveCurrentQuotationNote()');
             var saveBtn = document.getElementById('saveQuotationNoteBtn');
             if (saveBtn && typeof saveCurrentQuotationNote === 'function') {
                 saveCurrentQuotationNote();
+                console.log('checkUnsavedNote: saveCurrentQuotationNote() called, waiting 300ms');
                 await new Promise(function(r) { setTimeout(r, 300); });
+                console.log('checkUnsavedNote: save wait complete');
+            } else {
+                console.log('checkUnsavedNote: saveBtn found=' + !!saveBtn + ', saveCurrentQuotationNote exists=' + (typeof saveCurrentQuotationNote === 'function'));
             }
+        } else {
+            console.log('checkUnsavedNote: no content, skipping save');
         }
     } catch (e) {
         console.warn('checkUnsavedNote error:', e);
     }
     
+    console.log('checkUnsavedNote: calling callback');
     if (callback) callback();
 }
 
@@ -19194,58 +19205,72 @@ async function checkUnsavedNote(callback) {
 $(document).ready(function() {
     // Download PDF button in modal
     $('#downloadQuotationFromModalBtn').on('click', async function() {
+        console.log('DOWNLOAD BTN: clicked, currentViewingQuotation=', !!currentViewingQuotation, currentViewingQuotation ? currentViewingQuotation.id : 'null');
         if (currentViewingQuotation) {
-            const btn = this;
-            const textSpan = $('#downloadBtnText');
-            const spinner = $('#downloadBtnSpinner');
+            var btn = this;
+            var textSpan = document.getElementById('downloadBtnText');
+            var spinner = document.getElementById('downloadBtnSpinner');
             
-            // Check if note has unsaved changes before proceeding
-            await checkUnsavedNote(async () => {
-                textSpan.addClass('d-none');
-                spinner.removeClass('d-none');
+            console.log('DOWNLOAD BTN: calling checkUnsavedNote');
+            await checkUnsavedNote(async function() {
+                console.log('DOWNLOAD BTN: checkUnsavedNote callback fired');
+                if (textSpan) textSpan.style.display = 'none';
+                if (spinner) spinner.classList.remove('d-none');
                 btn.disabled = true;
                 
                 try {
+                    console.log('DOWNLOAD BTN: calling downloadQuotationPDFFromPortal(' + currentViewingQuotation.id + ')');
                     await downloadQuotationPDFFromPortal(currentViewingQuotation.id);
+                    console.log('DOWNLOAD BTN: download complete');
                 } catch (error) {
-                    console.error('Download error:', error);
+                    console.error('DOWNLOAD BTN error:', error);
                     showToast('Error downloading PDF: ' + error.message, 'error', 'Download Failed');
                 } finally {
-                    textSpan.removeClass('d-none');
-                    spinner.addClass('d-none');
+                    if (textSpan) textSpan.style.display = 'inline';
+                    if (spinner) spinner.classList.add('d-none');
                     btn.disabled = false;
+                    console.log('DOWNLOAD BTN: finally done');
                 }
             });
+            console.log('DOWNLOAD BTN: after checkUnsavedNote');
         } else {
+            console.log('DOWNLOAD BTN: no currentViewingQuotation');
             showToast('No quotation selected', 'warning', 'No Selection');
         }
     });
 
     // Send via WhatsApp button in modal
     $('#sendQuotationFromModalBtn').on('click', async function() {
+        console.log('SEND BTN: clicked, currentViewingQuotation=', !!currentViewingQuotation, currentViewingQuotation ? currentViewingQuotation.id : 'null');
         if (currentViewingQuotation) {
-            const btn = this;
-            const textSpan = $('#sendBtnText');
-            const spinner = $('#sendBtnSpinner');
+            var btn = this;
+            var textSpan = document.getElementById('sendBtnText');
+            var spinner = document.getElementById('sendBtnSpinner');
             
-            // Check if note has unsaved changes before proceeding
-            await checkUnsavedNote(async () => {
-                textSpan.addClass('d-none');
-                spinner.removeClass('d-none');
+            console.log('SEND BTN: calling checkUnsavedNote');
+            await checkUnsavedNote(async function() {
+                console.log('SEND BTN: checkUnsavedNote callback fired');
+                if (textSpan) textSpan.style.display = 'none';
+                if (spinner) spinner.classList.remove('d-none');
                 btn.disabled = true;
                 
                 try {
+                    console.log('SEND BTN: calling sendQuotationFromPortal(' + currentViewingQuotation.id + ')');
                     await sendQuotationFromPortal(currentViewingQuotation.id);
+                    console.log('SEND BTN: send complete');
                 } catch (error) {
-                    console.error('Send error:', error);
+                    console.error('SEND BTN error:', error);
                     showToast('Error sending quotation: ' + error.message, 'error', 'Send Failed');
                 } finally {
-                    textSpan.removeClass('d-none');
-                    spinner.addClass('d-none');
+                    if (textSpan) textSpan.style.display = 'inline';
+                    if (spinner) spinner.classList.add('d-none');
                     btn.disabled = false;
+                    console.log('SEND BTN: finally done');
                 }
             });
+            console.log('SEND BTN: after checkUnsavedNote');
         } else {
+            console.log('SEND BTN: no currentViewingQuotation');
             showToast('No quotation selected', 'warning', 'No Selection');
         }
     });
