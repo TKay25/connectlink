@@ -5393,6 +5393,41 @@ def webhook():
                                                                 print("❌ Invalid quotation reference in button payload.")
                                                                 return jsonify({"status": "received"}), 200
 
+                                                        elif payload and payload.lower().startswith('contract_'):
+                                                            # Template quick-reply: "Download Contract Agreement" button
+                                                            try:
+                                                                parts = payload.split('_')
+                                                                contract_project_id = int(parts[1])
+                                                            except (IndexError, ValueError):
+                                                                contract_project_id = None
+
+                                                            if contract_project_id:
+                                                                print(f"📋 Contract download requested for project #{contract_project_id}")
+                                                                # Generate and send contract PDF
+                                                                try:
+                                                                    with app.test_client() as client:
+                                                                        resp = client.get(f'/download_contract/{contract_project_id}')
+                                                                        if resp.status_code == 200:
+                                                                            pdf_bytes = resp.data
+                                                                            safe_name = f"Contract_{contract_project_id}"
+                                                                            filename = f"Contract_{contract_project_id}.pdf"
+                                                                            caption = f"CONTRACT AGREEMENT\n\nConnectLink Properties"
+                                                                            send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
+                                                                            print(f"✅ Contract {contract_project_id} sent to {sender_id}")
+                                                                        else:
+                                                                            raise ValueError(f"Contract generation failed: {resp.status_code}")
+                                                                except Exception as ce:
+                                                                    print(f"❌ Error sending contract {contract_project_id}: {ce}")
+                                                                    # Fallback: send download URL
+                                                                    contract_url = get_contract_download_url(contract_project_id)
+                                                                    if contract_url:
+                                                                        send_text_message(sender_id, f"📋 Open your contract here:\n{contract_url}")
+                                                                    else:
+                                                                        send_text_message(sender_id, "❌ Could not generate contract. Please contact ConnectLink.")
+                                                            else:
+                                                                print("❌ Invalid contract reference in button payload.")
+                                                            return jsonify({"status": "received"}), 200
+
                                                         elif matched_type and project_id:
                                                             config = RECEIPT_CONFIG[matched_type]
                                                             print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
@@ -10999,6 +11034,7 @@ WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages
 power = "Echelon Equipment Pvt Ltd"
 bot = "ConnectLink Properties"
 QUOTATION_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE', 'quotationdownload')
+CONTRACT_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_CONTRACT_DOWNLOAD_TEMPLATE', 'contractdownloadtemplate')
 PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
 QUOTATION_SHARE_TOKEN_HOURS = int(os.getenv('QUOTATION_SHARE_TOKEN_HOURS', '168'))
 
@@ -14076,9 +14112,21 @@ def download_contract(project_id):
                 }
             ''')
 
-            html_obj = HTML(string=html, base_url=request.host_url)
-
-            pdf = html_obj.write_pdf(stylesheets=[css])
+            try:
+                html_obj = HTML(string=html, base_url=request.host_url)
+                pdf = html_obj.write_pdf(stylesheets=[css])
+            except Exception as wp_exc:
+                print(f"⚠️ weasyprint failed for contract {project_id}: {wp_exc}")
+                print("🔄 Trying Playwright fallback for contract PDF...")
+                # Inject @page CSS rules into HTML for Playwright rendering
+                playwright_css = '''
+                <style>
+                    @page { size: A4; margin: 20px 20px 90px 20px; }
+                    body { font-family: 'Roboto', Arial, sans-serif; margin: 0; padding: 0; }
+                </style>
+                '''
+                html_with_pw_css = html.replace('</head>', playwright_css + '</head>')
+                pdf = generate_pdf_via_playwright(html_with_pw_css)
 
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
@@ -14120,7 +14168,8 @@ def send_contract_whatsapp():
         # Get project details
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT clientname, projectname FROM connectlinkdatabase WHERE id = %s
+                SELECT clientname, projectname, projectlocation, projectdescription 
+                FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             project = cursor.fetchone()
             if not project:
@@ -14128,6 +14177,8 @@ def send_contract_whatsapp():
             
             client_name = project[0] or 'Client'
             project_name = project[1] or 'Contract'
+            project_location = project[2] or ''
+            project_description = project[3] or ''
         
         # Generate contract PDF by calling download_contract internally
         with app.test_client() as client:
@@ -14140,21 +14191,47 @@ def send_contract_whatsapp():
         filename = f"Contract_{safe_name}_{project_id}.pdf"
         caption = f"CONTRACT\n\nClient: {client_name}\nProject: {project_name}\n\nConnectLink Properties"
         
-        # Send via WhatsApp
-        whatsapp_resp = send_pdf_document_whatsapp(phone_clean, pdf_bytes, filename, caption)
-        
-        if whatsapp_resp and whatsapp_resp.get('messages'):
-            log_activity(
-                'contract_sent_whatsapp',
-                f'Contract for {client_name} ({project_name}) sent via WhatsApp to {phone_clean}',
-                'project',
-                project_id,
-                {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean}
-            )
-            return jsonify({'success': True, 'message': 'Contract sent via WhatsApp'})
-        else:
-            error_msg = str(whatsapp_resp) if whatsapp_resp else 'WhatsApp API returned no response'
-            return jsonify({'success': False, 'error': error_msg}), 500
+        # Send via WhatsApp with fallback for 24hr window
+        try:
+            whatsapp_resp = send_pdf_document_whatsapp(phone_clean, pdf_bytes, filename, caption)
+            
+            if whatsapp_resp and whatsapp_resp.get('messages'):
+                log_activity(
+                    'contract_sent_whatsapp',
+                    f'Contract for {client_name} ({project_name}) sent via WhatsApp to {phone_clean}',
+                    'project',
+                    project_id,
+                    {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean}
+                )
+                return jsonify({'success': True, 'message': 'Contract sent via WhatsApp'})
+            else:
+                error_msg = str(whatsapp_resp) if whatsapp_resp else 'WhatsApp API returned no response'
+                raise ValueError(error_msg)
+        except Exception as send_exc:
+            logging.exception(f"Error sending contract PDF to {phone_clean}")
+            print(f"❌ Error sending contract {project_id}: {send_exc}")
+            # Fallback: send template with download button (works outside 24hr window)
+            try:
+                send_contract_download_template(phone_clean, project_id, client_name, project_description, project_location)
+                log_activity(
+                    'contract_sent_whatsapp',
+                    f'Contract for {client_name} ({project_name}) download template sent to {phone_clean}',
+                    'project',
+                    project_id,
+                    {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean, 'method': 'template_fallback'}
+                )
+                print(f"📨 Sent contract download template for {project_id} to {phone_clean}")
+                return jsonify({
+                    'success': True,
+                    'message': 'Contract generated. A download link was sent via WhatsApp.'
+                })
+            except Exception as template_exc:
+                logging.exception(f"Error sending contract template to {phone_clean}")
+                print(f"❌ Contract template also failed for {project_id}: {template_exc}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Could not send contract. Please contact ConnectLink directly.'
+                }), 500
     
     except Exception as e:
         logging.error(f"Error sending contract via WhatsApp: {e}")
@@ -22642,12 +22719,275 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
     """
 
 
+def generate_quotation_pdf_playwright(quotation_id):
+    """Generate a quotation PDF using Playwright (headless Chromium).
+    Used as fallback when weasyprint is unavailable (e.g. Windows without GTK).
+    Uses the same HTML content as the share link page but renders it server-side.
+
+    Returns (pdf_bytes, filename, caption) or raises on failure.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise RuntimeError("Playwright not installed. Run: pip install playwright && playwright install chromium")
+
+    # Fetch quotation data
+    with get_db() as (cursor, _):
+        cursor.execute("""
+            SELECT id, client_name, quotation_date, category, project_size,
+                   total_cost, markup_percentage, notes
+            FROM quotations WHERE id = %s
+        """, (quotation_id,))
+        q_row = cursor.fetchone()
+        if not q_row:
+            raise LookupError(f"Quotation {quotation_id} not found")
+
+        q = {
+            'id': q_row[0],
+            'client_name': html.escape(str(q_row[1] or 'Client')),
+            'quotation_date': q_row[2].strftime('%d %B %Y') if q_row[2] else '',
+            'category': q_row[3] or '',
+            'project_size': float(q_row[4]) if q_row[4] else 0,
+            'total_cost': float(q_row[5]) if q_row[5] else 0,
+            'markup': float(q_row[6]) if q_row[6] else 30,
+            'notes': q_row[7] or '',
+        }
+
+    client_name = q['client_name']
+    quotation_date = q['quotation_date']
+    category = q['category']
+    is_kitchen = category in ('kitchen', 'kitchen_cabinets')
+    is_construction = category in ('construction_single', 'construction_double')
+    total_cost = q['total_cost']
+    project_size = q['project_size']
+    deposit = total_cost * 0.30
+    balance = total_cost - deposit
+    payment_months = 3 if is_kitchen else 6
+    monthly = balance / payment_months if balance else 0
+    payment_period_text = f"{payment_months} months"
+    category_display = format_quotation_category(category, is_kitchen)
+    notes = q.get('notes', '')
+
+    # Build items and schedules HTML
+    items_rows_html = ''
+    items_total_row_html = ''
+    schedule_rows_html = ''
+    total_days = 0
+
+    try:
+        with get_db() as (cursor, _):
+            if is_kitchen:
+                cursor.execute("""
+                    SELECT item_name, quantity, amount, days, item_order
+                    FROM quotation_kitchen_items WHERE quotation_id = %s ORDER BY item_order
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                item_total_sum = 0
+                for idx, item in enumerate(items, 1):
+                    qty = int(item[1]) if item[1] else 1
+                    amt = float(item[2]) if item[2] else 0
+                    days = int(item[3]) if item[3] else 1
+                    line_total = qty * amt
+                    item_total_sum += line_total
+                    total_days += days
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {amt:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">{days}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {line_total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">{total_days}</td><td style="padding:8px;text-align:right;">USD {item_total_sum:,.2f}</td></tr>"""
+            else:
+                cursor.execute("""
+                    SELECT item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items WHERE quotation_id = %s ORDER BY item_order
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                markup = q['markup']
+                markup_mult = 1 + (markup / 100)
+                cost_sum = 0
+                for idx, item in enumerate(items, 1):
+                    qty = float(item[1]) if item[1] else 0
+                    inhouse_rate = float(item[2]) if item[2] else 0
+                    total = float(item[3]) if item[3] else 0
+                    client_rate = inhouse_rate * markup_mult
+                    cost_sum += total
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">0</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
+
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days, task_order
+                FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order
+            """, (quotation_id,))
+            scheds = cursor.fetchall()
+            for idx, s in enumerate(scheds, 1):
+                sd = s[1].strftime('%d/%m/%Y') if s[1] else ''
+                ed = s[2].strftime('%d/%m/%Y') if s[2] else ''
+                bg = '#f9f9f9' if idx % 2 else '#fff'
+                schedule_rows_html += f"""<tr style="border-bottom:1px solid #ddd;background:{bg};"><td style="padding:6px;text-align:center;">{idx}</td><td style="padding:6px;">{html.escape(s[0] or 'Task')}</td><td style="padding:6px;text-align:center;">{sd}</td><td style="padding:6px;text-align:center;">{ed}</td></tr>"""
+    except Exception as e:
+        print(f"Error fetching items for Playwright PDF: {e}")
+        items_rows_html = '<tr><td colspan="6" style="text-align:center;padding:20px;">Could not load items.</td></tr>'
+
+    # Logo
+    logo_b64 = ''
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+    if os.path.exists(logo_path):
+        with open(logo_path, 'rb') as f:
+            logo_b64 = base64.b64encode(f.read()).decode('utf-8')
+
+    # Notes section
+    notes_section = ''
+    if notes and notes.replace('<p><br></p>', '').replace('<p></p>', '').replace('&nbsp;', ' ').strip():
+        notes_section = f"""
+                <div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;">
+                    <div style="border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;">
+                        <div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;">Quotation Notes</div>
+                        <div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">{notes}</div>
+                    </div>
+                </div>"""
+
+    # Summary columns
+    if is_construction:
+        summary_cols = 4
+        duration_col_html = ''
+    else:
+        summary_cols = 5
+        duration_col_html = f"""
+                            <div style="padding:0 5px;border-left:1px solid #d8deef;">
+                                <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div>
+                                <div style="font-size:13px;font-weight:700;color:#2196F3;">{total_days} Days</div>
+                            </div>"""
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page {{ size:A4; margin:6mm; }}
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family:Arial,sans-serif; background:#fff; color:#1E2A56; padding:0; }}
+#quotation {{ background:#fff; width:100%; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px; }}
+table {{ width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px; }}
+th {{ padding:8px 10px; border:1px solid #2a3a78; background:#1E2A56; color:white; }}
+td {{ padding:8px 10px; border:1px solid #d8deef; }}
+</style>
+</head>
+<body>
+<div id="quotation">
+  <img src="data:image/png;base64,{logo_b64}" alt="Logo" style="display:block;margin:0 auto 10px;width:130px;">
+  <h1 style="margin:0 0 6px;text-align:center;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>
+  <div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px;"></div>
+  <p style="font-size:12px;margin-bottom:12px;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{client_name}</strong>.</p>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">PROJECT DETAILS</h4>
+  <div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;">
+    <div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;">
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>{client_name}</span></div>
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>{project_size} Sq. Meters</span></div>
+    </div>
+    <div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;">
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>{category_display}</span></div>
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>{quotation_date}</span></div>
+    </div>
+  </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">QUOTATION SUMMARY</h4>
+  <div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:repeat({summary_cols},1fr);gap:10px;text-align:center;">
+      <div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;">USD {total_cost:,.2f}</div></div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;">USD {deposit:,.2f}</div></div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;">USD {balance:,.2f}</div></div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over {payment_period_text})</div><div style="font-size:13px;font-weight:700;">USD {monthly:,.2f}</div></div>
+      {duration_col_html}
+    </div>
+  </div>
+
+  {notes_section}
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">ITEM DETAILS</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
+
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
+    <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">
+      <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+      <div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
+      {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>
+      <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
+        <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">Our Turnaround Times for Residential Projects</strong>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+          <div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div>
+          <div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div>
+          <div>Double Storey:</div><div><strong>120-180 days</strong></div>
+          <div>Perimeter Wall:</div><div><strong>30-40 days</strong></div>
+          <div>Roofing:</div><div><strong>10-14 days</strong></div>
+          <div>Finishings:</div><div><strong>30 days</strong></div>
+        </div>
+      </div>''')}
+    </div>
+    <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.8;">
+      <strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong>
+      <div><strong>Bank:</strong> ZB BANK</div>
+      <div><strong>Branch:</strong> Msasa</div>
+      <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+      <div><strong>Account No:</strong> 450600586638405</div>
+      <div><strong>Account Type:</strong> USD Account</div>
+    </div>
+  </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>
+</div>
+</body>
+</html>"""
+
+    # Generate PDF via Playwright
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.set_content(html_content)
+        pdf_bytes = page.pdf(format='A4', margin={'top': '6mm', 'bottom': '6mm', 'left': '6mm', 'right': '6mm'})
+        browser.close()
+
+    safe_name = ''.join(char for char in str(q['client_name']) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+    filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
+    caption_category = format_quotation_category(category, is_kitchen)
+    caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
+
+    return pdf_bytes, filename, caption
+
+
+def generate_pdf_via_playwright(html_content, format='A4'):
+    """Render HTML to PDF using Playwright (headless Chromium).
+    Generic helper — works with any HTML string (quotation, contract, etc.).
+    Falls back from weasyprint when GTK libraries are unavailable.
+
+    Args:
+        html_content: Full HTML document string
+        format: Page format (default 'A4')
+
+    Returns: PDF bytes
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise RuntimeError("Playwright not installed. Run: pip install playwright && playwright install chromium")
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.set_content(html_content)
+        pdf_bytes = page.pdf(format=format, margin={'top': '6mm', 'bottom': '6mm', 'left': '6mm', 'right': '6mm'})
+        browser.close()
+
+    return pdf_bytes
+
+
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
     """Send a quotation PDF to WhatsApp using the stored PDF from the DB
     (generated by the frontend via html2pdf.js and saved during template fallback).
 
     If sending fails (outside 24hr window), falls back to sending a share URL
     that serves the stored PDF directly.
+
+    Falls back to Playwright (headless Chromium) when weasyprint is unavailable.
     """
     # 1) Retrieve the stored PDF from DB — use ANY token for this quotation
     stored_pdf_bytes = None
@@ -22722,7 +23062,11 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
             print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
             return False
 
-    # 3) No stored PDF — try weasyprint (will likely fail without GTK), then fallback to share URL
+    # 3) No stored PDF — try weasyprint, then Playwright fallback, then share URL
+    pdf_bytes = None
+    filename = ''
+    caption = ''
+    from_playwright = False
     try:
         pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
     except LookupError:
@@ -22730,16 +23074,29 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
             send_text_message(recipient_number, "❌ Quotation not found.")
         return False
     except Exception as exc:
-        logging.exception("Error generating quotation PDF %s", quotation_id)
-        mark_quotation_download_send_result(share_token, False, recipient_number)
-        share_url = get_quotation_share_url(db_share_token)
-        if send_text_message and share_url:
-            send_text_message(recipient_number,
-                f"⚠️ Could not generate PDF. Open & download your quotation here:\n{share_url}")
-        elif send_text_message:
-            send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
-        print(f"❌ Error generating quotation PDF {quotation_id}: {exc}")
-        return False
+        print(f"⚠️ weasyprint failed for quotation {quotation_id}: {exc}")
+        print("🔄 Trying Playwright fallback...")
+        try:
+            pdf_bytes, filename, caption = generate_quotation_pdf_playwright(quotation_id)
+            from_playwright = True
+            print(f"✅ Playwright generated PDF for quotation {quotation_id}")
+            # Store in DB for future sends
+            try:
+                create_quotation_share_token(quotation_id, pdf_bytes=pdf_bytes, pdf_filename=filename)
+                print(f"💾 Stored Playwright-generated PDF in DB for quotation {quotation_id}")
+            except Exception as store_exc:
+                print(f"⚠️ Could not store PDF in DB: {store_exc}")
+        except Exception as pw_exc:
+            logging.exception("Error generating quotation PDF %s", quotation_id)
+            mark_quotation_download_send_result(share_token, False, recipient_number)
+            share_url = get_quotation_share_url(db_share_token)
+            if send_text_message and share_url:
+                send_text_message(recipient_number,
+                    f"⚠️ Could not generate PDF. Open & download your quotation here:\n{share_url}")
+            elif send_text_message:
+                send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+            print(f"❌ Error generating quotation PDF {quotation_id}: {pw_exc}")
+            return False
 
     try:
         send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption)
@@ -22830,6 +23187,88 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
             save_conn.commit()
     except Exception as save_err:
         print(f"⚠️ Failed to save quotation template to messages: {save_err}")
+
+    return response_data
+
+
+def get_contract_download_url(project_id):
+    """Build the public download URL for a contract document."""
+    public_base = PUBLIC_BASE_URL
+    if not public_base:
+        try:
+            public_base = request.url_root.rstrip('/')
+        except RuntimeError:
+            public_base = ''
+    if not public_base:
+        return ''
+    return f"{public_base}/download_contract/{project_id}"
+
+
+def send_contract_download_template(recipient_number, project_id, client_name='', project_description='', project_location=''):
+    """Send approved CTA template with URL button to contract download page.
+
+    Template must be configured in Meta as:
+    - Body: Hello {{1}}, your contract for the project with description *{{2}}* at *{{3}}* is ready for download.
+            Kindly click the button "Download Contract Agreement" below to download and view your contract agreement.
+    - Button (URL, CTA): Download Contract Agreement → https://<your-public-domain>/download_contract/{{1}}
+    """
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": recipient_number,
+        "type": "template",
+        "template": {
+            "name": CONTRACT_DOWNLOAD_TEMPLATE_NAME,
+            "language": {"code": "en"},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": client_name or "Valued Client"},
+                        {"type": "text", "text": project_description or "Construction"},
+                        {"type": "text", "text": project_location or "your area"}
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "0",
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": f"contract_{project_id}"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    response = requests.post(url, headers=headers, json=payload, timeout=45)
+    response_data = response.json()
+    print(f"📨 Contract template response [{response.status_code}]: {response_data}")
+
+    if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
+        error_payload = response_data.get('error', response_data)
+        raise ValueError(f"Contract template send failed: {error_payload}")
+
+    # Save to whatsapp_messages so it appears in chat UI
+    try:
+        with get_db() as (save_cursor, save_conn):
+            save_cursor.execute("""
+                INSERT INTO whatsapp_messages 
+                (sender_phone, sender_name, message_text, message_type, direction, status)
+                VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+            """, (recipient_number, 'ConnectLink Bot',
+                  f'[Template: {CONTRACT_DOWNLOAD_TEMPLATE_NAME}] {client_name}', 'template'))
+            save_conn.commit()
+    except Exception as save_err:
+        print(f"⚠️ Failed to save contract template to messages: {save_err}")
 
     return response_data
 

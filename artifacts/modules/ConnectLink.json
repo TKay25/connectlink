@@ -34,25 +34,25 @@
     "numpy",
     "openpyxl",
     "pandas",
+    "playwright",
     "psycopg2",
     "pytz",
     "requests",
-    "seaborn",
-    "secrets"
+    "seaborn"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 10909"
+    "INSTRUCTIONS @ line 10944"
   ],
   "token_controls": [
-    "max_length = 0 @ line 16545",
-    "max_length = len(str(cell.value)) @ line 16550",
-    "adjusted_width = min(max_length + 2, 50) @ line 16553",
-    "max_length = 0 @ line 17365",
-    "max_length = cell_length @ line 17372",
-    "adjusted_width = min(max_length + 2, 50) @ line 17375",
-    "max_length = 0 @ line 18210",
-    "max_length = cell_length @ line 18217",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 18220"
+    "max_length = 0 @ line 16622",
+    "max_length = len(str(cell.value)) @ line 16627",
+    "adjusted_width = min(max_length + 2, 50) @ line 16630",
+    "max_length = 0 @ line 17442",
+    "max_length = cell_length @ line 17449",
+    "adjusted_width = min(max_length + 2, 50) @ line 17452",
+    "max_length = 0 @ line 18287",
+    "max_length = cell_length @ line 18294",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 18297"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1781691732172.6877,
   "file_size": 1328874,
   "file_birthtime": 1776794366250.55,
-  "generated_at": "2026-06-22T16:25:20.578162Z",
+  "generated_at": "2026-06-22T17:49:24.889036Z",
   "stale": false
 }
