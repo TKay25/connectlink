@@ -21962,6 +21962,66 @@ def get_quotation_share_url(share_token):
 
     return f"{public_base}/quotation/share/{share_token}"
 
+@app.route('/quotation/share/<share_token>')
+def quotation_share_view(share_token):
+    """Generate and download the quotation PDF for a shared link."""
+    try:
+        from weasyprint import HTML
+        pdf_data = build_quotation_pdf_document_by_token(share_token)
+        if not pdf_data:
+            return "<h2>Invalid or expired link</h2><p>This quotation link is not valid or has expired.</p>", 404
+        
+        pdf_bytes, filename = pdf_data
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        print(f"Quotation share error: {e}")
+        return f"<h2>Error</h2><p>Could not generate PDF. Please contact support.</p>", 500
+
+def build_quotation_pdf_document_by_token(share_token):
+    """Build PDF for a quotation accessed via share token. Returns (pdf_bytes, filename) or None."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT q.id, q.client_name, q.quotation_date, q.category, q.project_size,
+                       q.total_cost, q.markup_percentage, q.notes, ql.expires_at
+                FROM quotations q
+                JOIN quotation_share_links ql ON ql.quotation_id = q.id
+                WHERE ql.share_token = %s
+            """, (share_token,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            expiry = row[8]
+            if expiry and expiry < datetime.now():
+                return None
+            
+            qid = row[0]
+            client_name = row[1] or 'Client'
+            category = row[3] or ''
+            is_kitchen = category.lower() in ('kitchen', 'kitchen_cabinets')
+            
+            # Delegate to existing PDF builder
+            return build_quotation_pdf_bytes(qid, client_name, category)
+    except Exception as e:
+        print(f"build_quotation_pdf_document_by_token error: {e}")
+        return None
+
+def build_quotation_pdf_bytes(quotation_id, client_name='Client', category=''):
+    """Build PDF bytes for a quotation. Returns (pdf_bytes, filename) or None."""
+    try:
+        result = build_quotation_pdf_document(quotation_id)
+        if not result:
+            return None
+        # build_quotation_pdf_document returns (pdf_bytes, filename, caption)
+        pdf_bytes = result[0]
+        return (pdf_bytes, result[1])
+    except Exception as e:
+        print(f"build_quotation_pdf_bytes error: {e}")
+        return None
+
 def fmt_currency(value):
     """Convert Indian format string to Western format"""
     try:
@@ -22121,10 +22181,12 @@ def build_quotation_pdf_document(quotation_id):
                         <td style="padding:6px; text-align:center; font-weight:bold; color:#2196F3;">{days}</td>
                     </tr>"""
 
-            # Logo and final PDF generation (same as existing)
+            # Logo (optional — skip if file doesn't exist)
+            logo_b64 = ''
             logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
-            with open(logo_path, 'rb') as img_f:
-                logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as img_f:
+                    logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
 
             # Generate HTML and PDF
             html = generate_quotation_html(
@@ -22296,6 +22358,9 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
 
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
     """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
+    # Ensure we have a valid DB share token for fallback URL
+    db_share_token = create_quotation_share_token(quotation_id)
+    
     try:
         pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
     except LookupError:
@@ -22305,7 +22370,7 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
     except Exception as exc:
         logging.exception("Error generating quotation PDF %s", quotation_id)
         mark_quotation_download_send_result(share_token, False, recipient_number)
-        share_url = get_quotation_share_url(share_token)
+        share_url = get_quotation_share_url(db_share_token)
         if send_text_message and share_url:
             send_text_message(
                 recipient_number,
@@ -22334,7 +22399,7 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
     except Exception as exc:
         logging.exception("Error sending quotation PDF %s", quotation_id)
         mark_quotation_download_send_result(share_token, False, recipient_number)
-        share_url = get_quotation_share_url(share_token)
+        share_url = get_quotation_share_url(db_share_token)
         if send_text_message and share_url:
             send_text_message(
                 recipient_number,
