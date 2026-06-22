@@ -19416,8 +19416,8 @@ async function downloadQuotationPDFFromPortal(quotationId) {
         throw new Error('Quotation not found');
     }
     
-    // Check if it's a kitchen quotation
-    const isKitchen = (quotation.category === 'kitchen');
+    // Check if it's a kitchen quotation (case-insensitive, handles "Kitchen & Cabinets")
+    const isKitchen = quotation.category && quotation.category.toLowerCase().includes('kitchen');
     
     if (isKitchen) {
         // Use kitchen PDF generator
@@ -19631,7 +19631,7 @@ async function sendQuotationFromPortal(quotationId) {
         throw new Error('No WhatsApp number saved for this quotation. Edit the quotation first to add one.');
     }
     
-    const isKitchen = (quotation.category === 'kitchen');
+    const isKitchen = quotation.category && quotation.category.toLowerCase().includes('kitchen');
     
     if (isKitchen) {
         await sendKitchenQuotationFromPortal(quotation);
