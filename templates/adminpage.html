@@ -19181,18 +19181,15 @@ async function checkUnsavedNote(callback) {
         }
         
         if (hasContent) {
-            console.log('checkUnsavedNote: has content, calling saveCurrentQuotationNote()');
-            var saveBtn = document.getElementById('saveQuotationNoteBtn');
-            if (saveBtn && typeof saveCurrentQuotationNote === 'function') {
-                saveCurrentQuotationNote();
-                console.log('checkUnsavedNote: saveCurrentQuotationNote() called, waiting 300ms');
-                await new Promise(function(r) { setTimeout(r, 300); });
-                console.log('checkUnsavedNote: save wait complete');
-            } else {
-                console.log('checkUnsavedNote: saveBtn found=' + !!saveBtn + ', saveCurrentQuotationNote exists=' + (typeof saveCurrentQuotationNote === 'function'));
+            var q2 = typeof currentViewingQuotation !== 'undefined' ? currentViewingQuotation : window.currentViewingQuotation;
+            var savedText2 = q2 ? (q2.notes || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() : '';
+            if (text !== savedText2) {
+                var saveBtn = document.getElementById('saveQuotationNoteBtn');
+                if (saveBtn && typeof saveCurrentQuotationNote === 'function') {
+                    saveCurrentQuotationNote();
+                    await new Promise(function(r) { setTimeout(r, 300); });
+                }
             }
-        } else {
-            console.log('checkUnsavedNote: no content, skipping save');
         }
     } catch (e) {
         console.warn('checkUnsavedNote error:', e);
