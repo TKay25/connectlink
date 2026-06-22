@@ -19162,26 +19162,36 @@ function saveCurrentQuotationNote() {
  * @param {Function} callback - Function to call after handling the note save decision
  */
 async function checkUnsavedNote(callback) {
-    const q = typeof currentViewingQuotation !== 'undefined' ? currentViewingQuotation : window.currentViewingQuotation;
-    if (!q || !q.id) {
-        if (callback) callback();
-        return;
-    }
-    
-    const currentNoteHtml = quillDetailsNotes ? quillDetailsNotes.root.innerHTML.trim() : '';
-    const savedNoteHtml = (q.notes || '').trim();
-    
-    // Normalise HTML for comparison (handle Quill's wrapping)
-    const normalize = (html) => html.replace(/^<p>\s*<\/p>$/, '').replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
-    
-    if (normalize(currentNoteHtml) === normalize(savedNoteHtml)) {
-        // No changes - proceed silently
-        if (callback) callback();
-        return;
-    }
-    
-    // Changes detected - show confirmation modal
-    const shouldSave = await new Promise((resolve) => {
+    try {
+        const q = typeof currentViewingQuotation !== 'undefined' ? currentViewingQuotation : window.currentViewingQuotation;
+        if (!q || !q.id) {
+            if (callback) callback();
+            return;
+        }
+        
+        // Safely get current note content (Quill editor might not be available)
+        let currentNoteHtml = '';
+        try {
+            if (typeof quillDetailsNotes !== 'undefined' && quillDetailsNotes && quillDetailsNotes.root) {
+                currentNoteHtml = (quillDetailsNotes.root.innerHTML || '').trim();
+            }
+        } catch (quillErr) {
+            console.warn('checkUnsavedNote: quillDetailsNotes not accessible:', quillErr);
+        }
+        
+        const savedNoteHtml = (q.notes || '').trim();
+        
+        // Normalise HTML for comparison (handle Quill's wrapping)
+        const normalize = (html) => html.replace(/^<p>\s*<\/p>$/, '').replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
+        
+        if (normalize(currentNoteHtml) === normalize(savedNoteHtml)) {
+            // No changes - proceed silently
+            if (callback) callback();
+            return;
+        }
+        
+        // Changes detected - show confirmation modal
+        const shouldSave = await new Promise((resolve) => {
         const confirmId = 'unsavedNoteConfirm_' + Date.now();
         const modalHtml = `
             <div id="${confirmId}" class="modal-overlay" style="display:flex;z-index:99999;">
@@ -19241,6 +19251,8 @@ async function checkUnsavedNote(callback) {
             // Wait a moment for the save to complete
             await new Promise(r => setTimeout(r, 600));
         }
+    } catch (e) {
+        console.warn('checkUnsavedNote error:', e);
     }
     
     if (callback) callback();
