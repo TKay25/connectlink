@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "WhatsappAppGuide",
+  "file": "templates/whatsapp_app_guide.html",
+  "purpose": "<!-- Describe what WhatsappAppGuide does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "fa23198b2d7068ca",
+  "file_mtime": 1782043954990.9417,
+  "file_size": 39645,
+  "file_birthtime": 1781938152886.8093,
+  "generated_at": "2026-06-22T08:16:01.411Z",
+  "stale": false
+}

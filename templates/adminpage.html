@@ -19212,14 +19212,19 @@ async function checkUnsavedNote(callback) {
             resolve(result);
         };
         
-        document.getElementById(confirmId + '_save').addEventListener('click', () => cleanup(true));
-        document.getElementById(confirmId + '_discard').addEventListener('click', () => cleanup(false));
-        document.getElementById(confirmId + '_close').addEventListener('click', () => cleanup(false));
+        const elSave = document.getElementById(confirmId + '_save');
+        const elDiscard = document.getElementById(confirmId + '_discard');
+        const elClose = document.getElementById(confirmId + '_close');
+        if (elSave) elSave.addEventListener('click', () => cleanup(true));
+        if (elDiscard) elDiscard.addEventListener('click', () => cleanup(false));
+        if (elClose) elClose.addEventListener('click', () => cleanup(false));
         
         // Close on overlay click
-        modalEl.addEventListener('click', (e) => {
-            if (e.target === modalEl) cleanup(false);
-        });
+        if (modalEl) {
+            modalEl.addEventListener('click', (e) => {
+                if (e.target === modalEl) cleanup(false);
+            });
+        }
     });
     
     if (shouldSave) {
