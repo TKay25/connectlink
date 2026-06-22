@@ -19181,10 +19181,11 @@ async function checkUnsavedNote(callback) {
         
         const savedNoteHtml = (q.notes || '').trim();
         
-        // Normalise HTML for comparison (handle Quill's wrapping)
-        const normalize = (html) => html.replace(/^<p>\s*<\/p>$/, '').replace(/^<p>/, '').replace(/<\/p>$/, '').trim();
+        // Strip ALL HTML tags and whitespace to compare actual content
+        // Handles: <p></p>, <p><br></p>, <p>&nbsp;</p>, and any Quill empty states
+        const stripHtml = (html) => html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
         
-        if (normalize(currentNoteHtml) === normalize(savedNoteHtml)) {
+        if (stripHtml(currentNoteHtml) === stripHtml(savedNoteHtml)) {
             // No changes - proceed silently
             if (callback) callback();
             return;
