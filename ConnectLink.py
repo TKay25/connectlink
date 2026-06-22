@@ -22072,13 +22072,16 @@ def _serve_quotation_html_page(q):
     quotation_date = q['quotation_date']
     category = q['category']
     is_kitchen = category in ('kitchen', 'kitchen_cabinets')
+    is_construction = category in ('construction_single', 'construction_double')
     total_cost = q['total_cost']
+    project_size = q['project_size']
     deposit = total_cost * 0.30
     balance = total_cost - deposit
     payment_months = 3 if is_kitchen else 6
     monthly = balance / payment_months if balance else 0
     payment_period_text = f"{payment_months} months"
     category_display = format_quotation_category(category, is_kitchen)
+    notes = q.get('notes', '')
 
     # Quotation items (fetch from DB)
     items_rows_html = ''
@@ -22132,9 +22135,8 @@ def _serve_quotation_html_page(q):
             for idx, s in enumerate(scheds, 1):
                 sd = s[1].strftime('%d/%m/%Y') if s[1] else ''
                 ed = s[2].strftime('%d/%m/%Y') if s[2] else ''
-                days = int(s[3]) if s[3] else 0
                 bg = '#f9f9f9' if idx % 2 else '#fff'
-                schedule_rows_html += f"""<tr style="border-bottom:1px solid #ddd;background:{bg};"><td style="padding:6px;text-align:center;">{idx}</td><td style="padding:6px;">{html.escape(s[0] or 'Task')}</td><td style="padding:6px;text-align:center;">{sd}</td><td style="padding:6px;text-align:center;">{ed}</td><td style="padding:6px;text-align:center;font-weight:bold;color:#2196F3;">{days}</td></tr>"""
+                schedule_rows_html += f"""<tr style="border-bottom:1px solid #ddd;background:{bg};"><td style="padding:6px;text-align:center;">{idx}</td><td style="padding:6px;">{html.escape(s[0] or 'Task')}</td><td style="padding:6px;text-align:center;">{sd}</td><td style="padding:6px;text-align:center;">{ed}</td></tr>"""
     except Exception as e:
         print(f"Error fetching quotation items for HTML page: {e}")
         items_rows_html = '<tr><td colspan="6" style="text-align:center;padding:20px;">Could not load items.</td></tr>'
@@ -22144,6 +22146,30 @@ def _serve_quotation_html_page(q):
     if os.path.exists(logo_path):
         with open(logo_path, 'rb') as f:
             logo_b64 = base64.b64encode(f.read()).decode('utf-8')
+
+    # Build quotation notes section if notes have visible content
+    notes_section = ''
+    if notes and notes.replace('<p><br></p>', '').replace('<p></p>', '').replace('&nbsp;', ' ').strip():
+        notes_section = f"""
+                <!-- QUOTATION NOTES -->
+                <div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;">
+                    <div style="border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;">
+                        <div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;">Quotation Notes</div>
+                        <div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">{notes}</div>
+                    </div>
+                </div>"""
+
+    # Summary columns: 4 for construction, 5 for everything else (adds Duration)
+    if is_construction:
+        summary_cols = 4
+        duration_col_html = ''
+    else:
+        summary_cols = 5
+        duration_col_html = f"""
+                            <div style="padding:0 5px;border-left:1px solid #d8deef;">
+                                <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div>
+                                <div style="font-size:13px;font-weight:700;color:#2196F3;">{total_days} Days</div>
+                            </div>"""
 
     return f"""<!DOCTYPE html>
 <html>
@@ -22176,37 +22202,77 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
   <img src="data:image/png;base64,{logo_b64}" alt="Logo" style="display:block;margin:0 auto 10px;width:130px;">
   <h1 style="margin:0 0 6px;text-align:center;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>
   <div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px;"></div>
-  <p style="font-size:12px;margin-bottom:12px;">This quotation is prepared for <strong>{client_name}</strong>.</p>
+  <p style="font-size:12px;margin-bottom:12px;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{client_name}</strong>.</p>
 
   <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">PROJECT DETAILS</h4>
-  <div style="display:flex;gap:16px;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;">
-    <div style="flex:1;"><strong>Client:</strong> {client_name}</div>
-    <div style="flex:1;"><strong>Category:</strong> {category_display}</div>
-    <div style="flex:1;"><strong>Date:</strong> {quotation_date}</div>
+  <div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;">
+    <div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;">
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>{client_name}</span></div>
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>{project_size} Sq. Meters</span></div>
+    </div>
+    <div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;">
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>{category_display}</span></div>
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>{quotation_date}</span></div>
+    </div>
   </div>
 
   <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">QUOTATION SUMMARY</h4>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">
-    <div><div style="font-size:10px;color:#5a678a;text-transform:uppercase;">Total</div><div style="font-size:13px;font-weight:900;">USD {total_cost:,.2f}</div></div>
-    <div><div style="font-size:10px;color:#5a678a;text-transform:uppercase;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;">USD {deposit:,.2f}</div></div>
-    <div><div style="font-size:10px;color:#5a678a;text-transform:uppercase;">Balance</div><div style="font-size:13px;font-weight:700;">USD {balance:,.2f}</div></div>
-    <div><div style="font-size:10px;color:#5a678a;text-transform:uppercase;">Monthly ({payment_period_text})</div><div style="font-size:13px;font-weight:700;">USD {monthly:,.2f}</div></div>
+  <div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:repeat({summary_cols},1fr);gap:10px;text-align:center;">
+      <div style="padding:0 5px;">
+        <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div>
+        <div style="font-size:13px;font-weight:900;">USD {total_cost:,.2f}</div>
+      </div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;">
+        <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div>
+        <div style="font-size:13px;font-weight:700;">USD {deposit:,.2f}</div>
+      </div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;">
+        <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div>
+        <div style="font-size:13px;font-weight:700;">USD {balance:,.2f}</div>
+      </div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;">
+        <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over {payment_period_text})</div>
+        <div style="font-size:13px;font-weight:700;">USD {monthly:,.2f}</div>
+      </div>
+      {duration_col_html}
+    </div>
   </div>
+
+  {notes_section}
 
   <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">ITEM DETAILS</h4>
-  <table><thead><tr><th>#</th><th style="text-align:left;">Item</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
 
-  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
-  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th><th>Days</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>
-
-  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:20px;">
-    <div style="flex:1;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;">
-      <strong style="color:#d32f2f;">Important Note:</strong> Valid for <strong>30 days</strong>. All prices in <strong>USD</strong>.
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
+    <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">
+      <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+      <div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
+      {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>
+      <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
+        <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+          <div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div>
+          <div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div>
+          <div>Double Storey:</div><div><strong>120-180 days</strong></div>
+          <div>Perimeter Wall:</div><div><strong>30-40 days</strong></div>
+          <div>Roofing:</div><div><strong>10-14 days</strong></div>
+          <div>Finishings:</div><div><strong>30 days</strong></div>
+        </div>
+      </div>''')}
     </div>
-    <div style="flex:1;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;">
-      <strong>Bank:</strong> ZB BANK<br><strong>Account:</strong> Connectlink Agency (Pvt) Ltd<br><strong>Account No:</strong> 450600586638405
+    <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.8;">
+      <strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong>
+      <div><strong>Bank:</strong> ZB BANK</div>
+      <div><strong>Branch:</strong> Msasa</div>
+      <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+      <div><strong>Account No:</strong> 450600586638405</div>
+      <div><strong>Account Type:</strong> USD Account</div>
     </div>
   </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>
 </div>
 
 <script>
