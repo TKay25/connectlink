@@ -21915,30 +21915,31 @@ def resolve_chatbot_keyword(text):
     return None
 
 
-def create_quotation_share_token(quotation_id):
+def create_quotation_share_token(quotation_id, pdf_bytes=None, pdf_filename=''):
     """Create a short-lived token for quotation sharing via WhatsApp quick-reply template button.
-    Pre-generates the PDF and stores it in the DB so the share URL always works instantly.
-    Token format: quotation_{id}_{random_hex} so webhook can extract quotation_id directly."""
+    Token format: quotation_{id}_{random_hex} so webhook can extract quotation_id directly.
+
+    If pdf_bytes is provided (e.g. from frontend-generated PDF), it's stored directly.
+    Otherwise tries to generate server-side — if that fails, token is still created
+    and the share page will show a friendly error."""
     token = f"quotation_{quotation_id}_{uuid.uuid4().hex[:12]}"
     expiry = datetime.now() + timedelta(hours=QUOTATION_SHARE_TOKEN_HOURS)
 
-    # Pre-generate the PDF so the share page doesn't need to regenerate it
-    pdf_bytes = None
-    pdf_filename = ''
-    try:
-        result = build_quotation_pdf_document(quotation_id)
-        if result:
-            pdf_bytes = result[0]
-            pdf_filename = result[1]
-    except Exception as e:
-        print(f"⚠️ Could not pre-generate PDF for share token: {e}")
-        # Non-fatal — will try again when user visits the share link
+    # If no PDF provided, try server-side generation as fallback
+    if pdf_bytes is None:
+        try:
+            result = build_quotation_pdf_document(quotation_id)
+            if result:
+                pdf_bytes = result[0]
+                pdf_filename = result[1]
+        except Exception as e:
+            print(f"⚠️ Could not pre-generate PDF for share token: {e}")
 
     with get_db() as (cursor, connection):
         cursor.execute("""
             INSERT INTO quotation_share_links (quotation_id, share_token, expires_at, pdf_data, pdf_filename)
             VALUES (%s, %s, %s, %s, %s)
-        """, (quotation_id, token, expiry, pdf_bytes, pdf_filename))
+        """, (quotation_id, token, expiry, pdf_bytes, pdf_filename or ''))
         connection.commit()
 
     return token
@@ -21985,40 +21986,49 @@ def get_quotation_share_url(share_token):
 
 @app.route('/quotation/share/<share_token>')
 def quotation_share_view(share_token):
-    """Generate and download the quotation PDF for a shared link."""
+    """Serve a quotation PDF via share link.
+    Uses pre-stored PDF if available. Otherwise serves a self-contained HTML page
+    that renders the quotation and generates the PDF client-side via html2pdf.js
+    — no server-side PDF generation needed."""
     try:
-        from weasyprint import HTML
-        pdf_data = build_quotation_pdf_document_by_token(share_token)
-        if not pdf_data:
-            return """
-            <html><body style="font-family:Arial;text-align:center;padding:60px 20px;">
+        # 1) Validate the token and get quotation data
+        quotation_data = _get_quotation_data_for_token(share_token)
+        if quotation_data is None:
+            return """<html><body style="font-family:Arial;text-align:center;padding:60px 20px;">
                 <h2 style="color:#d32f2f;">Link Not Available</h2>
-                <p>This quotation link is invalid, expired, or the quotation could not be generated.</p>
+                <p>This quotation link is invalid or has expired.</p>
                 <p style="color:#666;font-size:14px;">Please contact ConnectLink on WhatsApp for a new link.</p>
                 <hr style="max-width:300px;margin:30px auto;">
                 <p style="color:#999;font-size:12px;">ConnectLink Agency (Pvt) Ltd</p>
             </body></html>""", 404
-        
-        pdf_bytes, filename = pdf_data
-        response = make_response(pdf_bytes)
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-        return response
+
+        q = quotation_data  # dict with id, client_name, etc.
+
+        # 2) If a stored PDF exists, serve it directly
+        stored_pdf = q.get('_stored_pdf')
+        stored_filename = q.get('_stored_filename', '')
+        if stored_pdf:
+            response = make_response(stored_pdf)
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename="{stored_filename or f"Quotation_{q["client_name"]}_{q["id"]}.pdf"}"'
+            return response
+
+        # 3) No stored PDF — serve an HTML page that generates the PDF in the browser
+        #    using html2pdf.js (same library the frontend uses).
+        #    This always works because no server-side PDF generation is needed.
+        return _serve_quotation_html_page(q)
+
     except Exception as e:
         print(f"Quotation share error: {e}")
-        return """
-        <html><body style="font-family:Arial;text-align:center;padding:60px 20px;">
+        return """<html><body style="font-family:Arial;text-align:center;padding:60px 20px;">
             <h2 style="color:#d32f2f;">Something Went Wrong</h2>
-            <p>We couldn't generate your quotation PDF right now.</p>
+            <p>We couldn't load your quotation right now.</p>
             <p style="color:#666;font-size:14px;">Please try again later or contact ConnectLink on WhatsApp.</p>
         </body></html>""", 500
-        return f"<h2>Error</h2><p>Could not generate PDF. Please contact support.</p>", 500
 
-def build_quotation_pdf_document_by_token(share_token):
-    """Build PDF for a quotation accessed via share token.
-    Uses pre-stored PDF from create_quotation_share_token if available,
-    otherwise falls back to on-the-fly generation.
-    Returns (pdf_bytes, filename) or None."""
+
+def _get_quotation_data_for_token(share_token):
+    """Look up a share token and return quotation data dict, or None if invalid/expired."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
@@ -22031,27 +22041,193 @@ def build_quotation_pdf_document_by_token(share_token):
             """, (share_token,))
             row = cursor.fetchone()
             if not row:
-                print(f"Share token not found in DB: {share_token[:60]}...")
+                print(f"Share token not found: {share_token[:60]}...")
                 return None
             expiry = row[8]
             if expiry and expiry < datetime.now():
-                print(f"Share token expired: {share_token[:60]}... (expired at {expiry})")
+                print(f"Share token expired: {share_token[:60]}...")
                 return None
 
-            # Use pre-stored PDF if available
-            stored_pdf = row[9]  # pdf_data bytea
-            stored_filename = row[10]  # pdf_filename
-            if stored_pdf:
-                return (bytes(stored_pdf), stored_filename or f"Quotation_{row[1] or 'Client'}_{row[0]}.pdf")
-
-            # Fallback: generate on-the-fly
-            qid = row[0]
-            client_name = row[1] or 'Client'
-            category = row[3] or ''
-            return build_quotation_pdf_bytes(qid, client_name, category)
+            return {
+                'id': row[0],
+                'client_name': row[1] or 'Client',
+                'quotation_date': row[2].strftime('%d %B %Y') if row[2] else '',
+                'category': row[3] or '',
+                'project_size': float(row[4]) if row[4] else 0,
+                'total_cost': float(row[5]) if row[5] else 0,
+                'markup': float(row[6]) if row[6] else 30,
+                'notes': row[7] or '',
+                '_stored_pdf': bytes(row[9]) if row[9] else None,
+                '_stored_filename': row[10] or '',
+            }
     except Exception as e:
-        print(f"build_quotation_pdf_document_by_token error: {e}")
+        print(f"_get_quotation_data_for_token error: {e}")
         return None
+
+
+def _serve_quotation_html_page(q):
+    """Render a self-contained HTML page that shows the quotation and auto-generates
+    the PDF in the browser via html2pdf.js. Works without any server-side weasyprint."""
+    client_name = html.escape(q['client_name'])
+    quotation_date = q['quotation_date']
+    category = q['category']
+    is_kitchen = category in ('kitchen', 'kitchen_cabinets')
+    total_cost = q['total_cost']
+    deposit = total_cost * 0.30
+    balance = total_cost - deposit
+    payment_months = 3 if is_kitchen else 6
+    monthly = balance / payment_months if balance else 0
+    payment_period_text = f"{payment_months} months"
+    category_display = format_quotation_category(category, is_kitchen)
+
+    # Quotation items (fetch from DB)
+    items_rows_html = ''
+    items_total_row_html = ''
+    schedule_rows_html = ''
+    total_days = 0
+    try:
+        with get_db() as (cursor, _):
+            if is_kitchen:
+                cursor.execute("""
+                    SELECT item_name, quantity, amount, days, item_order
+                    FROM quotation_kitchen_items WHERE quotation_id = %s ORDER BY item_order
+                """, (q['id'],))
+                items = cursor.fetchall()
+                item_total_sum = 0
+                for idx, item in enumerate(items, 1):
+                    qty = int(item[1]) if item[1] else 1
+                    amt = float(item[2]) if item[2] else 0
+                    days = int(item[3]) if item[3] else 1
+                    line_total = qty * amt
+                    item_total_sum += line_total
+                    total_days += days
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {amt:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">{days}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {line_total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">{total_days}</td><td style="padding:8px;text-align:right;">USD {item_total_sum:,.2f}</td></tr>"""
+            else:
+                cursor.execute("""
+                    SELECT item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items WHERE quotation_id = %s ORDER BY item_order
+                """, (q['id'],))
+                items = cursor.fetchall()
+                markup = q['markup']
+                markup_mult = 1 + (markup / 100)
+                cost_sum = 0
+                for idx, item in enumerate(items, 1):
+                    qty = float(item[1]) if item[1] else 0
+                    inhouse_rate = float(item[2]) if item[2] else 0
+                    total = float(item[3]) if item[3] else 0
+                    client_rate = inhouse_rate * markup_mult
+                    cost_sum += total
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">0</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
+
+            # Schedules
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days, task_order
+                FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order
+            """, (q['id'],))
+            scheds = cursor.fetchall()
+            for idx, s in enumerate(scheds, 1):
+                sd = s[1].strftime('%d/%m/%Y') if s[1] else ''
+                ed = s[2].strftime('%d/%m/%Y') if s[2] else ''
+                days = int(s[3]) if s[3] else 0
+                bg = '#f9f9f9' if idx % 2 else '#fff'
+                schedule_rows_html += f"""<tr style="border-bottom:1px solid #ddd;background:{bg};"><td style="padding:6px;text-align:center;">{idx}</td><td style="padding:6px;">{html.escape(s[0] or 'Task')}</td><td style="padding:6px;text-align:center;">{sd}</td><td style="padding:6px;text-align:center;">{ed}</td><td style="padding:6px;text-align:center;font-weight:bold;color:#2196F3;">{days}</td></tr>"""
+    except Exception as e:
+        print(f"Error fetching quotation items for HTML page: {e}")
+        items_rows_html = '<tr><td colspan="6" style="text-align:center;padding:20px;">Could not load items.</td></tr>'
+
+    logo_b64 = ''
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+    if os.path.exists(logo_path):
+        with open(logo_path, 'rb') as f:
+            logo_b64 = base64.b64encode(f.read()).decode('utf-8')
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quotation - {client_name}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family:Arial,sans-serif; background:#eef2f7; color:#1E2A56; padding:20px; }}
+.controls {{ text-align:center; margin-bottom:20px; }}
+.controls button {{ background:#1E2A56; color:white; border:none; padding:10px 24px; border-radius:6px; font-size:14px; cursor:pointer; }}
+.controls button:hover {{ background:#2a3a78; }}
+.loading {{ display:none; text-align:center; padding:10px; color:#666; }}
+#quotation {{ background:#fff; width:210mm; margin:0 auto; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px; }}
+table {{ width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px; }}
+th {{ padding:8px 10px; border:1px solid #2a3a78; background:#1E2A56; color:white; }}
+td {{ padding:8px 10px; border:1px solid #d8deef; }}
+@media print {{ body {{ background:white; }} .controls,.loading {{ display:none !important; }} }}
+</style>
+</head>
+<body>
+<div class="controls">
+  <button onclick="downloadPDF()">📄 Download PDF</button>
+  <span class="loading" id="loadingMsg">⏳ Generating PDF...</span>
+</div>
+
+<div id="quotation">
+  <img src="data:image/png;base64,{logo_b64}" alt="Logo" style="display:block;margin:0 auto 10px;width:130px;">
+  <h1 style="margin:0 0 6px;text-align:center;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>
+  <div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px;"></div>
+  <p style="font-size:12px;margin-bottom:12px;">This quotation is prepared for <strong>{client_name}</strong>.</p>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">PROJECT DETAILS</h4>
+  <div style="display:flex;gap:16px;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;">
+    <div style="flex:1;"><strong>Client:</strong> {client_name}</div>
+    <div style="flex:1;"><strong>Category:</strong> {category_display}</div>
+    <div style="flex:1;"><strong>Date:</strong> {quotation_date}</div>
+  </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">QUOTATION SUMMARY</h4>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">
+    <div><div style="font-size:10px;color:#5a678a;text-transform:uppercase;">Total</div><div style="font-size:13px;font-weight:900;">USD {total_cost:,.2f}</div></div>
+    <div><div style="font-size:10px;color:#5a678a;text-transform:uppercase;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;">USD {deposit:,.2f}</div></div>
+    <div><div style="font-size:10px;color:#5a678a;text-transform:uppercase;">Balance</div><div style="font-size:13px;font-weight:700;">USD {balance:,.2f}</div></div>
+    <div><div style="font-size:10px;color:#5a678a;text-transform:uppercase;">Monthly ({payment_period_text})</div><div style="font-size:13px;font-weight:700;">USD {monthly:,.2f}</div></div>
+  </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">ITEM DETAILS</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Item</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th><th>Days</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>
+
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:20px;">
+    <div style="flex:1;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;">
+      <strong style="color:#d32f2f;">Important Note:</strong> Valid for <strong>30 days</strong>. All prices in <strong>USD</strong>.
+    </div>
+    <div style="flex:1;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;">
+      <strong>Bank:</strong> ZB BANK<br><strong>Account:</strong> Connectlink Agency (Pvt) Ltd<br><strong>Account No:</strong> 450600586638405
+    </div>
+  </div>
+</div>
+
+<script>
+function downloadPDF() {{
+  document.getElementById('loadingMsg').style.display = 'inline';
+  var opt = {{
+    margin: [6, 6, 6, 6],
+    filename: 'Quotation_{client_name.replace(' ', '_')}_{q["id"]}.pdf',
+    image: {{ type: 'jpeg', quality: 0.98 }},
+    html2canvas: {{ scale: 2, useCORS: true, scrollY: 0 }},
+    jsPDF: {{ orientation: 'portrait', unit: 'mm', format: 'a4' }}
+  }};
+  html2pdf().set(opt).from(document.getElementById('quotation')).save().then(function() {{
+    document.getElementById('loadingMsg').style.display = 'none';
+  }});
+}}
+// Auto-download on page load
+window.onload = function() {{ setTimeout(downloadPDF, 1000); }};
+</script>
+</body>
+</html>"""
 
 def build_quotation_pdf_bytes(quotation_id, client_name='Client', category=''):
     """Build PDF bytes for a quotation. Returns (pdf_bytes, filename) or None."""
@@ -22401,10 +22577,86 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
 
 
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
-    """Send a quotation PDF to WhatsApp and fall back to the share link if delivery fails."""
-    # Ensure we have a valid DB share token for fallback URL
-    db_share_token = create_quotation_share_token(quotation_id)
+    """Send a quotation PDF to WhatsApp using the stored PDF from the DB
+    (generated by the frontend via html2pdf.js and saved during template fallback).
 
+    If sending fails (outside 24hr window), falls back to sending a share URL
+    that serves the stored PDF directly.
+    """
+    # 1) Retrieve the stored PDF from DB — use ANY token for this quotation
+    stored_pdf_bytes = None
+    stored_filename = ''
+    db_share_token = share_token
+
+    try:
+        with get_db() as (cursor, _):
+            # First try the incoming share_token
+            cursor.execute("""
+                SELECT pdf_data, pdf_filename FROM quotation_share_links
+                WHERE share_token = %s AND pdf_data IS NOT NULL
+            """, (share_token,))
+            row = cursor.fetchone()
+            if row:
+                stored_pdf_bytes = bytes(row[0])
+                stored_filename = row[1] or ''
+            else:
+                # Fallback: look for ANY token for this quotation that has stored PDF
+                cursor.execute("""
+                    SELECT share_token, pdf_data, pdf_filename FROM quotation_share_links
+                    WHERE quotation_id = %s AND pdf_data IS NOT NULL
+                    ORDER BY created_at DESC LIMIT 1
+                """, (quotation_id,))
+                row2 = cursor.fetchone()
+                if row2:
+                    stored_pdf_bytes = bytes(row2[1])
+                    stored_filename = row2[2] or ''
+                    db_share_token = row2[0]
+                else:
+                    # No stored PDF anywhere — create a fresh token (will have no PDF
+                    # since weasyprint is unavailable, but share URL fallback still works)
+                    db_share_token = create_quotation_share_token(quotation_id)
+    except Exception as e:
+        print(f"Error retrieving stored PDF: {e}")
+        db_share_token = create_quotation_share_token(quotation_id)
+
+    # 2) If we have a stored PDF, use it directly — no weasyprint needed
+    if stored_pdf_bytes:
+        caption_category = ''
+        try:
+            with get_db() as (c, _):
+                c.execute("SELECT category, client_name FROM quotations WHERE id = %s", (quotation_id,))
+                r = c.fetchone()
+                if r:
+                    caption_category = format_quotation_category(r[0])
+                    client_name = r[1] or 'Client'
+        except:
+            client_name = 'Client'
+
+        filename = stored_filename or f"Quotation_{quotation_id}.pdf"
+        caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\n\nSend 'Hello' for more options."
+
+        try:
+            send_pdf_document_whatsapp(recipient_number, stored_pdf_bytes, filename, caption)
+            mark_quotation_download_send_result(share_token, True, recipient_number)
+            log_activity('quotation_downloaded',
+                f'Quotation #{quotation_id} downloaded via WhatsApp by {recipient_number}',
+                'quotation', quotation_id,
+                {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token})
+            print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
+            return True
+        except Exception as exc:
+            logging.exception("Error sending quotation PDF %s", quotation_id)
+            mark_quotation_download_send_result(share_token, False, recipient_number)
+            share_url = get_quotation_share_url(db_share_token)
+            if send_text_message and share_url:
+                send_text_message(recipient_number,
+                    f"⚠️ Could not send PDF directly. Open & download your quotation here:\n{share_url}")
+            elif send_text_message:
+                send_text_message(recipient_number, "❌ Failed to send your quotation. Please contact us directly.")
+            print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
+            return False
+
+    # 3) No stored PDF — try weasyprint (will likely fail without GTK), then fallback to share URL
     try:
         pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
     except LookupError:
@@ -22416,10 +22668,8 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         mark_quotation_download_send_result(share_token, False, recipient_number)
         share_url = get_quotation_share_url(db_share_token)
         if send_text_message and share_url:
-            send_text_message(
-                recipient_number,
-                f"⚠️ We couldn't generate the PDF just now. You can still open your quotation here:\n{share_url}"
-            )
+            send_text_message(recipient_number,
+                f"⚠️ Could not generate PDF. Open & download your quotation here:\n{share_url}")
         elif send_text_message:
             send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
         print(f"❌ Error generating quotation PDF {quotation_id}: {exc}")
@@ -22428,28 +22678,19 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
     try:
         send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption)
         mark_quotation_download_send_result(share_token, True, recipient_number)
-
-        log_activity(
-            'quotation_downloaded',
+        log_activity('quotation_downloaded',
             f'Quotation #{quotation_id} downloaded via WhatsApp by {recipient_number}',
-            'quotation',
-            quotation_id,
-            {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token}
-        )
-
+            'quotation', quotation_id,
+            {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token})
         print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
         return True
     except Exception as exc:
         logging.exception("Error sending quotation PDF %s", quotation_id)
         mark_quotation_download_send_result(share_token, False, recipient_number)
         share_url = get_quotation_share_url(db_share_token)
-        # Note: the db_share_token was created above with pre-generated PDF stored in DB,
-        # so the share URL will work instantly when the user visits it.
         if send_text_message and share_url:
-            send_text_message(
-                recipient_number,
-                f"⚠️ Could not send PDF directly. Open & download your quotation here:\n{share_url}"
-            )
+            send_text_message(recipient_number,
+                f"⚠️ Could not send PDF directly. Open & download your quotation here:\n{share_url}")
         elif send_text_message:
             send_text_message(recipient_number, "❌ Failed to send your quotation. Please contact us directly.")
         print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
@@ -22857,7 +23098,9 @@ def send_quotation_whatsapp():
                 except Exception:
                     pass
 
-                share_token = create_quotation_share_token(safe_qid)
+                # Use the frontend-generated PDF (already decoded from pdfBase64)
+                # so the share URL works even if server-side weasyprint is unavailable
+                share_token = create_quotation_share_token(safe_qid, pdf_bytes=pdf_bytes, pdf_filename=filename)
                 template_response = send_quotation_download_template(
                     whatsapp_number,
                     share_token,
