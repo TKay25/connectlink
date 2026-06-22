@@ -7873,9 +7873,14 @@ async function saveAndDownloadQuotation() {
         payload.items.forEach((item, i) => {
             console.log(`Item ${i}: quantity=${item.quantity}, unitRate=${item.unitRate}, totalPrice=${item.totalPrice}`);
         });
-                
-        const response = await fetch('/api/save-quotation', {
-            method: 'POST',
+        
+        // Use update endpoint if we already have a quotation ID (prevents duplicates)
+        const isEditing = !!window.editingQuotationId;
+        const saveUrl = isEditing ? `/api/update-quotation/${window.editingQuotationId}` : '/api/save-quotation';
+        const saveMethod = isEditing ? 'PUT' : 'POST';
+        
+        const response = await fetch(saveUrl, {
+            method: saveMethod,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
@@ -7888,7 +7893,7 @@ async function saveAndDownloadQuotation() {
         
         alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id})`);
         
-        // Store ID so Send flow reuses this quotation instead of creating another
+        // Store ID so subsequent saves update instead of creating another
         window.editingQuotationId = result.quotation_id;
         
         if (saveBtn) {
@@ -17387,7 +17392,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                     </div>
                 </div>
 
-                ${quotationNotes ? `
+                ${quotationNotes && quotationNotes.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() ? `
                 <!-- QUOTATION NOTES -->
                 <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
                     <div style="border: 1.5px solid #1E2A56; border-radius: 10px; overflow: hidden;">
