@@ -6592,6 +6592,9 @@ table.dataTable thead th.sorting_desc {
                         <i class="bi bi-send me-1"></i> Send
                     </button>
                 </div>
+                <div style="margin-top:4px; font-size:0.6rem; color:#d32f2f; background:#fff5f5; padding:4px 8px; border-radius:4px; border:1px solid #ffcdd2;">
+                    <i class="bi bi-info-circle me-1"></i> <strong>Important:</strong> Include country code first — e.g. <strong>2637XXXXXXXX</strong> (Zimbabwe), <strong>277XXXXXXXX</strong> (South Africa), <strong>2557XXXXXXXX</strong> (Tanzania)
+                </div>
                 <div id="dcSendResult" style="margin-top:6px; font-size:0.7rem;"></div>
             </div>
         </div>
@@ -15124,6 +15127,19 @@ async function sendContractViaWhatsApp() {
     
     if (!phone) {
         resultDiv.innerHTML = '<span style="color:#d32f2f;">Please enter a WhatsApp number.</span>';
+        showToast('Please enter a WhatsApp number.', 'warning', 'Number Required');
+        return;
+    }
+    
+    // Validate country code format (must start with 2 or 1 digit country code, e.g. 263, 27, 255, 1)
+    if (!/^\d{7,15}$/.test(phone.replace(/\s/g, ''))) {
+        resultDiv.innerHTML = '<span style="color:#d32f2f;">Invalid number. Use format: 2637XXXXXXXX (include country code).</span>';
+        showToast('Invalid number format. Include country code first — e.g. 2637XXXXXXXX', 'error', 'Invalid Number');
+        return;
+    }
+    if (!/^[12]\d{6,14}$/.test(phone.replace(/\s/g, ''))) {
+        resultDiv.innerHTML = '<span style="color:#d32f2f;">Number must start with country code (e.g. 263 for Zimbabwe, 27 for South Africa).</span>';
+        showToast('Number must start with a country code (263, 27, 255, etc.)', 'error', 'Invalid Number');
         return;
     }
     
@@ -15143,12 +15159,17 @@ async function sendContractViaWhatsApp() {
         
         if (data.success) {
             resultDiv.innerHTML = '<span style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Contract sent via WhatsApp!</span>';
+            showToast(data.message || 'Contract sent via WhatsApp!', 'success', 'Contract Sent');
             setTimeout(() => closeModal('downloadContractModal'), 1500);
         } else {
-            resultDiv.innerHTML = '<span style="color:#d32f2f;">❌ ' + (data.error || 'Failed to send') + '</span>';
+            const errMsg = data.error || 'Failed to send';
+            resultDiv.innerHTML = '<span style="color:#d32f2f;">❌ ' + errMsg + '</span>';
+            showToast(errMsg, 'error', 'Send Failed');
         }
     } catch (err) {
-        resultDiv.innerHTML = '<span style="color:#d32f2f;">❌ Network error: ' + err.message + '</span>';
+        const errMsg = 'Network error: ' + err.message;
+        resultDiv.innerHTML = '<span style="color:#d32f2f;">❌ ' + errMsg + '</span>';
+        showToast(errMsg, 'error', 'Network Error');
     } finally {
         const btn = document.querySelector('#dcWhatsAppSection .btn-success');
         if (btn) { btn.disabled = false; }

@@ -14158,12 +14158,20 @@ def send_contract_whatsapp():
         if not project_id or not whatsapp_number:
             return jsonify({'success': False, 'error': 'Project ID and WhatsApp number are required'}), 400
         
-        # Clean phone number
+        # Validate and clean phone number
         phone_clean = re.sub(r'[^0-9]', '', str(whatsapp_number))
+        
+        # Check minimum length after stripping non-digits
+        if len(phone_clean) < 7:
+            return jsonify({'success': False, 'error': 'Invalid WhatsApp number. Must include country code (e.g. 2637XXXXXXXX).'}), 400
+        
+        # Check it starts with a country code (number starting with 1 or 2)
+        if not re.match(r'^[12]\d{6,14}$', phone_clean):
+            return jsonify({'success': False, 'error': 'Number must start with a country code. Examples: 2637XXXXXXXX (Zimbabwe), 277XXXXXXXX (South Africa), 2557XXXXXXXX (Tanzania)'}), 400
+        
+        # Convert local format (0xx) to international
         if phone_clean.startswith('0'):
             phone_clean = '263' + phone_clean[1:]
-        elif not phone_clean.startswith('263'):
-            phone_clean = '263' + phone_clean
         
         # Get project details
         with get_db() as (cursor, connection):
