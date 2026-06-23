@@ -1942,7 +1942,9 @@
                                     <th style="background:var(--dark-blue-deep);color:white;">Category</th>
                                     <th style="background:var(--dark-blue-deep);color:white;">Opening Stock</th>
                                     <th style="background:var(--dark-blue-deep);color:white;">Additions</th>
-                                    <th style="background:var(--dark-blue-deep);color:white;">Reductions</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Sale Reductions</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Inv. Edit Reductions</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Total Reductions</th>
                                     <th style="background:var(--dark-blue-deep);color:white;">Closing Stock</th>
                                     <th style="background:var(--dark-blue-deep);color:white;">Buy Price</th>
                                     <th style="background:var(--dark-blue-deep);color:white;">Sell Price</th>
@@ -3632,16 +3634,17 @@ function renderAuditMovements(movements) {
     
     tbody.innerHTML = movements.map(m => {
         const isAddition = m.type === 'addition';
-        const badgeClass = isAddition ? 'bg-success' : 'bg-danger';
-        const icon = isAddition ? 'fa-plus-circle' : 'fa-minus-circle';
+        const badgeClass = isAddition ? 'bg-success' : m.reduction_type === 'item_sale' ? 'bg-info' : 'bg-danger';
+        const icon = isAddition ? 'fa-plus-circle' : m.reduction_type === 'item_sale' ? 'fa-shopping-cart' : 'fa-minus-circle';
         const qtyColor = isAddition ? 'text-success' : 'text-danger';
+        let typeLabel = isAddition ? 'Addition' : m.reduction_type === 'item_sale' ? 'Sale' : 'Inv. Edit';
         
         return `
             <tr>
                 <td style="white-space:nowrap;">${formatDateShort(m.date)}</td>
                 <td><strong>${escapeHtml(m.product_name || 'Unknown')}</strong></td>
                 <td><span class="badge bg-secondary">${escapeHtml(m.category || 'N/A')}</span></td>
-                <td><span class="badge ${badgeClass}"><i class="fas ${icon} me-1"></i>${isAddition ? 'Addition' : 'Reduction'}</span></td>
+                <td><span class="badge ${badgeClass}"><i class="fas ${icon} me-1"></i>${typeLabel}</span></td>
                 <td class="${qtyColor} fw-bold">${isAddition ? '+' : '-'}${m.quantity}</td>
                 <td><small class="text-muted">${escapeHtml(m.details || '')}</small></td>
                 <td><small>${escapeHtml(m.user || 'System')}</small></td>
@@ -3655,7 +3658,7 @@ function renderAuditProductSummary(products) {
     document.getElementById('auditProductSummaryContainer').style.display = 'block';
     
     if (!products.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3 text-muted">No products found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-3 text-muted">No products found</td></tr>';
         return;
     }
     
@@ -3669,6 +3672,8 @@ function renderAuditProductSummary(products) {
                 <td><span class="badge bg-secondary">${escapeHtml(p.category || 'N/A')}</span></td>
                 <td class="fw-bold">${p.initial_stock}</td>
                 <td class="fw-bold text-success">+${p.total_additions}</td>
+                <td class="fw-bold text-danger">-${p.sales_reductions || 0}</td>
+                <td class="fw-bold text-danger">-${p.inventory_edit_reductions || 0}</td>
                 <td class="fw-bold text-danger">-${p.total_reductions}</td>
                 <td class="fw-bold">${p.final_stock} <i class="fas ${changeIcon} ms-1" style="font-size:0.6rem;"></i></td>
                 <td>$${(p.buy_price || 0).toFixed(2)}</td>
@@ -3707,7 +3712,8 @@ function exportStockAuditExcel() {
     const startDate = document.getElementById('auditStartDate').value;
     const endDate = document.getElementById('auditEndDate').value;
     
-    // Movements sheet
+    // ===== MOVEMENTS SHEET =====
+    const movementHeader = ['Date', 'Product', 'Category', 'Type', 'Quantity', 'Details', 'User'];
     const movementRows = auditMovementData.map(m => [
         m.date ? new Date(m.date).toLocaleString() : '',
         m.product_name || '',
@@ -3718,34 +3724,80 @@ function exportStockAuditExcel() {
         m.user || ''
     ]);
     
-    const ws1 = XLSX.utils.aoa_to_sheet([
+    const ws1_data = [
         ['Stock Movements Audit Report'],
         [`Period: ${startDate} to ${endDate}`],
         [],
-        ['Date', 'Product', 'Category', 'Type', 'Quantity', 'Details', 'User'],
+        movementHeader,
         ...movementRows
-    ]);
+    ];
     
-    // Summary sheet
-    const summaryRows = auditProductData.map(p => [
+    const ws1 = XLSX.utils.aoa_to_sheet(ws1_data);
+    
+    // Set column widths for movements sheet
+    ws1['!cols'] = [
+        { wch: 20 },  // Date
+        { wch: 30 },  // Product
+        { wch: 18 },  // Category
+        { wch: 12 },  // Type
+        { wch: 10 },  // Quantity
+        { wch: 30 },  // Details
+        { wch: 20 }   // User
+    ];
+    
+    // Merge title and period cells across all columns
+    ws1['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }
+    ];
+    
+    // Freeze header row
+    ws1['!freeze'] = { x: 0, y: 4 };
+    
+    // ===== SUMMARY SHEET (no header row) =====
+    const summaryData = auditProductData.map(p => [
         p.name || '',
         p.category || '',
         p.initial_stock,
         p.total_additions,
+        p.sales_reductions || 0,
+        p.inventory_edit_reductions || 0,
         p.total_reductions,
         p.final_stock,
         p.buy_price || 0,
         p.sell_price || 0
     ]);
     
-    const ws2 = XLSX.utils.aoa_to_sheet([
+    const ws2_data = [
         ['Stock Summary by Product'],
         [`Period: ${startDate} to ${endDate}`],
         [],
-        ['Product', 'Category', 'Opening Stock', 'Additions', 'Reductions', 'Closing Stock', 'Buy Price', 'Sell Price'],
-        ...summaryRows
-    ]);
+        ...summaryData
+    ];
     
+    const ws2 = XLSX.utils.aoa_to_sheet(ws2_data);
+    
+    // Set column widths for summary sheet
+    ws2['!cols'] = [
+        { wch: 30 },  // Product
+        { wch: 18 },  // Category
+        { wch: 16 },  // Opening Stock
+        { wch: 14 },  // Additions
+        { wch: 18 },  // Sale Reductions
+        { wch: 20 },  // Inv. Edit Reductions
+        { wch: 16 },  // Total Reductions
+        { wch: 16 },  // Closing Stock
+        { wch: 14 },  // Buy Price
+        { wch: 14 }   // Sell Price
+    ];
+    
+    // Merge title and period cells across all columns
+    ws2['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } }
+    ];
+    
+    // Create workbook and add sheets
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws1, 'Movements');
     XLSX.utils.book_append_sheet(wb, ws2, 'Summary');

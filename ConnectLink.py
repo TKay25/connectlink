@@ -10033,6 +10033,16 @@ def get_stock_movements():
     """
     reductions = execute_query(reductions_query, (start_date, end_date), fetch_all=True) or []
     
+    # Separate reductions by type
+    inventory_edit_reductions = []
+    sales_reductions = []
+    for row in reductions:
+        reason = row[8] or ''
+        if reason == 'item_sale':
+            sales_reductions.append(row)
+        else:
+            inventory_edit_reductions.append(row)
+    
     # Build product map with initial stock (current stock - additions in period + reductions in period)
     product_map = {}
     if products_result:
@@ -10047,7 +10057,9 @@ def get_stock_movements():
                 'sell_price': float(row[6]),
                 'initial_stock': 0,
                 'total_additions': 0,
-                'total_reductions': 0
+                'total_reductions': 0,
+                'inventory_edit_reductions': 0,
+                'sales_reductions': 0
             }
     
     # Get current stock for all products
@@ -10072,9 +10084,14 @@ def get_stock_movements():
         for row in reductions:
             pid = row[1]
             qty = row[5]  # FIX: index 5 is quantity, index 4 is the 'reduction' label
+            reason = row[8] or ''
             period_reductions[pid] = period_reductions.get(pid, 0) + qty
             if pid in product_map:
                 product_map[pid]['total_reductions'] += qty
+                if reason == 'item_sale':
+                    product_map[pid]['sales_reductions'] += qty
+                else:
+                    product_map[pid]['inventory_edit_reductions'] += qty
     
     # Calculate initial stock: current - additions_in_period + reductions_in_period
     for pid, product in product_map.items():
@@ -10082,7 +10099,7 @@ def get_stock_movements():
         product['initial_stock'] = current - period_additions.get(pid, 0) + period_reductions.get(pid, 0)
         product['final_stock'] = current
     
-    # Parse all movements
+    # Parse movements - additions
     movements = []
     
     if additions:
@@ -10098,23 +10115,44 @@ def get_stock_movements():
                 'total_cost': float(row[7]) if row[7] else 0,
                 'details': f"Funding: {row[8]}" if row[8] else '',
                 'user': row[9] or 'System',
-                'date': row[10].isoformat() if row[10] else ''
+                'date': row[10].isoformat() if row[10] else '',
+                'reduction_type': None
             })
     
-    if reductions:
-        for row in reductions:
+    # Parse movements - inventory edit reductions
+    if inventory_edit_reductions:
+        for row in inventory_edit_reductions:
             movements.append({
                 'id': row[0],
                 'product_id': row[1],
                 'product_name': row[2],
                 'category': row[3],
                 'type': 'reduction',
-                'quantity': row[5],  # FIX: index 5 is quantity
+                'quantity': row[5],
                 'buy_price': 0,
                 'total_cost': 0,
                 'details': f"Reason: {row[8]}" if row[8] else '',
                 'user': row[9] or 'System',
-                'date': row[10].isoformat() if row[10] else ''  # FIX: index 10 is reduced_at
+                'date': row[10].isoformat() if row[10] else '',
+                'reduction_type': 'inventory_edit'
+            })
+    
+    # Parse movements - sales reductions
+    if sales_reductions:
+        for row in sales_reductions:
+            movements.append({
+                'id': row[0],
+                'product_id': row[1],
+                'product_name': row[2],
+                'category': row[3],
+                'type': 'reduction',
+                'quantity': row[5],
+                'buy_price': 0,
+                'total_cost': 0,
+                'details': f"Sale: {row[8]}" if row[8] else '',
+                'user': row[9] or 'System',
+                'date': row[10].isoformat() if row[10] else '',
+                'reduction_type': 'item_sale'
             })
     
     # Sort movements by date descending
@@ -10814,6 +10852,15 @@ def create_transaction():
             
             stock_query = "UPDATE products SET stock = stock - %s WHERE id = %s"
             execute_query(stock_query, (item['quantity'], item['id']), commit=True)
+            
+            # Log sale reduction to stock_reductions for audit trail
+            try:
+                execute_query("""
+                    INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at)
+                    VALUES (%s, %s, 'item_sale', %s, %s, CURRENT_TIMESTAMP)
+                """, (item['id'], item['quantity'], f"Sale #{transaction_number}", session.get('user_id', 0)), commit=True)
+            except Exception as log_err:
+                print(f"Warning: Could not log sale reduction: {str(log_err)}")
         
         return jsonify({
             'success': True,
