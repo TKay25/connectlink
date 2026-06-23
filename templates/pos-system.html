@@ -2705,8 +2705,9 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-primary-dark btn-sm" onclick="generateAuditReport()">
-                        <i class="fas fa-search me-1"></i>Generate Report
+                    <button class="btn btn-primary-dark btn-sm" id="generateAuditBtn" onclick="generateAuditReport()">
+                        <span id="generateAuditBtnText"><i class="fas fa-search me-1"></i>Generate Report</span>
+                        <span id="generateAuditBtnSpinner" class="spinner-border spinner-border-sm" style="display:none;"></span>
                     </button>
                 </div>
             </div>
@@ -3517,19 +3518,48 @@ function generateAuditReport() {
         return;
     }
     
-    // Sync to the inline fields used by loadStockAuditReport
+    // Sync to inline fields for any fallback use
     document.getElementById('auditStartDate').value = startDate;
     document.getElementById('auditEndDate').value = endDate;
     
-    // Close the modal
-    const modalEl = document.getElementById('auditReportModal');
-    const modal = bootstrap.Modal.getInstance(modalEl);
-    if (modal) modal.hide();
+    // Show spinner on button, hide text
+    const btn = document.getElementById('generateAuditBtn');
+    const btnText = document.getElementById('generateAuditBtnText');
+    const btnSpinner = document.getElementById('generateAuditBtnSpinner');
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnSpinner.style.display = 'inline-block';
     
-    // Show the audit section and load
-    const section = document.getElementById('stockAuditSection');
-    section.style.display = 'block';
-    loadStockAuditReport();
+    // Fetch data and download as Excel directly
+    fetch(`/api/stock-movements?start_date=${startDate}&end_date=${endDate}`)
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                showToast(data.error || 'Failed to load audit data', 'error');
+                return;
+            }
+            
+            auditMovementData = data.movements || [];
+            auditProductData = data.products || [];
+            
+            if (!auditMovementData.length && !auditProductData.length) {
+                showToast('No stock movements found for the selected period', 'warning');
+                return;
+            }
+            
+            // Directly export to Excel
+            exportStockAuditExcel();
+        })
+        .catch(error => {
+            console.error('Audit report error:', error);
+            showToast('Error generating audit report: ' + error.message, 'error');
+        })
+        .finally(() => {
+            // Restore button - modal stays open, user closes manually
+            btn.disabled = false;
+            btnText.style.display = 'inline';
+            btnSpinner.style.display = 'none';
+        });
 }
 
 async function loadStockAuditReport() {
