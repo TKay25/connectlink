@@ -22608,6 +22608,9 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
     # Format category for PDF display
     category_display = format_quotation_category(category, is_kitchen)
     
+    # Pre-escape for use in f-string (avoid html module name conflict in Python 3.14+)
+    escaped_name = client_name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+    
     return f"""
     <!DOCTYPE html>
     <html>
@@ -22627,14 +22630,14 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
             <h1 style='margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56; text-transform:uppercase; letter-spacing:1px;'>Project Quotation</h1>
             <div style='width:100px; height:2px; background:#1E2A56; margin:0 auto 14px auto; border-radius:10px;'></div>
             
-            <p style='font-size:12px; margin:0 0 12px 0; line-height:1.5;'>This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{html.escape(client_name)}</strong>.</p>
+            <p style='font-size:12px; margin:0 0 12px 0; line-height:1.5;'>This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{escaped_name}</strong>.</p>
             
             <!-- PROJECT DETAILS -->
             <div style='page-break-inside:avoid; break-inside:avoid;'>
                 <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>PROJECT DETAILS</h4>
                 <div style='display:table; width:100%; table-layout:fixed; margin-bottom:20px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; box-sizing:border-box;'>
                     <div style='display:table-cell; width:50%; vertical-align:top; padding-right:10px; box-sizing:border-box;'>
-                        <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Client Name:</strong> <span>{html.escape(client_name)}</span></div>
+                        <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Client Name:</strong> <span>{escaped_name}</span></div>
                         <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Category:</strong> <span>{category_display}</span></div>
                     </div>
                     <div style='display:table-cell; width:50%; vertical-align:top; padding-left:10px; box-sizing:border-box;'>
