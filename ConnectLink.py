@@ -10033,15 +10033,40 @@ def get_stock_movements():
     """
     reductions = execute_query(reductions_query, (start_date, end_date), fetch_all=True) or []
     
-    # Separate reductions by type
+    # Also get sales from transaction_items (captures ALL sales, including historical ones
+    # that were never logged to stock_reductions)
+    sales_query = """
+        SELECT ti.id, ti.product_id, p.name as product_name, p.category,
+               'reduction' as movement_type, ti.quantity, 0 as buy_price, 0 as total_cost,
+               'item_sale' as funding_source, u.full_name as user_name, t.created_at as movement_date
+        FROM transaction_items ti
+        JOIN transactions t ON ti.transaction_id = t.id
+        LEFT JOIN products p ON ti.product_id = p.id
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE t.created_at >= %s::timestamp AND t.created_at <= (%s::timestamp + INTERVAL '1 day')
+        ORDER BY t.created_at DESC
+    """
+    transaction_sales = execute_query(sales_query, (start_date, end_date), fetch_all=True) or []
+    
+    # Separate reductions by type (from stock_reductions table)
+    # IMPORTANT: Only count inventory edits from stock_reductions.
+    # Sales come from transaction_items (to avoid double-counting with new
+    # sales that are also logged to stock_reductions with reason='item_sale')
     inventory_edit_reductions = []
     sales_reductions = []
     for row in reductions:
         reason = row[8] or ''
         if reason == 'item_sale':
-            sales_reductions.append(row)
+            continue  # Skip - sales come from transaction_items instead
         else:
             inventory_edit_reductions.append(row)
+    
+    # Merge transaction_items sales into sales_reductions (catches ALL sales, not just new ones)
+    for row in transaction_sales:
+        sales_reductions.append(row)
+    
+    # Build combined reductions list for period totals
+    all_reductions = inventory_edit_reductions + sales_reductions
     
     # Build product map with initial stock (current stock - additions in period + reductions in period)
     product_map = {}
@@ -10080,10 +10105,10 @@ def get_stock_movements():
             if pid in product_map:
                 product_map[pid]['total_additions'] += qty
     
-    if reductions:
-        for row in reductions:
+    if all_reductions:
+        for row in all_reductions:
             pid = row[1]
-            qty = row[5]  # FIX: index 5 is quantity, index 4 is the 'reduction' label
+            qty = row[5]
             reason = row[8] or ''
             period_reductions[pid] = period_reductions.get(pid, 0) + qty
             if pid in product_map:
