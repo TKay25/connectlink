@@ -2683,6 +2683,36 @@
         </div>
     </div>
 
+    <!-- Audit Report Parameters Modal -->
+    <div class="modal fade" id="auditReportModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
+                    <h5 class="modal-title"><i class="fas fa-clipboard-list me-1"></i>Audit Report Parameters</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-bold">Select Date Range</label>
+                    <div class="mb-3">
+                        <label class="small text-muted">Start Date</label>
+                        <input type="date" class="form-control" id="modalAuditStartDate">
+                    </div>
+                    <div class="mb-3">
+                        <label class="small text-muted">End Date</label>
+                        <input type="date" class="form-control" id="modalAuditEndDate">
+                    </div>
+                    <small class="text-muted">The report will show all stock additions and reductions within this period.</small>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary-dark btn-sm" onclick="generateAuditReport()">
+                        <i class="fas fa-search me-1"></i>Generate Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- New Category Creation Modal -->
     <div class="modal fade" id="createCategoryModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered">
@@ -3462,20 +3492,44 @@ let auditMovementData = [];
 let auditProductData = [];
 
 function toggleAuditReport() {
-    const section = document.getElementById('stockAuditSection');
-    if (section.style.display === 'none' || !section.style.display) {
-        section.style.display = 'block';
-        // Set default dates: last 30 days
-        const end = new Date();
-        const start = new Date();
-        start.setDate(start.getDate() - 30);
-        document.getElementById('auditEndDate').value = end.toISOString().split('T')[0];
-        document.getElementById('auditStartDate').value = start.toISOString().split('T')[0];
-        // Auto-load
-        loadStockAuditReport();
-    } else {
-        section.style.display = 'none';
+    // Show modal to enter date parameters first
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    document.getElementById('modalAuditEndDate').value = end.toISOString().split('T')[0];
+    document.getElementById('modalAuditStartDate').value = start.toISOString().split('T')[0];
+    
+    // Also set the inline date fields for backward compatibility
+    document.getElementById('auditEndDate').value = end.toISOString().split('T')[0];
+    document.getElementById('auditStartDate').value = start.toISOString().split('T')[0];
+    
+    // Open the modal
+    const modal = new bootstrap.Modal(document.getElementById('auditReportModal'));
+    modal.show();
+}
+
+function generateAuditReport() {
+    const startDate = document.getElementById('modalAuditStartDate').value;
+    const endDate = document.getElementById('modalAuditEndDate').value;
+    
+    if (!startDate || !endDate) {
+        showToast('Please select both start and end dates', 'error');
+        return;
     }
+    
+    // Sync to the inline fields used by loadStockAuditReport
+    document.getElementById('auditStartDate').value = startDate;
+    document.getElementById('auditEndDate').value = endDate;
+    
+    // Close the modal
+    const modalEl = document.getElementById('auditReportModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
+    
+    // Show the audit section and load
+    const section = document.getElementById('stockAuditSection');
+    section.style.display = 'block';
+    loadStockAuditReport();
 }
 
 async function loadStockAuditReport() {
