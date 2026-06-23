@@ -10,16 +10,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --primary: #C12B3E;
-            --primary-dark: #9B1D2C;
-            --primary-light: rgba(193, 43, 62, 0.08);
-            --primary-hover: #D33F52;
-            --primary-muted: rgba(193, 43, 62, 0.12);
+            --primary: #1E293B;
+            --primary-dark: #0F1F3D;
+            --primary-light: rgba(30, 41, 59, 0.08);
+            --primary-hover: #2A3A78;
+            --primary-muted: rgba(30, 41, 59, 0.12);
             --dark-blue-deep: #1E293B;
             --dark-blue-primary: #0F1F3D;
-            --crimson-bright: #C12B3E;
-            --crimson-light: rgba(193, 43, 62, 0.12);
-            --crimson-gradient: linear-gradient(135deg, #C12B3E, #9B1D2C);
+            --crimson-bright: #1E293B;
+            --crimson-light: rgba(30, 41, 59, 0.12);
+            --crimson-gradient: linear-gradient(135deg, #1E293B, #0F1F3D);
             --slate-50: #F8FAFC;
             --slate-100: #F1F5F9;
             --slate-200: #E2E8F0;
@@ -75,7 +75,7 @@
             z-index: 1000;
             box-shadow: 4px 0 20px rgba(0,0,0,0.1);
             overflow-y: auto;
-            border-right: 1px solid rgba(193,43,62,0.2);
+            border-right: 1px solid rgba(30,41,59,0.2);
         }
 
         .sidebar::after {
@@ -166,7 +166,7 @@
         .menu-item.active {
             background: var(--crimson-bright);
             color: white;
-            box-shadow: 0 2px 8px rgba(193,43,62,0.3);
+            box-shadow: 0 2px 8px rgba(30,41,59,0.3);
         }
 
         .menu-item i {
@@ -229,7 +229,7 @@
 
         .logout-top-btn {
             background: var(--crimson-light);
-            border: 1px solid rgba(193,43,62,0.2);
+            border: 1px solid rgba(30,41,59,0.2);
             color: var(--crimson-bright);
             padding: 5px 12px;
             border-radius: 30px;
@@ -322,7 +322,7 @@
 
         .product-card-compact:hover {
             border-color: var(--crimson-bright);
-            box-shadow: 0 4px 12px rgba(193,43,62,0.1);
+            box-shadow: 0 4px 12px rgba(30,41,59,0.1);
             transform: translateY(-2px);
         }
 
@@ -469,7 +469,7 @@
         .btn-primary-dark:hover {
             background: var(--primary-dark);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(193,43,62,0.3);
+            box-shadow: 0 4px 12px rgba(30,41,59,0.3);
         }
 
         .btn-sm {
@@ -4540,7 +4540,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
                 labels: categoryLabels, 
                 datasets: [{ 
                     data: categoryLabels.map(c => categoryData[c].sales), 
-                    backgroundColor: ['#C12B3E', '#9B1D2C', '#1E293B', '#0F1F3D', '#D33F52', '#475569', '#64748B', '#94A3B8'] 
+                    backgroundColor: ['#1E293B', '#0F1F3D', '#2A3A78', '#3A4B8C', '#475569', '#64748B', '#94A3B8', '#CBD5E1'] 
                 }] 
             },
             options: { responsive: true }
@@ -4559,7 +4559,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
             type: 'bar',
             data: {
                 labels: topProducts.map(p => p[0].length > 20 ? p[0].substring(0, 20) + '...' : p[0]),
-                datasets: [{ label: 'Revenue ($)', data: topProducts.map(p => p[1].sales), backgroundColor: '#C12B3E', borderRadius: 4 }]
+                datasets: [{ label: 'Revenue ($)', data: topProducts.map(p => p[1].sales), backgroundColor: '#1E293B', borderRadius: 4 }]
             },
             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
         });
@@ -4597,7 +4597,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
             data: {
                 labels: sortedDates,
                 datasets: [
-                    { label: 'Revenue ($)', data: sortedDates.map(d => dailyData[d].sales), borderColor: '#C12B3E', backgroundColor: 'rgba(193,43,62,0.1)', tension: 0.3, fill: true },
+                    { label: 'Revenue ($)', data: sortedDates.map(d => dailyData[d].sales), borderColor: '#1E293B', backgroundColor: 'rgba(30,41,59,0.1)', tension: 0.3, fill: true },
                     { label: 'Profit ($)', data: sortedDates.map(d => dailyData[d].profit), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', tension: 0.3, fill: true }
                 ]
             },
@@ -4616,7 +4616,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
             type: 'bar',
             data: { 
                 labels: Array.from({ length: 24 }, (_, i) => `${i}:00`), 
-                datasets: [{ label: 'Sales ($)', data: hourlyData, backgroundColor: '#C12B3E', borderRadius: 4 }] 
+                datasets: [{ label: 'Sales ($)', data: hourlyData, backgroundColor: '#1E293B', borderRadius: 4 }] 
             },
             options: { responsive: true }
         });
@@ -4678,7 +4678,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
                         { 
                             label: 'Quantity Sold', 
                             data: turnoverMetrics.map(p => p.quantitySold), 
-                            backgroundColor: '#C12B3E',
+                            backgroundColor: '#1E293B',
                             yAxisID: 'y'
                         },
                         { 
@@ -5206,7 +5206,7 @@ function renderFilteredTransactions() {
             
             itemsHtml = 
                 '<div>' +
-                    '<span style="cursor: pointer; color: #C12B3E; text-decoration: underline; font-size: 0.7rem;" onclick="toggleItemsDetail(\'items-' + transactionId + '\')">' +
+                    '<span style="cursor: pointer; color: #1E293B; text-decoration: underline; font-size: 0.7rem;" onclick="toggleItemsDetail(\'items-' + transactionId + '\')">' +
                         '<i class="fas fa-list me-1"></i>' + escapeHtml(previewText) +
                     '</span>' +
                     '<div id="items-' + transactionId + '" class="transaction-items-detail" style="display: none; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 8px; font-size: 0.7rem;">' +
@@ -7001,8 +7001,8 @@ function generateReceiptHTML(items, method, paid, change) {
                 datasets: [{ 
                     label: 'Sales ($)', 
                     data: [1250, 1450, 1320, 1680, 1890, 2100, 1750], 
-                    borderColor: '#C12B3E', 
-                    backgroundColor: 'rgba(193,43,62,0.1)', 
+                    borderColor: '#1E293B', 
+                    backgroundColor: 'rgba(30,41,59,0.1)', 
                     tension: 0.3, 
                     fill: true 
                 }] 
@@ -7074,7 +7074,7 @@ function renderAnalytics() {
                     labels: categoryLabels,
                     datasets: [{
                         data: categoryData,
-                        backgroundColor: ['#C12B3E', '#9B1D2C', '#1E293B', '#0F1F3D', '#D33F52', '#475569', '#64748B', '#94A3B8', '#CBD5E1', '#E2E8F0'],
+                        backgroundColor: ['#1E293B', '#0F1F3D', '#2A3A78', '#3A4B8C', '#475569', '#64748B', '#94A3B8', '#CBD5E1', '#E2E8F0', '#F1F5F9'],
                         borderWidth: 0
                     }]
                 },
@@ -7115,7 +7115,7 @@ function renderAnalytics() {
                         labels: invLabels,
                         datasets: [{
                             data: invData,
-                            backgroundColor: ['#C12B3E', '#9B1D2C', '#1E293B', '#0F1F3D', '#D33F52', '#475569', '#64748B', '#94A3B8'],
+                            backgroundColor: ['#1E293B', '#0F1F3D', '#2A3A78', '#3A4B8C', '#475569', '#64748B', '#94A3B8', '#CBD5E1'],
                             borderWidth: 0
                         }]
                     },
@@ -7171,8 +7171,8 @@ function renderAnalytics() {
                         {
                             label: 'Revenue ($)',
                             data: revenueData,
-                            borderColor: '#C12B3E',
-                            backgroundColor: 'rgba(193,43,62,0.1)',
+                            borderColor: '#1E293B',
+                            backgroundColor: 'rgba(30,41,59,0.1)',
                             tension: 0.3,
                             fill: true
                         },
@@ -7206,7 +7206,7 @@ function renderAnalytics() {
                 data: {
                     labels: ['No Data'],
                     datasets: [
-                        { label: 'Revenue ($)', data: [0], borderColor: '#C12B3E', backgroundColor: 'rgba(193,43,62,0.1)' },
+                        { label: 'Revenue ($)', data: [0], borderColor: '#1E293B', backgroundColor: 'rgba(30,41,59,0.1)' },
                         { label: 'Profit ($)', data: [0], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)' }
                     ]
                 },
@@ -7228,7 +7228,7 @@ function renderAnalytics() {
                 datasets: [{
                     label: 'Sales ($)',
                     data: hourlyData,
-                    backgroundColor: '#C12B3E',
+                    backgroundColor: '#1E293B',
                     borderRadius: 4
                 }]
             },
@@ -7274,7 +7274,7 @@ function renderAnalytics() {
                     labels: catLabels,
                     datasets: [{
                         data: catData,
-                        backgroundColor: ['#C12B3E', '#9B1D2C', '#1E293B', '#0F1F3D', '#D33F52', '#475569', '#64748B', '#94A3B8'],
+                        backgroundColor: ['#1E293B', '#0F1F3D', '#2A3A78', '#3A4B8C', '#475569', '#64748B', '#94A3B8', '#CBD5E1'],
                         borderWidth: 0
                     }]
                 },

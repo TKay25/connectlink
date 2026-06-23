@@ -10071,7 +10071,7 @@ def get_stock_movements():
     if reductions:
         for row in reductions:
             pid = row[1]
-            qty = row[4]
+            qty = row[5]  # FIX: index 5 is quantity, index 4 is the 'reduction' label
             period_reductions[pid] = period_reductions.get(pid, 0) + qty
             if pid in product_map:
                 product_map[pid]['total_reductions'] += qty
@@ -10109,12 +10109,12 @@ def get_stock_movements():
                 'product_name': row[2],
                 'category': row[3],
                 'type': 'reduction',
-                'quantity': row[4],
+                'quantity': row[5],  # FIX: index 5 is quantity
                 'buy_price': 0,
                 'total_cost': 0,
                 'details': f"Reason: {row[8]}" if row[8] else '',
                 'user': row[9] or 'System',
-                'date': row[11].isoformat() if row[11] else ''
+                'date': row[10].isoformat() if row[10] else ''  # FIX: index 10 is reduced_at
             })
     
     # Sort movements by date descending
@@ -23925,9 +23925,10 @@ def update_quotation(quotation_id):
             cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
             for idx, item in enumerate(items):
                 item_name = item.get('name') or item.get('item', 'Item')
-                quantity = float(item.get('sqm', 0)) if item.get('sqm') else 0
-                unit_rate = float(item.get('inhouseRate', 0)) if item.get('inhouseRate') else 0
-                total_price = float(item.get('total', 0)) if item.get('total') else 0
+                # FIX: Frontend sends 'quantity', 'unitRate', 'totalPrice' — match save_quotation
+                quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
+                unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
+                total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
                 cursor.execute("""
                     INSERT INTO quotation_items
                     (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
@@ -23937,7 +23938,8 @@ def update_quotation(quotation_id):
             # Replace schedules
             cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
             for idx, schedule in enumerate(schedules):
-                work_scope = schedule.get('item', 'Task')
+                # FIX: Frontend sends 'workScope' not 'item' — match save_quotation
+                work_scope = schedule.get('workScope', schedule.get('item', 'Task'))
                 start_date = schedule.get('startDate')
                 end_date = schedule.get('endDate')
                 days = int(schedule.get('days', 0)) if schedule.get('days') else 0

@@ -19626,7 +19626,7 @@ function editQuotationFromPortal(quotationId) {
                 $('#quotationClientName').val(quotation.clientName || '');
                 $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
                 $('#quotationMarkup').val(quotation.markup != null ? quotation.markup : 30);
-                $('#quotationSize').val(quotation.projectSize || '');
+                $('#quotationSize').val(quotation.projectSize ?? '');
                 $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
                 $('#quotationCategory').val(quotation.category || '').change();
 
