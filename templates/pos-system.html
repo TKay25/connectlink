@@ -3712,49 +3712,8 @@ function exportStockAuditExcel() {
     const startDate = document.getElementById('auditStartDate').value;
     const endDate = document.getElementById('auditEndDate').value;
     
-    // ===== MOVEMENTS SHEET =====
-    const movementHeader = ['Date', 'Product', 'Category', 'Type', 'Quantity', 'Details', 'User'];
-    const movementRows = auditMovementData.map(m => [
-        m.date ? new Date(m.date).toLocaleString() : '',
-        m.product_name || '',
-        m.category || '',
-        m.type === 'addition' ? 'Addition' : 'Reduction',
-        m.type === 'addition' ? m.quantity : -m.quantity,
-        m.details || '',
-        m.user || ''
-    ]);
-    
-    const ws1_data = [
-        ['Stock Movements Audit Report'],
-        [`Period: ${startDate} to ${endDate}`],
-        [],
-        movementHeader,
-        ...movementRows
-    ];
-    
-    const ws1 = XLSX.utils.aoa_to_sheet(ws1_data);
-    
-    // Set column widths for movements sheet
-    ws1['!cols'] = [
-        { wch: 20 },  // Date
-        { wch: 30 },  // Product
-        { wch: 18 },  // Category
-        { wch: 12 },  // Type
-        { wch: 10 },  // Quantity
-        { wch: 30 },  // Details
-        { wch: 20 }   // User
-    ];
-    
-    // Merge title and period cells across all columns
-    ws1['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }
-    ];
-    
-    // Freeze header row
-    ws1['!freeze'] = { x: 0, y: 4 };
-    
-    // ===== SUMMARY SHEET (no header row) =====
+    // ===== SUMMARY SHEET (with table header) =====
+    const summaryHeader = ['Product', 'Category', 'Opening Stock', 'Additions', 'Sale Reductions', 'Inv. Edit Reductions', 'Total Reductions', 'Closing Stock', 'Buy Price', 'Sell Price'];
     const summaryData = auditProductData.map(p => [
         p.name || '',
         p.category || '',
@@ -3768,17 +3727,18 @@ function exportStockAuditExcel() {
         p.sell_price || 0
     ]);
     
-    const ws2_data = [
+    const wsSummary_data = [
         ['Stock Summary by Product'],
         [`Period: ${startDate} to ${endDate}`],
         [],
+        summaryHeader,
         ...summaryData
     ];
     
-    const ws2 = XLSX.utils.aoa_to_sheet(ws2_data);
+    const wsSummary = XLSX.utils.aoa_to_sheet(wsSummary_data);
     
     // Set column widths for summary sheet
-    ws2['!cols'] = [
+    wsSummary['!cols'] = [
         { wch: 30 },  // Product
         { wch: 18 },  // Category
         { wch: 16 },  // Opening Stock
@@ -3792,15 +3752,60 @@ function exportStockAuditExcel() {
     ];
     
     // Merge title and period cells across all columns
-    ws2['!merges'] = [
+    wsSummary['!merges'] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
         { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } }
     ];
     
-    // Create workbook and add sheets
+    // Freeze header row on summary
+    wsSummary['!freeze'] = { x: 0, y: 4 };
+    
+    // ===== MOVEMENTS SHEET =====
+    const movementHeader = ['Date', 'Product', 'Category', 'Type', 'Quantity', 'Details', 'User'];
+    const movementRows = auditMovementData.map(m => [
+        m.date ? new Date(m.date).toLocaleString() : '',
+        m.product_name || '',
+        m.category || '',
+        m.type === 'addition' ? 'Addition' : 'Reduction',
+        m.type === 'addition' ? m.quantity : -m.quantity,
+        m.details || '',
+        m.user || ''
+    ]);
+    
+    const wsMovements_data = [
+        ['Stock Movements Audit Report'],
+        [`Period: ${startDate} to ${endDate}`],
+        [],
+        movementHeader,
+        ...movementRows
+    ];
+    
+    const wsMovements = XLSX.utils.aoa_to_sheet(wsMovements_data);
+    
+    // Set column widths for movements sheet
+    wsMovements['!cols'] = [
+        { wch: 20 },  // Date
+        { wch: 30 },  // Product
+        { wch: 18 },  // Category
+        { wch: 12 },  // Type
+        { wch: 10 },  // Quantity
+        { wch: 30 },  // Details
+        { wch: 20 }   // User
+    ];
+    
+    // Merge title and period cells across all columns
+    wsMovements['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } }
+    ];
+    
+    // Freeze header row
+    wsMovements['!freeze'] = { x: 0, y: 4 };
+    
+    // Create workbook — Summary first, Movements second
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, 'Movements');
-    XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+    XLSX.utils.book_append_sheet(wb, wsMovements, 'Movements');
     
     XLSX.writeFile(wb, `stock_audit_${startDate}_to_${endDate}.xlsx`);
     

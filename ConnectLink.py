@@ -10094,9 +10094,11 @@ def get_stock_movements():
                     product_map[pid]['inventory_edit_reductions'] += qty
     
     # Calculate initial stock: current - additions_in_period + reductions_in_period
+    # Clamp to 0 since opening stock cannot be negative
     for pid, product in product_map.items():
         current = current_stock_map.get(pid, 0)
-        product['initial_stock'] = current - period_additions.get(pid, 0) + period_reductions.get(pid, 0)
+        calculated = current - period_additions.get(pid, 0) + period_reductions.get(pid, 0)
+        product['initial_stock'] = max(0, calculated)
         product['final_stock'] = current
     
     # Parse movements - additions
