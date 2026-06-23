@@ -992,6 +992,19 @@ def initialize_database_tables():
                 )
             """, commit=True)
 
+            # Stock reductions table
+            execute_query("""
+                CREATE TABLE IF NOT EXISTS stock_reductions (
+                    id SERIAL PRIMARY KEY,
+                    product_id INTEGER REFERENCES products(id),
+                    quantity INTEGER NOT NULL,
+                    reason VARCHAR(50) NOT NULL,
+                    notes TEXT,
+                    user_id INTEGER,
+                    reduced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """, commit=True)
+
             # Remove old columns if they exist
             execute_query("""
                 ALTER TABLE products 
@@ -9941,6 +9954,187 @@ def get_stock_additions():
     return jsonify({
         'success': True,
         'additions': additions
+    })
+
+@app.route('/api/stock-movements', methods=['GET'])
+@login_required
+def get_stock_movements():
+    """Get stock movements (additions & reductions) within a date range for audit report"""
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    
+    if not start_date or not end_date:
+        return jsonify({'success': False, 'error': 'start_date and end_date are required'}), 400
+    
+    # Get stock at the start of the period (initial stock per product)
+    initial_query = """
+        SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, p.buy_price, p.sell_price,
+               COALESCE(initial.stock, 0) as initial_stock
+        FROM products p
+        LEFT JOIN LATERAL (
+            SELECT sa.product_id,
+                   p2.stock - COALESCE(sa.total_added, 0) + COALESCE(sr.total_removed, 0) as stock
+            FROM products p2
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) as total_added
+                FROM stock_additions
+                WHERE added_at < %s::timestamp
+                GROUP BY product_id
+            ) sa ON sa.product_id = p2.id
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) as total_removed
+                FROM stock_reductions
+                WHERE reduced_at < %s::timestamp
+                GROUP BY product_id
+            ) sr ON sr.product_id = p2.id
+            WHERE p2.id = p.id
+        ) initial ON true
+        WHERE p.is_active = TRUE OR p.is_active IS NULL
+        ORDER BY p.name
+    """
+    
+    # For initial stock, get the stock level at the END of the day BEFORE start_date
+    # A simpler approach: get the current stock and subtract movements in the period
+    # But even simpler: we take the stock value recorded just before start date
+    
+    # Get product list with initial stock (stock as recorded just before start_date)
+    # We'll compute this by taking current stock and reversing movements in the period
+    products_result = execute_query("""
+        SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, 
+               COALESCE(p.buy_price, 0) as buy_price, COALESCE(p.sell_price, 0) as sell_price
+        FROM products p
+        WHERE p.is_active = TRUE OR p.is_active IS NULL
+        ORDER BY p.name
+    """, fetch_all=True)
+    
+    # Get additions in the period
+    additions_query = """
+        SELECT sa.id, sa.product_id, p.name as product_name, p.category,
+               'addition' as movement_type, sa.quantity, sa.buy_price, sa.total_cost,
+               sa.funding_source, u.full_name as user_name, sa.added_at as movement_date
+        FROM stock_additions sa
+        LEFT JOIN products p ON sa.product_id = p.id
+        LEFT JOIN users u ON sa.user_id = u.id
+        WHERE sa.added_at >= %s::timestamp AND sa.added_at <= (%s::timestamp + INTERVAL '1 day')
+        ORDER BY sa.added_at DESC
+    """
+    additions = execute_query(additions_query, (start_date, end_date), fetch_all=True) or []
+    
+    # Get reductions in the period
+    reductions_query = """
+        SELECT sr.id, sr.product_id, p.name as product_name, p.category,
+               'reduction' as movement_type, sr.quantity, 0 as buy_price, 0 as total_cost,
+               sr.reason as funding_source, u.full_name as user_name, sr.reduced_at as movement_date
+        FROM stock_reductions sr
+        LEFT JOIN products p ON sr.product_id = p.id
+        LEFT JOIN users u ON sr.user_id = u.id
+        WHERE sr.reduced_at >= %s::timestamp AND sr.reduced_at <= (%s::timestamp + INTERVAL '1 day')
+        ORDER BY sr.reduced_at DESC
+    """
+    reductions = execute_query(reductions_query, (start_date, end_date), fetch_all=True) or []
+    
+    # Build product map with initial stock (current stock - additions in period + reductions in period)
+    product_map = {}
+    if products_result:
+        for row in products_result:
+            product_map[row[0]] = {
+                'id': row[0],
+                'name': row[1],
+                'category': row[2],
+                'unit_type': row[3],
+                'unit_details': row[4],
+                'buy_price': float(row[5]),
+                'sell_price': float(row[6]),
+                'initial_stock': 0,
+                'total_additions': 0,
+                'total_reductions': 0
+            }
+    
+    # Get current stock for all products
+    current_stocks = execute_query("SELECT id, stock FROM products WHERE is_active = TRUE OR is_active IS NULL", fetch_all=True) or []
+    current_stock_map = {}
+    for row in current_stocks:
+        current_stock_map[row[0]] = row[1]
+    
+    # Calculate period totals from additions/reductions
+    period_additions = {}  # product_id -> total
+    period_reductions = {}  # product_id -> total
+    
+    if additions:
+        for row in additions:
+            pid = row[1]
+            qty = row[5]
+            period_additions[pid] = period_additions.get(pid, 0) + qty
+            if pid in product_map:
+                product_map[pid]['total_additions'] += qty
+    
+    if reductions:
+        for row in reductions:
+            pid = row[1]
+            qty = row[4]
+            period_reductions[pid] = period_reductions.get(pid, 0) + qty
+            if pid in product_map:
+                product_map[pid]['total_reductions'] += qty
+    
+    # Calculate initial stock: current - additions_in_period + reductions_in_period
+    for pid, product in product_map.items():
+        current = current_stock_map.get(pid, 0)
+        product['initial_stock'] = current - period_additions.get(pid, 0) + period_reductions.get(pid, 0)
+        product['final_stock'] = current
+    
+    # Parse all movements
+    movements = []
+    
+    if additions:
+        for row in additions:
+            movements.append({
+                'id': row[0],
+                'product_id': row[1],
+                'product_name': row[2],
+                'category': row[3],
+                'type': 'addition',
+                'quantity': row[5],
+                'buy_price': float(row[6]) if row[6] else 0,
+                'total_cost': float(row[7]) if row[7] else 0,
+                'details': f"Funding: {row[8]}" if row[8] else '',
+                'user': row[9] or 'System',
+                'date': row[10].isoformat() if row[10] else ''
+            })
+    
+    if reductions:
+        for row in reductions:
+            movements.append({
+                'id': row[0],
+                'product_id': row[1],
+                'product_name': row[2],
+                'category': row[3],
+                'type': 'reduction',
+                'quantity': row[4],
+                'buy_price': 0,
+                'total_cost': 0,
+                'details': f"Reason: {row[8]}" if row[8] else '',
+                'user': row[9] or 'System',
+                'date': row[11].isoformat() if row[11] else ''
+            })
+    
+    # Sort movements by date descending
+    movements.sort(key=lambda m: m['date'], reverse=True)
+    
+    # Build summary
+    products_list = sorted(product_map.values(), key=lambda p: p['name'])
+    
+    summary = {
+        'total_products': len(products_list),
+        'total_additions': sum(m['quantity'] for m in movements if m['type'] == 'addition'),
+        'total_reductions': sum(m['quantity'] for m in movements if m['type'] == 'reduction'),
+        'total_addition_cost': sum(m['total_cost'] for m in movements if m['type'] == 'addition'),
+    }
+    
+    return jsonify({
+        'success': True,
+        'products': products_list,
+        'movements': movements,
+        'summary': summary
     })
 
 @app.route('/api/login', methods=['POST'])
