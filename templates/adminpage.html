@@ -3696,7 +3696,7 @@ table.dataTable thead th.sorting_desc {
 <!-- ===== FIXED TOP NAVBAR ===== -->
 <nav class="fixed-navbar">
     <div class="brand">
-        <img src="{{ url_for('static', filename='images/web-logo-white.png') }}" alt="ConnectLink">
+        <img src="{{ url_for('static', filename='images/web-logo-white.png') }}" alt="ConnectLink" onclick="location.reload();" style="cursor:pointer;">
     </div>
     <div class="nav-actions" style="position:relative;">
         <div class="user-badge" onclick="toggleUserDropdown(event)" style="cursor:pointer;">
