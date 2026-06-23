@@ -22457,7 +22457,7 @@ def build_quotation_pdf_document(quotation_id):
                 total_cost_sum = 0
                 
                 for idx, item in enumerate(items, 1):
-                    item_name = item[0] or 'Item'
+                    item_name = (item[0] or 'Item').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
                     quantity = int(item[1]) if item[1] else 1
                     amount = float(item[2]) if item[2] else 0
                     days = int(item[3]) if item[3] else 1
@@ -22470,7 +22470,7 @@ def build_quotation_pdf_document(quotation_id):
                     items_rows += f"""
                     <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{html.escape(item_name)}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{item_name}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{quantity}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {amount:,.2f}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
@@ -22508,7 +22508,7 @@ def build_quotation_pdf_document(quotation_id):
                     days_by_order[order] = days
                 
                 for idx, item in enumerate(items, 1):
-                    item_name = item[0] or 'Item'
+                    item_name = (item[0] or 'Item').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
                     qty = float(item[1]) if item[1] else 0
                     inhouse_rate = float(item[2]) if item[2] else 0
                     total = float(item[3]) if item[3] else 0
@@ -22522,7 +22522,7 @@ def build_quotation_pdf_document(quotation_id):
                     items_rows += f"""
                     <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{html.escape(item_name)}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{item_name}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{qty:,.2f}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {client_unit_rate:,.2f}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
@@ -22539,14 +22539,14 @@ def build_quotation_pdf_document(quotation_id):
             # Build schedule rows
             schedule_rows = ''
             for idx, schedule in enumerate(schedules, 1):
-                work_scope = schedule[0] or 'Task'
+                work_scope = (schedule[0] or 'Task').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
                 start_date = schedule[1].strftime('%d/%m/%Y') if schedule[1] else ''
                 end_date = schedule[2].strftime('%d/%m/%Y') if schedule[2] else ''
                 days = int(schedule[3]) if schedule[3] else 0
                 schedule_rows += f"""
                     <tr style="border-bottom:1px solid #ddd; background-color:{'#f9f9f9' if idx % 2 else '#fff'};">
                         <td style="padding:6px; text-align:center;">{idx}</td>
-                        <td style="padding:6px; text-align:left;">{html.escape(work_scope)}</td>
+                        <td style="padding:6px; text-align:left;">{work_scope}</td>
                         <td style="padding:6px; text-align:center;">{start_date}</td>
                         <td style="padding:6px; text-align:center;">{end_date}</td>
                         <td style="padding:6px; text-align:center; font-weight:bold; color:#2196F3;">{days}</td>
