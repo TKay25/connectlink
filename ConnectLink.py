@@ -22471,9 +22471,8 @@ def _serve_quotation_html_page(q):
                 cost_sum = 0
                 for idx, item in enumerate(items, 1):
                     qty = float(item[1]) if item[1] else 0
-                    inhouse_rate = float(item[2]) if item[2] else 0
+                    client_rate = float(item[2]) if item[2] else 0  # Stored as client price (already marked up)
                     total = float(item[3]) if item[3] else 0
-                    client_rate = inhouse_rate * markup_mult
                     cost_sum += total
                     bg = '#ffffff' if idx % 2 else '#fafbff'
                     items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
@@ -22778,9 +22777,8 @@ def build_quotation_pdf_document(quotation_id):
                 for idx, item in enumerate(items, 1):
                     item_name = (item[0] or 'Item').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
                     qty = float(item[1]) if item[1] else 0
-                    inhouse_rate = float(item[2]) if item[2] else 0
+                    client_unit_rate = float(item[2]) if item[2] else 0  # Stored as client price (already marked up)
                     total = float(item[3]) if item[3] else 0
-                    client_unit_rate = inhouse_rate * markup_multiplier
                     days = days_by_order.get(idx, 0)
                     
                     total_days_sum += days
@@ -23083,9 +23081,8 @@ def generate_quotation_pdf_playwright(quotation_id):
                 cost_sum = 0
                 for idx, item in enumerate(items, 1):
                     qty = float(item[1]) if item[1] else 0
-                    inhouse_rate = float(item[2]) if item[2] else 0
+                    client_rate = float(item[2]) if item[2] else 0  # Stored as client price (already marked up)
                     total = float(item[3]) if item[3] else 0
-                    client_rate = inhouse_rate * markup_mult
                     cost_sum += total
                     bg = '#ffffff' if idx % 2 else '#fafbff'
                     items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""

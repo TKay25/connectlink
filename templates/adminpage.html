@@ -7309,7 +7309,7 @@ table.dataTable thead th.sorting_desc {
                         <tr>
                             <th style="width: 40%; min-width: 200px;">Quotation Item</th>
                             <th style="width: 30%; min-width: 150px;">Days per Sq Meter</th>
-                            <th style="width: 30%; min-width: 200px;">Inhouse Unit Rate (USD per Sq Meter)</th>
+                            <th style="width: 30%; min-width: 200px;">Client Unit Rate (USD per Sq Meter)</th>
                             <th style="width: 40px; text-align: center;">Action</th>
                         </tr>
                     </thead>
@@ -8252,32 +8252,25 @@ function openModal(modalId) {
             loadAuditData();
         }
         
-        // Reinitialize Quill editor when New Project modal opens
+        // Reinitialize Quill editor when New Project modal opens (only if not already initialized)
         if (modalId === 'addnewProjectModal') {
             setTimeout(() => {
                 try {
-                    // Destroy old Quill instance if it exists
-                    if (quillProjectScope) {
-                        quillProjectScope = null;
+                    // Only initialize if Quill hasn't been created yet
+                    if (!quillProjectScope) {
+                        const editorContainer = document.getElementById('projectScopeEditor');
+                        
+                        // Recreate Quill instance
+                        quillProjectScope = new Quill('#projectScopeEditor', {
+                            theme: 'snow',
+                            modules: {
+                                toolbar: '#projectScopeToolbar'
+                            }
+                        });
+                        
+                        // Focus the editor
+                        quillProjectScope.focus();
                     }
-                    
-                    // Clear the container
-                    const editorContainer = document.getElementById('projectScopeEditor');
-                    editorContainer.innerHTML = '';
-                    
-                    // Recreate Quill instance
-                    quillProjectScope = new Quill('#projectScopeEditor', {
-                        theme: 'snow',
-                        modules: {
-                            toolbar: '#projectScopeToolbar'
-                        }
-                    });
-                    
-                    // Reset the hidden input
-                    document.getElementById("project_description").value = '';
-                    
-                    // Focus the editor
-                    quillProjectScope.focus();
                 } catch (e) {
                     console.error('Error reinitializing Quill:', e);
                 }
@@ -16826,12 +16819,12 @@ $('#generateQuotationBtn').click(function() {
                 
                 selectedRateItems.push(itemData);
                 
-                // CRITICAL FIX: Ensure numeric values
-                const inhouseRateValue = parseFloat(itemData.inhouseRate) || 0;
+                // CRITICAL FIX: The stored 'inhouseRate' is actually the CLIENT rate per sqm (already includes markup)
+                const clientRatePerSqm = parseFloat(itemData.inhouseRate) || 0;
                 const daysPerSqmValue = parseFloat(itemData.daysPerSqMeter) || 0;
                 
-                const basePrice = inhouseRateValue * sqm;
-                const clientPrice = basePrice * markupMultiplier;
+                const clientPrice = clientRatePerSqm * sqm;  // This IS the client price (rate already has markup baked in)
+                const basePrice = clientPrice / markupMultiplier;  // Reverse-calculate inhouse cost
                 
                 // Calculate days for this item
                 const duration = Math.max(1, Math.round(daysPerSqmValue * sqm));
@@ -16840,7 +16833,7 @@ $('#generateQuotationBtn').click(function() {
                 const endDate = new Date(currentStartDate);
                 endDate.setDate(endDate.getDate() + duration - 1);
                 
-                console.log(`  Calculated: basePrice=${basePrice}, clientPrice=${clientPrice}, duration=${duration}`);
+                console.log(`  Calculated: clientPrice=${clientPrice}, basePrice=${basePrice}, duration=${duration}`);
                 
                 // Store in window.ganttItems with correct days
                 window.ganttItems.push({
@@ -16860,9 +16853,9 @@ $('#generateQuotationBtn').click(function() {
                 selectedItems.push({
                     name: itemData.item,
                     total: clientPrice,
-                    clientPrice: clientPrice,  // Add both for compatibility
+                    clientPrice: clientPrice,
                     sqm: sqm,
-                    inhouseRate: inhouseRateValue,
+                    inhouseRate: clientRatePerSqm,
                     days: duration
                 });
 
