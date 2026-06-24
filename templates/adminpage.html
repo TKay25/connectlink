@@ -17463,12 +17463,8 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                 </div>` : ''}
 
                 ${constructionItemsPlacementBefore}
-                
-                <!-- WORK SCHEDULE (always shown for construction) -->
-                ${(() => {
-                    const isConst = String(category || '').toLowerCase().includes('construction');
-                    if (!isConst || !schedules.length) return '';
-                    return `
+                ${showConstructionItemsTable ? `
+                <!-- WORK SCHEDULE -->
                 <div style="page-break-inside:avoid; break-inside:avoid;">
                     <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">WORK SCHEDULE</h4>
                     <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px;">
@@ -17496,8 +17492,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                             }).join('')}
                         </tbody>
                     </table>
-                </div>`;
-                })()}
+                </div>` : ''}
 
                 ${constructionItemsPlacementAfter}
             </div>
