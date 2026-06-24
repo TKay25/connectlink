@@ -16028,9 +16028,10 @@ let quillDetailsNotes = null;
             const markupMultiplier = 1 + (markup / 100);
 
             quotationRatesCache.forEach((rate, index) => {
-                const inhouseRateValue = Number(rate.inhouseRate) || 0;
-                const basePrice = inhouseRateValue * sqm;
-                const clientPrice = basePrice * markupMultiplier;
+                // CRITICAL: The stored 'inhouseRate' is actually the CLIENT rate per sqm (already includes markup)
+                const clientRatePerSqm = Number(rate.inhouseRate) || 0;
+                const clientPrice = clientRatePerSqm * sqm;  // This IS the client price
+                const basePrice = clientPrice / markupMultiplier;  // Reverse-calculate inhouse cost
                 
                 // Check if this item should be excluded for single storey
                 const isExcludedForSingleStorey = isSingleStorey && excludedForSingleStorey.some(excluded => 
@@ -16050,12 +16051,11 @@ let quillDetailsNotes = null;
                             <div style="flex: 1;">
                                 <div class="fw-bold" style="font-size: 0.95rem; margin-bottom: 4px;">${rate.item} ${isExcludedForSingleStorey ? '<span class="badge bg-secondary ms-2" style="font-size:0.7rem;">Not for Single Storey</span>' : ''}</div>
                                 <small class="text-muted" style="display: block; line-height: 1.5;">
-                                    Base: <strong>$${rate.inhouseRate}</strong>/sqm 
+                                    Client Rate: <strong>$${clientRatePerSqm.toFixed(2)}</strong>/sqm 
                                     × <strong>${sqm}</strong> sqm 
-                                    = <strong>$${basePrice.toFixed(2)}</strong>
-                                    <br>
-                                    +<strong>${markup}%</strong> markup 
                                     = <strong style="color: #2196F3;">$${clientPrice.toFixed(2)}</strong>
+                                    <br>
+                                    <span style="color: #6c757d;">Inhouse (at ${markup}% markup): <strong>$${basePrice.toFixed(2)}</strong></span>
                                 </small>
                             </div>
                         </div>
@@ -17276,13 +17276,13 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     const markupPercentage = data.markup || 30;
     const markupMultiplier = 1 + (markupPercentage / 100);
 
-    // Then when building each item row, calculate client unit rate:
+    // Then when building each item row:
     items.forEach((item, index) => {
         const itemName = item.item || item.name || 'Item';
         const qty = Number(item.sqm) || 0;
-        const inhouseRate = Number(item.inhouseRate) || Number(item.unitRate) || 0;
-        // Calculate client unit rate (inhouse + markup)
-        const clientUnitRate = inhouseRate * markupMultiplier;
+        // CRITICAL: The stored inhouseRate is actually the CLIENT rate per sqm (already includes markup)
+        const clientRatePerSqm = Number(item.inhouseRate) || Number(item.unitRate) || 0;
+        const clientUnitRate = clientRatePerSqm;  // Stored value IS the client rate
         const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
         const itemTotal = Number(item.clientPrice || item.total || 0);
         
@@ -19012,8 +19012,8 @@ function displayQuotationDetailsInModal(quotation) {
                                 <th style="width:30px;text-align:center;">#</th>
                                 <th>Item Description</th>
                                 <th style="width:50px;text-align:center;">Qty</th>
-                                <th style="width:70px;text-align:right;">Inhouse Rate</th>
                                 <th style="width:70px;text-align:right;">Client Rate</th>
+                                <th style="width:70px;text-align:right;">Inhouse Rate</th>
                                 <th style="width:70px;text-align:right;">Total</th>
                             </tr>
                         </thead>
@@ -19022,16 +19022,18 @@ function displayQuotationDetailsInModal(quotation) {
         
         quotation.items.forEach((item, idx) => {
             const qty = item.quantity || 0;
-            const inhouseRate = item.unitRate || 0;
-            const clientRate = inhouseRate * markupMultiplier;
+            // CRITICAL: Stored unitRate IS the client rate per sqm (already includes markup)
+            const clientRatePerSqm = item.unitRate || 0;
+            const clientRate = clientRatePerSqm;  // Stored value IS the client rate
+            const inhouseRate = clientRatePerSqm / markupMultiplier;  // Reverse-calculate inhouse
             const totalPrice = item.totalPrice || 0;
             html += `
                 <tr>
                     <td class="text-center fw-bold" style="font-size:0.7rem;">${idx + 1}</td>
                     <td style="font-size:0.7rem;">${escapeHtml(item.name || 'Item')}</td>
                     <td class="text-center" style="font-size:0.7rem;">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
-                    <td class="text-end" style="font-size:0.7rem;">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td class="text-end fw-bold" style="font-size:0.7rem;">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td class="text-end" style="font-size:0.7rem;">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                     <td class="text-end fw-bold" style="font-size:0.7rem;color:var(--crimson-bright);">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                 </tr>
             `;
