@@ -17463,17 +17463,21 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                 </div>` : ''}
 
                 ${constructionItemsPlacementBefore}
-                ${showConstructionItemsTable ? `
-                <!-- WORK SCHEDULE -->
+                
+                <!-- WORK SCHEDULE (always shown for construction) -->
+                ${(() => {
+                    const isConst = String(category || '').toLowerCase().includes('construction');
+                    if (!isConst || !schedules.length) return '';
+                    return `
                 <div style="page-break-inside:avoid; break-inside:avoid;">
                     <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">WORK SCHEDULE</h4>
                     <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px;">
                         <thead>
                             <tr>
                                 <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 70%;">Item Description</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Days</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 12%;">Total (USD)</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 46%;">Item Description</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 24%;">Start Date</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 24%;">End Date</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -17481,7 +17485,6 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                                 const workScope = schedule.workScope || schedule.item || 'Task';
                                 const startDate = schedule.startDate ? new Date(schedule.startDate).toLocaleDateString('en-GB') : '';
                                 const endDate = schedule.endDate ? new Date(schedule.endDate).toLocaleDateString('en-GB') : '';
-                                const daysValue = Number(schedule.days) || 0;
                                 const bg = index % 2 === 0 ? '#f9f9f9' : '#ffffff';
                                 return `
                                     <tr style="border-bottom:1px solid #ddd; background-color:${bg};">
@@ -17493,7 +17496,8 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                             }).join('')}
                         </tbody>
                     </table>
-                </div>` : ''}
+                </div>`;
+                })()}
 
                 ${constructionItemsPlacementAfter}
             </div>
