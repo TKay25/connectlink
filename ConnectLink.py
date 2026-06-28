@@ -1231,6 +1231,145 @@ def initialize_database_tables():
                 print("✅ Bad date cleanup complete!")
             except Exception as cleanup_err:
                 print(f"Note: Date cleanup error: {cleanup_err}")
+            # ========== HR MODULE TABLES ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_employees (
+                    id SERIAL PRIMARY KEY,
+                    user_id INT REFERENCES connectlinkusers(id) ON DELETE SET NULL,
+                    first_name VARCHAR(100) NOT NULL,
+                    last_name VARCHAR(100) NOT NULL,
+                    whatsapp VARCHAR(50),
+                    email VARCHAR(200),
+                    address TEXT,
+                    password VARCHAR(100),
+                    role VARCHAR(50) DEFAULT 'Ordinary User',
+                    department VARCHAR(100),
+                    designation VARCHAR(100),
+                    gender VARCHAR(10),
+                    dob DATE,
+                    marital_status VARCHAR(50),
+                    nationality VARCHAR(100),
+                    date_joined DATE,
+                    leave_approver_name VARCHAR(200),
+                    leave_approver_id INT,
+                    leave_approver_email VARCHAR(200),
+                    leave_approver_whatsapp VARCHAR(50),
+                    current_leave_balance DECIMAL(10,2) DEFAULT 21,
+                    monthly_accumulation DECIMAL(5,2) DEFAULT 1.75,
+                    bank_holder_name VARCHAR(100),
+                    bank_holder_surname VARCHAR(100),
+                    bank_name VARCHAR(100),
+                    bank_account_number VARCHAR(50),
+                    bank_branch VARCHAR(100),
+                    bank_branch_code VARCHAR(20),
+                    basic_salary DECIMAL(12,2) DEFAULT 0,
+                    usd_percent DECIMAL(5,2) DEFAULT 100,
+                    zwg_percent DECIMAL(5,2) DEFAULT 0,
+                    exchange_rate DECIMAL(12,4) DEFAULT 1,
+                    currency VARCHAR(10) DEFAULT 'USD',
+                    c8_number VARCHAR(50),
+                    c8_type VARCHAR(20),
+                    employment_type VARCHAR(50) DEFAULT 'Permanent',
+                    status VARCHAR(20) DEFAULT 'Active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_leave_applications (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    employee_name VARCHAR(300) NOT NULL,
+                    leave_type VARCHAR(50) NOT NULL,
+                    from_date DATE NOT NULL,
+                    to_date DATE NOT NULL,
+                    days INT NOT NULL,
+                    reason TEXT,
+                    status VARCHAR(20) DEFAULT 'Pending',
+                    approved_by VARCHAR(200),
+                    approved_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_leave_approved (
+                    id SERIAL PRIMARY KEY,
+                    application_id INT REFERENCES hr_leave_applications(id) ON DELETE CASCADE,
+                    employee_id INT,
+                    employee_name VARCHAR(300),
+                    leave_type VARCHAR(50),
+                    from_date DATE,
+                    to_date DATE,
+                    days INT,
+                    approved_by VARCHAR(200),
+                    approved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_leave_declined (
+                    id SERIAL PRIMARY KEY,
+                    application_id INT,
+                    employee_id INT,
+                    employee_name VARCHAR(300),
+                    leave_type VARCHAR(50),
+                    from_date DATE,
+                    to_date DATE,
+                    days INT,
+                    reason TEXT,
+                    declined_by VARCHAR(200),
+                    declined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_attendance (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    date DATE DEFAULT CURRENT_DATE,
+                    check_in TIME,
+                    check_out TIME,
+                    status VARCHAR(20) DEFAULT 'Present',
+                    notes TEXT,
+                    UNIQUE(employee_id, date)
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_payroll (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    period VARCHAR(20) NOT NULL,
+                    basic_pay DECIMAL(12,2) DEFAULT 0,
+                    allowances DECIMAL(12,2) DEFAULT 0,
+                    deductions DECIMAL(12,2) DEFAULT 0,
+                    net_pay DECIMAL(12,2) DEFAULT 0,
+                    status VARCHAR(20) DEFAULT 'Pending',
+                    processed_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_assets (
+                    id SERIAL PRIMARY KEY,
+                    asset_tag VARCHAR(50) UNIQUE,
+                    asset_name VARCHAR(200) NOT NULL,
+                    category VARCHAR(100),
+                    assigned_to INT REFERENCES hr_employees(id) ON DELETE SET NULL,
+                    value DECIMAL(12,2) DEFAULT 0,
+                    purchase_date DATE,
+                    status VARCHAR(20) DEFAULT 'In Service',
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            connection.commit()
+            print("✅ HR module tables initialized!")
+
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
 
@@ -11715,8 +11854,20 @@ def hr_login():
 
                     session['userid'] = userid
                     session['user_name'] = user_name
+                    session['hr_role'] = 'Administrator'  # Default to admin for connectlinkusers logins
 
-                    log_activity('user_login', f'HR user {user_name} logged in', 'user', userid, {'username': user_name, 'email': email_or_username})
+                    # Check if user exists in hr_employees and get their role
+                    cursor.execute("""
+                        SELECT id, role FROM hr_employees WHERE user_id = %s
+                    """, (userid,))
+                    emp = cursor.fetchone()
+                    if emp:
+                        session['hr_employee_id'] = int(emp[0])
+                        session['hr_role'] = emp[1]
+                    else:
+                        session['hr_employee_id'] = None
+
+                    log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': user_name, 'email': email_or_username, 'role': session['hr_role']})
                     return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
                 else:
                     print(f'❌ Incorrect password for HR user {email_or_username}')
@@ -11736,11 +11887,497 @@ def hr_dashboard():
     user_uuid = session.get('user_uuid')
     user_name = session.get('user_name')
     userid = session.get('userid')
+    hr_role = session.get('hr_role', 'Ordinary User')
+    hr_employee_id = session.get('hr_employee_id')
 
     if not user_uuid:
         return render_template('mainindex.html')
 
-    return render_template('hr_dashboard.html', user_name=user_name, userid=userid)
+    return render_template('hr_dashboard.html', user_name=user_name, userid=userid, hr_role=hr_role, hr_employee_id=hr_employee_id)
+
+
+# ==================== HR API ENDPOINTS ====================
+
+@app.route('/api/hr/employees', methods=['GET', 'POST'])
+def hr_employees_api():
+    """HR: List all employees (GET) or create a new employee (POST)"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT id, user_id, first_name, last_name, whatsapp, email, address,
+                           role, department, designation, gender, dob, marital_status,
+                           nationality, date_joined, current_leave_balance, monthly_accumulation,
+                           basic_salary, employment_type, status
+                    FROM hr_employees ORDER BY last_name, first_name
+                """)
+                rows = cursor.fetchall()
+                employees = []
+                for r in rows:
+                    employees.append({
+                        'id': r[0], 'user_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'whatsapp': r[4], 'email': r[5], 'address': r[6],
+                        'role': r[7], 'department': r[8], 'designation': r[9],
+                        'gender': r[10], 'dob': str(r[11]) if r[11] else None,
+                        'marital_status': r[12], 'nationality': r[13],
+                        'date_joined': str(r[14]) if r[14] else None,
+                        'leave_balance': float(r[15] or 0), 'monthly_accrual': float(r[16] or 0),
+                        'salary': float(r[17] or 0), 'employment_type': r[18], 'status': r[19]
+                    })
+                return jsonify({'success': True, 'data': employees})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_employees
+                        (first_name, last_name, whatsapp, email, address, role, department,
+                         designation, gender, dob, marital_status, nationality, date_joined,
+                         current_leave_balance, monthly_accumulation, basic_salary, employment_type, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (
+                    data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
+                    data.get('email'), data.get('address'), data.get('role', 'Ordinary User'),
+                    data.get('department'), data.get('designation'), data.get('gender'),
+                    data.get('dob'), data.get('marital_status'), data.get('nationality'),
+                    data.get('date_joined'), data.get('leave_balance', 21),
+                    data.get('monthly_accrual', 1.75), data.get('salary', 0),
+                    data.get('employment_type', 'Permanent'), data.get('status', 'Active')
+                ))
+                emp_id = cursor.fetchone()[0]
+                connection.commit()
+                return jsonify({'success': True, 'id': emp_id, 'message': 'Employee added successfully'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/employees/<int:emp_id>', methods=['GET', 'PUT', 'DELETE'])
+def hr_employee_detail(emp_id):
+    """HR: Get, update, or delete a single employee"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT * FROM hr_employees WHERE id = %s", (emp_id,))
+                r = cursor.fetchone()
+                if not r:
+                    return jsonify({'success': False, 'error': 'Employee not found'}), 404
+                cols = [desc[0] for desc in cursor.description]
+                emp = dict(zip(cols, r))
+                # Convert dates/times to strings
+                for k, v in emp.items():
+                    if hasattr(v, 'isoformat'):
+                        emp[k] = v.isoformat()
+                    elif hasattr(v, 'strftime'):
+                        emp[k] = v.strftime('%Y-%m-%d')
+                return jsonify({'success': True, 'data': emp})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'PUT':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    UPDATE hr_employees SET
+                        first_name=%s, last_name=%s, whatsapp=%s, email=%s, address=%s,
+                        role=%s, department=%s, designation=%s, gender=%s, dob=%s,
+                        marital_status=%s, nationality=%s, date_joined=%s,
+                        current_leave_balance=%s, monthly_accumulation=%s,
+                        basic_salary=%s, employment_type=%s, status=%s,
+                        bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
+                        bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
+                        usd_percent=%s, zwg_percent=%s, exchange_rate=%s,
+                        c8_number=%s, c8_type=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (
+                    data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
+                    data.get('email'), data.get('address'), data.get('role', 'Ordinary User'),
+                    data.get('department'), data.get('designation'), data.get('gender'),
+                    data.get('dob'), data.get('marital_status'), data.get('nationality'),
+                    data.get('date_joined'), data.get('current_leave_balance', 21),
+                    data.get('monthly_accumulation', 1.75), data.get('basic_salary', 0),
+                    data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
+                    data.get('bank_holder_name'), data.get('bank_holder_surname'),
+                    data.get('bank_name'), data.get('bank_account_number'),
+                    data.get('bank_branch'), data.get('bank_branch_code'),
+                    data.get('usd_percent', 100), data.get('zwg_percent', 0),
+                    data.get('exchange_rate', 1), data.get('c8_number'), data.get('c8_type'),
+                    emp_id
+                ))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Employee updated successfully'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'DELETE':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("DELETE FROM hr_employees WHERE id = %s", (emp_id,))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Employee removed'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave', methods=['GET', 'POST'])
+def hr_leave_api():
+    """HR: List leave applications or create a new one"""
+    if request.method == 'GET':
+        try:
+            status_filter = request.args.get('status', '')
+            with get_db() as (cursor, connection):
+                query = """
+                    SELECT id, employee_id, employee_name, leave_type, from_date, to_date,
+                           days, reason, status, approved_by, approved_at, created_at
+                    FROM hr_leave_applications
+                """
+                params = []
+                if status_filter:
+                    query += " WHERE status = %s"
+                    params.append(status_filter)
+                query += " ORDER BY created_at DESC"
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                leaves = []
+                for r in rows:
+                    leaves.append({
+                        'id': r[0], 'employee_id': r[1], 'employee_name': r[2],
+                        'leave_type': r[3], 'from_date': str(r[4]) if r[4] else None,
+                        'to_date': str(r[5]) if r[5] else None, 'days': r[6],
+                        'reason': r[7], 'status': r[8], 'approved_by': r[9],
+                        'approved_at': str(r[10]) if r[10] else None,
+                        'created_at': str(r[11]) if r[11] else None
+                    })
+                return jsonify({'success': True, 'data': leaves})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_leave_applications
+                        (employee_id, employee_name, leave_type, from_date, to_date, days, reason, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,'Pending')
+                    RETURNING id
+                """, (
+                    data.get('employee_id'), data.get('employee_name'),
+                    data.get('leave_type'), data.get('from_date'),
+                    data.get('to_date'), data.get('days'), data.get('reason', '')
+                ))
+                lid = cursor.fetchone()[0]
+                connection.commit()
+                return jsonify({'success': True, 'id': lid, 'message': 'Leave request submitted'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/approve', methods=['POST'])
+def hr_leave_approve(leave_id):
+    """Approve a leave application"""
+    try:
+        data = request.get_json() or {}
+        approver = data.get('approved_by', session.get('user_name', 'Admin'))
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET status = 'Approved', approved_by = %s, approved_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND status = 'Pending'
+                RETURNING id, employee_id, employee_name, leave_type, from_date, to_date, days
+            """, (approver, leave_id))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'error': 'Leave not found or already processed'}), 400
+
+            # Insert into approved table
+            cursor.execute("""
+                INSERT INTO hr_leave_approved
+                    (application_id, employee_id, employee_name, leave_type, from_date, to_date, days, approved_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, result)
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave approved successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/decline', methods=['POST'])
+def hr_leave_decline(leave_id):
+    """Decline a leave application"""
+    try:
+        data = request.get_json() or {}
+        decliner = data.get('declined_by', session.get('user_name', 'Admin'))
+        reason = data.get('reason', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET status = 'Declined'
+                WHERE id = %s AND status = 'Pending'
+                RETURNING id, employee_id, employee_name, leave_type, from_date, to_date, days
+            """, (leave_id,))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'error': 'Leave not found or already processed'}), 400
+
+            cursor.execute("""
+                INSERT INTO hr_leave_declined
+                    (application_id, employee_id, employee_name, leave_type, from_date, to_date, days, reason, declined_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (*result, reason, decliner))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave declined'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/attendance', methods=['GET', 'POST'])
+def hr_attendance_api():
+    """HR: Get today's attendance or record check-in/check-out"""
+    if request.method == 'GET':
+        try:
+            att_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT a.id, a.employee_id, e.first_name, e.last_name, e.department,
+                           a.check_in, a.check_out, a.status, a.notes
+                    FROM hr_attendance a
+                    JOIN hr_employees e ON a.employee_id = e.id
+                    WHERE a.date = %s
+                    ORDER BY a.check_in NULLS LAST
+                """, (att_date,))
+                rows = cursor.fetchall()
+                records = []
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'employee_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'department': r[4], 'check_in': str(r[5]) if r[5] else None,
+                        'check_out': str(r[6]) if r[6] else None, 'status': r[7], 'notes': r[8]
+                    })
+                return jsonify({'success': True, 'data': records, 'date': att_date})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            emp_id = data.get('employee_id')
+            action = data.get('action', 'check_in')  # check_in or check_out
+            with get_db() as (cursor, connection):
+                if action == 'check_in':
+                    cursor.execute("""
+                        INSERT INTO hr_attendance (employee_id, date, check_in, status)
+                        VALUES (%s, CURRENT_DATE, CURRENT_TIME, 'Present')
+                        ON CONFLICT (employee_id, date) DO UPDATE
+                        SET check_in = COALESCE(hr_attendance.check_in, CURRENT_TIME),
+                            status = 'Present'
+                    """, (emp_id,))
+                else:
+                    cursor.execute("""
+                        INSERT INTO hr_attendance (employee_id, date, check_out, status)
+                        VALUES (%s, CURRENT_DATE, CURRENT_TIME, 'Present')
+                        ON CONFLICT (employee_id, date) DO UPDATE
+                        SET check_out = CURRENT_TIME
+                    """, (emp_id,))
+                connection.commit()
+                return jsonify({'success': True, 'message': f'Attendance {action} recorded'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll', methods=['GET', 'POST'])
+def hr_payroll_api():
+    """HR: List payroll records or process payroll for a period"""
+    if request.method == 'GET':
+        try:
+            period = request.args.get('period', datetime.now().strftime('%Y-%m'))
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
+                           p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay, p.status, p.processed_at
+                    FROM hr_payroll p
+                    JOIN hr_employees e ON p.employee_id = e.id
+                    WHERE p.period = %s
+                    ORDER BY e.last_name
+                """, (period,))
+                rows = cursor.fetchall()
+                records = []
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'employee_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'department': r[4], 'period': r[5], 'basic_pay': float(r[6] or 0),
+                        'allowances': float(r[7] or 0), 'deductions': float(r[8] or 0),
+                        'net_pay': float(r[9] or 0), 'status': r[10],
+                        'processed_at': str(r[11]) if r[11] else None
+                    })
+                return jsonify({'success': True, 'data': records, 'period': period})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            period = data.get('period', datetime.now().strftime('%Y-%m'))
+            with get_db() as (cursor, connection):
+                # Process payroll for all active employees
+                cursor.execute("""
+                    SELECT id, first_name, last_name, basic_salary, usd_percent, zwg_percent, exchange_rate
+                    FROM hr_employees WHERE status = 'Active'
+                """)
+                employees = cursor.fetchall()
+                processed = 0
+                for emp in employees:
+                    emp_id = emp[0]
+                    basic = float(emp[3] or 0)
+                    net = basic  # Simplification: net = basic for now
+                    cursor.execute("""
+                        INSERT INTO hr_payroll (employee_id, period, basic_pay, net_pay, status, processed_at)
+                        VALUES (%s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP)
+                        ON CONFLICT DO NOTHING
+                    """, (emp_id, period, basic, net))
+                    processed += 1
+                connection.commit()
+                return jsonify({'success': True, 'message': f'Payroll processed for {processed} employees', 'processed': processed})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/assets', methods=['GET', 'POST'])
+def hr_assets_api():
+    """HR: List or register assets"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT a.id, a.asset_tag, a.asset_name, a.category,
+                           COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as assigned_to,
+                           a.value, a.purchase_date, a.status, a.notes
+                    FROM hr_assets a
+                    LEFT JOIN hr_employees e ON a.assigned_to = e.id
+                    ORDER BY a.asset_name
+                """)
+                rows = cursor.fetchall()
+                assets = []
+                for r in rows:
+                    assets.append({
+                        'id': r[0], 'asset_tag': r[1], 'asset_name': r[2], 'category': r[3],
+                        'assigned_to': r[4], 'value': float(r[5] or 0),
+                        'purchase_date': str(r[6]) if r[6] else None, 'status': r[7], 'notes': r[8]
+                    })
+                return jsonify({'success': True, 'data': assets})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_assets (asset_tag, asset_name, category, assigned_to, value, purchase_date, status, notes)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (
+                    data.get('asset_tag'), data.get('asset_name'), data.get('category'),
+                    data.get('assigned_to'), data.get('value', 0), data.get('purchase_date'),
+                    data.get('status', 'In Service'), data.get('notes', '')
+                ))
+                aid = cursor.fetchone()[0]
+                connection.commit()
+                return jsonify({'success': True, 'id': aid, 'message': 'Asset registered'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/stats')
+def hr_stats_api():
+    """HR: Get dashboard statistics"""
+    try:
+        with get_db() as (cursor, connection):
+            today = datetime.now().strftime('%Y-%m-%d')
+            period = datetime.now().strftime('%Y-%m')
+
+            cursor.execute("SELECT COUNT(*) FROM hr_employees WHERE status = 'Active'")
+            total_active = cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM hr_attendance WHERE date = %s AND status = 'Present'", (today,))
+            present_today = cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM hr_leave_applications WHERE status = 'Pending'")
+            pending_leave = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COUNT(*) FROM hr_leave_applications
+                WHERE status = 'Approved' AND %s BETWEEN from_date AND to_date
+            """, (today,))
+            on_leave_today = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COALESCE(SUM(net_pay), 0) FROM hr_payroll WHERE period = %s
+            """, (period,))
+            payroll_total = float(cursor.fetchone()[0])
+
+            cursor.execute("SELECT COUNT(*) FROM hr_employees")
+            total_employees = cursor.fetchone()[0]
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total_employees': total_employees,
+                    'active_employees': total_active,
+                    'present_today': present_today,
+                    'on_leave_today': on_leave_today,
+                    'pending_leave': pending_leave,
+                    'payroll_total': payroll_total,
+                    'period': period,
+                    'today': today
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/employee-stats')
+def hr_employee_stats_api():
+    """Get detailed employee statistics for admin dashboard"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT department, COUNT(*) as cnt,
+                       SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
+                       SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male,
+                       SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female
+                FROM hr_employees
+                GROUP BY department
+                ORDER BY department
+            """)
+            rows = cursor.fetchall()
+            departments = []
+            total = 0
+            for r in rows:
+                departments.append({
+                    'name': r[0], 'count': r[1], 'active': r[2], 'male': r[3], 'female': r[4]
+                })
+                total += r[1]
+
+            cursor.execute("""
+                SELECT employment_type, COUNT(*) FROM hr_employees GROUP BY employment_type
+            """)
+            types = {r[0]: r[1] for r in cursor.fetchall()}
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total': total,
+                    'departments': departments,
+                    'employment_types': types
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/profile')

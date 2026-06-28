@@ -225,6 +225,41 @@
         .user-dropdown-menu .dropdown-item.text-danger { color: #d32f2f; }
         .user-dropdown-menu .dropdown-item.text-danger:hover { background: #fef2f2; }
 
+        /* ===== ROLE SWITCH TOGGLE ===== */
+        .role-switch {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 2px 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            font-size: 0.55rem;
+            font-weight: 600;
+        }
+
+        .role-switch .role-option {
+            padding: 3px 10px;
+            border-radius: 16px;
+            color: rgba(255,255,255,0.5);
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .role-switch .role-option.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(193,43,62,0.3);
+        }
+
+        .role-switch .role-option i {
+            margin-right: 3px;
+            font-size: 0.5rem;
+        }
+
         /* ===== LAYOUT ===== */
         body { padding-top: var(--nav-height); }
 
@@ -924,6 +959,17 @@
         <span class="brand-text">Connect<span>Link</span> HR</span>
     </div>
     <div class="nav-actions" style="position:relative;">
+        <!-- Role Switch - visible only for admins -->
+        {% if hr_role == 'Administrator' %}
+        <div class="role-switch" id="roleSwitch" onclick="toggleAdminView()" title="Switch between Admin and Employee view">
+            <span class="role-option active" data-role="admin" id="roleAdminBtn">
+                <i class="bi bi-shield-lock"></i> Admin
+            </span>
+            <span class="role-option" data-role="user" id="roleUserBtn">
+                <i class="bi bi-person"></i> My Profile
+            </span>
+        </div>
+        {% endif %}
         <div class="user-badge" onclick="toggleUserDropdown(event)">
             <div class="avatar">{{ (user_name or 'U')[0]|upper }}</div>
             <span>{{ user_name or 'User' }}</span>
@@ -932,7 +978,7 @@
         <div id="userDropdown" class="user-dropdown-menu" style="display:none;">
             <div class="dropdown-header">
                 <div class="dropdown-user-name">{{ user_name or 'User' }}</div>
-                <div class="dropdown-user-role">HR Portal</div>
+                <div class="dropdown-user-role">{{ hr_role or 'Ordinary User' }}</div>
             </div>
             <div class="dropdown-divider" style="height:1px;background:var(--gray-200);"></div>
             <button class="dropdown-item" onclick="showModule('dashboard')">
@@ -953,12 +999,12 @@
 <div class="hr-layout">
 
     <!-- ===== SIDEBAR ===== -->
-    <aside class="hr-sidebar">
+    <aside class="hr-sidebar" id="hrSidebar">
         <div class="sidebar-section">Main</div>
         <button class="nav-btn active" data-module="dashboard" onclick="showModule('dashboard')">
             <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
         </button>
-        <button class="nav-btn" data-module="employees" onclick="showModule('employees')">
+        <button class="nav-btn" data-module="employees" onclick="showModule('employees')" id="sidebar-employees">
             <i class="bi bi-people-fill"></i> <span>Employees</span>
         </button>
 
@@ -969,7 +1015,9 @@
         <button class="nav-btn" data-module="attendance" onclick="showModule('attendance')">
             <i class="bi bi-clock-history"></i> <span>Attendance</span>
         </button>
-        <button class="nav-btn" data-module="payroll" onclick="showModule('payroll')">
+
+        <div class="sidebar-section">Finance</div>
+        <button class="nav-btn" data-module="payroll" onclick="showModule('payroll')" id="sidebar-payroll">
             <i class="bi bi-wallet2"></i> <span>Payroll</span>
         </button>
 
@@ -982,7 +1030,7 @@
         </button>
 
         <div class="sidebar-section">Insights</div>
-        <button class="nav-btn" data-module="reports" onclick="showModule('reports')">
+        <button class="nav-btn" data-module="reports" onclick="showModule('reports')" id="sidebar-reports">
             <i class="bi bi-graph-up-arrow"></i> <span>Reports</span>
         </button>
     </aside>
@@ -1469,7 +1517,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-wallet2"></i> Payroll Management</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm" onclick="alert('Process payroll...')">
+                    <button class="btn btn-primary btn-sm admin-only" onclick="processPayroll()">
                         <i class="bi bi-gear"></i> Process Payroll
                     </button>
                     <button class="btn btn-outline-primary btn-sm" onclick="alert('Export payroll...')">
@@ -1781,31 +1829,87 @@
 <div id="addEmployeeModal" class="modal-overlay">
     <div class="modal-container large">
         <div class="modal-header-custom">
-            <h3><i class="bi bi-person-plus-fill"></i> Add New Employee</h3>
+            <h3><i class="bi bi-person-plus-fill"></i> <span id="empModalTitle">Add New Employee</span></h3>
             <button class="modal-close" onclick="closeModal('addEmployeeModal')">&times;</button>
         </div>
         <div class="modal-body-custom" style="max-height:70vh;overflow-y:auto;">
+            <input type="hidden" id="editEmployeeId" value="">
             <form id="addEmployeeForm" onsubmit="return false;">
-                <div class="row g-3">
-                    <div class="col-md-6">
+                <!-- Personal Details -->
+                <h6 style="font-size:0.65rem;font-weight:700;color:var(--primary);margin-bottom:8px;border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
+                    <i class="bi bi-person-badge"></i> Personal Details
+                </h6>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
                         <label class="form-label">First Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="empFirstName" required>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label">Last Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="empLastName" required>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <label class="form-label">Gender</label>
+                        <select class="form-select" id="empGender">
+                            <option value="">-- Select --</option>
+                            <option>Male</option>
+                            <option>Female</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Date of Birth</label>
+                        <input type="date" class="form-control" id="empDob">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Marital Status</label>
+                        <select class="form-select" id="empMaritalStatus">
+                            <option value="">-- Select --</option>
+                            <option>Single</option>
+                            <option>Married</option>
+                            <option>Divorced</option>
+                            <option>Widowed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Nationality</label>
+                        <input type="text" class="form-control" id="empNationality" value="Zimbabwean">
+                    </div>
+                </div>
+
+                <!-- Contact Details -->
+                <h6 style="font-size:0.65rem;font-weight:700;color:var(--primary);margin:10px 0 8px;border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
+                    <i class="bi bi-envelope"></i> Contact Details
+                </h6>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
                         <label class="form-label">Email <span class="text-danger">*</span></label>
                         <input type="email" class="form-control" id="empEmail" required>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Phone</label>
-                        <input type="text" class="form-control" id="empPhone">
+                    <div class="col-md-4">
+                        <label class="form-label">Phone / WhatsApp</label>
+                        <input type="text" class="form-control" id="empPhone" placeholder="e.g. 26377xxxxxx">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Department <span class="text-danger">*</span></label>
+                        <label class="form-label">National ID</label>
+                        <input type="text" class="form-control" id="empNationalId" placeholder="e.g. 63-123456A78">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Address</label>
+                    <textarea class="form-control" id="empAddress" rows="1"></textarea>
+                </div>
+
+                <!-- Employment Details -->
+                <h6 style="font-size:0.65rem;font-weight:700;color:var(--primary);margin:10px 0 8px;border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
+                    <i class="bi bi-briefcase"></i> Employment Details
+                </h6>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Department</label>
                         <select class="form-select" id="empDepartment">
+                            <option value="">-- Select --</option>
                             <option>Construction</option>
                             <option>Hardware Sales</option>
                             <option>Administration</option>
@@ -1815,11 +1919,11 @@
                             <option>Management</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Position</label>
-                        <input type="text" class="form-control" id="empPosition" placeholder="e.g. Site Supervisor">
+                    <div class="col-md-3">
+                        <label class="form-label">Designation</label>
+                        <input type="text" class="form-control" id="empDesignation" placeholder="e.g. Site Supervisor">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">Employment Type</label>
                         <select class="form-select" id="empType">
                             <option>Permanent</option>
@@ -1829,21 +1933,124 @@
                             <option>Part-Time</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Start Date</label>
+                    <div class="col-md-3">
+                        <label class="form-label">Date Joined</label>
                         <input type="date" class="form-control" id="empStartDate">
                     </div>
+                </div>
+                <div class="row g-2 mb-2">
                     <div class="col-md-4">
-                        <label class="form-label">National ID</label>
-                        <input type="text" class="form-control" id="empNationalId" placeholder="e.g. 63-123456A78">
+                        <label class="form-label">Role / Access Level</label>
+                        <select class="form-select" id="empRole">
+                            <option>Ordinary User</option>
+                            <option>Administrator</option>
+                        </select>
                     </div>
                     <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="empStatus">
+                            <option>Active</option>
+                            <option>Inactive</option>
+                            <option>Terminated</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Leave Approver</label>
+                        <select class="form-select" id="empLeaveApprover">
+                            <option value="">-- Select Approver --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Leave & Payroll -->
+                <h6 style="font-size:0.65rem;font-weight:700;color:var(--primary);margin:10px 0 8px;border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
+                    <i class="bi bi-cash-stack"></i> Leave &amp; Payroll
+                </h6>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Leave Balance (days)</label>
+                        <input type="number" class="form-control" id="empLeaveBalance" value="21" step="0.5">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Monthly Accrual</label>
+                        <input type="number" class="form-control" id="empMonthlyAccrual" value="1.75" step="0.25">
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label">Basic Salary (USD)</label>
                         <input type="number" class="form-control" id="empSalary" step="0.01">
                     </div>
-                    <div class="col-md-12">
-                        <label class="form-label">Address</label>
-                        <textarea class="form-control" id="empAddress" rows="2"></textarea>
+                    <div class="col-md-3">
+                        <label class="form-label">Currency</label>
+                        <select class="form-select" id="empCurrency">
+                            <option>USD</option>
+                            <option>ZWG</option>
+                            <option>Mixed</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row g-2 mb-2" id="mixedCurrencyRow" style="display:none;">
+                    <div class="col-md-4">
+                        <label class="form-label">USD %</label>
+                        <input type="number" class="form-control" id="empUsdPercent" value="100" min="0" max="100">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">ZWG %</label>
+                        <input type="number" class="form-control" id="empZwgPercent" value="0" min="0" max="100">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Exchange Rate</label>
+                        <input type="number" class="form-control" id="empExchangeRate" value="1" step="0.0001">
+                    </div>
+                </div>
+
+                <!-- Bank Details -->
+                <h6 style="font-size:0.65rem;font-weight:700;color:var(--primary);margin:10px 0 8px;border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
+                    <i class="bi bi-bank"></i> Bank Details
+                </h6>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Account Holder Name</label>
+                        <input type="text" class="form-control" id="empBankHolder">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Account Holder Surname</label>
+                        <input type="text" class="form-control" id="empBankSurname">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Bank Name</label>
+                        <select class="form-select" id="empBankName">
+                            <option value="">-- Select --</option>
+                            <option>CABS</option>
+                            <option>CBZ</option>
+                            <option>Ecobank</option>
+                            <option>FBC</option>
+                            <option>First Capital</option>
+                            <option>NBS</option>
+                            <option>Nedbank</option>
+                            <option>POSB</option>
+                            <option>Standard Chartered</option>
+                            <option>Stanbic</option>
+                            <option>ZABG</option>
+                            <option>ZB</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Account Number</label>
+                        <input type="text" class="form-control" id="empBankAcc">
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Branch</label>
+                        <input type="text" class="form-control" id="empBankBranch">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Branch Code</label>
+                        <input type="text" class="form-control" id="empBranchCode">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">C8 / Tax Number</label>
+                        <input type="text" class="form-control" id="empC8">
                     </div>
                 </div>
             </form>
@@ -1851,7 +2058,7 @@
         <div class="modal-footer-custom">
             <button class="btn btn-danger" onclick="closeModal('addEmployeeModal')">Cancel</button>
             <button class="btn btn-primary" id="saveEmployeeBtn" onclick="saveEmployee()">
-                <i class="bi bi-check-circle"></i> Save Employee
+                <i class="bi bi-check-circle"></i> <span id="saveEmpBtnText">Save Employee</span>
             </button>
         </div>
     </div>
@@ -1868,9 +2075,11 @@
             <form id="leaveRequestForm" onsubmit="return false;">
                 <div class="mb-3">
                     <label class="form-label">Employee</label>
-                    <select class="form-select" id="leaveEmployee">
-                        <option value="">-- Select Employee --</option>
-                    </select>
+                    <div class="input-group-modal">
+                        <input type="text" class="form-control" id="leaveEmployeeDisplay" value="{{ user_name or 'User' }}" readonly style="background:#f0f2f5;font-weight:600;color:var(--text-primary);cursor:default;">
+                        <input type="hidden" id="leaveEmployee" value="{{ user_name or 'User' }}">
+                    </div>
+                    <small style="color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-info-circle"></i> You are submitting leave as yourself</small>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Leave Type</label>
@@ -1886,26 +2095,26 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
                         <label class="form-label">From Date</label>
-                        <input type="date" class="form-control" id="leaveFrom">
+                        <input type="date" class="form-control" id="leaveFrom" onchange="calculateLeaveDays()">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">To Date</label>
-                        <input type="date" class="form-control" id="leaveTo">
+                        <input type="date" class="form-control" id="leaveTo" onchange="calculateLeaveDays()">
                     </div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Days</label>
-                    <input type="number" class="form-control" id="leaveDays" min="1" value="1">
+                    <input type="number" class="form-control" id="leaveDays" min="1" value="1" readonly style="background:#f0f2f5;font-weight:700;color:var(--primary);">
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Reason</label>
-                    <textarea class="form-control" id="leaveReason" rows="2"></textarea>
+                    <textarea class="form-control" id="leaveReason" rows="3" placeholder="Brief description of your leave request..."></textarea>
                 </div>
             </form>
         </div>
         <div class="modal-footer-custom">
             <button class="btn btn-danger" onclick="closeModal('leaveRequestModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="alert('Leave request submitted!');closeModal('leaveRequestModal');">
+            <button class="btn btn-primary" id="submitLeaveBtn" onclick="submitLeaveRequest()">
                 <i class="bi bi-send"></i> Submit Request
             </button>
         </div>
@@ -1966,7 +2175,7 @@
         </div>
         <div class="modal-footer-custom">
             <button class="btn btn-danger" onclick="closeModal('addAssetModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="alert('Asset registered!');closeModal('addAssetModal');">
+            <button class="btn btn-primary" onclick="saveAsset()">
                 <i class="bi bi-check-circle"></i> Register Asset
             </button>
         </div>
@@ -1978,20 +2187,100 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+// ===== PAGE DATA =====
+const HR_ROLE = '{{ hr_role }}';
+const HR_EMPLOYEE_ID = '{{ hr_employee_id }}';
+const HR_USER_NAME = '{{ user_name }}';
+let isAdminView = true; // Track which view is active for admin users
+
+// ===== ROLE-BASED UI CONTROL =====
+function toggleAdminView() {
+    if (HR_ROLE !== 'Administrator') return;
+    isAdminView = !isAdminView;
+    const adminBtn = document.getElementById('roleAdminBtn');
+    const userBtn = document.getElementById('roleUserBtn');
+    const adminModules = ['employees', 'payroll', 'reports'];
+
+    if (isAdminView) {
+        adminBtn.classList.add('active');
+        userBtn.classList.remove('active');
+        // Show admin-only sidebar items
+        adminModules.forEach(m => {
+            const el = document.getElementById('sidebar-' + m);
+            if (el) el.style.display = '';
+        });
+        // Show admin-only modules in dashboard
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+        showModule('dashboard');
+    } else {
+        userBtn.classList.add('active');
+        adminBtn.classList.remove('active');
+        // Hide admin-only sidebar items
+        adminModules.forEach(m => {
+            const el = document.getElementById('sidebar-' + m);
+            if (el) el.style.display = 'none';
+        });
+        // Hide admin-only UI
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        // Switch to my leave view
+        showModule('leave');
+    }
+}
+
+// Apply role-based visibility on load
+document.addEventListener('DOMContentLoaded', function() {
+    if (HR_ROLE !== 'Administrator') {
+        // Ordinary users: hide admin-only sidebar items
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        ['employees', 'payroll', 'reports'].forEach(m => {
+            const el = document.getElementById('sidebar-' + m);
+            if (el) el.style.display = 'none';
+        });
+    }
+
+    // Set current date
+    const now = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const dateEl = document.getElementById('currentDate');
+    if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', options);
+
+    const attEl = document.getElementById('attendanceDate');
+    if (attEl) attEl.textContent = now.toLocaleDateString('en-US', options);
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    const periodEl = document.getElementById('payrollPeriod');
+    if (periodEl) periodEl.textContent = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+
+    // Load data
+    loadDashboardStats();
+    loadEmployees();
+    loadLeaveData();
+    loadAttendance();
+    loadPayroll();
+    loadAssets();
+    loadApprovers();
+
+    // Currency toggle
+    const currSelect = document.getElementById('empCurrency');
+    if (currSelect) {
+        currSelect.addEventListener('change', function() {
+            document.getElementById('mixedCurrencyRow').style.display =
+                this.value === 'Mixed' ? '' : 'none';
+        });
+    }
+});
+
 // ===== NAVIGATION =====
 function showModule(moduleId) {
-    // Hide all modules
     document.querySelectorAll('.hr-module').forEach(m => m.classList.remove('active'));
-    // Show target module
     const target = document.getElementById('module-' + moduleId);
     if (target) target.classList.add('active');
 
-    // Update sidebar active state
     document.querySelectorAll('.hr-sidebar .nav-btn').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.querySelector(`.hr-sidebar .nav-btn[data-module="${moduleId}"]`);
     if (activeBtn) activeBtn.classList.add('active');
 
-    // Close dropdown if open
     closeUserDropdown();
 }
 
@@ -2008,7 +2297,6 @@ function closeUserDropdown() {
     if (dropdown) dropdown.style.display = 'none';
 }
 
-// Close dropdown on outside click
 document.addEventListener('click', function(e) {
     const dropdown = document.getElementById('userDropdown');
     if (dropdown && dropdown.style.display === 'block') {
@@ -2043,7 +2331,6 @@ function closeModal(modalId) {
     }
 }
 
-// Close modal on overlay click
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('modal-overlay')) {
         e.target.classList.remove('active');
@@ -2051,7 +2338,6 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Close on Escape
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay.active').forEach(m => {
@@ -2061,8 +2347,85 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// ===== SAVE EMPLOYEE =====
-function saveEmployee() {
+// ===== LOAD DASHBOARD STATS =====
+async function loadDashboardStats() {
+    try {
+        const res = await fetch('/api/hr/stats');
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('statTotalEmployees').textContent = data.data.active_employees;
+            document.getElementById('statPresentToday').textContent = data.data.present_today;
+            document.getElementById('statOnLeave').textContent = data.data.on_leave_today;
+            document.getElementById('statPendingRequests').textContent = data.data.pending_leave;
+            document.getElementById('statPayroll').textContent = '$' + data.data.payroll_total.toLocaleString();
+        }
+    } catch(e) { console.error('Stats error:', e); }
+}
+
+// ===== LOAD APPROVERS =====
+async function loadApprovers() {
+    try {
+        const res = await fetch('/api/hr/employees');
+        const data = await res.json();
+        if (data.success && data.data) {
+            const select = document.getElementById('empLeaveApprover');
+            if (select) {
+                select.innerHTML = '<option value="">-- Select Approver --</option>';
+                data.data.forEach(emp => {
+                    if (emp.role === 'Administrator') {
+                        const opt = document.createElement('option');
+                        opt.value = emp.id;
+                        opt.textContent = emp.first_name + ' ' + emp.last_name;
+                        select.appendChild(opt);
+                    }
+                });
+            }
+        }
+    } catch(e) { console.error('Approvers error:', e); }
+}
+
+// ===== EMPLOYEES =====
+async function loadEmployees() {
+    try {
+        const res = await fetch('/api/hr/employees');
+        const data = await res.json();
+        const tbody = document.getElementById('employeesTableBody');
+        if (!tbody) return;
+
+        if (!data.success || !data.data || data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                '<i class="bi bi-inbox" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                'No employees added yet. Click <strong>"Add Employee"</strong> to get started.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        data.data.forEach((emp, i) => {
+            const statusBadge = emp.status === 'Active' ? 'badge-hr active' :
+                               emp.status === 'On Leave' ? 'badge-hr on-leave' :
+                               emp.status === 'Terminated' ? 'badge-hr terminated' : 'badge-hr inactive';
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${i + 1}</td>
+                <td><strong>${emp.first_name} ${emp.last_name}</strong><br>
+                    <small style="color:var(--text-muted);font-size:0.55rem;">${emp.email || ''}</small></td>
+                <td>${emp.department || 'N/A'}</td>
+                <td>${emp.designation || 'N/A'}</td>
+                <td><span class="badge-hr active" style="font-size:0.55rem;">${emp.employment_type || 'N/A'}</span></td>
+                <td><span class="${statusBadge}">${emp.status}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewEmployee(${emp.id})" title="View/Edit"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteEmployee(${emp.id})" title="Remove"><i class="bi bi-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        document.getElementById('empCountDisplay').textContent = data.data.length + ' employees';
+    } catch(e) { console.error('Employees error:', e); }
+}
+
+async function saveEmployee() {
+    const empId = document.getElementById('editEmployeeId').value;
     const firstName = document.getElementById('empFirstName').value.trim();
     const lastName = document.getElementById('empLastName').value.trim();
     const email = document.getElementById('empEmail').value.trim();
@@ -2072,52 +2435,134 @@ function saveEmployee() {
         return;
     }
 
-    // Show loader
+    const payload = {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        whatsapp: document.getElementById('empPhone').value.trim(),
+        address: document.getElementById('empAddress').value.trim(),
+        department: document.getElementById('empDepartment').value,
+        designation: document.getElementById('empDesignation').value.trim(),
+        employment_type: document.getElementById('empType').value,
+        gender: document.getElementById('empGender').value,
+        dob: document.getElementById('empDob').value || null,
+        marital_status: document.getElementById('empMaritalStatus').value,
+        nationality: document.getElementById('empNationality').value,
+        date_joined: document.getElementById('empStartDate').value || null,
+        role: document.getElementById('empRole').value,
+        status: document.getElementById('empStatus').value,
+        leave_balance: parseFloat(document.getElementById('empLeaveBalance').value) || 21,
+        monthly_accrual: parseFloat(document.getElementById('empMonthlyAccrual').value) || 1.75,
+        salary: parseFloat(document.getElementById('empSalary').value) || 0,
+        currency: document.getElementById('empCurrency').value,
+        usd_percent: parseFloat(document.getElementById('empUsdPercent').value) || 100,
+        zwg_percent: parseFloat(document.getElementById('empZwgPercent').value) || 0,
+        exchange_rate: parseFloat(document.getElementById('empExchangeRate').value) || 1,
+        bank_holder_name: document.getElementById('empBankHolder').value.trim(),
+        bank_holder_surname: document.getElementById('empBankSurname').value.trim(),
+        bank_name: document.getElementById('empBankName').value,
+        bank_account_number: document.getElementById('empBankAcc').value.trim(),
+        bank_branch: document.getElementById('empBankBranch').value.trim(),
+        bank_branch_code: document.getElementById('empBranchCode').value.trim(),
+        c8_number: document.getElementById('empC8').value.trim()
+    };
+
     document.getElementById('hrLoader').classList.add('active');
 
-    // Simulate saving
-    setTimeout(() => {
+    try {
+        const url = empId ? `/api/hr/employees/${empId}` : '/api/hr/employees';
+        const method = empId ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
         document.getElementById('hrLoader').classList.remove('active');
-        const fullName = firstName + ' ' + lastName;
-        const department = document.getElementById('empDepartment').value;
-        const position = document.getElementById('empPosition').value || 'N/A';
-        const empType = document.getElementById('empType').value;
 
-        const tbody = document.getElementById('employeesTableBody');
-        const rowCount = tbody.querySelectorAll('tr').length;
-
-        // Remove empty state if present
-        if (rowCount === 1 && tbody.querySelector('.text-muted')) {
-            tbody.innerHTML = '';
+        if (data.success) {
+            closeModal('addEmployeeModal');
+            document.getElementById('addEmployeeForm').reset();
+            document.getElementById('editEmployeeId').value = '';
+            document.getElementById('saveEmpBtnText').textContent = 'Save Employee';
+            document.getElementById('empModalTitle').textContent = 'Add New Employee';
+            await loadEmployees();
+            await loadDashboardStats();
+            alert('✅ Employee ' + (empId ? 'updated' : 'added') + ' successfully!');
+        } else {
+            alert('❌ Error: ' + (data.error || 'Failed to save'));
         }
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${rowCount + 1}</td>
-            <td><strong>${fullName}</strong><br><small style="color:var(--text-muted);font-size:0.55rem;">${email}</small></td>
-            <td>${department}</td>
-            <td>${position}</td>
-            <td><span class="badge-hr active">${empType}</span></td>
-            <td><span class="badge-hr active">Active</span></td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary" onclick="alert('View employee details')" title="View"><i class="bi bi-eye"></i></button>
-                <button class="btn btn-sm btn-outline-danger" onclick="alert('Remove employee')" title="Remove"><i class="bi bi-trash"></i></button>
-            </td>
-        `;
-        tbody.appendChild(row);
-
-        // Update stats
-        const total = tbody.querySelectorAll('tr').length;
-        document.getElementById('statTotalEmployees').textContent = total;
-
-        closeModal('addEmployeeModal');
-        document.getElementById('addEmployeeForm').reset();
-
-        alert('✅ Employee ' + fullName + ' added successfully!');
-    }, 1500);
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('❌ Network error: ' + e.message);
+    }
 }
 
-// ===== FILTER EMPLOYEE TABLE =====
+async function viewEmployee(empId) {
+    try {
+        const res = await fetch(`/api/hr/employees/${empId}`);
+        const data = await res.json();
+        if (!data.success) { alert('Error loading employee'); return; }
+
+        const emp = data.data;
+        document.getElementById('editEmployeeId').value = emp.id;
+        document.getElementById('empModalTitle').textContent = 'Edit Employee';
+        document.getElementById('saveEmpBtnText').textContent = 'Update Employee';
+
+        document.getElementById('empFirstName').value = emp.first_name || '';
+        document.getElementById('empLastName').value = emp.last_name || '';
+        document.getElementById('empEmail').value = emp.email || '';
+        document.getElementById('empPhone').value = emp.whatsapp || '';
+        document.getElementById('empAddress').value = emp.address || '';
+        document.getElementById('empDepartment').value = emp.department || '';
+        document.getElementById('empDesignation').value = emp.designation || '';
+        document.getElementById('empType').value = emp.employment_type || 'Permanent';
+        document.getElementById('empGender').value = emp.gender || '';
+        document.getElementById('empDob').value = emp.dob ? emp.dob.substring(0, 10) : '';
+        document.getElementById('empMaritalStatus').value = emp.marital_status || '';
+        document.getElementById('empNationality').value = emp.nationality || 'Zimbabwean';
+        document.getElementById('empStartDate').value = emp.date_joined ? emp.date_joined.substring(0, 10) : '';
+        document.getElementById('empRole').value = emp.role || 'Ordinary User';
+        document.getElementById('empStatus').value = emp.status || 'Active';
+        document.getElementById('empLeaveBalance').value = emp.current_leave_balance || 21;
+        document.getElementById('empMonthlyAccrual').value = emp.monthly_accumulation || 1.75;
+        document.getElementById('empSalary').value = emp.basic_salary || 0;
+        document.getElementById('empCurrency').value = emp.currency || 'USD';
+        document.getElementById('empUsdPercent').value = emp.usd_percent || 100;
+        document.getElementById('empZwgPercent').value = emp.zwg_percent || 0;
+        document.getElementById('empExchangeRate').value = emp.exchange_rate || 1;
+        document.getElementById('empBankHolder').value = emp.bank_holder_name || '';
+        document.getElementById('empBankSurname').value = emp.bank_holder_surname || '';
+        document.getElementById('empBankName').value = emp.bank_name || '';
+        document.getElementById('empBankAcc').value = emp.bank_account_number || '';
+        document.getElementById('empBankBranch').value = emp.bank_branch || '';
+        document.getElementById('empBranchCode').value = emp.bank_branch_code || '';
+        document.getElementById('empC8').value = emp.c8_number || '';
+        document.getElementById('empNationalId').value = emp.national_id || '';
+
+        document.getElementById('mixedCurrencyRow').style.display = emp.currency === 'Mixed' ? '' : 'none';
+        openModal('addEmployeeModal');
+    } catch(e) {
+        alert('Error loading employee: ' + e.message);
+    }
+}
+
+async function deleteEmployee(empId) {
+    if (!confirm('Remove this employee from the system?')) return;
+    try {
+        const res = await fetch(`/api/hr/employees/${empId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            await loadEmployees();
+            await loadDashboardStats();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to delete'));
+        }
+    } catch(e) { alert('Network error: ' + e.message); }
+}
+
 function filterEmployeeTable() {
     const search = document.getElementById('employeeSearch').value.toLowerCase();
     const dept = document.getElementById('empDeptFilter').value;
@@ -2126,26 +2571,20 @@ function filterEmployeeTable() {
 
     const rows = document.querySelectorAll('#employeesTableBody tr');
     let visible = 0;
-
     rows.forEach(row => {
-        // Skip empty state row
         if (row.querySelector('.text-muted')) return;
-
         const text = row.textContent.toLowerCase();
         const rowDept = row.cells[2]?.textContent || '';
         const rowStatus = row.cells[5]?.textContent || '';
         const rowType = row.cells[4]?.textContent || '';
-
         let match = true;
         if (search && !text.includes(search)) match = false;
         if (dept && rowDept !== dept) match = false;
         if (status && rowStatus !== status) match = false;
         if (type && rowType !== type) match = false;
-
         row.style.display = match ? '' : 'none';
         if (match) visible++;
     });
-
     document.getElementById('empCountDisplay').textContent = visible + ' employees';
 }
 
@@ -2157,18 +2596,374 @@ function resetEmployeeFilters() {
     filterEmployeeTable();
 }
 
-// ===== FILTER LEAVE TABLE =====
+// ===== LEAVE MANAGEMENT =====
+async function loadLeaveData() {
+    try {
+        const res = await fetch('/api/hr/leave');
+        const data = await res.json();
+        const tbody = document.getElementById('leaveTableBody');
+        if (!tbody) return;
+
+        if (!data.success || !data.data || data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                '<i class="bi bi-calendar-check" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                'No leave records yet.</td></tr>';
+            return;
+        }
+
+        const now = new Date();
+        let approved = 0, pending = 0, totalDays = 0;
+        tbody.innerHTML = '';
+
+        data.data.forEach(leave => {
+            if (leave.status === 'Approved') approved++;
+            else if (leave.status === 'Pending') pending++;
+            totalDays += leave.days || 0;
+
+            const statusBadge = leave.status === 'Approved' ? 'badge-hr active' :
+                               leave.status === 'Pending' ? 'badge-hr pending' :
+                               leave.status === 'Declined' ? 'badge-hr terminated' : 'badge-hr inactive';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${leave.employee_name}</strong></td>
+                <td>${leave.leave_type}</td>
+                <td>${leave.from_date || 'N/A'}</td>
+                <td>${leave.to_date || 'N/A'}</td>
+                <td><strong>${leave.days}</strong></td>
+                <td><span class="${statusBadge}">${leave.status}</span></td>
+                <td>
+                    ${leave.status === 'Pending' && HR_ROLE === 'Administrator' ? `
+                        <button class="btn btn-sm btn-outline-success" onclick="approveLeave(${leave.id})" title="Approve"><i class="bi bi-check-lg"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="declineLeave(${leave.id})" title="Decline"><i class="bi bi-x-lg"></i></button>
+                    ` : ''}
+                    ${leave.status === 'Pending' && HR_ROLE !== 'Administrator' ? `
+                        <span style="font-size:0.55rem;color:var(--text-muted);">Awaiting approval</span>
+                    ` : ''}
+                    ${leave.status === 'Approved' ? '<span style="font-size:0.55rem;color:#2e7d32;"><i class="bi bi-check-circle"></i> Approved</span>' : ''}
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        // Update stats
+        const stats = document.querySelectorAll('#module-leave .stats-grid .hr-stat-card .stat-value');
+        if (stats[0]) stats[0].textContent = approved;
+        if (stats[1]) stats[1].textContent = pending;
+        if (stats[2]) stats[2].textContent = totalDays;
+    } catch(e) { console.error('Leave error:', e); }
+}
+
+function calculateLeaveDays() {
+    const fromVal = document.getElementById('leaveFrom').value;
+    const toVal = document.getElementById('leaveTo').value;
+    const daysInput = document.getElementById('leaveDays');
+    if (!fromVal || !toVal) { daysInput.value = ''; return; }
+    const from = new Date(fromVal + 'T00:00:00');
+    const to = new Date(toVal + 'T00:00:00');
+    if (to < from) { daysInput.value = 0; return; }
+    daysInput.value = Math.floor((to - from) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+async function submitLeaveRequest() {
+    const leaveType = document.getElementById('leaveType').value;
+    const fromDate = document.getElementById('leaveFrom').value;
+    const toDate = document.getElementById('leaveTo').value;
+    const days = document.getElementById('leaveDays').value;
+    const reason = document.getElementById('leaveReason').value.trim();
+
+    if (!fromDate || !toDate) { alert('Please select From and To dates.'); return; }
+    if (parseInt(days) < 1) { alert('Leave must be at least 1 day.'); return; }
+
+    document.getElementById('hrLoader').classList.add('active');
+
+    try {
+        const res = await fetch('/api/hr/leave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                employee_name: HR_USER_NAME,
+                employee_id: HR_EMPLOYEE_ID || null,
+                leave_type: leaveType,
+                from_date: fromDate,
+                to_date: toDate,
+                days: parseInt(days),
+                reason: reason || 'No reason provided'
+            })
+        });
+        const data = await res.json();
+        document.getElementById('hrLoader').classList.remove('active');
+
+        if (data.success) {
+            closeModal('leaveRequestModal');
+            document.getElementById('leaveRequestForm').reset();
+            document.getElementById('leaveDays').value = '1';
+            await loadLeaveData();
+            await loadDashboardStats();
+            alert('✅ Leave request submitted! Your manager will review it.');
+        } else {
+            alert('❌ Error: ' + (data.error || 'Failed to submit'));
+        }
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('❌ Network error: ' + e.message);
+    }
+}
+
+async function approveLeave(leaveId) {
+    if (!confirm('Approve this leave request?')) return;
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const res = await fetch(`/api/hr/leave/${leaveId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approved_by: HR_USER_NAME })
+        });
+        const data = await res.json();
+        document.getElementById('hrLoader').classList.remove('active');
+        if (data.success) { await loadLeaveData(); await loadDashboardStats(); alert('✅ Leave approved!'); }
+        else { alert('❌ ' + (data.error || 'Failed')); }
+    } catch(e) { document.getElementById('hrLoader').classList.remove('active'); alert('Error: ' + e.message); }
+}
+
+async function declineLeave(leaveId) {
+    const reason = prompt('Reason for declining:');
+    if (reason === null) return;
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const res = await fetch(`/api/hr/leave/${leaveId}/decline`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ declined_by: HR_USER_NAME, reason: reason || 'No reason' })
+        });
+        const data = await res.json();
+        document.getElementById('hrLoader').classList.remove('active');
+        if (data.success) { await loadLeaveData(); alert('Leave declined.'); }
+        else { alert('❌ ' + (data.error || 'Failed')); }
+    } catch(e) { document.getElementById('hrLoader').classList.remove('active'); alert('Error: ' + e.message); }
+}
+
 function filterLeaveTable() {
     const status = document.getElementById('leaveStatusFilter').value;
     const rows = document.querySelectorAll('#leaveTableBody tr');
     rows.forEach(row => {
         if (row.querySelector('.text-muted')) return;
         const rowStatus = row.cells[5]?.textContent || '';
-        row.style.display = (!status || rowStatus === status) ? '' : 'none';
+        row.style.display = (!status || rowStatus.trim() === status) ? '' : 'none';
     });
 }
 
-// ===== FILTER ASSET TABLE =====
+// ===== ATTENDANCE =====
+async function loadAttendance() {
+    try {
+        const res = await fetch('/api/hr/attendance');
+        const data = await res.json();
+        const tbody = document.getElementById('attendanceTableBody');
+        if (!tbody) return;
+
+        if (!data.success || !data.data || data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">' +
+                '<i class="bi bi-clock-history" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                'No attendance records for today.</td></tr>';
+            return;
+        }
+
+        let present = 0, late = 0, absent = 0;
+        tbody.innerHTML = '';
+
+        data.data.forEach(rec => {
+            if (rec.status === 'Present') present++;
+            else if (rec.status === 'Late') late++;
+            else absent++;
+
+            const statusBadge = rec.status === 'Present' ? 'badge-hr active' :
+                               rec.status === 'Late' ? 'badge-hr pending' : 'badge-hr terminated';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${rec.first_name} ${rec.last_name}</strong></td>
+                <td>${rec.department || 'N/A'}</td>
+                <td>${rec.check_in || '--:--'}</td>
+                <td>${rec.check_out || '--:--'}</td>
+                <td><span class="${statusBadge}">${rec.status}</span></td>
+                <td>${rec.notes || ''}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        const total = present + late + absent;
+        const stats = document.querySelectorAll('#module-attendance .stats-grid .hr-stat-card .stat-value');
+        if (stats[0]) stats[0].textContent = present;
+        if (stats[1]) stats[1].textContent = late;
+        if (stats[2]) stats[2].textContent = absent;
+        if (stats[3]) stats[3].textContent = total > 0 ? Math.round((present / total) * 100) + '%' : '0%';
+    } catch(e) { console.error('Attendance error:', e); }
+}
+
+// ===== PAYROLL =====
+async function loadPayroll() {
+    try {
+        const now = new Date();
+        const period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        const res = await fetch(`/api/hr/payroll?period=${period}`);
+        const data = await res.json();
+        const tbody = document.getElementById('payrollTableBody');
+        if (!tbody) return;
+
+        if (!data.success || !data.data || data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                '<i class="bi bi-wallet2" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                'No payroll data. Click <strong>"Process Payroll"</strong> to generate.</td></tr>';
+            return;
+        }
+
+        let gross = 0, deductions = 0, net = 0;
+        tbody.innerHTML = '';
+
+        data.data.forEach(rec => {
+            gross += rec.basic_pay || 0;
+            deductions += rec.deductions || 0;
+            net += rec.net_pay || 0;
+
+            const statusBadge = rec.status === 'Paid' ? 'badge-hr active' :
+                               rec.status === 'Processed' ? 'badge-hr pending' : 'badge-hr inactive';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${rec.first_name} ${rec.last_name}</strong></td>
+                <td>$${(rec.basic_pay || 0).toFixed(2)}</td>
+                <td>$${(rec.allowances || 0).toFixed(2)}</td>
+                <td>$${(rec.deductions || 0).toFixed(2)}</td>
+                <td><strong>$${(rec.net_pay || 0).toFixed(2)}</strong></td>
+                <td><span class="${statusBadge}">${rec.status}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="alert('Payroll details for ${rec.first_name} ${rec.last_name}')"><i class="bi bi-eye"></i></button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        const stats = document.querySelectorAll('#module-payroll .stats-grid .hr-stat-card .stat-value');
+        if (stats[1]) stats[1].textContent = '$' + gross.toFixed(2);
+        if (stats[2]) stats[2].textContent = '$' + deductions.toFixed(2);
+        if (stats[3]) stats[3].textContent = '$' + net.toFixed(2);
+    } catch(e) { console.error('Payroll error:', e); }
+}
+
+async function processPayroll() {
+    if (!confirm('Process payroll for this month? This will generate payslips for all active employees.')) return;
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const now = new Date();
+        const period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        const res = await fetch('/api/hr/payroll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ period: period })
+        });
+        const data = await res.json();
+        document.getElementById('hrLoader').classList.remove('active');
+        if (data.success) {
+            await loadPayroll();
+            await loadDashboardStats();
+            alert('✅ Payroll processed for ' + data.processed + ' employees!');
+        } else {
+            alert('❌ ' + (data.error || 'Failed'));
+        }
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('Error: ' + e.message);
+    }
+}
+
+// ===== ASSETS =====
+async function loadAssets() {
+    try {
+        const res = await fetch('/api/hr/assets');
+        const data = await res.json();
+        const tbody = document.getElementById('assetsTableBody');
+        if (!tbody) return;
+
+        if (!data.success || !data.data || data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                '<i class="bi bi-box" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                'No assets registered.</td></tr>';
+            return;
+        }
+
+        let total = 0, inService = 0, repair = 0, checkedOut = 0;
+        tbody.innerHTML = '';
+
+        data.data.forEach(asset => {
+            total++;
+            if (asset.status === 'In Service') inService++;
+            else if (asset.status === 'Under Repair') repair++;
+            else if (asset.status === 'Checked Out') checkedOut++;
+
+            const statusBadge = asset.status === 'In Service' ? 'badge-hr active' :
+                               asset.status === 'Under Repair' ? 'badge-hr pending' :
+                               asset.status === 'Checked Out' ? 'badge-hr on-leave' : 'badge-hr inactive';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${asset.asset_tag || 'N/A'}</strong></td>
+                <td>${asset.asset_name}</td>
+                <td>${asset.category || 'N/A'}</td>
+                <td>${asset.assigned_to || 'Unassigned'}</td>
+                <td><span class="${statusBadge}">${asset.status}</span></td>
+                <td>$${(asset.value || 0).toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" title="Edit"><i class="bi bi-pencil"></i></button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        const stats = document.querySelectorAll('#module-assets .stats-grid .hr-stat-card .stat-value');
+        if (stats[0]) stats[0].textContent = total;
+        if (stats[1]) stats[1].textContent = inService;
+        if (stats[2]) stats[2].textContent = repair;
+        if (stats[3]) stats[3].textContent = checkedOut;
+    } catch(e) { console.error('Assets error:', e); }
+}
+
+async function saveAsset() {
+    const payload = {
+        asset_tag: document.getElementById('assetTag').value.trim(),
+        asset_name: document.getElementById('assetName').value.trim(),
+        category: document.getElementById('assetCategory').value,
+        assigned_to: document.getElementById('assetAssignedTo').value || null,
+        value: parseFloat(document.getElementById('assetValue').value) || 0,
+        purchase_date: document.getElementById('assetPurchaseDate').value || null,
+        status: 'In Service',
+        notes: document.getElementById('assetNotes').value.trim()
+    };
+
+    if (!payload.asset_name) { alert('Asset name is required.'); return; }
+
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const res = await fetch('/api/hr/assets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        document.getElementById('hrLoader').classList.remove('active');
+        if (data.success) {
+            closeModal('addAssetModal');
+            document.getElementById('addAssetForm').reset();
+            await loadAssets();
+            alert('✅ Asset registered!');
+        } else {
+            alert('❌ ' + (data.error || 'Failed'));
+        }
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('Error: ' + e.message);
+    }
+}
+
 function filterAssetTable() {
     const cat = document.getElementById('assetCategoryFilter').value;
     const rows = document.querySelectorAll('#assetsTableBody tr');
@@ -2179,58 +2974,24 @@ function filterAssetTable() {
     });
 }
 
-// ===== SET CURRENT DATE =====
-document.addEventListener('DOMContentLoaded', function() {
-    const now = new Date();
-    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    const dateEl = document.getElementById('currentDate');
-    if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', options);
-
-    const attEl = document.getElementById('attendanceDate');
-    if (attEl) attEl.textContent = now.toLocaleDateString('en-US', options);
-
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-    const periodEl = document.getElementById('payrollPeriod');
-    if (periodEl) periodEl.textContent = monthNames[now.getMonth()] + ' ' + now.getFullYear();
-
-    // Sample data for demonstration
-    addSampleEmployees();
-});
-
-// ===== SAMPLE DATA =====
-function addSampleEmployees() {
-    // Uncomment to add sample employees on first load
-    /*
-    const samples = [
-        { first: 'John', last: 'Doe', email: 'john@connectlink.co.zw', dept: 'Construction', pos: 'Site Supervisor', type: 'Permanent' },
-        { first: 'Jane', last: 'Smith', email: 'jane@connectlink.co.zw', dept: 'Administration', pos: 'Admin Officer', type: 'Permanent' },
-        { first: 'Bob', last: 'Wilson', email: 'bob@connectlink.co.zw', dept: 'Hardware Sales', pos: 'Sales Rep', type: 'Contract' },
-    ];
-
-    const tbody = document.getElementById('employeesTableBody');
-    tbody.innerHTML = '';
-
-    samples.forEach((s, i) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${i + 1}</td>
-            <td><strong>${s.first} ${s.last}</strong><br><small style="color:var(--text-muted);font-size:0.55rem;">${s.email}</small></td>
-            <td>${s.dept}</td>
-            <td>${s.pos}</td>
-            <td><span class="badge-hr active">${s.type}</span></td>
-            <td><span class="badge-hr active">Active</span></td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></button>
-                <button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-
-    document.getElementById('statTotalEmployees').textContent = samples.length;
-    document.getElementById('empCountDisplay').textContent = samples.length + ' employees';
-    */
+// Load employees for asset assignment dropdown
+async function loadAssetEmployees() {
+    try {
+        const res = await fetch('/api/hr/employees');
+        const data = await res.json();
+        const select = document.getElementById('assetAssignedTo');
+        if (select && data.success && data.data) {
+            select.innerHTML = '<option value="">-- Unassigned --</option>';
+            data.data.forEach(emp => {
+                if (emp.status === 'Active') {
+                    const opt = document.createElement('option');
+                    opt.value = emp.id;
+                    opt.textContent = emp.first_name + ' ' + emp.last_name;
+                    select.appendChild(opt);
+                }
+            });
+        }
+    } catch(e) { console.error('Load asset employees error:', e); }
 }
 </script>
 
