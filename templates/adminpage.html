@@ -19021,11 +19021,14 @@ function displayQuotationDetailsInModal(quotation) {
         
         quotation.items.forEach((item, idx) => {
             const qty = item.quantity || 0;
-            // CRITICAL: Stored unitRate IS the client rate per sqm (already includes markup)
-            const clientRatePerSqm = item.unitRate || 0;
-            const clientRate = clientRatePerSqm;  // Stored value IS the client rate
-            const inhouseRate = clientRatePerSqm / markupMultiplier;  // Reverse-calculate inhouse
-            const totalPrice = item.totalPrice || 0;
+            // Kitchen items: 'amount' is the per-unit client price (WITH 30% markup already)
+            // Construction items: 'unitRate' is the per-unit client price (WITH markup)
+            const clientRatePerSqm = item.amount || item.unitRate || 0;
+            const clientRate = clientRatePerSqm;
+            // Inhouse rate = client rate divided by markup multiplier
+            const inhouseRate = markupMultiplier > 0 ? clientRatePerSqm / markupMultiplier : 0;
+            // Total price: use stored totalPrice, or compute from qty × clientRate
+            const totalPrice = item.totalPrice || (qty * clientRate) || 0;
             html += `
                 <tr>
                     <td class="text-center fw-bold" style="font-size:0.7rem;">${idx + 1}</td>
@@ -19373,12 +19376,13 @@ function escapeHtml(text) {
             html += '<tbody>';
             
             quotation.items.forEach(item => {
-                const totalPrice = item.totalPrice || (item.quantity * item.unitRate);
+                const unitRate = item.amount || item.unitRate || 0;
+                const totalPrice = item.totalPrice || (item.quantity * unitRate);
                 html += `
                     <tr style="border-bottom: 1px solid #ddd; font-size:0.7rem;">
                         <td style="padding: 4px; text-align: left;">${item.name || 'N/A'}</td>
                         <td style="padding: 4px; text-align: center;">${item.quantity || 0}</td>
-                        <td style="padding: 4px; text-align: right;">USD ${(item.unitRate || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td style="padding: 4px; text-align: right;">USD ${unitRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td style="padding: 4px; text-align: right; color: var(--primary); font-weight: bold;">USD ${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                 `;
