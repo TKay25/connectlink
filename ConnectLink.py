@@ -11814,13 +11814,42 @@ def login():
                     ])
 
                     if table_df.iat[0, 3] == password:
+                        userid = table_df.iat[0, 0]
+                        user_name = table_df.iat[0,2]
+
+                        # Check permissions for Building Projects portal
+                        cursor.execute("""
+                            SELECT can_manage_projects, is_super_admin
+                            FROM user_permissions WHERE user_type='projects' AND user_id=%s
+                        """, (int(np.int64(userid)),))
+                        perm_row = cursor.fetchone()
+                        if perm_row:
+                            has_access = perm_row[0] or perm_row[1]
+                        else:
+                            # No permissions row yet — check if this is the first user (auto-grant super admin)
+                            cursor.execute("SELECT COUNT(*) FROM user_permissions")
+                            perm_count = cursor.fetchone()[0]
+                            if perm_count == 0:
+                                # First user ever — auto-create as super admin
+                                cursor.execute("""
+                                    INSERT INTO user_permissions (user_type, user_id, is_super_admin,
+                                        can_manage_projects, can_manage_hardware, can_manage_hr,
+                                        can_add_users, can_edit_users, can_delete_users,
+                                        can_export_data, can_view_audit, can_manage_roles)
+                                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                                """, ('projects', int(np.int64(userid))))
+                                connection.commit()
+                                has_access = True
+                            else:
+                                has_access = False
+                        if not has_access:
+                            print(f"❌ Access denied for {user_name}: no Building Projects permission")
+                            return jsonify({'success': False, 'message': 'Access denied: You do not have permission to access the Building Projects portal. Contact an administrator.'}), 403
+
                         user_uuid = uuid.uuid4()
                         session['user_uuid'] = str(user_uuid)
                         session.permanent = True
                         user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-
-                        userid = table_df.iat[0, 0]
-                        user_name = table_df.iat[0,2]
                         
                         session['userid'] = int(np.int64(userid))
                         session['user_name'] = user_name
@@ -11868,13 +11897,41 @@ def hr_login():
             if rows:
                 user_row = rows[0]
                 if user_row[3] == password:
+                    userid = int(user_row[0])
+                    user_name = user_row[2]
+
+                    # Check permissions for HR portal
+                    cursor.execute("""
+                        SELECT can_manage_hr, is_super_admin
+                        FROM user_permissions WHERE user_type='projects' AND user_id=%s
+                    """, (userid,))
+                    perm_row = cursor.fetchone()
+                    if perm_row:
+                        has_access = perm_row[0] or perm_row[1]
+                    else:
+                        # No permissions row yet — check if this is the first user (auto-grant super admin)
+                        cursor.execute("SELECT COUNT(*) FROM user_permissions")
+                        perm_count = cursor.fetchone()[0]
+                        if perm_count == 0:
+                            cursor.execute("""
+                                INSERT INTO user_permissions (user_type, user_id, is_super_admin,
+                                    can_manage_projects, can_manage_hardware, can_manage_hr,
+                                    can_add_users, can_edit_users, can_delete_users,
+                                    can_export_data, can_view_audit, can_manage_roles)
+                                VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                            """, ('projects', userid))
+                            connection.commit()
+                            has_access = True
+                        else:
+                            has_access = False
+                    if not has_access:
+                        print(f"❌ Access denied for {user_name}: no HR permission")
+                        return jsonify({'success': False, 'message': 'Access denied: You do not have permission to access the HR portal. Contact an administrator.'}), 403
+
                     user_uuid = uuid.uuid4()
                     session['user_uuid'] = str(user_uuid)
                     session.permanent = True
                     user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-
-                    userid = int(user_row[0])
-                    user_name = user_row[2]
 
                     session['userid'] = userid
                     session['user_name'] = user_name
