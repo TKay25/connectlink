@@ -880,6 +880,10 @@
             animation-delay: 1.0s;
         }
 
+        .system-card:nth-child(6) {
+            animation-delay: 1.1s;
+        }
+
         @keyframes slideInCard {
             from {
                 opacity: 0;
@@ -1363,6 +1367,23 @@
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- User Management Card -->
+                    <div class="system-card" data-portal="users">
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>User Management</h3>
+                            <p>System users, roles, permissions &amp; account administration</p>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v2.1</span>
+                            <button class="btn-explore">
+                                Manage <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1480,6 +1501,43 @@
     </div>
 </div>
 
+<!-- User Management Modal -->
+<div class="modal-overlay" id="usersLoginModal">
+    <div class="login-modal">
+        <div class="modal-header">
+            <button class="close-modal" onclick="closeUsersModal()"><i class="fas fa-times"></i></button>
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <h3>User Management</h3>
+            <p>Sign in to manage system users &amp; accounts</p>
+        </div>
+        <div class="modal-body">
+            <div class="error-message" id="usersErrorMsg"></div>
+            <form id="usersLoginForm">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <div class="input-group-modal">
+                        <input type="text" class="form-input-modal" id="usersEmail" placeholder="admin@connectlinkproperties.co.zw" required>
+                        <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="usersPassword" placeholder="••••••••" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleUsersPassword()"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+            </form>
+            <div class="modal-footer-links">
+                <a href="#">Forgot password?</a>
+                <a href="#">Support</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Loading Overlay - Dark background with rotating messages -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
@@ -1496,9 +1554,9 @@
     (function() {
         // State management
         const state = {
-            modals: { projects: false, hardware: false, hr: false },
+            modals: { projects: false, hardware: false, hr: false, users: false },
             loading: false,
-            errors: { projects: '', hardware: '', hr: '' },
+            errors: { projects: '', hardware: '', hr: '', users: '' },
             loadingInterval: null,
             loadingStep: 0
         };
@@ -1517,21 +1575,26 @@
             projectsModal: document.getElementById('projectsLoginModal'),
             hardwareModal: document.getElementById('hardwareLoginModal'),
             hrModal: document.getElementById('hrLoginModal'),
+            usersModal: document.getElementById('usersLoginModal'),
             loadingOverlay: document.getElementById('loadingOverlay'),
             loadingMessage: document.getElementById('loadingMessage'),
             loadingSub: document.getElementById('loadingSub'),
             projectsError: document.getElementById('projectsErrorMsg'),
             hardwareError: document.getElementById('hardwareErrorMsg'),
             hrError: document.getElementById('hrErrorMsg'),
+            usersError: document.getElementById('usersErrorMsg'),
             projectsForm: document.getElementById('projectsLoginForm'),
             hardwareForm: document.getElementById('hardwareLoginForm'),
             hrForm: document.getElementById('hrLoginForm'),
+            usersForm: document.getElementById('usersLoginForm'),
             projectsEmail: document.getElementById('projectsEmail'),
             projectsPassword: document.getElementById('projectsPassword'),
             hardwareUsername: document.getElementById('hardwareUsername'),
             hardwarePassword: document.getElementById('hardwarePassword'),
             hrEmail: document.getElementById('hrEmail'),
-            hrPassword: document.getElementById('hrPassword')
+            hrPassword: document.getElementById('hrPassword'),
+            usersEmail: document.getElementById('usersEmail'),
+            usersPassword: document.getElementById('usersPassword')
         };
 
         // Start loading animation with rotating messages - each once, then stay at final
@@ -1574,7 +1637,8 @@
             dom.projectsModal.classList.toggle('active', state.modals.projects);
             dom.hardwareModal.classList.toggle('active', state.modals.hardware);
             dom.hrModal.classList.toggle('active', state.modals.hr);
-            document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr) ? 'hidden' : '';
+            dom.usersModal.classList.toggle('active', state.modals.users);
+            document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr || state.modals.users) ? 'hidden' : '';
             
             // Loading overlay
             if (state.loading) {
@@ -1585,8 +1649,8 @@
                 stopLoadingAnimation();
             }
             
-            ['projects', 'hardware', 'hr'].forEach(type => {
-                const el = type === 'projects' ? dom.projectsError : type === 'hardware' ? dom.hardwareError : dom.hrError;
+            ['projects', 'hardware', 'hr', 'users'].forEach(type => {
+                const el = type === 'projects' ? dom.projectsError : type === 'hardware' ? dom.hardwareError : type === 'hr' ? dom.hrError : dom.usersError;
                 const msg = state.errors[type];
                 if (msg) {
                     el.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
@@ -1647,10 +1711,25 @@
             render();
         }
 
+        function openUsersModal() {
+            state.modals.users = true;
+            state.errors.users = '';
+            render();
+            setTimeout(() => dom.usersEmail.focus(), 100);
+        }
+
+        function closeUsersModal() {
+            state.modals.users = false;
+            state.errors.users = '';
+            dom.usersForm.reset();
+            render();
+        }
+
         function setError(type, msg) {
             if (type === 'projects') state.errors.projects = msg;
             else if (type === 'hardware') state.errors.hardware = msg;
-            else state.errors.hr = msg;
+            else if (type === 'hr') state.errors.hr = msg;
+            else state.errors.users = msg;
             render();
         }
 
@@ -1690,12 +1769,26 @@
             }
         };
 
+        window.toggleUsersPassword = function(e) {
+            const input = dom.usersPassword;
+            const icon = e.currentTarget.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        };
+
         window.openProjectsModal = openProjectsModal;
         window.closeProjectsModal = closeProjectsModal;
         window.openHardwareModal = openHardwareModal;
         window.closeHardwareModal = closeHardwareModal;
         window.openHrModal = openHrModal;
         window.closeHrModal = closeHrModal;
+        window.openUsersModal = openUsersModal;
+        window.closeUsersModal = closeUsersModal;
 
         document.querySelectorAll('.system-card').forEach(card => {
             card.addEventListener('click', function(e) {
@@ -1704,6 +1797,7 @@
                 if (portal === 'projects') openProjectsModal();
                 else if (portal === 'hardware') openHardwareModal();
                 else if (portal === 'hr') openHrModal();
+                else if (portal === 'users') openUsersModal();
             });
         });
 
@@ -1715,6 +1809,7 @@
                 if (portal === 'projects') openProjectsModal();
                 else if (portal === 'hardware') openHardwareModal();
                 else if (portal === 'hr') openHrModal();
+                else if (portal === 'users') openUsersModal();
             });
         });
 
@@ -1727,12 +1822,16 @@
         dom.hrModal.addEventListener('click', e => {
             if (e.target === dom.hrModal) closeHrModal();
         });
+        dom.usersModal.addEventListener('click', e => {
+            if (e.target === dom.usersModal) closeUsersModal();
+        });
 
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
                 if (state.modals.projects) closeProjectsModal();
                 if (state.modals.hardware) closeHardwareModal();
                 if (state.modals.hr) closeHrModal();
+                if (state.modals.users) closeUsersModal();
             }
         });
 
@@ -1854,6 +1953,47 @@
             .catch(() => {
                 setLoading(false);
                 setError('hr', 'Connection error. Please try again.');
+            });
+        });
+
+        // Users Management Login
+        dom.usersForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            setError('users', '');
+
+            const email = dom.usersEmail.value.trim();
+            const password = dom.usersPassword.value;
+
+            if (!email || !password) {
+                setError('users', 'Please fill in all fields');
+                return;
+            }
+
+            setLoading(true);
+
+            const formData = new URLSearchParams();
+            formData.append('emaillogin', email);
+            formData.append('passwordlogin', password);
+
+            fetch('/user-management-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                credentials: 'include',
+                body: formData.toString()
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect || '/user-management';
+                } else {
+                    setLoading(false);
+                    setError('users', data.message || 'Invalid credentials');
+                    dom.usersPassword.value = '';
+                }
+            })
+            .catch(() => {
+                setLoading(false);
+                setError('users', 'Connection error. Please try again.');
             });
         });
 
@@ -2025,6 +2165,7 @@
                     if (portal === 'projects') openProjectsModal();
                     else if (portal === 'hardware') openHardwareModal();
                     else if (portal === 'hr') openHrModal();
+                    else if (portal === 'users') openUsersModal();
                 }
             });
         });

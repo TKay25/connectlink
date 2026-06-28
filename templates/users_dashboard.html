@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ConnectLink | User Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
+    <link rel="icon" type="image/png" href="/static/images/web-logo-white.png">
+    <meta name="theme-color" content="#0E1F42">
+    <style>
+        :root {
+            --primary: #C12B3E;
+            --primary-dark: #9B1D2C;
+            --primary-light: rgba(193, 43, 62, 0.08);
+            --slate-800: #1E293B;
+            --slate-900: #0F172A;
+            --dark-blue-deep: var(--slate-800);
+            --dark-blue-primary: var(--slate-900);
+            --crimson-bright: var(--primary);
+            --white: #FFFFFF;
+            --gray-50: #F9FAFB;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-400: #9CA3AF;
+            --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --text-primary: #1E293B;
+            --text-secondary: #475569;
+            --text-muted: #94A3B8;
+            --border-color: #E2E8F0;
+            --radius-sm: 0.5rem;
+            --radius-md: 0.75rem;
+            --radius-lg: 1rem;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            --nav-height: 44px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            background: var(--gray-50);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+            padding-top: var(--nav-height);
+        }
+        /* Navbar */
+        .um-navbar {
+            position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-height); z-index: 1050;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(193, 43, 62, 0.15);
+            padding: 0 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .um-navbar::after {
+            content: ''; position: absolute; bottom: 0; left: 5%; width: 90%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent); opacity: 0.4;
+        }
+        .um-navbar .brand { display: flex; align-items: center; gap: 10px; }
+        .um-navbar .brand img { height: 24px; border-radius: 4px; }
+        .um-navbar .brand-text { color: white; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.5px; }
+        .um-navbar .brand-text span { color: var(--primary); }
+        .um-navbar .nav-actions { display: flex; align-items: center; gap: 8px; }
+        .um-navbar .user-badge {
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,0.06); padding: 2px 10px 2px 6px; border-radius: 30px;
+            color: rgba(255,255,255,0.85); font-size: 0.65rem; font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s; position: relative;
+        }
+        .um-navbar .user-badge:hover { background: rgba(255,255,255,0.1); }
+        .um-navbar .user-badge .avatar {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #9B1D2C);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.6rem; color: white;
+        }
+        .user-dropdown-menu {
+            position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px;
+            background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(10,26,58,0.2);
+            border: 1px solid var(--gray-200); z-index: 99999; overflow: hidden;
+        }
+        .user-dropdown-menu .dropdown-header { padding: 12px 14px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+        .user-dropdown-menu .dropdown-user-name { font-weight: 700; color: var(--text-primary); font-size: 0.7rem; }
+        .user-dropdown-menu .dropdown-user-role { font-size: 0.6rem; color: var(--text-muted); }
+        .user-dropdown-menu .dropdown-item {
+            display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+            font-size: 0.65rem; color: var(--text-primary); cursor: pointer;
+            transition: background 0.15s; border: none; background: none; width: 100%; text-align: left;
+        }
+        .user-dropdown-menu .dropdown-item:hover { background: var(--gray-50); }
+        .user-dropdown-menu .dropdown-item i { font-size: 0.75rem; width: 18px; text-align: center; }
+        .user-dropdown-menu .dropdown-item.text-danger { color: #d32f2f; }
+        .user-dropdown-menu .dropdown-item.text-danger:hover { background: #fef2f2; }
+        /* Main layout */
+        .um-layout { display: flex; min-height: calc(100vh - var(--nav-height)); }
+        .um-sidebar {
+            width: 190px; flex-shrink: 0;
+            background: linear-gradient(180deg, var(--dark-blue-deep) 0%, var(--dark-blue-primary) 100%);
+            border-right: 1px solid rgba(193, 43, 62, 0.15);
+            padding: 8px 0; overflow-y: auto;
+            position: sticky; top: var(--nav-height); height: calc(100vh - var(--nav-height));
+        }
+        .um-sidebar .section-title {
+            padding: 4px 12px 2px; font-size: 0.55rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            color: rgba(255,255,255,0.3); margin-top: 6px;
+        }
+        .um-sidebar .nav-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 14px; margin: 1px 8px; border-radius: var(--radius-sm);
+            background: transparent; border: none; color: rgba(255,255,255,0.65);
+            font-size: 0.65rem; font-weight: 500; cursor: pointer;
+            transition: all 0.2s; text-align: left; width: calc(100% - 16px);
+        }
+        .um-sidebar .nav-btn:hover { background: rgba(255,255,255,0.08); color: white; }
+        .um-sidebar .nav-btn.active { background: rgba(193, 43, 62, 0.2); color: white; border-left: 3px solid var(--primary); }
+        .um-sidebar .nav-btn i { font-size: 0.7rem; width: 18px; text-align: center; color: rgba(255,255,255,0.5); }
+        .um-sidebar .nav-btn.active i { color: var(--primary); }
+        /* Main content */
+        .um-main { flex: 1; padding: 12px 16px; overflow-y: auto; background: linear-gradient(180deg, #F8FAFC 0%, #F0F2F7 100%); }
+        .page-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+        }
+        .page-header h4 { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px; }
+        .page-header h4 i { color: var(--primary); font-size: 0.75rem; }
+        /* Stats */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 8px; margin-bottom: 14px;
+        }
+        .stat-card {
+            background: var(--white); border-radius: var(--radius-md);
+            padding: 10px 14px; display: flex; align-items: center; gap: 12px;
+            border-left: 4px solid var(--primary); box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+        .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+        .stat-card .stat-icon {
+            width: 36px; height: 36px; border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0;
+        }
+        .stat-card .stat-icon.blue { background: #e8f0fe; color: #1a73e8; }
+        .stat-card .stat-icon.green { background: #e6f7e6; color: #2e7d32; }
+        .stat-card .stat-icon.purple { background: #f3e8ff; color: #7c3aed; }
+        .stat-card .stat-icon.amber { background: #fff3e0; color: #ef6c00; }
+        .stat-card .stat-icon.red { background: #fce4ec; color: #c62828; }
+        .stat-card .stat-body { flex: 1; }
+        .stat-card .stat-label { font-size: 0.6rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+        .stat-card .stat-value { font-size: 1rem; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
+        /* Cards */
+        .um-card {
+            background: var(--white); border-radius: var(--radius-md);
+            border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
+            margin-bottom: 14px; overflow: hidden;
+        }
+        .um-card .card-header {
+            padding: 8px 12px; border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--gray-50);
+        }
+        .um-card .card-header h6 { font-size: 0.65rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px; }
+        .um-card .card-header h6 i { color: var(--primary); }
+        .um-card .card-body { padding: 10px 12px; }
+        .um-card .card-body.p-0 { padding: 0; }
+        /* Tables */
+        .table-um {
+            width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.7rem;
+        }
+        .table-um thead th {
+            background: var(--dark-blue-deep) !important; color: white !important;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+            font-size: 0.6rem; padding: 6px 8px; border-bottom: none;
+            position: sticky; top: 0; z-index: 10; text-align: left; white-space: nowrap;
+        }
+        .table-um thead th:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.15); }
+        .table-um td { color: var(--text-primary); padding: 5px 8px; font-size: 0.7rem; border-bottom: 1px solid var(--gray-200); vertical-align: middle; }
+        .table-um tbody tr:last-child td { border-bottom: none; }
+        .table-um tbody tr:hover td { background: var(--gray-50); }
+        .table-um tbody tr:nth-child(even) td { background-color: #FAFBFC; }
+        .table-um tbody tr:nth-child(even):hover td { background-color: #EEF0F5; }
+        .table-scroll {
+            max-height: calc(100vh - 280px); overflow-y: auto; overflow-x: auto;
+            border-radius: 6px; border: 1px solid var(--border-color);
+        }
+        .table-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .table-scroll::-webkit-scrollbar-track { background: transparent; }
+        .table-scroll::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+        /* Buttons */
+        .btn {
+            font-size: 0.7rem; font-weight: 600; padding: 4px 12px;
+            border-radius: var(--radius-sm); transition: all 0.15s ease;
+            border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary { background: var(--dark-blue-deep); color: white; }
+        .btn-primary:hover { background: #0A1A3A; box-shadow: var(--shadow-sm); }
+        .btn-danger { background: var(--primary); color: white; }
+        .btn-danger:hover { background: var(--primary-dark); }
+        .btn-sm { padding: 3px 8px; font-size: 0.65rem !important; }
+        .btn-outline-primary { background: transparent; border: 1px solid var(--dark-blue-deep); color: var(--dark-blue-deep); }
+        .btn-outline-primary:hover { background: var(--dark-blue-deep); color: white; }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-success:hover { background: #15803d; }
+        .btn-outline-success { background: transparent; border: 1px solid #16a34a; color: #16a34a; }
+        .btn-outline-success:hover { background: #16a34a; color: white; }
+        .btn-outline-danger { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .btn-outline-danger:hover { background: var(--primary); color: white; }
+        .btn-outline-warning { background: transparent; border: 1px solid #f59e0b; color: #f59e0b; }
+        .btn-outline-warning:hover { background: #f59e0b; color: white; }
+        /* Form */
+        .form-control, .form-select {
+            background: white; border: 1px solid var(--gray-300); color: var(--text-primary);
+            border-radius: var(--radius-sm); font-size: 0.7rem; padding: 4px 8px; height: auto;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 2px rgba(193, 43, 62, 0.12); outline: none;
+        }
+        .form-label { color: var(--text-primary); font-weight: 500; font-size: 0.7rem; margin-bottom: 2px; }
+        /* Badges */
+        .badge-um {
+            display: inline-block; padding: 2px 8px; border-radius: 20px;
+            font-size: 0.6rem; font-weight: 600; letter-spacing: 0.2px;
+        }
+        .badge-um.admin { background: #f3e8ff; color: #7c3aed; }
+        .badge-um.operator { background: #fff3e0; color: #ef6c00; }
+        .badge-um.ordinary { background: #e8f0fe; color: #1a73e8; }
+        .badge-um.active { background: #e6f7e6; color: #2e7d32; }
+        .badge-um.inactive { background: #fce4ec; color: #c62828; }
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 26, 58, 0.6); backdrop-filter: blur(8px);
+            z-index: 1050; display: none; justify-content: center; align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-container {
+            background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%);
+            border: 1px solid rgba(193, 43, 62, 0.1); border-radius: 16px;
+            width: auto; min-width: 380px; max-width: 600px; max-height: 90vh;
+            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            display: flex; flex-direction: column;
+        }
+        .modal-container.large { max-width: 760px; }
+        .modal-header-custom {
+            background: linear-gradient(135deg, #0E1F42 0%, #152B5A 100%);
+            padding: 10px 14px; border-radius: 16px 16px 0 0;
+            border-bottom: 2px solid var(--primary);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header-custom h3 { color: white; font-size: 0.8rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px; }
+        .modal-header-custom h3 i { color: var(--primary); }
+        .modal-close {
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7); width: 28px; height: 28px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s; font-size: 0.65rem;
+        }
+        .modal-close:hover { background: var(--primary); color: white; transform: rotate(90deg); }
+        .modal-body { padding: 8px 12px; flex: 1; overflow-y: auto; color: var(--text-primary); }
+        .modal-footer-custom {
+            padding: 8px 14px; border-top: 1px solid var(--gray-200);
+            display: flex; justify-content: flex-end; gap: 8px;
+            background: var(--gray-50); border-radius: 0 0 16px 16px;
+        }
+        /* System tabs */
+        .system-tabs {
+            display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap;
+        }
+        .system-tab {
+            padding: 5px 14px; border-radius: 20px; font-size: 0.6rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; border: 1px solid var(--gray-200);
+            background: white; color: var(--text-secondary);
+        }
+        .system-tab:hover { border-color: var(--primary); color: var(--primary); }
+        .system-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .system-tab i { margin-right: 4px; }
+        /* Permissions grid */
+        .perm-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
+        }
+        .perm-item {
+            display: flex; align-items: center; gap: 6px; padding: 3px 6px;
+            border-radius: 4px; font-size: 0.65rem;
+        }
+        .perm-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--primary); }
+        /* Animations */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeInUp 0.35s ease forwards; }
+        .um-module { display: none; }
+        .um-module.active { display: block; animation: fadeInUp 0.35s ease forwards; }
+        /* Portal tags */
+        .portal-tag {
+            display: inline-block; padding: 1px 8px; border-radius: 10px;
+            font-size: 0.55rem; font-weight: 600;
+        }
+        .portal-tag.projects { background: #e8f0fe; color: #1a73e8; }
+        .portal-tag.hardware { background: #fff3e0; color: #ef6c00; }
+        .portal-tag.hr { background: #f3e8ff; color: #7c3aed; }
+        .portal-tag.all { background: #e6f7e6; color: #2e7d32; }
+        /* Loader */
+        .um-loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10,26,58,0.96); backdrop-filter: blur(12px);
+            z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column;
+        }
+        .um-loader.active { display: flex; }
+        @media (max-width: 768px) { .um-sidebar { width: 50px; }
+            .um-sidebar .nav-btn span, .um-sidebar .section-title { display: none; }
+            .um-sidebar .nav-btn { justify-content: center; padding: 10px 0; margin: 1px 4px; width: auto; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</head>
+<body>
+
+<div class="um-loader" id="umLoader">
+    <div style="width:40px;height:40px;border:3px solid rgba(255,255,255,0.1);border-radius:50%;border-top-color:var(--primary);animation:spin 0.8s infinite;margin-bottom:16px;"></div>
+    <img src="/static/images/web-logo-white.png" style="width:100px;opacity:0.8;margin-bottom:12px;">
+    <p style="color:white;font-size:0.85rem;font-weight:600;">Processing <span style="color:var(--primary);">...</span></p>
+</div>
+
+<nav class="um-navbar">
+    <div class="brand">
+        <img src="/static/images/web-logo-white.png" alt="ConnectLink">
+        <span class="brand-text">Connect<span>Link</span> User Management</span>
+    </div>
+    <div class="nav-actions" style="position:relative;">
+        <div class="user-badge" onclick="toggleDropdown(event)">
+            <div class="avatar">{{ (user_name or 'U')[0]|upper }}</div>
+            <span>{{ user_name or 'User' }}</span>
+            <i class="bi bi-chevron-down" style="font-size:0.55rem;opacity:0.6;"></i>
+        </div>
+        <div id="userDropdown" class="user-dropdown-menu" style="display:none;">
+            <div class="dropdown-header">
+                <div class="dropdown-user-name">{{ user_name or 'User' }}</div>
+                <div class="dropdown-user-role">User Manager</div>
+            </div>
+            <div class="dropdown-divider" style="height:1px;background:var(--gray-200);"></div>
+            <button class="dropdown-item" onclick="window.location.href='/dashboard'"><i class="bi bi-arrow-left-square"></i> Switch to Projects</button>
+            <button class="dropdown-item" onclick="window.location.href='/hr-dashboard'"><i class="bi bi-people"></i> Switch to HR</button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item text-danger" onclick="if(confirm('Logout?'))window.location.href='/logout';"><i class="bi bi-box-arrow-right"></i> Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="um-layout">
+    <aside class="um-sidebar">
+        <div class="section-title">Management</div>
+        <button class="nav-btn active" data-module="overview" onclick="showModule('overview')"><i class="bi bi-speedometer2"></i> <span>Overview</span></button>
+        <button class="nav-btn" data-module="all-users" onclick="showModule('all-users')"><i class="bi bi-people-fill"></i> <span>All Users</span></button>
+        <button class="nav-btn" data-module="projects-users" onclick="showModule('projects-users')"><i class="bi bi-hard-hat"></i> <span>Projects Users</span></button>
+        <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')"><i class="bi bi-cash-register"></i> <span>Hardware POS Users</span></button>
+        <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')"><i class="bi bi-people"></i> <span>HR Users</span></button>
+        <div class="section-title">Admin</div>
+        <button class="nav-btn" data-module="add-user" onclick="showModule('add-user')"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
+        <button class="nav-btn" data-module="audit" onclick="showModule('audit')"><i class="bi bi-clock-history"></i> <span>Activity Log</span></button>
+    </aside>
+
+    <main class="um-main">
+
+        <!-- OVERVIEW -->
+        <div id="module-overview" class="um-module active">
+            <div class="page-header">
+                <h4><i class="bi bi-speedometer2"></i> User Management Overview</h4>
+                <span style="font-size:0.6rem;color:var(--text-muted);"><i class="bi bi-calendar3"></i> <span id="currentDate"></span></span>
+            </div>
+            <div class="stats-grid" id="overviewStats">
+                <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-people-fill"></i></div><div class="stat-body"><div class="stat-label">Projects Users</div><div class="stat-value" id="statProjects">0</div></div></div>
+                <div class="stat-card"><div class="stat-icon amber"><i class="bi bi-cash-register"></i></div><div class="stat-body"><div class="stat-label">Hardware Users</div><div class="stat-value" id="statHardware">0</div></div></div>
+                <div class="stat-card"><div class="stat-icon purple"><i class="bi bi-people"></i></div><div class="stat-body"><div class="stat-label">HR Employees</div><div class="stat-value" id="statHr">0</div></div></div>
+                <div class="stat-card"><div class="stat-icon green"><i class="bi bi-person-badge"></i></div><div class="stat-body"><div class="stat-label">Total Accounts</div><div class="stat-value" id="statTotal">0</div></div></div>
+            </div>
+            <!-- Quick Access: All 3 system tables -->
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-grid-3x3-gap-fill"></i> System Portals Overview</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll" style="max-height:240px;">
+                        <table class="table-um" id="overviewTable">
+                            <thead><tr><th>System</th><th>Total Users</th><th>Active</th><th>Admins</th><th>Latest User</th><th>Status</th></tr></thead>
+                            <tbody id="overviewTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALL USES (unified table) -->
+        <div id="module-all-users" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-people-fill"></i> All System Users</h4>
+                <div><button class="btn btn-primary btn-sm" onclick="showModule('add-user')"><i class="bi bi-person-plus"></i> Add User</button></div>
+            </div>
+            <div class="um-card">
+                <div class="card-header">
+                    <h6><i class="bi bi-table"></i> Unified User Registry</h6>
+                    <input type="text" class="form-control" style="width:180px;font-size:0.6rem;padding:2px 8px;" id="allUsersSearch" placeholder="Search users..." oninput="filterAllUsers()">
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um" id="allUsersTable">
+                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>System</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                            <tbody id="allUsersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROJECTS USERS -->
+        <div id="module-projects-users" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-hard-hat"></i> Building Projects Users</h4>
+                <div><button class="btn btn-primary btn-sm" onclick="openAddModal('projects')"><i class="bi bi-person-plus"></i> Add User</button></div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-table"></i> connectlinkusers</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>WhatsApp</th><th>Created</th><th>Actions</th></tr></thead>
+                            <tbody id="projectsUsersBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HARDWARE USERS -->
+        <div id="module-hardware-users" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-cash-register"></i> Hardware POS Users</h4>
+                <div><button class="btn btn-primary btn-sm" onclick="openAddModal('hardware')"><i class="bi bi-person-plus"></i> Add User</button></div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-table"></i> hardware_users</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um"><thead><tr><th>ID</th><th>Username</th><th>Full Name</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
+                            <tbody id="hardwareUsersBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HR USERS -->
+        <div id="module-hr-users" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-people"></i> HR Employees / Users</h4>
+                <div><button class="btn btn-primary btn-sm" onclick="openAddModal('hr')"><i class="bi bi-person-plus"></i> Add User</button></div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-table"></i> hr_employees</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+                            <tbody id="hrUsersBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADD USER -->
+        <div id="module-add-user" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-person-plus"></i> Add / Edit User</h4>
+                <div><button class="btn btn-outline-primary btn-sm" onclick="resetAddForm()"><i class="bi bi-arrow-counterclockwise"></i> Reset Form</button></div>
+            </div>
+            <div class="um-card">
+                <div class="card-body">
+                    <input type="hidden" id="editUserId" value="">
+                    <input type="hidden" id="editUserSystem" value="">
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Target System <span class="text-danger">*</span></label>
+                            <select class="form-select" id="addUserSystem" onchange="toggleSystemFields()">
+                                <option value="projects">Building Projects</option>
+                                <option value="hardware">Hardware POS</option>
+                                <option value="hr">Human Resources</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="addUserName" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Email / Username <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="addUserEmail" required>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="addUserPassword" placeholder="Min 4 characters">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Role / Access Level</label>
+                            <select class="form-select" id="addUserRole">
+                                <option value="Ordinary User">Ordinary User</option>
+                                <option value="Administrator">Administrator</option>
+                                <option value="operator">Operator (POS only)</option>
+                                <option value="admin">Admin (Full Access)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="addUserStatus">
+                                <option>Active</option>
+                                <option>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Hardware-specific fields -->
+                    <div id="hardwareExtraFields" style="display:none;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Full Display Name</label>
+                                <input type="text" class="form-control" id="addUserFullName">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Hardware Role</label>
+                                <select class="form-select" id="addUserHwRole">
+                                    <option value="operator">Operator (POS)</option>
+                                    <option value="admin">Admin (Full Access)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- HR-specific fields -->
+                    <div id="hrExtraFields" style="display:none;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4">
+                                <label class="form-label">Department</label>
+                                <select class="form-select" id="addUserDept">
+                                    <option value="">-- Select --</option>
+                                    <option>Construction</option><option>Hardware Sales</option>
+                                    <option>Administration</option><option>Finance</option>
+                                    <option>HR</option><option>Logistics</option><option>Management</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Designation</label>
+                                <input type="text" class="form-control" id="addUserDesignation" placeholder="e.g. Officer">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">WhatsApp</label>
+                                <input type="text" class="form-control" id="addUserWhatsapp" placeholder="26377xxxxxx">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex gap-2">
+                        <button class="btn btn-primary" id="saveUserBtn" onclick="saveUser()"><i class="bi bi-check-circle"></i> <span id="saveUserBtnText">Create User</span></button>
+                        <button class="btn btn-danger" onclick="resetAddForm()">Cancel</button>
+                        <span id="addUserMsg" style="font-size:0.6rem;align-self:center;color:var(--text-muted);"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUDIT LOG -->
+        <div id="module-audit" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-clock-history"></i> Activity Log</h4>
+                <div><button class="btn btn-outline-primary btn-sm" onclick="loadAuditLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button></div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-list"></i> Recent User Activity</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um"><thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Details</th></tr></thead>
+                            <tbody id="auditLogBody"><tr><td colspan="4" class="text-center text-muted py-3">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const USER_NAME = '{{ user_name }}';
+let allUsersData = { projects: [], hardware: [], hr: [] };
+
+// ===== NAVIGATION =====
+function showModule(id) {
+    document.querySelectorAll('.um-module').forEach(m => m.classList.remove('active'));
+    const el = document.getElementById('module-' + id);
+    if (el) el.classList.add('active');
+    document.querySelectorAll('.um-sidebar .nav-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.um-sidebar .nav-btn[data-module="${id}"]`);
+    if (btn) btn.classList.add('active');
+}
+
+// ===== DROPDOWN =====
+function toggleDropdown(e) {
+    e.stopPropagation();
+    const d = document.getElementById('userDropdown');
+    if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+    const d = document.getElementById('userDropdown');
+    if (d && d.style.display === 'block' && !e.target.closest('.user-badge')) d.style.display = 'none';
+});
+
+// ===== LOADING =====
+function showLoader(show) { document.getElementById('umLoader').classList.toggle('active', show); }
+
+// ===== DATE =====
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+// ===== LOAD ALL DATA =====
+async function loadAllData() {
+    showLoader(true);
+    try {
+        const [projRes, hwRes, hrRes] = await Promise.all([
+            fetch('/api/user-management/projects-users'),
+            fetch('/api/user-management/hardware-users'),
+            fetch('/api/user-management/hr-users')
+        ]);
+        const projData = await projRes.json();
+        const hwData = await hwRes.json();
+        const hrData = await hrRes.json();
+
+        allUsersData = {
+            projects: projData.data || [],
+            hardware: hwData.data || [],
+            hr: hrData.data || []
+        };
+
+        renderOverview();
+        renderAllUsers();
+        renderProjectsUsers();
+        renderHardwareUsers();
+        renderHrUsers();
+
+        document.getElementById('statProjects').textContent = allUsersData.projects.length;
+        document.getElementById('statHardware').textContent = allUsersData.hardware.length;
+        document.getElementById('statHr').textContent = allUsersData.hr.length;
+        document.getElementById('statTotal').textContent = allUsersData.projects.length + allUsersData.hardware.length + allUsersData.hr.length;
+
+        showLoader(false);
+    } catch(e) { showLoader(false); console.error('Load error:', e); }
+}
+
+// ===== RENDER OVERVIEW TABLE =====
+function renderOverview() {
+    const tbody = document.getElementById('overviewTableBody');
+    const sys = [
+        { name: 'Building Projects', icon: 'bi-hard-hat', class: 'projects', data: allUsersData.projects, count: allUsersData.projects.length },
+        { name: 'Hardware POS', icon: 'bi-cash-register', class: 'hardware', data: allUsersData.hardware, count: allUsersData.hardware.length },
+        { name: 'Human Resources', icon: 'bi-people', class: 'hr', data: allUsersData.hr, count: allUsersData.hr.length }
+    ];
+    tbody.innerHTML = '';
+    sys.forEach(s => {
+        const active = s.data.filter(u => u.status !== 'Inactive' && u.status !== 'Terminated').length;
+        const admins = s.data.filter(u => {
+            const r = (u.role || '').toLowerCase();
+            return r === 'admin' || r === 'administrator';
+        }).length;
+        const latest = s.data.length > 0 ? (s.data[0].name || s.data[0].username || s.data[0].email || 'N/A') : 'N/A';
+        const status = s.count > 0 ? '<span class="badge-um active">Online</span>' : '<span class="badge-um inactive">No Data</span>';
+        tbody.innerHTML += `<tr>
+            <td><i class="${s.icon}" style="color:var(--primary);margin-right:4px;"></i> ${s.name}</td>
+            <td><strong>${s.count}</strong></td>
+            <td>${active}</td>
+            <td>${admins}</td>
+            <td style="font-size:0.6rem;">${latest}</td>
+            <td>${status}</td>
+        </tr>`;
+    });
+}
+
+// ===== RENDER ALL USERS (unified) =====
+function renderAllUsers() {
+    const tbody = document.getElementById('allUsersTableBody');
+    let html = '';
+    let idx = 0;
+
+    allUsersData.projects.forEach(u => {
+        idx++;
+        const created = u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A';
+        html += `<tr data-system="projects">
+            <td>${idx}</td>
+            <td><strong>${u.name || 'N/A'}</strong></td>
+            <td>${u.email || 'N/A'}</td>
+            <td><span class="portal-tag projects">Projects</span></td>
+            <td><span class="badge-um admin">Admin</span></td>
+            <td><span class="badge-um active">Active</span></td>
+            <td style="font-size:0.55rem;">${created}</td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button></td>
+        </tr>`;
+    });
+
+    allUsersData.hardware.forEach(u => {
+        idx++;
+        const created = u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A';
+        const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
+        html += `<tr data-system="hardware">
+            <td>${idx}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || 'N/A'}</td>
+            <td><span class="portal-tag hardware">Hardware</span></td>
+            <td><span class="${roleBadge}">${u.role || 'N/A'}</span></td>
+            <td><span class="badge-um active">Active</span></td>
+            <td style="font-size:0.55rem;">${created}</td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button></td>
+        </tr>`;
+    });
+
+    allUsersData.hr.forEach(u => {
+        idx++;
+        const roleBadge = (u.role || '').toLowerCase() === 'administrator' ? 'badge-um admin' : 'badge-um ordinary';
+        const statusBadge = (u.status || 'Active') === 'Active' ? 'badge-um active' : 'badge-um inactive';
+        html += `<tr data-system="hr">
+            <td>${idx}</td>
+            <td><strong>${u.first_name || ''} ${u.last_name || ''}</strong></td>
+            <td>${u.email || 'N/A'}</td>
+            <td><span class="portal-tag hr">HR</span></td>
+            <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
+            <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
+            <td style="font-size:0.55rem;">${u.date_joined || 'N/A'}</td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button></td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = html || '<tr><td colspan="8" class="text-center text-muted py-3">No users found</td></tr>';
+}
+
+function filterAllUsers() {
+    const q = document.getElementById('allUsersSearch').value.toLowerCase();
+    document.querySelectorAll('#allUsersTableBody tr').forEach(row => {
+        row.style.display = q ? (row.textContent.toLowerCase().includes(q) ? '' : 'none') : '';
+    });
+}
+
+// ===== RENDER PER-SYSTEM TABLES =====
+function renderProjectsUsers() {
+    const tbody = document.getElementById('projectsUsersBody');
+    tbody.innerHTML = allUsersData.projects.map(u => `
+        <tr><td>${u.id}</td><td><strong>${u.name || 'N/A'}</strong></td>
+        <td>${u.email || 'N/A'}</td><td>${u.whatsapp || 'N/A'}</td>
+        <td style="font-size:0.55rem;">${u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A'}</td>
+        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})"><i class="bi bi-trash"></i></button></td></tr>
+    `).join('') || '<tr><td colspan="6" class="text-center text-muted py-3">No users</td></tr>';
+}
+
+function renderHardwareUsers() {
+    const tbody = document.getElementById('hardwareUsersBody');
+    tbody.innerHTML = allUsersData.hardware.map(u => {
+        const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
+        return `<tr><td>${u.id}</td><td><strong>${u.username || 'N/A'}</strong></td>
+        <td>${u.full_name || 'N/A'}</td>
+        <td><span class="${roleBadge}">${u.role || 'N/A'}</span></td>
+        <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
+        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})"><i class="bi bi-trash"></i></button></td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="text-center text-muted py-3">No users</td></tr>';
+}
+
+function renderHrUsers() {
+    const tbody = document.getElementById('hrUsersBody');
+    tbody.innerHTML = allUsersData.hr.map(u => {
+        const roleBadge = (u.role || '').toLowerCase() === 'administrator' ? 'badge-um admin' : 'badge-um ordinary';
+        const statusBadge = (u.status || 'Active') === 'Active' ? 'badge-um active' : 'badge-um inactive';
+        return `<tr><td>${u.id}</td><td><strong>${u.first_name || ''} ${u.last_name || ''}</strong></td>
+        <td>${u.email || 'N/A'}</td><td>${u.department || 'N/A'}</td>
+        <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
+        <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
+        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})"><i class="bi bi-trash"></i></button></td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="text-center text-muted py-3">No employees</td></tr>';
+}
+
+// ===== OPEN ADD MODAL WITH SYSTEM PREFILLED =====
+function openAddModal(system) {
+    showModule('add-user');
+    document.getElementById('addUserSystem').value = system;
+    toggleSystemFields();
+}
+
+function toggleSystemFields() {
+    const sys = document.getElementById('addUserSystem').value;
+    document.getElementById('hardwareExtraFields').style.display = sys === 'hardware' ? '' : 'none';
+    document.getElementById('hrExtraFields').style.display = sys === 'hr' ? '' : 'none';
+    const roleSelect = document.getElementById('addUserRole');
+    if (sys === 'hardware') {
+        roleSelect.innerHTML = '<option value="operator">Operator (POS)</option><option value="admin">Admin (Full Access)</option>';
+    } else {
+        roleSelect.innerHTML = '<option value="Ordinary User">Ordinary User</option><option value="Administrator">Administrator</option>';
+    }
+}
+
+function resetAddForm() {
+    document.getElementById('editUserId').value = '';
+    document.getElementById('editUserSystem').value = '';
+    document.getElementById('addUserName').value = '';
+    document.getElementById('addUserEmail').value = '';
+    document.getElementById('addUserPassword').value = '';
+    document.getElementById('addUserStatus').value = 'Active';
+    document.getElementById('addUserFullName').value = '';
+    document.getElementById('addUserWhatsapp').value = '';
+    document.getElementById('addUserDept').value = '';
+    document.getElementById('addUserDesignation').value = '';
+    document.getElementById('saveUserBtnText').textContent = 'Create User';
+    document.getElementById('addUserMsg').textContent = '';
+    document.getElementById('addUserSystem').value = 'projects';
+    toggleSystemFields();
+}
+
+// ===== SAVE USER =====
+async function saveUser() {
+    const system = document.getElementById('addUserSystem').value;
+    const name = document.getElementById('addUserName').value.trim();
+    const email = document.getElementById('addUserEmail').value.trim();
+    const password = document.getElementById('addUserPassword').value;
+    const role = document.getElementById('addUserRole').value;
+    const status = document.getElementById('addUserStatus').value;
+    const editId = document.getElementById('editUserId').value;
+    const editSys = document.getElementById('editUserSystem').value;
+
+    if (!name || !email) { alert('Name and Email/Username are required.'); return; }
+
+    showLoader(true);
+
+    try {
+        const res = await fetch('/api/user-management/save-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                system, name, email, password, role, status,
+                edit_id: editId || null,
+                edit_system: editSys || null,
+                full_name: document.getElementById('addUserFullName').value.trim() || name,
+                whatsapp: document.getElementById('addUserWhatsapp').value.trim(),
+                department: document.getElementById('addUserDept').value,
+                designation: document.getElementById('addUserDesignation').value.trim()
+            })
+        });
+        const data = await res.json();
+        showLoader(false);
+
+        if (data.success) {
+            document.getElementById('addUserMsg').textContent = '✅ ' + data.message;
+            document.getElementById('addUserMsg').style.color = '#2e7d32';
+            setTimeout(() => { document.getElementById('addUserMsg').textContent = ''; }, 3000);
+            resetAddForm();
+            await loadAllData();
+        } else {
+            alert('❌ ' + (data.error || 'Failed to save'));
+        }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+// ===== DELETE USERS =====
+async function deleteProjectsUser(id) {
+    if (!confirm('Delete this Building Projects user?')) return;
+    showLoader(true);
+    try {
+        const res = await fetch(`/api/user-management/delete-projects-user/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        showLoader(false);
+        if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+async function deleteHardwareUser(id) {
+    if (!confirm('Delete this Hardware POS user?')) return;
+    showLoader(true);
+    try {
+        const res = await fetch(`/api/user-management/delete-hardware-user/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        showLoader(false);
+        if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+async function deleteHrUser(id) {
+    if (!confirm('Delete this HR employee?')) return;
+    showLoader(true);
+    try {
+        const res = await fetch(`/api/user-management/delete-hr-user/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        showLoader(false);
+        if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+// ===== AUDIT LOG =====
+async function loadAuditLog() {
+    const tbody = document.getElementById('auditLogBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+    try {
+        const res = await fetch('/api/activity-log?limit=100');
+        const data = await res.json();
+        if (data.success && data.data) {
+            tbody.innerHTML = data.data.map(a => `
+                <tr><td style="font-size:0.55rem;">${a.timestamp || ''}</td>
+                <td>${a.action_type || 'N/A'}</td>
+                <td>${a.user_name || 'System'}</td>
+                <td style="font-size:0.55rem;color:var(--text-muted);">${(a.details || '').substring(0, 80)}</td></tr>
+            `).join('') || '<tr><td colspan="4" class="text-center text-muted py-3">No activity</td></tr>';
+        }
+    } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">Failed to load</td></tr>'; }
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', function() {
+    loadAllData();
+    loadAuditLog();
+    toggleSystemFields();
+});
+</script>
+</body>
+</html>

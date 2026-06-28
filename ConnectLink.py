@@ -22414,6 +22414,205 @@ def close_db(error):
     """Close any remaining connections on app shutdown"""
     pass  # No-op now since you're using context managers everywhere
 
+
+# ==================== USER MANAGEMENT PORTAL ====================
+
+@app.route('/user-management-login', methods=['POST'])
+def user_management_login():
+    """Login for User Management portal - uses connectlinkusers"""
+    try:
+        email_or_username = request.form.get('emaillogin', '').strip()
+        password = request.form.get('passwordlogin', '').strip()
+
+        if not email_or_username or not password:
+            return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, datecreated, name, password, email, whatsapp
+                FROM connectlinkusers WHERE email = %s OR name = %s
+            """, (email_or_username, email_or_username))
+            rows = cursor.fetchall()
+
+            if rows and rows[0][3] == password:
+                user_row = rows[0]
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                session['userid'] = int(user_row[0])
+                session['user_name'] = user_row[2]
+                log_activity('user_login', f'User Management: {user_row[2]} logged in', 'user', user_row[0])
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
+            else:
+                return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/user-management')
+def user_management_dashboard():
+    """User Management portal dashboard"""
+    user_uuid = session.get('user_uuid')
+    user_name = session.get('user_name')
+    if not user_uuid:
+        return render_template('mainindex.html')
+    return render_template('users_dashboard.html', user_name=user_name)
+
+
+@app.route('/api/user-management/projects-users')
+def um_projects_users():
+    """Get all Building Projects users (connectlinkusers)"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, datecreated, name, email, whatsapp FROM connectlinkusers ORDER BY id DESC")
+            rows = cursor.fetchall()
+            users = [{'id': r[0], 'datecreated': str(r[1]) if r[1] else None, 'name': r[2], 'email': r[3], 'whatsapp': r[4]} for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/hardware-users')
+def um_hardware_users():
+    """Get all Hardware POS users"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, username, full_name, role, created_at FROM hardware_users ORDER BY id DESC")
+            rows = cursor.fetchall()
+            users = [{'id': r[0], 'username': r[1], 'full_name': r[2], 'role': r[3], 'created_at': str(r[4]) if r[4] else None} for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/hr-users')
+def um_hr_users():
+    """Get all HR employees"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, first_name, last_name, email, department, role, status, date_joined
+                FROM hr_employees ORDER BY id DESC
+            """)
+            rows = cursor.fetchall()
+            users = [{
+                'id': r[0], 'first_name': r[1], 'last_name': r[2], 'email': r[3],
+                'department': r[4], 'role': r[5], 'status': r[6],
+                'date_joined': str(r[7]) if r[7] else None
+            } for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/save-user', methods=['POST'])
+def um_save_user():
+    """Create or update a user across any system"""
+    try:
+        data = request.get_json()
+        system = data.get('system')
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        role = data.get('role', 'Ordinary User')
+        status = data.get('status', 'Active')
+        edit_id = data.get('edit_id')
+        edit_system = data.get('edit_system')
+
+        if not name or not email:
+            return jsonify({'success': False, 'error': 'Name and email are required'}), 400
+
+        with get_db() as (cursor, connection):
+            if system == 'projects':
+                if edit_id and edit_system == 'projects':
+                    cursor.execute("UPDATE connectlinkusers SET name=%s, email=%s WHERE id=%s", (name, email, edit_id))
+                else:
+                    pw = password or 'conlink123'
+                    from datetime import date
+                    cursor.execute("""
+                        INSERT INTO connectlinkusers (datecreated, name, password, email)
+                        VALUES (%s, %s, %s, %s)
+                    """, (date.today(), name, pw, email))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Projects user saved'})
+
+            elif system == 'hardware':
+                hw_role = 'operator'
+                if role in ('admin', 'Administrator'): hw_role = 'admin'
+                full_name = data.get('full_name', name)
+                if edit_id and edit_system == 'hardware':
+                    cursor.execute("UPDATE hardware_users SET username=%s, full_name=%s, role=%s WHERE id=%s", (email, full_name, hw_role, edit_id))
+                else:
+                    pw = password or 'conlink123'
+                    cursor.execute("""
+                        INSERT INTO hardware_users (username, password, full_name, role)
+                        VALUES (%s, %s, %s, %s)
+                    """, (email, pw, full_name, hw_role))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Hardware POS user saved'})
+
+            elif system == 'hr':
+                hr_role = 'Administrator' if role in ('Administrator', 'admin') else 'Ordinary User'
+                parts = name.split(' ', 1)
+                first = parts[0]
+                last = parts[1] if len(parts) > 1 else ''
+                dept = data.get('department', '')
+                designation = data.get('designation', '')
+                whatsapp = data.get('whatsapp', '')
+                if edit_id and edit_system == 'hr':
+                    cursor.execute("""
+                        UPDATE hr_employees SET first_name=%s, last_name=%s, email=%s, department=%s,
+                        designation=%s, role=%s, status=%s, whatsapp=%s WHERE id=%s
+                    """, (first, last, email, dept, designation, hr_role, status, whatsapp, edit_id))
+                else:
+                    cursor.execute("""
+                        INSERT INTO hr_employees (first_name, last_name, email, department, designation, role, status, whatsapp)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (first, last, email, dept, designation, hr_role, status, whatsapp))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'HR user saved'})
+
+            else:
+                return jsonify({'success': False, 'error': 'Unknown system'}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-projects-user/<int:user_id>', methods=['DELETE'])
+def um_delete_projects_user(user_id):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-hardware-user/<int:user_id>', methods=['DELETE'])
+def um_delete_hardware_user(user_id):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM hardware_users WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-hr-user/<int:user_id>', methods=['DELETE'])
+def um_delete_hr_user(user_id):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM hr_employees WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # Quotation Rates API Endpoints
 @app.route('/api/get-quotation-rates', methods=['GET'])
 def get_quotation_rates():
