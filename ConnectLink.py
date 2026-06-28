@@ -1231,6 +1231,30 @@ def initialize_database_tables():
                 print("✅ Bad date cleanup complete!")
             except Exception as cleanup_err:
                 print(f"Note: Date cleanup error: {cleanup_err}")
+
+            # ===== USER PERMISSIONS TABLE =====
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_permissions (
+                    id SERIAL PRIMARY KEY,
+                    user_type VARCHAR(20) NOT NULL,
+                    user_id INT NOT NULL,
+                    can_manage_projects BOOLEAN DEFAULT FALSE,
+                    can_manage_hardware BOOLEAN DEFAULT FALSE,
+                    can_manage_hr BOOLEAN DEFAULT FALSE,
+                    can_add_users BOOLEAN DEFAULT FALSE,
+                    can_edit_users BOOLEAN DEFAULT FALSE,
+                    can_delete_users BOOLEAN DEFAULT FALSE,
+                    can_export_data BOOLEAN DEFAULT FALSE,
+                    can_view_audit BOOLEAN DEFAULT FALSE,
+                    can_manage_roles BOOLEAN DEFAULT FALSE,
+                    is_super_admin BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_type, user_id)
+                );
+            """)
+            connection.commit()
+            print("✅ User permissions table initialized!")
+
             # ========== HR MODULE TABLES ==========
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_employees (
@@ -22417,9 +22441,111 @@ def close_db(error):
 
 # ==================== USER MANAGEMENT PORTAL ====================
 
+def get_user_permissions(user_type, user_id):
+    """Get permissions for a user, creating default super admin if first user"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT can_manage_projects, can_manage_hardware, can_manage_hr,
+                       can_add_users, can_edit_users, can_delete_users,
+                       can_export_data, can_view_audit, can_manage_roles, is_super_admin
+                FROM user_permissions WHERE user_type=%s AND user_id=%s
+            """, (user_type, user_id))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'can_manage_projects': row[0], 'can_manage_hardware': row[1],
+                    'can_manage_hr': row[2], 'can_add_users': row[3],
+                    'can_edit_users': row[4], 'can_delete_users': row[5],
+                    'can_export_data': row[6], 'can_view_audit': row[7],
+                    'can_manage_roles': row[8], 'is_super_admin': row[9]
+                }
+            # If no permissions set, check if this is the first user - make them super admin
+            cursor.execute("SELECT COUNT(*) FROM user_permissions")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                cursor.execute("""
+                    INSERT INTO user_permissions (user_type, user_id, is_super_admin,
+                        can_manage_projects, can_manage_hardware, can_manage_hr,
+                        can_add_users, can_edit_users, can_delete_users,
+                        can_export_data, can_view_audit, can_manage_roles)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                """, (user_type, user_id))
+                connection.commit()
+                return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
+                    'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                    'can_view_audit','can_manage_roles','is_super_admin']}
+            # Default: no permissions
+            return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
+                'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                'can_view_audit','can_manage_roles','is_super_admin']}
+    except Exception as e:
+        print(f"Permissions error: {e}")
+        return {}
+
+
+@app.route('/api/user-management/permissions', methods=['GET', 'POST'])
+def um_permissions_api():
+    """Get or update user permissions"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT up.id, up.user_type, up.user_id,
+                           CASE WHEN up.user_type='projects' THEN cl.name
+                                WHEN up.user_type='hardware' THEN hw.full_name
+                                ELSE 'Unknown' END as user_name,
+                           up.is_super_admin, up.can_manage_projects, up.can_manage_hardware,
+                           up.can_manage_hr, up.can_add_users, up.can_edit_users,
+                           up.can_delete_users, up.can_export_data, up.can_view_audit, up.can_manage_roles
+                    FROM user_permissions up
+                    LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
+                    LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
+                    ORDER BY up.id
+                """)
+                rows = cursor.fetchall()
+                perms = []
+                for r in rows:
+                    perms.append({
+                        'id': r[0], 'user_type': r[1], 'user_id': r[2], 'user_name': r[3],
+                        'is_super_admin': r[4], 'can_manage_projects': r[5],
+                        'can_manage_hardware': r[6], 'can_manage_hr': r[7],
+                        'can_add_users': r[8], 'can_edit_users': r[9],
+                        'can_delete_users': r[10], 'can_export_data': r[11],
+                        'can_view_audit': r[12], 'can_manage_roles': r[13]
+                    })
+                return jsonify({'success': True, 'data': perms})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            user_type = data.get('user_type')
+            user_id = data.get('user_id')
+            fields = ['is_super_admin', 'can_manage_projects', 'can_manage_hardware',
+                      'can_manage_hr', 'can_add_users', 'can_edit_users', 'can_delete_users',
+                      'can_export_data', 'can_view_audit', 'can_manage_roles']
+
+            with get_db() as (cursor, connection):
+                # Upsert
+                set_clauses = ', '.join([f"{f}=%s" for f in fields])
+                values = [data.get(f, False) for f in fields]
+                cursor.execute(f"""
+                    INSERT INTO user_permissions (user_type, user_id, {', '.join(fields)})
+                    VALUES (%s, %s, {', '.join(['%s']*len(fields))})
+                    ON CONFLICT (user_type, user_id) DO UPDATE SET
+                    {set_clauses}
+                """, [user_type, user_id] + values + values)
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Permissions updated'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/user-management-login', methods=['POST'])
 def user_management_login():
-    """Login for User Management portal - uses connectlinkusers"""
+    """Login for User Management portal - checks connectlinkusers AND hardware_users"""
     try:
         email_or_username = request.form.get('emaillogin', '').strip()
         password = request.form.get('passwordlogin', '').strip()
@@ -22428,6 +22554,7 @@ def user_management_login():
             return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
 
         with get_db() as (cursor, connection):
+            # First try connectlinkusers (Building Projects users)
             cursor.execute("""
                 SELECT id, datecreated, name, password, email, whatsapp
                 FROM connectlinkusers WHERE email = %s OR name = %s
@@ -22442,10 +22569,41 @@ def user_management_login():
                 user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
                 session['userid'] = int(user_row[0])
                 session['user_name'] = user_row[2]
+                session['um_user_type'] = 'projects'
+
+                # Load permissions
+                perms = get_user_permissions('projects', user_row[0])
+                session['um_permissions'] = perms
+
                 log_activity('user_login', f'User Management: {user_row[2]} logged in', 'user', user_row[0])
                 return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
-            else:
-                return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
+            # Then try hardware_users (POS users - for mrsgadmin etc.)
+            cursor.execute("""
+                SELECT id, username, password, full_name, role
+                FROM hardware_users WHERE username = %s
+            """, (email_or_username,))
+            hw_rows = cursor.fetchall()
+
+            if hw_rows and hw_rows[0][2] == password:
+                hw_user = hw_rows[0]
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                session['userid'] = int(hw_user[0])
+                session['user_name'] = hw_user[3]
+                session['um_user_type'] = 'hardware'
+
+                # Load permissions
+                perms = get_user_permissions('hardware', hw_user[0])
+                session['um_permissions'] = perms
+
+                log_activity('user_login', f'User Management: {hw_user[3]} logged in via POS', 'user', hw_user[0])
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
+
+            return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -22455,9 +22613,10 @@ def user_management_dashboard():
     """User Management portal dashboard"""
     user_uuid = session.get('user_uuid')
     user_name = session.get('user_name')
+    perms = session.get('um_permissions', {})
     if not user_uuid:
         return render_template('mainindex.html')
-    return render_template('users_dashboard.html', user_name=user_name)
+    return render_template('users_dashboard.html', user_name=user_name, perms=perms)
 
 
 @app.route('/api/user-management/projects-users')

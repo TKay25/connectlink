@@ -356,16 +356,17 @@
 </nav>
 
 <div class="um-layout">
-    <aside class="um-sidebar">
+    <aside class="um-sidebar" id="umSidebar">
         <div class="section-title">Management</div>
-        <button class="nav-btn active" data-module="overview" onclick="showModule('overview')"><i class="bi bi-speedometer2"></i> <span>Overview</span></button>
-        <button class="nav-btn" data-module="all-users" onclick="showModule('all-users')"><i class="bi bi-people-fill"></i> <span>All Users</span></button>
-        <button class="nav-btn" data-module="projects-users" onclick="showModule('projects-users')"><i class="bi bi-hard-hat"></i> <span>Projects Users</span></button>
-        <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')"><i class="bi bi-cash-register"></i> <span>Hardware POS Users</span></button>
-        <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')"><i class="bi bi-people"></i> <span>HR Users</span></button>
+        <button class="nav-btn active" data-module="overview" onclick="showModule('overview')" id="nav-overview"><i class="bi bi-speedometer2"></i> <span>Overview</span></button>
+        <button class="nav-btn" data-module="all-users" onclick="showModule('all-users')" id="nav-all-users"><i class="bi bi-people-fill"></i> <span>All Users</span></button>
+        <button class="nav-btn" data-module="projects-users" onclick="showModule('projects-users')" id="nav-projects-users" data-perm="can_manage_projects"><i class="bi bi-hard-hat"></i> <span>Projects Users</span></button>
+        <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')" id="nav-hardware-users" data-perm="can_manage_hardware"><i class="bi bi-cash-register"></i> <span>Hardware POS Users</span></button>
+        <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')" id="nav-hr-users" data-perm="can_manage_hr"><i class="bi bi-people"></i> <span>HR Users</span></button>
         <div class="section-title">Admin</div>
-        <button class="nav-btn" data-module="add-user" onclick="showModule('add-user')"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
-        <button class="nav-btn" data-module="audit" onclick="showModule('audit')"><i class="bi bi-clock-history"></i> <span>Activity Log</span></button>
+        <button class="nav-btn" data-module="permissions" onclick="showModule('permissions')" id="nav-permissions" data-perm="can_manage_roles"><i class="bi bi-shield-lock"></i> <span>Permissions</span></button>
+        <button class="nav-btn" data-module="add-user" onclick="showModule('add-user')" id="nav-add-user" data-perm="can_add_users"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
+        <button class="nav-btn" data-module="audit" onclick="showModule('audit')" id="nav-audit" data-perm="can_view_audit"><i class="bi bi-clock-history"></i> <span>Activity Log</span></button>
     </aside>
 
     <main class="um-main">
@@ -569,6 +570,40 @@
             </div>
         </div>
 
+        <!-- PERMISSIONS MANAGER -->
+        <div id="module-permissions" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-shield-lock"></i> Permission Management</h4>
+                <div><button class="btn btn-outline-primary btn-sm" onclick="loadPermissions()"><i class="bi bi-arrow-clockwise"></i> Refresh</button></div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-table"></i> User Access Rights</h6>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">Toggle permissions to grant/restrict access</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-scroll" style="max-height:calc(100vh - 200px);">
+                        <table class="table-um" id="permsTable">
+                            <thead><tr>
+                                <th style="min-width:120px;">User</th>
+                                <th style="text-align:center;width:50px;" title="Super Admin - full access"><i class="bi bi-star-fill"></i></th>
+                                <th style="text-align:center;width:45px;" title="Manage Building Projects"><i class="bi bi-hard-hat"></i></th>
+                                <th style="text-align:center;width:45px;" title="Manage Hardware POS"><i class="bi bi-cash-register"></i></th>
+                                <th style="text-align:center;width:45px;" title="Manage HR"><i class="bi bi-people"></i></th>
+                                <th style="text-align:center;width:45px;" title="Add Users"><i class="bi bi-person-plus"></i></th>
+                                <th style="text-align:center;width:45px;" title="Edit Users"><i class="bi bi-pencil"></i></th>
+                                <th style="text-align:center;width:45px;" title="Delete Users"><i class="bi bi-trash"></i></th>
+                                <th style="text-align:center;width:45px;" title="Export Data"><i class="bi bi-download"></i></th>
+                                <th style="text-align:center;width:45px;" title="View Audit Log"><i class="bi bi-clock-history"></i></th>
+                                <th style="text-align:center;width:45px;" title="Manage Roles & Permissions"><i class="bi bi-shield"></i></th>
+                                <th style="width:60px;">Save</th>
+                            </tr></thead>
+                            <tbody id="permsTableBody"><tr><td colspan="12" class="text-center py-3 text-muted">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- AUDIT LOG -->
         <div id="module-audit" class="um-module">
             <div class="page-header">
@@ -594,7 +629,23 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const USER_NAME = '{{ user_name }}';
+const PERMS = {{ perms|tojson|safe }};
 let allUsersData = { projects: [], hardware: [], hr: [] };
+
+// ===== PERMISSION-BASED UI CONTROL =====
+function applyPermissions() {
+    // Hide sidebar items user doesn't have permission for
+    document.querySelectorAll('.um-sidebar .nav-btn[data-perm]').forEach(btn => {
+        const perm = btn.dataset.perm;
+        if (!PERMS.is_super_admin && !PERMS[perm]) {
+            btn.style.display = 'none';
+        }
+    });
+    // Hide add user button if no permission
+    if (!PERMS.is_super_admin && !PERMS.can_add_users) {
+        document.querySelectorAll('.btn-add-user').forEach(b => b.style.display = 'none');
+    }
+}
 
 // ===== NAVIGATION =====
 function showModule(id) {
@@ -916,10 +967,80 @@ async function loadAuditLog() {
     } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">Failed to load</td></tr>'; }
 }
 
+// ===== PERMISSIONS MANAGER =====
+async function loadPermissions() {
+    const tbody = document.getElementById('permsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+    try {
+        const res = await fetch('/api/user-management/permissions');
+        const data = await res.json();
+        if (!data.success || !data.data || data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">No permissions configured. Add users first.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        data.data.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.id = 'perm-row-' + p.id;
+            tr.dataset.userType = p.user_type;
+            tr.dataset.userId = p.user_id;
+            tr.innerHTML = `
+                <td><strong>${p.user_name || 'User #' + p.user_id}</strong><br><small style="font-size:0.5rem;color:var(--text-muted);">${p.user_type}</small></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="is_super_admin" ${p.is_super_admin ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_manage_projects" ${p.can_manage_projects ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_manage_hardware" ${p.can_manage_hardware ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_manage_hr" ${p.can_manage_hr ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_add_users" ${p.can_add_users ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_edit_users" ${p.can_edit_users ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_delete_users" ${p.can_delete_users ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_export_data" ${p.can_export_data ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_view_audit" ${p.can_view_audit ? 'checked' : ''}></td>
+                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_manage_roles" ${p.can_manage_roles ? 'checked' : ''}></td>
+                <td class="text-center"><button class="btn btn-sm btn-primary" onclick="savePermissionRow(${p.id})" style="font-size:0.5rem;padding:2px 6px;">Save</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-3">Failed to load: ' + e.message + '</td></tr>';
+    }
+}
+
+async function savePermissionRow(permId) {
+    const row = document.getElementById('perm-row-' + permId);
+    if (!row) return;
+    const checkboxes = row.querySelectorAll('.perm-check');
+    const payload = {
+        user_type: row.dataset.userType,
+        user_id: parseInt(row.dataset.userId)
+    };
+    checkboxes.forEach(cb => {
+        payload[cb.dataset.field] = cb.checked;
+    });
+
+    try {
+        const res = await fetch('/api/user-management/permissions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('✅ Permissions saved!');
+        } else {
+            alert('❌ ' + (data.error || 'Failed'));
+        }
+    } catch(e) {
+        alert('Error: ' + e.message);
+    }
+}
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', function() {
+    applyPermissions();
     loadAllData();
     loadAuditLog();
+    loadPermissions();
     toggleSystemFields();
 });
 </script>
