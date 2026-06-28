@@ -320,6 +320,20 @@
             .um-sidebar .nav-btn span, .um-sidebar .section-title { display: none; }
             .um-sidebar .nav-btn { justify-content: center; padding: 10px 0; margin: 1px 4px; width: auto; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        /* Toggle Switch */
+        .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; margin: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background: #ccc; transition: .3s; border-radius: 20px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 14px; width: 14px;
+            left: 3px; bottom: 3px; background: white; transition: .3s; border-radius: 50%; }
+        .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); }
+        .perm-row { display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 0; border-bottom: 1px solid var(--gray-100); font-size:0.65rem; }
+        .perm-row:last-child { border-bottom: none; }
+        .perm-label { display: flex; align-items: center; gap: 6px; color: var(--text-primary); }
+        .perm-label i { width: 16px; color: var(--primary); font-size:0.7rem; }
     </style>
 </head>
 <body>
@@ -574,32 +588,13 @@
         <div id="module-permissions" class="um-module">
             <div class="page-header">
                 <h4><i class="bi bi-shield-lock"></i> Permission Management</h4>
-                <div><button class="btn btn-outline-primary btn-sm" onclick="loadPermissions()"><i class="bi bi-arrow-clockwise"></i> Refresh</button></div>
+                <div><span style="font-size:0.6rem;color:var(--text-muted);">Click the <i class="bi bi-shield"></i> icon on any user row to edit their permissions</span></div>
             </div>
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> User Access Rights</h6>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">Toggle permissions to grant/restrict access</span>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-scroll" style="max-height:calc(100vh - 200px);">
-                        <table class="table-um" id="permsTable">
-                            <thead><tr>
-                                <th style="min-width:120px;">User</th>
-                                <th style="text-align:center;width:50px;" title="Super Admin - full access"><i class="bi bi-star-fill"></i></th>
-                                <th style="text-align:center;width:45px;" title="Manage Building Projects"><i class="bi bi-hard-hat"></i></th>
-                                <th style="text-align:center;width:45px;" title="Manage Hardware POS"><i class="bi bi-cash-register"></i></th>
-                                <th style="text-align:center;width:45px;" title="Manage HR"><i class="bi bi-people"></i></th>
-                                <th style="text-align:center;width:45px;" title="Add Users"><i class="bi bi-person-plus"></i></th>
-                                <th style="text-align:center;width:45px;" title="Edit Users"><i class="bi bi-pencil"></i></th>
-                                <th style="text-align:center;width:45px;" title="Delete Users"><i class="bi bi-trash"></i></th>
-                                <th style="text-align:center;width:45px;" title="Export Data"><i class="bi bi-download"></i></th>
-                                <th style="text-align:center;width:45px;" title="View Audit Log"><i class="bi bi-clock-history"></i></th>
-                                <th style="text-align:center;width:45px;" title="Manage Roles & Permissions"><i class="bi bi-shield"></i></th>
-                                <th style="width:60px;">Save</th>
-                            </tr></thead>
-                            <tbody id="permsTableBody"><tr><td colspan="12" class="text-center py-3 text-muted">Loading...</td></tr></tbody>
-                        </table>
-                    </div>
+                <div class="card-body text-center py-5" style="color:var(--text-muted);">
+                    <i class="bi bi-shield-check" style="font-size:2rem;display:block;margin-bottom:8px;color:var(--primary);"></i>
+                    <p>Select a user from the <strong>All Users</strong> table and click the <i class="bi bi-shield"></i> button to manage their access rights.</p>
+                    <button class="btn btn-primary btn-sm" onclick="showModule('all-users')"><i class="bi bi-people-fill"></i> Go to All Users</button>
                 </div>
             </div>
         </div>
@@ -623,6 +618,69 @@
         </div>
 
     </main>
+</div>
+
+<!-- PERMISSIONS MODAL -->
+<div class="modal-overlay" id="permModal">
+    <div class="modal-container" style="max-width:420px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-shield-lock"></i> <span id="permModalTitle">Permissions</span></h3>
+            <button class="modal-close" onclick="closeModal('permModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:10px;">
+                User: <strong id="permModalUserLabel">--</strong>
+            </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
+                <i class="bi bi-key"></i> Access Rights
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-star-fill" style="color:#f59e0b;"></i> Super Admin (full access)</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-is_super_admin"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-hard-hat"></i> Manage Building Projects</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_projects"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-cash-register"></i> Manage Hardware POS</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_hardware"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-people"></i> Manage HR</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_hr"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-person-plus"></i> Add Users</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_add_users"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-pencil"></i> Edit Users</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_edit_users"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-trash"></i> Delete Users</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_delete_users"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-download"></i> Export Data</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_export_data"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-clock-history"></i> View Audit Log</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_view_audit"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-shield"></i> Manage Roles &amp; Permissions</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_roles"><span class="toggle-slider"></span></label>
+            </div>
+            <div id="permModalMsg" style="font-size:0.6rem;margin-top:8px;text-align:center;min-height:18px;"></div>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('permModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="savePermModal()"><i class="bi bi-check-circle"></i> Save Permissions</button>
+        </div>
+    </div>
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -656,6 +714,28 @@ function showModule(id) {
     const btn = document.querySelector(`.um-sidebar .nav-btn[data-module="${id}"]`);
     if (btn) btn.classList.add('active');
 }
+
+// ===== MODAL =====
+function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) { el.classList.add('active'); document.body.style.overflow = 'hidden'; }
+}
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('active'); document.body.style.overflow = ''; }
+}
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => { m.classList.remove('active'); });
+        document.body.style.overflow = '';
+    }
+});
 
 // ===== DROPDOWN =====
 function toggleDropdown(e) {
@@ -753,7 +833,10 @@ function renderAllUsers() {
             <td><span class="badge-um admin">Admin</span></td>
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
-            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${u.name || u.email || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
         </tr>`;
     });
 
@@ -769,7 +852,10 @@ function renderAllUsers() {
             <td><span class="${roleBadge}">${u.role || 'N/A'}</span></td>
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
-            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${u.full_name || u.username || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
         </tr>`;
     });
 
@@ -785,7 +871,10 @@ function renderAllUsers() {
             <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
             <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
             <td style="font-size:0.55rem;">${u.date_joined || 'N/A'}</td>
-            <td><button class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${(u.first_name||'') + ' ' + (u.last_name||'')}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
         </tr>`;
     });
 
@@ -967,57 +1056,64 @@ async function loadAuditLog() {
     } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">Failed to load</td></tr>'; }
 }
 
-// ===== PERMISSIONS MANAGER =====
-async function loadPermissions() {
-    const tbody = document.getElementById('permsTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="12" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+// ===== PERMISSIONS MANAGER - MODAL WITH TOGGLE SWITCHES =====
+let permModalUserType = '';
+let permModalUserId = null;
+
+function openPermModal(userType, userId, userName) {
+    permModalUserType = userType;
+    permModalUserId = userId;
+    document.getElementById('permModalTitle').textContent = 'Permissions: ' + (userName || 'User #' + userId);
+    document.getElementById('permModalUserLabel').textContent = (userName || 'Unknown') + ' (' + userType + ')';
+    openModal('permModal');
+    loadPermModalData(userType, userId);
+}
+
+async function loadPermModalData(userType, userId) {
+    const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
+                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                     'can_view_audit','can_manage_roles'];
+    // Reset all toggles to off
+    toggles.forEach(t => {
+        const el = document.getElementById('toggle-' + t);
+        if (el) el.checked = false;
+    });
+    document.getElementById('permModalMsg').textContent = 'Loading...';
+
     try {
         const res = await fetch('/api/user-management/permissions');
         const data = await res.json();
-        if (!data.success || !data.data || data.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">No permissions configured. Add users first.</td></tr>';
-            return;
+        if (data.success && data.data) {
+            const perm = data.data.find(p => p.user_type === userType && p.user_id === userId);
+            if (perm) {
+                toggles.forEach(t => {
+                    const el = document.getElementById('toggle-' + t);
+                    if (el) el.checked = !!perm[t];
+                });
+                document.getElementById('permModalMsg').textContent = '';
+            } else {
+                document.getElementById('permModalMsg').textContent = 'No permissions set yet. Toggle and save to assign.';
+            }
         }
-        tbody.innerHTML = '';
-        data.data.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.id = 'perm-row-' + p.id;
-            tr.dataset.userType = p.user_type;
-            tr.dataset.userId = p.user_id;
-            tr.innerHTML = `
-                <td><strong>${p.user_name || 'User #' + p.user_id}</strong><br><small style="font-size:0.5rem;color:var(--text-muted);">${p.user_type}</small></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="is_super_admin" ${p.is_super_admin ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_manage_projects" ${p.can_manage_projects ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_manage_hardware" ${p.can_manage_hardware ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_manage_hr" ${p.can_manage_hr ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_add_users" ${p.can_add_users ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_edit_users" ${p.can_edit_users ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_delete_users" ${p.can_delete_users ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_export_data" ${p.can_export_data ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_view_audit" ${p.can_view_audit ? 'checked' : ''}></td>
-                <td class="text-center"><input type="checkbox" class="perm-check" data-id="${p.id}" data-field="can_manage_roles" ${p.can_manage_roles ? 'checked' : ''}></td>
-                <td class="text-center"><button class="btn btn-sm btn-primary" onclick="savePermissionRow(${p.id})" style="font-size:0.5rem;padding:2px 6px;">Save</button></td>
-            `;
-            tbody.appendChild(tr);
-        });
     } catch(e) {
-        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-3">Failed to load: ' + e.message + '</td></tr>';
+        document.getElementById('permModalMsg').textContent = 'Error loading: ' + e.message;
     }
 }
 
-async function savePermissionRow(permId) {
-    const row = document.getElementById('perm-row-' + permId);
-    if (!row) return;
-    const checkboxes = row.querySelectorAll('.perm-check');
+async function savePermModal() {
+    const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
+                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                     'can_view_audit','can_manage_roles'];
     const payload = {
-        user_type: row.dataset.userType,
-        user_id: parseInt(row.dataset.userId)
+        user_type: permModalUserType,
+        user_id: permModalUserId
     };
-    checkboxes.forEach(cb => {
-        payload[cb.dataset.field] = cb.checked;
+    toggles.forEach(t => {
+        const el = document.getElementById('toggle-' + t);
+        if (el) payload[t] = el.checked;
     });
 
+    document.getElementById('permModalMsg').textContent = 'Saving...';
     try {
         const res = await fetch('/api/user-management/permissions', {
             method: 'POST',
@@ -1026,8 +1122,18 @@ async function savePermissionRow(permId) {
         });
         const data = await res.json();
         if (data.success) {
-            alert('✅ Permissions saved!');
+            document.getElementById('permModalMsg').textContent = '✅ Permissions saved!';
+            document.getElementById('permModalMsg').style.color = '#2e7d32';
+            setTimeout(() => { document.getElementById('permModalMsg').textContent = ''; }, 2000);
         } else {
+            document.getElementById('permModalMsg').textContent = '❌ ' + (data.error || 'Failed');
+            document.getElementById('permModalMsg').style.color = '#d32f2f';
+        }
+    } catch(e) {
+        document.getElementById('permModalMsg').textContent = 'Error: ' + e.message;
+        document.getElementById('permModalMsg').style.color = '#d32f2f';
+    }
+}
             alert('❌ ' + (data.error || 'Failed'));
         }
     } catch(e) {
@@ -1040,7 +1146,6 @@ document.addEventListener('DOMContentLoaded', function() {
     applyPermissions();
     loadAllData();
     loadAuditLog();
-    loadPermissions();
     toggleSystemFields();
 });
 </script>
