@@ -18776,9 +18776,9 @@ function displayQuotationDetailsInModal(quotation) {
                     <td class="text-center fw-bold" style="font-size:0.7rem;">${idx + 1}</td>
                     <td style="font-size:0.7rem;">${escapeHtml(item.name || 'Item')}</td>
                     <td class="text-center" style="font-size:0.7rem;">${qty.toLocaleString('en-US', { minimumFractionDigits: 0 })}</td>
-                    <td class="text-end fw-bold" style="font-size:0.7rem;">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end" style="font-size:0.7rem;">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end fw-bold" style="font-size:0.7rem;color:var(--crimson-bright);">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td class="text-end fw-bold" style="font-size:0.7rem;">${clientRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="text-end" style="font-size:0.7rem;">${inhouseRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td class="text-end fw-bold" style="font-size:0.7rem;color:var(--crimson-bright);">${totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 </tr>
             `;
         });
