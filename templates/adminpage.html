@@ -3754,14 +3754,6 @@ table.dataTable thead th.sorting_desc {
                                 </div>
                                 <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
                             </div>
-                            <div class="quick-action-card" onclick="openModal('systemUserModal')">
-                                <div class="action-icon"><i class="bi bi-people"></i></div>
-                                <div class="action-content">
-                                    <div class="action-title">Manage Users</div>
-                                    <div class="action-description">System users & roles</div>
-                                </div>
-                                <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
-                            </div>
                             <div class="quick-action-card" onclick="openModal('addcompAdminModal')">
                                 <div class="action-icon"><i class="bi bi-shield-check"></i></div>
                                 <div class="action-content">
@@ -3804,11 +3796,6 @@ table.dataTable thead th.sorting_desc {
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#whatsapp-tab">
                                     <i class="bi bi-whatsapp"></i> WHATSAPP CHATS PORTAL
-                                </button>
-                            </li>
-                            <li class="nav-item">
-                                <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#activity-tab">
-                                    <i class="bi bi-activity"></i> SYSTEM USERS ACTIVITY PORTAL
                                 </button>
                             </li>
                             <li class="nav-item">
@@ -4103,12 +4090,7 @@ table.dataTable thead th.sorting_desc {
                             </div>
                         </div>
 
-                        <!-- ACTIVITY LOG TAB -->
-                        <div class="tab-pane fade" id="activity-tab">
-                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; align-items:center;">
-                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="loadActivityLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
-                                <button class="btn btn-success" style="padding:4px 12px;" onclick="exportActivityExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
-                                <span id="activityLogCount" style="font-size:0.7rem;color:var(--text-muted);padding:0 4px;"></span>
+                        <!-- EMPTY TAB -->
                                 <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:120px;max-width:250px;" oninput="filterActivityLog()">
                                 <select id="activityLogUserFilter" style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
                                     <option value="">All users</option>
@@ -4407,28 +4389,6 @@ table.dataTable thead th.sorting_desc {
 
     </div>
 
-<div id="systemUserModal" class="modal-overlay">
-    <div class="modal-container xlarge">
-        <div class="modal-header-custom">
-            <h3><i class="bi bi-people-fill"></i> SYSTEM USERS</h3>
-            <button class="close-modal" onclick="closeModal('systemUserModal')">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <div class="modal-body-custom">
-            <table border="1" class="dataframe table table-bordered table-theme" id="allusersTable">
-                <tbody>
-                    {{ usersdatamain_html|safe }}
-                </tbody>
-            </table>
-        </div>
-        <div class="modal-footer-custom">
-            <button class="btn btn-primary" onclick="openModal('createUserModal')">Create User</button>
-            <button class="btn btn-danger" onclick="closeModal('systemUserModal')">Close</button>
-        </div>
-    </div>
-</div>
-
 <!-- Quotation Details Modal -->
 <div id="quotationDetailsModal" class="modal-overlay">
     <div class="modal-container x2large">
@@ -4516,43 +4476,8 @@ table.dataTable thead th.sorting_desc {
     </div>
 </div>
 
- <div id="createUserModal" class="modal-overlay">
-    <div class="modal-container medium">
-        <div class="modal-header-custom">
-            <h3><i class="bi bi-person-fill-add"></i> CREATE SYSTEM USER</h3>
-            <button class="close-modal" onclick="closeModal('createUserModal')">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <div class="modal-body-custom">
-            <form id="createUserForm" method="POST" onsubmit="return false;">
-                <div class="form-inline-group">
-                    <label for="userFullName">Full Name</label>
-                    <input type="text" class="form-control editable-field" id="userFullName" name="userfullname" required>
-                </div>
-                <div class="form-inline-group">
-                    <label for="userWhatsApp">WhatsApp Number</label>
-                    <input type="number" class="form-control editable-field" id="userWhatsApp" name="userwhatsapp" required>
-                </div>
-                <div class="form-inline-group">
-                    <label for="userEmail">Email</label>
-                    <input type="email" class="form-control editable-field" id="userEmail" name="useremail" required>
-                </div>
-                <div class="form-inline-group">
-                    <label for="userPassword">Password</label>
-                    <input type="password" class="form-control editable-field" id="userPassword" name="userpassword" required>
-                </div>
-                <div class="form-inline-group">
-                    <label for="permissionPasscode">Permission Passcode</label>
-                    <input type="text" class="form-control editable-field" name="permission_passcode" id="permissionPasscode" required>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer-custom">
-            <button class="btn btn-primary" type="submit" form="createUserForm">Create</button>
-            <button class="btn btn-danger" onclick="closeModal('createUserModal')">Cancel</button>
-        </div>
-    </div>
+<!-- Quotation Details Modal -->
+<div id="quotationDetailsModal" class="modal-overlay">
 </div>
 
 
@@ -6832,38 +6757,6 @@ table.dataTable thead th.sorting_desc {
         </div>
     </div>
 </div>
-
-<!-- Remove User Modal - Blur Overlay Version -->
-<div id="removeUserModal" class="modal-overlay">
-    <div class="modal-container">
-        <div class="modal-header-custom" style="background: var(--crimson-sidebar, var(--primary));">
-            <h3><i class="bi bi-exclamation-triangle-fill"></i> USER REMOVAL CONFIRMATION</h3>
-            <button class="close-modal" onclick="closeModal('removeUserModal')">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <form id="removeUserForm" method="POST" onsubmit="return false;">
-            <div class="modal-body-custom">
-                <p>Are you sure you want to remove the following user?</p>
-                
-                <div class="alert alert-info">
-                    <strong>Name:</strong> <span id="modalUserName">Loading...</span><br>
-                    <strong>Email:</strong> <span id="modalUserEmail">Loading...</span>
-                </div>
-
-                <div class="form-group mt-3">
-                    <label for="passcodeInput" class="form-label fw-bold">Enter Admin Passcode to Confirm</label>
-                    <input type="password" class="form-control" id="passcodeInput" name="passcode" required>
-                </div>
-
-                <input type="hidden" name="user_id" id="modalUserId">
-            </div>
-            <div class="modal-footer-custom">
-                <button type="button" class="btn btn-danger" onclick="closeModal('removeUserModal')">Cancel</button>
-                <button type="submit" class="btn btn-danger">Remove User</button>
-            </div>
-        </form>
-    </div>
 </div>
 
 <!-- AI Modal - Blur Overlay Version -->
@@ -13436,27 +13329,6 @@ $(document).ready(function() {
         console.log('✅ Enquiries tab table initialized');
     }
 
-    // Initialize DataTable for Users table
-    if ($('#allusersTable').length && !$.fn.DataTable.isDataTable('#allusersTable')) {
-        $('#allusersTable').DataTable({
-            order: [[0, 'desc']],
-            paging: true,
-            pageLength: 25,
-            lengthChange: true,
-            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
-            searching: true,
-            ordering: true,
-            info: true,
-            language: {
-                emptyTable: 'No users found',
-                search: "Search:",
-                info: "Showing _START_ to _END_ of _TOTAL_ users",
-                infoEmpty: "Showing 0 to 0 of 0 users"
-            }
-        });
-        console.log('✅ Users table initialized');
-    }
-
     // Initialize DataTable for Enquiries (main) table
     if ($('#allenquiriesTable').length && !$.fn.DataTable.isDataTable('#allenquiriesTable')) {
         $('#allenquiriesTable').DataTable({
@@ -13782,17 +13654,6 @@ function decodeHtmlEntities(text) {
 }
 
 // Open remove modal with selected user values
-function openRemoveUserModal(userId, userNameEncoded, userEmailEncoded) {
-    const userName = decodeHtmlEntities(userNameEncoded || '');
-    const userEmail = decodeHtmlEntities(userEmailEncoded || '');
-
-    document.getElementById('modalUserId').value = userId;
-    document.getElementById('modalUserName').textContent = userName;
-    document.getElementById('modalUserEmail').textContent = userEmail;
-
-    openModal('removeUserModal');
-}
-
 function setSystemUserRowEditing(tr, isEditing) {
     const cells = tr.querySelectorAll('td');
     if (cells.length < 6) return;
@@ -13907,70 +13768,6 @@ document.addEventListener('click', async function (event) {
         }
     }
 });
-
-// Handle form submission (using your pattern)
-document.getElementById("removeUserForm")?.addEventListener("submit", async function(e) {
-    e.preventDefault(); // Stop normal form submit
-
-    const passcode = document.getElementById("passcodeInput").value.trim();
-    const userId = document.getElementById("modalUserId").value;
-
-    // Validate passcode (use the same as your create user)
-    if (passcode !== "conlink01admin01") {
-        alert("Invalid Admin Permission Passcode.");
-        return;
-    }
-
-    // Collect form data
-    const data = {
-        user_id: userId,
-        passcode: passcode
-    };
-
-    // Send to Flask route
-    try {
-        const response = await fetch("/remove-system-user", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-
-        if (result.status === "success") {
-            alert("User removed successfully!");
-            
-            // Reset form
-            this.reset();
-            
-            // Close modal
-            closeModal('removeUserModal');
-            location.reload();
-            
-            // Optional: Remove the row from table or refresh page
-            // location.reload(); // Refresh page
-            
-        } else {
-            alert("Error: " + result.message);
-        }
-
-    } catch (error) {
-        console.error("Request failed", error);
-        alert("Failed to remove user.");
-    }
-});
-
-// Optional: Clear form when modal is hidden
-document.getElementById('removeUserModal')?.addEventListener('transitionend', function() {
-    if (this.classList.contains('active')) return;
-    document.getElementById('removeUserForm').reset();
-    document.getElementById('modalUserId').value = '';
-    document.getElementById('modalUserName').textContent = 'Loading...';
-    document.getElementById('modalUserEmail').textContent = 'Loading...';
-});
-
 </script>
 <script>
 
@@ -14449,54 +14246,6 @@ function downloadPortfolio() {
 
 </script>
 
-
-<script>
-document.getElementById("createUserForm").addEventListener("submit", async function (e) {
-    e.preventDefault(); // Stop normal form submit
-
-    const passcode = document.getElementById("permissionPasscode").value.trim();
-
-    // Validate passcode
-    if (passcode !== "conlink01admin01") {
-        alert("Invalid Admin Permission Passcode.");
-        return;
-    }
-
-    // Collect form data
-    const data = {
-        fullname: this.userfullname.value,
-        email: this.useremail.value,
-        password: this.userpassword.value,
-        whatsapp: this.userwhatsapp.value
-    };
-
-    // Send to Flask route
-    try {
-        const response = await fetch("/create-system-user", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        });
-
-        const result = await response.json();
-
-        if (result.status === "success") {
-            alert("User created successfully!");
-            this.reset();
-            closeModal('createUserModal');
-            location.reload();
-        } else {
-            alert("Error: " + result.message);
-        }
-
-    } catch (error) {
-        console.error("Request failed", error);
-        alert("Failed to save user.");
-    }
-});
-</script>
 
 <script>
 
@@ -18267,14 +18016,7 @@ function renderGanttItemsList() {
         });
     }
 
-    // Load activity log when tab is shown
-    const activityTabButton = document.querySelector('button[data-bs-target="#activity-tab"]');
-    if (activityTabButton) {
-        activityTabButton.addEventListener('shown.bs.tab', function(e) {
-            console.log('Activity tab shown event fired', e);
-            loadActivityLog();
-        });
-    }
+    // The activity-tab has been removed - user management moved to dedicated portal
 
     // Also set up a way to manually load quotations
     window.reloadQuotations = function() {
