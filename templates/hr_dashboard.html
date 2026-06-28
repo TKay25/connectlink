@@ -1,0 +1,2238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ConnectLink HR | Human Resources Portal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
+    <link rel="icon" type="image/png" href="/static/images/web-logo-white.png">
+    <meta name="theme-color" content="#0E1F42">
+    <style>
+        :root {
+            --primary: #C12B3E;
+            --primary-dark: #9B1D2C;
+            --primary-light: rgba(193, 43, 62, 0.08);
+            --primary-hover: #D33F52;
+            --primary-muted: rgba(193, 43, 62, 0.12);
+            --slate-50: #F8FAFC;
+            --slate-100: #F1F5F9;
+            --slate-200: #E2E8F0;
+            --slate-300: #CBD5E1;
+            --slate-400: #94A3B8;
+            --slate-500: #64748B;
+            --slate-600: #475569;
+            --slate-700: #334155;
+            --slate-800: #1E293B;
+            --slate-900: #0F172A;
+            --dark-blue-deep: var(--slate-800);
+            --dark-blue-primary: var(--slate-900);
+            --crimson-bright: var(--primary);
+            --crimson-sidebar: var(--primary-dark);
+            --crimson-light: rgba(193, 43, 62, 0.1);
+            --white: #FFFFFF;
+            --gray-50: #F9FAFB;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-400: #9CA3AF;
+            --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --gray-700: #374151;
+            --text-primary: #1E293B;
+            --text-secondary: #475569;
+            --text-muted: #94A3B8;
+            --bg-card: #FFFFFF;
+            --border-color: #E2E8F0;
+            --radius-sm: 0.5rem;
+            --radius-md: 0.75rem;
+            --radius-lg: 1rem;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            --nav-height: 44px;
+            --font-size-base: 0.7rem;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            font-size: var(--font-size-base);
+            background: var(--slate-50);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* ===== FIXED TOP NAVBAR ===== */
+        .hr-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: var(--nav-height);
+            z-index: 1050;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(193, 43, 62, 0.15);
+            padding: 0 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hr-navbar::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 5%;
+            width: 90%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0.4;
+        }
+
+        .hr-navbar .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hr-navbar .brand img {
+            height: 24px;
+            width: auto;
+            border-radius: 4px;
+        }
+
+        .hr-navbar .brand .brand-text {
+            color: white;
+            font-weight: 700;
+            font-size: 0.7rem;
+            letter-spacing: 0.5px;
+            background: linear-gradient(90deg, #fff, rgba(255,255,255,0.7));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hr-navbar .brand .brand-text span {
+            -webkit-text-fill-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .hr-navbar .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hr-navbar .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255,255,255,0.06);
+            padding: 2px 10px 2px 6px;
+            border-radius: 30px;
+            color: rgba(255,255,255,0.85);
+            font-size: 0.65rem;
+            font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.08);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .hr-navbar .user-badge:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .hr-navbar .user-badge .avatar {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #9B1D2C);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.6rem;
+            color: white;
+        }
+
+        /* User Dropdown */
+        .user-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 6px);
+            right: 0;
+            min-width: 200px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(10,26,58,0.2);
+            border: 1px solid var(--gray-200);
+            z-index: 99999;
+            overflow: hidden;
+        }
+
+        .user-dropdown-menu .dropdown-header {
+            padding: 12px 14px;
+            background: var(--gray-50);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .user-dropdown-menu .dropdown-user-name {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 0.7rem;
+        }
+
+        .user-dropdown-menu .dropdown-user-role {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
+
+        .user-dropdown-menu .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            font-size: 0.65rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.15s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .user-dropdown-menu .dropdown-item:hover {
+            background: var(--gray-50);
+        }
+
+        .user-dropdown-menu .dropdown-item i {
+            font-size: 0.75rem;
+            width: 18px;
+            text-align: center;
+        }
+
+        .user-dropdown-menu .dropdown-item.text-danger { color: #d32f2f; }
+        .user-dropdown-menu .dropdown-item.text-danger:hover { background: #fef2f2; }
+
+        /* ===== LAYOUT ===== */
+        body { padding-top: var(--nav-height); }
+
+        .hr-layout {
+            display: flex;
+            min-height: calc(100vh - var(--nav-height));
+        }
+
+        /* ===== SIDEBAR ===== */
+        .hr-sidebar {
+            width: 200px;
+            background: linear-gradient(180deg, var(--dark-blue-deep) 0%, var(--dark-blue-primary) 100%);
+            border-right: 1px solid rgba(193, 43, 62, 0.15);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 8px 0;
+            overflow-y: auto;
+            position: sticky;
+            top: var(--nav-height);
+            height: calc(100vh - var(--nav-height));
+        }
+
+        .hr-sidebar .sidebar-section {
+            padding: 4px 10px 2px;
+            font-size: 0.55rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(255,255,255,0.3);
+            margin-top: 6px;
+        }
+
+        .hr-sidebar .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 14px;
+            margin: 1px 8px;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.65);
+            font-size: 0.65rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            width: calc(100% - 16px);
+        }
+
+        .hr-sidebar .nav-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: white;
+        }
+
+        .hr-sidebar .nav-btn.active {
+            background: rgba(193, 43, 62, 0.2);
+            color: white;
+            border-left: 3px solid var(--primary);
+        }
+
+        .hr-sidebar .nav-btn i {
+            font-size: 0.7rem;
+            width: 18px;
+            text-align: center;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .hr-sidebar .nav-btn.active i {
+            color: var(--primary);
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .hr-main {
+            flex: 1;
+            padding: 12px 16px;
+            overflow-y: auto;
+            background: linear-gradient(180deg, #F8FAFC 0%, #F0F2F7 100%);
+            min-height: calc(100vh - var(--nav-height));
+        }
+
+        /* Page header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .page-header h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .page-header h4 i {
+            color: var(--primary);
+            font-size: 0.75rem;
+        }
+
+        .page-header .breadcrumb {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin: 0;
+            background: none;
+            padding: 0;
+        }
+
+        /* ===== STATS CARDS ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .hr-stat-card {
+            background: var(--white);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 4px solid var(--primary);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+
+        .hr-stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .hr-stat-card .stat-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .hr-stat-card .stat-icon.blue { background: #e8f0fe; color: #1a73e8; }
+        .hr-stat-card .stat-icon.green { background: #e6f7e6; color: #2e7d32; }
+        .hr-stat-card .stat-icon.red { background: #fce4ec; color: #c62828; }
+        .hr-stat-card .stat-icon.amber { background: #fff3e0; color: #ef6c00; }
+        .hr-stat-card .stat-icon.purple { background: #f3e8ff; color: #7c3aed; }
+
+        .hr-stat-card .stat-body { flex: 1; min-width: 0; }
+
+        .hr-stat-card .stat-label {
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
+        }
+
+        .hr-stat-card .stat-value {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .hr-stat-card .stat-sub {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
+
+        /* ===== CARDS ===== */
+        .hr-card {
+            background: var(--white);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 14px;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .hr-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .hr-card .card-header-custom {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--gray-50);
+        }
+
+        .hr-card .card-header-custom h6 {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hr-card .card-header-custom h6 i {
+            color: var(--primary);
+        }
+
+        .hr-card .card-body-custom {
+            padding: 10px 12px;
+        }
+
+        /* ===== TABLES ===== */
+        .table-hr {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: var(--font-size-base);
+        }
+
+        .table-hr thead th {
+            background: var(--dark-blue-deep) !important;
+            color: white !important;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-size: 0.6rem;
+            padding: 6px 8px;
+            border-bottom: none;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .table-hr thead th:not(:last-child) {
+            border-right: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .table-hr td {
+            color: var(--text-primary);
+            padding: 5px 8px;
+            font-size: var(--font-size-base);
+            border-bottom: 1px solid var(--gray-200);
+            vertical-align: middle;
+        }
+
+        .table-hr tbody tr:last-child td { border-bottom: none; }
+        .table-hr tbody tr:hover td { background: var(--gray-50); }
+        .table-hr tbody tr:nth-child(even) td { background-color: #FAFBFC; }
+        .table-hr tbody tr:nth-child(even):hover td { background-color: #EEF0F5; }
+
+        /* Table scroll container */
+        .table-scroll {
+            max-height: calc(100vh - 300px);
+            overflow-y: auto;
+            overflow-x: auto;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .table-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .table-scroll::-webkit-scrollbar-track { background: transparent; }
+        .table-scroll::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: var(--radius-sm);
+            transition: all 0.15s ease;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn:active { transform: scale(0.97); }
+
+        .btn-primary {
+            background: var(--dark-blue-deep);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0A1A3A;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-danger {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: var(--primary-dark);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-sm { padding: 3px 8px; font-size: 0.65rem !important; }
+        .btn-outline-primary {
+            background: transparent;
+            border: 1px solid var(--dark-blue-deep);
+            color: var(--dark-blue-deep);
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--dark-blue-deep);
+            color: white;
+        }
+
+        .btn-success {
+            background: #16a34a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #15803d;
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+        }
+
+        .btn-outline-danger {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-outline-danger:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* ===== FORM CONTROLS ===== */
+        .form-control, .form-select {
+            background: white;
+            border: 1px solid var(--gray-300);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            font-size: var(--font-size-base);
+            padding: 4px 8px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            height: auto;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(193, 43, 62, 0.12);
+            outline: none;
+        }
+
+        .form-label {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: var(--font-size-base);
+            margin-bottom: 2px;
+        }
+
+        /* ===== BADGES ===== */
+        .badge-hr {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+
+        .badge-hr.active { background: #e6f7e6; color: #2e7d32; }
+        .badge-hr.pending { background: #fff3e0; color: #ef6c00; }
+        .badge-hr.inactive { background: #fce4ec; color: #c62828; }
+        .badge-hr.on-leave { background: #e3f2fd; color: #1565c0; }
+        .badge-hr.terminated { background: #fce4ec; color: #c62828; }
+
+        /* ===== MODAL OVERLAY ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 26, 58, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1050;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-container {
+            background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%);
+            border: 1px solid rgba(193, 43, 62, 0.1);
+            border-radius: 16px;
+            width: auto;
+            min-width: 400px;
+            max-width: 640px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25), 0 10px 10px -5px rgba(193, 43, 62, 0.08);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-container.small { max-width: 380px; min-width: 320px; }
+        .modal-container.large { max-width: 800px; }
+        .modal-container.xlarge { max-width: 1100px; width: 95%; }
+
+        .modal-header-custom {
+            background: linear-gradient(135deg, #0E1F42 0%, #152B5A 100%);
+            padding: 10px 14px;
+            border-radius: 16px 16px 0 0;
+            border-bottom: 2px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex: 0 0 auto;
+        }
+
+        .modal-header-custom h3 {
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .modal-header-custom h3 i {
+            color: var(--primary);
+        }
+
+        .modal-close {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7);
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.65rem;
+        }
+
+        .modal-close:hover {
+            background: var(--primary);
+            color: white;
+            transform: rotate(90deg);
+        }
+
+        .modal-body-custom {
+            padding: 8px 12px;
+            flex: 1;
+            overflow-y: auto;
+            color: var(--text-primary);
+        }
+
+        .modal-footer-custom {
+            padding: 8px 14px;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            flex: 0 0 auto;
+            background: var(--gray-50);
+            border-radius: 0 0 16px 16px;
+        }
+
+        /* ===== GRID HELPERS ===== */
+        .form-inline-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .form-inline-group label {
+            flex: 0 0 120px;
+            text-align: right;
+            margin-bottom: 0;
+            font-weight: 500;
+            font-size: var(--font-size-base);
+            color: var(--text-primary);
+            padding-right: 4px;
+        }
+
+        .form-inline-group .form-control,
+        .form-inline-group .form-select {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* ===== LOADER ===== */
+        .eds-loader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10,26,58,0.96);
+            backdrop-filter: blur(12px);
+            z-index: 9999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .eds-loader.active { display: flex; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .hr-sidebar {
+                width: 50px;
+                overflow: hidden;
+            }
+            .hr-sidebar .nav-btn span,
+            .hr-sidebar .sidebar-section {
+                display: none;
+            }
+            .hr-sidebar .nav-btn {
+                justify-content: center;
+                padding: 10px 0;
+                margin: 1px 4px;
+                width: auto;
+            }
+            .hr-sidebar .nav-btn i {
+                margin: 0;
+                font-size: 0.9rem;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in { animation: fadeInUp 0.35s ease forwards; }
+
+        /* ===== MODULE SECTIONS ===== */
+        .hr-module {
+            display: none;
+        }
+
+        .hr-module.active {
+            display: block;
+            animation: fadeInUp 0.35s ease forwards;
+        }
+
+        /* Quick action grid */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .quick-action-card {
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .quick-action-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .quick-action-card .qa-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .quick-action-card .qa-icon.blue { background: #e8f0fe; color: #1a73e8; }
+        .quick-action-card .qa-icon.green { background: #e6f7e6; color: #2e7d32; }
+        .quick-action-card .qa-icon.red { background: #fce4ec; color: #c62828; }
+        .quick-action-card .qa-icon.amber { background: #fff3e0; color: #ef6c00; }
+        .quick-action-card .qa-icon.purple { background: #f3e8ff; color: #7c3aed; }
+        .quick-action-card .qa-icon.teal { background: #e0f2f1; color: #00796b; }
+
+        .quick-action-card .qa-content { flex: 1; }
+
+        .quick-action-card .qa-title {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: var(--font-size-base);
+            margin-bottom: 1px;
+        }
+
+        .quick-action-card .qa-desc {
+            color: var(--text-muted);
+            font-size: 0.6rem;
+        }
+
+        .quick-action-card .qa-arrow {
+            color: var(--gray-400);
+            font-size: 0.65rem;
+            transition: transform 0.2s;
+        }
+
+        .quick-action-card:hover .qa-arrow {
+            transform: translateX(4px);
+            color: var(--primary);
+        }
+
+        /* Activity timeline */
+        .activity-item {
+            display: flex;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .activity-item:last-child { border-bottom: none; }
+
+        .activity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+
+        .activity-dot.green { background: #2e7d32; }
+        .activity-dot.blue { background: #1a73e8; }
+        .activity-dot.amber { background: #ef6c00; }
+        .activity-dot.red { background: #c62828; }
+
+        .activity-text {
+            font-size: var(--font-size-base);
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .activity-time {
+            font-size: 0.55rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== LOADING OVERLAY ===== -->
+<div class="eds-loader" id="hrLoader">
+    <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-radius: 50%; border-top-color: var(--primary); animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; margin-bottom: 16px;"></div>
+    <img src="/static/images/web-logo-white.png" alt="ConnectLink" style="width: 100px; opacity: 0.8; margin-bottom: 12px;">
+    <p style="color: white; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.3px;">Processing <span style="color: var(--primary);">...</span></p>
+</div>
+
+<!-- ===== TOP NAVBAR ===== -->
+<nav class="hr-navbar">
+    <div class="brand">
+        <img src="/static/images/web-logo-white.png" alt="ConnectLink">
+        <span class="brand-text">Connect<span>Link</span> HR</span>
+    </div>
+    <div class="nav-actions" style="position:relative;">
+        <div class="user-badge" onclick="toggleUserDropdown(event)">
+            <div class="avatar">{{ (user_name or 'U')[0]|upper }}</div>
+            <span>{{ user_name or 'User' }}</span>
+            <i class="bi bi-chevron-down" style="font-size:0.55rem;opacity:0.6;"></i>
+        </div>
+        <div id="userDropdown" class="user-dropdown-menu" style="display:none;">
+            <div class="dropdown-header">
+                <div class="dropdown-user-name">{{ user_name or 'User' }}</div>
+                <div class="dropdown-user-role">HR Portal</div>
+            </div>
+            <div class="dropdown-divider" style="height:1px;background:var(--gray-200);"></div>
+            <button class="dropdown-item" onclick="showModule('dashboard')">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </button>
+            <button class="dropdown-item" onclick="window.location.href='/dashboard'">
+                <i class="bi bi-arrow-left-square"></i> Switch to Projects
+            </button>
+            <div class="dropdown-divider" style="height:1px;background:var(--gray-200);"></div>
+            <button class="dropdown-item text-danger" onclick="handleLogout()">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </button>
+        </div>
+    </div>
+</nav>
+
+<!-- ===== LAYOUT ===== -->
+<div class="hr-layout">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="hr-sidebar">
+        <div class="sidebar-section">Main</div>
+        <button class="nav-btn active" data-module="dashboard" onclick="showModule('dashboard')">
+            <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+        </button>
+        <button class="nav-btn" data-module="employees" onclick="showModule('employees')">
+            <i class="bi bi-people-fill"></i> <span>Employees</span>
+        </button>
+
+        <div class="sidebar-section">Operations</div>
+        <button class="nav-btn" data-module="leave" onclick="showModule('leave')">
+            <i class="bi bi-calendar-check"></i> <span>Leave Management</span>
+        </button>
+        <button class="nav-btn" data-module="attendance" onclick="showModule('attendance')">
+            <i class="bi bi-clock-history"></i> <span>Attendance</span>
+        </button>
+        <button class="nav-btn" data-module="payroll" onclick="showModule('payroll')">
+            <i class="bi bi-wallet2"></i> <span>Payroll</span>
+        </button>
+
+        <div class="sidebar-section">Assets &amp; Records</div>
+        <button class="nav-btn" data-module="assets" onclick="showModule('assets')">
+            <i class="bi bi-boxes"></i> <span>Asset Register</span>
+        </button>
+        <button class="nav-btn" data-module="documents" onclick="showModule('documents')">
+            <i class="bi bi-file-earmark-text"></i> <span>Documents</span>
+        </button>
+
+        <div class="sidebar-section">Insights</div>
+        <button class="nav-btn" data-module="reports" onclick="showModule('reports')">
+            <i class="bi bi-graph-up-arrow"></i> <span>Reports</span>
+        </button>
+    </aside>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="hr-main">
+
+        <!-- ===== MODULE: DASHBOARD ===== -->
+        <div id="module-dashboard" class="hr-module active">
+
+            <div class="page-header">
+                <div>
+                    <h4><i class="bi bi-speedometer2"></i> HR Dashboard</h4>
+                    <div class="breadcrumb"><i class="bi bi-house"></i> Home / HR / Dashboard</div>
+                </div>
+                <div>
+                    <span style="font-size:0.6rem;color:var(--text-muted);">
+                        <i class="bi bi-calendar3"></i> <span id="currentDate"></span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="hr-stat-card">
+                    <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Total Employees</div>
+                        <div class="stat-value" id="statTotalEmployees">0</div>
+                        <div class="stat-sub">Active workforce</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon green"><i class="bi bi-person-check"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Present Today</div>
+                        <div class="stat-value" id="statPresentToday">0</div>
+                        <div class="stat-sub">Checked in</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon amber"><i class="bi bi-calendar-check"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">On Leave</div>
+                        <div class="stat-value" id="statOnLeave">0</div>
+                        <div class="stat-sub">Approved leave</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Pending Requests</div>
+                        <div class="stat-value" id="statPendingRequests">0</div>
+                        <div class="stat-sub">Awaiting approval</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon purple"><i class="bi bi-wallet2"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Payroll (This Month)</div>
+                        <div class="stat-value" id="statPayroll">$0</div>
+                        <div class="stat-sub">Total payroll</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <div class="quick-action-card" onclick="showModule('employees')">
+                    <div class="qa-icon blue"><i class="bi bi-person-plus"></i></div>
+                    <div class="qa-content">
+                        <div class="qa-title">Add Employee</div>
+                        <div class="qa-desc">Register new staff member</div>
+                    </div>
+                    <i class="qa-arrow bi bi-chevron-right"></i>
+                </div>
+                <div class="quick-action-card" onclick="showModule('leave')">
+                    <div class="qa-icon green"><i class="bi bi-send-plus"></i></div>
+                    <div class="qa-content">
+                        <div class="qa-title">New Leave Request</div>
+                        <div class="qa-desc">Apply for leave</div>
+                    </div>
+                    <i class="qa-arrow bi bi-chevron-right"></i>
+                </div>
+                <div class="quick-action-card" onclick="showModule('attendance')">
+                    <div class="qa-icon amber"><i class="bi bi-clock"></i></div>
+                    <div class="qa-content">
+                        <div class="qa-title">Mark Attendance</div>
+                        <div class="qa-desc">Today's attendance</div>
+                    </div>
+                    <i class="qa-arrow bi bi-chevron-right"></i>
+                </div>
+                <div class="quick-action-card" onclick="showModule('assets')">
+                    <div class="qa-icon purple"><i class="bi bi-box"></i></div>
+                    <div class="qa-content">
+                        <div class="qa-title">Asset Checkout</div>
+                        <div class="qa-desc">Assign company asset</div>
+                    </div>
+                    <i class="qa-arrow bi bi-chevron-right"></i>
+                </div>
+                <div class="quick-action-card" onclick="showModule('reports')">
+                    <div class="qa-icon teal"><i class="bi bi-file-earmark-bar-graph"></i></div>
+                    <div class="qa-content">
+                        <div class="qa-title">HR Reports</div>
+                        <div class="qa-desc">View analytics &amp; exports</div>
+                    </div>
+                    <i class="qa-arrow bi bi-chevron-right"></i>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <!-- Recent Activity -->
+                <div class="col-md-7">
+                    <div class="hr-card">
+                        <div class="card-header-custom">
+                            <h6><i class="bi bi-clock-history"></i> Recent Activity</h6>
+                            <span style="font-size:0.55rem;color:var(--text-muted);">Last 7 days</span>
+                        </div>
+                        <div class="card-body-custom" style="max-height:280px;overflow-y:auto;">
+                            <div id="activityTimeline">
+                                <div class="activity-item">
+                                    <div class="activity-dot green"></div>
+                                    <div class="activity-text"><strong>John Doe</strong> checked in</div>
+                                    <div class="activity-time">08:15 AM</div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-dot blue"></div>
+                                    <div class="activity-text"><strong>Jane Smith</strong> submitted leave request</div>
+                                    <div class="activity-time">09:30 AM</div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-dot amber"></div>
+                                    <div class="activity-text"><strong>Bob Wilson</strong> leave approved</div>
+                                    <div class="activity-time">10:00 AM</div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-dot red"></div>
+                                    <div class="activity-text"><strong>Asset</strong> Laptop #1042 returned by Alice</div>
+                                    <div class="activity-time">11:20 AM</div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-dot green"></div>
+                                    <div class="activity-text"><strong>New employee</strong> Sarah Connor onboarded</div>
+                                    <div class="activity-time">Yesterday</div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-dot blue"></div>
+                                    <div class="activity-text"><strong>Payroll</strong> for June processed</div>
+                                    <div class="activity-time">Yesterday</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upcoming Birthdays / Events -->
+                <div class="col-md-5">
+                    <div class="hr-card">
+                        <div class="card-header-custom">
+                            <h6><i class="bi bi-gift"></i> Upcoming Birthdays</h6>
+                            <span style="font-size:0.55rem;color:var(--text-muted);">This month</span>
+                        </div>
+                        <div class="card-body-custom">
+                            <div id="birthdaysList">
+                                <div class="activity-item">
+                                    <div class="activity-dot" style="background:#e91e63;"></div>
+                                    <div class="activity-text"><strong>Alice Moyo</strong> — June 15</div>
+                                    <div class="activity-time">12 days</div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-dot" style="background:#e91e63;"></div>
+                                    <div class="activity-text"><strong>Testimony Ndlovu</strong> — June 22</div>
+                                    <div class="activity-time">19 days</div>
+                                </div>
+                                <div class="activity-item">
+                                    <div class="activity-dot" style="background:#e91e63;"></div>
+                                    <div class="activity-text"><strong>Brian Chikwanda</strong> — June 28</div>
+                                    <div class="activity-time">25 days</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hr-card mt-2">
+                        <div class="card-header-custom">
+                            <h6><i class="bi bi-megaphone"></i> Announcements</h6>
+                        </div>
+                        <div class="card-body-custom">
+                            <p style="font-size:0.65rem;color:var(--text-secondary);margin:0;">
+                                <i class="bi bi-info-circle text-primary" style="margin-right:4px;"></i>
+                                Payroll submissions for July close on the 25th.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODULE: EMPLOYEES ===== -->
+        <div id="module-employees" class="hr-module">
+
+            <div class="page-header">
+                <h4><i class="bi bi-people-fill"></i> Employee Management</h4>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="openModal('addEmployeeModal')">
+                        <i class="bi bi-person-plus"></i> Add Employee
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="alert('Exporting employee list...')">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="hr-card">
+                <div class="card-body-custom">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Search</label>
+                            <input type="text" class="form-control" id="employeeSearch" placeholder="Name, email, department..." oninput="filterEmployeeTable()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" id="empDeptFilter" onchange="filterEmployeeTable()">
+                                <option value="">All</option>
+                                <option>Construction</option>
+                                <option>Hardware Sales</option>
+                                <option>Administration</option>
+                                <option>Finance</option>
+                                <option>HR</option>
+                                <option>Logistics</option>
+                                <option>Management</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="empStatusFilter" onchange="filterEmployeeTable()">
+                                <option value="">All</option>
+                                <option>Active</option>
+                                <option>On Leave</option>
+                                <option>Inactive</option>
+                                <option>Terminated</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Employment</label>
+                            <select class="form-select" id="empTypeFilter" onchange="filterEmployeeTable()">
+                                <option value="">All</option>
+                                <option>Permanent</option>
+                                <option>Contract</option>
+                                <option>Probation</option>
+                                <option>Intern</option>
+                                <option>Part-Time</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex gap-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick="resetEmployeeFilters()">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </button>
+                            <span style="font-size:0.6rem;color:var(--text-muted);align-self:center;" id="empCountDisplay">0 employees</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employee Table -->
+            <div class="hr-card">
+                <div class="card-body-custom" style="padding:0;">
+                    <div class="table-scroll">
+                        <table class="table-hr" id="employeesTable">
+                            <thead>
+                                <tr>
+                                    <th style="width:30px;">#</th>
+                                    <th>Employee Name</th>
+                                    <th>Department</th>
+                                    <th>Position</th>
+                                    <th>Employment</th>
+                                    <th>Status</th>
+                                    <th style="width:120px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeesTableBody">
+                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
+                                    No employees added yet. Click <strong>"Add Employee"</strong> to get started.
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODULE: LEAVE MANAGEMENT ===== -->
+        <div id="module-leave" class="hr-module">
+
+            <div class="page-header">
+                <h4><i class="bi bi-calendar-check"></i> Leave Management</h4>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="openModal('leaveRequestModal')">
+                        <i class="bi bi-send-plus"></i> New Leave Request
+                    </button>
+                </div>
+            </div>
+
+            <!-- Leave Stats -->
+            <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
+                <div class="hr-stat-card">
+                    <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Approved</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon amber"><i class="bi bi-clock"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Pending</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon blue"><i class="bi bi-calendar"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Days Taken (MTD)</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon purple"><i class="bi bi-graph-up"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Remaining (Avg)</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leave Table -->
+            <div class="hr-card">
+                <div class="card-header-custom">
+                    <h6><i class="bi bi-list-check"></i> Leave Applications</h6>
+                    <div>
+                        <select class="form-select form-select-sm" style="width:auto;display:inline-block;font-size:0.6rem;padding:2px 6px;" onchange="filterLeaveTable()" id="leaveStatusFilter">
+                            <option value="">All Status</option>
+                            <option>Approved</option>
+                            <option>Pending</option>
+                            <option>Rejected</option>
+                            <option>Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body-custom" style="padding:0;">
+                    <div class="table-scroll">
+                        <table class="table-hr" id="leaveTable">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Leave Type</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Days</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaveTableBody">
+                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                    <i class="bi bi-calendar-check" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
+                                    No leave records yet.
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leave Balance Summary -->
+            <div class="hr-card">
+                <div class="card-header-custom">
+                    <h6><i class="bi bi-pie-chart"></i> Leave Balance Summary</h6>
+                </div>
+                <div class="card-body-custom">
+                    <div class="row g-2">
+                        <div class="col-md-3 text-center">
+                            <div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;">Annual</div>
+                            <div style="font-size:1rem;font-weight:700;color:var(--text-primary);">21 days</div>
+                            <div style="font-size:0.55rem;color:var(--text-muted);">Entitled</div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;">Sick</div>
+                            <div style="font-size:1rem;font-weight:700;color:var(--text-primary);">14 days</div>
+                            <div style="font-size:0.55rem;color:var(--text-muted);">Per year</div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;">Study</div>
+                            <div style="font-size:1rem;font-weight:700;color:var(--text-primary);">10 days</div>
+                            <div style="font-size:0.55rem;color:var(--text-muted);">Per year</div>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;">Family</div>
+                            <div style="font-size:1rem;font-weight:700;color:var(--text-primary);">5 days</div>
+                            <div style="font-size:0.55rem;color:var(--text-muted);">Per year</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODULE: ATTENDANCE ===== -->
+        <div id="module-attendance" class="hr-module">
+
+            <div class="page-header">
+                <h4><i class="bi bi-clock-history"></i> Attendance Tracking</h4>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="alert('Mark today\'s attendance...')">
+                        <i class="bi bi-pencil-square"></i> Mark Attendance
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
+                <div class="hr-stat-card">
+                    <div class="stat-icon green"><i class="bi bi-person-check"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Present</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon amber"><i class="bi bi-clock"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Late</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon red"><i class="bi bi-x-circle"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Absent</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon blue"><i class="bi bi-percent"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Attendance Rate</div>
+                        <div class="stat-value">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hr-card">
+                <div class="card-header-custom">
+                    <h6><i class="bi bi-table"></i> Today's Attendance</h6>
+                    <span style="font-size:0.55rem;color:var(--text-muted);" id="attendanceDate"></span>
+                </div>
+                <div class="card-body-custom" style="padding:0;">
+                    <div class="table-scroll">
+                        <table class="table-hr" id="attendanceTable">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Department</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Status</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody">
+                                <tr><td colspan="6" class="text-center text-muted py-4">
+                                    <i class="bi bi-clock-history" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
+                                    No attendance records for today.
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODULE: PAYROLL ===== -->
+        <div id="module-payroll" class="hr-module">
+
+            <div class="page-header">
+                <h4><i class="bi bi-wallet2"></i> Payroll Management</h4>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="alert('Process payroll...')">
+                        <i class="bi bi-gear"></i> Process Payroll
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="alert('Export payroll...')">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
+                <div class="hr-stat-card">
+                    <div class="stat-icon blue"><i class="bi bi-people"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Payroll Period</div>
+                        <div class="stat-value" style="font-size:0.8rem;" id="payrollPeriod">June 2026</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon green"><i class="bi bi-currency-dollar"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Gross Pay</div>
+                        <div class="stat-value" id="payrollGross">$0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon amber"><i class="bi bi-receipt"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Deductions</div>
+                        <div class="stat-value" id="payrollDeductions">$0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon purple"><i class="bi bi-cash-coin"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Net Pay</div>
+                        <div class="stat-value" id="payrollNet">$0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hr-card">
+                <div class="card-header-custom">
+                    <h6><i class="bi bi-table"></i> Payroll Register</h6>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">June 2026</span>
+                </div>
+                <div class="card-body-custom" style="padding:0;">
+                    <div class="table-scroll">
+                        <table class="table-hr" id="payrollTable">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Basic Pay</th>
+                                    <th>Allowances</th>
+                                    <th>Deductions</th>
+                                    <th>Net Pay</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payrollTableBody">
+                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                    <i class="bi bi-wallet2" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
+                                    No payroll data for this period.
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODULE: ASSET REGISTER ===== -->
+        <div id="module-assets" class="hr-module">
+
+            <div class="page-header">
+                <h4><i class="bi bi-boxes"></i> Asset Register</h4>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="openModal('addAssetModal')">
+                        <i class="bi bi-plus-circle"></i> Add Asset
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="alert('Export asset register...')">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
+                <div class="hr-stat-card">
+                    <div class="stat-icon blue"><i class="bi bi-box"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Total Assets</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon green"><i class="bi bi-check-circle"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">In Service</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon red"><i class="bi bi-tools"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Under Repair</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon amber"><i class="bi bi-person-up"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Checked Out</div>
+                        <div class="stat-value">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hr-card">
+                <div class="card-header-custom">
+                    <h6><i class="bi bi-list"></i> Asset Inventory</h6>
+                    <div>
+                        <select class="form-select form-select-sm" style="width:auto;display:inline-block;font-size:0.6rem;padding:2px 6px;" id="assetCategoryFilter" onchange="filterAssetTable()">
+                            <option value="">All Categories</option>
+                            <option>Laptops</option>
+                            <option>Vehicles</option>
+                            <option>Tools &amp; Equipment</option>
+                            <option>Furniture</option>
+                            <option>Mobile Devices</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body-custom" style="padding:0;">
+                    <div class="table-scroll">
+                        <table class="table-hr" id="assetsTable">
+                            <thead>
+                                <tr>
+                                    <th>Asset Tag</th>
+                                    <th>Name</th>
+                                    <th>Category</th>
+                                    <th>Assigned To</th>
+                                    <th>Status</th>
+                                    <th>Value</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assetsTableBody">
+                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                    <i class="bi bi-box" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
+                                    No assets registered. Click <strong>"Add Asset"</strong> to begin.
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODULE: DOCUMENTS ===== -->
+        <div id="module-documents" class="hr-module">
+
+            <div class="page-header">
+                <h4><i class="bi bi-file-earmark-text"></i> Documents &amp; Records</h4>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="alert('Upload document...')">
+                        <i class="bi bi-upload"></i> Upload Document
+                    </button>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="hr-card">
+                        <div class="card-header-custom">
+                            <h6><i class="bi bi-file-earmark-person"></i> Employee Documents</h6>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="activity-item">
+                                <i class="bi bi-file-earmark-pdf" style="color:var(--primary);font-size:0.85rem;"></i>
+                                <div class="activity-text">Employment Contracts</div>
+                                <span class="activity-time">0 files</span>
+                            </div>
+                            <div class="activity-item">
+                                <i class="bi bi-file-earmark-text" style="color:#1a73e8;font-size:0.85rem;"></i>
+                                <div class="activity-text">CVs &amp; Resumes</div>
+                                <span class="activity-time">0 files</span>
+                            </div>
+                            <div class="activity-item">
+                                <i class="bi bi-file-earmark-check" style="color:#2e7d32;font-size:0.85rem;"></i>
+                                <div class="activity-text">Certifications</div>
+                                <span class="activity-time">0 files</span>
+                            </div>
+                            <div class="activity-item">
+                                <i class="bi bi-file-earmark-medical" style="color:#ef6c00;font-size:0.85rem;"></i>
+                                <div class="activity-text">Medical Records</div>
+                                <span class="activity-time">0 files</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="hr-card">
+                        <div class="card-header-custom">
+                            <h6><i class="bi bi-file-earmark-bar-graph"></i> Company Documents</h6>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="activity-item">
+                                <i class="bi bi-file-earmark-spreadsheet" style="color:#1a73e8;font-size:0.85rem;"></i>
+                                <div class="activity-text">HR Policies &amp; Handbook</div>
+                                <span class="activity-time">0 files</span>
+                            </div>
+                            <div class="activity-item">
+                                <i class="bi bi-file-earmark-pdf" style="color:var(--primary);font-size:0.85rem;"></i>
+                                <div class="activity-text">Tax Documents</div>
+                                <span class="activity-time">0 files</span>
+                            </div>
+                            <div class="activity-item">
+                                <i class="bi bi-file-earmark-text" style="color:#7c3aed;font-size:0.85rem;"></i>
+                                <div class="activity-text">Training Materials</div>
+                                <span class="activity-time">0 files</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODULE: REPORTS ===== -->
+        <div id="module-reports" class="hr-module">
+
+            <div class="page-header">
+                <h4><i class="bi bi-graph-up-arrow"></i> HR Reports &amp; Analytics</h4>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="alert('Generate custom report...')">
+                        <i class="bi bi-file-earmark-bar-graph"></i> Generate Report
+                    </button>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="hr-card">
+                        <div class="card-body-custom text-center" style="padding:20px;">
+                            <i class="bi bi-people" style="font-size:1.5rem;color:var(--primary);margin-bottom:8px;display:block;"></i>
+                            <h6 style="font-size:0.75rem;font-weight:700;">Staff Headcount</h6>
+                            <p style="font-size:0.6rem;color:var(--text-muted);margin-bottom:8px;">View employee count by department, employment type, and status.</p>
+                            <button class="btn btn-outline-primary btn-sm" onclick="alert('Run headcount report...')">Run Report</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="hr-card">
+                        <div class="card-body-custom text-center" style="padding:20px;">
+                            <i class="bi bi-calendar-check" style="font-size:1.5rem;color:#2e7d32;margin-bottom:8px;display:block;"></i>
+                            <h6 style="font-size:0.75rem;font-weight:700;">Leave Analysis</h6>
+                            <p style="font-size:0.6rem;color:var(--text-muted);margin-bottom:8px;">Leave utilization trends, balances, and approval rates.</p>
+                            <button class="btn btn-outline-primary btn-sm" onclick="alert('Run leave report...')">Run Report</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="hr-card">
+                        <div class="card-body-custom text-center" style="padding:20px;">
+                            <i class="bi bi-currency-dollar" style="font-size:1.5rem;color:#7c3aed;margin-bottom:8px;display:block;"></i>
+                            <h6 style="font-size:0.75rem;font-weight:700;">Payroll Summary</h6>
+                            <p style="font-size:0.6rem;color:var(--text-muted);margin-bottom:8px;">Payroll costs, deductions, and budget comparisons.</p>
+                            <button class="btn btn-outline-primary btn-sm" onclick="alert('Run payroll report...')">Run Report</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hr-card">
+                <div class="card-header-custom">
+                    <h6><i class="bi bi-download"></i> Quick Exports</h6>
+                </div>
+                <div class="card-body-custom">
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="alert('Export employee list...')">
+                                <i class="bi bi-file-earmark-spreadsheet"></i> Employees
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="alert('Export leave report...')">
+                                <i class="bi bi-file-earmark-spreadsheet"></i> Leave Report
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="alert('Export attendance...')">
+                                <i class="bi bi-file-earmark-spreadsheet"></i> Attendance
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="alert('Export asset register...')">
+                                <i class="bi bi-file-earmark-spreadsheet"></i> Asset Register
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Add Employee Modal -->
+<div id="addEmployeeModal" class="modal-overlay">
+    <div class="modal-container large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-person-plus-fill"></i> Add New Employee</h3>
+            <button class="modal-close" onclick="closeModal('addEmployeeModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom" style="max-height:70vh;overflow-y:auto;">
+            <form id="addEmployeeForm" onsubmit="return false;">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">First Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="empFirstName" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="empLastName" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="empEmail" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Phone</label>
+                        <input type="text" class="form-control" id="empPhone">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Department <span class="text-danger">*</span></label>
+                        <select class="form-select" id="empDepartment">
+                            <option>Construction</option>
+                            <option>Hardware Sales</option>
+                            <option>Administration</option>
+                            <option>Finance</option>
+                            <option>HR</option>
+                            <option>Logistics</option>
+                            <option>Management</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Position</label>
+                        <input type="text" class="form-control" id="empPosition" placeholder="e.g. Site Supervisor">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Employment Type</label>
+                        <select class="form-select" id="empType">
+                            <option>Permanent</option>
+                            <option>Contract</option>
+                            <option>Probation</option>
+                            <option>Intern</option>
+                            <option>Part-Time</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="empStartDate">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">National ID</label>
+                        <input type="text" class="form-control" id="empNationalId" placeholder="e.g. 63-123456A78">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Basic Salary (USD)</label>
+                        <input type="number" class="form-control" id="empSalary" step="0.01">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" id="empAddress" rows="2"></textarea>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('addEmployeeModal')">Cancel</button>
+            <button class="btn btn-primary" id="saveEmployeeBtn" onclick="saveEmployee()">
+                <i class="bi bi-check-circle"></i> Save Employee
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Leave Request Modal -->
+<div id="leaveRequestModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-send-plus"></i> New Leave Request</h3>
+            <button class="modal-close" onclick="closeModal('leaveRequestModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom">
+            <form id="leaveRequestForm" onsubmit="return false;">
+                <div class="mb-3">
+                    <label class="form-label">Employee</label>
+                    <select class="form-select" id="leaveEmployee">
+                        <option value="">-- Select Employee --</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Leave Type</label>
+                    <select class="form-select" id="leaveType">
+                        <option>Annual Leave</option>
+                        <option>Sick Leave</option>
+                        <option>Study Leave</option>
+                        <option>Family Responsibility</option>
+                        <option>Maternity Leave</option>
+                        <option>Unpaid Leave</option>
+                    </select>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">From Date</label>
+                        <input type="date" class="form-control" id="leaveFrom">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">To Date</label>
+                        <input type="date" class="form-control" id="leaveTo">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Days</label>
+                    <input type="number" class="form-control" id="leaveDays" min="1" value="1">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Reason</label>
+                    <textarea class="form-control" id="leaveReason" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('leaveRequestModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="alert('Leave request submitted!');closeModal('leaveRequestModal');">
+                <i class="bi bi-send"></i> Submit Request
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Asset Modal -->
+<div id="addAssetModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-plus-circle"></i> Register New Asset</h3>
+            <button class="modal-close" onclick="closeModal('addAssetModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom">
+            <form id="addAssetForm" onsubmit="return false;">
+                <div class="mb-3">
+                    <label class="form-label">Asset Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="assetName" placeholder="e.g. Dell Laptop XPS 15" required>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" id="assetCategory">
+                            <option>Laptops</option>
+                            <option>Vehicles</option>
+                            <option>Tools &amp; Equipment</option>
+                            <option>Furniture</option>
+                            <option>Mobile Devices</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Asset Tag</label>
+                        <input type="text" class="form-control" id="assetTag" placeholder="e.g. AST-001">
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Value (USD)</label>
+                        <input type="number" class="form-control" id="assetValue" step="0.01">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Purchase Date</label>
+                        <input type="date" class="form-control" id="assetPurchaseDate">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Assigned To</label>
+                    <select class="form-select" id="assetAssignedTo">
+                        <option value="">-- Unassigned --</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" id="assetNotes" rows="2"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('addAssetModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="alert('Asset registered!');closeModal('addAssetModal');">
+                <i class="bi bi-check-circle"></i> Register Asset
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+// ===== NAVIGATION =====
+function showModule(moduleId) {
+    // Hide all modules
+    document.querySelectorAll('.hr-module').forEach(m => m.classList.remove('active'));
+    // Show target module
+    const target = document.getElementById('module-' + moduleId);
+    if (target) target.classList.add('active');
+
+    // Update sidebar active state
+    document.querySelectorAll('.hr-sidebar .nav-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.hr-sidebar .nav-btn[data-module="${moduleId}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Close dropdown if open
+    closeUserDropdown();
+}
+
+// ===== USER DROPDOWN =====
+function toggleUserDropdown(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById('userDropdown');
+    if (!dropdown) return;
+    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+}
+
+function closeUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('userDropdown');
+    if (dropdown && dropdown.style.display === 'block') {
+        const badge = document.querySelector('.user-badge');
+        if (badge && !badge.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    }
+});
+
+// ===== LOGOUT =====
+function handleLogout() {
+    if (confirm('Are you sure you want to logout?')) {
+        window.location.href = '/logout';
+    }
+}
+
+// ===== MODAL FUNCTIONS =====
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+// Close modal on overlay click
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+});
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => {
+            m.classList.remove('active');
+        });
+        document.body.style.overflow = '';
+    }
+});
+
+// ===== SAVE EMPLOYEE =====
+function saveEmployee() {
+    const firstName = document.getElementById('empFirstName').value.trim();
+    const lastName = document.getElementById('empLastName').value.trim();
+    const email = document.getElementById('empEmail').value.trim();
+
+    if (!firstName || !lastName || !email) {
+        alert('Please fill in all required fields (First Name, Last Name, Email).');
+        return;
+    }
+
+    // Show loader
+    document.getElementById('hrLoader').classList.add('active');
+
+    // Simulate saving
+    setTimeout(() => {
+        document.getElementById('hrLoader').classList.remove('active');
+        const fullName = firstName + ' ' + lastName;
+        const department = document.getElementById('empDepartment').value;
+        const position = document.getElementById('empPosition').value || 'N/A';
+        const empType = document.getElementById('empType').value;
+
+        const tbody = document.getElementById('employeesTableBody');
+        const rowCount = tbody.querySelectorAll('tr').length;
+
+        // Remove empty state if present
+        if (rowCount === 1 && tbody.querySelector('.text-muted')) {
+            tbody.innerHTML = '';
+        }
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${rowCount + 1}</td>
+            <td><strong>${fullName}</strong><br><small style="color:var(--text-muted);font-size:0.55rem;">${email}</small></td>
+            <td>${department}</td>
+            <td>${position}</td>
+            <td><span class="badge-hr active">${empType}</span></td>
+            <td><span class="badge-hr active">Active</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="alert('View employee details')" title="View"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="alert('Remove employee')" title="Remove"><i class="bi bi-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(row);
+
+        // Update stats
+        const total = tbody.querySelectorAll('tr').length;
+        document.getElementById('statTotalEmployees').textContent = total;
+
+        closeModal('addEmployeeModal');
+        document.getElementById('addEmployeeForm').reset();
+
+        alert('✅ Employee ' + fullName + ' added successfully!');
+    }, 1500);
+}
+
+// ===== FILTER EMPLOYEE TABLE =====
+function filterEmployeeTable() {
+    const search = document.getElementById('employeeSearch').value.toLowerCase();
+    const dept = document.getElementById('empDeptFilter').value;
+    const status = document.getElementById('empStatusFilter').value;
+    const type = document.getElementById('empTypeFilter').value;
+
+    const rows = document.querySelectorAll('#employeesTableBody tr');
+    let visible = 0;
+
+    rows.forEach(row => {
+        // Skip empty state row
+        if (row.querySelector('.text-muted')) return;
+
+        const text = row.textContent.toLowerCase();
+        const rowDept = row.cells[2]?.textContent || '';
+        const rowStatus = row.cells[5]?.textContent || '';
+        const rowType = row.cells[4]?.textContent || '';
+
+        let match = true;
+        if (search && !text.includes(search)) match = false;
+        if (dept && rowDept !== dept) match = false;
+        if (status && rowStatus !== status) match = false;
+        if (type && rowType !== type) match = false;
+
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+
+    document.getElementById('empCountDisplay').textContent = visible + ' employees';
+}
+
+function resetEmployeeFilters() {
+    document.getElementById('employeeSearch').value = '';
+    document.getElementById('empDeptFilter').value = '';
+    document.getElementById('empStatusFilter').value = '';
+    document.getElementById('empTypeFilter').value = '';
+    filterEmployeeTable();
+}
+
+// ===== FILTER LEAVE TABLE =====
+function filterLeaveTable() {
+    const status = document.getElementById('leaveStatusFilter').value;
+    const rows = document.querySelectorAll('#leaveTableBody tr');
+    rows.forEach(row => {
+        if (row.querySelector('.text-muted')) return;
+        const rowStatus = row.cells[5]?.textContent || '';
+        row.style.display = (!status || rowStatus === status) ? '' : 'none';
+    });
+}
+
+// ===== FILTER ASSET TABLE =====
+function filterAssetTable() {
+    const cat = document.getElementById('assetCategoryFilter').value;
+    const rows = document.querySelectorAll('#assetsTableBody tr');
+    rows.forEach(row => {
+        if (row.querySelector('.text-muted')) return;
+        const rowCat = row.cells[2]?.textContent || '';
+        row.style.display = (!cat || rowCat === cat) ? '' : 'none';
+    });
+}
+
+// ===== SET CURRENT DATE =====
+document.addEventListener('DOMContentLoaded', function() {
+    const now = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const dateEl = document.getElementById('currentDate');
+    if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', options);
+
+    const attEl = document.getElementById('attendanceDate');
+    if (attEl) attEl.textContent = now.toLocaleDateString('en-US', options);
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    const periodEl = document.getElementById('payrollPeriod');
+    if (periodEl) periodEl.textContent = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+
+    // Sample data for demonstration
+    addSampleEmployees();
+});
+
+// ===== SAMPLE DATA =====
+function addSampleEmployees() {
+    // Uncomment to add sample employees on first load
+    /*
+    const samples = [
+        { first: 'John', last: 'Doe', email: 'john@connectlink.co.zw', dept: 'Construction', pos: 'Site Supervisor', type: 'Permanent' },
+        { first: 'Jane', last: 'Smith', email: 'jane@connectlink.co.zw', dept: 'Administration', pos: 'Admin Officer', type: 'Permanent' },
+        { first: 'Bob', last: 'Wilson', email: 'bob@connectlink.co.zw', dept: 'Hardware Sales', pos: 'Sales Rep', type: 'Contract' },
+    ];
+
+    const tbody = document.getElementById('employeesTableBody');
+    tbody.innerHTML = '';
+
+    samples.forEach((s, i) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${i + 1}</td>
+            <td><strong>${s.first} ${s.last}</strong><br><small style="color:var(--text-muted);font-size:0.55rem;">${s.email}</small></td>
+            <td>${s.dept}</td>
+            <td>${s.pos}</td>
+            <td><span class="badge-hr active">${s.type}</span></td>
+            <td><span class="badge-hr active">Active</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></button>
+                <button class="btn btn-sm btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    document.getElementById('statTotalEmployees').textContent = samples.length;
+    document.getElementById('empCountDisplay').textContent = samples.length + ' employees';
+    */
+}
+</script>
+
+</body>
+</html>

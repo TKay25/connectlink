@@ -11740,7 +11740,7 @@ def hr_dashboard():
     if not user_uuid:
         return render_template('mainindex.html')
 
-    return render_template('adminpage.html', user_name=user_name, userid=userid, hr_mode=True)
+    return render_template('hr_dashboard.html', user_name=user_name, userid=userid)
 
 
 @app.route('/profile')
