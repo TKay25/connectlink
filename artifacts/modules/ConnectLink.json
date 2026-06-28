@@ -44,15 +44,15 @@
     "INSTRUCTIONS @ line 11212"
   ],
   "token_controls": [
-    "max_length = 0 @ line 16898",
-    "max_length = len(str(cell.value)) @ line 16903",
-    "adjusted_width = min(max_length + 2, 50) @ line 16906",
-    "max_length = 0 @ line 17718",
-    "max_length = cell_length @ line 17725",
-    "adjusted_width = min(max_length + 2, 50) @ line 17728",
-    "max_length = 0 @ line 18563",
-    "max_length = cell_length @ line 18570",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 18573"
+    "max_length = 0 @ line 16958",
+    "max_length = len(str(cell.value)) @ line 16963",
+    "adjusted_width = min(max_length + 2, 50) @ line 16966",
+    "max_length = 0 @ line 17778",
+    "max_length = cell_length @ line 17785",
+    "adjusted_width = min(max_length + 2, 50) @ line 17788",
+    "max_length = 0 @ line 18623",
+    "max_length = cell_length @ line 18630",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 18633"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1781691732172.6877,
   "file_size": 1328874,
   "file_birthtime": 1776794366250.55,
-  "generated_at": "2026-06-24T19:34:07.645055Z",
+  "generated_at": "2026-06-28T06:52:52.209599Z",
   "stale": false
 }

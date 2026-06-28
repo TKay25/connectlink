@@ -11683,6 +11683,66 @@ def login():
 
     return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
 
+
+@app.route('/hr-login', methods=['POST'])
+def hr_login():
+    """HR portal login - authenticates against connectlinkusers and redirects to HR dashboard"""
+    try:
+        email_or_username = request.form.get('emaillogin', '').strip()
+        password = request.form.get('passwordlogin', '').strip()
+
+        if not email_or_username or not password:
+            return jsonify({'success': False, 'message': 'Email/Username and password are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, datecreated, name, password, email, whatsapp
+                FROM connectlinkusers
+                WHERE email = %s OR name = %s
+            """, (email_or_username, email_or_username))
+            rows = cursor.fetchall()
+
+            if rows:
+                user_row = rows[0]
+                if user_row[3] == password:
+                    user_uuid = uuid.uuid4()
+                    session['user_uuid'] = str(user_uuid)
+                    session.permanent = True
+                    user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+
+                    userid = int(user_row[0])
+                    user_name = user_row[2]
+
+                    session['userid'] = userid
+                    session['user_name'] = user_name
+
+                    log_activity('user_login', f'HR user {user_name} logged in', 'user', userid, {'username': user_name, 'email': email_or_username})
+                    return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
+                else:
+                    print(f'❌ Incorrect password for HR user {email_or_username}')
+                    return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
+            else:
+                print(f"❌ No HR user found with email or username '{email_or_username}'")
+                return jsonify({'success': False, 'message': 'User not found.'}), 404
+
+    except Exception as e:
+        print(f"HR login error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/hr-dashboard')
+def hr_dashboard():
+    """HR Portal - Employee management dashboard"""
+    user_uuid = session.get('user_uuid')
+    user_name = session.get('user_name')
+    userid = session.get('userid')
+
+    if not user_uuid:
+        return render_template('mainindex.html')
+
+    return render_template('adminpage.html', user_name=user_name, userid=userid, hr_mode=True)
+
+
 @app.route('/profile')
 def profile():
     """Redirect to dashboard - profile is now a modal popup"""

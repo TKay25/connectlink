@@ -573,41 +573,41 @@
 
         .modal-header {
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            padding: 24px 28px 20px;
+            padding: 16px 24px 14px;
             text-align: center;
             position: relative;
         }
 
         .modal-header .modal-logo {
-            width: 46px;
-            margin-bottom: 10px;
+            width: 38px;
+            margin-bottom: 6px;
             filter: brightness(0) invert(1);
         }
 
         .modal-header h3 {
             color: white;
-            font-size: 1.05rem;
+            font-size: 0.85rem;
             font-weight: 700;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
             letter-spacing: -0.3px;
         }
 
         .modal-header p {
             color: rgba(255,255,255,0.75);
-            font-size: 0.65rem;
+            font-size: 0.6rem;
         }
 
         .close-modal {
             position: absolute;
-            top: 16px;
-            right: 18px;
+            top: 12px;
+            right: 14px;
             background: rgba(255,255,255,0.12);
             border: none;
             color: white;
-            font-size: 0.85rem;
+            font-size: 0.7rem;
             cursor: pointer;
-            width: 32px;
-            height: 32px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -621,19 +621,19 @@
         }
 
         .modal-body {
-            padding: 30px 28px 28px;
+            padding: 20px 24px 18px;
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 14px;
         }
 
         .form-group label {
             display: block;
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             font-weight: 600;
             color: var(--gray-600);
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             text-transform: uppercase;
             letter-spacing: 0.4px;
         }
@@ -644,20 +644,20 @@
 
         .input-icon-modal {
             position: absolute;
-            left: 14px;
+            left: 12px;
             top: 50%;
             transform: translateY(-50%);
             color: var(--gray-400);
-            font-size: 0.85rem;
+            font-size: 0.7rem;
             transition: color 0.3s ease;
             pointer-events: none;
         }
 
         .form-input-modal {
             width: 100%;
-            padding: 11px 14px 11px 42px;
-            font-size: 0.85rem;
-            border: 2px solid var(--gray-200);
+            padding: 8px 12px 8px 34px;
+            font-size: 0.75rem;
+            border: 1.5px solid var(--gray-200);
             border-radius: var(--radius-md);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             outline: none;
@@ -676,15 +676,15 @@
 
         .password-toggle-modal {
             position: absolute;
-            right: 12px;
+            right: 10px;
             top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
             color: var(--gray-400);
             cursor: pointer;
-            font-size: 0.85rem;
-            padding: 6px;
+            font-size: 0.7rem;
+            padding: 4px;
             border-radius: var(--radius-sm);
             transition: all 0.3s ease;
         }
@@ -696,16 +696,16 @@
 
         .modal-login-btn {
             width: 100%;
-            padding: 12px;
+            padding: 9px;
             background: linear-gradient(135deg, var(--accent), var(--accent-light));
             color: white;
             border: none;
             border-radius: var(--radius-full);
             font-weight: 700;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-top: 6px;
+            margin-top: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             position: relative;
@@ -738,18 +738,18 @@
 
         .modal-footer-links {
             text-align: center;
-            margin-top: 20px;
-            padding-top: 16px;
+            margin-top: 14px;
+            padding-top: 10px;
             border-top: 1px solid var(--gray-200);
             display: flex;
             justify-content: center;
-            gap: 24px;
+            gap: 20px;
         }
 
         .modal-footer-links a {
             color: var(--gray-500);
             text-decoration: none;
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             font-weight: 500;
             transition: color 0.3s ease;
         }
@@ -874,6 +874,10 @@
 
         .system-card:nth-child(4) {
             animation-delay: 0.9s;
+        }
+
+        .system-card:nth-child(5) {
+            animation-delay: 1.0s;
         }
 
         @keyframes slideInCard {
@@ -1342,6 +1346,23 @@
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- Human Resources Card -->
+                    <div class="system-card" data-portal="hr">
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Human Resources</h3>
+                            <p>Employee management, payroll, leave tracking &amp; personnel records</p>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v1.0</span>
+                            <button class="btn-explore">
+                                Access <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1422,6 +1443,43 @@
     </div>
 </div>
 
+<!-- Human Resources Modal -->
+<div class="modal-overlay" id="hrLoginModal">
+    <div class="login-modal">
+        <div class="modal-header">
+            <button class="close-modal" onclick="closeHrModal()"><i class="fas fa-times"></i></button>
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <h3>Human Resources</h3>
+            <p>Sign in to access employee management portal</p>
+        </div>
+        <div class="modal-body">
+            <div class="error-message" id="hrErrorMsg"></div>
+            <form id="hrLoginForm">
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <div class="input-group-modal">
+                        <input type="text" class="form-input-modal" id="hrEmail" placeholder="hr@connectlink.co.zw" required>
+                        <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="hrPassword" placeholder="••••••••" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleHrPassword()"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+            </form>
+            <div class="modal-footer-links">
+                <a href="#">Forgot password?</a>
+                <a href="#">Need help?</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Loading Overlay - Dark background with rotating messages -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
@@ -1438,9 +1496,9 @@
     (function() {
         // State management
         const state = {
-            modals: { projects: false, hardware: false },
+            modals: { projects: false, hardware: false, hr: false },
             loading: false,
-            errors: { projects: '', hardware: '' },
+            errors: { projects: '', hardware: '', hr: '' },
             loadingInterval: null,
             loadingStep: 0
         };
@@ -1458,17 +1516,22 @@
         const dom = {
             projectsModal: document.getElementById('projectsLoginModal'),
             hardwareModal: document.getElementById('hardwareLoginModal'),
+            hrModal: document.getElementById('hrLoginModal'),
             loadingOverlay: document.getElementById('loadingOverlay'),
             loadingMessage: document.getElementById('loadingMessage'),
             loadingSub: document.getElementById('loadingSub'),
             projectsError: document.getElementById('projectsErrorMsg'),
             hardwareError: document.getElementById('hardwareErrorMsg'),
+            hrError: document.getElementById('hrErrorMsg'),
             projectsForm: document.getElementById('projectsLoginForm'),
             hardwareForm: document.getElementById('hardwareLoginForm'),
+            hrForm: document.getElementById('hrLoginForm'),
             projectsEmail: document.getElementById('projectsEmail'),
             projectsPassword: document.getElementById('projectsPassword'),
             hardwareUsername: document.getElementById('hardwareUsername'),
-            hardwarePassword: document.getElementById('hardwarePassword')
+            hardwarePassword: document.getElementById('hardwarePassword'),
+            hrEmail: document.getElementById('hrEmail'),
+            hrPassword: document.getElementById('hrPassword')
         };
 
         // Start loading animation with rotating messages - each once, then stay at final
@@ -1510,7 +1573,8 @@
         function render() {
             dom.projectsModal.classList.toggle('active', state.modals.projects);
             dom.hardwareModal.classList.toggle('active', state.modals.hardware);
-            document.body.style.overflow = (state.modals.projects || state.modals.hardware) ? 'hidden' : '';
+            dom.hrModal.classList.toggle('active', state.modals.hr);
+            document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr) ? 'hidden' : '';
             
             // Loading overlay
             if (state.loading) {
@@ -1521,9 +1585,9 @@
                 stopLoadingAnimation();
             }
             
-            ['projects', 'hardware'].forEach(type => {
-                const el = type === 'projects' ? dom.projectsError : dom.hardwareError;
-                const msg = type === 'projects' ? state.errors.projects : state.errors.hardware;
+            ['projects', 'hardware', 'hr'].forEach(type => {
+                const el = type === 'projects' ? dom.projectsError : type === 'hardware' ? dom.hardwareError : dom.hrError;
+                const msg = state.errors[type];
                 if (msg) {
                     el.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
                     el.style.display = 'flex';
@@ -1569,9 +1633,24 @@
             render();
         }
 
+        function openHrModal() {
+            state.modals.hr = true;
+            state.errors.hr = '';
+            render();
+            setTimeout(() => dom.hrEmail.focus(), 100);
+        }
+
+        function closeHrModal() {
+            state.modals.hr = false;
+            state.errors.hr = '';
+            dom.hrForm.reset();
+            render();
+        }
+
         function setError(type, msg) {
             if (type === 'projects') state.errors.projects = msg;
-            else state.errors.hardware = msg;
+            else if (type === 'hardware') state.errors.hardware = msg;
+            else state.errors.hr = msg;
             render();
         }
 
@@ -1599,10 +1678,24 @@
             }
         };
 
+        window.toggleHrPassword = function(e) {
+            const input = dom.hrPassword;
+            const icon = e.currentTarget.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        };
+
         window.openProjectsModal = openProjectsModal;
         window.closeProjectsModal = closeProjectsModal;
         window.openHardwareModal = openHardwareModal;
         window.closeHardwareModal = closeHardwareModal;
+        window.openHrModal = openHrModal;
+        window.closeHrModal = closeHrModal;
 
         document.querySelectorAll('.system-card').forEach(card => {
             card.addEventListener('click', function(e) {
@@ -1610,6 +1703,7 @@
                 const portal = this.dataset.portal;
                 if (portal === 'projects') openProjectsModal();
                 else if (portal === 'hardware') openHardwareModal();
+                else if (portal === 'hr') openHrModal();
             });
         });
 
@@ -1620,6 +1714,7 @@
                 const portal = card.dataset.portal;
                 if (portal === 'projects') openProjectsModal();
                 else if (portal === 'hardware') openHardwareModal();
+                else if (portal === 'hr') openHrModal();
             });
         });
 
@@ -1629,11 +1724,15 @@
         dom.hardwareModal.addEventListener('click', e => {
             if (e.target === dom.hardwareModal) closeHardwareModal();
         });
+        dom.hrModal.addEventListener('click', e => {
+            if (e.target === dom.hrModal) closeHrModal();
+        });
 
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
                 if (state.modals.projects) closeProjectsModal();
                 if (state.modals.hardware) closeHardwareModal();
+                if (state.modals.hr) closeHrModal();
             }
         });
 
@@ -1714,6 +1813,47 @@
             .catch(() => {
                 setLoading(false);
                 setError('hardware', 'Connection error. Please try again.');
+            });
+        });
+
+        // HR Login
+        dom.hrForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            setError('hr', '');
+
+            const email = dom.hrEmail.value.trim();
+            const password = dom.hrPassword.value;
+
+            if (!email || !password) {
+                setError('hr', 'Please fill in all fields');
+                return;
+            }
+
+            setLoading(true);
+
+            const formData = new URLSearchParams();
+            formData.append('emaillogin', email);
+            formData.append('passwordlogin', password);
+
+            fetch('/hr-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                credentials: 'include',
+                body: formData.toString()
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect || '/hr-dashboard';
+                } else {
+                    setLoading(false);
+                    setError('hr', data.message || 'Invalid credentials');
+                    dom.hrPassword.value = '';
+                }
+            })
+            .catch(() => {
+                setLoading(false);
+                setError('hr', 'Connection error. Please try again.');
             });
         });
 
@@ -1884,6 +2024,7 @@
                     const portal = this.dataset.portal;
                     if (portal === 'projects') openProjectsModal();
                     else if (portal === 'hardware') openHardwareModal();
+                    else if (portal === 'hr') openHrModal();
                 }
             });
         });
