@@ -50,9 +50,9 @@
     "max_length = 0 @ line 18496",
     "max_length = cell_length @ line 18503",
     "adjusted_width = min(max_length + 2, 50) @ line 18506",
-    "max_length = 0 @ line 19341",
-    "max_length = cell_length @ line 19348",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 19351"
+    "max_length = 0 @ line 19491",
+    "max_length = cell_length @ line 19498",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 19501"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1781691732172.6877,
   "file_size": 1328874,
   "file_birthtime": 1776794366250.55,
-  "generated_at": "2026-06-28T11:24:51.659186Z",
+  "generated_at": "2026-06-30T08:45:14.876358Z",
   "stale": false
 }

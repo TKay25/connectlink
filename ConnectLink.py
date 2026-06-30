@@ -18832,6 +18832,166 @@ def get_installments_count():
         return jsonify({'total': 0, 'paid': 0, 'due': 0, 'error': str(e)}), 500
 
 
+@app.route('/get_installments_data')
+def get_installments_data():
+    """Get installment data as JSON with both project start and due month filters"""
+    def clean_html(text):
+        if not text or not isinstance(text, str):
+            return text
+        import re
+        text = re.sub(r'<[^>]+>', '', text)
+        replacements = {
+            '&amp;': '&', '&lt;': '<', '&gt;': '>',
+            '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+            '&rsquo;': "'", '&lsquo;': "'",
+            '&rdquo;': '"', '&ldquo;': '"'
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        text = ' '.join(text.split())
+        return text
+    
+    try:
+        with get_db() as (cursor, connection):
+            project_start_month = request.args.get('datedepositorbullet')
+            due_month = request.args.get('due_month')
+            
+            due_year = None
+            due_month_num = None
+            if due_month and due_month != 'all':
+                due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
+            
+            where_clauses = []
+            params = []
+            
+            if project_start_month and project_start_month != 'all':
+                year, month_num = project_start_month.split('-')
+                where_clauses.append(
+                    "EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                )
+                params.extend([year, month_num])
+            
+            if due_month and due_month != 'all':
+                due_condition = """
+                    (
+                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment7duedate) = %s AND EXTRACT(MONTH FROM installment7duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment8duedate) = %s AND EXTRACT(MONTH FROM installment8duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment9duedate) = %s AND EXTRACT(MONTH FROM installment9duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
+                    )
+                """
+                where_clauses.append(due_condition)
+                params.extend([due_year, due_month_num] * 10)
+            
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+            
+            query = f"""
+                SELECT 
+                    id, clientname, clientwanumber, clientemail, projectname,
+                    projectdescription, momid, projectstartdate,
+                    installment1amount, installment1duedate, installment1date,
+                    installment2amount, installment2duedate, installment2date,
+                    installment3amount, installment3duedate, installment3date,
+                    installment4amount, installment4duedate, installment4date,
+                    installment5amount, installment5duedate, installment5date,
+                    installment6amount, installment6duedate, installment6date,
+                    installment7amount, installment7duedate, installment7date,
+                    installment8amount, installment8duedate, installment8date,
+                    installment9amount, installment9duedate, installment9date,
+                    installment10amount, installment10duedate, installment10date
+                FROM connectlinkdatabase 
+                {where_clause}
+                ORDER BY momid ASC
+            """
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            # Deduplicate
+            seen = set()
+            deduped = []
+            for row in rows:
+                row_key = row[:8]
+                if row_key not in seen:
+                    seen.add(row_key)
+                    deduped.append(row)
+            
+            columns = [
+                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                'projectdescription', 'momid', 'projectstartdate',
+                'installment1amount', 'installment1duedate', 'installment1date',
+                'installment2amount', 'installment2duedate', 'installment2date',
+                'installment3amount', 'installment3duedate', 'installment3date',
+                'installment4amount', 'installment4duedate', 'installment4date',
+                'installment5amount', 'installment5duedate', 'installment5date',
+                'installment6amount', 'installment6duedate', 'installment6date',
+                'installment7amount', 'installment7duedate', 'installment7date',
+                'installment8amount', 'installment8duedate', 'installment8date',
+                'installment9amount', 'installment9duedate', 'installment9date',
+                'installment10amount', 'installment10duedate', 'installment10date'
+            ]
+            
+            all_installments = []
+            from datetime import datetime
+            today = datetime.now().date()
+            
+            for row in deduped:
+                row_dict = dict(zip(columns, row))
+                
+                momid = clean_html(str(row_dict['momid'])) if row_dict['momid'] else ''
+                
+                for i in range(1, 11):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    due_date = row_dict.get(f'installment{i}duedate')
+                    payment_date = row_dict.get(f'installment{i}date')
+                    
+                    if not amount or float(amount) <= 0:
+                        continue
+                    
+                    if due_month and due_month != 'all':
+                        if not due_date:
+                            continue
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                            continue
+                    
+                    due_date_str = ''
+                    if due_date:
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        due_date_str = due_date_date.strftime('%Y-%m-%d') if hasattr(due_date_date, 'strftime') else str(due_date_date)
+                    
+                    status = 'Paid' if payment_date else ('Overdue' if due_date and (due_date.date() if hasattr(due_date, 'date') else due_date) < today else 'Due')
+                    
+                    all_installments.append({
+                        'momid': momid,
+                        'client_name': clean_html(str(row_dict['clientname'])) if row_dict['clientname'] else '',
+                        'phone': clean_html(str(row_dict['clientwanumber'])) if row_dict['clientwanumber'] else '',
+                        'project_name': clean_html(str(row_dict['projectname'])) if row_dict['projectname'] else '',
+                        'installment_num': i,
+                        'due_date': due_date_str,
+                        'amount': float(amount),
+                        'status': status
+                    })
+            
+            return jsonify(all_installments)
+        
+    except Exception as e:
+        print(f"Error fetching installments data: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify([]), 500
+
+
 @app.route('/download_installments')
 def download_installments():
     """Download installments data with both project start and due month filters"""
@@ -19012,17 +19172,6 @@ def download_installments():
                     if not amount or float(amount) <= 0:
                         continue
                     
-                    # Apply due month filter at INSTALLMENT level
-                    if due_month and due_month != 'all':
-                        if not due_date:
-                            continue  # Can't match filter without due date
-                        
-                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
-                        
-                        # Check if this installment is in selected month
-                        if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
-                            continue  # Skip - not in selected month
-                    
                     # Get due date for display
                     due_date_str = ''
                     if due_date:
@@ -19031,9 +19180,15 @@ def download_installments():
                     
                     installment_info = f"Installment {i}"
                     
-                    # Check payment status for THIS specific installment
+                    # ---- PAID INSTALLMENTS: respect due month filter ----
                     if payment_date:
-                        # PAID installment
+                        if due_month and due_month != 'all':
+                            if not due_date:
+                                continue
+                            due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                            if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                                continue
+                        
                         paid_data.append({
                             'id': row_dict['id'],
                             'momid': momid,
@@ -19047,44 +19202,51 @@ def download_installments():
                             'installment_info': installment_info,
                             'amount_paid': float(amount) if amount else 0
                         })
+                        continue
                     
-                    elif due_date and not payment_date:  # UNPAID installment
-                        # Check if overdue
-                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                    # ---- UNPAID INSTALLMENTS ----
+                    if not due_date:
+                        continue
+                    
+                    due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                    
+                    if due_date_date < today:
+                        # ---- OVERDUE: NEVER filter by due month ----
+                        days_overdue = (today - due_date_date).days
+                        overdue_data.append({
+                            'id': row_dict['id'],
+                            'momid': momid,
+                            'clientname': client_name,
+                            'phone': phone,
+                            'email': email,
+                            'projectname': project_name,
+                            'projectdescription': project_description,
+                            'project_start_date': project_start_str,
+                            'due_date': due_date_str,
+                            'installment_info': installment_info,
+                            'days_info': f"Overdue by {days_overdue} days",
+                            'amount_due': float(amount) if amount else 0
+                        })
+                    else:
+                        # ---- FUTURE DUE: respect due month filter ----
+                        if due_month and due_month != 'all':
+                            if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                                continue
                         
-                        if due_date_date < today:
-                            # OVERDUE installment
-                            days_overdue = (today - due_date_date).days
-                            overdue_data.append({
-                                'id': row_dict['id'],
-                                'momid': momid,
-                                'clientname': client_name,
-                                'phone': phone,
-                                'email': email,
-                                'projectname': project_name,
-                                'projectdescription': project_description,
-                                'project_start_date': project_start_str,
-                                'due_date': due_date_str,
-                                'installment_info': installment_info,
-                                'days_info': f"Overdue by {days_overdue} days",
-                                'amount_due': float(amount) if amount else 0
-                            })
-                        else:
-                            # FUTURE DUE installment (not yet overdue)
-                            due_data.append({
-                                'id': row_dict['id'],
-                                'momid': momid,
-                                'clientname': client_name,
-                                'phone': phone,
-                                'email': email,
-                                'projectname': project_name,
-                                'projectdescription': project_description,
-                                'project_start_date': project_start_str,
-                                'due_date': due_date_str,
-                                'installment_info': installment_info,
-                                'days_info': 'Not yet due',
-                                'amount_due': float(amount) if amount else 0
-                            })
+                        due_data.append({
+                            'id': row_dict['id'],
+                            'momid': momid,
+                            'clientname': client_name,
+                            'phone': phone,
+                            'email': email,
+                            'projectname': project_name,
+                            'projectdescription': project_description,
+                            'project_start_date': project_start_str,
+                            'due_date': due_date_str,
+                            'installment_info': installment_info,
+                            'days_info': 'Not yet due',
+                            'amount_due': float(amount) if amount else 0
+                        })
             
             # Create Excel file
             import pandas as pd
@@ -19128,11 +19290,7 @@ def download_installments():
                     paid_display_df = paid_df.copy()
                     
                     # Determine which columns to include
-                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date']
-                    
-                    # Add due date column if due month filter is applied
-                    if due_month and due_month != 'all':
-                        display_columns.extend(['due_date', 'installment_info'])
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info']
                     
                     display_columns.append('amount_paid_formatted')
                     
@@ -19172,11 +19330,7 @@ def download_installments():
                     due_display_df = due_df.copy()
                     
                     # Determine which columns to include
-                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date']
-                    
-                    # Add due date and info columns if due month filter is applied
-                    if due_month and due_month != 'all':
-                        display_columns.extend(['due_date', 'installment_info', 'days_info'])
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info', 'days_info']
                     
                     display_columns.append('amount_due_formatted')
                     
@@ -19217,11 +19371,7 @@ def download_installments():
                     overdue_display_df = overdue_df.copy()
                     
                     # Determine which columns to include
-                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date']
-                    
-                    # Add due date and info columns if due month filter is applied
-                    if due_month and due_month != 'all':
-                        display_columns.extend(['due_date', 'installment_info', 'days_info'])
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info', 'days_info']
                     
                     display_columns.append('amount_due_formatted')
                     
