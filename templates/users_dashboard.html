@@ -55,106 +55,68 @@
         /* ===== TOP NAVBAR ===== */
         .um-navbar {
             position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-height); z-index: 1050;
-            background: linear-gradient(135deg, #0F1729 0%, #1a1f3a 50%, #0F1729 100%);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(193, 43, 62, 0.2);
-            box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+            background: #111827;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
             padding: 0 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .um-navbar::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(193,43,62,0.4), transparent);
-        }
-        .um-navbar::after {
-            content: ''; position: absolute; bottom: 0; left: 5%; width: 90%; height: 1px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent); opacity: 0.6;
-        }
-        .um-navbar .brand { display: flex; align-items: center; gap: 10px; position: relative; }
-        .um-navbar .brand img { height: 26px; width: auto; border-radius: 6px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+        .um-navbar .brand { display: flex; align-items: center; gap: 10px; }
+        .um-navbar .brand img { height: 24px; width: auto; border-radius: 4px; }
         .um-navbar .brand .brand-text {
-            color: white; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.8px;
-            background: linear-gradient(90deg, #fff 60%, rgba(255,255,255,0.7));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: #fff; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.5px;
         }
-        .um-navbar .brand .brand-text span {
-            -webkit-text-fill-color: var(--primary);
-            color: var(--primary);
-        }
+        .um-navbar .brand .brand-text span { color: var(--primary); }
         .um-navbar .brand .brand-badge {
-            font-size: 0.45rem; font-weight: 700; text-transform: uppercase;
-            background: linear-gradient(135deg, var(--primary), #9B1D2C);
-            color: white; padding: 1px 6px; border-radius: 4px;
-            letter-spacing: 0.5px; margin-left: 2px;
-            -webkit-text-fill-color: white;
+            font-size: 0.45rem; font-weight: 600; text-transform: uppercase;
+            background: rgba(193,43,62,0.15);
+            color: var(--primary); padding: 1px 6px; border-radius: 3px;
+            letter-spacing: 0.5px; margin-left: 4px;
         }
         .um-navbar .nav-actions { display: flex; align-items: center; gap: 8px; }
         .um-navbar .user-badge {
             display: flex; align-items: center; gap: 6px;
-            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
-            padding: 2px 12px 2px 6px; border-radius: 30px;
-            color: rgba(255,255,255,0.9); font-size: 0.65rem; font-weight: 500;
-            border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: all 0.25s ease; position: relative;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+            background: rgba(255,255,255,0.06);
+            padding: 2px 10px 2px 6px; border-radius: 6px;
+            color: rgba(255,255,255,0.8); font-size: 0.65rem; font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s; position: relative;
         }
         .um-navbar .user-badge:hover {
-            background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
-            border-color: rgba(193,43,62,0.3);
-            box-shadow: 0 2px 8px rgba(193,43,62,0.15);
-            transform: translateY(-1px);
+            background: rgba(255,255,255,0.1);
         }
         .um-navbar .user-badge .avatar {
-            width: 22px; height: 22px; border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary), #9B1D2C, #6B1320);
-            background-size: 200% 200%;
+            width: 22px; height: 22px; border-radius: 4px;
+            background: var(--primary);
             display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 0.6rem; color: white;
-            box-shadow: 0 1px 6px rgba(193,43,62,0.3);
-        }
-        .um-navbar .user-badge .status-dot {
-            width: 6px; height: 6px; border-radius: 50%;
-            background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5);
-            position: absolute; bottom: 1px; left: 20px;
-            border: 1.5px solid #0F1729;
+            font-weight: 600; font-size: 0.6rem; color: white;
         }
         /* ===== USER DROPDOWN ===== */
         .user-dropdown-menu {
-            position: absolute; top: calc(100% + 8px); right: 0; min-width: 210px;
-            background: rgba(255,255,255,0.98);
-            backdrop-filter: blur(16px);
-            border-radius: 14px;
-            box-shadow: 0 12px 48px rgba(10,26,58,0.25), 0 2px 8px rgba(0,0,0,0.08);
-            border: 1px solid rgba(193,43,62,0.1);
+            position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            border: 1px solid var(--gray-200);
             z-index: 99999; overflow: hidden;
-            animation: dropIn 0.2s ease;
-        }
-        @keyframes dropIn {
-            from { opacity: 0; transform: translateY(-6px) scale(0.97); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .user-dropdown-menu .dropdown-header {
-            padding: 14px 16px;
-            background: linear-gradient(135deg, #0F1729 0%, #1a1f3a 100%);
-            border-bottom: 1px solid rgba(193,43,62,0.2);
+            padding: 12px 14px;
+            background: #111827;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-        .user-dropdown-menu .dropdown-user-name { font-weight: 700; color: white; font-size: 0.7rem; }
-        .user-dropdown-menu .dropdown-user-role { font-size: 0.55rem; color: rgba(255,255,255,0.5); margin-top: 1px; }
+        .user-dropdown-menu .dropdown-user-name { font-weight: 600; color: #fff; font-size: 0.7rem; }
+        .user-dropdown-menu .dropdown-user-role { font-size: 0.55rem; color: rgba(255,255,255,0.4); margin-top: 1px; }
         .user-dropdown-menu .dropdown-item {
-            display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+            display: flex; align-items: center; gap: 8px; padding: 8px 14px;
             font-size: 0.65rem; color: var(--text-primary); cursor: pointer;
             transition: all 0.15s; border: none; background: none; width: 100%; text-align: left;
         }
-        .user-dropdown-menu .dropdown-item:hover { background: var(--gray-50); padding-left: 20px; }
+        .user-dropdown-menu .dropdown-item:hover { background: var(--gray-50); }
         .user-dropdown-menu .dropdown-item i {
             font-size: 0.75rem; width: 18px; text-align: center;
-            color: var(--text-muted); transition: color 0.15s;
+            color: var(--text-muted);
         }
-        .user-dropdown-menu .dropdown-item:hover i { color: var(--primary); }
         .user-dropdown-menu .dropdown-item.text-danger { color: #d32f2f; }
         .user-dropdown-menu .dropdown-item.text-danger:hover { background: #fef2f2; }
         .user-dropdown-menu .dropdown-item.text-danger i { color: #d32f2f; }
@@ -163,74 +125,56 @@
         .um-layout { display: flex; min-height: calc(100vh - var(--nav-height)); }
         .um-sidebar {
             width: 200px; flex-shrink: 0;
-            background: linear-gradient(180deg, #0F1729 0%, #151D35 40%, #1a1f3a 100%);
-            border-right: 1px solid rgba(193, 43, 62, 0.12);
-            padding: 6px 0 12px;
+            background: linear-gradient(180deg, #111827 0%, #1a1f2e 50%, #0f1525 100%);
+            border-right: 1px solid rgba(255,255,255,0.04);
+            padding: 4px 0 12px;
             overflow-y: auto;
             overflow-x: hidden;
             position: sticky; top: var(--nav-height); height: calc(100vh - var(--nav-height));
-            box-shadow: 2px 0 16px rgba(0,0,0,0.15);
-        }
-        /* Subtle crimson accent line on left edge */
-        .um-sidebar::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
-            background: linear-gradient(180deg, transparent, var(--primary), rgba(193,43,62,0.3), transparent);
-            opacity: 0.3;
         }
         .um-sidebar .section-title {
-            padding: 6px 16px 3px;
-            font-size: 0.5rem; font-weight: 800;
-            text-transform: uppercase; letter-spacing: 1.2px;
-            color: rgba(255,255,255,0.25);
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .um-sidebar .section-title::after {
-            content: ''; flex: 1; height: 1px;
-            background: linear-gradient(90deg, rgba(193,43,62,0.3), transparent);
+            padding: 8px 18px 4px;
+            font-size: 0.5rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: rgba(255,255,255,0.2);
+            margin-top: 6px;
         }
         .um-sidebar .nav-btn {
             display: flex; align-items: center; gap: 10px;
-            padding: 8px 14px;
-            margin: 2px 10px;
-            border-radius: 8px;
+            padding: 7px 14px;
+            margin: 1px 10px;
+            border-radius: 6px;
             background: transparent;
             border: none;
-            color: rgba(255,255,255,0.55);
+            color: rgba(255,255,255,0.5);
             font-size: 0.65rem; font-weight: 500;
             cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.2s ease;
             text-align: left;
             width: calc(100% - 20px);
             position: relative;
         }
         .um-sidebar .nav-btn:hover {
-            background: rgba(255,255,255,0.07);
-            color: rgba(255,255,255,0.9);
-            transform: translateX(2px);
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.85);
         }
         .um-sidebar .nav-btn.active {
-            background: linear-gradient(135deg, rgba(193,43,62,0.2), rgba(193,43,62,0.08));
-            color: white;
-            border: none;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 8px rgba(193,43,62,0.1);
+            background: rgba(193,43,62,0.12);
+            color: #fff;
         }
         .um-sidebar .nav-btn.active::before {
             content: ''; position: absolute; left: -10px; top: 50%; transform: translateY(-50%);
-            width: 3px; height: 60%;
+            width: 2px; height: 50%;
             background: var(--primary);
-            border-radius: 0 3px 3px 0;
-            box-shadow: 0 0 8px rgba(193,43,62,0.4);
+            border-radius: 0 2px 2px 0;
         }
         .um-sidebar .nav-btn i {
             font-size: 0.75rem; width: 20px; text-align: center;
-            color: rgba(255,255,255,0.4);
-            transition: all 0.25s;
+            color: rgba(255,255,255,0.3);
+            transition: all 0.2s;
         }
-        .um-sidebar .nav-btn:hover i { color: rgba(255,255,255,0.7); }
-        .um-sidebar .nav-btn.active i { color: var(--primary); text-shadow: 0 0 10px rgba(193,43,62,0.3); }
+        .um-sidebar .nav-btn:hover i { color: rgba(255,255,255,0.6); }
+        .um-sidebar .nav-btn.active i { color: var(--primary); }
         /* Main content */
         .um-main { flex: 1; padding: 12px 16px; overflow-y: auto; background: linear-gradient(180deg, #F8FAFC 0%, #F0F2F7 100%); }
         .page-header {
@@ -423,16 +367,13 @@
         }
         .um-loader.active { display: flex; }
         @media (max-width: 768px) {
-            .um-sidebar { width: 52px; }
+            .um-sidebar { width: 48px; }
             .um-sidebar .nav-btn span, .um-sidebar .section-title { display: none; }
-            .um-sidebar .section-title::after { display: none; }
             .um-sidebar .nav-btn {
-                justify-content: center; padding: 10px 0; margin: 2px 6px; width: auto;
-                border-radius: 8px;
+                justify-content: center; padding: 8px 0; margin: 1px 6px; width: auto;
             }
-            .um-sidebar .nav-btn i { margin: 0; font-size: 0.85rem; width: auto; }
+            .um-sidebar .nav-btn i { margin: 0; font-size: 0.9rem; width: auto; }
             .um-sidebar .nav-btn.active::before { display: none; }
-            .um-sidebar .nav-btn.active { box-shadow: 0 0 12px rgba(193,43,62,0.2); }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
         /* Toggle Switch */
@@ -488,12 +429,12 @@
     <aside class="um-sidebar" id="umSidebar">
         <div class="section-title">Overview</div>
         <button class="nav-btn active" data-module="overview" onclick="showModule('overview')" id="nav-overview"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></button>
-        <div class="section-title">Management</div>
+        <div class="section-title">Portals</div>
         <button class="nav-btn" data-module="all-users" onclick="showModule('all-users')" id="nav-all-users"><i class="bi bi-people-fill"></i> <span>All Users</span></button>
+        <button class="nav-btn" data-module="projects-users" onclick="showModule('projects-users')" id="nav-projects-users" data-perm="can_manage_projects"><i class="bi bi-hard-hat"></i> <span>Building Projects</span></button>
         <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')" id="nav-hardware-users" data-perm="can_manage_hardware"><i class="bi bi-cash-register"></i> <span>Hardware POS</span></button>
         <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')" id="nav-hr-users" data-perm="can_manage_hr"><i class="bi bi-people"></i> <span>HR Employees</span></button>
         <div class="section-title">Admin</div>
-        <button class="nav-btn" data-module="permissions" onclick="showModule('permissions')" id="nav-permissions" data-perm="can_manage_roles"><i class="bi bi-shield-lock"></i> <span>Permissions</span></button>
         <button class="nav-btn" data-module="add-user" onclick="showModule('add-user')" id="nav-add-user" data-perm="can_add_users"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
         <button class="nav-btn" data-module="audit" onclick="showModule('audit')" id="nav-audit" data-perm="can_view_audit"><i class="bi bi-clock-history"></i> <span>Activity Log</span></button>
     </aside>
@@ -530,7 +471,7 @@
         <div id="module-all-users" class="um-module">
             <div class="page-header">
                 <h4><i class="bi bi-people-fill"></i> All System Users</h4>
-                <div><button class="btn btn-primary btn-sm" onclick="showModule('add-user')"><i class="bi bi-person-plus"></i> Add User</button></div>
+                <div><button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="showModule('add-user')"><i class="bi bi-person-plus"></i> Add User</button></div>
             </div>
             <div class="um-card">
                 <div class="card-header">
@@ -548,17 +489,20 @@
             </div>
         </div>
 
-        <!-- HARDWARE USERS (filtered by can_manage_hardware permission) -->
+        <!-- HARDWARE POS USERS (all users with can_manage_hardware permission) -->
         <div id="module-hardware-users" class="um-module">
             <div class="page-header">
-                <h4><i class="bi bi-cash-register"></i> Hardware POS — Users With Access</h4>
-                <div><button class="btn btn-primary btn-sm" onclick="openAddModal('hardware')"><i class="bi bi-person-plus"></i> Add User</button></div>
+                <h4><i class="bi bi-cash-register"></i> Hardware POS — All Users With Access</h4>
+                <div>
+                    <button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="openAddModal('hardware')"><i class="bi bi-person-plus"></i> Add User</button>
+                    <span style="font-size:0.55rem;color:var(--text-muted);margin-left:6px;">Shows every user granted <strong>can_manage_hardware</strong></span>
+                </div>
             </div>
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> hardware_users · showing those with <span class="badge-um admin">can_manage_hardware</span></h6></div>
+                <div class="card-header"><h6><i class="bi bi-table"></i> all users with <span class="badge-um admin">can_manage_hardware</span> or <span class="badge-um admin" style="background:#f59e0b;color:white;">Super Admin</span></h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>ID</th><th>Username</th><th>Full Name</th><th>POS Role</th><th>Access Granted</th><th>Created</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Source System</th><th>System Role</th><th>Access</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="hardwareUsersBody"></tbody>
                         </table>
                     </div>
@@ -566,17 +510,20 @@
             </div>
         </div>
 
-        <!-- HR USERS (filtered by can_manage_hr permission) -->
+        <!-- HR USERS (all users with can_manage_hr permission) -->
         <div id="module-hr-users" class="um-module">
             <div class="page-header">
-                <h4><i class="bi bi-people"></i> HR — Employees With Access</h4>
-                <div><button class="btn btn-primary btn-sm" onclick="openAddModal('hr')"><i class="bi bi-person-plus"></i> Add User</button></div>
+                <h4><i class="bi bi-people"></i> HR — All Users With Access</h4>
+                <div>
+                    <button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="openAddModal('hr')"><i class="bi bi-person-plus"></i> Add User</button>
+                    <span style="font-size:0.55rem;color:var(--text-muted);margin-left:6px;">Shows every user granted <strong>can_manage_hr</strong></span>
+                </div>
             </div>
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> hr_employees · showing those with <span class="badge-um admin">can_manage_hr</span></h6></div>
+                <div class="card-header"><h6><i class="bi bi-table"></i> all users with <span class="badge-um admin">can_manage_hr</span> or <span class="badge-um admin" style="background:#f59e0b;color:white;">Super Admin</span></h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>HR Role</th><th>Access Granted</th><th>Status</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Source System</th><th>System Role</th><th>Access</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody id="hrUsersBody"></tbody>
                         </table>
                     </div>
@@ -585,7 +532,7 @@
         </div>
 
         <!-- ADD USER -->
-        <div id="module-add-user" class="um-module">
+        <div id="module-add-user" class="um-module" data-perm-action="can_add_users">
             <div class="page-header">
                 <h4><i class="bi bi-person-plus"></i> Add / Edit User</h4>
                 <div><button class="btn btn-outline-primary btn-sm" onclick="resetAddForm()"><i class="bi bi-arrow-counterclockwise"></i> Reset Form</button></div>
@@ -673,7 +620,7 @@
                         </div>
                     </div>
                     <div class="mt-3 d-flex gap-2">
-                        <button class="btn btn-primary" id="saveUserBtn" onclick="saveUser()"><i class="bi bi-check-circle"></i> <span id="saveUserBtnText">Create User</span></button>
+                        <button data-perm-action="can_add_users" class="btn btn-primary" id="saveUserBtn" onclick="saveUser()"><i class="bi bi-check-circle"></i> <span id="saveUserBtnText">Create User</span></button>
                         <button class="btn btn-danger" onclick="resetAddForm()">Cancel</button>
                         <span id="addUserMsg" style="font-size:0.6rem;align-self:center;color:var(--text-muted);"></span>
                     </div>
@@ -681,23 +628,29 @@
             </div>
         </div>
 
-        <!-- PERMISSIONS MANAGER -->
-        <div id="module-permissions" class="um-module">
+        <!-- BUILDING PROJECTS USERS (all users with can_manage_projects permission) -->
+        <div id="module-projects-users" class="um-module">
             <div class="page-header">
-                <h4><i class="bi bi-shield-lock"></i> Permission Management</h4>
-                <div><span style="font-size:0.6rem;color:var(--text-muted);">Click the <i class="bi bi-shield"></i> icon on any user row to edit their permissions</span></div>
+                <h4><i class="bi bi-hard-hat"></i> Building Projects — All Users With Access</h4>
+                <div>
+                    <button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="openAddModal('projects')"><i class="bi bi-person-plus"></i> Add User</button>
+                    <span style="font-size:0.55rem;color:var(--text-muted);margin-left:6px;">Shows every user granted <strong>can_manage_projects</strong></span>
+                </div>
             </div>
             <div class="um-card">
-                <div class="card-body text-center py-5" style="color:var(--text-muted);">
-                    <i class="bi bi-shield-check" style="font-size:2rem;display:block;margin-bottom:8px;color:var(--primary);"></i>
-                    <p>Select a user from the <strong>All Users</strong> table and click the <i class="bi bi-shield"></i> button to manage their access rights.</p>
-                    <button class="btn btn-primary btn-sm" onclick="showModule('all-users')"><i class="bi bi-people-fill"></i> Go to All Users</button>
+                <div class="card-header"><h6><i class="bi bi-table"></i> all users with <span class="badge-um admin">can_manage_projects</span> or <span class="badge-um admin" style="background:#f59e0b;color:white;">Super Admin</span></h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Source System</th><th>System Role</th><th>Access</th><th>Created</th><th>Actions</th></tr></thead>
+                            <tbody id="projectsUsersBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- AUDIT LOG -->
-        <div id="module-audit" class="um-module">
+        <div id="module-audit" class="um-module" data-perm-action="can_view_audit">
             <div class="page-header">
                 <h4><i class="bi bi-clock-history"></i> Activity Log</h4>
                 <div><button class="btn btn-outline-primary btn-sm" onclick="loadAuditLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button></div>
@@ -733,7 +686,7 @@
             </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-star-fill" style="color:#f59e0b;"></i> Super Admin (full access)</span>
-                <label class="toggle-switch"><input type="checkbox" id="toggle-is_super_admin"><span class="toggle-slider"></span></label>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-is_super_admin" onchange="toggleAllPermissions(this.checked)"><span class="toggle-slider"></span></label>
             </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-hard-hat"></i> Manage Building Projects</span>
@@ -794,20 +747,22 @@ const USER_NAME = '{{ user_name }}';
 const PERMS = {{ perms|tojson|safe }} || {};
 let allUsersData = { projects: [], hardware: [], hr: [] };
 
+// ===== PERMISSION CHECK HELPER =====
+function can(permName) {
+    return PERMS && (PERMS.is_super_admin || PERMS[permName]);
+}
+
 // ===== PERMISSION-BASED UI CONTROL =====
 function applyPermissions() {
     if (!PERMS) return;
-    // Hide sidebar items user doesn't have permission for
+    // Hide sidebar nav items user doesn't have permission for
     document.querySelectorAll('.um-sidebar .nav-btn[data-perm]').forEach(btn => {
-        const perm = btn.dataset.perm;
-        if (!PERMS.is_super_admin && !PERMS[perm]) {
-            btn.style.display = 'none';
-        }
+        btn.style.display = can(btn.dataset.perm) ? '' : 'none';
     });
-    // Hide add user button if no permission
-    if (!PERMS.is_super_admin && !PERMS.can_add_users) {
-        document.querySelectorAll('.btn-add-user').forEach(b => b.style.display = 'none');
-    }
+    // Hide all action elements with data-perm-action attribute
+    document.querySelectorAll('[data-perm-action]').forEach(el => {
+        el.style.display = can(el.dataset.permAction) ? '' : 'none';
+    });
 }
 
 // ===== NAVIGATION =====
@@ -862,8 +817,8 @@ document.getElementById('currentDate').textContent = new Date().toLocaleDateStri
 // ===== LOAD ALL DATA (including permissions for filtering) =====
 let permIndex = {}; // { "projects:5": { can_manage_hardware: true, ... }, ... }
 
-async function loadAllData() {
-    showLoader(true);
+async function loadAllData(skipLoader) {
+    if (!skipLoader) showLoader(true);
     try {
         const [projRes, hwRes, hrRes, permRes] = await Promise.all([
             fetch('/api/user-management/projects-users'),
@@ -892,16 +847,20 @@ async function loadAllData() {
 
         renderOverview();
         renderAllUsers();
+        renderProjectsUsers();
         renderHardwareUsers();
         renderHrUsers();
+
+        // Re-apply permission-based visibility (hides buttons the user can't use)
+        applyPermissions();
 
         document.getElementById('statProjects').textContent = allUsersData.projects.length;
         document.getElementById('statHardware').textContent = allUsersData.hardware.length;
         document.getElementById('statHr').textContent = allUsersData.hr.length;
         document.getElementById('statTotal').textContent = allUsersData.projects.length + allUsersData.hardware.length + allUsersData.hr.length;
 
-        showLoader(false);
-    } catch(e) { showLoader(false); console.error('Load error:', e); }
+        if (!skipLoader) showLoader(false);
+    } catch(e) { if (!skipLoader) showLoader(false); console.error('Load error:', e); }
 }
 
 // ===== RENDER OVERVIEW TABLE =====
@@ -964,8 +923,8 @@ function renderAllUsers() {
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
             <td>
-                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${u.name || u.email || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${u.name || u.email || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
     });
@@ -986,8 +945,8 @@ function renderAllUsers() {
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
             <td>
-                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${u.full_name || u.username || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${u.full_name || u.username || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
     });
@@ -1008,8 +967,8 @@ function renderAllUsers() {
             <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
             <td style="font-size:0.55rem;">${u.date_joined || 'N/A'}</td>
             <td>
-                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${(u.first_name||'') + ' ' + (u.last_name||'')}')" title="Permissions"><i class="bi bi-shield"></i></button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${(u.first_name||'') + ' ' + (u.last_name||'')}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
     });
@@ -1024,57 +983,183 @@ function filterAllUsers() {
     });
 }
 
-// ===== RENDER PER-SYSTEM TABLES (with permission filtering) =====
+// ===== RENDER PER-SYSTEM TABLES (show ALL users with matching permission) =====
+
+function renderProjectsUsers() {
+    const tbody = document.getElementById('projectsUsersBody');
+    const entries = [];
+    allUsersData.projects.forEach(u => {
+        const p = permIndex['projects:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_projects)) {
+            entries.push({ id: u.id, name: u.name || 'N/A', email: u.email || '', system: 'projects',
+                systemLabel: '<span class="portal-tag projects">Projects</span>',
+                role: 'Admin', roleBadge: 'badge-um admin',
+                created: u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A',
+                perm: p, permType: 'projects' });
+        }
+    });
+    allUsersData.hardware.forEach(u => {
+        const p = permIndex['hardware:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_projects)) {
+            entries.push({ id: u.id, name: u.full_name || u.username || 'N/A', email: u.username || '',
+                system: 'hardware',
+                systemLabel: '<span class="portal-tag hardware">Hardware</span>',
+                role: u.role || 'operator', roleBadge: (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator',
+                created: u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A',
+                perm: p, permType: 'hardware' });
+        }
+    });
+    allUsersData.hr.forEach(u => {
+        const p = permIndex['hr:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_projects)) {
+            entries.push({ id: u.id, name: (u.first_name||'')+' '+(u.last_name||''), email: u.email || '',
+                system: 'hr',
+                systemLabel: '<span class="portal-tag hr">HR</span>',
+                role: u.role || 'Ordinary', roleBadge: (u.role||'').toLowerCase()==='administrator'?'badge-um admin':'badge-um ordinary',
+                created: u.date_joined || 'N/A',
+                perm: p, permType: 'hr' });
+        }
+    });
+    const accessHtml = p => p.is_super_admin
+        ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
+        : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
+    tbody.innerHTML = entries.length
+        ? entries.map((e, i) => `<tr>
+            <td>${i+1}</td>
+            <td><strong>${e.name}</strong></td>
+            <td>${e.email}</td>
+            <td>${e.systemLabel}</td>
+            <td><span class="${e.roleBadge}">${e.role}</span></td>
+            <td>${accessHtml(e.perm)}</td>
+            <td style="font-size:0.55rem;">${e.created}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${e.permType}', ${e.id}, '${e.name.replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+            </td>
+        </tr>`).join('')
+        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No users have <strong>can_manage_projects</strong> permission. Grant access via the shield icon on All Users.</td></tr>';
+}
 
 function renderHardwareUsers() {
     const tbody = document.getElementById('hardwareUsersBody');
-    // Filter: only show Hardware POS users who have can_manage_hardware = true (or is_super_admin)
-    const filtered = allUsersData.hardware.filter(u => {
-        const p = permIndex['hardware:' + u.id];
-        return p && (p.is_super_admin || p.can_manage_hardware);
+    // Collect ALL users from every system who have can_manage_hardware or is_super_admin
+    const entries = [];
+    // Projects users
+    allUsersData.projects.forEach(u => {
+        const p = permIndex['projects:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_hardware)) {
+            entries.push({ id: u.id, name: u.name || 'N/A', email: u.email || '', system: 'projects',
+                systemLabel: '<span class="portal-tag projects">Projects</span>',
+                role: 'Admin', roleBadge: 'badge-um admin',
+                created: u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A',
+                status: 'Active', statusBadge: 'badge-um active',
+                perm: p, permType: 'projects', permLabel: p.is_super_admin ? 'Super Admin' : 'Hardware' });
+        }
     });
-    tbody.innerHTML = filtered.map(u => {
-        const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
-        const p = permIndex['hardware:' + u.id] || {};
-        const accessLabel = (p.is_super_admin || p.can_manage_hardware)
-            ? '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>'
-            : '<span class="badge-um inactive"><i class="bi bi-x-circle"></i> No</span>';
-        return `<tr><td>${u.id}</td><td><strong>${u.username || 'N/A'}</strong></td>
-        <td>${u.full_name || 'N/A'}</td>
-        <td><span class="${roleBadge}">${u.role || 'N/A'}</span></td>
-        <td>${accessLabel}</td>
-        <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
-        <td>
-            <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${u.full_name || u.username || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
-            <button class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})"><i class="bi bi-trash"></i></button>
-        </td></tr>`;
-    }).join('') || '<tr><td colspan="7" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No Hardware POS users have <strong>can_manage_hardware</strong> permission. Go to <strong>Permissions</strong> to grant access.</td></tr>';
+    // Hardware users
+    allUsersData.hardware.forEach(u => {
+        const p = permIndex['hardware:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_hardware)) {
+            entries.push({ id: u.id, name: u.full_name || u.username || 'N/A', email: u.username || '',
+                system: 'hardware',
+                systemLabel: '<span class="portal-tag hardware">Hardware</span>',
+                role: u.role || 'operator', roleBadge: (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator',
+                created: u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A',
+                status: 'Active', statusBadge: 'badge-um active',
+                perm: p, permType: 'hardware', permLabel: p.is_super_admin ? 'Super Admin' : 'Hardware' });
+        }
+    });
+    // HR users
+    allUsersData.hr.forEach(u => {
+        const p = permIndex['hr:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_hardware)) {
+            entries.push({ id: u.id, name: (u.first_name||'')+' '+(u.last_name||''), email: u.email || '',
+                system: 'hr',
+                systemLabel: '<span class="portal-tag hr">HR</span>',
+                role: u.role || 'Ordinary', roleBadge: (u.role||'').toLowerCase()==='administrator'?'badge-um admin':'badge-um ordinary',
+                created: u.date_joined || 'N/A',
+                status: u.status || 'Active', statusBadge: (u.status||'Active')==='Active'?'badge-um active':'badge-um inactive',
+                perm: p, permType: 'hr', permLabel: p.is_super_admin ? 'Super Admin' : 'Hardware' });
+        }
+    });
+
+    const accessHtml = p => p.is_super_admin
+        ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
+        : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
+
+    tbody.innerHTML = entries.length
+        ? entries.map((e, i) => `<tr>
+            <td>${i+1}</td>
+            <td><strong>${e.name}</strong></td>
+            <td>${e.email}</td>
+            <td>${e.systemLabel}</td>
+            <td><span class="${e.roleBadge}">${e.role}</span></td>
+            <td>${accessHtml(e.perm)}</td>
+            <td style="font-size:0.55rem;">${e.created}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${e.permType}', ${e.id}, '${e.name.replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+            </td>
+        </tr>`).join('')
+        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No users have <strong>can_manage_hardware</strong> permission. Go to <strong>Permissions</strong> to grant access.</td></tr>';
 }
 
 function renderHrUsers() {
     const tbody = document.getElementById('hrUsersBody');
-    // Filter: only show HR employees who have can_manage_hr = true (or is_super_admin)
-    const filtered = allUsersData.hr.filter(u => {
-        const p = permIndex['hr:' + u.id];
-        return p && (p.is_super_admin || p.can_manage_hr);
+    // Collect ALL users from every system who have can_manage_hr or is_super_admin
+    const entries = [];
+    // Projects users
+    allUsersData.projects.forEach(u => {
+        const p = permIndex['projects:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_hr)) {
+            entries.push({ id: u.id, name: u.name || 'N/A', email: u.email || '', system: 'projects',
+                systemLabel: '<span class="portal-tag projects">Projects</span>',
+                role: 'Admin', roleBadge: 'badge-um admin',
+                status: 'Active', statusBadge: 'badge-um active',
+                perm: p, permType: 'projects' });
+        }
     });
-    tbody.innerHTML = filtered.map(u => {
-        const roleBadge = (u.role || '').toLowerCase() === 'administrator' ? 'badge-um admin' : 'badge-um ordinary';
-        const statusBadge = (u.status || 'Active') === 'Active' ? 'badge-um active' : 'badge-um inactive';
-        const p = permIndex['hr:' + u.id] || {};
-        const accessLabel = (p.is_super_admin || p.can_manage_hr)
-            ? '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>'
-            : '<span class="badge-um inactive"><i class="bi bi-x-circle"></i> No</span>';
-        return `<tr><td>${u.id}</td><td><strong>${u.first_name || ''} ${u.last_name || ''}</strong></td>
-        <td>${u.email || 'N/A'}</td><td>${u.department || 'N/A'}</td>
-        <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
-        <td>${accessLabel}</td>
-        <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
-        <td>
-            <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${(u.first_name||'') + ' ' + (u.last_name||'')}')" title="Permissions"><i class="bi bi-shield"></i></button>
-            <button class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})"><i class="bi bi-trash"></i></button>
-        </td></tr>`;
-    }).join('') || '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No HR employees have <strong>can_manage_hr</strong> permission. Go to <strong>Permissions</strong> to grant access.</td></tr>';
+    // Hardware users
+    allUsersData.hardware.forEach(u => {
+        const p = permIndex['hardware:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_hr)) {
+            entries.push({ id: u.id, name: u.full_name || u.username || 'N/A', email: u.username || '',
+                system: 'hardware',
+                systemLabel: '<span class="portal-tag hardware">Hardware</span>',
+                role: u.role || 'operator', roleBadge: (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator',
+                status: 'Active', statusBadge: 'badge-um active',
+                perm: p, permType: 'hardware' });
+        }
+    });
+    // HR users
+    allUsersData.hr.forEach(u => {
+        const p = permIndex['hr:' + u.id];
+        if (p && (p.is_super_admin || p.can_manage_hr)) {
+            entries.push({ id: u.id, name: (u.first_name||'')+' '+(u.last_name||''), email: u.email || '',
+                system: 'hr',
+                systemLabel: '<span class="portal-tag hr">HR</span>',
+                role: u.role || 'Ordinary', roleBadge: (u.role||'').toLowerCase()==='administrator'?'badge-um admin':'badge-um ordinary',
+                status: u.status || 'Active', statusBadge: (u.status||'Active')==='Active'?'badge-um active':'badge-um inactive',
+                perm: p, permType: 'hr' });
+        }
+    });
+
+    const accessHtml = p => p.is_super_admin
+        ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
+        : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
+
+    tbody.innerHTML = entries.length
+        ? entries.map((e, i) => `<tr>
+            <td>${i+1}</td>
+            <td><strong>${e.name}</strong></td>
+            <td>${e.email}</td>
+            <td>${e.systemLabel}</td>
+            <td><span class="${e.roleBadge}">${e.role}</span></td>
+            <td>${accessHtml(e.perm)}</td>
+            <td><span class="${e.statusBadge}">${e.status}</span></td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${e.permType}', ${e.id}, '${e.name.replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+            </td>
+        </tr>`).join('')
+        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No users have <strong>can_manage_hr</strong> permission. Go to <strong>Permissions</strong> to grant access.</td></tr>';
 }
 
 // ===== OPEN ADD MODAL WITH SYSTEM PREFILLED =====
@@ -1209,6 +1294,26 @@ async function loadAuditLog() {
     } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">Failed to load</td></tr>'; }
 }
 
+// ===== SUPER ADMIN AUTO-TOGGLE =====
+const PERM_TOGGLE_IDS = [
+    'can_manage_projects', 'can_manage_hardware', 'can_manage_hr',
+    'can_add_users', 'can_edit_users', 'can_delete_users',
+    'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments'
+];
+
+function toggleAllPermissions(checked) {
+    PERM_TOGGLE_IDS.forEach(id => {
+        const el = document.getElementById('toggle-' + id);
+        if (el) el.checked = checked;
+    });
+    const msg = document.getElementById('permModalMsg');
+    if (msg) {
+        msg.textContent = checked ? '✅ Super Admin: all permissions enabled' : 'ℹ️ Individual permissions can now be set';
+        msg.style.color = checked ? '#2e7d32' : '#ef6c00';
+        setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
+    }
+}
+
 // ===== PERMISSIONS MANAGER - MODAL WITH TOGGLE SWITCHES =====
 let permModalUserType = '';
 let permModalUserId = null;
@@ -1243,6 +1348,11 @@ async function loadPermModalData(userType, userId) {
                     const el = document.getElementById('toggle-' + t);
                     if (el) el.checked = !!perm[t];
                 });
+                // If super admin is on, cascade to all toggles
+                const saEl = document.getElementById('toggle-is_super_admin');
+                if (saEl && saEl.checked) {
+                    toggleAllPermissions(true);
+                }
                 document.getElementById('permModalMsg').textContent = '';
             } else {
                 document.getElementById('permModalMsg').textContent = 'No permissions set yet. Toggle and save to assign.';
@@ -1275,9 +1385,14 @@ async function savePermModal() {
         });
         const data = await res.json();
         if (data.success) {
-            document.getElementById('permModalMsg').textContent = '✅ Permissions saved!';
+            document.getElementById('permModalMsg').textContent = '✅ Permissions saved! Refreshing...';
             document.getElementById('permModalMsg').style.color = '#2e7d32';
-            setTimeout(() => { document.getElementById('permModalMsg').textContent = ''; }, 2000);
+            // Reload all data so permission-filtered tables update immediately
+            setTimeout(async () => {
+                await loadAllData(true); // skipLoader to avoid full-screen overlay while modal is open
+                document.getElementById('permModalMsg').textContent = '✅ Permissions saved!';
+                setTimeout(() => { document.getElementById('permModalMsg').textContent = ''; }, 1500);
+            }, 300);
         } else {
             document.getElementById('permModalMsg').textContent = '❌ ' + (data.error || 'Failed');
             document.getElementById('permModalMsg').style.color = '#d32f2f';
