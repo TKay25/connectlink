@@ -757,7 +757,7 @@
             <div class="um-card">
                 <div class="card-header"><h6><i class="bi bi-list"></i> Recent User Activity</h6></div>
                 <div class="card-body p-0">
-                    <div class="table-scroll">
+                    <div class="table-scroll" style="max-height:calc(100vh - 230px);">
                         <table class="table-um"><thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Details</th></tr></thead>
                             <tbody id="auditLogBody"><tr><td colspan="4" class="text-center text-muted py-3">Loading...</td></tr></tbody>
                         </table>
@@ -956,11 +956,7 @@ async function loadAllData(skipLoader) {
         // Re-apply permission-based visibility (hides buttons the user can't use)
         applyPermissions();
 
-        const adminCount = allUsersData.admin ? allUsersData.admin.length : 0;
-        document.getElementById('statProjects').textContent = allUsersData.projects.length;
-        document.getElementById('statHardware').textContent = allUsersData.hardware.length;
-        document.getElementById('statHr').textContent = allUsersData.hr.length;
-        document.getElementById('statTotal').textContent = adminCount;
+        // Stats are updated inside renderOverview()
 
         if (!skipLoader) showLoader(false);
     } catch(e) { if (!skipLoader) showLoader(false); console.error('Load error:', e); }
@@ -1258,19 +1254,14 @@ function toggleSystemFields() {
 }
 
 function resetAddForm() {
-    document.getElementById('editUserId').value = '';
-    document.getElementById('editUserSystem').value = '';
-    document.getElementById('addUserName').value = '';
-    document.getElementById('addUserEmail').value = '';
-    document.getElementById('addUserPassword').value = '';
-    document.getElementById('addUserStatus').value = 'Active';
-    document.getElementById('addUserFullName').value = '';
-    document.getElementById('addUserWhatsapp').value = '';
-    document.getElementById('addUserDept').value = '';
-    document.getElementById('addUserDesignation').value = '';
-    document.getElementById('saveUserBtnText').textContent = 'Create User';
-    document.getElementById('addUserMsg').textContent = '';
-    document.getElementById('addUserSystem').value = 'projects';
+    const ids = ['editUserId','editUserSystem','addUserName','addUserEmail','addUserPassword','addUserStatus','addUserWhatsapp','addUserDept','addUserDesignation'];
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const sys = document.getElementById('addUserSystem');
+    if (sys) sys.value = 'projects';
+    const btn = document.getElementById('saveUserBtnText');
+    if (btn) btn.textContent = 'Create User';
+    const msg = document.getElementById('addUserMsg');
+    if (msg) msg.textContent = '';
     toggleSystemFields();
 }
 
