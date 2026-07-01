@@ -492,7 +492,7 @@
                 <div class="card-body p-0">
                     <div class="table-scroll">
                         <table class="table-um" id="allUsersTable">
-                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>System</th><th>Portal Access</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Account Source</th><th>Granted Permissions</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="allUsersTableBody"></tbody>
                         </table>
                     </div>
@@ -998,179 +998,85 @@ function filterAllUsers() {
 
 function renderProjectsUsers() {
     const tbody = document.getElementById('projectsUsersBody');
-    const entries = [];
-    allUsersData.projects.forEach(u => {
+    // Only show Projects-native users who have can_manage_projects
+    const filtered = allUsersData.projects.filter(u => {
         const p = permIndex['projects:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_projects)) {
-            entries.push({ id: u.id, name: u.name || 'N/A', email: u.email || '', system: 'projects',
-                systemLabel: '<span class="portal-tag projects">Projects</span>',
-                role: 'Admin', roleBadge: 'badge-um admin',
-                created: u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A',
-                perm: p, permType: 'projects' });
-        }
-    });
-    allUsersData.hardware.forEach(u => {
-        const p = permIndex['hardware:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_projects)) {
-            entries.push({ id: u.id, name: u.full_name || u.username || 'N/A', email: u.username || '',
-                system: 'hardware',
-                systemLabel: '<span class="portal-tag hardware">Hardware</span>',
-                role: u.role || 'operator', roleBadge: (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator',
-                created: u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A',
-                perm: p, permType: 'hardware' });
-        }
-    });
-    allUsersData.hr.forEach(u => {
-        const p = permIndex['hr:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_projects)) {
-            entries.push({ id: u.id, name: (u.first_name||'')+' '+(u.last_name||''), email: u.email || '',
-                system: 'hr',
-                systemLabel: '<span class="portal-tag hr">HR</span>',
-                role: u.role || 'Ordinary', roleBadge: (u.role||'').toLowerCase()==='administrator'?'badge-um admin':'badge-um ordinary',
-                created: u.date_joined || 'N/A',
-                perm: p, permType: 'hr' });
-        }
+        return p && (p.is_super_admin || p.can_manage_projects);
     });
     const accessHtml = p => p.is_super_admin
         ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
         : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
-    tbody.innerHTML = entries.length
-        ? entries.map((e, i) => `<tr>
+    tbody.innerHTML = filtered.length
+        ? filtered.map((u, i) => `<tr>
             <td>${i+1}</td>
-            <td><strong>${e.name}</strong></td>
-            <td>${e.email}</td>
-            <td>${e.systemLabel}</td>
-            <td><span class="${e.roleBadge}">${e.role}</span></td>
-            <td>${accessHtml(e.perm)}</td>
-            <td style="font-size:0.55rem;">${e.created}</td>
+            <td><strong>${u.name || 'N/A'}</strong></td>
+            <td>${u.email || 'N/A'}</td>
+            <td><span class="portal-tag projects">Projects</span></td>
+            <td>Admin</td>
+            <td>${accessHtml(permIndex['projects:' + u.id] || {})}</td>
+            <td style="font-size:0.55rem;">${u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${e.permType}', ${e.id}, '${e.name.replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${(u.name||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`).join('')
-        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No users have <strong>can_manage_projects</strong> permission. Grant access via the shield icon on All Users.</td></tr>';
+        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No Projects users have <strong>can_manage_projects</strong> permission.</td></tr>';
 }
 
 function renderHardwareUsers() {
     const tbody = document.getElementById('hardwareUsersBody');
-    // Collect ALL users from every system who have can_manage_hardware or is_super_admin
-    const entries = [];
-    // Projects users
-    allUsersData.projects.forEach(u => {
-        const p = permIndex['projects:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_hardware)) {
-            entries.push({ id: u.id, name: u.name || 'N/A', email: u.email || '', system: 'projects',
-                systemLabel: '<span class="portal-tag projects">Projects</span>',
-                role: 'Admin', roleBadge: 'badge-um admin',
-                created: u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A',
-                status: 'Active', statusBadge: 'badge-um active',
-                perm: p, permType: 'projects', permLabel: p.is_super_admin ? 'Super Admin' : 'Hardware' });
-        }
-    });
-    // Hardware users
-    allUsersData.hardware.forEach(u => {
+    // Only show Hardware-native users who have can_manage_hardware
+    const filtered = allUsersData.hardware.filter(u => {
         const p = permIndex['hardware:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_hardware)) {
-            entries.push({ id: u.id, name: u.full_name || u.username || 'N/A', email: u.username || '',
-                system: 'hardware',
-                systemLabel: '<span class="portal-tag hardware">Hardware</span>',
-                role: u.role || 'operator', roleBadge: (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator',
-                created: u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A',
-                status: 'Active', statusBadge: 'badge-um active',
-                perm: p, permType: 'hardware', permLabel: p.is_super_admin ? 'Super Admin' : 'Hardware' });
-        }
+        return p && (p.is_super_admin || p.can_manage_hardware);
     });
-    // HR users
-    allUsersData.hr.forEach(u => {
-        const p = permIndex['hr:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_hardware)) {
-            entries.push({ id: u.id, name: (u.first_name||'')+' '+(u.last_name||''), email: u.email || '',
-                system: 'hr',
-                systemLabel: '<span class="portal-tag hr">HR</span>',
-                role: u.role || 'Ordinary', roleBadge: (u.role||'').toLowerCase()==='administrator'?'badge-um admin':'badge-um ordinary',
-                created: u.date_joined || 'N/A',
-                status: u.status || 'Active', statusBadge: (u.status||'Active')==='Active'?'badge-um active':'badge-um inactive',
-                perm: p, permType: 'hr', permLabel: p.is_super_admin ? 'Super Admin' : 'Hardware' });
-        }
-    });
-
-    const accessHtml = p => p.is_super_admin
+    const accessHtml = p => p && p.is_super_admin
         ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
         : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
-
-    tbody.innerHTML = entries.length
-        ? entries.map((e, i) => `<tr>
+    tbody.innerHTML = filtered.length
+        ? filtered.map((u, i) => {
+            const roleBadge = (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator';
+            return `<tr>
             <td>${i+1}</td>
-            <td><strong>${e.name}</strong></td>
-            <td>${e.email}</td>
-            <td>${e.systemLabel}</td>
-            <td><span class="${e.roleBadge}">${e.role}</span></td>
-            <td>${accessHtml(e.perm)}</td>
-            <td style="font-size:0.55rem;">${e.created}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || 'N/A'}</td>
+            <td><span class="portal-tag hardware">Hardware</span></td>
+            <td><span class="${roleBadge}">${u.role || 'operator'}</span></td>
+            <td>${accessHtml(permIndex['hardware:' + u.id])}</td>
+            <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${e.permType}', ${e.id}, '${e.name.replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
-        </tr>`).join('')
-        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No users have <strong>can_manage_hardware</strong> permission. Go to <strong>Permissions</strong> to grant access.</td></tr>';
+        </tr>`;}).join('')
+        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No Hardware POS users have <strong>can_manage_hardware</strong> permission.</td></tr>';
 }
 
 function renderHrUsers() {
     const tbody = document.getElementById('hrUsersBody');
-    // Collect ALL users from every system who have can_manage_hr or is_super_admin
-    const entries = [];
-    // Projects users
-    allUsersData.projects.forEach(u => {
-        const p = permIndex['projects:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_hr)) {
-            entries.push({ id: u.id, name: u.name || 'N/A', email: u.email || '', system: 'projects',
-                systemLabel: '<span class="portal-tag projects">Projects</span>',
-                role: 'Admin', roleBadge: 'badge-um admin',
-                status: 'Active', statusBadge: 'badge-um active',
-                perm: p, permType: 'projects' });
-        }
-    });
-    // Hardware users
-    allUsersData.hardware.forEach(u => {
-        const p = permIndex['hardware:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_hr)) {
-            entries.push({ id: u.id, name: u.full_name || u.username || 'N/A', email: u.username || '',
-                system: 'hardware',
-                systemLabel: '<span class="portal-tag hardware">Hardware</span>',
-                role: u.role || 'operator', roleBadge: (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator',
-                status: 'Active', statusBadge: 'badge-um active',
-                perm: p, permType: 'hardware' });
-        }
-    });
-    // HR users
-    allUsersData.hr.forEach(u => {
+    // Only show HR-native users who have can_manage_hr
+    const filtered = allUsersData.hr.filter(u => {
         const p = permIndex['hr:' + u.id];
-        if (p && (p.is_super_admin || p.can_manage_hr)) {
-            entries.push({ id: u.id, name: (u.first_name||'')+' '+(u.last_name||''), email: u.email || '',
-                system: 'hr',
-                systemLabel: '<span class="portal-tag hr">HR</span>',
-                role: u.role || 'Ordinary', roleBadge: (u.role||'').toLowerCase()==='administrator'?'badge-um admin':'badge-um ordinary',
-                status: u.status || 'Active', statusBadge: (u.status||'Active')==='Active'?'badge-um active':'badge-um inactive',
-                perm: p, permType: 'hr' });
-        }
+        return p && (p.is_super_admin || p.can_manage_hr);
     });
-
-    const accessHtml = p => p.is_super_admin
+    const accessHtml = p => p && p.is_super_admin
         ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
         : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
-
-    tbody.innerHTML = entries.length
-        ? entries.map((e, i) => `<tr>
+    tbody.innerHTML = filtered.length
+        ? filtered.map((u, i) => {
+            const roleBadge = (u.role||'').toLowerCase()==='administrator'?'badge-um admin':'badge-um ordinary';
+            const statusBadge = (u.status||'Active')==='Active'?'badge-um active':'badge-um inactive';
+            return `<tr>
             <td>${i+1}</td>
-            <td><strong>${e.name}</strong></td>
-            <td>${e.email}</td>
-            <td>${e.systemLabel}</td>
-            <td><span class="${e.roleBadge}">${e.role}</span></td>
-            <td>${accessHtml(e.perm)}</td>
-            <td><span class="${e.statusBadge}">${e.status}</span></td>
+            <td><strong>${u.first_name||''} ${u.last_name||''}</strong></td>
+            <td>${u.email || 'N/A'}</td>
+            <td><span class="portal-tag hr">HR</span></td>
+            <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
+            <td>${accessHtml(permIndex['hr:' + u.id])}</td>
+            <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${e.permType}', ${e.id}, '${e.name.replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${((u.first_name||'')+' '+(u.last_name||'')).replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
-        </tr>`).join('')
-        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No users have <strong>can_manage_hr</strong> permission. Go to <strong>Permissions</strong> to grant access.</td></tr>';
+        </tr>`;}).join('')
+        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No HR employees have <strong>can_manage_hr</strong> permission.</td></tr>';
 }
 
 // ===== OPEN ADD MODAL WITH SYSTEM PREFILLED =====
@@ -1295,14 +1201,20 @@ async function loadAuditLog() {
         const res = await fetch('/api/activity-log?limit=100');
         const data = await res.json();
         if (data.success && data.data) {
-            tbody.innerHTML = data.data.map(a => `
-                <tr><td style="font-size:0.55rem;">${a.timestamp || ''}</td>
+            tbody.innerHTML = data.data.map(a => {
+                const ts = a.created_at || a.timestamp || '';
+                const det = a.details;
+                const detStr = typeof det === 'string' ? det : (det ? JSON.stringify(det).substring(0, 80) : '');
+                return `<tr><td style="font-size:0.55rem;">${ts}</td>
                 <td>${a.action_type || 'N/A'}</td>
                 <td>${a.user_name || 'System'}</td>
-                <td style="font-size:0.55rem;color:var(--text-muted);">${(a.details || '').substring(0, 80)}</td></tr>
-            `).join('') || '<tr><td colspan="4" class="text-center text-muted py-3">No activity</td></tr>';
+                <td style="font-size:0.55rem;color:var(--text-muted);">${detStr}</td></tr>`;
+            }).join('') || '<tr><td colspan="4" class="text-center text-muted py-3">No activity</td></tr>';
+        } else {
+            const err = data.error ? (': ' + data.error) : '';
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Failed to load${err}</td></tr>`;
         }
-    } catch(e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-3">Failed to load</td></tr>'; }
+    } catch(e) { tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Failed to load: ${e.message}</td></tr>`; }
 }
 
 // ===== SUPER ADMIN AUTO-TOGGLE =====
