@@ -52,81 +52,185 @@
             min-height: 100vh;
             padding-top: var(--nav-height);
         }
-        /* Navbar */
+        /* ===== TOP NAVBAR ===== */
         .um-navbar {
             position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-height); z-index: 1050;
-            background: rgba(30, 41, 59, 0.95);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(193, 43, 62, 0.15);
+            background: linear-gradient(135deg, #0F1729 0%, #1a1f3a 50%, #0F1729 100%);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(193, 43, 62, 0.2);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.3);
             padding: 0 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
+        .um-navbar::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(193,43,62,0.4), transparent);
+        }
         .um-navbar::after {
             content: ''; position: absolute; bottom: 0; left: 5%; width: 90%; height: 1px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent); opacity: 0.4;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent); opacity: 0.6;
         }
-        .um-navbar .brand { display: flex; align-items: center; gap: 10px; }
-        .um-navbar .brand img { height: 24px; border-radius: 4px; }
-        .um-navbar .brand-text { color: white; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.5px; }
-        .um-navbar .brand-text span { color: var(--primary); }
+        .um-navbar .brand { display: flex; align-items: center; gap: 10px; position: relative; }
+        .um-navbar .brand img { height: 26px; width: auto; border-radius: 6px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+        .um-navbar .brand .brand-text {
+            color: white; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.8px;
+            background: linear-gradient(90deg, #fff 60%, rgba(255,255,255,0.7));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .um-navbar .brand .brand-text span {
+            -webkit-text-fill-color: var(--primary);
+            color: var(--primary);
+        }
+        .um-navbar .brand .brand-badge {
+            font-size: 0.45rem; font-weight: 700; text-transform: uppercase;
+            background: linear-gradient(135deg, var(--primary), #9B1D2C);
+            color: white; padding: 1px 6px; border-radius: 4px;
+            letter-spacing: 0.5px; margin-left: 2px;
+            -webkit-text-fill-color: white;
+        }
         .um-navbar .nav-actions { display: flex; align-items: center; gap: 8px; }
         .um-navbar .user-badge {
             display: flex; align-items: center; gap: 6px;
-            background: rgba(255,255,255,0.06); padding: 2px 10px 2px 6px; border-radius: 30px;
-            color: rgba(255,255,255,0.85); font-size: 0.65rem; font-weight: 500;
-            border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s; position: relative;
+            background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+            padding: 2px 12px 2px 6px; border-radius: 30px;
+            color: rgba(255,255,255,0.9); font-size: 0.65rem; font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.1); cursor: pointer; transition: all 0.25s ease; position: relative;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
         }
-        .um-navbar .user-badge:hover { background: rgba(255,255,255,0.1); }
+        .um-navbar .user-badge:hover {
+            background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+            border-color: rgba(193,43,62,0.3);
+            box-shadow: 0 2px 8px rgba(193,43,62,0.15);
+            transform: translateY(-1px);
+        }
         .um-navbar .user-badge .avatar {
             width: 22px; height: 22px; border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary), #9B1D2C);
+            background: linear-gradient(135deg, var(--primary), #9B1D2C, #6B1320);
+            background-size: 200% 200%;
             display: flex; align-items: center; justify-content: center;
             font-weight: 700; font-size: 0.6rem; color: white;
+            box-shadow: 0 1px 6px rgba(193,43,62,0.3);
         }
+        .um-navbar .user-badge .status-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.5);
+            position: absolute; bottom: 1px; left: 20px;
+            border: 1.5px solid #0F1729;
+        }
+        /* ===== USER DROPDOWN ===== */
         .user-dropdown-menu {
-            position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px;
-            background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(10,26,58,0.2);
-            border: 1px solid var(--gray-200); z-index: 99999; overflow: hidden;
+            position: absolute; top: calc(100% + 8px); right: 0; min-width: 210px;
+            background: rgba(255,255,255,0.98);
+            backdrop-filter: blur(16px);
+            border-radius: 14px;
+            box-shadow: 0 12px 48px rgba(10,26,58,0.25), 0 2px 8px rgba(0,0,0,0.08);
+            border: 1px solid rgba(193,43,62,0.1);
+            z-index: 99999; overflow: hidden;
+            animation: dropIn 0.2s ease;
         }
-        .user-dropdown-menu .dropdown-header { padding: 12px 14px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
-        .user-dropdown-menu .dropdown-user-name { font-weight: 700; color: var(--text-primary); font-size: 0.7rem; }
-        .user-dropdown-menu .dropdown-user-role { font-size: 0.6rem; color: var(--text-muted); }
+        @keyframes dropIn {
+            from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .user-dropdown-menu .dropdown-header {
+            padding: 14px 16px;
+            background: linear-gradient(135deg, #0F1729 0%, #1a1f3a 100%);
+            border-bottom: 1px solid rgba(193,43,62,0.2);
+        }
+        .user-dropdown-menu .dropdown-user-name { font-weight: 700; color: white; font-size: 0.7rem; }
+        .user-dropdown-menu .dropdown-user-role { font-size: 0.55rem; color: rgba(255,255,255,0.5); margin-top: 1px; }
         .user-dropdown-menu .dropdown-item {
-            display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+            display: flex; align-items: center; gap: 10px; padding: 9px 16px;
             font-size: 0.65rem; color: var(--text-primary); cursor: pointer;
-            transition: background 0.15s; border: none; background: none; width: 100%; text-align: left;
+            transition: all 0.15s; border: none; background: none; width: 100%; text-align: left;
         }
-        .user-dropdown-menu .dropdown-item:hover { background: var(--gray-50); }
-        .user-dropdown-menu .dropdown-item i { font-size: 0.75rem; width: 18px; text-align: center; }
+        .user-dropdown-menu .dropdown-item:hover { background: var(--gray-50); padding-left: 20px; }
+        .user-dropdown-menu .dropdown-item i {
+            font-size: 0.75rem; width: 18px; text-align: center;
+            color: var(--text-muted); transition: color 0.15s;
+        }
+        .user-dropdown-menu .dropdown-item:hover i { color: var(--primary); }
         .user-dropdown-menu .dropdown-item.text-danger { color: #d32f2f; }
         .user-dropdown-menu .dropdown-item.text-danger:hover { background: #fef2f2; }
-        /* Main layout */
+        .user-dropdown-menu .dropdown-item.text-danger i { color: #d32f2f; }
+        .user-dropdown-menu .dropdown-divider { height: 1px; background: var(--gray-100); margin: 2px 0; }
+        /* ===== SIDEBAR ===== */
         .um-layout { display: flex; min-height: calc(100vh - var(--nav-height)); }
         .um-sidebar {
-            width: 190px; flex-shrink: 0;
-            background: linear-gradient(180deg, var(--dark-blue-deep) 0%, var(--dark-blue-primary) 100%);
-            border-right: 1px solid rgba(193, 43, 62, 0.15);
-            padding: 8px 0; overflow-y: auto;
+            width: 200px; flex-shrink: 0;
+            background: linear-gradient(180deg, #0F1729 0%, #151D35 40%, #1a1f3a 100%);
+            border-right: 1px solid rgba(193, 43, 62, 0.12);
+            padding: 6px 0 12px;
+            overflow-y: auto;
+            overflow-x: hidden;
             position: sticky; top: var(--nav-height); height: calc(100vh - var(--nav-height));
+            box-shadow: 2px 0 16px rgba(0,0,0,0.15);
+        }
+        /* Subtle crimson accent line on left edge */
+        .um-sidebar::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+            background: linear-gradient(180deg, transparent, var(--primary), rgba(193,43,62,0.3), transparent);
+            opacity: 0.3;
         }
         .um-sidebar .section-title {
-            padding: 4px 12px 2px; font-size: 0.55rem; font-weight: 700;
-            text-transform: uppercase; letter-spacing: 0.5px;
-            color: rgba(255,255,255,0.3); margin-top: 6px;
+            padding: 6px 16px 3px;
+            font-size: 0.5rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 1.2px;
+            color: rgba(255,255,255,0.25);
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .um-sidebar .section-title::after {
+            content: ''; flex: 1; height: 1px;
+            background: linear-gradient(90deg, rgba(193,43,62,0.3), transparent);
         }
         .um-sidebar .nav-btn {
-            display: flex; align-items: center; gap: 8px;
-            padding: 7px 14px; margin: 1px 8px; border-radius: var(--radius-sm);
-            background: transparent; border: none; color: rgba(255,255,255,0.65);
-            font-size: 0.65rem; font-weight: 500; cursor: pointer;
-            transition: all 0.2s; text-align: left; width: calc(100% - 16px);
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 14px;
+            margin: 2px 10px;
+            border-radius: 8px;
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.55);
+            font-size: 0.65rem; font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            text-align: left;
+            width: calc(100% - 20px);
+            position: relative;
         }
-        .um-sidebar .nav-btn:hover { background: rgba(255,255,255,0.08); color: white; }
-        .um-sidebar .nav-btn.active { background: rgba(193, 43, 62, 0.2); color: white; border-left: 3px solid var(--primary); }
-        .um-sidebar .nav-btn i { font-size: 0.7rem; width: 18px; text-align: center; color: rgba(255,255,255,0.5); }
-        .um-sidebar .nav-btn.active i { color: var(--primary); }
+        .um-sidebar .nav-btn:hover {
+            background: rgba(255,255,255,0.07);
+            color: rgba(255,255,255,0.9);
+            transform: translateX(2px);
+        }
+        .um-sidebar .nav-btn.active {
+            background: linear-gradient(135deg, rgba(193,43,62,0.2), rgba(193,43,62,0.08));
+            color: white;
+            border: none;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 8px rgba(193,43,62,0.1);
+        }
+        .um-sidebar .nav-btn.active::before {
+            content: ''; position: absolute; left: -10px; top: 50%; transform: translateY(-50%);
+            width: 3px; height: 60%;
+            background: var(--primary);
+            border-radius: 0 3px 3px 0;
+            box-shadow: 0 0 8px rgba(193,43,62,0.4);
+        }
+        .um-sidebar .nav-btn i {
+            font-size: 0.75rem; width: 20px; text-align: center;
+            color: rgba(255,255,255,0.4);
+            transition: all 0.25s;
+        }
+        .um-sidebar .nav-btn:hover i { color: rgba(255,255,255,0.7); }
+        .um-sidebar .nav-btn.active i { color: var(--primary); text-shadow: 0 0 10px rgba(193,43,62,0.3); }
         /* Main content */
         .um-main { flex: 1; padding: 12px 16px; overflow-y: auto; background: linear-gradient(180deg, #F8FAFC 0%, #F0F2F7 100%); }
         .page-header {
@@ -238,6 +342,7 @@
         .badge-um.ordinary { background: #e8f0fe; color: #1a73e8; }
         .badge-um.active { background: #e6f7e6; color: #2e7d32; }
         .badge-um.inactive { background: #fce4ec; color: #c62828; }
+        .badge-um.amber { background: #fff3e0; color: #ef6c00; }
         /* Modal */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -297,6 +402,7 @@
         .perm-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--primary); }
         /* Animations */
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
         .fade-in { animation: fadeInUp 0.35s ease forwards; }
         .um-module { display: none; }
         .um-module.active { display: block; animation: fadeInUp 0.35s ease forwards; }
@@ -316,10 +422,19 @@
             z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column;
         }
         .um-loader.active { display: flex; }
-        @media (max-width: 768px) { .um-sidebar { width: 50px; }
+        @media (max-width: 768px) {
+            .um-sidebar { width: 52px; }
             .um-sidebar .nav-btn span, .um-sidebar .section-title { display: none; }
-            .um-sidebar .nav-btn { justify-content: center; padding: 10px 0; margin: 1px 4px; width: auto; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+            .um-sidebar .section-title::after { display: none; }
+            .um-sidebar .nav-btn {
+                justify-content: center; padding: 10px 0; margin: 2px 6px; width: auto;
+                border-radius: 8px;
+            }
+            .um-sidebar .nav-btn i { margin: 0; font-size: 0.85rem; width: auto; }
+            .um-sidebar .nav-btn.active::before { display: none; }
+            .um-sidebar .nav-btn.active { box-shadow: 0 0 12px rgba(193,43,62,0.2); }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
         /* Toggle Switch */
         .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; margin: 0; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
@@ -347,20 +462,20 @@
 <nav class="um-navbar">
     <div class="brand">
         <img src="/static/images/web-logo-white.png" alt="ConnectLink">
-        <span class="brand-text">Connect<span>Link</span> User Management</span>
+        <span class="brand-text">Connect<span>Link</span> <span class="brand-badge">Users</span></span>
     </div>
     <div class="nav-actions" style="position:relative;">
         <div class="user-badge" onclick="toggleDropdown(event)">
             <div class="avatar">{{ (user_name or 'U')[0]|upper }}</div>
             <span>{{ user_name or 'User' }}</span>
-            <i class="bi bi-chevron-down" style="font-size:0.55rem;opacity:0.6;"></i>
+            <i class="bi bi-chevron-down" style="font-size:0.5rem;opacity:0.5;margin-left:2px;"></i>
+            <span class="status-dot"></span>
         </div>
         <div id="userDropdown" class="user-dropdown-menu" style="display:none;">
             <div class="dropdown-header">
                 <div class="dropdown-user-name">{{ user_name or 'User' }}</div>
-                <div class="dropdown-user-role">User Manager</div>
+                <div class="dropdown-user-role"><i class="bi bi-person-badge" style="margin-right:4px;"></i>User Manager</div>
             </div>
-            <div class="dropdown-divider" style="height:1px;background:var(--gray-200);"></div>
             <button class="dropdown-item" onclick="window.location.href='/dashboard'"><i class="bi bi-arrow-left-square"></i> Switch to Projects</button>
             <button class="dropdown-item" onclick="window.location.href='/hr-dashboard'"><i class="bi bi-people"></i> Switch to HR</button>
             <div class="dropdown-divider"></div>
@@ -371,12 +486,12 @@
 
 <div class="um-layout">
     <aside class="um-sidebar" id="umSidebar">
+        <div class="section-title">Overview</div>
+        <button class="nav-btn active" data-module="overview" onclick="showModule('overview')" id="nav-overview"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></button>
         <div class="section-title">Management</div>
-        <button class="nav-btn active" data-module="overview" onclick="showModule('overview')" id="nav-overview"><i class="bi bi-speedometer2"></i> <span>Overview</span></button>
         <button class="nav-btn" data-module="all-users" onclick="showModule('all-users')" id="nav-all-users"><i class="bi bi-people-fill"></i> <span>All Users</span></button>
-        <button class="nav-btn" data-module="projects-users" onclick="showModule('projects-users')" id="nav-projects-users" data-perm="can_manage_projects"><i class="bi bi-hard-hat"></i> <span>Projects Users</span></button>
-        <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')" id="nav-hardware-users" data-perm="can_manage_hardware"><i class="bi bi-cash-register"></i> <span>Hardware POS Users</span></button>
-        <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')" id="nav-hr-users" data-perm="can_manage_hr"><i class="bi bi-people"></i> <span>HR Users</span></button>
+        <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')" id="nav-hardware-users" data-perm="can_manage_hardware"><i class="bi bi-cash-register"></i> <span>Hardware POS</span></button>
+        <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')" id="nav-hr-users" data-perm="can_manage_hr"><i class="bi bi-people"></i> <span>HR Employees</span></button>
         <div class="section-title">Admin</div>
         <button class="nav-btn" data-module="permissions" onclick="showModule('permissions')" id="nav-permissions" data-perm="can_manage_roles"><i class="bi bi-shield-lock"></i> <span>Permissions</span></button>
         <button class="nav-btn" data-module="add-user" onclick="showModule('add-user')" id="nav-add-user" data-perm="can_add_users"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
@@ -425,7 +540,7 @@
                 <div class="card-body p-0">
                     <div class="table-scroll">
                         <table class="table-um" id="allUsersTable">
-                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>System</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>System</th><th>Portal Access</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="allUsersTableBody"></tbody>
                         </table>
                     </div>
@@ -433,35 +548,17 @@
             </div>
         </div>
 
-        <!-- PROJECTS USERS -->
-        <div id="module-projects-users" class="um-module">
-            <div class="page-header">
-                <h4><i class="bi bi-hard-hat"></i> Building Projects Users</h4>
-                <div><button class="btn btn-primary btn-sm" onclick="openAddModal('projects')"><i class="bi bi-person-plus"></i> Add User</button></div>
-            </div>
-            <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> connectlinkusers</h6></div>
-                <div class="card-body p-0">
-                    <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>WhatsApp</th><th>Created</th><th>Actions</th></tr></thead>
-                            <tbody id="projectsUsersBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- HARDWARE USERS -->
+        <!-- HARDWARE USERS (filtered by can_manage_hardware permission) -->
         <div id="module-hardware-users" class="um-module">
             <div class="page-header">
-                <h4><i class="bi bi-cash-register"></i> Hardware POS Users</h4>
+                <h4><i class="bi bi-cash-register"></i> Hardware POS — Users With Access</h4>
                 <div><button class="btn btn-primary btn-sm" onclick="openAddModal('hardware')"><i class="bi bi-person-plus"></i> Add User</button></div>
             </div>
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> hardware_users</h6></div>
+                <div class="card-header"><h6><i class="bi bi-table"></i> hardware_users · showing those with <span class="badge-um admin">can_manage_hardware</span></h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>ID</th><th>Username</th><th>Full Name</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>ID</th><th>Username</th><th>Full Name</th><th>POS Role</th><th>Access Granted</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="hardwareUsersBody"></tbody>
                         </table>
                     </div>
@@ -469,17 +566,17 @@
             </div>
         </div>
 
-        <!-- HR USERS -->
+        <!-- HR USERS (filtered by can_manage_hr permission) -->
         <div id="module-hr-users" class="um-module">
             <div class="page-header">
-                <h4><i class="bi bi-people"></i> HR Employees / Users</h4>
+                <h4><i class="bi bi-people"></i> HR — Employees With Access</h4>
                 <div><button class="btn btn-primary btn-sm" onclick="openAddModal('hr')"><i class="bi bi-person-plus"></i> Add User</button></div>
             </div>
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> hr_employees</h6></div>
+                <div class="card-header"><h6><i class="bi bi-table"></i> hr_employees · showing those with <span class="badge-um admin">can_manage_hr</span></h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>HR Role</th><th>Access Granted</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody id="hrUsersBody"></tbody>
                         </table>
                     </div>
@@ -762,18 +859,30 @@ function showLoader(show) { document.getElementById('umLoader').classList.toggle
 // ===== DATE =====
 document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
-// ===== LOAD ALL DATA =====
+// ===== LOAD ALL DATA (including permissions for filtering) =====
+let permIndex = {}; // { "projects:5": { can_manage_hardware: true, ... }, ... }
+
 async function loadAllData() {
     showLoader(true);
     try {
-        const [projRes, hwRes, hrRes] = await Promise.all([
+        const [projRes, hwRes, hrRes, permRes] = await Promise.all([
             fetch('/api/user-management/projects-users'),
             fetch('/api/user-management/hardware-users'),
-            fetch('/api/user-management/hr-users')
+            fetch('/api/user-management/hr-users'),
+            fetch('/api/user-management/permissions')
         ]);
         const projData = await projRes.json();
         const hwData = await hwRes.json();
         const hrData = await hrRes.json();
+        const permData = await permRes.json();
+
+        // Build permission lookup index
+        permIndex = {};
+        if (permData.success && permData.data) {
+            permData.data.forEach(p => {
+                permIndex[p.user_type + ':' + p.user_id] = p;
+            });
+        }
 
         allUsersData = {
             projects: projData.data || [],
@@ -783,7 +892,6 @@ async function loadAllData() {
 
         renderOverview();
         renderAllUsers();
-        renderProjectsUsers();
         renderHardwareUsers();
         renderHrUsers();
 
@@ -824,7 +932,18 @@ function renderOverview() {
     });
 }
 
-// ===== RENDER ALL USERS (unified) =====
+// ===== RENDER ALL USERS (unified, with portal access badges) =====
+function getPortalAccessBadges(p) {
+    if (!p) return '<span class="badge-um inactive" style="font-size:0.5rem;">None</span>';
+    if (p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;"><i class="bi bi-star-fill"></i> Super Admin</span>';
+    let badges = [];
+    if (p.can_manage_projects) badges.push('<span class="badge-um active" style="font-size:0.5rem;">Projects</span>');
+    if (p.can_manage_hardware) badges.push('<span class="badge-um admin" style="font-size:0.5rem;">Hardware</span>');
+    if (p.can_manage_hr) badges.push('<span class="badge-um ordinary" style="font-size:0.5rem;">HR</span>');
+    if (p.can_view_payments) badges.push('<span class="badge-um amber" style="font-size:0.5rem;background:#fff3e0;color:#ef6c00;">Payments</span>');
+    return badges.length ? badges.join(' ') : '<span class="badge-um inactive" style="font-size:0.5rem;">None</span>';
+}
+
 function renderAllUsers() {
     const tbody = document.getElementById('allUsersTableBody');
     let html = '';
@@ -833,11 +952,14 @@ function renderAllUsers() {
     allUsersData.projects.forEach(u => {
         idx++;
         const created = u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A';
+        const p = permIndex['projects:' + u.id] || {};
+        const accessHtml = getPortalAccessBadges(p);
         html += `<tr data-system="projects">
             <td>${idx}</td>
             <td><strong>${u.name || 'N/A'}</strong></td>
             <td>${u.email || 'N/A'}</td>
             <td><span class="portal-tag projects">Projects</span></td>
+            <td>${accessHtml}</td>
             <td><span class="badge-um admin">Admin</span></td>
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
@@ -852,11 +974,14 @@ function renderAllUsers() {
         idx++;
         const created = u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A';
         const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
+        const p = permIndex['hardware:' + u.id] || {};
+        const accessHtml = getPortalAccessBadges(p);
         html += `<tr data-system="hardware">
             <td>${idx}</td>
             <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
             <td>${u.username || 'N/A'}</td>
             <td><span class="portal-tag hardware">Hardware</span></td>
+            <td>${accessHtml}</td>
             <td><span class="${roleBadge}">${u.role || 'N/A'}</span></td>
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
@@ -871,11 +996,14 @@ function renderAllUsers() {
         idx++;
         const roleBadge = (u.role || '').toLowerCase() === 'administrator' ? 'badge-um admin' : 'badge-um ordinary';
         const statusBadge = (u.status || 'Active') === 'Active' ? 'badge-um active' : 'badge-um inactive';
+        const p = permIndex['hr:' + u.id] || {};
+        const accessHtml = getPortalAccessBadges(p);
         html += `<tr data-system="hr">
             <td>${idx}</td>
             <td><strong>${u.first_name || ''} ${u.last_name || ''}</strong></td>
             <td>${u.email || 'N/A'}</td>
             <td><span class="portal-tag hr">HR</span></td>
+            <td>${accessHtml}</td>
             <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
             <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
             <td style="font-size:0.55rem;">${u.date_joined || 'N/A'}</td>
@@ -886,7 +1014,7 @@ function renderAllUsers() {
         </tr>`;
     });
 
-    tbody.innerHTML = html || '<tr><td colspan="8" class="text-center text-muted py-3">No users found</td></tr>';
+    tbody.innerHTML = html || '<tr><td colspan="9" class="text-center text-muted py-3">No users found</td></tr>';
 }
 
 function filterAllUsers() {
@@ -896,40 +1024,57 @@ function filterAllUsers() {
     });
 }
 
-// ===== RENDER PER-SYSTEM TABLES =====
-function renderProjectsUsers() {
-    const tbody = document.getElementById('projectsUsersBody');
-    tbody.innerHTML = allUsersData.projects.map(u => `
-        <tr><td>${u.id}</td><td><strong>${u.name || 'N/A'}</strong></td>
-        <td>${u.email || 'N/A'}</td><td>${u.whatsapp || 'N/A'}</td>
-        <td style="font-size:0.55rem;">${u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A'}</td>
-        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})"><i class="bi bi-trash"></i></button></td></tr>
-    `).join('') || '<tr><td colspan="6" class="text-center text-muted py-3">No users</td></tr>';
-}
+// ===== RENDER PER-SYSTEM TABLES (with permission filtering) =====
 
 function renderHardwareUsers() {
     const tbody = document.getElementById('hardwareUsersBody');
-    tbody.innerHTML = allUsersData.hardware.map(u => {
+    // Filter: only show Hardware POS users who have can_manage_hardware = true (or is_super_admin)
+    const filtered = allUsersData.hardware.filter(u => {
+        const p = permIndex['hardware:' + u.id];
+        return p && (p.is_super_admin || p.can_manage_hardware);
+    });
+    tbody.innerHTML = filtered.map(u => {
         const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
+        const p = permIndex['hardware:' + u.id] || {};
+        const accessLabel = (p.is_super_admin || p.can_manage_hardware)
+            ? '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>'
+            : '<span class="badge-um inactive"><i class="bi bi-x-circle"></i> No</span>';
         return `<tr><td>${u.id}</td><td><strong>${u.username || 'N/A'}</strong></td>
         <td>${u.full_name || 'N/A'}</td>
         <td><span class="${roleBadge}">${u.role || 'N/A'}</span></td>
+        <td>${accessLabel}</td>
         <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
-        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})"><i class="bi bi-trash"></i></button></td></tr>`;
-    }).join('') || '<tr><td colspan="6" class="text-center text-muted py-3">No users</td></tr>';
+        <td>
+            <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${u.full_name || u.username || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})"><i class="bi bi-trash"></i></button>
+        </td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No Hardware POS users have <strong>can_manage_hardware</strong> permission. Go to <strong>Permissions</strong> to grant access.</td></tr>';
 }
 
 function renderHrUsers() {
     const tbody = document.getElementById('hrUsersBody');
-    tbody.innerHTML = allUsersData.hr.map(u => {
+    // Filter: only show HR employees who have can_manage_hr = true (or is_super_admin)
+    const filtered = allUsersData.hr.filter(u => {
+        const p = permIndex['hr:' + u.id];
+        return p && (p.is_super_admin || p.can_manage_hr);
+    });
+    tbody.innerHTML = filtered.map(u => {
         const roleBadge = (u.role || '').toLowerCase() === 'administrator' ? 'badge-um admin' : 'badge-um ordinary';
         const statusBadge = (u.status || 'Active') === 'Active' ? 'badge-um active' : 'badge-um inactive';
+        const p = permIndex['hr:' + u.id] || {};
+        const accessLabel = (p.is_super_admin || p.can_manage_hr)
+            ? '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>'
+            : '<span class="badge-um inactive"><i class="bi bi-x-circle"></i> No</span>';
         return `<tr><td>${u.id}</td><td><strong>${u.first_name || ''} ${u.last_name || ''}</strong></td>
         <td>${u.email || 'N/A'}</td><td>${u.department || 'N/A'}</td>
         <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
+        <td>${accessLabel}</td>
         <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
-        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})"><i class="bi bi-trash"></i></button></td></tr>`;
-    }).join('') || '<tr><td colspan="7" class="text-center text-muted py-3">No employees</td></tr>';
+        <td>
+            <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${(u.first_name||'') + ' ' + (u.last_name||'')}')" title="Permissions"><i class="bi bi-shield"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})"><i class="bi bi-trash"></i></button>
+        </td></tr>`;
+    }).join('') || '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No HR employees have <strong>can_manage_hr</strong> permission. Go to <strong>Permissions</strong> to grant access.</td></tr>';
 }
 
 // ===== OPEN ADD MODAL WITH SYSTEM PREFILLED =====
