@@ -283,6 +283,56 @@ def initialize_database_tables():
                     whatsapp INT
                 );
             """)
+
+            # ===== UNIFIED ADMIN USERS TABLE =====
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS admin_users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL UNIQUE,
+                    password VARCHAR(100) NOT NULL,
+                    full_name VARCHAR(200) NOT NULL,
+                    email VARCHAR(200),
+                    whatsapp VARCHAR(50),
+                    source_system VARCHAR(20) DEFAULT 'projects',
+                    source_id INT,
+                    role VARCHAR(50) DEFAULT 'operator',
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            connection.commit()
+
+            # Migrate existing users from connectlinkusers to admin_users (if not already there)
+            try:
+                cursor.execute("""
+                    INSERT INTO admin_users (username, password, full_name, email, whatsapp, source_system, source_id, role, created_at)
+                    SELECT email, password, name, email, CAST(whatsapp AS VARCHAR), 'projects', id, 'admin', COALESCE(datecreated::timestamp, NOW())
+                    FROM connectlinkusers
+                    WHERE email IS NOT NULL AND email != ''
+                    ON CONFLICT (username) DO NOTHING
+                """)
+                migrated_cl = cursor.rowcount
+            except Exception as e:
+                migrated_cl = 0
+                print(f"Note: connectlinkusers migration: {e}")
+
+            try:
+                cursor.execute("""
+                    INSERT INTO admin_users (username, password, full_name, email, source_system, source_id, role, created_at)
+                    SELECT username, password, full_name, username, 'hardware', id, role, COALESCE(created_at, NOW())
+                    FROM hardware_users
+                    WHERE username IS NOT NULL AND username != ''
+                    ON CONFLICT (username) DO NOTHING
+                """)
+                migrated_hw = cursor.rowcount
+            except Exception as e:
+                migrated_hw = 0
+                print(f"Note: hardware_users migration: {e}")
+
+            if migrated_cl + migrated_hw > 0:
+                print(f"✅ Migrated {migrated_cl} projects + {migrated_hw} hardware users to admin_users")
+            connection.commit()
             
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS whatsapp_messages (
@@ -11780,42 +11830,69 @@ def login():
                 if not email_or_username or not password:
                     return jsonify({'success': False, 'message': 'Username/Email and password are required.'}), 400
 
-                # Debug: Check if hardware_users table exists
+                # ===== TRY UNIFIED admin_users TABLE FIRST =====
                 try:
-                    cursor.execute("SELECT id, username, password, full_name, role FROM hardware_users WHERE username = %s", (email_or_username,))
-                    hw_rows = cursor.fetchall()
-                    print(f"🔍 DEBUG: Hardware users query returned {len(hw_rows) if hw_rows else 0} rows for username: {email_or_username}")
-                    
-                    if hw_rows:
-                        hw_user = hw_rows[0]
-                        print(f"🔍 DEBUG: Found hardware user: {hw_user[1]}, checking password...")
-                        print(f"🔍 DEBUG: Database password: '{hw_user[2]}' | Submitted password: '{password}' | Match: {hw_user[2] == password}")
-                        
-                        if hw_user[2] == password:  # password matches
+                    cursor.execute("""
+                        SELECT id, username, password, full_name, email, role, source_system, source_id
+                        FROM admin_users WHERE username = %s AND is_active = TRUE
+                    """, (email_or_username,))
+                    au_row = cursor.fetchone()
+                    if au_row:
+                        if au_row[2] == password:
                             user_uuid = uuid.uuid4()
                             session['user_uuid'] = str(user_uuid)
                             session.permanent = True
                             user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-                            
-                            # Set session for hardware user with role
+                            session['user_id'] = int(au_row[0])
+                            session['username'] = au_row[1]
+                            session['full_name'] = au_row[3]
+                            session['user_name'] = au_row[3]
+                            session['role'] = au_row[5]
+                            session['userid'] = int(au_row[0])
+                            session['source_system'] = au_row[6]
+                            session['source_id'] = au_row[7]
+
+                            # Determine redirect based on source or role
+                            if au_row[6] == 'hardware' or au_row[5] == 'admin':
+                                redirect_to = '/pos-system.html'
+                            else:
+                                redirect_to = '/dashboard'
+
+                            log_activity('user_login', f'Admin user {email_or_username} logged in (source: {au_row[6]})', 'user', au_row[0], {'username': email_or_username, 'source': au_row[6], 'role': au_row[5]})
+                            print(f"✅ Admin user {email_or_username} logged in from {au_row[6]}")
+                            return jsonify({'success': True, 'message': 'Login successful', 'redirect': redirect_to}), 200
+                        else:
+                            print(f"❌ Incorrect password for admin user {email_or_username}")
+                            return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
+                except Exception as au_error:
+                    print(f"⚠️  Error querying admin_users: {au_error}")
+
+                # ===== FALLBACK: Check hardware_users =====
+                try:
+                    cursor.execute("SELECT id, username, password, full_name, role FROM hardware_users WHERE username = %s", (email_or_username,))
+                    hw_rows = cursor.fetchall()
+                    if hw_rows:
+                        hw_user = hw_rows[0]
+                        if hw_user[2] == password:
+                            user_uuid = uuid.uuid4()
+                            session['user_uuid'] = str(user_uuid)
+                            session.permanent = True
+                            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
                             session['user_id'] = int(hw_user[0])
                             session['username'] = hw_user[1]
                             session['full_name'] = hw_user[3]
                             session['role'] = hw_user[4]
-                            session['userid'] = int(hw_user[0])  # For backward compatibility
+                            session['userid'] = int(hw_user[0])
                             session['user_name'] = hw_user[3]
-                            
                             log_activity('user_login', f'Hardware user {email_or_username} logged in with role {hw_user[4]}', 'user', hw_user[0], {'username': email_or_username, 'role': hw_user[4]})
                             print(f"✅ Hardware user {email_or_username} logged in successfully with role: {hw_user[4]}")
                             return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/pos-system.html'}), 200
                         else:
-                            print(f"❌ Incorrect password for hardware user {email_or_username}")
                             return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
                 except Exception as hw_error:
                     print(f"⚠️  Error querying hardware_users: {hw_error}")
-                    # Continue to connectlinkusers check
                 
-                # If not hardware user, try connectlinkusers (for building projects)
+                # ===== FALLBACK: Try connectlinkusers =====
                 # Try to find user by email OR username
                 search_query = "SELECT id, datecreated, name, password, email, whatsapp FROM connectlinkusers WHERE email = %s OR name = %s;"
                 cursor.execute(search_query, (email_or_username, email_or_username))
@@ -22776,7 +22853,7 @@ def um_permissions_api():
 
 @app.route('/user-management-login', methods=['POST'])
 def user_management_login():
-    """Login for User Management portal - checks connectlinkusers AND hardware_users"""
+    """Login for User Management portal - checks admin_users first, then falls back"""
     try:
         email_or_username = request.form.get('emaillogin', '').strip()
         password = request.form.get('passwordlogin', '').strip()
@@ -22785,22 +22862,30 @@ def user_management_login():
             return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
 
         with get_db() as (cursor, connection):
-            # First try connectlinkusers (Building Projects users)
+            # First try unified admin_users table
             cursor.execute("""
-                SELECT id, datecreated, name, password, email, whatsapp
-                FROM connectlinkusers WHERE email = %s OR name = %s
-            """, (email_or_username, email_or_username))
-            rows = cursor.fetchall()
-
-            if rows and rows[0][3] == password:
-                user_row = rows[0]
+                SELECT id, username, password, full_name, source_system, source_id, role
+                FROM admin_users WHERE username = %s AND is_active = TRUE
+            """, (email_or_username,))
+            au_row = cursor.fetchone()
+            if au_row and au_row[2] == password:
                 user_uuid = uuid.uuid4()
                 session['user_uuid'] = str(user_uuid)
                 session.permanent = True
                 user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-                session['userid'] = int(user_row[0])
-                session['user_name'] = user_row[2]
-                session['um_user_type'] = 'projects'
+                session['userid'] = int(au_row[0])
+                session['user_name'] = au_row[3]
+                session['um_user_type'] = au_row[4]  # 'projects' or 'hardware'
+                session['um_source_id'] = au_row[5]
+
+                # Load permissions
+                perms = get_user_permissions(au_row[4], au_row[5] if au_row[5] else au_row[0])
+                session['um_permissions'] = perms
+
+                log_activity('user_login', f'User Management: {au_row[3]} logged in (source: {au_row[4]})', 'user', au_row[0])
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
+
+            # Fallback: try connectlinkusers (Building Projects users)
 
                 # Load permissions
                 perms = get_user_permissions('projects', user_row[0])
@@ -22859,6 +22944,92 @@ def um_projects_users():
             rows = cursor.fetchall()
             users = [{'id': r[0], 'datecreated': str(r[1]) if r[1] else None, 'name': r[2], 'email': r[3], 'whatsapp': r[4]} for r in rows]
             return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/admin-users')
+def um_admin_users():
+    """Get all unified admin users"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, username, full_name, email, whatsapp, source_system, source_id, role, is_active, created_at
+                FROM admin_users ORDER BY id DESC
+            """)
+            rows = cursor.fetchall()
+            users = [{
+                'id': r[0], 'username': r[1], 'full_name': r[2], 'email': r[3],
+                'whatsapp': r[4], 'source_system': r[5], 'source_id': r[6],
+                'role': r[7], 'is_active': r[8],
+                'created_at': str(r[9]) if r[9] else None
+            } for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/save-admin-user', methods=['POST'])
+def um_save_admin_user():
+    """Create or update a unified admin user"""
+    perms = session.get('um_permissions', {})
+    is_super = perms.get('is_super_admin', False)
+    try:
+        data = request.get_json()
+        edit_id = data.get('edit_id')
+        if edit_id:
+            if not is_super and not perms.get('can_edit_users', False):
+                return jsonify({'success': False, 'error': 'Access denied: cannot edit users.'}), 403
+        else:
+            if not is_super and not perms.get('can_add_users', False):
+                return jsonify({'success': False, 'error': 'Access denied: cannot add users.'}), 403
+
+        username = data.get('username', '').strip()
+        full_name = data.get('full_name', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        role = data.get('role', 'operator')
+        source_system = data.get('source_system', 'projects')
+
+        if not username or not full_name:
+            return jsonify({'success': False, 'error': 'Username and full name are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            if edit_id:
+                if password:
+                    cursor.execute("""
+                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, password=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (username, full_name, email, role, password, edit_id))
+                else:
+                    cursor.execute("""
+                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (username, full_name, email, role, edit_id))
+                msg = 'Admin user updated'
+            else:
+                pw = password or 'conlink123'
+                cursor.execute("""
+                    INSERT INTO admin_users (username, password, full_name, email, source_system, role)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (username, pw, full_name, email, source_system, role))
+                msg = 'Admin user created'
+            connection.commit()
+            return jsonify({'success': True, 'message': msg})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-admin-user/<int:user_id>', methods=['DELETE'])
+def um_delete_admin_user(user_id):
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: cannot delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM admin_users WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Admin user deleted'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

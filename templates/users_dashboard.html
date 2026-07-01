@@ -449,14 +449,14 @@
                 <span style="font-size:0.6rem;color:var(--text-muted);"><i class="bi bi-calendar3"></i> <span id="currentDate"></span></span>
             </div>
             <div class="stats-grid" id="overviewStats">
-                <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-people-fill"></i></div><div class="stat-body"><div class="stat-label">Projects Users</div><div class="stat-value" id="statProjects">0</div></div></div>
+                <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-person-badge"></i></div><div class="stat-body"><div class="stat-label">Total Admins</div><div class="stat-value" id="statTotal">0</div></div></div>
+                <div class="stat-card"><div class="stat-icon green"><i class="bi bi-people-fill"></i></div><div class="stat-body"><div class="stat-label">Projects Users</div><div class="stat-value" id="statProjects">0</div></div></div>
                 <div class="stat-card"><div class="stat-icon amber"><i class="bi bi-cash-register"></i></div><div class="stat-body"><div class="stat-label">Hardware Users</div><div class="stat-value" id="statHardware">0</div></div></div>
                 <div class="stat-card"><div class="stat-icon purple"><i class="bi bi-people"></i></div><div class="stat-body"><div class="stat-label">HR Employees</div><div class="stat-value" id="statHr">0</div></div></div>
-                <div class="stat-card"><div class="stat-icon green"><i class="bi bi-person-badge"></i></div><div class="stat-body"><div class="stat-label">Total Accounts</div><div class="stat-value" id="statTotal">0</div></div></div>
             </div>
             <!-- Quick Access: All 3 system tables -->
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-grid-3x3-gap-fill"></i> System Portals Overview</h6></div>
+                <div class="card-header"><h6><i class="bi bi-grid-3x3-gap-fill"></i> Unified Admin Users Overview</h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll" style="max-height:240px;">
                         <table class="table-um" id="overviewTable">
@@ -821,12 +821,14 @@ let permIndex = {}; // { "projects:5": { can_manage_hardware: true, ... }, ... }
 async function loadAllData(skipLoader) {
     if (!skipLoader) showLoader(true);
     try {
-        const [projRes, hwRes, hrRes, permRes] = await Promise.all([
+        const [adminRes, projRes, hwRes, hrRes, permRes] = await Promise.all([
+            fetch('/api/user-management/admin-users'),
             fetch('/api/user-management/projects-users'),
             fetch('/api/user-management/hardware-users'),
             fetch('/api/user-management/hr-users'),
             fetch('/api/user-management/permissions')
         ]);
+        const adminData = await adminRes.json();
         const projData = await projRes.json();
         const hwData = await hwRes.json();
         const hrData = await hrRes.json();
@@ -841,6 +843,7 @@ async function loadAllData(skipLoader) {
         }
 
         allUsersData = {
+            admin: adminData.data || [],
             projects: projData.data || [],
             hardware: hwData.data || [],
             hr: hrData.data || []
@@ -855,10 +858,11 @@ async function loadAllData(skipLoader) {
         // Re-apply permission-based visibility (hides buttons the user can't use)
         applyPermissions();
 
+        const adminCount = allUsersData.admin ? allUsersData.admin.length : 0;
         document.getElementById('statProjects').textContent = allUsersData.projects.length;
         document.getElementById('statHardware').textContent = allUsersData.hardware.length;
         document.getElementById('statHr').textContent = allUsersData.hr.length;
-        document.getElementById('statTotal').textContent = allUsersData.projects.length + allUsersData.hardware.length + allUsersData.hr.length;
+        document.getElementById('statTotal').textContent = adminCount;
 
         if (!skipLoader) showLoader(false);
     } catch(e) { if (!skipLoader) showLoader(false); console.error('Load error:', e); }
@@ -867,29 +871,22 @@ async function loadAllData(skipLoader) {
 // ===== RENDER OVERVIEW TABLE =====
 function renderOverview() {
     const tbody = document.getElementById('overviewTableBody');
-    const sys = [
-        { name: 'Building Projects', icon: 'bi-hard-hat', class: 'projects', data: allUsersData.projects, count: allUsersData.projects.length },
-        { name: 'Hardware POS', icon: 'bi-cash-register', class: 'hardware', data: allUsersData.hardware, count: allUsersData.hardware.length },
-        { name: 'Human Resources', icon: 'bi-people', class: 'hr', data: allUsersData.hr, count: allUsersData.hr.length }
-    ];
-    tbody.innerHTML = '';
-    sys.forEach(s => {
-        const active = s.data.filter(u => u.status !== 'Inactive' && u.status !== 'Terminated').length;
-        const admins = s.data.filter(u => {
-            const r = (u.role || '').toLowerCase();
-            return r === 'admin' || r === 'administrator';
-        }).length;
-        const latest = s.data.length > 0 ? (s.data[0].name || s.data[0].username || s.data[0].email || 'N/A') : 'N/A';
-        const status = s.count > 0 ? '<span class="badge-um active">Online</span>' : '<span class="badge-um inactive">No Data</span>';
-        tbody.innerHTML += `<tr>
-            <td><i class="${s.icon}" style="color:var(--primary);margin-right:4px;"></i> ${s.name}</td>
-            <td><strong>${s.count}</strong></td>
-            <td>${active}</td>
-            <td>${admins}</td>
-            <td style="font-size:0.6rem;">${latest}</td>
-            <td>${status}</td>
-        </tr>`;
-    });
+    const adminCount = (allUsersData.admin || []).length;
+    const activeAdmins = (allUsersData.admin || []).filter(u => u.is_active).length;
+    const adminAdmins = (allUsersData.admin || []).filter(u => {
+        const r = (u.role || '').toLowerCase();
+        return r === 'admin' || r === 'administrator';
+    }).length;
+    const latestAdmin = (allUsersData.admin || []).length > 0
+        ? (allUsersData.admin[0].full_name || allUsersData.admin[0].username || 'N/A') : 'N/A';
+    tbody.innerHTML = `<tr>
+        <td><i class="bi bi-person-badge" style="color:var(--primary);margin-right:4px;"></i> All Admin Users</td>
+        <td><strong>${adminCount}</strong></td>
+        <td>${activeAdmins}</td>
+        <td>${adminAdmins}</td>
+        <td style="font-size:0.6rem;">${latestAdmin}</td>
+        <td>${adminCount > 0 ? '<span class="badge-um active">Active</span>' : '<span class="badge-um inactive">No Data</span>'}</td>
+    </tr>`;
 }
 
 // ===== RENDER ALL USERS (unified, with portal access badges) =====
@@ -909,7 +906,35 @@ function renderAllUsers() {
     let html = '';
     let idx = 0;
 
+    // Primary source: unified admin_users table
+    (allUsersData.admin || []).forEach(u => {
+        idx++;
+        const created = u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A';
+        const p = permIndex[(u.source_system || 'projects') + ':' + (u.source_id || u.id)] || {};
+        const accessHtml = getPortalAccessBadges(p);
+        const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
+        const statusBadge = u.is_active ? 'badge-um active' : 'badge-um inactive';
+        const sourceTag = u.source_system === 'hardware' ? 'hardware' : (u.source_system === 'hr' ? 'hr' : 'projects');
+        html += `<tr data-system="${sourceTag}">
+            <td>${idx}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || u.email || 'N/A'}</td>
+            <td><span class="portal-tag ${sourceTag}">${sourceTag.charAt(0).toUpperCase() + sourceTag.slice(1)}</span></td>
+            <td>${accessHtml}</td>
+            <td><span class="${roleBadge}">${u.role || 'operator'}</span></td>
+            <td><span class="${statusBadge}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
+            <td style="font-size:0.55rem;">${created}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${u.source_system || 'projects'}', ${u.source_id || u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteAdminUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+
+    // Also show legacy users not yet in admin_users
     allUsersData.projects.forEach(u => {
+        const already = (allUsersData.admin || []).some(a => a.source_system === 'projects' && a.source_id === u.id);
+        if (already) return;
         idx++;
         const created = u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A';
         const p = permIndex['projects:' + u.id] || {};
@@ -924,13 +949,15 @@ function renderAllUsers() {
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${u.name || u.email || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${(u.name||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
                 <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
     });
 
     allUsersData.hardware.forEach(u => {
+        const already = (allUsersData.admin || []).some(a => a.source_system === 'hardware' && a.source_id === u.id);
+        if (already) return;
         idx++;
         const created = u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A';
         const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
@@ -946,30 +973,8 @@ function renderAllUsers() {
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${u.full_name || u.username || ''}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
                 <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
-            </td>
-        </tr>`;
-    });
-
-    allUsersData.hr.forEach(u => {
-        idx++;
-        const roleBadge = (u.role || '').toLowerCase() === 'administrator' ? 'badge-um admin' : 'badge-um ordinary';
-        const statusBadge = (u.status || 'Active') === 'Active' ? 'badge-um active' : 'badge-um inactive';
-        const p = permIndex['hr:' + u.id] || {};
-        const accessHtml = getPortalAccessBadges(p);
-        html += `<tr data-system="hr">
-            <td>${idx}</td>
-            <td><strong>${u.first_name || ''} ${u.last_name || ''}</strong></td>
-            <td>${u.email || 'N/A'}</td>
-            <td><span class="portal-tag hr">HR</span></td>
-            <td>${accessHtml}</td>
-            <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
-            <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
-            <td style="font-size:0.55rem;">${u.date_joined || 'N/A'}</td>
-            <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${(u.first_name||'') + ' ' + (u.last_name||'')}')" title="Permissions"><i class="bi bi-shield"></i></button>
-                <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteHrUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
     });
@@ -1120,18 +1125,19 @@ async function saveUser() {
 
     showLoader(true);
 
+    // Try unified admin_users API first, fall back to legacy
     try {
-        const res = await fetch('/api/user-management/save-user', {
+        const res = await fetch('/api/user-management/save-admin-user', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                system, name, email, password, role, status,
-                edit_id: editId || null,
-                edit_system: editSys || null,
-                full_name: document.getElementById('addUserFullName').value.trim() || name,
-                whatsapp: document.getElementById('addUserWhatsapp').value.trim(),
-                department: document.getElementById('addUserDept').value,
-                designation: document.getElementById('addUserDesignation').value.trim()
+                username: email,
+                full_name: name,
+                email: email,
+                password: password || undefined,
+                role: role === 'Administrator' || role === 'admin' ? 'admin' : 'operator',
+                source_system: system,
+                edit_id: editId || null
             })
         });
         const data = await res.json();
@@ -1144,7 +1150,30 @@ async function saveUser() {
             resetAddForm();
             await loadAllData();
         } else {
-            alert('❌ ' + (data.error || 'Failed to save'));
+            // Fallback to legacy save
+            const res2 = await fetch('/api/user-management/save-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system, name, email, password, role, status,
+                    edit_id: editId || null,
+                    edit_system: editSys || null,
+                    full_name: document.getElementById('addUserFullName').value.trim() || name,
+                    whatsapp: document.getElementById('addUserWhatsapp').value.trim(),
+                    department: document.getElementById('addUserDept').value,
+                    designation: document.getElementById('addUserDesignation').value.trim()
+                })
+            });
+            const data2 = await res2.json();
+            if (data2.success) {
+                document.getElementById('addUserMsg').textContent = '✅ ' + data2.message;
+                document.getElementById('addUserMsg').style.color = '#2e7d32';
+                setTimeout(() => { document.getElementById('addUserMsg').textContent = ''; }, 3000);
+                resetAddForm();
+                await loadAllData();
+            } else {
+                alert('❌ ' + (data2.error || 'Failed to save'));
+            }
         }
     } catch(e) { showLoader(false); alert('Error: ' + e.message); }
 }
@@ -1177,6 +1206,17 @@ async function deleteHrUser(id) {
     showLoader(true);
     try {
         const res = await fetch(`/api/user-management/delete-hr-user/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        showLoader(false);
+        if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+async function deleteAdminUser(id) {
+    if (!confirm('Delete this admin user?')) return;
+    showLoader(true);
+    try {
+        const res = await fetch(`/api/user-management/delete-admin-user/${id}`, { method: 'DELETE' });
         const data = await res.json();
         showLoader(false);
         if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
