@@ -22745,6 +22745,10 @@ def um_permissions_api():
             return jsonify({'success': False, 'error': str(e)}), 500
 
     elif request.method == 'POST':
+        # Permission check: need can_manage_roles to modify permissions
+        perms = session.get('um_permissions', {})
+        if not perms.get('is_super_admin', False) and not perms.get('can_manage_roles', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to manage roles.'}), 403
         try:
             data = request.get_json()
             user_type = data.get('user_type')
@@ -22895,6 +22899,17 @@ def um_hr_users():
 @app.route('/api/user-management/save-user', methods=['POST'])
 def um_save_user():
     """Create or update a user across any system"""
+    # Permission check: need can_add_users (or can_edit_users for edits)
+    perms = session.get('um_permissions', {})
+    is_super = perms.get('is_super_admin', False)
+    edit_id = request.get_json().get('edit_id') if request.get_json() else None
+    if edit_id:
+        if not is_super and not perms.get('can_edit_users', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to edit users.'}), 403
+    else:
+        if not is_super and not perms.get('can_add_users', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to add users.'}), 403
+
     try:
         data = request.get_json()
         system = data.get('system')
@@ -22903,7 +22918,6 @@ def um_save_user():
         password = data.get('password', '')
         role = data.get('role', 'Ordinary User')
         status = data.get('status', 'Active')
-        edit_id = data.get('edit_id')
         edit_system = data.get('edit_system')
 
         if not name or not email:
@@ -22968,6 +22982,10 @@ def um_save_user():
 
 @app.route('/api/user-management/delete-projects-user/<int:user_id>', methods=['DELETE'])
 def um_delete_projects_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
     try:
         with get_db() as (cursor, connection):
             cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (user_id,))
@@ -22979,6 +22997,10 @@ def um_delete_projects_user(user_id):
 
 @app.route('/api/user-management/delete-hardware-user/<int:user_id>', methods=['DELETE'])
 def um_delete_hardware_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
     try:
         with get_db() as (cursor, connection):
             cursor.execute("DELETE FROM hardware_users WHERE id = %s", (user_id,))
@@ -22990,6 +23012,10 @@ def um_delete_hardware_user(user_id):
 
 @app.route('/api/user-management/delete-hr-user/<int:user_id>', methods=['DELETE'])
 def um_delete_hr_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
     try:
         with get_db() as (cursor, connection):
             cursor.execute("DELETE FROM hr_employees WHERE id = %s", (user_id,))
