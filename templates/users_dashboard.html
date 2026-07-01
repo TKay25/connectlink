@@ -482,7 +482,7 @@
                 <div class="card-body p-0">
                     <div class="table-scroll">
                         <table class="table-um" id="allUsersTable">
-                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Account Source</th><th>Granted Permissions</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Granted Permissions</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="allUsersTableBody"></tbody>
                         </table>
                     </div>
@@ -914,18 +914,17 @@ function renderAllUsers() {
         const accessHtml = getPortalAccessBadges(p);
         const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
         const statusBadge = u.is_active ? 'badge-um active' : 'badge-um inactive';
-        const sourceTag = u.source_system === 'hardware' ? 'hardware' : (u.source_system === 'hr' ? 'hr' : 'projects');
-        html += `<tr data-system="${sourceTag}">
+        const sourceForPerm = u.source_system || 'projects';
+        html += `<tr>
             <td>${idx}</td>
             <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
             <td>${u.username || u.email || 'N/A'}</td>
-            <td><span class="portal-tag ${sourceTag}">${sourceTag.charAt(0).toUpperCase() + sourceTag.slice(1)}</span></td>
             <td>${accessHtml}</td>
             <td><span class="${roleBadge}">${u.role || 'operator'}</span></td>
             <td><span class="${statusBadge}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
             <td style="font-size:0.55rem;">${created}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${u.source_system || 'projects'}', ${u.source_id || u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${sourceForPerm}', ${u.source_id || u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
                 <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteAdminUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
@@ -939,11 +938,10 @@ function renderAllUsers() {
         const created = u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A';
         const p = permIndex['projects:' + u.id] || {};
         const accessHtml = getPortalAccessBadges(p);
-        html += `<tr data-system="projects">
+        html += `<tr>
             <td>${idx}</td>
             <td><strong>${u.name || 'N/A'}</strong></td>
             <td>${u.email || 'N/A'}</td>
-            <td><span class="portal-tag projects">Projects</span></td>
             <td>${accessHtml}</td>
             <td><span class="badge-um admin">Admin</span></td>
             <td><span class="badge-um active">Active</span></td>
@@ -963,11 +961,10 @@ function renderAllUsers() {
         const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
         const p = permIndex['hardware:' + u.id] || {};
         const accessHtml = getPortalAccessBadges(p);
-        html += `<tr data-system="hardware">
+        html += `<tr>
             <td>${idx}</td>
             <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
             <td>${u.username || 'N/A'}</td>
-            <td><span class="portal-tag hardware">Hardware</span></td>
             <td>${accessHtml}</td>
             <td><span class="${roleBadge}">${u.role || 'N/A'}</span></td>
             <td><span class="badge-um active">Active</span></td>
