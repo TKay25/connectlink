@@ -1239,13 +1239,17 @@ function openAddUserModal() {
 
 function toggleSystemFields() {
     const sys = document.getElementById('addUserSystem').value;
-    document.getElementById('hardwareExtraFields').style.display = sys === 'hardware' ? '' : 'none';
-    document.getElementById('hrExtraFields').style.display = sys === 'hr' ? '' : 'none';
+    const hw = document.getElementById('hardwareExtraFields');
+    if (hw) hw.style.display = sys === 'hardware' ? '' : 'none';
+    const hr = document.getElementById('hrExtraFields');
+    if (hr) hr.style.display = sys === 'hr' ? '' : 'none';
     const roleSelect = document.getElementById('addUserRole');
-    if (sys === 'hardware') {
-        roleSelect.innerHTML = '<option value="operator">Operator (POS)</option><option value="admin">Admin (Full Access)</option>';
-    } else {
-        roleSelect.innerHTML = '<option value="Ordinary User">Ordinary User</option><option value="Administrator">Administrator</option>';
+    if (roleSelect) {
+        if (sys === 'hardware') {
+            roleSelect.innerHTML = '<option value="operator">Operator (POS)</option><option value="admin">Admin (Full Access)</option>';
+        } else {
+            roleSelect.innerHTML = '<option value="operator">Operator</option><option value="admin">Admin (Full Access)</option>';
+        }
     }
 }
 
