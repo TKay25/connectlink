@@ -625,14 +625,14 @@
             <div class="page-header">
                 <h4><i class="bi bi-cash-register"></i> Hardware POS</h4>
                 <div>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage hardware</span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um ordinary" style="font-size:0.45rem;">Basic</span> = default · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage</span>
                 </div>
             </div>
             <div class="um-card">
                 <div class="card-header"><h6><i class="bi bi-table"></i> All Hardware POS users</h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Username</th><th>POS Role</th><th>Access Level</th><th>Created</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Username</th><th>Role</th><th>Access Level</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="hardwareUsersBody"></tbody>
                         </table>
                     </div>
@@ -645,14 +645,14 @@
             <div class="page-header">
                 <h4><i class="bi bi-people"></i> HR Employees</h4>
                 <div>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">All employees · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage HR</span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um ordinary" style="font-size:0.45rem;">Basic</span> = default · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage</span>
                 </div>
             </div>
             <div class="um-card">
                 <div class="card-header"><h6><i class="bi bi-table"></i> All HR employees</h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Department</th><th>Access Level</th><th>Status</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email/Username</th><th>Role</th><th>Access Level</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="hrUsersBody"></tbody>
                         </table>
                     </div>
@@ -733,7 +733,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-hard-hat"></i> Building Projects</h4>
                 <div>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage projects</span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um ordinary" style="font-size:0.45rem;">Basic</span> = default · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage</span>
                 </div>
             </div>
             <div class="um-card">
@@ -1154,81 +1154,83 @@ function filterAllUsers() {
 
 function renderProjectsUsers() {
     const tbody = document.getElementById('projectsUsersBody');
-    const all = allUsersData.projects || [];
+    const all = allUsersData.admin || [];
     const badge = (u) => {
-        const p = permIndex['projects:' + u.id];
-        if (!p) return '<span class="badge-um inactive" style="font-size:0.5rem;">No access</span>';
-        if (p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
-        if (p.can_manage_projects) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        const sys = u.source_system || 'projects';
+        const p = permIndex[sys + ':' + (u.source_id || u.id)];
+        if (p && p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p && p.can_manage_projects) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
         return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
     };
+    const permType = (u) => u.source_system || 'projects';
+    const permId = (u) => u.source_id || u.id;
     tbody.innerHTML = all.length
         ? all.map((u, i) => `<tr>
             <td>${i+1}</td>
-            <td><strong>${u.name || 'N/A'}</strong></td>
-            <td>${u.email || 'N/A'}</td>
-            <td>Admin</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || u.email || 'N/A'}</td>
+            <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}" style="font-size:0.5rem;">${u.role||'operator'}</span></td>
             <td>${badge(u)}</td>
-            <td style="font-size:0.55rem;">${u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A'}</td>
+            <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${(u.name||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`).join('')
-        : '<tr><td colspan="7" class="text-center text-muted py-3">No Projects users found.</td></tr>';
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
 }
 
 function renderHardwareUsers() {
     const tbody = document.getElementById('hardwareUsersBody');
-    const all = allUsersData.hardware || [];
+    const all = allUsersData.admin || [];
     const badge = (u) => {
-        const p = permIndex['hardware:' + u.id];
-        if (!p) return '<span class="badge-um inactive" style="font-size:0.5rem;">No access</span>';
-        if (p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
-        if (p.can_manage_hardware) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        const sys = u.source_system || 'projects';
+        const p = permIndex[sys + ':' + (u.source_id || u.id)];
+        if (p && p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p && p.can_manage_hardware) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
         return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
     };
+    const permType = (u) => u.source_system || 'projects';
+    const permId = (u) => u.source_id || u.id;
     tbody.innerHTML = all.length
-        ? all.map((u, i) => {
-            const roleBadge = (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator';
-            return `<tr>
+        ? all.map((u, i) => `<tr>
             <td>${i+1}</td>
             <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
-            <td>${u.username || 'N/A'}</td>
-            <td><span class="${roleBadge}">${u.role || 'operator'}</span></td>
+            <td>${u.username || u.email || 'N/A'}</td>
+            <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}" style="font-size:0.5rem;">${u.role||'op'}</span></td>
             <td>${badge(u)}</td>
             <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`;}).join('')
-        : '<tr><td colspan="7" class="text-center text-muted py-3">No Hardware POS users found.</td></tr>';
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
 }
 
 function renderHrUsers() {
     const tbody = document.getElementById('hrUsersBody');
-    const all = allUsersData.hr || [];
+    const all = allUsersData.admin || [];
     const badge = (u) => {
-        const p = permIndex['hr:' + u.id];
-        if (!p) return '<span class="badge-um inactive" style="font-size:0.5rem;">No access</span>';
-        if (p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
-        if (p.can_manage_hr) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        const sys = u.source_system || 'projects';
+        const p = permIndex[sys + ':' + (u.source_id || u.id)];
+        if (p && p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p && p.can_manage_hr) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
         return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
     };
+    const permType = (u) => u.source_system || 'projects';
+    const permId = (u) => u.source_id || u.id;
     tbody.innerHTML = all.length
-        ? all.map((u, i) => {
-            const statusBadge = (u.status||'Active')==='Active'?'badge-um active':'badge-um inactive';
-            return `<tr>
+        ? all.map((u, i) => `<tr>
             <td>${i+1}</td>
-            <td><strong>${u.first_name||''} ${u.last_name||''}</strong></td>
-            <td>${u.email || 'N/A'}</td>
-            <td>${u.department || 'N/A'}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || u.email || 'N/A'}</td>
+            <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}" style="font-size:0.5rem;">${u.role||'op'}</span></td>
             <td>${badge(u)}</td>
-            <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
+            <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${((u.first_name||'')+' '+(u.last_name||'')).replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`;}).join('')
-        : '<tr><td colspan="7" class="text-center text-muted py-3">No HR employees found.</td></tr>';
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
 }
 
 // ===== OPEN ADD USER MODAL =====
@@ -1301,6 +1303,23 @@ async function saveUser() {
         if (data.success) {
             document.getElementById('addUserMsg').textContent = '✅ ' + data.message;
             document.getElementById('addUserMsg').style.color = '#2e7d32';
+            // Also save to the per-system legacy table so HR/hardware tabs are populated
+            if (system === 'hr' || system === 'hardware') {
+                try {
+                    await fetch('/api/user-management/save-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            system, name, email, password: password || 'conlink123',
+                            role, status: status || 'Active',
+                            full_name: name,
+                            whatsapp: document.getElementById('addUserWhatsapp')?.value?.trim() || '',
+                            department: document.getElementById('addUserDept')?.value || '',
+                            designation: document.getElementById('addUserDesignation')?.value?.trim() || ''
+                        })
+                    });
+                } catch(e) { /* legacy save is best-effort */ }
+            }
             setTimeout(() => {
                 document.getElementById('addUserMsg').textContent = '';
                 closeModal('addUserModal');

@@ -12035,7 +12035,8 @@ def login():
 
 @app.route('/hr-login', methods=['POST'])
 def hr_login():
-    """HR portal login - authenticates against connectlinkusers and redirects to HR dashboard"""
+    """HR portal login - everyone in admin_users can login (basic access).
+    Users with can_manage_hr get Administrator role (full access)."""
     try:
         email_or_username = request.form.get('emaillogin', '').strip()
         password = request.form.get('passwordlogin', '').strip()
@@ -12044,75 +12045,93 @@ def hr_login():
             return jsonify({'success': False, 'message': 'Email/Username and password are required.'}), 400
 
         with get_db() as (cursor, connection):
+            # 1. Try admin_users (unified table)
+            cursor.execute("""
+                SELECT id, username, password, full_name, source_system, source_id
+                FROM admin_users WHERE username = %s AND is_active = TRUE
+            """, (email_or_username,))
+            au = cursor.fetchone()
+            if au and au[2] == password:
+                userid = int(au[0])
+                user_name = au[3]
+                source_sys = au[4]
+                source_id = au[5]
+
+                # Check HR permission level
+                perm_lookup_type = source_sys if source_sys else 'projects'
+                perm_lookup_id = source_id if source_id else userid
+                cursor.execute("""
+                    SELECT can_manage_hr, is_super_admin
+                    FROM user_permissions WHERE user_type=%s AND user_id=%s
+                """, (perm_lookup_type, perm_lookup_id))
+                perm_row = cursor.fetchone()
+
+                is_hr_admin = perm_row and (perm_row[0] or perm_row[1])
+
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+
+                session['userid'] = userid
+                session['user_name'] = user_name
+                session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
+                session['hr_employee_id'] = None
+                session['can_manage_hr'] = is_hr_admin
+
+                log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': email_or_username, 'role': session['hr_role']})
+                print(f"✅ HR login: {user_name} as {session['hr_role']}")
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
+
+            # 2. Fallback: try connectlinkusers (legacy)
             cursor.execute("""
                 SELECT id, datecreated, name, password, email, whatsapp
-                FROM connectlinkusers
-                WHERE email = %s OR name = %s
+                FROM connectlinkusers WHERE email = %s OR name = %s
             """, (email_or_username, email_or_username))
             rows = cursor.fetchall()
 
-            if rows:
+            if rows and rows[0][3] == password:
                 user_row = rows[0]
-                if user_row[3] == password:
-                    userid = int(user_row[0])
-                    user_name = user_row[2]
+                userid = int(user_row[0])
+                user_name = user_row[2]
 
-                    # Check permissions for HR portal
-                    cursor.execute("""
-                        SELECT can_manage_hr, is_super_admin
-                        FROM user_permissions WHERE user_type='projects' AND user_id=%s
-                    """, (userid,))
-                    perm_row = cursor.fetchone()
-                    if perm_row:
-                        has_access = perm_row[0] or perm_row[1]
-                    else:
-                        # No permissions row yet — check if this is the first user (auto-grant super admin)
-                        cursor.execute("SELECT COUNT(*) FROM user_permissions")
-                        perm_count = cursor.fetchone()[0]
-                        if perm_count == 0:
-                            cursor.execute("""
-                                INSERT INTO user_permissions (user_type, user_id, is_super_admin,
-                                    can_manage_projects, can_manage_hardware, can_manage_hr,
-                                    can_add_users, can_edit_users, can_delete_users,
-                                    can_export_data, can_view_audit, can_manage_roles, can_view_payments)
-                                VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
-                            """, ('projects', userid))
-                            connection.commit()
-                            has_access = True
-                        else:
-                            has_access = False
-                    if not has_access:
-                        print(f"❌ Access denied for {user_name}: no HR permission")
-                        return jsonify({'success': False, 'message': 'Access denied: You do not have permission to access the HR portal. Contact an administrator.'}), 403
+                # Everyone in connectlinkusers gets basic HR access
+                cursor.execute("""
+                    SELECT can_manage_hr, is_super_admin
+                    FROM user_permissions WHERE user_type='projects' AND user_id=%s
+                """, (userid,))
+                perm_row = cursor.fetchone()
+                is_hr_admin = perm_row and (perm_row[0] or perm_row[1])
 
-                    user_uuid = uuid.uuid4()
-                    session['user_uuid'] = str(user_uuid)
-                    session.permanent = True
-                    user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                if not is_hr_admin:
+                    # First-time user: auto-create permission with basic access
+                    cursor.execute("SELECT COUNT(*) FROM user_permissions")
+                    if cursor.fetchone()[0] == 0:
+                        cursor.execute("""
+                            INSERT INTO user_permissions (user_type, user_id, is_super_admin,
+                                can_manage_projects, can_manage_hardware, can_manage_hr,
+                                can_add_users, can_edit_users, can_delete_users,
+                                can_export_data, can_view_audit, can_manage_roles, can_view_payments)
+                            VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                        """, ('projects', userid))
+                        connection.commit()
+                        is_hr_admin = True
 
-                    session['userid'] = userid
-                    session['user_name'] = user_name
-                    session['hr_role'] = 'Administrator'  # Default to admin for connectlinkusers logins
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
 
-                    # Check if user exists in hr_employees and get their role
-                    cursor.execute("""
-                        SELECT id, role FROM hr_employees WHERE user_id = %s
-                    """, (userid,))
-                    emp = cursor.fetchone()
-                    if emp:
-                        session['hr_employee_id'] = int(emp[0])
-                        session['hr_role'] = emp[1]
-                    else:
-                        session['hr_employee_id'] = None
+                session['userid'] = userid
+                session['user_name'] = user_name
+                session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
+                session['hr_employee_id'] = None
+                session['can_manage_hr'] = is_hr_admin
 
-                    log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': user_name, 'email': email_or_username, 'role': session['hr_role']})
-                    return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
-                else:
-                    print(f'❌ Incorrect password for HR user {email_or_username}')
-                    return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
-            else:
-                print(f"❌ No HR user found with email or username '{email_or_username}'")
-                return jsonify({'success': False, 'message': 'User not found.'}), 404
+                log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': email_or_username, 'role': session['hr_role']})
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
+
+            return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
 
     except Exception as e:
         print(f"HR login error: {e}")
@@ -12127,11 +12146,14 @@ def hr_dashboard():
     userid = session.get('userid')
     hr_role = session.get('hr_role', 'Ordinary User')
     hr_employee_id = session.get('hr_employee_id')
+    can_manage_hr = session.get('can_manage_hr', False)
 
     if not user_uuid:
         return render_template('mainindex.html')
 
-    return render_template('hr_dashboard.html', user_name=user_name, userid=userid, hr_role=hr_role, hr_employee_id=hr_employee_id)
+    return render_template('hr_dashboard.html', user_name=user_name, userid=userid,
+                           hr_role=hr_role, hr_employee_id=hr_employee_id,
+                           can_manage_hr=can_manage_hr)
 
 
 # ==================== HR API ENDPOINTS ====================
