@@ -674,6 +674,13 @@
                 <span class="perm-label"><i class="bi bi-shield"></i> Manage Roles &amp; Permissions</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_roles"><span class="toggle-slider"></span></label>
             </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
+                <i class="bi bi-cash-coin"></i> Finance Access
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-cash-coin"></i> View Payments Tab</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_view_payments"><span class="toggle-slider"></span></label>
+            </div>
             <div id="permModalMsg" style="font-size:0.6rem;margin-top:8px;text-align:center;min-height:18px;"></div>
         </div>
         <div class="modal-footer-custom">
@@ -1073,7 +1080,7 @@ function openPermModal(userType, userId, userName) {
 async function loadPermModalData(userType, userId) {
     const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                     'can_view_audit','can_manage_roles'];
+                     'can_view_audit','can_manage_roles','can_view_payments'];
     // Reset all toggles to off
     toggles.forEach(t => {
         const el = document.getElementById('toggle-' + t);
@@ -1104,7 +1111,7 @@ async function loadPermModalData(userType, userId) {
 async function savePermModal() {
     const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                     'can_view_audit','can_manage_roles'];
+                     'can_view_audit','can_manage_roles','can_view_payments'];
     const payload = {
         user_type: permModalUserType,
         user_id: permModalUserId

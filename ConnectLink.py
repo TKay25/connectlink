@@ -1247,12 +1247,22 @@ def initialize_database_tables():
                     can_export_data BOOLEAN DEFAULT FALSE,
                     can_view_audit BOOLEAN DEFAULT FALSE,
                     can_manage_roles BOOLEAN DEFAULT FALSE,
+                    can_view_payments BOOLEAN DEFAULT FALSE,
                     is_super_admin BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(user_type, user_id)
                 );
             """)
             connection.commit()
+            # Add can_view_payments column if it doesn't exist (for existing tables)
+            try:
+                cursor.execute("""
+                    ALTER TABLE user_permissions
+                    ADD COLUMN IF NOT EXISTS can_view_payments BOOLEAN DEFAULT FALSE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add can_view_payments column: {e}")
             print("✅ User permissions table initialized!")
 
             # ========== HR MODULE TABLES ==========
@@ -11720,11 +11730,16 @@ def Dashboard():
 
             try:
 
-                results = run1(userid)  
+                results = run1(userid)
+
+                # Check user permissions for Payments tab
+                perms = get_user_permissions('projects', userid)
+                can_view_payments = perms.get('can_view_payments', False) or perms.get('is_super_admin', False)
 
                 print("Back from adventures")
 
-                return render_template('adminpage.html', **results, userid = userid, user_name=user_name)
+                return render_template('adminpage.html', **results, userid=userid, user_name=user_name,
+                                       can_view_payments=can_view_payments)
                     
             except Exception as e:
 
@@ -11835,8 +11850,8 @@ def login():
                                     INSERT INTO user_permissions (user_type, user_id, is_super_admin,
                                         can_manage_projects, can_manage_hardware, can_manage_hr,
                                         can_add_users, can_edit_users, can_delete_users,
-                                        can_export_data, can_view_audit, can_manage_roles)
-                                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                                        can_export_data, can_view_audit, can_manage_roles, can_view_payments)
+                                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
                                 """, ('projects', int(np.int64(userid))))
                                 connection.commit()
                                 has_access = True
@@ -11917,8 +11932,8 @@ def hr_login():
                                 INSERT INTO user_permissions (user_type, user_id, is_super_admin,
                                     can_manage_projects, can_manage_hardware, can_manage_hr,
                                     can_add_users, can_edit_users, can_delete_users,
-                                    can_export_data, can_view_audit, can_manage_roles)
-                                VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                                    can_export_data, can_view_audit, can_manage_roles, can_view_payments)
+                                VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
                             """, ('projects', userid))
                             connection.commit()
                             has_access = True
@@ -22655,7 +22670,8 @@ def get_user_permissions(user_type, user_id):
             cursor.execute("""
                 SELECT can_manage_projects, can_manage_hardware, can_manage_hr,
                        can_add_users, can_edit_users, can_delete_users,
-                       can_export_data, can_view_audit, can_manage_roles, is_super_admin
+                       can_export_data, can_view_audit, can_manage_roles,
+                       is_super_admin, can_view_payments
                 FROM user_permissions WHERE user_type=%s AND user_id=%s
             """, (user_type, user_id))
             row = cursor.fetchone()
@@ -22665,7 +22681,8 @@ def get_user_permissions(user_type, user_id):
                     'can_manage_hr': row[2], 'can_add_users': row[3],
                     'can_edit_users': row[4], 'can_delete_users': row[5],
                     'can_export_data': row[6], 'can_view_audit': row[7],
-                    'can_manage_roles': row[8], 'is_super_admin': row[9]
+                    'can_manage_roles': row[8], 'is_super_admin': row[9],
+                    'can_view_payments': row[10]
                 }
             # If no permissions set, check if this is the first user - make them super admin
             cursor.execute("SELECT COUNT(*) FROM user_permissions")
@@ -22675,17 +22692,17 @@ def get_user_permissions(user_type, user_id):
                     INSERT INTO user_permissions (user_type, user_id, is_super_admin,
                         can_manage_projects, can_manage_hardware, can_manage_hr,
                         can_add_users, can_edit_users, can_delete_users,
-                        can_export_data, can_view_audit, can_manage_roles)
-                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                        can_export_data, can_view_audit, can_manage_roles, can_view_payments)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
                 """, (user_type, user_id))
                 connection.commit()
                 return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                    'can_view_audit','can_manage_roles','is_super_admin']}
+                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments']}
             # Default: no permissions
             return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                 'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                'can_view_audit','can_manage_roles','is_super_admin']}
+                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments']}
     except Exception as e:
         print(f"Permissions error: {e}")
         return {}
@@ -22704,7 +22721,8 @@ def um_permissions_api():
                                 ELSE 'Unknown' END as user_name,
                            up.is_super_admin, up.can_manage_projects, up.can_manage_hardware,
                            up.can_manage_hr, up.can_add_users, up.can_edit_users,
-                           up.can_delete_users, up.can_export_data, up.can_view_audit, up.can_manage_roles
+                           up.can_delete_users, up.can_export_data, up.can_view_audit,
+                           up.can_manage_roles, up.can_view_payments
                     FROM user_permissions up
                     LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
                     LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
@@ -22719,7 +22737,8 @@ def um_permissions_api():
                         'can_manage_hardware': r[6], 'can_manage_hr': r[7],
                         'can_add_users': r[8], 'can_edit_users': r[9],
                         'can_delete_users': r[10], 'can_export_data': r[11],
-                        'can_view_audit': r[12], 'can_manage_roles': r[13]
+                        'can_view_audit': r[12], 'can_manage_roles': r[13],
+                        'can_view_payments': r[14] if len(r) > 14 else False
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
@@ -22732,7 +22751,8 @@ def um_permissions_api():
             user_id = data.get('user_id')
             fields = ['is_super_admin', 'can_manage_projects', 'can_manage_hardware',
                       'can_manage_hr', 'can_add_users', 'can_edit_users', 'can_delete_users',
-                      'can_export_data', 'can_view_audit', 'can_manage_roles']
+                      'can_export_data', 'can_view_audit', 'can_manage_roles',
+                      'can_view_payments']
 
             with get_db() as (cursor, connection):
                 # Upsert

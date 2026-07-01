@@ -3778,11 +3778,13 @@ table.dataTable thead th.sorting_desc {
                                     <i class="bi bi-list-columns-reverse"></i> PROJECTS PORTAL
                                 </button>
                             </li>
+                            {% if can_view_payments %}
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#payments-tab">
                                     <i class="bi bi-cash-coin"></i> PAYMENTS PORTAL
                                 </button>
                             </li>
+                            {% endif %}
                             <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#quotations-tab">
                                     <i class="bi bi-file-earmark-text"></i> QUOTATIONS PORTAL
@@ -3869,6 +3871,7 @@ table.dataTable thead th.sorting_desc {
                             </div>
                         </div>
 
+                        {% if can_view_payments %}
                         <!-- PAYMENTS TAB -->
                         <div class="tab-pane fade" id="payments-tab">
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
@@ -3937,6 +3940,7 @@ table.dataTable thead th.sorting_desc {
                                 {{ status_df_html|safe }}
                             </div>
                         </div>
+                        {% endif %}
 
                         <!-- QUOTATIONS TAB -->
                         <div class="tab-pane fade" id="quotations-tab">
