@@ -224,6 +224,44 @@
         .um-card .card-header h6 i { color: var(--primary); }
         .um-card .card-body { padding: 10px 12px; }
         .um-card .card-body.p-0 { padding: 0; }
+        /* Dashboard stat cards */
+        .dash-stat-card {
+            background: #fff; border-radius: 10px;
+            padding: 14px 16px; display: flex; align-items: center; gap: 14px;
+            border-left: 3px solid var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: all 0.2s;
+        }
+        .dash-stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); transform: translateY(-1px); }
+        .dash-stat-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; flex-shrink: 0;
+        }
+        .dash-stat-body { flex: 1; min-width: 0; }
+        .dash-stat-label { font-size: 0.55rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+        .dash-stat-value { font-size: 1.2rem; font-weight: 800; line-height: 1.1; }
+        .dash-stat-sub { font-size: 0.55rem; color: #d1d5db; margin-top: 1px; }
+        /* Portal cards */
+        .portal-card {
+            background: #fff; border-radius: 10px; border: 1px solid #f3f4f6;
+            padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: all 0.2s;
+        }
+        .portal-card:hover { border-color: #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        .portal-card-icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;
+        }
+        .portal-card-body { flex: 1; min-width: 0; }
+        .portal-card-title { font-size: 0.7rem; font-weight: 700; color: #1f2937; }
+        .portal-card-count { font-size: 0.85rem; font-weight: 800; color: #111827; margin: 1px 0; }
+        .portal-card-desc { font-size: 0.5rem; color: #9ca3af; }
+        .portal-card-arrow { color: #d1d5db; font-size: 0.7rem; transition: all 0.2s; }
+        .portal-card:hover .portal-card-arrow { color: var(--primary); transform: translateX(3px); }
+        /* Row helper */
+        .row { display: flex; }
+        .row.g-3 { gap: 12px; }
         /* Tables */
         .table-um {
             width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.7rem;
@@ -442,27 +480,107 @@
 
     <main class="um-main">
 
-        <!-- OVERVIEW -->
+        <!-- OVERVIEW / DASHBOARD -->
         <div id="module-overview" class="um-module active">
             <div class="page-header">
-                <h4><i class="bi bi-speedometer2"></i> User Management Overview</h4>
-                <span style="font-size:0.6rem;color:var(--text-muted);"><i class="bi bi-calendar3"></i> <span id="currentDate"></span></span>
+                <div>
+                    <h4><i class="bi bi-speedometer2"></i> Dashboard</h4>
+                    <div style="font-size:0.55rem;color:var(--text-muted);margin-top:1px;"><i class="bi bi-calendar3"></i> <span id="currentDate"></span></div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-outline-primary btn-sm" onclick="showModule('all-users')"><i class="bi bi-people-fill"></i> View All Users</button>
+                    <button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="showModule('add-user')"><i class="bi bi-person-plus"></i> Add User</button>
+                </div>
             </div>
-            <div class="stats-grid" id="overviewStats">
-                <div class="stat-card"><div class="stat-icon blue"><i class="bi bi-person-badge"></i></div><div class="stat-body"><div class="stat-label">Total Admins</div><div class="stat-value" id="statTotal">0</div></div></div>
-                <div class="stat-card"><div class="stat-icon green"><i class="bi bi-people-fill"></i></div><div class="stat-body"><div class="stat-label">Projects Users</div><div class="stat-value" id="statProjects">0</div></div></div>
-                <div class="stat-card"><div class="stat-icon amber"><i class="bi bi-cash-register"></i></div><div class="stat-body"><div class="stat-label">Hardware Users</div><div class="stat-value" id="statHardware">0</div></div></div>
-                <div class="stat-card"><div class="stat-icon purple"><i class="bi bi-people"></i></div><div class="stat-body"><div class="stat-label">HR Employees</div><div class="stat-value" id="statHr">0</div></div></div>
+
+            <!-- Hero Stats Row -->
+            <div class="stats-grid" id="overviewStats" style="grid-template-columns:repeat(4,1fr);">
+                <div class="dash-stat-card" style="border-left-color:#3b82f6;">
+                    <div class="dash-stat-icon" style="background:rgba(59,130,246,0.1);color:#3b82f6;"><i class="bi bi-people-fill"></i></div>
+                    <div class="dash-stat-body">
+                        <div class="dash-stat-label">Total Users</div>
+                        <div class="dash-stat-value" id="statTotal" style="color:#3b82f6;">0</div>
+                        <div class="dash-stat-sub">Unified logins</div>
+                    </div>
+                </div>
+                <div class="dash-stat-card" style="border-left-color:#10b981;">
+                    <div class="dash-stat-icon" style="background:rgba(16,185,129,0.1);color:#10b981;"><i class="bi bi-shield-check"></i></div>
+                    <div class="dash-stat-body">
+                        <div class="dash-stat-label">Super Admins</div>
+                        <div class="dash-stat-value" id="statSuperAdmins" style="color:#10b981;">0</div>
+                        <div class="dash-stat-sub">Full access</div>
+                    </div>
+                </div>
+                <div class="dash-stat-card" style="border-left-color:#f59e0b;">
+                    <div class="dash-stat-icon" style="background:rgba(245,158,11,0.1);color:#f59e0b;"><i class="bi bi-cash-register"></i></div>
+                    <div class="dash-stat-body">
+                        <div class="dash-stat-label">With Hardware Access</div>
+                        <div class="dash-stat-value" id="statHardware" style="color:#f59e0b;">0</div>
+                        <div class="dash-stat-sub">can_manage_hardware</div>
+                    </div>
+                </div>
+                <div class="dash-stat-card" style="border-left-color:#8b5cf6;">
+                    <div class="dash-stat-icon" style="background:rgba(139,92,246,0.1);color:#8b5cf6;"><i class="bi bi-people"></i></div>
+                    <div class="dash-stat-body">
+                        <div class="dash-stat-label">With HR Access</div>
+                        <div class="dash-stat-value" id="statHr" style="color:#8b5cf6;">0</div>
+                        <div class="dash-stat-sub">can_manage_hr</div>
+                    </div>
+                </div>
             </div>
-            <!-- Quick Access: All 3 system tables -->
-            <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-grid-3x3-gap-fill"></i> Unified Admin Users Overview</h6></div>
-                <div class="card-body p-0">
-                    <div class="table-scroll" style="max-height:240px;">
-                        <table class="table-um" id="overviewTable">
-                            <thead><tr><th>System</th><th>Total Users</th><th>Active</th><th>Admins</th><th>Latest User</th><th>Status</th></tr></thead>
-                            <tbody id="overviewTableBody"></tbody>
-                        </table>
+
+            <!-- Portal Quick Access Cards -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+                <div class="portal-card" onclick="showModule('projects-users')" style="cursor:pointer;">
+                    <div class="portal-card-icon" style="background:rgba(59,130,246,0.1);color:#3b82f6;"><i class="bi bi-hard-hat"></i></div>
+                    <div class="portal-card-body">
+                        <div class="portal-card-title">Building Projects</div>
+                        <div class="portal-card-count" id="cardProjectsCount">0 users</div>
+                        <div class="portal-card-desc">With can_manage_projects</div>
+                    </div>
+                    <i class="bi bi-chevron-right portal-card-arrow"></i>
+                </div>
+                <div class="portal-card" onclick="showModule('hardware-users')" style="cursor:pointer;">
+                    <div class="portal-card-icon" style="background:rgba(245,158,11,0.1);color:#f59e0b;"><i class="bi bi-cash-register"></i></div>
+                    <div class="portal-card-body">
+                        <div class="portal-card-title">Hardware POS</div>
+                        <div class="portal-card-count" id="cardHardwareCount">0 users</div>
+                        <div class="portal-card-desc">With can_manage_hardware</div>
+                    </div>
+                    <i class="bi bi-chevron-right portal-card-arrow"></i>
+                </div>
+                <div class="portal-card" onclick="showModule('hr-users')" style="cursor:pointer;">
+                    <div class="portal-card-icon" style="background:rgba(139,92,246,0.1);color:#8b5cf6;"><i class="bi bi-people"></i></div>
+                    <div class="portal-card-body">
+                        <div class="portal-card-title">HR Employees</div>
+                        <div class="portal-card-count" id="cardHrCount">0 users</div>
+                        <div class="portal-card-desc">With can_manage_hr</div>
+                    </div>
+                    <i class="bi bi-chevron-right portal-card-arrow"></i>
+                </div>
+            </div>
+
+            <!-- Two-column bottom: Recent users + Permissions overview -->
+            <div class="row g-3" style="display:flex;gap:12px;">
+                <div style="flex:1;min-width:0;">
+                    <div class="um-card" style="margin-bottom:0;">
+                        <div class="card-header"><h6><i class="bi bi-clock-history"></i> Recently Created</h6></div>
+                        <div class="card-body p-0">
+                            <div style="max-height:200px;overflow-y:auto;">
+                                <table class="table-um" id="recentUsersTable">
+                                    <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Created</th></tr></thead>
+                                    <tbody id="recentUsersBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div class="um-card" style="margin-bottom:0;">
+                        <div class="card-header"><h6><i class="bi bi-shield-check"></i> Permission Distribution</h6></div>
+                        <div class="card-body" id="permDistribution" style="padding:10px 14px;min-height:140px;">
+                            <div style="display:flex;flex-direction:column;gap:6px;" id="permDistBars"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -870,23 +988,72 @@ async function loadAllData(skipLoader) {
 
 // ===== RENDER OVERVIEW TABLE =====
 function renderOverview() {
-    const tbody = document.getElementById('overviewTableBody');
-    const adminCount = (allUsersData.admin || []).length;
-    const activeAdmins = (allUsersData.admin || []).filter(u => u.is_active).length;
-    const adminAdmins = (allUsersData.admin || []).filter(u => {
-        const r = (u.role || '').toLowerCase();
-        return r === 'admin' || r === 'administrator';
+    const admin = allUsersData.admin || [];
+    const total = admin.length;
+
+    // ---- Stats ----
+    const superAdminCount = admin.filter(u => {
+        const p = permIndex[(u.source_system||'projects')+':'+(u.source_id||u.id)];
+        return p && p.is_super_admin;
     }).length;
-    const latestAdmin = (allUsersData.admin || []).length > 0
-        ? (allUsersData.admin[0].full_name || allUsersData.admin[0].username || 'N/A') : 'N/A';
-    tbody.innerHTML = `<tr>
-        <td><i class="bi bi-person-badge" style="color:var(--primary);margin-right:4px;"></i> All Admin Users</td>
-        <td><strong>${adminCount}</strong></td>
-        <td>${activeAdmins}</td>
-        <td>${adminAdmins}</td>
-        <td style="font-size:0.6rem;">${latestAdmin}</td>
-        <td>${adminCount > 0 ? '<span class="badge-um active">Active</span>' : '<span class="badge-um inactive">No Data</span>'}</td>
-    </tr>`;
+    const hwCount = admin.filter(u => {
+        const p = permIndex[(u.source_system||'projects')+':'+(u.source_id||u.id)];
+        return p && (p.is_super_admin || p.can_manage_hardware);
+    }).length;
+    const hrCount = admin.filter(u => {
+        const p = permIndex[(u.source_system||'projects')+':'+(u.source_id||u.id)];
+        return p && (p.is_super_admin || p.can_manage_hr);
+    }).length;
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statSuperAdmins').textContent = superAdminCount;
+    document.getElementById('statHardware').textContent = hwCount;
+    document.getElementById('statHr').textContent = hrCount;
+
+    // ---- Portal cards ----
+    const projCount = admin.filter(u => {
+        const p = permIndex[(u.source_system||'projects')+':'+(u.source_id||u.id)];
+        return p && (p.is_super_admin || p.can_manage_projects);
+    }).length;
+    document.getElementById('cardProjectsCount').textContent = projCount + ' user' + (projCount!==1?'s':'');
+    document.getElementById('cardHardwareCount').textContent = hwCount + ' user' + (hwCount!==1?'s':'');
+    document.getElementById('cardHrCount').textContent = hrCount + ' user' + (hrCount!==1?'s':'');
+
+    // ---- Recent users (last 5) ----
+    const recentTbody = document.getElementById('recentUsersBody');
+    const recent = admin.slice(0, 5);
+    recentTbody.innerHTML = recent.length
+        ? recent.map(u => {
+            const created = u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A';
+            return `<tr><td><strong>${u.full_name||u.username||'N/A'}</strong></td>
+                <td style="color:#6b7280;">${u.username||u.email||''}</td>
+                <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}">${u.role||'operator'}</span></td>
+                <td style="font-size:0.55rem;color:#9ca3af;">${created}</td></tr>`;
+        }).join('')
+        : '<tr><td colspan="4" class="text-center text-muted py-3">No users yet</td></tr>';
+
+    // ---- Permission Distribution bars ----
+    const permDist = document.getElementById('permDistBars');
+    const permDefs = [
+        { key: 'can_manage_projects', label: 'Building Projects', color: '#3b82f6' },
+        { key: 'can_manage_hardware', label: 'Hardware POS', color: '#f59e0b' },
+        { key: 'can_manage_hr', label: 'HR', color: '#8b5cf6' },
+        { key: 'can_view_payments', label: 'Payments Tab', color: '#ef4444' },
+        { key: 'can_manage_roles', label: 'Manage Roles', color: '#06b6d4' },
+    ];
+    permDist.innerHTML = permDefs.map(d => {
+        const count = admin.filter(u => {
+            const p = permIndex[(u.source_system||'projects')+':'+(u.source_id||u.id)];
+            return p && (p.is_super_admin || p[d.key]);
+        }).length;
+        const pct = total > 0 ? Math.round((count/total)*100) : 0;
+        return `<div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:0.6rem;width:80px;flex-shrink:0;color:#6b7280;font-weight:500;">${d.label}</span>
+            <div style="flex:1;height:6px;background:#f3f4f6;border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${d.color};border-radius:3px;transition:width 0.4s;"></div>
+            </div>
+            <span style="font-size:0.6rem;width:30px;text-align:right;color:#374151;font-weight:600;">${count}</span>
+        </div>`;
+    }).join('');
 }
 
 // ===== RENDER ALL USERS (unified, with portal access badges) =====
