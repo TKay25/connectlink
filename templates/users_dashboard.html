@@ -467,14 +467,14 @@
 <div class="um-layout">
     <aside class="um-sidebar" id="umSidebar">
         <div class="section-title">Overview</div>
-        <button class="nav-btn active" data-module="overview" onclick="showModule('overview')" id="nav-overview"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></button>
+        <button class="nav-btn active" data-module="overview" onclick="showModule('overview')" id="nav-overview"><span>Dashboard</span></button>
         <div class="section-title">Portals</div>
         <button class="nav-btn" data-module="all-users" onclick="showModule('all-users')" id="nav-all-users"><i class="bi bi-people-fill"></i> <span>All Users</span></button>
-        <button class="nav-btn" data-module="projects-users" onclick="showModule('projects-users')" id="nav-projects-users"><i class="bi bi-hard-hat"></i> <span>Building Projects</span></button>
-        <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')" id="nav-hardware-users"><i class="bi bi-cash-register"></i> <span>Hardware POS</span></button>
+        <button class="nav-btn" data-module="projects-users" onclick="showModule('projects-users')" id="nav-projects-users"><i class="bi bi-building"></i> <span>Building Projects</span></button>
+        <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')" id="nav-hardware-users"><i class="bi bi-cart"></i> <span>Hardware POS</span></button>
         <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')" id="nav-hr-users"><i class="bi bi-people"></i> <span>HR Employees</span></button>
         <div class="section-title">Admin</div>
-        <button class="nav-btn" data-module="add-user" onclick="showModule('add-user')" id="nav-add-user" data-perm="can_add_users"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
+        <button class="nav-btn" onclick="openAddUserModal()" id="nav-add-user" data-perm="can_add_users"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
         <button class="nav-btn" data-module="audit" onclick="showModule('audit')" id="nav-audit" data-perm="can_view_audit"><i class="bi bi-clock-history"></i> <span>Activity Log</span></button>
     </aside>
 
@@ -487,10 +487,7 @@
                     <h4><i class="bi bi-speedometer2"></i> Dashboard</h4>
                     <div style="font-size:0.55rem;color:var(--text-muted);margin-top:1px;"><i class="bi bi-calendar3"></i> <span id="currentDate"></span></div>
                 </div>
-                <div style="display:flex;gap:6px;">
-                    <button class="btn btn-outline-primary btn-sm" onclick="showModule('all-users')"><i class="bi bi-people-fill"></i> View All Users</button>
-                    <button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="showModule('add-user')"><i class="bi bi-person-plus"></i> Add User</button>
-                </div>
+                <button class="btn btn-outline-primary btn-sm" onclick="showModule('all-users')"><i class="bi bi-people-fill"></i> View All Users</button>
             </div>
 
             <!-- Hero Stats Row -->
@@ -532,7 +529,7 @@
             <!-- Portal Quick Access Cards -->
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
                 <div class="portal-card" onclick="showModule('projects-users')" style="cursor:pointer;">
-                    <div class="portal-card-icon" style="background:rgba(59,130,246,0.1);color:#3b82f6;"><i class="bi bi-hard-hat"></i></div>
+                    <div class="portal-card-icon" style="background:rgba(59,130,246,0.1);color:#3b82f6;"><i class="bi bi-building"></i></div>
                     <div class="portal-card-body">
                         <div class="portal-card-title">Building Projects</div>
                         <div class="portal-card-count" id="cardProjectsCount">0 users</div>
@@ -590,7 +587,6 @@
         <div id="module-all-users" class="um-module">
             <div class="page-header">
                 <h4><i class="bi bi-people-fill"></i> All System Users</h4>
-                <div><button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="showModule('add-user')"><i class="bi bi-person-plus"></i> Add User</button></div>
             </div>
             <div class="um-card">
                 <div class="card-header">
@@ -613,8 +609,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-cash-register"></i> Hardware POS — All Users With Access</h4>
                 <div>
-                    <button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="openAddModal('hardware')"><i class="bi bi-person-plus"></i> Add User</button>
-                    <span style="font-size:0.55rem;color:var(--text-muted);margin-left:6px;">Shows every user granted <strong>can_manage_hardware</strong></span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">Shows every user granted <strong>can_manage_hardware</strong></span>
                 </div>
             </div>
             <div class="um-card">
@@ -634,8 +629,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-people"></i> HR — All Users With Access</h4>
                 <div>
-                    <button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="openAddModal('hr')"><i class="bi bi-person-plus"></i> Add User</button>
-                    <span style="font-size:0.55rem;color:var(--text-muted);margin-left:6px;">Shows every user granted <strong>can_manage_hr</strong></span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">Shows every user granted <strong>can_manage_hr</strong></span>
                 </div>
             </div>
             <div class="um-card">
@@ -650,18 +644,18 @@
             </div>
         </div>
 
-        <!-- ADD USER -->
-        <div id="module-add-user" class="um-module" data-perm-action="can_add_users">
-            <div class="page-header">
-                <h4><i class="bi bi-person-plus"></i> Add / Edit User</h4>
-                <div><button class="btn btn-outline-primary btn-sm" onclick="resetAddForm()"><i class="bi bi-arrow-counterclockwise"></i> Reset Form</button></div>
-            </div>
-            <div class="um-card">
-                <div class="card-body">
+        <!-- ADD USER MODAL (instead of module page) -->
+        <div class="modal-overlay" id="addUserModal">
+            <div class="modal-container" style="max-width:560px;">
+                <div class="modal-header-custom">
+                    <h3><i class="bi bi-person-plus-fill"></i> <span id="addUserModalTitle">Add New User</span></h3>
+                    <button class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
+                </div>
+                <div class="modal-body">
                     <input type="hidden" id="editUserId" value="">
                     <input type="hidden" id="editUserSystem" value="">
                     <div class="row g-2 mb-2">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Target System <span class="text-danger">*</span></label>
                             <select class="form-select" id="addUserSystem" onchange="toggleSystemFields()">
                                 <option value="projects">Building Projects</option>
@@ -669,30 +663,30 @@
                                 <option value="hr">Human Resources</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Full Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="addUserName" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Email / Username <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="addUserEmail" required>
+                            <input type="text" class="form-control" id="addUserName" placeholder="e.g. John Doe" required>
                         </div>
                     </div>
                     <div class="row g-2 mb-2">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
+                            <label class="form-label">Email / Username <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="addUserEmail" placeholder="user@example.com" required>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">Password <span class="text-danger">*</span></label>
                             <input type="password" class="form-control" id="addUserPassword" placeholder="Min 4 characters">
                         </div>
-                        <div class="col-md-4">
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
                             <label class="form-label">Role / Access Level</label>
                             <select class="form-select" id="addUserRole">
-                                <option value="Ordinary User">Ordinary User</option>
-                                <option value="Administrator">Administrator</option>
-                                <option value="operator">Operator (POS only)</option>
+                                <option value="operator">Operator</option>
                                 <option value="admin">Admin (Full Access)</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Status</label>
                             <select class="form-select" id="addUserStatus">
                                 <option>Active</option>
@@ -700,49 +694,20 @@
                             </select>
                         </div>
                     </div>
-                    <!-- Hardware-specific fields -->
-                    <div id="hardwareExtraFields" style="display:none;">
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label">Full Display Name</label>
-                                <input type="text" class="form-control" id="addUserFullName">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Hardware Role</label>
-                                <select class="form-select" id="addUserHwRole">
-                                    <option value="operator">Operator (POS)</option>
-                                    <option value="admin">Admin (Full Access)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- HR-specific fields -->
                     <div id="hrExtraFields" style="display:none;">
                         <div class="row g-2 mb-2">
-                            <div class="col-md-4">
-                                <label class="form-label">Department</label>
-                                <select class="form-select" id="addUserDept">
-                                    <option value="">-- Select --</option>
-                                    <option>Construction</option><option>Hardware Sales</option>
-                                    <option>Administration</option><option>Finance</option>
-                                    <option>HR</option><option>Logistics</option><option>Management</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Designation</label>
-                                <input type="text" class="form-control" id="addUserDesignation" placeholder="e.g. Officer">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">WhatsApp</label>
-                                <input type="text" class="form-control" id="addUserWhatsapp" placeholder="26377xxxxxx">
-                            </div>
+                            <div class="col-md-4"><label class="form-label">Department</label>
+                                <select class="form-select" id="addUserDept"><option value="">-- Select --</option>
+                                <option>Construction</option><option>Hardware Sales</option><option>Administration</option><option>Finance</option><option>HR</option><option>Logistics</option><option>Management</option></select></div>
+                            <div class="col-md-4"><label class="form-label">Designation</label><input type="text" class="form-control" id="addUserDesignation" placeholder="e.g. Officer"></div>
+                            <div class="col-md-4"><label class="form-label">WhatsApp</label><input type="text" class="form-control" id="addUserWhatsapp" placeholder="26377xxxxxx"></div>
                         </div>
                     </div>
-                    <div class="mt-3 d-flex gap-2">
-                        <button data-perm-action="can_add_users" class="btn btn-primary" id="saveUserBtn" onclick="saveUser()"><i class="bi bi-check-circle"></i> <span id="saveUserBtnText">Create User</span></button>
-                        <button class="btn btn-danger" onclick="resetAddForm()">Cancel</button>
-                        <span id="addUserMsg" style="font-size:0.6rem;align-self:center;color:var(--text-muted);"></span>
-                    </div>
+                    <div id="addUserMsg" style="font-size:0.6rem;margin-top:6px;text-align:center;min-height:18px;color:var(--text-muted);"></div>
+                </div>
+                <div class="modal-footer-custom">
+                    <button class="btn btn-danger" onclick="closeModal('addUserModal')">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveUser()"><i class="bi bi-check-circle"></i> <span id="saveUserBtnText">Create User</span></button>
                 </div>
             </div>
         </div>
@@ -752,8 +717,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-hard-hat"></i> Building Projects — All Users With Access</h4>
                 <div>
-                    <button data-perm-action="can_add_users" class="btn btn-primary btn-sm" onclick="openAddModal('projects')"><i class="bi bi-person-plus"></i> Add User</button>
-                    <span style="font-size:0.55rem;color:var(--text-muted);margin-left:6px;">Shows every user granted <strong>can_manage_projects</strong></span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">Shows every user granted <strong>can_manage_projects</strong></span>
                 </div>
             </div>
             <div class="um-card">
@@ -1238,11 +1202,10 @@ function renderHrUsers() {
         : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No HR employees have <strong>can_manage_hr</strong> permission.</td></tr>';
 }
 
-// ===== OPEN ADD MODAL WITH SYSTEM PREFILLED =====
-function openAddModal(system) {
-    showModule('add-user');
-    document.getElementById('addUserSystem').value = system;
-    toggleSystemFields();
+// ===== OPEN ADD USER MODAL =====
+function openAddUserModal() {
+    resetAddForm();
+    openModal('addUserModal');
 }
 
 function toggleSystemFields() {
@@ -1310,8 +1273,11 @@ async function saveUser() {
         if (data.success) {
             document.getElementById('addUserMsg').textContent = '✅ ' + data.message;
             document.getElementById('addUserMsg').style.color = '#2e7d32';
-            setTimeout(() => { document.getElementById('addUserMsg').textContent = ''; }, 3000);
-            resetAddForm();
+            setTimeout(() => {
+                document.getElementById('addUserMsg').textContent = '';
+                closeModal('addUserModal');
+                resetAddForm();
+            }, 1200);
             await loadAllData();
         } else {
             // Fallback to legacy save
@@ -1332,8 +1298,11 @@ async function saveUser() {
             if (data2.success) {
                 document.getElementById('addUserMsg').textContent = '✅ ' + data2.message;
                 document.getElementById('addUserMsg').style.color = '#2e7d32';
-                setTimeout(() => { document.getElementById('addUserMsg').textContent = ''; }, 3000);
-                resetAddForm();
+                setTimeout(() => {
+                    document.getElementById('addUserMsg').textContent = '';
+                    closeModal('addUserModal');
+                    resetAddForm();
+                }, 1200);
                 await loadAllData();
             } else {
                 alert('❌ ' + (data2.error || 'Failed to save'));
@@ -1525,7 +1494,6 @@ document.addEventListener('DOMContentLoaded', function() {
     applyPermissions();
     loadAllData();
     loadAuditLog();
-    toggleSystemFields();
 });
 </script>
 </body>

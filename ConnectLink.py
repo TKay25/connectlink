@@ -11811,6 +11811,71 @@ def whatsapp_app():
         return render_template('whatsapp_app.html', user_name=user_name, userid=userid)
     return render_template('mainindex.html')
 
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password for any user (checks admin_users, connectlinkusers, hardware_users)"""
+    try:
+        data = request.get_json()
+        username_or_email = data.get('username', '').strip()
+        old_password = data.get('old_password', '')
+        new_password = data.get('new_password', '')
+
+        if not username_or_email or not old_password or not new_password:
+            return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+        if len(new_password) < 4:
+            return jsonify({'success': False, 'message': 'New password must be at least 4 characters.'}), 400
+
+        with get_db() as (cursor, connection):
+            # Try admin_users first
+            cursor.execute("SELECT id, password FROM admin_users WHERE username = %s", (username_or_email,))
+            row = cursor.fetchone()
+            if row:
+                if row[1] != old_password:
+                    return jsonify({'success': False, 'message': 'Current password is incorrect.'}), 401
+                cursor.execute("UPDATE admin_users SET password = %s, updated_at = NOW() WHERE id = %s", (new_password, row[0]))
+                connection.commit()
+                log_activity('password_reset', f'Password reset for admin user: {username_or_email}', 'user', row[0])
+                return jsonify({'success': True, 'message': 'Password reset successfully!'}), 200
+
+            # Fallback: try connectlinkusers
+            cursor.execute("SELECT id, password FROM connectlinkusers WHERE email = %s OR name = %s", (username_or_email, username_or_email))
+            row = cursor.fetchone()
+            if row:
+                if row[1] != old_password:
+                    return jsonify({'success': False, 'message': 'Current password is incorrect.'}), 401
+                cursor.execute("UPDATE connectlinkusers SET password = %s WHERE id = %s", (new_password, row[0]))
+                # Also update admin_users if it exists there
+                try:
+                    cursor.execute("UPDATE admin_users SET password = %s, updated_at = NOW() WHERE username = %s", (new_password, username_or_email))
+                except Exception:
+                    pass
+                connection.commit()
+                log_activity('password_reset', f'Password reset for projects user: {username_or_email}', 'user', row[0])
+                return jsonify({'success': True, 'message': 'Password reset successfully!'}), 200
+
+            # Fallback: try hardware_users
+            cursor.execute("SELECT id, password FROM hardware_users WHERE username = %s", (username_or_email,))
+            row = cursor.fetchone()
+            if row:
+                if row[1] != old_password:
+                    return jsonify({'success': False, 'message': 'Current password is incorrect.'}), 401
+                cursor.execute("UPDATE hardware_users SET password = %s WHERE id = %s", (new_password, row[0]))
+                # Also update admin_users if it exists there
+                try:
+                    cursor.execute("UPDATE admin_users SET password = %s, updated_at = NOW() WHERE username = %s", (new_password, username_or_email))
+                except Exception:
+                    pass
+                connection.commit()
+                log_activity('password_reset', f'Password reset for hardware user: {username_or_email}', 'user', row[0])
+                return jsonify({'success': True, 'message': 'Password reset successfully!'}), 200
+
+            return jsonify({'success': False, 'message': 'User not found.'}), 404
+
+    except Exception as e:
+        print(f"Password reset error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/login', methods=['POST'])
 def login():
     if request.method == 'POST':
