@@ -623,16 +623,16 @@
         <!-- HARDWARE POS USERS (all users with can_manage_hardware permission) -->
         <div id="module-hardware-users" class="um-module">
             <div class="page-header">
-                <h4><i class="bi bi-cash-register"></i> Hardware POS — All Users With Access</h4>
+                <h4><i class="bi bi-cash-register"></i> Hardware POS</h4>
                 <div>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">Shows every user granted <strong>can_manage_hardware</strong></span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage hardware</span>
                 </div>
             </div>
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> all users with <span class="badge-um admin">can_manage_hardware</span> or <span class="badge-um admin" style="background:#f59e0b;color:white;">Super Admin</span></h6></div>
+                <div class="card-header"><h6><i class="bi bi-table"></i> All Hardware POS users</h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Source System</th><th>System Role</th><th>Access</th><th>Created</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Username</th><th>POS Role</th><th>Access Level</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="hardwareUsersBody"></tbody>
                         </table>
                     </div>
@@ -643,16 +643,16 @@
         <!-- HR USERS (all users with can_manage_hr permission) -->
         <div id="module-hr-users" class="um-module">
             <div class="page-header">
-                <h4><i class="bi bi-people"></i> HR — All Users With Access</h4>
+                <h4><i class="bi bi-people"></i> HR Employees</h4>
                 <div>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">Shows every user granted <strong>can_manage_hr</strong></span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All employees · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage HR</span>
                 </div>
             </div>
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> all users with <span class="badge-um admin">can_manage_hr</span> or <span class="badge-um admin" style="background:#f59e0b;color:white;">Super Admin</span></h6></div>
+                <div class="card-header"><h6><i class="bi bi-table"></i> All HR employees</h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Source System</th><th>System Role</th><th>Access</th><th>Status</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Department</th><th>Access Level</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody id="hrUsersBody"></tbody>
                         </table>
                     </div>
@@ -731,16 +731,16 @@
         <!-- BUILDING PROJECTS USERS (all users with can_manage_projects permission) -->
         <div id="module-projects-users" class="um-module">
             <div class="page-header">
-                <h4><i class="bi bi-hard-hat"></i> Building Projects — All Users With Access</h4>
+                <h4><i class="bi bi-hard-hat"></i> Building Projects</h4>
                 <div>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">Shows every user granted <strong>can_manage_projects</strong></span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage projects</span>
                 </div>
             </div>
             <div class="um-card">
-                <div class="card-header"><h6><i class="bi bi-table"></i> all users with <span class="badge-um admin">can_manage_projects</span> or <span class="badge-um admin" style="background:#f59e0b;color:white;">Super Admin</span></h6></div>
+                <div class="card-header"><h6><i class="bi bi-table"></i> All Building Projects users</h6></div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
-                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Source System</th><th>System Role</th><th>Access</th><th>Created</th><th>Actions</th></tr></thead>
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Access Level</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="projectsUsersBody"></tbody>
                         </table>
                     </div>
@@ -1154,85 +1154,81 @@ function filterAllUsers() {
 
 function renderProjectsUsers() {
     const tbody = document.getElementById('projectsUsersBody');
-    // Only show Projects-native users who have can_manage_projects
-    const filtered = allUsersData.projects.filter(u => {
+    const all = allUsersData.projects || [];
+    const badge = (u) => {
         const p = permIndex['projects:' + u.id];
-        return p && (p.is_super_admin || p.can_manage_projects);
-    });
-    const accessHtml = p => p.is_super_admin
-        ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
-        : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
-    tbody.innerHTML = filtered.length
-        ? filtered.map((u, i) => `<tr>
+        if (!p) return '<span class="badge-um inactive" style="font-size:0.5rem;">No access</span>';
+        if (p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p.can_manage_projects) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
+    };
+    tbody.innerHTML = all.length
+        ? all.map((u, i) => `<tr>
             <td>${i+1}</td>
             <td><strong>${u.name || 'N/A'}</strong></td>
             <td>${u.email || 'N/A'}</td>
-            <td><span class="portal-tag projects">Projects</span></td>
             <td>Admin</td>
-            <td>${accessHtml(permIndex['projects:' + u.id] || {})}</td>
+            <td>${badge(u)}</td>
             <td style="font-size:0.55rem;">${u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
                 <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${(u.name||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`).join('')
-        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No Projects users have <strong>can_manage_projects</strong> permission.</td></tr>';
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No Projects users found.</td></tr>';
 }
 
 function renderHardwareUsers() {
     const tbody = document.getElementById('hardwareUsersBody');
-    // Only show Hardware-native users who have can_manage_hardware
-    const filtered = allUsersData.hardware.filter(u => {
+    const all = allUsersData.hardware || [];
+    const badge = (u) => {
         const p = permIndex['hardware:' + u.id];
-        return p && (p.is_super_admin || p.can_manage_hardware);
-    });
-    const accessHtml = p => p && p.is_super_admin
-        ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
-        : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
-    tbody.innerHTML = filtered.length
-        ? filtered.map((u, i) => {
+        if (!p) return '<span class="badge-um inactive" style="font-size:0.5rem;">No access</span>';
+        if (p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p.can_manage_hardware) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
+    };
+    tbody.innerHTML = all.length
+        ? all.map((u, i) => {
             const roleBadge = (u.role||'').toLowerCase()==='admin'?'badge-um admin':'badge-um operator';
             return `<tr>
             <td>${i+1}</td>
             <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
             <td>${u.username || 'N/A'}</td>
-            <td><span class="portal-tag hardware">Hardware</span></td>
             <td><span class="${roleBadge}">${u.role || 'operator'}</span></td>
-            <td>${accessHtml(permIndex['hardware:' + u.id])}</td>
+            <td>${badge(u)}</td>
             <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
                 <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`;}).join('')
-        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No Hardware POS users have <strong>can_manage_hardware</strong> permission.</td></tr>';
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No Hardware POS users found.</td></tr>';
 }
 
 function renderHrUsers() {
     const tbody = document.getElementById('hrUsersBody');
-    // Only show HR-native users who have can_manage_hr
-    const filtered = allUsersData.hr.filter(u => {
+    const all = allUsersData.hr || [];
+    const badge = (u) => {
         const p = permIndex['hr:' + u.id];
-        return p && (p.is_super_admin || p.can_manage_hr);
-    });
-    const accessHtml = p => p && p.is_super_admin
-        ? '<span class="badge-um admin" style="background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Super Admin</span>'
-        : '<span class="badge-um active"><i class="bi bi-check-circle"></i> Granted</span>';
-    tbody.innerHTML = filtered.length
-        ? filtered.map((u, i) => {
-            const roleBadge = (u.role||'').toLowerCase()==='administrator'?'badge-um admin':'badge-um ordinary';
+        if (!p) return '<span class="badge-um inactive" style="font-size:0.5rem;">No access</span>';
+        if (p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p.can_manage_hr) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
+    };
+    tbody.innerHTML = all.length
+        ? all.map((u, i) => {
             const statusBadge = (u.status||'Active')==='Active'?'badge-um active':'badge-um inactive';
             return `<tr>
             <td>${i+1}</td>
             <td><strong>${u.first_name||''} ${u.last_name||''}</strong></td>
             <td>${u.email || 'N/A'}</td>
-            <td><span class="portal-tag hr">HR</span></td>
-            <td><span class="${roleBadge}">${u.role || 'Ordinary'}</span></td>
-            <td>${accessHtml(permIndex['hr:' + u.id])}</td>
+            <td>${u.department || 'N/A'}</td>
+            <td>${badge(u)}</td>
             <td><span class="${statusBadge}">${u.status || 'Active'}</span></td>
             <td>
                 <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hr', ${u.id}, '${((u.first_name||'')+' '+(u.last_name||'')).replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`;}).join('')
-        : '<tr><td colspan="8" class="text-center text-muted py-3"><i class="bi bi-shield-exclamation" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>No HR employees have <strong>can_manage_hr</strong> permission.</td></tr>';
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No HR employees found.</td></tr>';
 }
 
 // ===== OPEN ADD USER MODAL =====
