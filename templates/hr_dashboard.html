@@ -2162,6 +2162,11 @@ function showModule(moduleId) {
     const activeBtn = document.querySelector(`.hr-sidebar .nav-btn[data-module="${moduleId}"]`);
     if (activeBtn) activeBtn.classList.add('active');
 
+    // Refresh dashboard stats when switching to it
+    if (moduleId === 'dashboard') {
+        loadDashboardStats();
+    }
+
     closeUserDropdown();
 }
 
