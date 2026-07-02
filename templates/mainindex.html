@@ -621,21 +621,21 @@
         }
 
         .modal-body {
-            padding: 20px 24px 18px;
+            padding: 14px 18px 12px;
         }
 
         .form-group {
-            margin-bottom: 14px;
+            margin-bottom: 10px;
         }
 
         .form-group label {
             display: block;
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             font-weight: 600;
             color: var(--gray-600);
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
         }
 
         .input-group-modal {
@@ -644,19 +644,19 @@
 
         .input-icon-modal {
             position: absolute;
-            left: 12px;
+            left: 9px;
             top: 50%;
             transform: translateY(-50%);
             color: var(--gray-400);
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             transition: color 0.3s ease;
             pointer-events: none;
         }
 
         .form-input-modal {
             width: 100%;
-            padding: 8px 12px 8px 34px;
-            font-size: 0.75rem;
+            padding: 6px 10px 6px 28px;
+            font-size: 0.65rem;
             border: 1.5px solid var(--gray-200);
             border-radius: var(--radius-md);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -676,15 +676,15 @@
 
         .password-toggle-modal {
             position: absolute;
-            right: 10px;
+            right: 8px;
             top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
             color: var(--gray-400);
             cursor: pointer;
-            font-size: 0.7rem;
-            padding: 4px;
+            font-size: 0.6rem;
+            padding: 2px;
             border-radius: var(--radius-sm);
             transition: all 0.3s ease;
         }
@@ -696,13 +696,13 @@
 
         .modal-login-btn {
             width: 100%;
-            padding: 9px;
+            padding: 7px;
             background: linear-gradient(135deg, var(--accent), var(--accent-light));
             color: white;
             border: none;
             border-radius: var(--radius-full);
             font-weight: 700;
-            font-size: 0.75rem;
+            font-size: 0.65rem;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             margin-top: 4px;
@@ -738,18 +738,18 @@
 
         .modal-footer-links {
             text-align: center;
-            margin-top: 14px;
-            padding-top: 10px;
+            margin-top: 10px;
+            padding-top: 8px;
             border-top: 1px solid var(--gray-200);
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 14px;
         }
 
         .modal-footer-links a {
             color: var(--gray-500);
             text-decoration: none;
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             font-weight: 500;
             transition: color 0.3s ease;
         }
@@ -1400,59 +1400,67 @@
             <p>Sign in to access project management dashboard</p>
         </div>
         <div class="modal-body">
-            <div class="error-message" id="projectsErrorMsg"></div>
-            <form id="projectsLoginForm">
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <div class="input-group-modal">
-                        <input type="text" class="form-input-modal" id="projectsEmail" placeholder="admin@connectlinkproperties.co.zw" required>
-                        <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+            <div class="login-form-wrap">
+                <div class="error-message" id="projectsErrorMsg"></div>
+                <form id="projectsLoginForm">
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="projectsEmail" placeholder="admin@connectlinkproperties.co.zw" required>
+                            <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="input-group-modal">
-                        <input type="password" class="form-input-modal" id="projectsPassword" placeholder="••••••••" required>
-                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                        <button type="button" class="password-toggle-modal" onclick="toggleProjectsPassword(event)"><i class="fas fa-eye"></i></button>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="projectsPassword" placeholder="••••••••" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleProjectsPassword(event)"><i class="fas fa-eye"></i></button>
+                        </div>
                     </div>
+                    <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+                </form>
+                <div class="modal-footer-links">
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')">Reset Password</a>
+                    <a href="#">Need help?</a>
                 </div>
-                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
-            </form>
-            <div class="modal-footer-links">
-                <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')">Reset Password</a>
-                <a href="#">Need help?</a>
             </div>
-            <!-- Reset Password Form (hidden by default) -->
-            <div id="projectsResetForm" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--gray-200);">
-                <div class="error-message" id="projectsResetError" style="font-size:0.65rem;padding:6px 10px;"></div>
-                <div class="success-message" id="projectsResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:8px;font-size:0.65rem;margin-bottom:8px;"></div>
+            <!-- Reset Password Form (independent, hidden by default) -->
+            <div id="projectsResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your username/email and new password</div>
+                <div class="error-message" id="projectsResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="success-message" id="projectsResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
                 <form id="projectsResetForm" onsubmit="return handleResetPassword(event, 'projects')">
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">Current Password</label>
+                        <label>Username / Email</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="projectsOldPw" placeholder="Enter current password" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-lock"></i></div>
+                            <input type="text" class="form-input-modal" id="projectsResetEmail" placeholder="admin@email.com" required>
+                            <div class="input-icon-modal"><i class="fas fa-user"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">New Password</label>
+                        <label>Current Password</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="projectsNewPw" placeholder="Min 4 characters" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-key"></i></div>
+                            <input type="password" class="form-input-modal" id="projectsOldPw" placeholder="Enter current password" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">Confirm New Password</label>
+                        <label>New Password</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="projectsConfirmPw" placeholder="Re-enter new password" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-check-circle"></i></div>
+                            <input type="password" class="form-input-modal" id="projectsNewPw" placeholder="Min 4 characters" required>
+                            <div class="input-icon-modal"><i class="fas fa-key"></i></div>
                         </div>
                     </div>
-                    <div style="display:flex;gap:6px;margin-top:8px;">
-                        <button type="submit" class="modal-login-btn" style="font-size:0.65rem;padding:6px;flex:1;"><i class="fas fa-save me-1"></i> Update Password</button>
-                        <button type="button" class="modal-login-btn" style="font-size:0.65rem;padding:6px;flex:0 0 auto;background:var(--gray-400);" onclick="toggleResetForm('projects')">Cancel</button>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="projectsConfirmPw" placeholder="Re-enter new password" required>
+                            <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                        </div>
                     </div>
+                    <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
                 </form>
             </div>
         </div>
@@ -1469,58 +1477,66 @@
             <p>Sign in to access retail management system</p>
         </div>
         <div class="modal-body">
-            <div class="error-message" id="hardwareErrorMsg"></div>
-            <form id="hardwareLoginForm">
-                <div class="form-group">
-                    <label>Username</label>
-                    <div class="input-group-modal">
-                        <input type="text" class="form-input-modal" id="hardwareUsername" placeholder="admin" required>
-                        <div class="input-icon-modal"><i class="fas fa-user"></i></div>
+            <div class="login-form-wrap">
+                <div class="error-message" id="hardwareErrorMsg"></div>
+                <form id="hardwareLoginForm">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="hardwareUsername" placeholder="admin" required>
+                            <div class="input-icon-modal"><i class="fas fa-user"></i></div>
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="input-group-modal">
-                        <input type="password" class="form-input-modal" id="hardwarePassword" placeholder="••••••••" required>
-                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                        <button type="button" class="password-toggle-modal" onclick="toggleHardwarePassword(event)"><i class="fas fa-eye"></i></button>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="hardwarePassword" placeholder="••••••••" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleHardwarePassword(event)"><i class="fas fa-eye"></i></button>
+                        </div>
                     </div>
+                    <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+                </form>
+                <div class="modal-footer-links">
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hardware')">Reset Password</a>
+                    <a href="#">Support</a>
                 </div>
-                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
-            </form>
-            <div class="modal-footer-links">
-                <a href="#" onclick="event.preventDefault(); toggleResetForm('hardware')">Reset Password</a>
-                <a href="#">Support</a>
             </div>
-            <div id="hardwareResetForm" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--gray-200);">
-                <div class="error-message" id="hardwareResetError" style="font-size:0.65rem;padding:6px 10px;"></div>
-                <div class="success-message" id="hardwareResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:8px;font-size:0.65rem;margin-bottom:8px;"></div>
+            <div id="hardwareResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your username and new password</div>
+                <div class="error-message" id="hardwareResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="success-message" id="hardwareResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
                 <form id="hardwareResetForm" onsubmit="return handleResetPassword(event, 'hardware')">
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">Current Password</label>
+                        <label>Username</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hardwareOldPw" placeholder="Enter current password" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-lock"></i></div>
+                            <input type="text" class="form-input-modal" id="hardwareResetEmail" placeholder="admin" required>
+                            <div class="input-icon-modal"><i class="fas fa-user"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">New Password</label>
+                        <label>Current Password</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hardwareNewPw" placeholder="Min 4 characters" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-key"></i></div>
+                            <input type="password" class="form-input-modal" id="hardwareOldPw" placeholder="Enter current password" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">Confirm New Password</label>
+                        <label>New Password</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hardwareConfirmPw" placeholder="Re-enter new password" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-check-circle"></i></div>
+                            <input type="password" class="form-input-modal" id="hardwareNewPw" placeholder="Min 4 characters" required>
+                            <div class="input-icon-modal"><i class="fas fa-key"></i></div>
                         </div>
                     </div>
-                    <div style="display:flex;gap:6px;margin-top:8px;">
-                        <button type="submit" class="modal-login-btn" style="font-size:0.65rem;padding:6px;flex:1;"><i class="fas fa-save me-1"></i> Update Password</button>
-                        <button type="button" class="modal-login-btn" style="font-size:0.65rem;padding:6px;flex:0 0 auto;background:var(--gray-400);" onclick="toggleResetForm('hardware')">Cancel</button>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="hardwareConfirmPw" placeholder="Re-enter new password" required>
+                            <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                        </div>
                     </div>
+                    <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hardware')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
                 </form>
             </div>
         </div>
@@ -1537,58 +1553,66 @@
             <p>Sign in to access employee management portal</p>
         </div>
         <div class="modal-body">
-            <div class="error-message" id="hrErrorMsg"></div>
-            <form id="hrLoginForm">
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <div class="input-group-modal">
-                        <input type="text" class="form-input-modal" id="hrEmail" placeholder="hr@connectlinkproperties.co.zw" required>
-                        <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+            <div class="login-form-wrap">
+                <div class="error-message" id="hrErrorMsg"></div>
+                <form id="hrLoginForm">
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="hrEmail" placeholder="hr@connectlinkproperties.co.zw" required>
+                            <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="input-group-modal">
-                        <input type="password" class="form-input-modal" id="hrPassword" placeholder="••••••••" required>
-                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                        <button type="button" class="password-toggle-modal" onclick="toggleHrPassword(event)"><i class="fas fa-eye"></i></button>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="hrPassword" placeholder="••••••••" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleHrPassword(event)"><i class="fas fa-eye"></i></button>
+                        </div>
                     </div>
+                    <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+                </form>
+                <div class="modal-footer-links">
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')">Reset Password</a>
+                    <a href="#">Need help?</a>
                 </div>
-                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
-            </form>
-            <div class="modal-footer-links">
-                <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')">Reset Password</a>
-                <a href="#">Need help?</a>
             </div>
-            <div id="hrResetForm" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--gray-200);">
-                <div class="error-message" id="hrResetError" style="font-size:0.65rem;padding:6px 10px;"></div>
-                <div class="success-message" id="hrResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:8px 12px;border-radius:8px;font-size:0.65rem;margin-bottom:8px;"></div>
+            <div id="hrResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your email and new password</div>
+                <div class="error-message" id="hrResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="success-message" id="hrResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
                 <form id="hrResetForm" onsubmit="return handleResetPassword(event, 'hr')">
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">Current Password</label>
+                        <label>Email</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hrOldPw" placeholder="Enter current password" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-lock"></i></div>
+                            <input type="text" class="form-input-modal" id="hrResetEmail" placeholder="hr@email.com" required>
+                            <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">New Password</label>
+                        <label>Current Password</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hrNewPw" placeholder="Min 4 characters" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-key"></i></div>
+                            <input type="password" class="form-input-modal" id="hrOldPw" placeholder="Enter current password" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label style="font-size:0.65rem;">Confirm New Password</label>
+                        <label>New Password</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hrConfirmPw" placeholder="Re-enter new password" required style="font-size:0.7rem;padding:6px 12px 6px 30px;">
-                            <div class="input-icon-modal" style="font-size:0.6rem;"><i class="fas fa-check-circle"></i></div>
+                            <input type="password" class="form-input-modal" id="hrNewPw" placeholder="Min 4 characters" required>
+                            <div class="input-icon-modal"><i class="fas fa-key"></i></div>
                         </div>
                     </div>
-                    <div style="display:flex;gap:6px;margin-top:8px;">
-                        <button type="submit" class="modal-login-btn" style="font-size:0.65rem;padding:6px;flex:1;"><i class="fas fa-save me-1"></i> Update Password</button>
-                        <button type="button" class="modal-login-btn" style="font-size:0.65rem;padding:6px;flex:0 0 auto;background:var(--gray-400);" onclick="toggleResetForm('hr')">Cancel</button>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="hrConfirmPw" placeholder="Re-enter new password" required>
+                            <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                        </div>
                     </div>
+                    <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
                 </form>
             </div>
         </div>
@@ -1865,16 +1889,18 @@
 
         // ===== RESET PASSWORD =====
         window.toggleResetForm = function(system) {
-            const form = document.getElementById(system + 'ResetForm');
-            const loginForm = document.querySelector('#' + system + 'LoginModal form');
-            if (form.style.display === 'none') {
-                form.style.display = 'block';
-                // Clear previous messages
-                document.getElementById(system + 'ResetError').style.display = 'none';
-                document.getElementById(system + 'ResetSuccess').style.display = 'none';
-            } else {
-                form.style.display = 'none';
-            }
+            const resetForm = document.getElementById(system + 'ResetForm');
+            const loginForm = document.querySelector('#' + system + 'LoginModal .login-form-wrap');
+            const footerLinks = document.querySelector('#' + system + 'LoginModal .modal-footer-links');
+            const isHidden = resetForm.style.display === 'none' || !resetForm.style.display;
+            resetForm.style.display = isHidden ? 'block' : 'none';
+            if (loginForm) loginForm.style.display = isHidden ? 'none' : 'block';
+            if (footerLinks) footerLinks.style.display = isHidden ? 'none' : 'flex';
+            // Clear messages
+            const err = document.getElementById(system + 'ResetError');
+            const suc = document.getElementById(system + 'ResetSuccess');
+            if (err) err.style.display = 'none';
+            if (suc) suc.style.display = 'none';
         };
 
         window.handleResetPassword = async function(e, system) {
@@ -1904,18 +1930,10 @@
                 return false;
             }
 
-            // Get username from the login form's email/username field
-            let username = '';
-            if (system === 'hardware') {
-                username = document.getElementById('hardwareUsername').value;
-            } else if (system === 'hr') {
-                username = document.getElementById('hrEmail').value;
-            } else {
-                username = document.getElementById('projectsEmail').value;
-            }
-
+            // Get username from the reset form's own email field
+            const username = document.getElementById(system + 'ResetEmail').value.trim();
             if (!username) {
-                errEl.textContent = 'Please enter your username/email in the login form first.';
+                errEl.textContent = 'Please enter your username/email.';
                 errEl.style.display = 'flex';
                 return false;
             }
@@ -1931,6 +1949,7 @@
                     sucEl.textContent = '✅ Password reset successfully!';
                     sucEl.style.display = 'block';
                     // Clear fields
+                    document.getElementById(system + 'ResetEmail').value = '';
                     document.getElementById(system + 'OldPw').value = '';
                     document.getElementById(system + 'NewPw').value = '';
                     document.getElementById(system + 'ConfirmPw').value = '';
