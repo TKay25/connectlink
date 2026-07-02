@@ -2585,7 +2585,7 @@ async function loadEmployees() {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${i + 1}</td>
-                <td><strong>${emp.first_name} ${emp.last_name}</strong>${emp.source === 'admin_users' ? ' <span style="font-size:0.45rem;background:#e8f0fe;color:#1a73e8;padding:1px 5px;border-radius:3px;">Auto</span>' : ''}<br>
+                <td><strong>${emp.first_name} ${emp.last_name}</strong>${emp.source === 'admin_users' ? ' <span style="font-size:0.45rem;background:#e8f0fe;color:#1a73e8;padding:1px 5px;border-radius:3px;">Auto</span>' : ''}${emp.source === 'connectlinkusers' ? ' <span style="font-size:0.45rem;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;">User</span>' : ''}<br>
                     <small style="color:var(--text-muted);font-size:0.55rem;">${emp.email || ''}</small></td>
                 <td>${emp.department || 'N/A'}</td>
                 <td>${emp.designation || 'N/A'}</td>

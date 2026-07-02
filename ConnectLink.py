@@ -12352,8 +12352,23 @@ def hr_login():
                 session['userid'] = userid
                 session['user_name'] = user_name
                 session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
-                session['hr_employee_id'] = None
                 session['can_manage_hr'] = is_hr_admin
+
+                # Auto-create hr_employee record if not exists
+                cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
+                if not cursor.fetchone():
+                    full_name = user_name or ''
+                    parts = full_name.split(' ', 1)
+                    first = parts[0] if parts else full_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    hr_role_db = 'Administrator' if is_hr_admin else 'Ordinary User'
+                    cursor.execute("""
+                        INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                        VALUES (%s, %s, %s, %s, %s, 'Active', CURRENT_DATE)
+                        ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
+                    """, (userid, first, last, email_or_username, hr_role_db))
+                    connection.commit()
+                session['hr_employee_id'] = userid
 
                 log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': email_or_username, 'role': session['hr_role']})
                 print(f"✅ HR login: {user_name} as {session['hr_role']}")
@@ -12401,8 +12416,22 @@ def hr_login():
                 session['userid'] = userid
                 session['user_name'] = user_name
                 session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
-                session['hr_employee_id'] = None
                 session['can_manage_hr'] = is_hr_admin
+
+                # Auto-create hr_employee record if not exists
+                cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
+                if not cursor.fetchone():
+                    parts = (user_name or '').split(' ', 1)
+                    first = parts[0] if parts else user_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    hr_role_db = 'Administrator' if is_hr_admin else 'Ordinary User'
+                    cursor.execute("""
+                        INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                        VALUES (%s, %s, %s, %s, %s, 'Active', CURRENT_DATE)
+                        ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
+                    """, (userid, first, last, user_row[4] or '', hr_role_db))
+                    connection.commit()
+                session['hr_employee_id'] = userid
 
                 log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': email_or_username, 'role': session['hr_role']})
                 return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
@@ -12465,7 +12494,7 @@ def hr_employees_api():
                         'source': 'hr_employees'
                     })
 
-                # Also include admin_users not yet in hr_employees (they auto-become employees)
+                # Also include admin_users not yet in hr_employees
                 cursor.execute("""
                     SELECT id, username, full_name, email, source_system, created_at
                     FROM admin_users WHERE is_active = TRUE ORDER BY full_name
@@ -12488,6 +12517,32 @@ def hr_employees_api():
                         'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
                         'source': 'admin_users'
                     })
+                    employee_ids.add(au_id)
+
+                # Also include connectlinkusers not yet in hr_employees or admin_users
+                cursor.execute("""
+                    SELECT id, name, email, datecreated
+                    FROM connectlinkusers ORDER BY name
+                """)
+                for clu in cursor.fetchall():
+                    clu_id = clu[0]
+                    if clu_id in employee_ids:
+                        continue
+                    full_name = clu[1] or ''
+                    parts = full_name.split(' ', 1)
+                    first = parts[0] if parts else full_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    employees.append({
+                        'id': clu_id, 'user_id': None, 'first_name': first, 'last_name': last,
+                        'whatsapp': '', 'email': clu[2] or '', 'address': '',
+                        'role': 'Ordinary User', 'department': '', 'designation': '',
+                        'gender': '', 'dob': None, 'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(clu[3])[:10] if clu[3] else None,
+                        'leave_balance': 21, 'monthly_accrual': 1.75,
+                        'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'source': 'connectlinkusers'
+                    })
+                    employee_ids.add(clu_id)
 
                 return jsonify({'success': True, 'data': employees})
         except Exception as e:
@@ -12579,6 +12634,28 @@ def hr_employee_detail(emp_id):
                         'c8_number': '', 'c8_type': '', 'source': 'admin_users'
                     }
                     return jsonify({'success': True, 'data': emp})
+
+                # Fallback: try connectlinkusers
+                cursor.execute("SELECT id, name, email, datecreated FROM connectlinkusers WHERE id = %s", (emp_id,))
+                clu = cursor.fetchone()
+                if clu:
+                    full_name = clu[1] or ''
+                    parts = full_name.split(' ', 1)
+                    emp = {
+                        'id': clu[0], 'user_id': None, 'first_name': parts[0] if parts else full_name,
+                        'last_name': parts[1] if len(parts) > 1 else '', 'whatsapp': '',
+                        'email': clu[2] or '', 'address': '', 'role': 'Ordinary User',
+                        'department': '', 'designation': '', 'gender': '', 'dob': None,
+                        'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(clu[3])[:10] if clu[3] else None,
+                        'current_leave_balance': 21, 'monthly_accumulation': 1.75,
+                        'basic_salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
+                        'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
+                        'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
+                        'c8_number': '', 'c8_type': '', 'source': 'connectlinkusers'
+                    }
+                    return jsonify({'success': True, 'data': emp})
                 
                 return jsonify({'success': False, 'error': 'Employee not found'}), 404
         except Exception as e:
@@ -12601,12 +12678,26 @@ def hr_employee_detail(emp_id):
                         first = parts[0] if parts else full_name
                         last = parts[1] if len(parts) > 1 else ''
                         email = au[3] or data.get('email', '')
-                        # Insert into hr_employees with the same ID (so FK constraints work)
                         cursor.execute("""
                             INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
                             VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
                             ON CONFLICT (id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name
                         """, (emp_id, first, last, email))
+                    else:
+                        # Fallback: try connectlinkusers
+                        cursor.execute("SELECT id, name, email FROM connectlinkusers WHERE id=%s", (emp_id,))
+                        clu = cursor.fetchone()
+                        if clu:
+                            full_name = clu[1] or ''
+                            parts = full_name.split(' ', 1)
+                            first = parts[0] if parts else full_name
+                            last = parts[1] if len(parts) > 1 else ''
+                            email = clu[2] or data.get('email', '')
+                            cursor.execute("""
+                                INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                                VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                                ON CONFLICT (id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name
+                            """, (emp_id, first, last, email))
                 cursor.execute("""
                     UPDATE hr_employees SET
                         first_name=%s, last_name=%s, whatsapp=%s, email=%s, address=%s,
@@ -12653,6 +12744,21 @@ def hr_employee_detail(emp_id):
                         """, (username, full_name, email))
                 except Exception:
                     pass
+
+                # Sync role ↔ user_permissions.can_manage_hr
+                try:
+                    new_role = data.get('role', 'Ordinary User')
+                    is_admin = (new_role == 'Administrator')
+                    # Try both user_type='projects' and user_type='hr' for the emp_id
+                    for utype in ('projects', 'hr'):
+                        cursor.execute("""
+                            INSERT INTO user_permissions (user_type, user_id, can_manage_hr, is_super_admin)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (user_type, user_id) DO UPDATE SET can_manage_hr = EXCLUDED.can_manage_hr
+                        """, (utype, emp_id, is_admin, False))
+                except Exception:
+                    pass
+
                 connection.commit()
                 return jsonify({'success': True, 'message': 'Employee updated successfully'})
         except Exception as e:
