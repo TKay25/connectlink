@@ -1554,10 +1554,10 @@ def initialize_database_tables():
             cursor.execute("SELECT COUNT(*) FROM payroll_deduction_config")
             if cursor.fetchone()[0] == 0:
                 seed_deductions = [
-                    ('AIDS_LEVY', 'AIDS Levy', '3% of PAYE tax amount', 3.0, 'percentage_of_paye', 0, TRUE, TRUE),
-                    ('NSSA_EMPLOYEE', 'NSSA (Employee)', 'NSSA employee pension contribution', 4.5, 'percentage_of_gross', 0, TRUE, TRUE),
-                    ('NSSA_EMPLOYER', 'NSSA (Employer)', 'NSSA employer pension contribution', 4.5, 'percentage_of_gross', 0, TRUE, FALSE),
-                    ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, TRUE, TRUE),
+                    ('AIDS_LEVY', 'AIDS Levy', '3% of PAYE tax amount', 3.0, 'percentage_of_paye', 0, True, True),
+                    ('NSSA_EMPLOYEE', 'NSSA (Employee)', 'NSSA employee pension contribution', 4.5, 'percentage_of_gross', 0, True, True),
+                    ('NSSA_EMPLOYER', 'NSSA (Employer)', 'NSSA employer pension contribution', 4.5, 'percentage_of_gross', 0, True, False),
+                    ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, True),
                 ]
                 for dc in seed_deductions:
                     cursor.execute("""
