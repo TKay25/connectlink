@@ -2185,6 +2185,13 @@
             .then(data => {
                 if (data.success) {
                     window.location.href = data.redirect || '/dashboard';
+                } else if (data.must_reset) {
+                    setLoading(false);
+                    closeModal('projectsLoginModal');
+                    // Open reset password form pre-filled
+                    document.getElementById('projectsResetEmail').value = data.username;
+                    toggleResetForm('projects', true);
+                    setError('projects', data.message || 'First-time login — please set a new password.');
                 } else {
                     setLoading(false);
                     setError('projects', data.message || 'Invalid credentials');
@@ -2265,6 +2272,12 @@
             .then(data => {
                 if (data.success) {
                     window.location.href = data.redirect || '/hr-dashboard';
+                } else if (data.must_reset) {
+                    setLoading(false);
+                    closeModal('hrLoginModal');
+                    document.getElementById('hrResetEmail').value = data.username;
+                    toggleResetForm('hr', true);
+                    setError('hr', data.message || 'First-time login — please set a new password.');
                 } else {
                     setLoading(false);
                     setError('hr', data.message || 'Invalid credentials');
@@ -2306,6 +2319,12 @@
             .then(data => {
                 if (data.success) {
                     window.location.href = data.redirect || '/user-management';
+                } else if (data.must_reset) {
+                    setLoading(false);
+                    closeModal('usersLoginModal');
+                    document.getElementById('usersResetEmail').value = data.username;
+                    toggleResetForm('users', true);
+                    setError('users', data.message || 'First-time login — please set a new password.');
                 } else {
                     setLoading(false);
                     setError('users', data.message || 'Invalid credentials');

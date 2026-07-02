@@ -41,18 +41,18 @@
     "seaborn"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 11452"
+    "INSTRUCTIONS @ line 11463"
   ],
   "token_controls": [
-    "max_length = 0 @ line 18088",
-    "max_length = len(str(cell.value)) @ line 18093",
-    "adjusted_width = min(max_length + 2, 50) @ line 18096",
-    "max_length = 0 @ line 18908",
-    "max_length = cell_length @ line 18915",
-    "adjusted_width = min(max_length + 2, 50) @ line 18918",
-    "max_length = 0 @ line 19903",
-    "max_length = cell_length @ line 19910",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 19913"
+    "max_length = 0 @ line 18139",
+    "max_length = len(str(cell.value)) @ line 18144",
+    "adjusted_width = min(max_length + 2, 50) @ line 18147",
+    "max_length = 0 @ line 18959",
+    "max_length = cell_length @ line 18966",
+    "adjusted_width = min(max_length + 2, 50) @ line 18969",
+    "max_length = 0 @ line 19954",
+    "max_length = cell_length @ line 19961",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 19964"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1781691732172.6877,
   "file_size": 1328874,
   "file_birthtime": 1776794366250.55,
-  "generated_at": "2026-07-02T10:23:40.232420Z",
+  "generated_at": "2026-07-02T10:56:28.605777Z",
   "stale": false
 }

@@ -297,11 +297,22 @@ def initialize_database_tables():
                     source_id INT,
                     role VARCHAR(50) DEFAULT 'operator',
                     is_active BOOLEAN DEFAULT TRUE,
+                    must_reset_password BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
             connection.commit()
+
+            # Add must_reset_password column if missing (existing databases)
+            try:
+                cursor.execute("""
+                    ALTER TABLE admin_users
+                    ADD COLUMN IF NOT EXISTS must_reset_password BOOLEAN DEFAULT FALSE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add must_reset_password column: {e}")
 
             # Migrate existing users from connectlinkusers to admin_users (if not already there)
             try:
@@ -11844,15 +11855,15 @@ def reset_password():
 
         with get_db() as (cursor, connection):
             # Try admin_users first
-            cursor.execute("SELECT id, password FROM admin_users WHERE username = %s", (username_or_email,))
+            cursor.execute("SELECT id, password, must_reset_password FROM admin_users WHERE username = %s", (username_or_email,))
             row = cursor.fetchone()
             if row:
                 if row[1] != old_password:
                     return jsonify({'success': False, 'message': 'Current password is incorrect.'}), 401
-                cursor.execute("UPDATE admin_users SET password = %s, updated_at = NOW() WHERE id = %s", (new_password, row[0]))
+                cursor.execute("UPDATE admin_users SET password = %s, must_reset_password = FALSE, updated_at = NOW() WHERE id = %s", (new_password, row[0]))
                 connection.commit()
                 log_activity('password_reset', f'Password reset for admin user: {username_or_email}', 'user', row[0])
-                return jsonify({'success': True, 'message': 'Password reset successfully!'}), 200
+                return jsonify({'success': True, 'message': 'Password reset successfully!', 'must_reset': bool(row[2])}), 200
 
             # Fallback: try connectlinkusers
             cursor.execute("SELECT id, password FROM connectlinkusers WHERE email = %s OR name = %s", (username_or_email, username_or_email))
@@ -11915,12 +11926,21 @@ def login():
                 # ===== TRY UNIFIED admin_users TABLE FIRST =====
                 try:
                     cursor.execute("""
-                        SELECT id, username, password, full_name, email, role, source_system, source_id
+                        SELECT id, username, password, full_name, email, role, source_system, source_id, must_reset_password
                         FROM admin_users WHERE username = %s AND is_active = TRUE
                     """, (email_or_username,))
                     au_row = cursor.fetchone()
                     if au_row:
                         if au_row[2] == password:
+                            # Check if password reset is required
+                            if au_row[8]:  # must_reset_password
+                                return jsonify({
+                                    'success': False,
+                                    'must_reset': True,
+                                    'message': 'You must reset your password before continuing.',
+                                    'username': email_or_username
+                                }), 403
+
                             user_uuid = uuid.uuid4()
                             session['user_uuid'] = str(user_uuid)
                             session.permanent = True
@@ -12061,11 +12081,20 @@ def hr_login():
         with get_db() as (cursor, connection):
             # 1. Try admin_users (unified table)
             cursor.execute("""
-                SELECT id, username, password, full_name, source_system, source_id
+                SELECT id, username, password, full_name, source_system, source_id, must_reset_password
                 FROM admin_users WHERE username = %s AND is_active = TRUE
             """, (email_or_username,))
             au = cursor.fetchone()
             if au and au[2] == password:
+                # Check if password reset is required
+                if au[6]:  # must_reset_password
+                    return jsonify({
+                        'success': False,
+                        'must_reset': True,
+                        'message': 'You must reset your password before continuing.',
+                        'username': email_or_username
+                    }), 403
+
                 userid = int(au[0])
                 user_name = au[3]
                 source_sys = au[4]
@@ -12254,17 +12283,20 @@ def hr_employees_api():
                 emp_id = cursor.fetchone()[0]
 
                 # Sync to admin_users if not already there
-                email = data.get('email', '')
-                first = data.get('first_name', '')
-                last = data.get('last_name', '')
+                email = data.get('email', '') or ''
+                whatsapp = data.get('whatsapp', '') or ''
+                first = (data.get('first_name', '') or '').strip()
+                last = (data.get('last_name', '') or '').strip()
                 full_name = f"{first} {last}".strip()
-                if email and full_name:
+                # Generate a unique username if no email provided
+                username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
+                if full_name:
                     try:
                         cursor.execute("""
-                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, created_at)
-                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', NOW())
+                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
+                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW())
                             ON CONFLICT (username) DO NOTHING
-                        """, (email, full_name, email))
+                        """, (username, full_name, email))
                     except Exception:
                         pass
 
@@ -12369,6 +12401,25 @@ def hr_employee_detail(emp_id):
                     data.get('exchange_rate', 1), data.get('leave_approver_name'),
                     data.get('leave_approver_id'), emp_id
                 ))
+                # Sync changes to admin_users
+                try:
+                    first = (data.get('first_name', '') or '').strip()
+                    last = (data.get('last_name', '') or '').strip()
+                    full_name = f"{first} {last}".strip()
+                    email = data.get('email', '') or ''
+                    whatsapp = data.get('whatsapp', '') or ''
+                    username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
+                    if full_name:
+                        cursor.execute("""
+                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
+                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW())
+                            ON CONFLICT (username) DO UPDATE SET
+                                full_name = EXCLUDED.full_name,
+                                email = EXCLUDED.email,
+                                updated_at = NOW()
+                        """, (username, full_name, email))
+                except Exception:
+                    pass
                 connection.commit()
                 return jsonify({'success': True, 'message': 'Employee updated successfully'})
         except Exception as e:
@@ -23184,11 +23235,19 @@ def user_management_login():
         with get_db() as (cursor, connection):
             # First try unified admin_users table
             cursor.execute("""
-                SELECT id, username, password, full_name, source_system, source_id, role
+                SELECT id, username, password, full_name, source_system, source_id, role, must_reset_password
                 FROM admin_users WHERE username = %s AND is_active = TRUE
             """, (email_or_username,))
             au_row = cursor.fetchone()
             if au_row and au_row[2] == password:
+                # Check if password reset is required
+                if au_row[7]:  # must_reset_password
+                    return jsonify({
+                        'success': False,
+                        'must_reset': True,
+                        'message': 'You must reset your password before continuing.',
+                        'username': email_or_username
+                    }), 403
                 user_uuid = uuid.uuid4()
                 session['user_uuid'] = str(user_uuid)
                 session.permanent = True

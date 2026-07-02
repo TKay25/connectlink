@@ -2419,6 +2419,7 @@ async function saveEmployee() {
     const firstName = document.getElementById('empFirstName').value.trim();
     const lastName = document.getElementById('empLastName').value.trim();
     const email = document.getElementById('empEmail').value.trim();
+    const whatsapp = document.getElementById('empPhone').value.trim();
 
     if (!firstName || !lastName || !email) {
         alert('Please fill in all required fields (First Name, Last Name, Email).');
@@ -2432,7 +2433,7 @@ async function saveEmployee() {
         first_name: firstName,
         last_name: lastName,
         email: email,
-        whatsapp: document.getElementById('empPhone').value.trim(),
+        whatsapp: whatsapp,
         address: document.getElementById('empAddress').value.trim(),
         department: document.getElementById('empDepartment').value,
         designation: document.getElementById('empDesignation').value.trim(),
