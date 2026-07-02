@@ -1377,6 +1377,23 @@ def initialize_database_tables():
                 );
             """)
 
+            # Employee leave type balances (per-employee, per-leave-type)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_employee_leave_balances (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT NOT NULL REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    leave_type VARCHAR(50) NOT NULL,
+                    current_balance DECIMAL(10,2) DEFAULT 0,
+                    monthly_accrual DECIMAL(10,2) DEFAULT 0,
+                    annual_accrual DECIMAL(10,2) DEFAULT 0,
+                    carry_forward DECIMAL(10,2) DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(employee_id, leave_type)
+                );
+            """)
+            connection.commit()
+            print("✅ Employee leave balances table initialized")
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_leave_approved (
                     id SERIAL PRIMARY KEY,
@@ -12161,6 +12178,7 @@ def hr_employees_api():
     if request.method == 'GET':
         try:
             with get_db() as (cursor, connection):
+                # Get registered hr_employees
                 cursor.execute("""
                     SELECT id, user_id, first_name, last_name, whatsapp, email, address,
                            role, department, designation, gender, dob, marital_status,
@@ -12169,8 +12187,10 @@ def hr_employees_api():
                     FROM hr_employees ORDER BY last_name, first_name
                 """)
                 rows = cursor.fetchall()
+                employee_ids = set()
                 employees = []
                 for r in rows:
+                    employee_ids.add(r[1] or r[0])
                     employees.append({
                         'id': r[0], 'user_id': r[1], 'first_name': r[2], 'last_name': r[3],
                         'whatsapp': r[4], 'email': r[5], 'address': r[6],
@@ -12179,8 +12199,34 @@ def hr_employees_api():
                         'marital_status': r[12], 'nationality': r[13],
                         'date_joined': str(r[14]) if r[14] else None,
                         'leave_balance': float(r[15] or 0), 'monthly_accrual': float(r[16] or 0),
-                        'salary': float(r[17] or 0), 'employment_type': r[18], 'status': r[19]
+                        'salary': float(r[17] or 0), 'employment_type': r[18], 'status': r[19],
+                        'source': 'hr_employees'
                     })
+
+                # Also include admin_users not yet in hr_employees (they auto-become employees)
+                cursor.execute("""
+                    SELECT id, username, full_name, email, source_system, created_at
+                    FROM admin_users WHERE is_active = TRUE ORDER BY full_name
+                """)
+                for au in cursor.fetchall():
+                    au_id = au[0]
+                    if au_id in employee_ids:
+                        continue
+                    full_name = au[2] or ''
+                    parts = full_name.split(' ', 1)
+                    first = parts[0] if parts else full_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    employees.append({
+                        'id': au_id, 'user_id': None, 'first_name': first, 'last_name': last,
+                        'whatsapp': '', 'email': au[3] or '', 'address': '',
+                        'role': 'Ordinary User', 'department': '', 'designation': '',
+                        'gender': '', 'dob': None, 'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(au[5])[:10] if au[5] else None,
+                        'leave_balance': 21, 'monthly_accrual': 1.75,
+                        'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'source': 'admin_users'
+                    })
+
                 return jsonify({'success': True, 'data': employees})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
@@ -12206,6 +12252,22 @@ def hr_employees_api():
                     data.get('employment_type', 'Permanent'), data.get('status', 'Active')
                 ))
                 emp_id = cursor.fetchone()[0]
+
+                # Sync to admin_users if not already there
+                email = data.get('email', '')
+                first = data.get('first_name', '')
+                last = data.get('last_name', '')
+                full_name = f"{first} {last}".strip()
+                if email and full_name:
+                    try:
+                        cursor.execute("""
+                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, created_at)
+                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', NOW())
+                            ON CONFLICT (username) DO NOTHING
+                        """, (email, full_name, email))
+                    except Exception:
+                        pass
+
                 connection.commit()
                 return jsonify({'success': True, 'id': emp_id, 'message': 'Employee added successfully'})
         except Exception as e:
@@ -12220,17 +12282,40 @@ def hr_employee_detail(emp_id):
             with get_db() as (cursor, connection):
                 cursor.execute("SELECT * FROM hr_employees WHERE id = %s", (emp_id,))
                 r = cursor.fetchone()
-                if not r:
-                    return jsonify({'success': False, 'error': 'Employee not found'}), 404
-                cols = [desc[0] for desc in cursor.description]
-                emp = dict(zip(cols, r))
-                # Convert dates/times to strings
-                for k, v in emp.items():
-                    if hasattr(v, 'isoformat'):
-                        emp[k] = v.isoformat()
-                    elif hasattr(v, 'strftime'):
-                        emp[k] = v.strftime('%Y-%m-%d')
-                return jsonify({'success': True, 'data': emp})
+                if r:
+                    cols = [desc[0] for desc in cursor.description]
+                    emp = dict(zip(cols, r))
+                    for k, v in emp.items():
+                        if hasattr(v, 'isoformat'):
+                            emp[k] = v.isoformat()
+                        elif hasattr(v, 'strftime'):
+                            emp[k] = v.strftime('%Y-%m-%d')
+                    emp['source'] = 'hr_employees'
+                    return jsonify({'success': True, 'data': emp})
+                
+                # Fallback: try admin_users (for auto-created employees)
+                cursor.execute("SELECT id, username, full_name, email, source_system, created_at FROM admin_users WHERE id = %s", (emp_id,))
+                au = cursor.fetchone()
+                if au:
+                    full_name = au[2] or ''
+                    parts = full_name.split(' ', 1)
+                    emp = {
+                        'id': au[0], 'user_id': None, 'first_name': parts[0] if parts else full_name,
+                        'last_name': parts[1] if len(parts) > 1 else '', 'whatsapp': '',
+                        'email': au[3] or '', 'address': '', 'role': 'Ordinary User',
+                        'department': '', 'designation': '', 'gender': '', 'dob': None,
+                        'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(au[5])[:10] if au[5] else None,
+                        'current_leave_balance': 21, 'monthly_accumulation': 1.75,
+                        'basic_salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
+                        'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
+                        'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
+                        'c8_number': '', 'c8_type': '', 'source': 'admin_users'
+                    }
+                    return jsonify({'success': True, 'data': emp})
+                
+                return jsonify({'success': False, 'error': 'Employee not found'}), 404
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -12276,6 +12361,54 @@ def hr_employee_detail(emp_id):
                 cursor.execute("DELETE FROM hr_employees WHERE id = %s", (emp_id,))
                 connection.commit()
                 return jsonify({'success': True, 'message': 'Employee removed'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave-balances/<int:emp_id>', methods=['GET', 'POST'])
+def hr_leave_balances(emp_id):
+    """Get or update per-leave-type balances for an employee"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT leave_type, current_balance, monthly_accrual, annual_accrual, carry_forward
+                    FROM hr_employee_leave_balances WHERE employee_id=%s
+                """, (emp_id,))
+                rows = cursor.fetchall()
+                balances = [{
+                    'leave_type': r[0], 'current_balance': float(r[1] or 0),
+                    'monthly_accrual': float(r[2] or 0),
+                    'annual_accrual': float(r[3] or 0),
+                    'carry_forward': float(r[4] or 0)
+                } for r in rows]
+                return jsonify({'success': True, 'data': balances})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            balances = data.get('balances', [])
+            with get_db() as (cursor, connection):
+                for b in balances:
+                    cursor.execute("""
+                        INSERT INTO hr_employee_leave_balances
+                            (employee_id, leave_type, current_balance, monthly_accrual, annual_accrual, carry_forward)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (employee_id, leave_type) DO UPDATE SET
+                            current_balance=EXCLUDED.current_balance,
+                            monthly_accrual=EXCLUDED.monthly_accrual,
+                            annual_accrual=EXCLUDED.annual_accrual,
+                            carry_forward=EXCLUDED.carry_forward,
+                            updated_at=NOW()
+                    """, (
+                        emp_id, b.get('leave_type'),
+                        b.get('current_balance', 0), b.get('monthly_accrual', 0),
+                        b.get('annual_accrual', 0), b.get('carry_forward', 0)
+                    ))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Leave balances updated'})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
 

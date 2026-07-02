@@ -1779,19 +1779,38 @@
                     </div>
                 </div>
 
-                <!-- Leave & Payroll -->
+                <!-- Leave Balances by Type -->
                 <h6 style="font-size:0.65rem;font-weight:700;color:var(--primary);margin:10px 0 8px;border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
-                    <i class="bi bi-cash-stack"></i> Leave &amp; Payroll
+                    <i class="bi bi-pie-chart"></i> Leave Balances by Type
+                </h6>
+                <div style="overflow-x:auto;margin-bottom:10px;">
+                    <table style="width:100%;font-size:0.6rem;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f9fafb;">
+                                <th style="padding:4px 8px;text-align:left;font-weight:600;color:#374151;">Type</th>
+                                <th style="padding:4px 8px;text-align:center;font-weight:600;color:#374151;">Balance</th>
+                                <th style="padding:4px 8px;text-align:center;font-weight:600;color:#374151;">Monthly Accrual</th>
+                                <th style="padding:4px 8px;text-align:center;font-weight:600;color:#374151;">Annual Cap</th>
+                                <th style="padding:4px 8px;text-align:center;font-weight:600;color:#374151;">Carry Fwd</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaveBalancesBody"></tbody>
+                    </table>
+                </div>
+                <script id="leaveBalancesTemplate" type="text/html">
+                    <tr>
+                        <td style="padding:3px 8px;font-weight:600;color:#1f2937;">{type}</td>
+                        <td style="padding:3px 8px;text-align:center;"><input type="number" class="form-control lb-input" data-field="balance" data-type="{type}" value="{balance}" step="0.5" style="width:70px;display:inline-block;font-size:0.6rem;padding:2px 6px;text-align:center;"></td>
+                        <td style="padding:3px 8px;text-align:center;"><input type="number" class="form-control lb-input" data-field="monthly" data-type="{type}" value="{monthly}" step="0.25" style="width:70px;display:inline-block;font-size:0.6rem;padding:2px 6px;text-align:center;"></td>
+                        <td style="padding:3px 8px;text-align:center;"><input type="number" class="form-control lb-input" data-field="annual" data-type="{type}" value="{annual}" step="0.5" style="width:70px;display:inline-block;font-size:0.6rem;padding:2px 6px;text-align:center;"></td>
+                        <td style="padding:3px 8px;text-align:center;"><input type="number" class="form-control lb-input" data-field="carry" data-type="{type}" value="{carry}" step="0.5" style="width:70px;display:inline-block;font-size:0.6rem;padding:2px 6px;text-align:center;"></td>
+                    </tr>
+                </script>
+                <!-- Payroll -->
+                <h6 style="font-size:0.65rem;font-weight:700;color:var(--primary);margin:10px 0 8px;border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
+                    <i class="bi bi-cash-stack"></i> Payroll
                 </h6>
                 <div class="row g-2 mb-2">
-                    <div class="col-md-3">
-                        <label class="form-label">Leave Balance (days)</label>
-                        <input type="number" class="form-control" id="empLeaveBalance" value="21" step="0.5">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Monthly Accrual</label>
-                        <input type="number" class="form-control" id="empMonthlyAccrual" value="1.75" step="0.25">
-                    </div>
                     <div class="col-md-3">
                         <label class="form-label">Basic Salary (USD)</label>
                         <input type="number" class="form-control" id="empSalary" step="0.01">
@@ -2240,21 +2259,36 @@ async function loadEmployees() {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${i + 1}</td>
-                <td><strong>${emp.first_name} ${emp.last_name}</strong><br>
+                <td><strong>${emp.first_name} ${emp.last_name}</strong>${emp.source === 'admin_users' ? ' <span style="font-size:0.45rem;background:#e8f0fe;color:#1a73e8;padding:1px 5px;border-radius:3px;">Auto</span>' : ''}<br>
                     <small style="color:var(--text-muted);font-size:0.55rem;">${emp.email || ''}</small></td>
                 <td>${emp.department || 'N/A'}</td>
                 <td>${emp.designation || 'N/A'}</td>
-                <td><span class="badge-hr active" style="font-size:0.55rem;">${emp.employment_type || 'N/A'}</span></td>
-                <td><span class="${statusBadge}">${emp.status}</span></td>
+                <td><span class="badge-hr active" style="font-size:0.55rem;">${emp.employment_type || 'Permanent'}</span></td>
+                <td><span class="${statusBadge}">${emp.status || 'Active'}</span></td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="viewEmployee(${emp.id})" title="View/Edit"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteEmployee(${emp.id})" title="Remove"><i class="bi bi-trash"></i></button>
+                    ${emp.source !== 'admin_users' ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteEmployee(${emp.id})" title="Remove"><i class="bi bi-trash"></i></button>` : ''}
                 </td>
             `;
             tbody.appendChild(row);
         });
         document.getElementById('empCountDisplay').textContent = data.data.length + ' employees';
     } catch(e) { console.error('Employees error:', e); }
+}
+
+function collectLeaveBalances() {
+    const inputs = document.querySelectorAll('.lb-input');
+    const types = {};
+    inputs.forEach(inp => {
+        const type = inp.dataset.type;
+        if (!types[type]) types[type] = { leave_type: type, current_balance: 0, monthly_accrual: 0, annual_accrual: 0, carry_forward: 0 };
+        const val = parseFloat(inp.value) || 0;
+        if (inp.dataset.field === 'balance') types[type].current_balance = val;
+        else if (inp.dataset.field === 'monthly') types[type].monthly_accrual = val;
+        else if (inp.dataset.field === 'annual') types[type].annual_accrual = val;
+        else if (inp.dataset.field === 'carry') types[type].carry_forward = val;
+    });
+    return Object.values(types);
 }
 
 async function saveEmployee() {
@@ -2267,6 +2301,9 @@ async function saveEmployee() {
         alert('Please fill in all required fields (First Name, Last Name, Email).');
         return;
     }
+
+    // Collect per-leave-type balances
+    const leaveBalances = collectLeaveBalances();
 
     const payload = {
         first_name: firstName,
@@ -2284,8 +2321,8 @@ async function saveEmployee() {
         date_joined: document.getElementById('empStartDate').value || null,
         role: document.getElementById('empRole').value,
         status: document.getElementById('empStatus').value,
-        leave_balance: parseFloat(document.getElementById('empLeaveBalance').value) || 21,
-        monthly_accrual: parseFloat(document.getElementById('empMonthlyAccrual').value) || 1.75,
+        leave_balance: 0,
+        monthly_accrual: 0,
         salary: parseFloat(document.getElementById('empSalary').value) || 0,
         currency: document.getElementById('empCurrency').value,
         usd_percent: parseFloat(document.getElementById('empUsdPercent').value) || 100,
@@ -2316,6 +2353,17 @@ async function saveEmployee() {
         document.getElementById('hrLoader').classList.remove('active');
 
         if (data.success) {
+            // Save per-leave-type balances
+            const newEmpId = empId || (data.id || data.data?.id);
+            if (newEmpId && leaveBalances.length) {
+                try {
+                    await fetch(`/api/hr/leave-balances/${newEmpId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ balances: leaveBalances })
+                    });
+                } catch(e) { /* leave balances save is best-effort */ }
+            }
             closeModal('addEmployeeModal');
             document.getElementById('addEmployeeForm').reset();
             document.getElementById('editEmployeeId').value = '';
@@ -2323,7 +2371,6 @@ async function saveEmployee() {
             document.getElementById('empModalTitle').textContent = 'Add New Employee';
             await loadEmployees();
             await loadDashboardStats();
-            alert('✅ Employee ' + (empId ? 'updated' : 'added') + ' successfully!');
         } else {
             alert('❌ Error: ' + (data.error || 'Failed to save'));
         }
@@ -2359,8 +2406,6 @@ async function viewEmployee(empId) {
         document.getElementById('empStartDate').value = emp.date_joined ? emp.date_joined.substring(0, 10) : '';
         document.getElementById('empRole').value = emp.role || 'Ordinary User';
         document.getElementById('empStatus').value = emp.status || 'Active';
-        document.getElementById('empLeaveBalance').value = emp.current_leave_balance || 21;
-        document.getElementById('empMonthlyAccrual').value = emp.monthly_accumulation || 1.75;
         document.getElementById('empSalary').value = emp.basic_salary || 0;
         document.getElementById('empCurrency').value = emp.currency || 'USD';
         document.getElementById('empUsdPercent').value = emp.usd_percent || 100;
