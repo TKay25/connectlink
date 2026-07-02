@@ -24942,7 +24942,7 @@ def um_hardware_users():
 
 @app.route('/api/user-management/hr-users')
 def um_hr_users():
-    """Get all HR employees"""
+    """Get all HR employees (as admin_users-compatible format)"""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
@@ -24950,11 +24950,25 @@ def um_hr_users():
                 FROM hr_employees ORDER BY id DESC
             """)
             rows = cursor.fetchall()
-            users = [{
-                'id': r[0], 'first_name': r[1], 'last_name': r[2], 'email': r[3],
-                'department': r[4], 'role': r[5], 'status': r[6],
-                'date_joined': str(r[7]) if r[7] else None
-            } for r in rows]
+            users = []
+            for r in rows:
+                first = r[1] or ''
+                last = r[2] or ''
+                full_name = f"{first} {last}".strip()
+                users.append({
+                    'id': r[0],
+                    'username': r[3] or f"hr_emp_{r[0]}",
+                    'full_name': full_name or 'HR Employee',
+                    'email': r[3] or '',
+                    'role': 'admin' if r[5] == 'Administrator' else 'operator',
+                    'source_system': 'hr',
+                    'source_id': r[0],
+                    'is_active': r[6] == 'Active',
+                    'created_at': str(r[7]) if r[7] else None,
+                    'department': r[4] or '',
+                    'hr_role': r[5] or 'Ordinary User',
+                    'status': r[6] or 'Active'
+                })
             return jsonify({'success': True, 'data': users})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

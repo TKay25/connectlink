@@ -535,7 +535,7 @@
         <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')" id="nav-hardware-users"><i class="bi bi-cart"></i> <span>Hardware POS</span></button>
         <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')" id="nav-hr-users"><i class="bi bi-people"></i> <span>HR Employees</span></button>
         <div class="section-title">Admin</div>
-        <button class="nav-btn" onclick="openAddUserModal()" id="nav-add-user" data-perm="can_add_users"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
+        <button class="nav-btn" onclick="openAddUserModal()" id="nav-add-user"><i class="bi bi-person-plus"></i> <span>Add User</span></button>
         <button class="nav-btn" data-module="audit" onclick="showModule('audit')" id="nav-audit" data-perm="can_view_audit"><i class="bi bi-clock-history"></i> <span>Activity Log</span></button>
     </aside>
 
@@ -545,7 +545,7 @@
         <div id="module-overview" class="um-module active">
             <div class="page-header" style="margin-bottom:8px;">
                 <div>
-                    <h4 style="font-size:0.85rem;"><i class="bi bi-speedometer2"></i> Dashboard</h4>
+                    <h4 style="font-size:0.85rem;">Dashboard</h4>
                     <div style="font-size:0.5rem;color:var(--text-muted);margin-top:1px;"><i class="bi bi-calendar3"></i> <span id="currentDate"></span></div>
                 </div>
                 <button class="btn btn-outline-primary btn-sm" onclick="showModule('all-users')" style="font-size:0.6rem;padding:3px 10px;"><i class="bi bi-people-fill"></i> All Users</button>
@@ -637,6 +637,45 @@
                         <div style="display:flex;flex-direction:column;gap:5px;" id="permDistBars"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Row 3: Extra insights row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px;padding:0 2px;">
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-calendar-week"></i> Created This Week</div>
+                <div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);" id="insightThisWeek">0</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-calendar-month"></i> Created This Month</div>
+                <div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);" id="insightThisMonth">0</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-person-badge"></i> Admin Role</div>
+                <div style="font-size:1.2rem;font-weight:800;color:#f59e0b;" id="insightAdmins">0</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-person-check"></i> Has Permissions</div>
+                <div style="font-size:1.2rem;font-weight:800;color:#10b981;" id="insightWithPerms">0</div>
+            </div>
+        </div>
+        <!-- Row 4: More insights -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px;padding:0 2px;">
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-clock"></i> Oldest Member</div>
+                <div style="font-size:0.75rem;font-weight:700;color:var(--text-primary);" id="insightOldest">—</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-clock-history"></i> Newest Member</div>
+                <div style="font-size:0.75rem;font-weight:700;color:var(--text-primary);" id="insightNewest">—</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-arrow-up-short"></i> Growth (This Month)</div>
+                <div style="font-size:1.2rem;font-weight:800;color:#8b5cf6;" id="insightGrowth">0%</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-activity"></i> Permission Rate</div>
+                <div style="font-size:1.2rem;font-weight:800;color:#06b6d4;" id="insightUtilization">0%</div>
             </div>
         </div>
 
@@ -758,6 +797,12 @@
                                 <option>Construction</option><option>Construction Sales</option><option>Hardware Sales</option><option>Administration</option><option>Finance</option><option>HR</option><option>Logistics</option><option>Management</option><option>Systems &amp; IT</option></select></div>
                             <div class="col-md-4"><label class="form-label">Designation</label><input type="text" class="form-control" id="addUserDesignation" placeholder="e.g. Officer"></div>
                             <div class="col-md-4"><label class="form-label">WhatsApp</label><input type="text" class="form-control" id="addUserWhatsapp" placeholder="26377xxxxxx"></div>
+                        </div>
+                    </div>
+                    <div id="hardwareExtraFields" style="display:none;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-12"><label class="form-label">Hardware POS User</label>
+                            <input type="text" class="form-control" value="Will be created with POS access" disabled></div>
                         </div>
                     </div>
                     <div id="addUserMsg" style="font-size:0.6rem;margin-top:6px;text-align:center;min-height:18px;color:var(--text-muted);"></div>
@@ -1116,6 +1161,33 @@ function renderOverview() {
             </div>
         </div>`;
     }).join('');
+
+    // ---- Extra Insights Row ----
+    const now = new Date();
+    const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay()); startOfWeek.setHours(0,0,0,0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const thisWeek = admin.filter(u => u.created_at && new Date(u.created_at) >= startOfWeek).length;
+    const thisMonth = admin.filter(u => u.created_at && new Date(u.created_at) >= startOfMonth).length;
+    const adminRoleCount = admin.filter(u => u.role === 'admin').length;
+    const withPerms = admin.filter(u => { const p = getPerm(u); return p.is_super_admin || p.can_manage_projects || p.can_manage_hardware || p.can_manage_hr || p.can_view_payments; }).length;
+    const lastMonth = admin.filter(u => u.created_at && new Date(u.created_at) >= new Date(now.getFullYear(), now.getMonth()-1, 1) && new Date(u.created_at) < startOfMonth).length;
+    const growth = lastMonth > 0 ? Math.round((thisMonth - lastMonth) / lastMonth * 100) : (thisMonth > 0 ? 100 : 0);
+    const utilPct = total > 0 ? Math.round(withPerms / total * 100) : 0;
+
+    // Oldest and newest
+    const dated = admin.filter(u => u.created_at).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    const oldest = dated.length > 0 ? dated[0].full_name || dated[0].username || '—' : '—';
+    const newest = dated.length > 0 ? (dated[dated.length-1].full_name || dated[dated.length-1].username || '—') : '—';
+
+    document.getElementById('insightThisWeek').textContent = thisWeek;
+    document.getElementById('insightThisMonth').textContent = thisMonth;
+    document.getElementById('insightAdmins').textContent = adminRoleCount;
+    document.getElementById('insightWithPerms').textContent = withPerms;
+    document.getElementById('insightOldest').textContent = oldest;
+    document.getElementById('insightNewest').textContent = newest;
+    document.getElementById('insightGrowth').textContent = (growth >= 0 ? '+' : '') + growth + '%';
+    document.getElementById('insightUtilization').textContent = utilPct + '%';
 }
 
 // ===== RENDER ALL USERS (unified, with portal access badges) =====
@@ -1272,7 +1344,7 @@ function renderHardwareUsers() {
 
 function renderHrUsers() {
     const tbody = document.getElementById('hrUsersBody');
-    const all = (allUsersData.admin || []).filter(u => u.source_system === 'hr');
+    const all = allUsersData.hr || [];
     const badge = (u) => {
         const sys = u.source_system || 'hr';
         const p = permIndex[sys + ':' + (u.source_id || u.id)];
