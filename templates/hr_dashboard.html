@@ -131,35 +131,39 @@
         .role-switch {
             display: flex;
             align-items: center;
-            gap: 6px;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px;
-            padding: 2px 3px;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 2px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             position: relative;
             font-size: 0.55rem;
             font-weight: 600;
         }
-
+        .role-switch:hover { border-color: #d1d5db; }
         .role-switch .role-option {
-            padding: 3px 10px;
-            border-radius: 16px;
-            color: rgba(255,255,255,0.5);
-            transition: all 0.3s ease;
+            padding: 4px 12px;
+            border-radius: 6px;
+            color: #6b7280;
+            transition: all 0.2s ease;
             white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
-
         .role-switch .role-option.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 2px 8px rgba(193,43,62,0.3);
+            background: #fff;
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid #e5e7eb;
         }
-
         .role-switch .role-option i {
-            margin-right: 3px;
-            font-size: 0.5rem;
+            font-size: 0.55rem;
+        }
+        .role-switch .role-option.active i { color: var(--primary); }
+        .role-switch .role-divider {
+            width: 1px; height: 16px; background: #e5e7eb; flex-shrink: 0;
         }
 
         /* ===== LAYOUT ===== */
@@ -813,9 +817,50 @@
             color: var(--text-muted);
             white-space: nowrap;
         }
+
+        /* ===== DARK THEME ===== */
+        body.dark-theme {
+            --slate-50: #0f1219; --slate-100: #1a1f2e; --slate-200: #252b3d;
+            --slate-300: #374151; --slate-400: #6b7280; --slate-500: #9ca3af;
+            --slate-600: #d1d5db; --slate-700: #e5e7eb; --slate-800: #f3f4f6;
+            --text-primary: #e5e7eb; --text-secondary: #9ca3af; --text-muted: #6b7280;
+            --bg-card: #1a1f2e; --border-color: #252b3d;
+            --white: #1a1f2e; --gray-50: #0f1219; --gray-100: #1a1f2e;
+            --gray-200: #252b3d; --gray-300: #374151; --gray-400: #6b7280;
+            --gray-500: #9ca3af; --gray-600: #d1d5db; --gray-700: #e5e7eb;
+            background: #0f1219;
+        }
+        body.dark-theme .hr-navbar { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .hr-navbar .brand .brand-text { color: #e5e7eb; }
+        body.dark-theme .hr-navbar .user-badge { background: #1a1f2e; border-color: #252b3d; color: #9ca3af; }
+        body.dark-theme .hr-navbar .user-badge:hover { border-color: var(--primary); }
+        body.dark-theme .hr-sidebar { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .hr-sidebar .nav-btn { color: #6b7280; }
+        body.dark-theme .hr-sidebar .nav-btn:hover { background: #1a1f2e; color: #e5e7eb; }
+        body.dark-theme .hr-sidebar .nav-btn.active { background: rgba(193,43,62,0.15); color: #fff; }
+        body.dark-theme .hr-sidebar .sidebar-section { color: #4b5563; }
+        body.dark-theme .hr-main { background: #0f1219; }
+        body.dark-theme .hr-card { background: #1a1f2e; border-color: #252b3d; }
+        body.dark-theme .hr-card .card-header-custom { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .hr-stat-card { background: #1a1f2e; }
+        body.dark-theme .table-hr td { color: #e5e7eb; border-color: #252b3d; }
+        body.dark-theme .table-hr tbody tr:hover td { background: rgba(255,255,255,0.03); }
+        body.dark-theme .table-hr tbody tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+        body.dark-theme .form-control, body.dark-theme .form-select { background: #0f1219; border-color: #252b3d; color: #e5e7eb; }
+        body.dark-theme .form-control:focus, body.dark-theme .form-select:focus { border-color: var(--primary); }
+        body.dark-theme .form-label { color: #9ca3af; }
+        body.dark-theme .modal-container { background: #1a1f2e; }
+        body.dark-theme .modal-body-custom { color: #e5e7eb; }
+        body.dark-theme .user-dropdown-menu { background: #1a1f2e; border-color: #252b3d; }
+        body.dark-theme .user-dropdown-menu .dropdown-header { background: #0f1219; }
+        body.dark-theme .user-dropdown-menu .dropdown-item { color: #e5e7eb; }
+        body.dark-theme .user-dropdown-menu .dropdown-item:hover { background: rgba(255,255,255,0.05); }
+        body.dark-theme .user-dropdown-menu .dropdown-user-name { color: #e5e7eb; }
+        body.dark-theme .user-dropdown-menu .dropdown-user-role { color: #6b7280; }
     </style>
 </head>
 <body data-can-manage-hr="{% if can_manage_hr %}1{% else %}0{% endif %}" data-hr-employee-id="{% if hr_employee_id %}{{ hr_employee_id }}{% endif %}">
+<script>if(localStorage.getItem('connectlink_theme')==='dark'||(localStorage.getItem('connectlink_theme')===null&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.body.classList.add('dark-theme');var _ti=document.getElementById('themeIcon');if(_ti)_ti.className='bi bi-sun';}</script>
 
 <!-- ===== LOADING OVERLAY ===== -->
 <div class="eds-loader" id="hrLoader">
@@ -834,13 +879,17 @@
         {% if hr_role == 'Administrator' %}
         <div class="role-switch" id="roleSwitch" onclick="toggleAdminView()" title="Switch between Admin and Employee view">
             <span class="role-option active" data-role="admin" id="roleAdminBtn">
-                <i class="bi bi-shield-lock"></i> Admin
+                <i class="bi bi-shield-lock"></i> <span>Admin</span>
             </span>
+            <span class="role-divider"></span>
             <span class="role-option" data-role="user" id="roleUserBtn">
-                <i class="bi bi-person"></i> My Profile
+                <i class="bi bi-person"></i> <span>My Profile</span>
             </span>
         </div>
         {% endif %}
+        <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;">
+            <i id="themeIcon" class="bi bi-moon"></i>
+        </button>
         <div class="user-badge" onclick="toggleUserDropdown(event)">
             <div class="avatar">{{ (user_name or 'U')[0]|upper }}</div>
             <span>{{ user_name or 'User' }}</span>
@@ -2025,6 +2074,15 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+// ===== THEME TOGGLE =====
+window.toggleTheme = function() {
+    const body = document.body;
+    const isDark = body.classList.toggle('dark-theme');
+    localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon';
+};
+
 // ===== PAGE DATA =====
 const HR_ROLE = '{{ hr_role }}';
 const HR_EMPLOYEE_ID = parseInt(document.body.dataset.hrEmployeeId) || null;

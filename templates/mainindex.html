@@ -53,6 +53,75 @@
             --radius-full: 9999px;
         }
 
+        /* Dark theme */
+        body.dark-theme {
+            --primary: #1a3a5c;
+            --primary-light: #2a5a8c;
+            --gray-50: #0f1219;
+            --gray-100: #1a1f2e;
+            --gray-200: #252b3d;
+            --gray-500: #6b7280;
+            --gray-600: #9ca3af;
+            --gray-700: #d1d5db;
+            background: #0f1219;
+            color: #e5e7eb;
+        }
+        body.dark-theme .bg-gradient {
+            background: linear-gradient(135deg, #0f1219 0%, #151b2e 35%, #1a1f35 65%, #0f1219 100%);
+        }
+        body.dark-theme .bg-grid {
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+        }
+        body.dark-theme .bg-diagonal {
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.02) 40px, rgba(255,255,255,0.02) 41px);
+        }
+        body.dark-theme .bg-dots {
+            background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+        }
+        body.dark-theme .navbar {
+            background: rgba(15,18,25,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        body.dark-theme .brand-text { color: #e5e7eb; }
+        body.dark-theme .nav-status { background: rgba(255,255,255,0.06); color: #9ca3af; }
+        body.dark-theme .system-card { background: rgba(26,31,46,0.92); border-color: rgba(255,255,255,0.06); }
+        body.dark-theme .system-card:hover { background: #1a1f2e; border-color: rgba(181,13,13,0.2); }
+        body.dark-theme .system-card h3 { color: #e5e7eb; }
+        body.dark-theme .system-card p { color: #9ca3af; }
+        body.dark-theme .card-icon-wrapper { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.08); }
+        body.dark-theme .card-icon-wrapper i { color: #9ca3af; }
+        body.dark-theme .card-badge { background: rgba(255,255,255,0.06); color: #9ca3af; }
+        body.dark-theme .hero-section h1 { color: #e5e7eb; }
+        body.dark-theme .hero-section .lead-text { color: #9ca3af; }
+        body.dark-theme .hero-badge { background: rgba(255,255,255,0.06); color: #9ca3af; border-color: rgba(255,255,255,0.08); }
+        body.dark-theme .portal-header h2 { color: #e5e7eb; }
+        body.dark-theme .portal-header p { color: #9ca3af; }
+        body.dark-theme .hero-stats .stat-number { color: #e5e7eb; }
+        body.dark-theme .hero-stats .stat-label { color: #9ca3af; }
+        body.dark-theme .login-modal { background: #1a1f2e; }
+        body.dark-theme .modal-header { background: linear-gradient(135deg, #0f1219, #1a1f2e); }
+        body.dark-theme .modal-body { background: #1a1f2e; }
+        body.dark-theme .form-input-modal { background: #0f1219; border-color: #252b3d; color: #e5e7eb; }
+        body.dark-theme .form-input-modal:focus { background: #0f1219; border-color: var(--accent); }
+        body.dark-theme .form-group label { color: #9ca3af; }
+        body.dark-theme .modal-footer-links { border-color: #252b3d; }
+        body.dark-theme .modal-footer-links a { color: #6b7280; }
+        body.dark-theme .footer { background: rgba(15,18,25,0.8); border-color: rgba(255,255,255,0.06); }
+        body.dark-theme .footer p { color: #6b7280; }
+        body.dark-theme .card-content .btn-explore { box-shadow: none; }
+        /* Theme toggle button */
+        .theme-toggle-btn {
+            background: none; border: 1px solid var(--gray-200); border-radius: 6px;
+            padding: 4px 8px; cursor: pointer; color: var(--gray-500);
+            font-size: 0.7rem; transition: all 0.2s;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .theme-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+        body.dark-theme .theme-toggle-btn { border-color: #252b3d; color: #9ca3af; }
+        body.dark-theme .theme-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+
         body {
             font-family: 'Inter', sans-serif;
             min-height: 100vh;
@@ -1262,9 +1331,14 @@
         <a class="navbar-brand" href="#">
             <span class="brand-text">Connect<span>Link</span></span>
         </a>
-        <div class="nav-status">
-            <span class="dot"></span>
-            <span>All systems operational</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <button class="theme-toggle-btn" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+                <i id="themeIcon" class="fas fa-moon"></i>
+            </button>
+            <div class="nav-status">
+                <span class="dot"></span>
+                <span>All systems operational</span>
+            </div>
         </div>
     </div>
 </nav>
@@ -1684,6 +1758,25 @@
 </footer>
 
 <script>
+    // ===== THEME TOGGLE =====
+    (function() {
+        const key = 'connectlink_theme';
+        const saved = localStorage.getItem(key);
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = saved ? saved === 'dark' : prefersDark;
+        if (isDark) document.body.classList.add('dark-theme');
+        const icon = document.getElementById('themeIcon');
+        if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    })();
+
+    window.toggleTheme = function() {
+        const body = document.body;
+        const isDark = body.classList.toggle('dark-theme');
+        localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
+        const icon = document.getElementById('themeIcon');
+        if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    };
+
     (function() {
         // State management
         const state = {

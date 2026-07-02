@@ -450,9 +450,48 @@
         .perm-row:last-child { border-bottom: none; }
         .perm-label { display: flex; align-items: center; gap: 6px; color: var(--text-primary); }
         .perm-label i { width: 16px; color: var(--primary); font-size:0.7rem; }
+        /* ===== DARK THEME ===== */
+        body.dark-theme {
+            --text-primary: #e5e7eb; --text-secondary: #9ca3af; --text-muted: #6b7280;
+            --border-color: #252b3d; --white: #1a1f2e; --gray-50: #0f1219;
+            --gray-100: #1a1f2e; --gray-200: #252b3d; --gray-300: #374151;
+            --gray-400: #6b7280; --gray-500: #9ca3af; --gray-600: #d1d5db;
+            background: #0f1219;
+        }
+        body.dark-theme .um-navbar { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .um-navbar .brand .brand-text { color: #e5e7eb; }
+        body.dark-theme .um-navbar .user-badge { background: #1a1f2e; border-color: #252b3d; color: #9ca3af; }
+        body.dark-theme .um-sidebar { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .um-sidebar .nav-btn { color: #6b7280; }
+        body.dark-theme .um-sidebar .nav-btn:hover { background: #1a1f2e; color: #e5e7eb; }
+        body.dark-theme .um-sidebar .nav-btn.active { background: rgba(193,43,62,0.15); color: #fff; }
+        body.dark-theme .um-sidebar .section-title { color: #4b5563; }
+        body.dark-theme .um-main { background: #0f1219; }
+        body.dark-theme .um-card { background: #1a1f2e; border-color: #252b3d; }
+        body.dark-theme .um-card .card-header { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .dash-stat-card, body.dark-theme .portal-card, body.dark-theme .dash-bottom-card { background: #1a1f2e; }
+        body.dark-theme .dash-stat-card .dash-stat-label, body.dark-theme .portal-card-title { color: #e5e7eb; }
+        body.dark-theme .portal-card-count { color: #e5e7eb; }
+        body.dark-theme .table-um td { color: #e5e7eb; border-color: #252b3d; }
+        body.dark-theme .table-um tbody tr:hover td { background: rgba(255,255,255,0.03); }
+        body.dark-theme .table-um tbody tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+        body.dark-theme .form-control, body.dark-theme .form-select { background: #0f1219; border-color: #252b3d; color: #e5e7eb; }
+        body.dark-theme .form-label { color: #9ca3af; }
+        body.dark-theme .modal-container { background: #1a1f2e; }
+        body.dark-theme .modal-body { color: #e5e7eb; }
+        body.dark-theme .user-dropdown-menu { background: #1a1f2e; border-color: #252b3d; }
+        body.dark-theme .user-dropdown-menu .dropdown-header { background: #0f1219; }
+        body.dark-theme .user-dropdown-menu .dropdown-item { color: #e5e7eb; }
+        body.dark-theme .user-dropdown-menu .dropdown-item:hover { background: rgba(255,255,255,0.05); }
+        body.dark-theme .page-header h4 { color: #e5e7eb; }
+        body.dark-theme .card-header h6 { color: #e5e7eb; }
+        body.dark-theme .dash-stat-value { color: #e5e7eb !important; }
+        body.dark-theme .portal-card-title { color: #e5e7eb; }
+        body.dark-theme .dash-bottom-card .card-head { color: #e5e7eb; border-color: #252b3d; }
     </style>
 </head>
 <body>
+<script>if(localStorage.getItem('connectlink_theme')==='dark'||(localStorage.getItem('connectlink_theme')===null&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.body.classList.add('dark-theme');var _ti=document.getElementById('themeIcon');if(_ti)_ti.className='bi bi-sun';}</script>
 
 <div class="um-loader" id="umLoader">
     <div style="width:40px;height:40px;border:3px solid rgba(255,255,255,0.1);border-radius:50%;border-top-color:var(--primary);animation:spin 0.8s infinite;margin-bottom:16px;"></div>
@@ -465,6 +504,9 @@
         <span class="brand-text">Connect<span>Link</span> <span class="brand-badge">Users</span></span>
     </div>
     <div class="nav-actions" style="position:relative;">
+        <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;">
+            <i id="themeIcon" class="bi bi-moon"></i>
+        </button>
         <div class="user-badge" onclick="toggleDropdown(event)">
             <div class="avatar">{{ (user_name or 'U')[0]|upper }}</div>
             <span>{{ user_name or 'User' }}</span>
@@ -841,6 +883,15 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+// ===== THEME TOGGLE =====
+window.toggleTheme = function() {
+    const body = document.body;
+    const isDark = body.classList.toggle('dark-theme');
+    localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon';
+};
+
 const USER_NAME = '{{ user_name }}';
 const PERMS = {{ perms|tojson|safe }} || {};
 let allUsersData = { projects: [], hardware: [], hr: [] };
