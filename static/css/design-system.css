@@ -1,5 +1,5 @@
 /* ================================================================
-   CONNECTLINK DESIGN SYSTEM v2 — Modern, Clean, Professional
+   CONNECTLINK DESIGN SYSTEM v2 ï¿½ Modern, Clean, Professional
    ================================================================ */
 
 /* ----- Color System ----- */
@@ -89,7 +89,7 @@ body {
 .text-danger { color: var(--danger) !important; }
 
 /* ==================================================================
- NAVBAR — Clean glassmorphism
+ NAVBAR ï¿½ Clean glassmorphism
  ================================================================== */
 .navbar-glassmorphic {
  position: sticky; top: 0; z-index: 100;
@@ -113,7 +113,7 @@ body {
 .navbar-brand span { color: var(--accent); }
 
 /* ==================================================================
- CARDS — Clean, elevated
+ CARDS ï¿½ Clean, elevated
  ================================================================== */
 .card-glassmorphic,
 .hr-card, .card {
@@ -278,18 +278,17 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
 .modal-overlay {
  position: fixed; inset: 0; z-index: 1050;
  background: rgba(15,23,42,0.5); backdrop-filter: blur(6px);
- display: flex; align-items: center; justify-content: center;
+ align-items: center; justify-content: center;
  opacity: 0; pointer-events: none; transition: opacity var(--transition);
 }
-.modal-overlay.active, .modal-overlay[style*=display: flex] { opacity: 1; pointer-events: auto; }
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
 .modal-content {
  background: var(--bg-card); border-radius: var(--radius-xl);
  box-shadow: var(--shadow-xl); max-width: 520px; width: 92%;
  max-height: 88vh; overflow-y: auto;
  transform: scale(0.95) translateY(10px); transition: transform var(--transition-slow);
 }
-.modal-overlay.active .modal-content,
-.modal-overlay[style*=display: flex] .modal-content { transform: scale(1) translateY(0); }
+.modal-overlay.active .modal-content { transform: scale(1) translateY(0); }
 .modal-header {
  padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border);
  display: flex; align-items: center; justify-content: space-between;
