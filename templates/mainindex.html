@@ -1495,30 +1495,35 @@
                     <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
                 </form>
                 <div class="modal-footer-links">
-                    <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')">Reset Password</a>
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')">Forgot Password?</a>
                     <a href="#">Need help?</a>
                 </div>
             </div>
-            <!-- Reset Password Form (independent, hidden by default) -->
+            <!-- Reset Password Form (WhatsApp code flow) -->
             <div id="projectsResetForm" style="display:none;">
-                <div style="text-align:center;margin-bottom:8px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Universal Password Change</span></div>
-                <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your username/email and new password</div>
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔐 Reset Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">A code will be sent to your WhatsApp</div>
                 <div class="error-message" id="projectsResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
                 <div class="success-message" id="projectsResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
-                <form id="projectsResetForm" onsubmit="return handleResetPassword(event, 'projects')">
+                <!-- Step 1: Request code -->
+                <div id="projectsStep1">
                     <div class="form-group">
                         <label>Username / Email</label>
                         <div class="input-group-modal">
-                            <input type="text" class="form-input-modal" id="projectsResetEmail" placeholder="admin@email.com" required>
+                            <input type="text" class="form-input-modal" id="projectsResetEmail" placeholder="your@email.com" required>
                             <div class="input-icon-modal"><i class="fas fa-user"></i></div>
                         </div>
                     </div>
+                    <button type="button" class="modal-login-btn" onclick="sendResetCode('projects')" style="margin-bottom:6px;"><i class="fab fa-whatsapp me-1"></i> Send Code to WhatsApp</button>
+                    <div id="projectsCodeSent" style="display:none;font-size:0.55rem;color:#065f46;text-align:center;margin-bottom:4px;"></div>
+                </div>
+                <!-- Step 2: Verify code + set new password -->
+                <div id="projectsStep2" style="display:none;">
                     <div class="form-group">
-                        <label>Current Password</label>
+                        <label>Verification Code</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="projectsOldPw" placeholder="Enter current password" required>
-                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                            <button type="button" class="password-toggle-modal" onclick="toggleField('projectsOldPw', event)"><i class="fas fa-eye"></i></button>
+                            <input type="text" class="form-input-modal" id="projectsResetCode" placeholder="6-digit code" maxlength="6" required>
+                            <div class="input-icon-modal"><i class="fas fa-shield-alt"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1537,10 +1542,9 @@
                             <button type="button" class="password-toggle-modal" onclick="toggleField('projectsConfirmPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
-                    <div style="font-size:0.5rem;color:var(--gray-400);text-align:center;margin-bottom:6px;padding:4px 8px;background:#f9fafb;border-radius:6px;"><i class="fas fa-info-circle"></i> This password will work across all portals you have access to</div>
-                    <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
-                    <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
-                </form>
+                    <button type="button" class="modal-login-btn" onclick="verifyResetCode('projects')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Reset Password</button>
+                </div>
+                <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;margin-top:4px;"><i class="fas fa-arrow-left"></i> Back to login</a>
             </div>
         </div>
     </div>
@@ -1577,29 +1581,34 @@
                     <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
                 </form>
                 <div class="modal-footer-links">
-                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hardware')">Reset Password</a>
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hardware')">Forgot Password?</a>
                     <a href="#">Support</a>
                 </div>
             </div>
             <div id="hardwareResetForm" style="display:none;">
-                <div style="text-align:center;margin-bottom:8px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Universal Password Change</span></div>
-                <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your username and new password</div>
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔐 Reset Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">A code will be sent to your WhatsApp</div>
                 <div class="error-message" id="hardwareResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
                 <div class="success-message" id="hardwareResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
-                <form id="hardwareResetForm" onsubmit="return handleResetPassword(event, 'hardware')">
+                <!-- Step 1: Request code -->
+                <div id="hardwareStep1">
                     <div class="form-group">
-                        <label>Username</label>
+                        <label>Username / Email</label>
                         <div class="input-group-modal">
-                            <input type="text" class="form-input-modal" id="hardwareResetEmail" placeholder="admin" required>
+                            <input type="text" class="form-input-modal" id="hardwareResetEmail" placeholder="your@email.com" required>
                             <div class="input-icon-modal"><i class="fas fa-user"></i></div>
                         </div>
                     </div>
+                    <button type="button" class="modal-login-btn" onclick="sendResetCode('hardware')" style="margin-bottom:6px;"><i class="fab fa-whatsapp me-1"></i> Send Code to WhatsApp</button>
+                    <div id="hardwareCodeSent" style="display:none;font-size:0.55rem;color:#065f46;text-align:center;margin-bottom:4px;"></div>
+                </div>
+                <!-- Step 2: Verify code + set new password -->
+                <div id="hardwareStep2" style="display:none;">
                     <div class="form-group">
-                        <label>Current Password</label>
+                        <label>Verification Code</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hardwareOldPw" placeholder="Enter current password" required>
-                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                            <button type="button" class="password-toggle-modal" onclick="toggleField('hardwareOldPw', event)"><i class="fas fa-eye"></i></button>
+                            <input type="text" class="form-input-modal" id="hardwareResetCode" placeholder="6-digit code" maxlength="6" required>
+                            <div class="input-icon-modal"><i class="fas fa-shield-alt"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1618,10 +1627,9 @@
                             <button type="button" class="password-toggle-modal" onclick="toggleField('hardwareConfirmPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
-                    <div style="font-size:0.5rem;color:var(--gray-400);text-align:center;margin-bottom:6px;padding:4px 8px;background:#f9fafb;border-radius:6px;"><i class="fas fa-info-circle"></i> This password will work across all portals you have access to</div>
-                    <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
-                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hardware')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
-                </form>
+                    <button type="button" class="modal-login-btn" onclick="verifyResetCode('hardware')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Reset Password</button>
+                </div>
+                <a href="#" onclick="event.preventDefault(); toggleResetForm('hardware')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;margin-top:4px;"><i class="fas fa-arrow-left"></i> Back to login</a>
             </div>
         </div>
     </div>
@@ -1658,29 +1666,34 @@
                     <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
                 </form>
                 <div class="modal-footer-links">
-                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')">Reset Password</a>
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')">Forgot Password?</a>
                     <a href="#">Need help?</a>
                 </div>
             </div>
             <div id="hrResetForm" style="display:none;">
-                <div style="text-align:center;margin-bottom:8px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Universal Password Change</span></div>
-                <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your email and new password</div>
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔐 Reset Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">A code will be sent to your WhatsApp</div>
                 <div class="error-message" id="hrResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
                 <div class="success-message" id="hrResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
-                <form id="hrResetForm" onsubmit="return handleResetPassword(event, 'hr')">
+                <!-- Step 1: Request code -->
+                <div id="hrStep1">
                     <div class="form-group">
-                        <label>Email</label>
+                        <label>Username / Email</label>
                         <div class="input-group-modal">
-                            <input type="text" class="form-input-modal" id="hrResetEmail" placeholder="hr@email.com" required>
-                            <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                            <input type="text" class="form-input-modal" id="hrResetEmail" placeholder="your@email.com" required>
+                            <div class="input-icon-modal"><i class="fas fa-user"></i></div>
                         </div>
                     </div>
+                    <button type="button" class="modal-login-btn" onclick="sendResetCode('hr')" style="margin-bottom:6px;"><i class="fab fa-whatsapp me-1"></i> Send Code to WhatsApp</button>
+                    <div id="hrCodeSent" style="display:none;font-size:0.55rem;color:#065f46;text-align:center;margin-bottom:4px;"></div>
+                </div>
+                <!-- Step 2: Verify code + set new password -->
+                <div id="hrStep2" style="display:none;">
                     <div class="form-group">
-                        <label>Current Password</label>
+                        <label>Verification Code</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hrOldPw" placeholder="Enter current password" required>
-                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                            <button type="button" class="password-toggle-modal" onclick="toggleField('hrOldPw', event)"><i class="fas fa-eye"></i></button>
+                            <input type="text" class="form-input-modal" id="hrResetCode" placeholder="6-digit code" maxlength="6" required>
+                            <div class="input-icon-modal"><i class="fas fa-shield-alt"></i></div>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1699,10 +1712,9 @@
                             <button type="button" class="password-toggle-modal" onclick="toggleField('hrConfirmPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
-                    <div style="font-size:0.5rem;color:var(--gray-400);text-align:center;margin-bottom:6px;padding:4px 8px;background:#f9fafb;border-radius:6px;"><i class="fas fa-info-circle"></i> This password will work across all portals you have access to</div>
-                    <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
-                    <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
-                </form>
+                    <button type="button" class="modal-login-btn" onclick="verifyResetCode('hr')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Reset Password</button>
+                </div>
+                <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;margin-top:4px;"><i class="fas fa-arrow-left"></i> Back to login</a>
             </div>
         </div>
     </div>
@@ -1738,8 +1750,55 @@
                 <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
             </form>
             <div class="modal-footer-links">
-                <a href="#">Forgot password?</a>
+                <a href="#" onclick="event.preventDefault(); toggleResetForm('users')">Forgot Password?</a>
                 <a href="#">Support</a>
+            </div>
+            <!-- Reset Password Form (WhatsApp code flow) -->
+            <div id="usersResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔐 Reset Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">A code will be sent to your WhatsApp</div>
+                <div class="error-message" id="usersResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="success-message" id="usersResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
+                <!-- Step 1: Request code -->
+                <div id="usersStep1">
+                    <div class="form-group">
+                        <label>Username / Email</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="usersResetEmail" placeholder="your@email.com" required>
+                            <div class="input-icon-modal"><i class="fas fa-user"></i></div>
+                        </div>
+                    </div>
+                    <button type="button" class="modal-login-btn" onclick="sendResetCode('users')" style="margin-bottom:6px;"><i class="fab fa-whatsapp me-1"></i> Send Code to WhatsApp</button>
+                    <div id="usersCodeSent" style="display:none;font-size:0.55rem;color:#065f46;text-align:center;margin-bottom:4px;"></div>
+                </div>
+                <!-- Step 2: Verify code + set new password -->
+                <div id="usersStep2" style="display:none;">
+                    <div class="form-group">
+                        <label>Verification Code</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="usersResetCode" placeholder="6-digit code" maxlength="6" required>
+                            <div class="input-icon-modal"><i class="fas fa-shield-alt"></i></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="usersNewPw" placeholder="Min 4 characters" required>
+                            <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('usersNewPw', event)"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="usersConfirmPw" placeholder="Re-enter new password" required>
+                            <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('usersConfirmPw', event)"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <button type="button" class="modal-login-btn" onclick="verifyResetCode('users')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Reset Password</button>
+                </div>
+                <a href="#" onclick="event.preventDefault(); toggleResetForm('users')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;margin-top:4px;"><i class="fas fa-arrow-left"></i> Back to login</a>
             </div>
         </div>
     </div>
@@ -2011,24 +2070,95 @@
         };
 
         // ===== RESET PASSWORD =====
-        window.toggleResetForm = function(system) {
+        window.toggleResetForm = function(system, showReset) {
             const resetForm = document.getElementById(system + 'ResetForm');
             const loginForm = document.querySelector('#' + system + 'LoginModal .login-form-wrap');
             const footerLinks = document.querySelector('#' + system + 'LoginModal .modal-footer-links');
             const isHidden = resetForm.style.display === 'none' || !resetForm.style.display;
-            resetForm.style.display = isHidden ? 'block' : 'none';
-            if (loginForm) loginForm.style.display = isHidden ? 'none' : 'block';
-            if (footerLinks) footerLinks.style.display = isHidden ? 'none' : 'flex';
+            if (showReset === true) {
+                resetForm.style.display = 'block';
+                if (loginForm) loginForm.style.display = 'none';
+                if (footerLinks) footerLinks.style.display = 'none';
+            } else if (showReset === false) {
+                resetForm.style.display = 'none';
+                if (loginForm) loginForm.style.display = 'block';
+                if (footerLinks) footerLinks.style.display = 'flex';
+            } else {
+                resetForm.style.display = isHidden ? 'block' : 'none';
+                if (loginForm) loginForm.style.display = isHidden ? 'none' : 'block';
+                if (footerLinks) footerLinks.style.display = isHidden ? 'none' : 'flex';
+            }
+            // Reset UI to Step 1
+            const step1 = document.getElementById(system + 'Step1');
+            const step2 = document.getElementById(system + 'Step2');
+            if (step1) step1.style.display = 'block';
+            if (step2) step2.style.display = 'none';
+            const codeSent = document.getElementById(system + 'CodeSent');
+            if (codeSent) codeSent.style.display = 'none';
             // Clear messages
             const err = document.getElementById(system + 'ResetError');
             const suc = document.getElementById(system + 'ResetSuccess');
-            if (err) err.style.display = 'none';
-            if (suc) suc.style.display = 'none';
+            if (err) { err.style.display = 'none'; err.textContent = ''; }
+            if (suc) { suc.style.display = 'none'; suc.textContent = ''; }
+            // Clear fields
+            const codeField = document.getElementById(system + 'ResetCode');
+            if (codeField) codeField.value = '';
+            const newPw = document.getElementById(system + 'NewPw');
+            if (newPw) newPw.value = '';
+            const confirmPw = document.getElementById(system + 'ConfirmPw');
+            if (confirmPw) confirmPw.value = '';
         };
 
-        window.handleResetPassword = async function(e, system) {
-            e.preventDefault();
-            const oldPw = document.getElementById(system + 'OldPw').value;
+        // ===== WHATSAPP CODE PASSWORD RESET =====
+        window.sendResetCode = async function(system) {
+            const username = document.getElementById(system + 'ResetEmail').value.trim();
+            const errEl = document.getElementById(system + 'ResetError');
+            const codeSent = document.getElementById(system + 'CodeSent');
+            errEl.style.display = 'none';
+            if (codeSent) codeSent.style.display = 'none';
+
+            if (!username) {
+                errEl.textContent = 'Please enter your username or email.';
+                errEl.style.display = 'flex';
+                return;
+            }
+
+            // Show loading on button
+            const btn = document.querySelector('#' + system + 'Step1 .modal-login-btn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...'; }
+
+            try {
+                const res = await fetch('/api/request-reset-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await res.json();
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fab fa-whatsapp me-1"></i> Send Code to WhatsApp'; }
+
+                if (data.success) {
+                    if (codeSent) {
+                        codeSent.textContent = '✅ Code sent to ' + (data.whatsapp_masked || 'your WhatsApp');
+                        codeSent.style.display = 'block';
+                    }
+                    // Show step 2
+                    document.getElementById(system + 'Step1').style.display = 'none';
+                    document.getElementById(system + 'Step2').style.display = 'block';
+                    errEl.style.display = 'none';
+                } else {
+                    errEl.textContent = data.message || 'Failed to send code.';
+                    errEl.style.display = 'flex';
+                }
+            } catch(err) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fab fa-whatsapp me-1"></i> Send Code to WhatsApp'; }
+                errEl.textContent = 'Error: ' + err.message;
+                errEl.style.display = 'flex';
+            }
+        };
+
+        window.verifyResetCode = async function(system) {
+            const username = document.getElementById(system + 'ResetEmail').value.trim();
+            const code = document.getElementById(system + 'ResetCode').value.trim();
             const newPw = document.getElementById(system + 'NewPw').value;
             const confirmPw = document.getElementById(system + 'ConfirmPw').value;
             const errEl = document.getElementById(system + 'ResetError');
@@ -2037,57 +2167,55 @@
             errEl.style.display = 'none';
             sucEl.style.display = 'none';
 
-            if (!oldPw || !newPw || !confirmPw) {
+            if (!code || !newPw || !confirmPw) {
                 errEl.textContent = 'All fields are required.';
                 errEl.style.display = 'flex';
-                return false;
+                return;
             }
             if (newPw.length < 4) {
-                errEl.textContent = 'New password must be at least 4 characters.';
+                errEl.textContent = 'Password must be at least 4 characters.';
                 errEl.style.display = 'flex';
-                return false;
+                return;
             }
             if (newPw !== confirmPw) {
-                errEl.textContent = 'New passwords do not match.';
+                errEl.textContent = 'Passwords do not match.';
                 errEl.style.display = 'flex';
-                return false;
+                return;
             }
 
-            // Get username from the reset form's own email field
-            const username = document.getElementById(system + 'ResetEmail').value.trim();
-            if (!username) {
-                errEl.textContent = 'Please enter your username/email.';
-                errEl.style.display = 'flex';
-                return false;
-            }
+            // Show loading
+            const btn = document.querySelector('#' + system + 'Step2 .modal-login-btn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resetting...'; }
 
             try {
-                const res = await fetch('/api/reset-password', {
+                const res = await fetch('/api/verify-reset-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, old_password: oldPw, new_password: newPw })
+                    body: JSON.stringify({ username, code, new_password: newPw })
                 });
                 const data = await res.json();
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i> Reset Password'; }
+
                 if (data.success) {
-                    sucEl.textContent = '✅ Password reset successfully!';
+                    sucEl.textContent = '✅ ' + data.message;
                     sucEl.style.display = 'block';
                     // Clear fields
                     document.getElementById(system + 'ResetEmail').value = '';
-                    document.getElementById(system + 'OldPw').value = '';
+                    document.getElementById(system + 'ResetCode').value = '';
                     document.getElementById(system + 'NewPw').value = '';
                     document.getElementById(system + 'ConfirmPw').value = '';
                     setTimeout(() => {
                         toggleResetForm(system);
-                    }, 2500);
+                    }, 3000);
                 } else {
                     errEl.textContent = data.message || 'Failed to reset password.';
                     errEl.style.display = 'flex';
                 }
             } catch(err) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i> Reset Password'; }
                 errEl.textContent = 'Error: ' + err.message;
                 errEl.style.display = 'flex';
             }
-            return false;
         };
 
         window.toggleUsersPassword = function(e) {

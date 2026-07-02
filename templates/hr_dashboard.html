@@ -709,8 +709,30 @@
         }
 
         .hr-module.active {
-            display: block;
+            display: flex;
+            flex-direction: column;
             animation: fadeInUp 0.35s ease forwards;
+            min-height: calc(100vh - var(--nav-height) - 24px);
+        }
+
+        /* Make employee table fill remaining height */
+        .hr-module.active .fill-height-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .hr-module.active .fill-height-card .card-body-custom {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            padding: 0 !important;
+        }
+        .hr-module.active .fill-height-card .card-body-custom .table-scroll {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
         }
 
         /* Quick action grid */
@@ -1180,7 +1202,7 @@
             </div>
 
             <!-- Employee Table -->
-            <div class="hr-card">
+            <div class="hr-card fill-height-card">
                 <div class="card-body-custom" style="padding:0;">
                     <div class="table-scroll">
                         <table class="table-hr" id="employeesTable">

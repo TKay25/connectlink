@@ -1436,6 +1436,21 @@ def initialize_database_tables():
                 );
             """)
 
+            # ===== PASSWORD RESET CODES TABLE =====
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS password_reset_codes (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    code VARCHAR(6) NOT NULL,
+                    whatsapp VARCHAR(50),
+                    expires_at TIMESTAMP NOT NULL,
+                    used BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            connection.commit()
+            print("✅ Password reset codes table initialized")
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_attendance (
                     id SERIAL PRIMARY KEY,
@@ -11838,6 +11853,187 @@ def whatsapp_app():
     if user_uuid:
         return render_template('whatsapp_app.html', user_name=user_name, userid=userid)
     return render_template('mainindex.html')
+
+
+@app.route('/api/request-reset-code', methods=['POST'])
+def request_reset_code():
+    """Send a 6-digit verification code to the user's WhatsApp for password reset"""
+    try:
+        data = request.get_json()
+        username_or_email = data.get('username', '').strip()
+        if not username_or_email:
+            return jsonify({'success': False, 'message': 'Please enter your username or email.'}), 400
+
+        with get_db() as (cursor, connection):
+            # Look up user in admin_users
+            cursor.execute("""
+                SELECT id, username, full_name, email, whatsapp
+                FROM admin_users WHERE (username = %s OR email = %s) AND is_active = TRUE
+            """, (username_or_email, username_or_email))
+            user = cursor.fetchone()
+
+            if not user:
+                # Fallback to connectlinkusers
+                cursor.execute("""
+                    SELECT id, name, email, whatsapp FROM connectlinkusers WHERE email = %s OR name = %s
+                """, (username_or_email, username_or_email))
+                user_row = cursor.fetchone()
+                if user_row:
+                    user_id = user_row[0]
+                    user_name = user_row[1]
+                    user_email = user_row[2] or ''
+                    user_whatsapp = str(user_row[3] or '')
+                else:
+                    return jsonify({'success': False, 'message': 'User not found. Please check your email/username.'}), 404
+            else:
+                user_id = user[0]
+                user_name = user[2] or user[1]
+                user_email = user[3] or ''
+                user_whatsapp = user[4] or ''
+
+            if not user_whatsapp:
+                return jsonify({'success': False, 'message': 'No WhatsApp number found for this account. Contact your administrator.'}), 400
+
+            # Generate 6-digit code
+            code = str(random.randint(100000, 999999))
+            expires_at = datetime.now() + timedelta(minutes=10)
+
+            # Save code to DB
+            cursor.execute("""
+                INSERT INTO password_reset_codes (username, code, whatsapp, expires_at)
+                VALUES (%s, %s, %s, %s)
+            """, (username_or_email, code, user_whatsapp, expires_at))
+            connection.commit()
+
+            # Send code via WhatsApp
+            recipient_clean = re.sub(r'[^0-9]', '', user_whatsapp)
+            if recipient_clean.startswith('0'):
+                recipient_clean = '263' + recipient_clean[1:]
+            elif not recipient_clean.startswith('263'):
+                recipient_clean = '263' + recipient_clean
+
+            message_text = (
+                f"🔐 *ConnectLink Password Reset*\n\n"
+                f"Hi {user_name},\n\n"
+                f"Your verification code is:\n\n"
+                f"*{code}*\n\n"
+                f"This code expires in 10 minutes.\n\n"
+                f"If you did not request this, please ignore this message."
+            )
+
+            try:
+                from urllib.parse import urlencode
+                import urllib.request
+                whatsapp_text = message_text.replace('*', '')
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": recipient_clean,
+                    "type": "text",
+                    "text": {"body": whatsapp_text}
+                }
+                payload_json = json.dumps(payload)
+                headers = {
+                    "Authorization": f"Bearer {ACCESS_TOKEN}",
+                    "Content-Type": "application/json"
+                }
+                req = urllib.request.Request(WHATSAPP_API_URL, data=payload_json.encode(), headers=headers, method='POST')
+                resp = urllib.request.urlopen(req)
+                resp_data = json.loads(resp.read().decode())
+                wa_status = 'sent' if resp_data.get('messages') else 'failed'
+
+                # Log to whatsapp_messages
+                try:
+                    cursor.execute("""
+                        INSERT INTO whatsapp_messages (sender_phone, sender_name, message_text, message_type, direction, status)
+                        VALUES (%s, %s, %s, 'text', 'outgoing', %s)
+                    """, (recipient_clean, 'System', f"Password reset code sent to {username_or_email}", wa_status))
+                    connection.commit()
+                except Exception:
+                    pass
+            except Exception as wa_err:
+                print(f"WhatsApp send error: {wa_err}")
+                # Still return success to the user (code is in DB)
+                pass
+
+            return jsonify({
+                'success': True,
+                'message': f'A verification code has been sent to the WhatsApp number on file for {username_or_email}.',
+                'whatsapp_masked': user_whatsapp[:3] + '****' + user_whatsapp[-3:] if len(user_whatsapp) > 6 else '****'
+            }), 200
+
+    except Exception as e:
+        print(f"Request reset code error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/verify-reset-code', methods=['POST'])
+def verify_reset_code():
+    """Verify the code and reset the password"""
+    try:
+        data = request.get_json()
+        username_or_email = data.get('username', '').strip()
+        code = data.get('code', '').strip()
+        new_password = data.get('new_password', '')
+
+        if not username_or_email or not code or not new_password:
+            return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+        if len(new_password) < 4:
+            return jsonify({'success': False, 'message': 'Password must be at least 4 characters.'}), 400
+
+        with get_db() as (cursor, connection):
+            # Find valid code
+            cursor.execute("""
+                SELECT id, code, expires_at, used FROM password_reset_codes
+                WHERE username = %s AND used = FALSE
+                ORDER BY created_at DESC LIMIT 1
+            """, (username_or_email,))
+            row = cursor.fetchone()
+
+            if not row:
+                return jsonify({'success': False, 'message': 'No verification code found. Please request a new one.'}), 400
+
+            code_id = row[0]
+            stored_code = row[1]
+            expires_at = row[2]
+            used = row[3]
+
+            if used:
+                return jsonify({'success': False, 'message': 'This code has already been used. Please request a new one.'}), 400
+
+            if datetime.now() > expires_at:
+                return jsonify({'success': False, 'message': 'Code has expired. Please request a new one.'}), 400
+
+            if code != stored_code:
+                return jsonify({'success': False, 'message': 'Incorrect verification code. Please try again.'}), 400
+
+            # Mark code as used
+            cursor.execute("UPDATE password_reset_codes SET used = TRUE WHERE id = %s", (code_id,))
+
+            # Reset password in admin_users
+            cursor.execute("""
+                UPDATE admin_users SET password = %s, must_reset_password = FALSE, updated_at = NOW()
+                WHERE username = %s
+            """, (new_password, username_or_email))
+            updated = cursor.rowcount
+
+            if updated == 0:
+                # Fallback: try connectlinkusers
+                cursor.execute("""
+                    UPDATE connectlinkusers SET password = %s WHERE email = %s OR name = %s
+                """, (new_password, username_or_email, username_or_email))
+                # Also try hardware_users
+                cursor.execute("""
+                    UPDATE hardware_users SET password = %s WHERE username = %s
+                """, (new_password, username_or_email))
+
+            connection.commit()
+            log_activity('password_reset', f'Password reset via WhatsApp code for: {username_or_email}', 'user', 0)
+            return jsonify({'success': True, 'message': '✅ Password reset successfully! You can now log in with your new password.'}), 200
+
+    except Exception as e:
+        print(f"Verify reset code error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 
 @app.route('/api/reset-password', methods=['POST'])
 def reset_password():
