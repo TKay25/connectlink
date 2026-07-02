@@ -881,6 +881,9 @@
         body.dark-theme .user-dropdown-menu .dropdown-user-role { color: #6b7280; }
         body.dark-theme .dash-col-header div { opacity:0.9; }
         body.dark-theme .dash-col-header span { color: #6b7280 !important; }
+        body.dark-theme #deptBreakdown span,
+        body.dark-theme #assetSummary span,
+        body.dark-theme .dash-col .hr-stat-card span { background: #252b3d !important; color: #9ca3af !important; }
 
         /* Dashboard grid: 4 columns side by side */
         .dash-grid {
@@ -1015,13 +1018,12 @@
                 </div>
             </div>
 
-            <!-- ===== DASHBOARD GRID: sections side by side ===== -->
+            <!-- ===== DASHBOARD GRID ===== -->
             <div class="dash-grid">
-                <!-- HR -->
+                <!-- HR Column -->
                 <div class="dash-col">
                     <div class="dash-col-header" style="border-left:3px solid #2563eb;padding-left:8px;margin-bottom:6px;">
                         <div style="font-size:0.65rem;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-people-fill"></i> Human Resources</div>
-                        <span style="font-size:0.5rem;color:var(--text-muted);">Employee management</span>
                     </div>
                     <div class="hr-stat-card" style="margin-bottom:4px;">
                         <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
@@ -1031,21 +1033,26 @@
                             <div class="stat-sub">Active workforce</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;margin-bottom:4px;">
+                    <div class="hr-stat-card" style="margin-bottom:4px;padding:6px 10px;">
+                        <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Departments</div>
+                        <div id="deptBreakdown" style="font-size:0.55rem;color:var(--text-secondary);">
+                            <span style="color:#9ca3af;">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;margin-bottom:0;">
                         <div class="stat-icon blue"><i class="bi bi-person-plus"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
-                            <div class="stat-value" style="font-size:0.65rem;">Manage Employees</div>
+                            <div class="stat-value" style="font-size:0.6rem;">Manage Employees</div>
                             <div class="stat-sub">View all →</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Leave -->
+                <!-- Leave Column -->
                 <div class="dash-col">
                     <div class="dash-col-header" style="border-left:3px solid #d97706;padding-left:8px;margin-bottom:6px;">
                         <div style="font-size:0.65rem;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-calendar-check"></i> Leave Management</div>
-                        <span style="font-size:0.5rem;color:var(--text-muted);">Track &amp; manage leave</span>
                     </div>
                     <div class="hr-stat-card" style="margin-bottom:4px;">
                         <div class="stat-icon amber"><i class="bi bi-calendar-check"></i></div>
@@ -1063,21 +1070,27 @@
                             <div class="stat-sub">Awaiting approval</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;margin-bottom:4px;">
+                    <div class="hr-stat-card" style="margin-bottom:4px;padding:6px 10px;">
+                        <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">This Month</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <span style="font-size:0.55rem;color:var(--text-secondary);"><span style="font-weight:700;" id="statApprovedLeaves">0</span> Approved</span>
+                            <span style="font-size:0.55rem;color:var(--text-secondary);"><span style="font-weight:700;" id="statTotalDays">0</span> Days taken</span>
+                        </div>
+                    </div>
+                    <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;margin-bottom:0;">
                         <div class="stat-icon green"><i class="bi bi-send-plus"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
-                            <div class="stat-value" style="font-size:0.65rem;">New Leave Request</div>
+                            <div class="stat-value" style="font-size:0.6rem;">New Leave Request</div>
                             <div class="stat-sub">Apply now →</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Finance & Assets -->
+                <!-- Finance & Assets Column -->
                 <div class="dash-col">
                     <div class="dash-col-header" style="border-left:3px solid #7c3aed;padding-left:8px;margin-bottom:6px;">
                         <div style="font-size:0.65rem;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-briefcase-fill"></i> Finance &amp; Assets</div>
-                        <span style="font-size:0.5rem;color:var(--text-muted);">Payroll &amp; equipment</span>
                     </div>
                     <div class="hr-stat-card" style="margin-bottom:4px;">
                         <div class="stat-icon purple"><i class="bi bi-wallet2"></i></div>
@@ -1087,52 +1100,64 @@
                             <div class="stat-sub">Total payroll</div>
                         </div>
                     </div>
+                    <div class="hr-stat-card" style="margin-bottom:4px;padding:6px 10px;">
+                        <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Asset Summary</div>
+                        <div id="assetSummary" style="font-size:0.55rem;color:var(--text-secondary);">
+                            <span style="color:#9ca3af;">Loading...</span>
+                        </div>
+                    </div>
                     <div class="hr-stat-card" onclick="showModule('payroll')" style="cursor:pointer;margin-bottom:4px;">
                         <div class="stat-icon purple"><i class="bi bi-wallet2"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
-                            <div class="stat-value" style="font-size:0.65rem;">Open Payroll</div>
+                            <div class="stat-value" style="font-size:0.6rem;">Open Payroll</div>
                             <div class="stat-sub">Process →</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;margin-bottom:4px;">
+                    <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;margin-bottom:0;">
                         <div class="stat-icon teal"><i class="bi bi-boxes"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
-                            <div class="stat-value" style="font-size:0.65rem;">Asset Register</div>
+                            <div class="stat-value" style="font-size:0.6rem;">Asset Register</div>
                             <div class="stat-sub">View assets →</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Activity -->
+                <!-- Activity Column -->
                 <div class="dash-col">
                     <div class="dash-col-header" style="border-left:3px solid #0891b2;padding-left:8px;margin-bottom:6px;">
                         <div style="font-size:0.65rem;font-weight:700;color:#0891b2;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-activity"></i> Activity &amp; Events</div>
-                        <span style="font-size:0.5rem;color:var(--text-muted);">Recent actions</span>
                     </div>
                     <div class="hr-card" style="margin-bottom:4px;">
-                        <div class="card-header-custom" style="padding:6px 8px;">
-                            <span style="font-size:0.55rem;font-weight:600;"><i class="bi bi-clock-history"></i> Recent Activity</span>
-                            <span style="font-size:0.5rem;color:var(--text-muted);">7 days</span>
+                        <div class="card-header-custom" style="padding:5px 8px;">
+                            <span style="font-size:0.5rem;font-weight:600;"><i class="bi bi-clock-history"></i> Recent Activity</span>
+                            <span style="font-size:0.45rem;color:var(--text-muted);">Last 7 days</span>
                         </div>
-                        <div class="card-body-custom" style="max-height:140px;overflow-y:auto;padding:0;">
-                            <div id="activityTimeline" style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.55rem;">
-                                <i class="bi bi-inbox" style="font-size:1rem;display:block;margin-bottom:4px;"></i>
+                        <div class="card-body-custom" style="max-height:120px;overflow-y:auto;padding:0;">
+                            <div id="activityTimeline" style="padding:10px;text-align:center;color:var(--text-muted);font-size:0.5rem;">
+                                <i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:3px;"></i>
                                 No recent activity.
                             </div>
                         </div>
                     </div>
-                    <div class="hr-card">
-                        <div class="card-header-custom" style="padding:6px 8px;">
-                            <span style="font-size:0.55rem;font-weight:600;"><i class="bi bi-gift"></i> Upcoming Birthdays</span>
-                            <span style="font-size:0.5rem;color:var(--text-muted);">This month</span>
+                    <div class="hr-card" style="margin-bottom:4px;">
+                        <div class="card-header-custom" style="padding:5px 8px;">
+                            <span style="font-size:0.5rem;font-weight:600;"><i class="bi bi-gift"></i> Upcoming Birthdays</span>
+                            <span style="font-size:0.45rem;color:var(--text-muted);">This month</span>
                         </div>
                         <div class="card-body-custom" style="padding:0;">
-                            <div id="birthdaysList" style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.55rem;">
-                                <i class="bi bi-calendar-heart" style="font-size:1rem;display:block;margin-bottom:4px;"></i>
+                            <div id="birthdaysList" style="padding:10px;text-align:center;color:var(--text-muted);font-size:0.5rem;">
+                                <i class="bi bi-calendar-heart" style="font-size:0.9rem;display:block;margin-bottom:3px;"></i>
                                 No upcoming birthdays.
                             </div>
+                        </div>
+                    </div>
+                    <div class="hr-stat-card" style="margin-bottom:0;padding:6px 10px;">
+                        <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Quick Stats</div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;color:var(--text-secondary);"><span id="statActivePct">0</span>% Active</span>
+                            <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;color:var(--text-secondary);"><span id="statDeptCount">0</span> Depts</span>
                         </div>
                     </div>
                 </div>
@@ -2206,16 +2231,73 @@ document.addEventListener('keydown', function(e) {
 // ===== LOAD DASHBOARD STATS =====
 async function loadDashboardStats() {
     try {
-        const res = await fetch('/api/hr/stats');
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById('statTotalEmployees').textContent = data.data.active_employees;
-            document.getElementById('statPresentToday').textContent = data.data.present_today;
-            document.getElementById('statOnLeave').textContent = data.data.on_leave_today;
-            document.getElementById('statPendingRequests').textContent = data.data.pending_leave;
-            document.getElementById('statPayroll').textContent = '$' + data.data.payroll_total.toLocaleString();
+        // Main stats
+        const [statsRes, deptRes, assetRes, leaveRes] = await Promise.all([
+            fetch('/api/hr/stats'),
+            fetch('/api/hr/employee-stats'),
+            fetch('/api/hr/assets'),
+            fetch('/api/hr/leave')
+        ]);
+        const stats = await statsRes.json();
+        const dept = await deptRes.json();
+        const assets = await assetRes.json();
+        const leaves = await leaveRes.json();
+
+        if (stats.success) {
+            document.getElementById('statTotalEmployees').textContent = stats.data.active_employees;
+            document.getElementById('statOnLeave').textContent = stats.data.on_leave_today;
+            document.getElementById('statPendingRequests').textContent = stats.data.pending_leave;
+            document.getElementById('statPayroll').textContent = '$' + stats.data.payroll_total.toLocaleString();
+
+            // Active percentage
+            const total = stats.data.total_employees || 1;
+            const active = stats.data.active_employees || 0;
+            const pct = Math.round((active / total) * 100);
+            document.getElementById('statActivePct').textContent = pct;
         }
-    } catch(e) { console.error('Stats error:', e); }
+
+        // Department breakdown
+        const deptEl = document.getElementById('deptBreakdown');
+        if (deptEl && dept.success) {
+            const depts = dept.data || [];
+            document.getElementById('statDeptCount').textContent = depts.length;
+            if (depts.length) {
+                deptEl.innerHTML = depts.slice(0, 5).map(d =>
+                    `<span style="display:inline-block;background:#f3f4f6;padding:1px 5px;border-radius:3px;margin:1px;font-size:0.5rem;">${d.department || 'N/A'}: ${d.cnt}</span>`
+                ).join('');
+                if (depts.length > 5) {
+                    deptEl.innerHTML += `<span style="font-size:0.5rem;color:var(--text-muted);margin-left:2px;">+${depts.length - 5} more</span>`;
+                }
+            } else {
+                deptEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">No departments</span>';
+            }
+        }
+
+        // Asset summary
+        const assetEl = document.getElementById('assetSummary');
+        if (assetEl && assets.success && assets.data) {
+            const totalAssets = assets.data.length || 0;
+            const inService = assets.data.filter(a => a.status === 'In Service').length;
+            const totalVal = assets.data.reduce((s, a) => s + (a.value || 0), 0);
+            assetEl.innerHTML = `
+                <span style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:3px;">Total: ${totalAssets}</span>
+                    <span style="font-size:0.5rem;background:#d1fae5;padding:2px 6px;border-radius:3px;color:#065f46;">In use: ${inService}</span>
+                    <span style="font-size:0.5rem;background:#fef3c7;padding:2px 6px;border-radius:3px;color:#92400e;">Value: $${totalVal.toFixed(0)}</span>
+                </span>
+            `;
+        } else if (assetEl) {
+            assetEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">No assets</span>';
+        }
+
+        // Leave month stats
+        if (leaves.success && leaves.data) {
+            const approved = leaves.data.filter(l => l.status === 'Approved').length;
+            const totalDays = leaves.data.reduce((s, l) => s + (l.days || 0), 0);
+            document.getElementById('statApprovedLeaves').textContent = approved;
+            document.getElementById('statTotalDays').textContent = totalDays;
+        }
+    } catch(e) { console.error('Dashboard stats error:', e); }
 }
 
 // ===== LOAD APPROVERS =====
