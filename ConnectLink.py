@@ -12567,6 +12567,62 @@ def hr_leave_decline(leave_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/hr/leave/<int:leave_id>/update', methods=['POST'])
+def hr_leave_update(leave_id):
+    """Update a pending leave application (only the applicant can edit their own pending leave)"""
+    try:
+        data = request.get_json() or {}
+        user_name = session.get('user_name', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT employee_name, status FROM hr_leave_applications WHERE id = %s", (leave_id,))
+            existing = cursor.fetchone()
+            if not existing:
+                return jsonify({'success': False, 'error': 'Leave not found'}), 404
+            if existing[1] != 'Pending':
+                return jsonify({'success': False, 'error': 'Only pending leave can be edited'}), 400
+            if existing[0] != user_name:
+                return jsonify({'success': False, 'error': 'You can only edit your own leave'}), 403
+
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET leave_type=%s, from_date=%s, to_date=%s, days=%s, reason=%s
+                WHERE id=%s AND status='Pending'
+            """, (
+                data.get('leave_type'), data.get('from_date'),
+                data.get('to_date'), data.get('days'), data.get('reason', ''),
+                leave_id
+            ))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave updated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/cancel', methods=['POST'])
+def hr_leave_cancel(leave_id):
+    """Cancel a pending leave application (applicant cancels their own leave)"""
+    try:
+        user_name = session.get('user_name', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT employee_name, status FROM hr_leave_applications WHERE id = %s", (leave_id,))
+            existing = cursor.fetchone()
+            if not existing:
+                return jsonify({'success': False, 'error': 'Leave not found'}), 404
+            if existing[1] != 'Pending':
+                return jsonify({'success': False, 'error': 'Only pending leave can be cancelled'}), 400
+            if existing[0] != user_name:
+                return jsonify({'success': False, 'error': 'You can only cancel your own leave'}), 403
+
+            cursor.execute("""
+                UPDATE hr_leave_applications SET status = 'Cancelled'
+                WHERE id=%s AND status='Pending'
+            """, (leave_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave cancelled successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/hr/attendance', methods=['GET', 'POST'])
 def hr_attendance_api():
     """HR: Get today's attendance or record check-in/check-out"""

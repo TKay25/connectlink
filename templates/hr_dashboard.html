@@ -1371,7 +1371,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-boxes"></i> Asset Register</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm" onclick="openModal('addAssetModal')">
+                    <button class="btn btn-primary btn-sm" onclick="resetAssetForm();openModal('addAssetModal')">
                         <i class="bi bi-plus-circle"></i> Add Asset
                     </button>
                     <button class="btn btn-outline-primary btn-sm" onclick="alert('Export asset register...')">
@@ -1957,11 +1957,11 @@
                         <input type="date" class="form-control" id="assetPurchaseDate">
                     </div>
                 </div>
-                <div class="mb-3">
+                <div class="mb-3" style="position:relative;">
                     <label class="form-label">Assigned To</label>
-                    <select class="form-select" id="assetAssignedTo">
-                        <option value="">-- Unassigned --</option>
-                    </select>
+                    <input type="text" class="form-control" id="assetAssignInput" placeholder="-- Unassigned --" autocomplete="off" style="font-size:0.65rem;padding:4px 8px;">
+                    <input type="hidden" id="assetAssignTo" value="">
+                    <div id="assetAssignDropdown" style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;max-height:160px;overflow-y:auto;display:none;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Notes</label>
@@ -2077,6 +2077,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadPayroll();
     loadAssets();
     loadApprovers();
+    loadAssetAssignees();
 
     // Currency toggle
     const currSelect = document.getElementById('empCurrency');
@@ -2243,6 +2244,65 @@ async function loadApprovers() {
             }
         }
     } catch(e) { console.error('Approvers error:', e); }
+}
+
+// ===== ASSET ASSIGNEE SEARCHABLE DROPDOWN =====
+async function loadAssetAssignees() {
+    try {
+        const res = await fetch('/api/hr/employees');
+        const data = await res.json();
+        if (!data.success || !data.data) return;
+        const employees = data.data;
+        window._assetEmployees = employees;
+
+        const input = document.getElementById('assetAssignInput');
+        const hidden = document.getElementById('assetAssignTo');
+        const dropdown = document.getElementById('assetAssignDropdown');
+        if (!input || !hidden || !dropdown) return;
+
+        const renderDropdown = (filter) => {
+            const q = (filter || '').toLowerCase();
+            const filtered = q ? employees.filter(e => (e.first_name + ' ' + e.last_name).toLowerCase().includes(q)) : [];
+            dropdown.innerHTML = filtered.length
+                ? filtered.map(e => `<div data-id="${e.id}" data-name="${e.first_name} ${e.last_name}" style="padding:5px 10px;font-size:0.6rem;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.1s;">${e.first_name} ${e.last_name}</div>`).join('')
+                : '<div style="padding:5px 10px;font-size:0.55rem;color:#9ca3af;">No matching employees</div>';
+            dropdown.style.display = q ? 'block' : 'none';
+        };
+
+        input.addEventListener('input', function() {
+            if (this.value !== (hidden._label || '')) {
+                hidden.value = '';
+                hidden._label = '';
+            }
+            renderDropdown(this.value);
+        });
+
+        dropdown.addEventListener('click', function(e) {
+            const div = e.target.closest('[data-id]');
+            if (!div) return;
+            hidden.value = div.dataset.id;
+            hidden._label = div.dataset.name;
+            input.value = div.dataset.name;
+            dropdown.style.display = 'none';
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // Pre-populate on viewAsset if needed
+        if (window._editAssetAssignedId) {
+            const match = employees.find(e => e.id == window._editAssetAssignedId);
+            if (match) {
+                hidden.value = match.id;
+                hidden._label = match.first_name + ' ' + match.last_name;
+                input.value = match.first_name + ' ' + match.last_name;
+            }
+            window._editAssetAssignedId = null;
+        }
+    } catch(e) { console.error('Asset assignees error:', e); }
 }
 
 // ===== EMPLOYEES =====
@@ -2544,6 +2604,7 @@ async function loadLeaveData() {
                                leave.status === 'Pending' ? 'badge-hr pending' :
                                leave.status === 'Declined' ? 'badge-hr terminated' : 'badge-hr inactive';
 
+            const isOwnLeave = leave.employee_name === HR_USER_NAME;
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><strong>${leave.employee_name}</strong></td>
@@ -2553,14 +2614,16 @@ async function loadLeaveData() {
                 <td><strong>${leave.days}</strong></td>
                 <td><span class="${statusBadge}">${leave.status}</span></td>
                 <td>
-                    ${leave.status === 'Pending' && HR_ROLE === 'Administrator' && leave.employee_name !== HR_USER_NAME ? `
+                    ${leave.status === 'Pending' && HR_ROLE === 'Administrator' && !isOwnLeave ? `
                         <button class="btn btn-sm btn-outline-success" onclick="approveLeave(${leave.id})" title="Approve"><i class="bi bi-check-lg"></i></button>
                         <button class="btn btn-sm btn-outline-danger" onclick="declineLeave(${leave.id})" title="Decline"><i class="bi bi-x-lg"></i></button>
                     ` : ''}
-                    ${leave.status === 'Pending' && (HR_ROLE !== 'Administrator' || leave.employee_name === HR_USER_NAME) ? `
-                        <span style="font-size:0.55rem;color:var(--text-muted);">Awaiting approval</span>
+                    ${leave.status === 'Pending' && isOwnLeave ? `
+                        <button class="btn btn-sm btn-outline-primary" onclick="editLeave(${leave.id})" title="Edit"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="cancelLeave(${leave.id})" title="Cancel"><i class="bi bi-x-circle"></i></button>
                     ` : ''}
                     ${leave.status === 'Approved' ? '<span style="font-size:0.55rem;color:#2e7d32;"><i class="bi bi-check-circle"></i> Approved</span>' : ''}
+                    ${leave.status === 'Cancelled' ? '<span style="font-size:0.55rem;color:#9ca3af;"><i class="bi bi-x-circle"></i> Cancelled</span>' : ''}
                 </td>
             `;
             tbody.appendChild(row);
@@ -2586,6 +2649,7 @@ function calculateLeaveDays() {
 }
 
 async function submitLeaveRequest() {
+    const editLeaveId = document.getElementById('editLeaveId')?.value;
     const leaveType = document.getElementById('leaveType').value;
     const fromDate = document.getElementById('leaveFrom').value;
     const toDate = document.getElementById('leaveTo').value;
@@ -2598,7 +2662,8 @@ async function submitLeaveRequest() {
     document.getElementById('hrLoader').classList.add('active');
 
     try {
-        const res = await fetch('/api/hr/leave', {
+        const url = editLeaveId ? `/api/hr/leave/${editLeaveId}/update` : '/api/hr/leave';
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2618,9 +2683,15 @@ async function submitLeaveRequest() {
             closeModal('leaveRequestModal');
             document.getElementById('leaveRequestForm').reset();
             document.getElementById('leaveDays').value = '1';
+            // Remove editLeaveId if it exists
+            const editInput = document.getElementById('editLeaveId');
+            if (editInput) editInput.remove();
+            // Reset submit button text
+            const submitBtn = document.querySelector('#leaveRequestForm button[type="button"]');
+            if (submitBtn) submitBtn.textContent = 'Submit Request';
             await loadLeaveData();
             await loadDashboardStats();
-            alert('✅ Leave request submitted! Your manager will review it.');
+            alert(editLeaveId ? '✅ Leave updated successfully!' : '✅ Leave request submitted! Your manager will review it.');
         } else {
             alert('❌ Error: ' + (data.error || 'Failed to submit'));
         }
@@ -2661,6 +2732,53 @@ async function declineLeave(leaveId) {
         if (data.success) { await loadLeaveData(); alert('Leave declined.'); }
         else { alert('❌ ' + (data.error || 'Failed')); }
     } catch(e) { document.getElementById('hrLoader').classList.remove('active'); alert('Error: ' + e.message); }
+}
+
+async function editLeave(leaveId) {
+    // Fetch leave details
+    const res = await fetch('/api/hr/leave');
+    const data = await res.json();
+    if (!data.success) { alert('Failed to load leave data'); return; }
+    const leave = data.data.find(l => l.id === leaveId);
+    if (!leave) { alert('Leave not found'); return; }
+    // Populate the leave request form
+    document.getElementById('leaveType').value = leave.leave_type;
+    document.getElementById('leaveFrom').value = leave.from_date || '';
+    document.getElementById('leaveTo').value = leave.to_date || '';
+    document.getElementById('leaveDays').value = leave.days || 1;
+    document.getElementById('leaveReason').value = leave.reason || '';
+    // Store leave ID for update
+    if (!document.getElementById('editLeaveId')) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.id = 'editLeaveId';
+        document.getElementById('leaveRequestForm').appendChild(input);
+    }
+    document.getElementById('editLeaveId').value = leaveId;
+    // Change submit button
+    const submitBtn = document.querySelector('#leaveRequestForm button[type="button"]');
+    if (submitBtn) submitBtn.textContent = 'Update Leave';
+    openModal('leaveRequestModal');
+}
+
+async function cancelLeave(leaveId) {
+    if (!confirm('Cancel this leave request?')) return;
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const res = await fetch(`/api/hr/leave/${leaveId}/cancel`, { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('hrLoader').classList.remove('active');
+        if (data.success) {
+            await loadLeaveData();
+            await loadDashboardStats();
+            alert('✅ Leave cancelled.');
+        } else {
+            alert('❌ ' + (data.error || 'Failed to cancel'));
+        }
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('Error: ' + e.message);
+    }
 }
 
 function filterLeaveTable() {
@@ -2847,12 +2965,22 @@ async function loadAssets() {
     } catch(e) { console.error('Assets error:', e); }
 }
 
+function resetAssetForm() {
+    document.getElementById('addAssetForm').reset();
+    const assignInput = document.getElementById('assetAssignInput');
+    const assignHidden = document.getElementById('assetAssignTo');
+    if (assignInput) assignInput.value = '';
+    if (assignHidden) { assignHidden.value = ''; assignHidden._label = ''; }
+    const dd = document.getElementById('assetAssignDropdown');
+    if (dd) dd.style.display = 'none';
+}
+
 async function saveAsset() {
     const payload = {
         asset_tag: document.getElementById('assetTag').value.trim(),
         asset_name: document.getElementById('assetName').value.trim(),
         category: document.getElementById('assetCategory').value,
-        assigned_to: document.getElementById('assetAssignedTo').value || null,
+        assigned_to: document.getElementById('assetAssignTo').value || null,
         value: parseFloat(document.getElementById('assetValue').value) || 0,
         purchase_date: document.getElementById('assetPurchaseDate').value || null,
         status: 'In Service',
