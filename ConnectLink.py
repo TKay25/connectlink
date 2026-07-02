@@ -12691,10 +12691,12 @@ def hr_stats_api():
             period = datetime.now().strftime('%Y-%m')
 
             cursor.execute("SELECT COUNT(*) FROM hr_employees WHERE status = 'Active'")
-            total_active = cursor.fetchone()[0]
+            hr_active = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE")
+            admin_active = cursor.fetchone()[0]
+            total_active = hr_active + admin_active
 
-            cursor.execute("SELECT COUNT(*) FROM hr_attendance WHERE date = %s AND status = 'Present'", (today,))
-            present_today = cursor.fetchone()[0]
+            present_today = 0
 
             cursor.execute("SELECT COUNT(*) FROM hr_leave_applications WHERE status = 'Pending'")
             pending_leave = cursor.fetchone()[0]
@@ -12711,7 +12713,10 @@ def hr_stats_api():
             payroll_total = float(cursor.fetchone()[0])
 
             cursor.execute("SELECT COUNT(*) FROM hr_employees")
-            total_employees = cursor.fetchone()[0]
+            hr_total = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE")
+            admin_total = cursor.fetchone()[0]
+            total_employees = hr_total + admin_total
 
             return jsonify({
                 'success': True,

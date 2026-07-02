@@ -930,10 +930,6 @@
         <button class="nav-btn" data-module="leave" onclick="showModule('leave')">
             <i class="bi bi-calendar-check"></i> <span>Leave Management</span>
         </button>
-        <button class="nav-btn" data-module="attendance" onclick="showModule('attendance')">
-            <i class="bi bi-clock-history"></i> <span>Attendance</span>
-        </button>
-
         <div class="sidebar-section">Finance</div>
         <button class="nav-btn" data-module="payroll" onclick="showModule('payroll')" id="sidebar-payroll">
             <i class="bi bi-wallet2"></i> <span>Payroll</span>
@@ -981,14 +977,7 @@
                         <div class="stat-sub">Active workforce</div>
                     </div>
                 </div>
-                <div class="hr-stat-card">
-                    <div class="stat-icon green"><i class="bi bi-person-check"></i></div>
-                    <div class="stat-body">
-                        <div class="stat-label">Present Today</div>
-                        <div class="stat-value" id="statPresentToday">0</div>
-                        <div class="stat-sub">Checked in</div>
-                    </div>
-                </div>
+
                 <div class="hr-stat-card">
                     <div class="stat-icon amber"><i class="bi bi-calendar-check"></i></div>
                     <div class="stat-body">
@@ -1033,14 +1022,7 @@
                     </div>
                     <i class="qa-arrow bi bi-chevron-right"></i>
                 </div>
-                <div class="quick-action-card" onclick="showModule('attendance')">
-                    <div class="qa-icon amber"><i class="bi bi-clock"></i></div>
-                    <div class="qa-content">
-                        <div class="qa-title">Mark Attendance</div>
-                        <div class="qa-desc">Today's attendance</div>
-                    </div>
-                    <i class="qa-arrow bi bi-chevron-right"></i>
-                </div>
+
                 <div class="quick-action-card" onclick="showModule('assets')">
                     <div class="qa-icon purple"><i class="bi bi-box"></i></div>
                     <div class="qa-content">
@@ -1301,79 +1283,6 @@
                             <div style="font-size:1rem;font-weight:700;color:var(--text-primary);">5 days</div>
                             <div style="font-size:0.55rem;color:var(--text-muted);">Per year</div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== MODULE: ATTENDANCE ===== -->
-        <div id="module-attendance" class="hr-module">
-
-            <div class="page-header">
-                <h4><i class="bi bi-clock-history"></i> Attendance Tracking</h4>
-                <div>
-                    <button class="btn btn-primary btn-sm" onclick="alert('Mark today\'s attendance...')">
-                        <i class="bi bi-pencil-square"></i> Mark Attendance
-                    </button>
-                </div>
-            </div>
-
-            <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
-                <div class="hr-stat-card">
-                    <div class="stat-icon green"><i class="bi bi-person-check"></i></div>
-                    <div class="stat-body">
-                        <div class="stat-label">Present</div>
-                        <div class="stat-value">0</div>
-                    </div>
-                </div>
-                <div class="hr-stat-card">
-                    <div class="stat-icon amber"><i class="bi bi-clock"></i></div>
-                    <div class="stat-body">
-                        <div class="stat-label">Late</div>
-                        <div class="stat-value">0</div>
-                    </div>
-                </div>
-                <div class="hr-stat-card">
-                    <div class="stat-icon red"><i class="bi bi-x-circle"></i></div>
-                    <div class="stat-body">
-                        <div class="stat-label">Absent</div>
-                        <div class="stat-value">0</div>
-                    </div>
-                </div>
-                <div class="hr-stat-card">
-                    <div class="stat-icon blue"><i class="bi bi-percent"></i></div>
-                    <div class="stat-body">
-                        <div class="stat-label">Attendance Rate</div>
-                        <div class="stat-value">0%</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="hr-card">
-                <div class="card-header-custom">
-                    <h6><i class="bi bi-table"></i> Today's Attendance</h6>
-                    <span style="font-size:0.55rem;color:var(--text-muted);" id="attendanceDate"></span>
-                </div>
-                <div class="card-body-custom" style="padding:0;">
-                    <div class="table-scroll">
-                        <table class="table-hr" id="attendanceTable">
-                            <thead>
-                                <tr>
-                                    <th>Employee</th>
-                                    <th>Department</th>
-                                    <th>Check In</th>
-                                    <th>Check Out</th>
-                                    <th>Status</th>
-                                    <th>Notes</th>
-                                </tr>
-                            </thead>
-                            <tbody id="attendanceTableBody">
-                                <tr><td colspan="6" class="text-center text-muted py-4">
-                                    <i class="bi bi-clock-history" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
-                                    No attendance records for today.
-                                </td></tr>
-                            </tbody>
-                        </table>
                     </div>
                 </div>
             </div>
@@ -2156,9 +2065,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const dateEl = document.getElementById('currentDate');
     if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', options);
 
-    const attEl = document.getElementById('attendanceDate');
-    if (attEl) attEl.textContent = now.toLocaleDateString('en-US', options);
-
     const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
     const periodEl = document.getElementById('payrollPeriod');
@@ -2168,7 +2074,6 @@ document.addEventListener('DOMContentLoaded', function() {
     loadDashboardStats();
     loadEmployees();
     loadLeaveData();
-    loadAttendance();
     loadPayroll();
     loadAssets();
     loadApprovers();
