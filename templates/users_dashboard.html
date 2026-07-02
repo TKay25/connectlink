@@ -476,8 +476,7 @@
                 <div class="dropdown-user-name">{{ user_name or 'User' }}</div>
                 <div class="dropdown-user-role"><i class="bi bi-person-badge" style="margin-right:4px;"></i>User Manager</div>
             </div>
-            <button class="dropdown-item" onclick="window.location.href='/dashboard'"><i class="bi bi-arrow-left-square"></i> Switch to Projects</button>
-            <button class="dropdown-item" onclick="window.location.href='/hr-dashboard'"><i class="bi bi-people"></i> Switch to HR</button>
+            <div id="switchPortals"></div>
             <div class="dropdown-divider"></div>
             <button class="dropdown-item text-danger" onclick="if(confirm('Logout?'))window.location.href='/logout';"><i class="bi bi-box-arrow-right"></i> Logout</button>
         </div>
@@ -862,6 +861,21 @@ function applyPermissions() {
     document.querySelectorAll('[data-perm-action]').forEach(el => {
         el.style.display = can(el.dataset.permAction) ? '' : 'none';
     });
+}
+
+// ===== DYNAMIC PORTAL SWITCHING =====
+function buildSwitchPortals() {
+    const container = document.getElementById('switchPortals');
+    if (!container) return;
+    const portals = [
+        { perm: 'can_manage_projects', label: 'Switch to Projects', url: '/dashboard', icon: 'bi-building' },
+        { perm: 'can_manage_hardware', label: 'Switch to Hardware POS', url: '/pos-system.html', icon: 'bi-cart' },
+        { perm: 'can_manage_hr', label: 'Switch to HR', url: '/hr-dashboard', icon: 'bi-people' },
+    ];
+    container.innerHTML = portals
+        .filter(p => PERMS && (PERMS.is_super_admin || PERMS[p.perm]))
+        .map(p => `<button class="dropdown-item" onclick="window.location.href='${p.url}'"><i class="${p.icon}"></i> ${p.label}</button>`)
+        .join('');
 }
 
 // ===== NAVIGATION =====
@@ -1539,6 +1553,7 @@ async function savePermModal() {
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', function() {
     applyPermissions();
+    buildSwitchPortals();
     loadAllData();
     loadAuditLog();
 });
