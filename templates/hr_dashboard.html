@@ -815,7 +815,7 @@
         }
     </style>
 </head>
-<body data-can-manage-hr="{% if can_manage_hr %}1{% else %}0{% endif %}">
+<body data-can-manage-hr="{% if can_manage_hr %}1{% else %}0{% endif %}" data-hr-employee-id="{% if hr_employee_id %}{{ hr_employee_id }}{% endif %}">
 
 <!-- ===== LOADING OVERLAY ===== -->
 <div class="eds-loader" id="hrLoader">
@@ -2006,7 +2006,7 @@
 <script>
 // ===== PAGE DATA =====
 const HR_ROLE = '{{ hr_role }}';
-const HR_EMPLOYEE_ID = '{{ hr_employee_id }}';
+const HR_EMPLOYEE_ID = parseInt(document.body.dataset.hrEmployeeId) || null;
 const HR_USER_NAME = '{{ user_name }}';
 const CAN_MANAGE_HR = document.body.dataset.canManageHr === '1';
 let isAdminView = true; // Track which view is active for admin users
