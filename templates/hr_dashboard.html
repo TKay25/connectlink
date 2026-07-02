@@ -879,8 +879,32 @@
         body.dark-theme .user-dropdown-menu .dropdown-item:hover { background: rgba(255,255,255,0.05); }
         body.dark-theme .user-dropdown-menu .dropdown-user-name { color: #e5e7eb; }
         body.dark-theme .user-dropdown-menu .dropdown-user-role { color: #6b7280; }
-        body.dark-theme .dash-section-header h5 { opacity:0.9; }
-        body.dark-theme .dash-section-header span { color: #6b7280 !important; }
+        body.dark-theme .dash-col-header div { opacity:0.9; }
+        body.dark-theme .dash-col-header span { color: #6b7280 !important; }
+
+        /* Dashboard grid: 4 columns side by side */
+        .dash-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .dash-col {
+            min-width: 0;
+        }
+        .dash-col .hr-stat-card,
+        .dash-col .hr-card {
+            margin-bottom: 4px;
+        }
+        .dash-col .hr-stat-card:last-child,
+        .dash-col .hr-card:last-child {
+            margin-bottom: 0;
+        }
+        @media (max-width: 1200px) {
+            .dash-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+            .dash-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body data-can-manage-hr="{% if can_manage_hr %}1{% else %}0{% endif %}" data-hr-employee-id="{% if hr_employee_id %}{{ hr_employee_id }}{% endif %}">
@@ -991,16 +1015,15 @@
                 </div>
             </div>
 
-            <!-- ===== SECTION: HUMAN RESOURCES ===== -->
-            <div class="dash-section">
-                <div class="dash-section-header" style="border-left:3px solid #2563eb;padding-left:10px;margin-bottom:10px;">
-                    <h5 style="font-size:0.75rem;font-weight:700;margin:0;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;">
-                        <i class="bi bi-people-fill"></i> Human Resources
-                    </h5>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">Employee management &amp; workforce</span>
-                </div>
-                <div class="stats-grid">
-                    <div class="hr-stat-card">
+            <!-- ===== DASHBOARD GRID: sections side by side ===== -->
+            <div class="dash-grid">
+                <!-- HR -->
+                <div class="dash-col">
+                    <div class="dash-col-header" style="border-left:3px solid #2563eb;padding-left:8px;margin-bottom:6px;">
+                        <div style="font-size:0.65rem;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-people-fill"></i> Human Resources</div>
+                        <span style="font-size:0.5rem;color:var(--text-muted);">Employee management</span>
+                    </div>
+                    <div class="hr-stat-card" style="margin-bottom:4px;">
                         <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Total Employees</div>
@@ -1008,27 +1031,23 @@
                             <div class="stat-sub">Active workforce</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;">
+                    <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;margin-bottom:4px;">
                         <div class="stat-icon blue"><i class="bi bi-person-plus"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
-                            <div class="stat-value" style="font-size:0.7rem;">Manage Employees</div>
-                            <div class="stat-sub">View all &nbsp;<i class="bi bi-arrow-right"></i></div>
+                            <div class="stat-value" style="font-size:0.65rem;">Manage Employees</div>
+                            <div class="stat-sub">View all →</div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- ===== SECTION: LEAVE MANAGEMENT ===== -->
-            <div class="dash-section" style="margin-top:18px;">
-                <div class="dash-section-header" style="border-left:3px solid #d97706;padding-left:10px;margin-bottom:10px;">
-                    <h5 style="font-size:0.75rem;font-weight:700;margin:0;color:#d97706;text-transform:uppercase;letter-spacing:0.5px;">
-                        <i class="bi bi-calendar-check"></i> Leave Management
-                    </h5>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">Track &amp; manage employee leave</span>
-                </div>
-                <div class="stats-grid">
-                    <div class="hr-stat-card">
+                <!-- Leave -->
+                <div class="dash-col">
+                    <div class="dash-col-header" style="border-left:3px solid #d97706;padding-left:8px;margin-bottom:6px;">
+                        <div style="font-size:0.65rem;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-calendar-check"></i> Leave Management</div>
+                        <span style="font-size:0.5rem;color:var(--text-muted);">Track &amp; manage leave</span>
+                    </div>
+                    <div class="hr-stat-card" style="margin-bottom:4px;">
                         <div class="stat-icon amber"><i class="bi bi-calendar-check"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">On Leave Today</div>
@@ -1036,7 +1055,7 @@
                             <div class="stat-sub">Approved leave</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card">
+                    <div class="hr-stat-card" style="margin-bottom:4px;">
                         <div class="stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Pending Requests</div>
@@ -1044,27 +1063,23 @@
                             <div class="stat-sub">Awaiting approval</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;">
+                    <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;margin-bottom:4px;">
                         <div class="stat-icon green"><i class="bi bi-send-plus"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
-                            <div class="stat-value" style="font-size:0.7rem;">New Leave Request</div>
-                            <div class="stat-sub">Apply now &nbsp;<i class="bi bi-arrow-right"></i></div>
+                            <div class="stat-value" style="font-size:0.65rem;">New Leave Request</div>
+                            <div class="stat-sub">Apply now →</div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- ===== SECTION: FINANCE & ASSETS ===== -->
-            <div class="dash-section" style="margin-top:18px;">
-                <div class="dash-section-header" style="border-left:3px solid #7c3aed;padding-left:10px;margin-bottom:10px;">
-                    <h5 style="font-size:0.75rem;font-weight:700;margin:0;color:#7c3aed;text-transform:uppercase;letter-spacing:0.5px;">
-                        <i class="bi bi-briefcase-fill"></i> Finance &amp; Assets
-                    </h5>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">Payroll, equipment &amp; company property</span>
-                </div>
-                <div class="stats-grid">
-                    <div class="hr-stat-card">
+                <!-- Finance & Assets -->
+                <div class="dash-col">
+                    <div class="dash-col-header" style="border-left:3px solid #7c3aed;padding-left:8px;margin-bottom:6px;">
+                        <div style="font-size:0.65rem;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-briefcase-fill"></i> Finance &amp; Assets</div>
+                        <span style="font-size:0.5rem;color:var(--text-muted);">Payroll &amp; equipment</span>
+                    </div>
+                    <div class="hr-stat-card" style="margin-bottom:4px;">
                         <div class="stat-icon purple"><i class="bi bi-wallet2"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Payroll (This Month)</div>
@@ -1072,59 +1087,51 @@
                             <div class="stat-sub">Total payroll</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('payroll')" style="cursor:pointer;">
+                    <div class="hr-stat-card" onclick="showModule('payroll')" style="cursor:pointer;margin-bottom:4px;">
                         <div class="stat-icon purple"><i class="bi bi-wallet2"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
-                            <div class="stat-value" style="font-size:0.7rem;">Open Payroll</div>
-                            <div class="stat-sub">Process &nbsp;<i class="bi bi-arrow-right"></i></div>
+                            <div class="stat-value" style="font-size:0.65rem;">Open Payroll</div>
+                            <div class="stat-sub">Process →</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;">
+                    <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;margin-bottom:4px;">
                         <div class="stat-icon teal"><i class="bi bi-boxes"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
-                            <div class="stat-value" style="font-size:0.7rem;">Asset Register</div>
-                            <div class="stat-sub">View assets &nbsp;<i class="bi bi-arrow-right"></i></div>
+                            <div class="stat-value" style="font-size:0.65rem;">Asset Register</div>
+                            <div class="stat-sub">View assets →</div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- ===== SECTION: ACTIVITY & EVENTS ===== -->
-            <div class="dash-section" style="margin-top:18px;">
-                <div class="dash-section-header" style="border-left:3px solid #0891b2;padding-left:10px;margin-bottom:10px;">
-                    <h5 style="font-size:0.75rem;font-weight:700;margin:0;color:#0891b2;text-transform:uppercase;letter-spacing:0.5px;">
-                        <i class="bi bi-activity"></i> Activity &amp; Events
-                    </h5>
-                    <span style="font-size:0.55rem;color:var(--text-muted);">Recent actions &amp; upcoming occasions</span>
-                </div>
-                <div class="row g-3">
-                    <div class="col-md-7">
-                        <div class="hr-card">
-                            <div class="card-header-custom">
-                                <h6><i class="bi bi-clock-history"></i> Recent Activity</h6>
-                                <span style="font-size:0.55rem;color:var(--text-muted);">Last 7 days</span>
-                            </div>
-                            <div class="card-body-custom" style="max-height:240px;overflow-y:auto;">
-                                <div id="activityTimeline" style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.6rem;">
-                                    <i class="bi bi-inbox" style="font-size:1.2rem;display:block;margin-bottom:6px;"></i>
-                                    No recent activity. Data will appear here as employees check in and submit requests.
-                                </div>
+                <!-- Activity -->
+                <div class="dash-col">
+                    <div class="dash-col-header" style="border-left:3px solid #0891b2;padding-left:8px;margin-bottom:6px;">
+                        <div style="font-size:0.65rem;font-weight:700;color:#0891b2;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-activity"></i> Activity &amp; Events</div>
+                        <span style="font-size:0.5rem;color:var(--text-muted);">Recent actions</span>
+                    </div>
+                    <div class="hr-card" style="margin-bottom:4px;">
+                        <div class="card-header-custom" style="padding:6px 8px;">
+                            <span style="font-size:0.55rem;font-weight:600;"><i class="bi bi-clock-history"></i> Recent Activity</span>
+                            <span style="font-size:0.5rem;color:var(--text-muted);">7 days</span>
+                        </div>
+                        <div class="card-body-custom" style="max-height:140px;overflow-y:auto;padding:0;">
+                            <div id="activityTimeline" style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.55rem;">
+                                <i class="bi bi-inbox" style="font-size:1rem;display:block;margin-bottom:4px;"></i>
+                                No recent activity.
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-5">
-                        <div class="hr-card">
-                            <div class="card-header-custom">
-                                <h6><i class="bi bi-gift"></i> Upcoming Birthdays</h6>
-                                <span style="font-size:0.55rem;color:var(--text-muted);">This month</span>
-                            </div>
-                            <div class="card-body-custom">
-                                <div id="birthdaysList" style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.6rem;">
-                                    <i class="bi bi-calendar-heart" style="font-size:1.2rem;display:block;margin-bottom:6px;"></i>
-                                    No upcoming birthdays this month.
-                                </div>
+                    <div class="hr-card">
+                        <div class="card-header-custom" style="padding:6px 8px;">
+                            <span style="font-size:0.55rem;font-weight:600;"><i class="bi bi-gift"></i> Upcoming Birthdays</span>
+                            <span style="font-size:0.5rem;color:var(--text-muted);">This month</span>
+                        </div>
+                        <div class="card-body-custom" style="padding:0;">
+                            <div id="birthdaysList" style="padding:14px;text-align:center;color:var(--text-muted);font-size:0.55rem;">
+                                <i class="bi bi-calendar-heart" style="font-size:1rem;display:block;margin-bottom:4px;"></i>
+                                No upcoming birthdays.
                             </div>
                         </div>
                     </div>
