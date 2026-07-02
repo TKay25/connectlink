@@ -1267,7 +1267,7 @@ function renderHardwareUsers() {
             <td>
                 <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
-        </tr>`;}).join('')
+        </tr>`).join('')
         : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
 }
 
@@ -1294,7 +1294,7 @@ function renderHrUsers() {
             <td>
                 <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
-        </tr>`;}).join('')
+        </tr>`).join('')
         : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
 }
 
