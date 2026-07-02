@@ -1073,12 +1073,14 @@
                             <select class="form-select" id="empDeptFilter" onchange="filterEmployeeTable()">
                                 <option value="">All</option>
                                 <option>Construction</option>
+                                <option>Construction Sales</option>
                                 <option>Hardware Sales</option>
                                 <option>Administration</option>
                                 <option>Finance</option>
                                 <option>HR</option>
                                 <option>Logistics</option>
                                 <option>Management</option>
+                                <option>Systems &amp; IT</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -1728,12 +1730,14 @@
                         <select class="form-select" id="empDepartment">
                             <option value="">-- Select --</option>
                             <option>Construction</option>
+                            <option>Construction Sales</option>
                             <option>Hardware Sales</option>
                             <option>Administration</option>
                             <option>Finance</option>
                             <option>HR</option>
                             <option>Logistics</option>
                             <option>Management</option>
+                            <option>Systems &amp; IT</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -1773,9 +1777,11 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Leave Approver</label>
-                        <select class="form-select" id="empLeaveApprover">
-                            <option value="">-- Select Approver --</option>
-                        </select>
+                        <div style="position:relative;">
+                            <input type="text" class="form-control" id="empLeaveApproverInput" placeholder="Search approver..." autocomplete="off" style="font-size:0.65rem;padding:4px 8px;">
+                            <input type="hidden" id="empLeaveApprover" value="">
+                            <div id="approverDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;max-height:150px;overflow-y:auto;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -1883,10 +1889,6 @@
                     <div class="col-md-4">
                         <label class="form-label">Branch Code</label>
                         <input type="text" class="form-control" id="empBranchCode">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">C8 / Tax Number</label>
-                        <input type="text" class="form-control" id="empC8">
                     </div>
                 </div>
             </form>
@@ -2220,17 +2222,61 @@ async function loadApprovers() {
         const res = await fetch('/api/hr/employees');
         const data = await res.json();
         if (data.success && data.data) {
-            const select = document.getElementById('empLeaveApprover');
-            if (select) {
-                select.innerHTML = '<option value="">-- Select Approver --</option>';
-                data.data.forEach(emp => {
-                    if (emp.role === 'Administrator') {
-                        const opt = document.createElement('option');
-                        opt.value = emp.id;
-                        opt.textContent = emp.first_name + ' ' + emp.last_name;
-                        select.appendChild(opt);
+            const input = document.getElementById('empLeaveApproverInput');
+            const hidden = document.getElementById('empLeaveApprover');
+            const dropdown = document.getElementById('approverDropdown');
+            if (input && hidden && dropdown) {
+                // Store all admins for search
+                const admins = data.data.filter(emp => emp.role === 'Administrator');
+                window._approvers = admins;
+
+                const renderDropdown = (filter) => {
+                    const q = (filter || '').toLowerCase();
+                    const filtered = q ? admins.filter(a => (a.first_name + ' ' + a.last_name).toLowerCase().includes(q)) : admins;
+                    dropdown.innerHTML = filtered.length
+                        ? filtered.map(a => `<div data-id="${a.id}" style="padding:5px 10px;font-size:0.6rem;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.1s;">${a.first_name} ${a.last_name}</div>`).join('')
+                        : '<div style="padding:5px 10px;font-size:0.55rem;color:#9ca3af;">No matching approvers</div>';
+                    dropdown.style.display = filtered.length || q ? 'block' : 'none';
+                };
+
+                input.addEventListener('input', function() {
+                    if (this.value !== (hidden._label || '')) {
+                        hidden.value = '';
+                        hidden._label = '';
+                    }
+                    renderDropdown(this.value);
+                });
+
+                input.addEventListener('focus', function() {
+                    if (!hidden.value) renderDropdown(this.value);
+                });
+
+                dropdown.addEventListener('click', function(e) {
+                    const item = e.target.closest('[data-id]');
+                    if (item) {
+                        hidden.value = item.dataset.id;
+                        hidden._label = item.textContent.trim();
+                        input.value = item.textContent.trim();
+                        dropdown.style.display = 'none';
                     }
                 });
+
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('#empLeaveApproverInput') && !e.target.closest('#approverDropdown')) {
+                        dropdown.style.display = 'none';
+                    }
+                });
+
+                // Set saved value when editing
+                if (window._editApproverId) {
+                    const match = admins.find(a => a.id == window._editApproverId);
+                    if (match) {
+                        hidden.value = match.id;
+                        hidden._label = match.first_name + ' ' + match.last_name;
+                        input.value = match.first_name + ' ' + match.last_name;
+                    }
+                    window._editApproverId = null;
+                }
             }
         }
     } catch(e) { console.error('Approvers error:', e); }
@@ -2334,7 +2380,8 @@ async function saveEmployee() {
         bank_account_number: document.getElementById('empBankAcc').value.trim(),
         bank_branch: document.getElementById('empBankBranch').value.trim(),
         bank_branch_code: document.getElementById('empBranchCode').value.trim(),
-        c8_number: document.getElementById('empC8').value.trim()
+        leave_approver_name: document.getElementById('empLeaveApproverInput')?.value?.trim() || '',
+        leave_approver_id: parseInt(document.getElementById('empLeaveApprover')?.value) || null,
     };
 
     document.getElementById('hrLoader').classList.add('active');
@@ -2417,8 +2464,20 @@ async function viewEmployee(empId) {
         document.getElementById('empBankAcc').value = emp.bank_account_number || '';
         document.getElementById('empBankBranch').value = emp.bank_branch || '';
         document.getElementById('empBranchCode').value = emp.bank_branch_code || '';
-        document.getElementById('empC8').value = emp.c8_number || '';
+
         document.getElementById('empNationalId').value = emp.national_id || '';
+
+        // Set leave approver via hidden field (dropdown will pick it up on next load)
+        if (emp.leave_approver_id) {
+            window._editApproverId = emp.leave_approver_id;
+            const input = document.getElementById('empLeaveApproverInput');
+            const hidden = document.getElementById('empLeaveApprover');
+            if (input && hidden) {
+                hidden.value = emp.leave_approver_id;
+                hidden._label = emp.leave_approver_name || '';
+                input.value = emp.leave_approver_name || '';
+            }
+        }
 
         document.getElementById('mixedCurrencyRow').style.display = emp.currency === 'Mixed' ? '' : 'none';
         openModal('addEmployeeModal');
@@ -2511,11 +2570,11 @@ async function loadLeaveData() {
                 <td><strong>${leave.days}</strong></td>
                 <td><span class="${statusBadge}">${leave.status}</span></td>
                 <td>
-                    ${leave.status === 'Pending' && HR_ROLE === 'Administrator' ? `
+                    ${leave.status === 'Pending' && HR_ROLE === 'Administrator' && leave.employee_name !== HR_USER_NAME ? `
                         <button class="btn btn-sm btn-outline-success" onclick="approveLeave(${leave.id})" title="Approve"><i class="bi bi-check-lg"></i></button>
                         <button class="btn btn-sm btn-outline-danger" onclick="declineLeave(${leave.id})" title="Decline"><i class="bi bi-x-lg"></i></button>
                     ` : ''}
-                    ${leave.status === 'Pending' && HR_ROLE !== 'Administrator' ? `
+                    ${leave.status === 'Pending' && (HR_ROLE !== 'Administrator' || leave.employee_name === HR_USER_NAME) ? `
                         <span style="font-size:0.55rem;color:var(--text-muted);">Awaiting approval</span>
                     ` : ''}
                     ${leave.status === 'Approved' ? '<span style="font-size:0.55rem;color:#2e7d32;"><i class="bi bi-check-circle"></i> Approved</span>' : ''}

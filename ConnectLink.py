@@ -12333,7 +12333,7 @@ def hr_employee_detail(emp_id):
                         bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
                         bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
                         usd_percent=%s, zwg_percent=%s, exchange_rate=%s,
-                        c8_number=%s, c8_type=%s, updated_at=CURRENT_TIMESTAMP
+                        leave_approver_name=%s, leave_approver_id=%s, updated_at=CURRENT_TIMESTAMP
                     WHERE id=%s
                 """, (
                     data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
@@ -12347,8 +12347,8 @@ def hr_employee_detail(emp_id):
                     data.get('bank_name'), data.get('bank_account_number'),
                     data.get('bank_branch'), data.get('bank_branch_code'),
                     data.get('usd_percent', 100), data.get('zwg_percent', 0),
-                    data.get('exchange_rate', 1), data.get('c8_number'), data.get('c8_type'),
-                    emp_id
+                    data.get('exchange_rate', 1), data.get('leave_approver_name'),
+                    data.get('leave_approver_id'), emp_id
                 ))
                 connection.commit()
                 return jsonify({'success': True, 'message': 'Employee updated successfully'})
