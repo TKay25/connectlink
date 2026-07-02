@@ -865,6 +865,11 @@
         <button class="nav-btn" data-module="reports" onclick="showModule('reports')" id="sidebar-reports">
             <i class="bi bi-graph-up-arrow"></i> <span>Reports</span>
         </button>
+
+        <div class="sidebar-section" id="sidebarProfileSection" style="display:none;">My Space</div>
+        <button class="nav-btn" data-module="my-activity" onclick="showModule('my-activity')" id="sidebar-my-activity" style="display:none;">
+            <i class="bi bi-person-lines-fill"></i> <span>My Activity</span>
+        </button>
     </aside>
 
     <!-- ===== MAIN CONTENT ===== -->
@@ -1172,10 +1177,22 @@
                 </div>
             </div>
 
+            <!-- Leave View Tabs -->
+            <div class="hr-card" style="margin-bottom:6px;">
+                <div class="card-body-custom" style="padding:4px 8px;">
+                    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                        <button class="btn btn-sm leave-view-tab active" data-view="all" onclick="setLeaveView('all')" style="font-size:0.55rem;padding:3px 10px;border-radius:6px;background:var(--primary);color:#fff;border:none;">All Leave</button>
+                        <button class="btn btn-sm leave-view-tab" data-view="mine" onclick="setLeaveView('mine')" style="font-size:0.55rem;padding:3px 10px;border-radius:6px;background:var(--gray-100);color:var(--text-secondary);border:1px solid var(--gray-200);">My Leaves</button>
+                        <button class="btn btn-sm leave-view-tab" data-view="pending-approval" onclick="setLeaveView('pending-approval')" style="font-size:0.55rem;padding:3px 10px;border-radius:6px;background:var(--gray-100);color:var(--text-secondary);border:1px solid var(--gray-200);">Pending My Approval</button>
+                        <button class="btn btn-sm leave-view-tab" data-view="approved-by-me" onclick="setLeaveView('approved-by-me')" style="font-size:0.55rem;padding:3px 10px;border-radius:6px;background:var(--gray-100);color:var(--text-secondary);border:1px solid var(--gray-200);">Approved By Me</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Leave Table -->
             <div class="hr-card">
                 <div class="card-header-custom">
-                    <h6><i class="bi bi-list-check"></i> Leave Applications</h6>
+                    <h6><i class="bi bi-list-check"></i> <span id="leaveTableTitle">Leave Applications</span></h6>
                     <div>
                         <select class="form-select form-select-sm" style="width:auto;display:inline-block;font-size:0.6rem;padding:2px 6px;" onchange="filterLeaveTable()" id="leaveStatusFilter">
                             <option value="">All Status</option>
@@ -1516,6 +1533,49 @@
                             <button class="btn btn-outline-primary btn-sm w-100" onclick="alert('Export asset register...')">
                                 <i class="bi bi-file-earmark-spreadsheet"></i> Asset Register
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODULE: MY ACTIVITY ===== -->
+        <div id="module-my-activity" class="hr-module">
+            <div class="page-header">
+                <h4><i class="bi bi-person-lines-fill"></i> My Activity</h4>
+                <div>
+                    <span style="font-size:0.6rem;color:var(--text-muted);">
+                        <i class="bi bi-person"></i> {{ user_name or 'Me' }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="hr-card">
+                        <div class="card-header-custom">
+                            <span><i class="bi bi-calendar-check"></i> My Leave Requests</span>
+                            <span style="font-size:0.5rem;color:var(--text-muted);">Recent</span>
+                        </div>
+                        <div class="card-body-custom" style="max-height:220px;overflow-y:auto;padding:0;">
+                            <div id="myActivityLeaveList" style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.55rem;">
+                                <i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:4px;"></i>
+                                Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="hr-card">
+                        <div class="card-header-custom">
+                            <span><i class="bi bi-clock-history"></i> Recent Actions</span>
+                            <span style="font-size:0.5rem;color:var(--text-muted);">My log</span>
+                        </div>
+                        <div class="card-body-custom" style="max-height:220px;overflow-y:auto;padding:0;">
+                            <div id="myActivityLog" style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.55rem;">
+                                <i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:4px;"></i>
+                                No recent activity.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1945,6 +2005,8 @@ function toggleAdminView() {
     const adminBtn = document.getElementById('roleAdminBtn');
     const userBtn = document.getElementById('roleUserBtn');
     const adminModules = ['employees', 'payroll', 'reports'];
+    const profileModules = ['my-activity'];
+    const profileSection = document.getElementById('sidebarProfileSection');
 
     if (isAdminView) {
         adminBtn.classList.add('active');
@@ -1954,7 +2016,13 @@ function toggleAdminView() {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = '';
         });
-        // Show admin-only modules in dashboard
+        // Hide profile sidebar items
+        profileModules.forEach(m => {
+            const el = document.getElementById('sidebar-' + m);
+            if (el) el.style.display = 'none';
+        });
+        if (profileSection) profileSection.style.display = 'none';
+        // Show admin-only UI
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
         showModule('dashboard');
     } else {
@@ -1965,9 +2033,15 @@ function toggleAdminView() {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = 'none';
         });
+        // Show profile sidebar items
+        profileModules.forEach(m => {
+            const el = document.getElementById('sidebar-' + m);
+            if (el) el.style.display = '';
+        });
+        if (profileSection) profileSection.style.display = '';
         // Hide admin-only UI
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        // Switch to my leave view
+        // Switch to leave view (personal)
         showModule('leave');
     }
 }
@@ -2003,6 +2077,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAssets();
     loadApprovers();
     loadAssetAssignees();
+    // Init leave view
+    setLeaveView('all');
 
     // Currency toggle
     const currSelect = document.getElementById('empCurrency');
@@ -2024,9 +2100,14 @@ function showModule(moduleId) {
     const activeBtn = document.querySelector(`.hr-sidebar .nav-btn[data-module="${moduleId}"]`);
     if (activeBtn) activeBtn.classList.add('active');
 
-    // Refresh dashboard stats when switching to it
+    // Refresh data when switching modules
     if (moduleId === 'dashboard') {
         loadDashboardStats();
+    } else if (moduleId === 'leave') {
+        // Reset to all view when switching to leave
+        setLeaveView(_leaveView || 'all');
+    } else if (moduleId === 'my-activity') {
+        loadMyActivity();
     }
 
     closeUserDropdown();
@@ -2565,63 +2646,104 @@ function resetEmployeeFilters() {
 }
 
 // ===== LEAVE MANAGEMENT =====
+let _leaveData = [];
+let _leaveView = 'all';
+
+function setLeaveView(view) {
+    _leaveView = view;
+    // Update tab styles
+    document.querySelectorAll('.leave-view-tab').forEach(tab => {
+        const isActive = tab.dataset.view === view;
+        tab.style.background = isActive ? 'var(--primary)' : 'var(--gray-100)';
+        tab.style.color = isActive ? '#fff' : 'var(--text-secondary)';
+        tab.style.border = isActive ? 'none' : '1px solid var(--gray-200)';
+    });
+    // Update title
+    const titles = { 'all': 'Leave Applications', 'mine': 'My Leave Applications', 'pending-approval': 'Pending My Approval', 'approved-by-me': 'Approved By Me' };
+    const titleEl = document.getElementById('leaveTableTitle');
+    if (titleEl) titleEl.textContent = titles[view] || 'Leave Applications';
+    renderLeaveTable();
+}
+
+function renderLeaveTable() {
+    const tbody = document.getElementById('leaveTableBody');
+    if (!tbody) return;
+
+    // Filter based on view
+    let filtered = _leaveData;
+    if (_leaveView === 'mine') {
+        filtered = _leaveData.filter(l => l.employee_name === HR_USER_NAME);
+    } else if (_leaveView === 'pending-approval') {
+        // Leaves from employees where this user is the approver
+        const myEmpIds = (window._approvers || []).filter(e => (e.first_name + ' ' + e.last_name) === HR_USER_NAME).map(e => e.id);
+        const myApprovedIds = (window._approvers || []).filter(e => e.leave_approver_id && myEmpIds.includes(e.leave_approver_id)).map(e => e.id);
+        // Simple: just show all pending leaves not owned by user (if admin) or pending leaves where user could be approver
+        filtered = _leaveData.filter(l => l.status === 'Pending' && l.employee_name !== HR_USER_NAME);
+    } else if (_leaveView === 'approved-by-me') {
+        filtered = _leaveData.filter(l => l.approved_by === HR_USER_NAME);
+    }
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+            '<i class="bi bi-calendar-check" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+            'No leave records in this view.</td></tr>';
+        return;
+    }
+
+    let approved = 0, pending = 0, totalDays = 0;
+    tbody.innerHTML = '';
+
+    filtered.forEach(leave => {
+        if (leave.status === 'Approved') approved++;
+        else if (leave.status === 'Pending') pending++;
+        totalDays += leave.days || 0;
+
+        const statusBadge = leave.status === 'Approved' ? 'badge-hr active' :
+                           leave.status === 'Pending' ? 'badge-hr pending' :
+                           leave.status === 'Declined' ? 'badge-hr terminated' : 'badge-hr inactive';
+
+        const isOwnLeave = leave.employee_name === HR_USER_NAME;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${leave.employee_name}</strong></td>
+            <td>${leave.leave_type}</td>
+            <td>${leave.from_date || 'N/A'}</td>
+            <td>${leave.to_date || 'N/A'}</td>
+            <td><strong>${leave.days}</strong></td>
+            <td><span class="${statusBadge}">${leave.status}</span></td>
+            <td>
+                ${leave.status === 'Pending' && HR_ROLE === 'Administrator' && !isOwnLeave ? `
+                    <button class="btn btn-sm btn-outline-success" onclick="approveLeave(${leave.id})" title="Approve"><i class="bi bi-check-lg"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="declineLeave(${leave.id})" title="Decline"><i class="bi bi-x-lg"></i></button>
+                ` : ''}
+                ${leave.status === 'Pending' && isOwnLeave ? `
+                    <button class="btn btn-sm btn-outline-primary" onclick="editLeave(${leave.id})" title="Edit"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="cancelLeave(${leave.id})" title="Cancel"><i class="bi bi-x-circle"></i></button>
+                ` : ''}
+                ${leave.status === 'Approved' ? '<span style="font-size:0.55rem;color:#2e7d32;"><i class="bi bi-check-circle"></i> Approved</span>' : ''}
+                ${leave.status === 'Cancelled' ? '<span style="font-size:0.55rem;color:#9ca3af;"><i class="bi bi-x-circle"></i> Cancelled</span>' : ''}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // Update stats
+    const stats = document.querySelectorAll('#module-leave .stats-grid .hr-stat-card .stat-value');
+    if (stats[0]) stats[0].textContent = approved;
+    if (stats[1]) stats[1].textContent = pending;
+    if (stats[2]) stats[2].textContent = totalDays;
+}
+
 async function loadLeaveData() {
     try {
         const res = await fetch('/api/hr/leave');
         const data = await res.json();
-        const tbody = document.getElementById('leaveTableBody');
-        if (!tbody) return;
-
-        if (!data.success || !data.data || data.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
-                '<i class="bi bi-calendar-check" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
-                'No leave records yet.</td></tr>';
-            return;
+        if (data.success && data.data) {
+            _leaveData = data.data;
+        } else {
+            _leaveData = [];
         }
-
-        const now = new Date();
-        let approved = 0, pending = 0, totalDays = 0;
-        tbody.innerHTML = '';
-
-        data.data.forEach(leave => {
-            if (leave.status === 'Approved') approved++;
-            else if (leave.status === 'Pending') pending++;
-            totalDays += leave.days || 0;
-
-            const statusBadge = leave.status === 'Approved' ? 'badge-hr active' :
-                               leave.status === 'Pending' ? 'badge-hr pending' :
-                               leave.status === 'Declined' ? 'badge-hr terminated' : 'badge-hr inactive';
-
-            const isOwnLeave = leave.employee_name === HR_USER_NAME;
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><strong>${leave.employee_name}</strong></td>
-                <td>${leave.leave_type}</td>
-                <td>${leave.from_date || 'N/A'}</td>
-                <td>${leave.to_date || 'N/A'}</td>
-                <td><strong>${leave.days}</strong></td>
-                <td><span class="${statusBadge}">${leave.status}</span></td>
-                <td>
-                    ${leave.status === 'Pending' && HR_ROLE === 'Administrator' && !isOwnLeave ? `
-                        <button class="btn btn-sm btn-outline-success" onclick="approveLeave(${leave.id})" title="Approve"><i class="bi bi-check-lg"></i></button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="declineLeave(${leave.id})" title="Decline"><i class="bi bi-x-lg"></i></button>
-                    ` : ''}
-                    ${leave.status === 'Pending' && isOwnLeave ? `
-                        <button class="btn btn-sm btn-outline-primary" onclick="editLeave(${leave.id})" title="Edit"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="cancelLeave(${leave.id})" title="Cancel"><i class="bi bi-x-circle"></i></button>
-                    ` : ''}
-                    ${leave.status === 'Approved' ? '<span style="font-size:0.55rem;color:#2e7d32;"><i class="bi bi-check-circle"></i> Approved</span>' : ''}
-                    ${leave.status === 'Cancelled' ? '<span style="font-size:0.55rem;color:#9ca3af;"><i class="bi bi-x-circle"></i> Cancelled</span>' : ''}
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-
-        // Update stats
-        const stats = document.querySelectorAll('#module-leave .stats-grid .hr-stat-card .stat-value');
-        if (stats[0]) stats[0].textContent = approved;
-        if (stats[1]) stats[1].textContent = pending;
-        if (stats[2]) stats[2].textContent = totalDays;
+        renderLeaveTable();
     } catch(e) { console.error('Leave error:', e); }
 }
 
@@ -2767,6 +2889,45 @@ async function cancelLeave(leaveId) {
         document.getElementById('hrLoader').classList.remove('active');
         alert('Error: ' + e.message);
     }
+}
+
+// ===== MY ACTIVITY =====
+async function loadMyActivity() {
+    try {
+        // Load my leave requests
+        const leaveRes = await fetch('/api/hr/leave');
+        const leaveData = await leaveRes.json();
+        const leaveList = document.getElementById('myActivityLeaveList');
+        if (leaveList && leaveData.success) {
+            const myLeaves = leaveData.data.filter(l => l.employee_name === HR_USER_NAME).slice(0, 5);
+            if (myLeaves.length) {
+                leaveList.innerHTML = myLeaves.map(l => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--gray-100);font-size:0.55rem;">
+                        <span>${l.leave_type} <span style="color:var(--text-muted);">${l.from_date} → ${l.to_date}</span></span>
+                        <span class="badge-hr ${l.status === 'Approved' ? 'active' : l.status === 'Pending' ? 'pending' : 'terminated'}" style="font-size:0.5rem;">${l.status}</span>
+                    </div>
+                `).join('');
+            } else {
+                leaveList.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:4px;"></i>No leave requests yet.</div>';
+            }
+        }
+
+        // Load my recent approval actions
+        const approvedByMe = leaveData.success ? leaveData.data.filter(l => l.approved_by === HR_USER_NAME).slice(0, 5) : [];
+        const logEl = document.getElementById('myActivityLog');
+        if (logEl) {
+            if (approvedByMe.length) {
+                logEl.innerHTML = approvedByMe.map(l => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--gray-100);font-size:0.5rem;">
+                        <span><span style="color:#2e7d32;">✓</span> Approved <strong>${l.employee_name}</strong> for ${l.leave_type}</span>
+                        <span style="color:var(--text-muted);">${l.days}d</span>
+                    </div>
+                `).join('');
+            } else {
+                logEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:4px;"></i>No recent approvals.</div>';
+            }
+        }
+    } catch(e) { console.error('My activity error:', e); }
 }
 
 function filterLeaveTable() {
