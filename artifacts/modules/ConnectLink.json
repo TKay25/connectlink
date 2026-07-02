@@ -19,6 +19,7 @@
     "send_whatsapp_list_message(recipient, text, header_text, sections, footer_text = None)"
   ],
   "dependencies": [
+    "PyPDF2",
     "ai_classifier",
     "base64",
     "bleach",
@@ -37,22 +38,21 @@
     "playwright",
     "psycopg2",
     "pytz",
-    "requests",
-    "seaborn"
+    "requests"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 11478"
+    "INSTRUCTIONS @ line 11515"
   ],
   "token_controls": [
-    "max_length = 0 @ line 18514",
-    "max_length = len(str(cell.value)) @ line 18519",
-    "adjusted_width = min(max_length + 2, 50) @ line 18522",
-    "max_length = 0 @ line 19334",
-    "max_length = cell_length @ line 19341",
-    "adjusted_width = min(max_length + 2, 50) @ line 19344",
-    "max_length = 0 @ line 20329",
-    "max_length = cell_length @ line 20336",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 20339"
+    "max_length = 0 @ line 18970",
+    "max_length = len(str(cell.value)) @ line 18975",
+    "adjusted_width = min(max_length + 2, 50) @ line 18978",
+    "max_length = 0 @ line 19790",
+    "max_length = cell_length @ line 19797",
+    "adjusted_width = min(max_length + 2, 50) @ line 19800",
+    "max_length = 0 @ line 20785",
+    "max_length = cell_length @ line 20792",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 20795"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1781691732172.6877,
   "file_size": 1328874,
   "file_birthtime": 1776794366250.55,
-  "generated_at": "2026-07-02T12:31:58.132053Z",
+  "generated_at": "2026-07-02T12:53:11.103449Z",
   "stale": false
 }

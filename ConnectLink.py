@@ -1497,6 +1497,43 @@ def initialize_database_tables():
             connection.commit()
             print("✅ HR module tables initialized!")
 
+            # ========== PAYE TAX TABLES ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS paye_tax_tables (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    filename VARCHAR(255),
+                    period VARCHAR(20),
+                    is_active BOOLEAN DEFAULT FALSE,
+                    uploaded_by VARCHAR(100),
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS paye_tax_brackets (
+                    id SERIAL PRIMARY KEY,
+                    table_id INT NOT NULL REFERENCES paye_tax_tables(id) ON DELETE CASCADE,
+                    band VARCHAR(100),
+                    income_from DECIMAL(15,2) DEFAULT 0,
+                    income_to DECIMAL(15,2) DEFAULT 0,
+                    tax_rate DECIMAL(5,2) DEFAULT 0,
+                    cumulative_tax DECIMAL(15,2) DEFAULT 0,
+                    bracket_order INT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Ensure at most one active table
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_paye_active_unique
+                ON paye_tax_tables ((true)) WHERE is_active = true;
+            """)
+
+            connection.commit()
+            print("✅ PAYE tax tables initialized!")
+
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
 
@@ -12958,6 +12995,42 @@ def hr_payroll_api():
             data = request.get_json()
             period = data.get('period', datetime.now().strftime('%Y-%m'))
             with get_db() as (cursor, connection):
+                # Load active PAYE tax brackets
+                paye_brackets = []
+                cursor.execute("""
+                    SELECT b.income_from, b.income_to, b.tax_rate, b.cumulative_tax
+                    FROM paye_tax_brackets b
+                    JOIN paye_tax_tables t ON b.table_id = t.id
+                    WHERE t.is_active = TRUE
+                    ORDER BY b.bracket_order, b.income_from
+                """)
+                bracket_rows = cursor.fetchall()
+                for br in bracket_rows:
+                    paye_brackets.append({
+                        'from': float(br[0] or 0),
+                        'to': float(br[1] or 0),
+                        'rate': float(br[2] or 0),
+                        'cumulative': float(br[3] or 0)
+                    })
+
+                def calc_paye_tax(annual_salary, brackets):
+                    """Calculate PAYE tax using progressive tax brackets."""
+                    if not brackets:
+                        return 0
+                    tax = 0
+                    remaining = annual_salary
+                    for b in brackets:
+                        if remaining <= 0:
+                            break
+                        bracket_income = b['to'] - b['from']
+                        taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                        if taxable > 0:
+                            tax += taxable * (b['rate'] / 100)
+                        remaining -= taxable
+                        if b['to'] <= 0:  # top bracket (open-ended)
+                            break
+                    return tax
+
                 # Process payroll for all active employees
                 cursor.execute("""
                     SELECT id, first_name, last_name, basic_salary, usd_percent, zwg_percent, exchange_rate
@@ -12968,17 +13041,400 @@ def hr_payroll_api():
                 for emp in employees:
                     emp_id = emp[0]
                     basic = float(emp[3] or 0)
-                    net = basic  # Simplification: net = basic for now
+                    # Calculate PAYE tax (annualize salary, compute tax, then monthly)
+                    annual_salary = basic * 12
+                    annual_paye = calc_paye_tax(annual_salary, paye_brackets)
+                    monthly_paye = annual_paye / 12
+                    deductions = monthly_paye
+                    net = max(0, basic - deductions)
                     cursor.execute("""
-                        INSERT INTO hr_payroll (employee_id, period, basic_pay, net_pay, status, processed_at)
-                        VALUES (%s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP)
+                        INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, deductions, net_pay, status, processed_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP)
                         ON CONFLICT DO NOTHING
-                    """, (emp_id, period, basic, net))
+                    """, (emp_id, period, basic, 0, deductions, net))
                     processed += 1
                 connection.commit()
                 return jsonify({'success': True, 'message': f'Payroll processed for {processed} employees', 'processed': processed})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# PAYE TAX TABLE MANAGEMENT
+# ============================================================
+
+ALLOWED_PAYE_EXTENSIONS = {'pdf'}
+
+def parse_paye_pdf(file_bytes):
+    """Parse a PAYE tax table PDF and extract brackets."""
+    import re
+    from PyPDF2 import PdfReader
+    import io
+
+    reader = PdfReader(io.BytesIO(file_bytes))
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+
+    brackets = []
+    lines = text.split('\n')
+    
+    # Common patterns in PAYE tables:
+    # Pattern 1: "Up to $X" or "1 - $X" → rate
+    # Pattern 2: "$X - $Y" → rate
+    # Pattern 3: "Above $X" or "Over $X" → rate
+    # Try to extract tabular data
+    
+    # Pattern: look for lines with dollar amounts and percentages
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Match: "1 - 5,000 0%" or "5,001 - 10,000 20%" etc.
+        m = re.match(r'^[\d\.]+\s*[-–—to]+\s*([\d,]+)\s+([\d\.]+)\s*%?', line.replace(',','').replace(' ',''))
+        if m:
+            # This might be numbered bracket, skip as first num might be index
+            continue
+            
+        # Match: ranges like "0 - 5,000" or "$0 - $5,000"
+        m = re.search(r'(?:Up to)\s*\$?([\d,]+)', line, re.I)
+        if m:
+            upper = float(m.group(1).replace(',', ''))
+            brackets.append({'from': 0, 'to': upper, 'rate': 0})
+            continue
+            
+        m = re.search(r'(?:Over|Above|Beyond)\s*\$?([\d,]+)', line, re.I)
+        if m:
+            lower = float(m.group(1).replace(',', ''))
+            # Check if there's a percentage on this line
+            rate_m = re.search(r'([\d\.]+)\s*%', line)
+            rate = float(rate_m.group(1)) if rate_m else 0
+            brackets.append({'from': lower, 'to': -1, 'rate': rate})
+            continue
+    
+    # If we didn't find structured brackets, try harder parsing
+    if len(brackets) < 2:
+        brackets = []
+        # Find all lines with percentages
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            # Look for percentage
+            pct_m = re.search(r'([\d\.]+)\s*%', line)
+            if not pct_m:
+                continue
+            rate = float(pct_m.group(1))
+            
+            # Look for range: X - Y or X–Y or X to Y
+            range_m = re.search(r'\$?([\d,]+)\s*[-–—to]+\s*\$?([\d,]+)', line, re.I)
+            if range_m:
+                frm = float(range_m.group(1).replace(',', ''))
+                to = float(range_m.group(2).replace(',', ''))
+                brackets.append({'from': frm, 'to': to, 'rate': rate})
+                continue
+            
+            # Look for "Up to X"
+            up_m = re.search(r'(?:Up to|First|Below)\s*\$?([\d,]+)', line, re.I)
+            if up_m:
+                upper = float(up_m.group(1).replace(',', ''))
+                brackets.append({'from': 0, 'to': upper, 'rate': rate})
+                continue
+            
+            # Look for "Over X" or "Above X"
+            over_m = re.search(r'(?:Over|Above|Beyond|Exceeding)\s*\$?([\d,]+)', line, re.I)
+            if over_m:
+                lower = float(over_m.group(1).replace(',', ''))
+                brackets.append({'from': lower, 'to': -1, 'rate': rate})
+                continue
+        
+        # Sort by from
+        brackets.sort(key=lambda b: b['from'])
+        
+        # Fill in 'to' values based on next bracket's 'from'
+        for i in range(len(brackets) - 1):
+            if brackets[i]['to'] == -1 or brackets[i]['to'] == 0:
+                brackets[i]['to'] = brackets[i + 1]['from']
+        if brackets and brackets[-1]['to'] <= 0:
+            brackets[-1]['to'] = -1  # open-ended top bracket
+    
+    # Calculate cumulative tax for each bracket
+    cumulative = 0
+    for b in brackets:
+        if b['to'] > 0 and b['rate'] > 0:
+            bracket_income = b['to'] - b['from']
+            if bracket_income > 0:
+                cumulative += bracket_income * (b['rate'] / 100)
+        b['cumulative'] = cumulative
+    
+    return brackets
+
+
+@app.route('/api/hr/paye/upload', methods=['POST'])
+def hr_paye_upload():
+    """Upload a PAYE tax table PDF, parse it, and store brackets."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.pdf'):
+            return jsonify({'success': False, 'error': 'Only PDF files are accepted'}), 400
+        
+        name = request.form.get('name', file.filename)
+        period = request.form.get('period', '')
+        description = request.form.get('description', '')
+        user_name = session.get('user_name', 'Unknown')
+        
+        file_bytes = file.read()
+        
+        # Parse the PDF
+        brackets = parse_paye_pdf(file_bytes)
+        
+        if not brackets or len(brackets) < 1:
+            return jsonify({'success': False, 'error': 'Could not parse tax brackets from PDF. Please check the file format.'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Insert the tax table
+            cursor.execute("""
+                INSERT INTO paye_tax_tables (name, description, filename, period, is_active, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (name, description, file.filename, period, False, user_name))
+            table_id = cursor.fetchone()[0]
+            
+            # Insert brackets
+            for i, b in enumerate(brackets):
+                cursor.execute("""
+                    INSERT INTO paye_tax_brackets (table_id, income_from, income_to, tax_rate, cumulative_tax, bracket_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (table_id, b['from'], b['to'], b['rate'], b.get('cumulative', 0), i))
+            
+            connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'PAYE tax table "{name}" uploaded with {len(brackets)} bracket(s)',
+            'table_id': table_id,
+            'brackets': brackets
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/tables', methods=['GET'])
+def hr_paye_list_tables():
+    """List all uploaded PAYE tax tables."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT t.id, t.name, t.description, t.filename, t.period,
+                       t.is_active, t.uploaded_by, t.uploaded_at,
+                       COALESCE((SELECT COUNT(*) FROM paye_tax_brackets WHERE table_id = t.id), 0) as bracket_count
+                FROM paye_tax_tables t
+                ORDER BY t.uploaded_at DESC
+            """)
+            rows = cursor.fetchall()
+            tables = []
+            for r in rows:
+                tables.append({
+                    'id': r[0], 'name': r[1], 'description': r[2],
+                    'filename': r[3], 'period': r[4], 'is_active': r[5],
+                    'uploaded_by': r[6], 'uploaded_at': str(r[7]) if r[7] else None,
+                    'bracket_count': r[8]
+                })
+            return jsonify({'success': True, 'data': tables})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/table/<int:table_id>', methods=['GET'])
+def hr_paye_get_table(table_id):
+    """Get a specific PAYE tax table with its brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, description, filename, period, is_active, uploaded_by, uploaded_at
+                FROM paye_tax_tables WHERE id = %s
+            """, (table_id,))
+            t = cursor.fetchone()
+            if not t:
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            
+            cursor.execute("""
+                SELECT id, income_from, income_to, tax_rate, cumulative_tax, bracket_order
+                FROM paye_tax_brackets WHERE table_id = %s
+                ORDER BY bracket_order, income_from
+            """, (table_id,))
+            bracket_rows = cursor.fetchall()
+            brackets = []
+            for b in bracket_rows:
+                brackets.append({
+                    'id': b[0], 'income_from': float(b[1]), 'income_to': float(b[2]),
+                    'tax_rate': float(b[3]), 'cumulative_tax': float(b[4] or 0),
+                    'bracket_order': b[5]
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': t[0], 'name': t[1], 'description': t[2],
+                    'filename': t[3], 'period': t[4], 'is_active': t[5],
+                    'uploaded_by': t[6], 'uploaded_at': str(t[7]) if t[7] else None,
+                    'brackets': brackets
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/activate/<int:table_id>', methods=['POST'])
+def hr_paye_activate(table_id):
+    """Activate a PAYE tax table (deactivates all others)."""
+    try:
+        with get_db() as (cursor, connection):
+            # Deactivate all
+            cursor.execute("UPDATE paye_tax_tables SET is_active = FALSE")
+            # Activate the selected one
+            cursor.execute("UPDATE paye_tax_tables SET is_active = TRUE WHERE id = %s", (table_id,))
+            if cursor.rowcount == 0:
+                connection.rollback()
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            connection.commit()
+            return jsonify({'success': True, 'message': 'PAYE tax table activated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/table/<int:table_id>', methods=['DELETE'])
+def hr_paye_delete_table(table_id):
+    """Delete a PAYE tax table and its brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM paye_tax_tables WHERE id = %s", (table_id,))
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            connection.commit()
+            return jsonify({'success': True, 'message': 'PAYE tax table deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/active', methods=['GET'])
+def hr_paye_get_active():
+    """Get the currently active PAYE tax table with brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, description, filename, period, uploaded_by, uploaded_at
+                FROM paye_tax_tables WHERE is_active = TRUE
+                LIMIT 1
+            """)
+            t = cursor.fetchone()
+            if not t:
+                return jsonify({'success': True, 'data': None, 'message': 'No active PAYE tax table'})
+            
+            cursor.execute("""
+                SELECT income_from, income_to, tax_rate, cumulative_tax, bracket_order
+                FROM paye_tax_brackets WHERE table_id = %s
+                ORDER BY bracket_order, income_from
+            """, (t[0],))
+            bracket_rows = cursor.fetchall()
+            brackets = []
+            for b in bracket_rows:
+                brackets.append({
+                    'income_from': float(b[0]), 'income_to': float(b[1]),
+                    'tax_rate': float(b[2]), 'cumulative_tax': float(b[3] or 0)
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': t[0], 'name': t[1], 'description': t[2],
+                    'filename': t[3], 'period': t[4],
+                    'uploaded_by': t[5], 'uploaded_at': str(t[6]) if t[6] else None,
+                    'brackets': brackets
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/calculate', methods=['POST'])
+def hr_paye_calculate():
+    """Calculate PAYE tax for a given annual salary using active table."""
+    try:
+        data = request.get_json()
+        salary = float(data.get('salary', 0))
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT b.income_from, b.income_to, b.tax_rate, b.cumulative_tax
+                FROM paye_tax_brackets b
+                JOIN paye_tax_tables t ON b.table_id = t.id
+                WHERE t.is_active = TRUE
+                ORDER BY b.bracket_order, b.income_from
+            """)
+            bracket_rows = cursor.fetchall()
+            if not bracket_rows:
+                return jsonify({'success': False, 'error': 'No active PAYE tax table'}), 400
+            
+            brackets = []
+            for br in bracket_rows:
+                brackets.append({
+                    'from': float(br[0] or 0), 'to': float(br[1] or 0),
+                    'rate': float(br[2] or 0), 'cumulative': float(br[3] or 0)
+                })
+            
+            # Calculate tax
+            tax = 0
+            remaining = salary
+            details = []
+            for b in brackets:
+                if remaining <= 0:
+                    break
+                bracket_income = b['to'] - b['from']
+                taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                bracket_tax = taxable * (b['rate'] / 100)
+                if taxable > 0:
+                    tax += bracket_tax
+                    range_str = f"${b['from']:,.2f} - $"
+                    if b['to'] <= 0:
+                        range_str += "∞"
+                    else:
+                        range_str += f"{b['to']:,.2f}"
+                    details.append({
+                        'range': range_str,
+                        'taxable': round(taxable, 2),
+                        'rate': b['rate'],
+                        'tax': round(bracket_tax, 2)
+                    })
+                remaining -= taxable
+                if b['to'] <= 0:
+                    break
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'salary': salary,
+                    'annual_tax': round(tax, 2),
+                    'monthly_tax': round(tax / 12, 2),
+                    'effective_rate': round((tax / salary * 100) if salary > 0 else 0, 2),
+                    'details': details
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYE TAX TABLE MANAGEMENT
+# ============================================================
 
 
 @app.route('/api/hr/assets', methods=['GET', 'POST'])
