@@ -1427,6 +1427,7 @@
             </div>
             <!-- Reset Password Form (independent, hidden by default) -->
             <div id="projectsResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:8px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Universal Password Change</span></div>
                 <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your username/email and new password</div>
                 <div class="error-message" id="projectsResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
                 <div class="success-message" id="projectsResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
@@ -1507,6 +1508,7 @@
                 </div>
             </div>
             <div id="hardwareResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:8px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Universal Password Change</span></div>
                 <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your username and new password</div>
                 <div class="error-message" id="hardwareResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
                 <div class="success-message" id="hardwareResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
@@ -1587,6 +1589,7 @@
                 </div>
             </div>
             <div id="hrResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:8px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Universal Password Change</span></div>
                 <div style="text-align:center;margin-bottom:10px;font-size:0.6rem;color:var(--gray-500);">Enter your email and new password</div>
                 <div class="error-message" id="hrResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
                 <div class="success-message" id="hrResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
@@ -1981,8 +1984,7 @@
                     document.getElementById(system + 'NewPw').value = '';
                     document.getElementById(system + 'ConfirmPw').value = '';
                     setTimeout(() => {
-                        document.getElementById(system + 'ResetForm').style.display = 'none';
-                        sucEl.style.display = 'none';
+                        toggleResetForm(system);
                     }, 2500);
                 } else {
                     errEl.textContent = data.message || 'Failed to reset password.';

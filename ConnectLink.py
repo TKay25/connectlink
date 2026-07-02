@@ -11917,11 +11917,8 @@ def login():
                             session['source_system'] = au_row[6]
                             session['source_id'] = au_row[7]
 
-                            # Determine redirect based on source or role
-                            if au_row[6] == 'hardware' or au_row[5] == 'admin':
-                                redirect_to = '/pos-system.html'
-                            else:
-                                redirect_to = '/dashboard'
+                            # This is the Building Projects login route - always redirect to dashboard
+                            redirect_to = '/dashboard'
 
                             log_activity('user_login', f'Admin user {email_or_username} logged in (source: {au_row[6]})', 'user', au_row[0], {'username': email_or_username, 'source': au_row[6], 'role': au_row[5]})
                             print(f"✅ Admin user {email_or_username} logged in from {au_row[6]}")
