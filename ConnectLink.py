@@ -1534,6 +1534,75 @@ def initialize_database_tables():
             connection.commit()
             print("✅ PAYE tax tables initialized!")
 
+            # ========== PAYROLL DEDUCTION CONFIG ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS payroll_deduction_config (
+                    id SERIAL PRIMARY KEY,
+                    deduction_code VARCHAR(50) UNIQUE NOT NULL,
+                    deduction_name VARCHAR(200) NOT NULL,
+                    description TEXT,
+                    rate DECIMAL(10,4) DEFAULT 0,
+                    rate_type VARCHAR(30) DEFAULT 'percentage_of_paye',
+                    ceiling_amount DECIMAL(15,2) DEFAULT 0,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    is_employee_deduction BOOLEAN DEFAULT TRUE,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Seed default Zimbabwe statutory deductions
+            cursor.execute("SELECT COUNT(*) FROM payroll_deduction_config")
+            if cursor.fetchone()[0] == 0:
+                seed_deductions = [
+                    ('AIDS_LEVY', 'AIDS Levy', '3% of PAYE tax amount', 3.0, 'percentage_of_paye', 0, TRUE, TRUE),
+                    ('NSSA_EMPLOYEE', 'NSSA (Employee)', 'NSSA employee pension contribution', 4.5, 'percentage_of_gross', 0, TRUE, TRUE),
+                    ('NSSA_EMPLOYER', 'NSSA (Employer)', 'NSSA employer pension contribution', 4.5, 'percentage_of_gross', 0, TRUE, FALSE),
+                    ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, TRUE, TRUE),
+                ]
+                for dc in seed_deductions:
+                    cursor.execute("""
+                        INSERT INTO payroll_deduction_config
+                            (deduction_code, deduction_name, description, rate, rate_type, ceiling_amount, is_active, is_employee_deduction)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (deduction_code) DO NOTHING
+                    """, dc)
+                connection.commit()
+                print("✅ Default payroll deductions seeded!")
+
+            # Add deduction breakdown columns to hr_payroll if not present
+            for col in [
+                "paye_tax DECIMAL(12,2) DEFAULT 0",
+                "aids_levy DECIMAL(12,2) DEFAULT 0",
+                "nssa DECIMAL(12,2) DEFAULT 0",
+                "zimdef DECIMAL(12,2) DEFAULT 0",
+                "gross_pay DECIMAL(12,2) DEFAULT 0"
+            ]:
+                try:
+                    cursor.execute(f"ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS {col}")
+                except Exception:
+                    pass
+            connection.commit()
+            print("✅ Payroll deduction columns added!")
+
+            # ========== PAYROLL ARCHIVES TABLE ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS payroll_archives (
+                    id SERIAL PRIMARY KEY,
+                    period VARCHAR(20) NOT NULL,
+                    filename VARCHAR(255) NOT NULL,
+                    file_data BYTEA NOT NULL,
+                    file_size INT DEFAULT 0,
+                    employee_count INT DEFAULT 0,
+                    total_gross DECIMAL(15,2) DEFAULT 0,
+                    total_net DECIMAL(15,2) DEFAULT 0,
+                    generated_by VARCHAR(100),
+                    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(period)
+                );
+            """)
+            connection.commit()
+            print("✅ Payroll archives table initialized!")
+
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
 
@@ -13076,7 +13145,9 @@ def hr_payroll_api():
             with get_db() as (cursor, connection):
                 cursor.execute("""
                     SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
-                           p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay, p.status, p.processed_at
+                           p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
+                           p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
+                           p.nssa, p.zimdef
                     FROM hr_payroll p
                     JOIN hr_employees e ON p.employee_id = e.id
                     WHERE p.period = %s
@@ -13090,7 +13161,10 @@ def hr_payroll_api():
                         'department': r[4], 'period': r[5], 'basic_pay': float(r[6] or 0),
                         'allowances': float(r[7] or 0), 'deductions': float(r[8] or 0),
                         'net_pay': float(r[9] or 0), 'status': r[10],
-                        'processed_at': str(r[11]) if r[11] else None
+                        'processed_at': str(r[11]) if r[11] else None,
+                        'gross_pay': float(r[12] or 0),
+                        'paye_tax': float(r[13] or 0), 'aids_levy': float(r[14] or 0),
+                        'nssa': float(r[15] or 0), 'zimdef': float(r[16] or 0)
                     })
                 return jsonify({'success': True, 'data': records, 'period': period})
         except Exception as e:
@@ -13137,6 +13211,44 @@ def hr_payroll_api():
                             break
                     return tax
 
+                # Load deduction configs
+                cursor.execute("""
+                    SELECT deduction_code, rate, rate_type, ceiling_amount
+                    FROM payroll_deduction_config WHERE is_active = TRUE
+                """)
+                deduction_configs = {}
+                for dc in cursor.fetchall():
+                    deduction_configs[dc[0]] = {
+                        'rate': float(dc[1]), 'rate_type': dc[2],
+                        'ceiling': float(dc[3] or 0)
+                    }
+
+                def calc_statutory_deductions(monthly_salary, monthly_paye):
+                    """Calculate all Zimbabwe statutory deductions."""
+                    aids_config = deduction_configs.get('AIDS_LEVY', {})
+                    aids_rate = aids_config.get('rate', 3.0)
+                    aids_levy = monthly_paye * (aids_rate / 100) if aids_config.get('rate_type') == 'percentage_of_paye' else 0
+
+                    nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+                    nssa_rate = nssa_config.get('rate', 4.5)
+                    nssa_ceiling = nssa_config.get('ceiling', 0)
+                    nssa_gross = monthly_salary
+                    if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
+                        nssa_gross = nssa_ceiling
+                    nssa = nssa_gross * (nssa_rate / 100)
+
+                    zimdef_config = deduction_configs.get('ZIMDEF', {})
+                    zimdef_rate = zimdef_config.get('rate', 1.0)
+                    zimdef = monthly_salary * (zimdef_rate / 100)
+
+                    return {
+                        'paye': monthly_paye,
+                        'aids_levy': aids_levy,
+                        'nssa': nssa,
+                        'zimdef': zimdef,
+                        'total': monthly_paye + aids_levy + nssa + zimdef
+                    }
+
                 # Process payroll for all active employees
                 cursor.execute("""
                     SELECT id, first_name, last_name, basic_salary, usd_percent, zwg_percent, exchange_rate
@@ -13147,20 +13259,202 @@ def hr_payroll_api():
                 for emp in employees:
                     emp_id = emp[0]
                     basic = float(emp[3] or 0)
+                    allowances = 0
+                    gross = basic + allowances
+
                     # Calculate PAYE tax (annualize salary, compute tax, then monthly)
                     annual_salary = basic * 12
                     annual_paye = calc_paye_tax(annual_salary, paye_brackets)
                     monthly_paye = annual_paye / 12
-                    deductions = monthly_paye
-                    net = max(0, basic - deductions)
+
+                    # Calculate all statutory deductions
+                    stats = calc_statutory_deductions(basic, monthly_paye)
+                    total_deductions = stats['total']
+                    net = max(0, gross - total_deductions)
+
                     cursor.execute("""
-                        INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, deductions, net_pay, status, processed_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP)
+                        INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, gross_pay,
+                            deductions, paye_tax, aids_levy, nssa, zimdef, net_pay, status, processed_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP)
                         ON CONFLICT DO NOTHING
-                    """, (emp_id, period, basic, 0, deductions, net))
+                    """, (emp_id, period, basic, allowances, gross,
+                          round(total_deductions, 2), round(monthly_paye, 2),
+                          round(stats['aids_levy'], 2), round(stats['nssa'], 2),
+                          round(stats['zimdef'], 2), round(net, 2)))
                     processed += 1
-                connection.commit()
-                return jsonify({'success': True, 'message': f'Payroll processed for {processed} employees', 'processed': processed})
+
+                # Generate payroll archive Excel
+                try:
+                    # Re-fetch the processed payroll with employee details for the Excel
+                    cursor.execute("""
+                        SELECT e.first_name, e.last_name, e.department, e.designation,
+                               e.basic_salary, e.bank_holder_name, e.bank_holder_surname,
+                               e.bank_name, e.bank_account_number, e.bank_branch, e.bank_branch_code,
+                               e.usd_percent, e.zwg_percent, e.exchange_rate, e.currency,
+                               e.c8_number, e.c8_type, e.nationality,
+                               p.basic_pay, p.allowances, p.gross_pay,
+                               p.paye_tax, p.aids_levy, p.nssa, p.zimdef,
+                               p.deductions, p.net_pay, p.status
+                        FROM hr_payroll p
+                        JOIN hr_employees e ON p.employee_id = e.id
+                        WHERE p.period = %s
+                        ORDER BY e.last_name, e.first_name
+                    """, (period,))
+                    payroll_rows = cursor.fetchall()
+
+                    emp_count = len(payroll_rows)
+                    total_gross = sum(float(r[20] or 0) for r in payroll_rows)
+                    total_net = sum(float(r[26] or 0) for r in payroll_rows)
+                    user_name = session.get('user_name', 'System')
+
+                    from openpyxl import Workbook
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.title = f"Payroll {period}"
+
+                    # Styles
+                    from openpyxl.styles import Font as XlFont, PatternFill as XlFill, Alignment as XlAlign, Border as XlBorder, Side as XlSide
+                    header_fill = XlFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+                    header_font = XlFont(bold=True, color='FFFFFF', size=10)
+                    title_font = XlFont(bold=True, size=14, color='1E2A56')
+                    subtitle_font = XlFont(size=9, color='64748B')
+                    thin_border = XlBorder(
+                        left=XlSide(style='thin', color='CBD5E1'),
+                        right=XlSide(style='thin', color='CBD5E1'),
+                        top=XlSide(style='thin', color='CBD5E1'),
+                        bottom=XlSide(style='thin', color='CBD5E1')
+                    )
+
+                    # Title section
+                    ws.merge_cells('A1:U1')
+                    ws['A1'].value = f"ConnectLink — Payroll Register ({period})"
+                    ws['A1'].font = title_font
+                    ws['A1'].alignment = XlAlign(horizontal='left')
+
+                    ws.merge_cells('A2:U2')
+                    ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {emp_count} | Total Gross: ${total_gross:,.2f} | Total Net: ${total_net:,.2f}"
+                    ws['A2'].font = subtitle_font
+
+                    # Headers (row 4)
+                    headers = [
+                        '#', 'First Name', 'Last Name', 'Department', 'Designation',
+                        'Basic Pay', 'Allowances', 'Gross Pay',
+                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'ZIMDEF', 'Total Deductions',
+                        'Net Pay', 'Status',
+                        'Bank Holder', 'Bank Name', 'Account Number', 'Branch', 'Branch Code',
+                        'Currency'
+                    ]
+                    for col_idx, h in enumerate(headers, 1):
+                        cell = ws.cell(row=4, column=col_idx, value=h)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = XlAlign(horizontal='center', vertical='center', wrap_text=True)
+                        cell.border = thin_border
+
+                    # Data rows
+                    data_font = XlFont(size=9)
+                    for row_idx, r in enumerate(payroll_rows, 5):
+                        values = [
+                            row_idx - 4,
+                            r[0] or '', r[1] or '', r[2] or '', r[3] or '',
+                            float(r[18] or 0), float(r[19] or 0), float(r[20] or 0),
+                            float(r[21] or 0), float(r[22] or 0), float(r[23] or 0), float(r[24] or 0),
+                            float(r[25] or 0), float(r[26] or 0), r[27] or '',
+                            r[5] or '', r[7] or '', r[8] or '', r[9] or '', r[10] or '',
+                            r[14] or 'USD'
+                        ]
+                        for col_idx, val in enumerate(values, 1):
+                            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                            cell.font = data_font
+                            cell.border = thin_border
+                            if isinstance(val, float):
+                                cell.number_format = '#,##0.00'
+                                cell.alignment = XlAlign(horizontal='right')
+
+                    # Column widths
+                    widths = [5, 16, 16, 18, 18, 12, 10, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
+                    for i, w in enumerate(widths, 1):
+                        col_letter = ws.cell(row=1, column=i).column_letter
+                        ws.column_dimensions[col_letter].width = w
+
+                    # Banking Info Summary section
+                    summary_row = len(payroll_rows) + 7
+                    ws.merge_cells(f'A{summary_row}:U{summary_row}')
+                    ws.cell(row=summary_row, column=1).value = "Employee Banking Details"
+                    ws.cell(row=summary_row, column=1).font = XlFont(bold=True, size=11, color='1E2A56')
+
+                    bank_headers = ['#', 'Employee', 'Bank', 'Account Number', 'Branch', 'Branch Code', 'Net Pay']
+                    for col_idx, h in enumerate(bank_headers, 1):
+                        cell = ws.cell(row=summary_row + 1, column=col_idx, value=h)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.border = thin_border
+
+                    for row_idx, r in enumerate(payroll_rows, summary_row + 2):
+                        emp_name = f"{r[0] or ''} {r[1] or ''}".strip()
+                        bank_vals = [
+                            row_idx - summary_row - 1,
+                            emp_name,
+                            r[7] or '',
+                            r[8] or '',
+                            r[9] or '',
+                            r[10] or '',
+                            float(r[26] or 0)
+                        ]
+                        for col_idx, val in enumerate(bank_vals, 1):
+                            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                            cell.font = data_font
+                            cell.border = thin_border
+                            if isinstance(val, float):
+                                cell.number_format = '#,##0.00'
+
+                    # Save to bytes
+                    output = io.BytesIO()
+                    wb.save(output)
+                    excel_bytes = output.getvalue()
+                    file_size = len(excel_bytes)
+
+                    # Store in payroll_archives
+                    filename = f"Payroll_{period}.xlsx"
+                    cursor.execute("""
+                        INSERT INTO payroll_archives (period, filename, file_data, file_size, employee_count, total_gross, total_net, generated_by)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (period) DO UPDATE SET
+                            file_data = EXCLUDED.file_data,
+                            file_size = EXCLUDED.file_size,
+                            employee_count = EXCLUDED.employee_count,
+                            total_gross = EXCLUDED.total_gross,
+                            total_net = EXCLUDED.total_net,
+                            generated_by = EXCLUDED.generated_by,
+                            generated_at = CURRENT_TIMESTAMP
+                    """, (period, filename, psycopg2.Binary(excel_bytes), file_size, emp_count,
+                          round(total_gross, 2), round(total_net, 2), user_name))
+
+                    connection.commit()
+                    archive_saved = True
+                    archive_filename = filename
+                    archive_id = None
+                    # Get the archive id
+                    cursor.execute("SELECT id FROM payroll_archives WHERE period = %s", (period,))
+                    row = cursor.fetchone()
+                    if row:
+                        archive_id = row[0]
+
+                except Exception as excel_err:
+                    print(f"Note: Could not generate payroll archive: {excel_err}")
+                    connection.commit()
+                    archive_saved = False
+                    archive_filename = None
+                    archive_id = None
+
+                return jsonify({
+                    'success': True,
+                    'message': f'Payroll processed for {processed} employees',
+                    'processed': processed,
+                    'archive_saved': archive_saved if 'archive_saved' in dir() else False,
+                    'archive_id': archive_id if 'archive_id' in dir() else None,
+                    'archive_filename': archive_filename if 'archive_filename' in dir() else None
+                })
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -13540,6 +13834,289 @@ def hr_paye_calculate():
 
 # ============================================================
 # END PAYE TAX TABLE MANAGEMENT
+# ============================================================
+
+
+# ============================================================
+# PAYROLL DEDUCTIONS CONFIG (AIDS Levy, NSSA, ZIMDEF, etc.)
+# ============================================================
+
+@app.route('/api/hr/payroll/deductions-config', methods=['GET', 'POST'])
+def hr_payroll_deductions_config():
+    """Get or update payroll deduction configuration."""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT id, deduction_code, deduction_name, description,
+                           rate, rate_type, ceiling_amount, is_active, is_employee_deduction, updated_at
+                    FROM payroll_deduction_config
+                    ORDER BY deduction_code
+                """)
+                rows = cursor.fetchall()
+                configs = []
+                for r in rows:
+                    configs.append({
+                        'id': r[0], 'deduction_code': r[1], 'deduction_name': r[2],
+                        'description': r[3], 'rate': float(r[4]),
+                        'rate_type': r[5], 'ceiling_amount': float(r[6] or 0),
+                        'is_active': bool(r[7]), 'is_employee_deduction': bool(r[8]),
+                        'updated_at': str(r[9]) if r[9] else None
+                    })
+                return jsonify({'success': True, 'data': configs})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                for item in data if isinstance(data, list) else [data]:
+                    code = item.get('deduction_code')
+                    if not code:
+                        continue
+                    cursor.execute("""
+                        INSERT INTO payroll_deduction_config
+                            (deduction_code, deduction_name, description, rate, rate_type, ceiling_amount, is_active, is_employee_deduction)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (deduction_code) DO UPDATE SET
+                            rate = EXCLUDED.rate,
+                            ceiling_amount = EXCLUDED.ceiling_amount,
+                            is_active = EXCLUDED.is_active,
+                            is_employee_deduction = EXCLUDED.is_employee_deduction,
+                            description = EXCLUDED.description,
+                            deduction_name = EXCLUDED.deduction_name,
+                            rate_type = EXCLUDED.rate_type,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (
+                        code,
+                        item.get('deduction_name', ''),
+                        item.get('description', ''),
+                        float(item.get('rate', 0)),
+                        item.get('rate_type', 'percentage_of_paye'),
+                        float(item.get('ceiling_amount', 0)),
+                        bool(item.get('is_active', True)),
+                        bool(item.get('is_employee_deduction', True))
+                    ))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Deduction config saved'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/calculate-full', methods=['POST'])
+def hr_payroll_calculate_full():
+    """Calculate full Zimbabwe statutory deductions for a given salary."""
+    try:
+        data = request.get_json()
+        salary = float(data.get('salary', 0))
+        annual_salary = salary * 12
+
+        with get_db() as (cursor, connection):
+            # 1. Load active PAYE brackets
+            paye_brackets = []
+            cursor.execute("""
+                SELECT b.income_from, b.income_to, b.tax_rate
+                FROM paye_tax_brackets b
+                JOIN paye_tax_tables t ON b.table_id = t.id
+                WHERE t.is_active = TRUE
+                ORDER BY b.bracket_order, b.income_from
+            """)
+            for br in cursor.fetchall():
+                paye_brackets.append({
+                    'from': float(br[0] or 0), 'to': float(br[1] or 0),
+                    'rate': float(br[2] or 0)
+                })
+
+            # 2. Load deduction configs
+            cursor.execute("""
+                SELECT deduction_code, rate, rate_type, ceiling_amount, is_active, is_employee_deduction
+                FROM payroll_deduction_config WHERE is_active = TRUE
+            """)
+            deduction_configs = {}
+            for dc in cursor.fetchall():
+                deduction_configs[dc[0]] = {
+                    'rate': float(dc[1]), 'rate_type': dc[2],
+                    'ceiling': float(dc[3] or 0),
+                    'is_employee': bool(dc[5])
+                }
+
+        # 3. Calculate PAYE
+        def calc_paye(salary, brackets):
+            if not brackets:
+                return 0
+            tax = 0
+            remaining = salary
+            for b in brackets:
+                if remaining <= 0:
+                    break
+                bracket_income = b['to'] - b['from']
+                taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                if taxable > 0:
+                    tax += taxable * (b['rate'] / 100)
+                remaining -= taxable
+                if b['to'] <= 0:
+                    break
+            return tax
+
+        annual_paye = calc_paye(annual_salary, paye_brackets)
+        monthly_paye = annual_paye / 12
+
+        # 4. Calculate other deductions
+        deductions = {}
+
+        # AIDS Levy = 3% of PAYE
+        aids_config = deduction_configs.get('AIDS_LEVY', {})
+        if aids_config.get('rate_type') == 'percentage_of_paye':
+            aids_levy = monthly_paye * (aids_config['rate'] / 100)
+            deductions['AIDS_LEVY'] = {
+                'name': 'AIDS Levy',
+                'amount': round(aids_levy, 2),
+                'rate': aids_config['rate'],
+                'basis': 'PAYE tax'
+            }
+        else:
+            deductions['AIDS_LEVY'] = {'name': 'AIDS Levy', 'amount': 0, 'rate': 0, 'basis': 'PAYE tax'}
+
+        # NSSA Employee = % of gross up to ceiling
+        nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+        nssa_rate = nssa_config.get('rate', 4.5)
+        nssa_ceiling = nssa_config.get('ceiling', 0)
+        nssa_gross = salary
+        if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
+            nssa_gross = nssa_ceiling
+        nssa_amount = nssa_gross * (nssa_rate / 100)
+        deductions['NSSA_EMPLOYEE'] = {
+            'name': 'NSSA (Employee)',
+            'amount': round(nssa_amount, 2),
+            'rate': nssa_rate,
+            'basis': f"{'Ceiling: $' + str(nssa_ceiling) if nssa_ceiling > 0 else 'Gross'}"
+        }
+
+        # ZIMDEF = % of gross
+        zimdef_config = deduction_configs.get('ZIMDEF', {})
+        zimdef_rate = zimdef_config.get('rate', 1.0)
+        zimdef_amount = salary * (zimdef_rate / 100)
+        deductions['ZIMDEF'] = {
+            'name': 'ZIMDEF Levy',
+            'amount': round(zimdef_amount, 2),
+            'rate': zimdef_rate,
+            'basis': 'Gross salary'
+        }
+
+        total_deductions = monthly_paye + sum(d['amount'] for d in deductions.values())
+        net_pay = max(0, salary - total_deductions)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'gross_salary': salary,
+                'annual_salary': annual_salary,
+                'paye': {
+                    'monthly': round(monthly_paye, 2),
+                    'annual': round(annual_paye, 2),
+                    'effective_rate': round((annual_paye / annual_salary * 100) if annual_salary > 0 else 0, 2)
+                },
+                'deductions': deductions,
+                'total_deductions': round(total_deductions, 2),
+                'net_pay': round(net_pay, 2),
+                'net_pay_annual': round((salary - total_deductions) * 12, 2)
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYROLL DEDUCTIONS CONFIG
+# ============================================================
+
+
+# ============================================================
+# PAYROLL ARCHIVES (Excel Export & Storage)
+# ============================================================
+
+@app.route('/api/hr/payroll/archives', methods=['GET'])
+def hr_payroll_archives():
+    """List all payroll archive periods."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, period, filename, file_size, employee_count,
+                       total_gross, total_net, generated_by, generated_at
+                FROM payroll_archives
+                ORDER BY period DESC
+            """)
+            rows = cursor.fetchall()
+            archives = []
+            for r in rows:
+                file_size_str = str(round(r[3] / 1024, 1)) + ' KB' if r[3] else '0 KB'
+                archives.append({
+                    'id': r[0], 'period': r[1], 'filename': r[2],
+                    'file_size': r[3], 'file_size_str': file_size_str,
+                    'employee_count': r[4],
+                    'total_gross': float(r[5] or 0), 'total_net': float(r[6] or 0),
+                    'generated_by': r[7], 'generated_at': str(r[8]) if r[8] else None
+                })
+            return jsonify({'success': True, 'data': archives})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/archives/<int:archive_id>/download', methods=['GET'])
+def hr_payroll_archive_download(archive_id):
+    """Download a payroll archive Excel file."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT filename, file_data, period FROM payroll_archives WHERE id = %s
+            """, (archive_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Archive not found'}), 404
+
+            filename = row[0]
+            file_data = bytes(row[1])
+            period = row[2]
+
+            return send_file(
+                io.BytesIO(file_data),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/archives/<period>/download', methods=['GET'])
+def hr_payroll_archive_download_by_period(period):
+    """Download a payroll archive by period string (e.g. 2026-07)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, filename, file_data FROM payroll_archives WHERE period = %s
+            """, (period,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': f'No archive for period {period}'}), 404
+
+            filename = row[1]
+            file_data = bytes(row[2])
+
+            return send_file(
+                io.BytesIO(file_data),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYROLL ARCHIVES
 # ============================================================
 
 

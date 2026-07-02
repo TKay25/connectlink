@@ -1248,7 +1248,13 @@
                     <button class="btn btn-primary btn-sm admin-only" onclick="processPayroll()">
                         <i class="bi bi-gear"></i> Process Payroll
                     </button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="alert('Export payroll...')">
+                    <button class="btn btn-outline-info btn-sm admin-only" onclick="openDeductionsConfig()">
+                        <i class="bi bi-sliders"></i> Deductions
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="openPayrollArchives()">
+                        <i class="bi bi-archive"></i> Archives
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="downloadCurrentPayroll()">
                         <i class="bi bi-download"></i> Export
                     </button>
                 </div>
@@ -1272,7 +1278,7 @@
                 <div class="hr-stat-card">
                     <div class="stat-icon amber"><i class="bi bi-receipt"></i></div>
                     <div class="stat-body">
-                        <div class="stat-label">Deductions</div>
+                        <div class="stat-label">Total Deductions</div>
                         <div class="stat-value" id="payrollDeductions">$0</div>
                     </div>
                 </div>
@@ -1281,6 +1287,27 @@
                     <div class="stat-body">
                         <div class="stat-label">Net Pay</div>
                         <div class="stat-value" id="payrollNet">$0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deduction Breakdown Summary -->
+            <div class="hr-card" style="margin-bottom:10px;">
+                <div class="card-body-custom" style="padding:8px 14px;">
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+                        <span style="font-size:0.6rem;font-weight:600;color:var(--text-muted);">Deduction Breakdown:</span>
+                        <span style="font-size:0.6rem;background:#fef2f2;padding:2px 8px;border-radius:4px;color:#dc2626;">
+                            <i class="bi bi-file-text"></i> PAYE: <strong id="sumPaye">$0</strong>
+                        </span>
+                        <span style="font-size:0.6rem;background:#fef9ef;padding:2px 8px;border-radius:4px;color:#b45309;">
+                            <i class="bi bi-heart-pulse"></i> AIDS Levy: <strong id="sumAids">$0</strong>
+                        </span>
+                        <span style="font-size:0.6rem;background:#f0fdf4;padding:2px 8px;border-radius:4px;color:#16a34a;">
+                            <i class="bi bi-shield"></i> NSSA: <strong id="sumNssa">$0</strong>
+                        </span>
+                        <span style="font-size:0.6rem;background:#f3e8ff;padding:2px 8px;border-radius:4px;color:#7c3aed;">
+                            <i class="bi bi-mortarboard"></i> ZIMDEF: <strong id="sumZimdef">$0</strong>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -1297,21 +1324,65 @@
                                 <tr>
                                     <th>Employee</th>
                                     <th>Basic Pay</th>
-                                    <th>Allowances</th>
-                                    <th>Deductions</th>
+                                    <th>PAYE</th>
+                                    <th>AIDS Levy</th>
+                                    <th>NSSA</th>
+                                    <th>ZIMDEF</th>
+                                    <th>Total Ded.</th>
                                     <th>Net Pay</th>
                                     <th>Status</th>
-                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="payrollTableBody">
-                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                <tr><td colspan="9" class="text-center text-muted py-4">
                                     <i class="bi bi-wallet2" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
                                     No payroll data for this period.
                                 </td></tr>
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payroll Archives Modal -->
+        <div id="payrollArchivesModal" class="modal-overlay" style="display:none;">
+            <div class="modal-content" style="max-width:750px;">
+                <div class="modal-header">
+                    <h5><i class="bi bi-archive"></i> Payroll Archives</h5>
+                    <button class="modal-close" onclick="closePayrollArchives()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:10px;">
+                        <i class="bi bi-info-circle"></i> Download payroll Excel files for any processed period. Each file contains full salary breakdown, deductions, and banking details.
+                    </div>
+                    <div class="table-scroll">
+                        <table class="table-hr" id="archivesTable">
+                            <thead>
+                                <tr>
+                                    <th>Period</th>
+                                    <th>Employees</th>
+                                    <th>Total Gross</th>
+                                    <th>Total Net</th>
+                                    <th>Generated</th>
+                                    <th>Size</th>
+                                    <th style="width:80px;">Download</th>
+                                </tr>
+                            </thead>
+                            <tbody id="archivesTableBody">
+                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                    <i class="bi bi-archive" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
+                                    No payroll archives yet.
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid #e5e7eb;">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="closePayrollArchives()">Close</button>
+                    <button class="btn btn-primary btn-sm" onclick="loadPayrollArchives();">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
                 </div>
             </div>
         </div>
@@ -1443,6 +1514,28 @@
                     <button class="btn btn-outline-secondary btn-sm" onclick="closePayeUploadModal()">Cancel</button>
                     <button class="btn btn-primary btn-sm" onclick="uploadPayeTable()">
                         <i class="bi bi-upload"></i> Upload &amp; Parse
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deductions Config Modal -->
+        <div id="deductionsConfigModal" class="modal-overlay" style="display:none;">
+            <div class="modal-content" style="max-width:650px;">
+                <div class="modal-header">
+                    <h5><i class="bi bi-sliders"></i> Payroll Deductions Configuration</h5>
+                    <button class="modal-close" onclick="closeDeductionsConfig()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info" style="font-size:0.65rem;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;margin-bottom:12px;">
+                        <i class="bi bi-info-circle"></i> Configure Zimbabwe statutory deduction rates below. Changes affect future payroll calculations.
+                    </div>
+                    <div id="deductionsConfigList"></div>
+                </div>
+                <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid #e5e7eb;">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="closeDeductionsConfig()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="saveDeductionsConfig()">
+                        <i class="bi bi-check-lg"></i> Save Configuration
                     </button>
                 </div>
             </div>
@@ -2266,6 +2359,8 @@ function showModule(moduleId) {
         loadAssets();
     } else if (moduleId === 'paye') {
         loadPayeTables();
+    } else if (moduleId === 'payroll') {
+        loadPayroll();
     }
 
     closeUserDropdown();
@@ -3373,7 +3468,7 @@ async function calculatePaye() {
     }
 
     try {
-        const res = await fetch('/api/hr/paye/calculate', {
+        const res = await fetch('/api/hr/payroll/calculate-full', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ salary: salary })
@@ -3387,42 +3482,46 @@ async function calculatePaye() {
         }
 
         const d = data.data;
-        let detailsHtml = '';
-        if (d.details && d.details.length > 0) {
-            detailsHtml = '<div style="margin-top:8px;font-size:0.6rem;"><strong>Bracket Breakdown:</strong></div>';
-            detailsHtml += '<table class="table-hr" style="font-size:0.6rem;margin-top:4px;"><thead><tr><th>Band</th><th>Taxable</th><th>Rate</th><th>Tax</th></tr></thead><tbody>';
-            d.details.forEach(det => {
-                detailsHtml += `<tr><td>${det.range}</td><td>$${det.taxable.toFixed(2)}</td><td>${det.rate}%</td><td>$${det.tax.toFixed(2)}</td></tr>`;
-            });
-            detailsHtml += '</tbody></table>';
+        let dedHtml = '';
+        if (d.deductions) {
+            dedHtml = '<div style="margin-top:8px;font-size:0.6rem;"><strong>Deduction Details:</strong></div>';
+            dedHtml += '<table class="table-hr" style="font-size:0.6rem;margin-top:4px;"><thead><tr><th>Deduction</th><th>Rate</th><th>Amount</th></tr></thead><tbody>';
+            let totalDeductions = d.paye.monthly;
+            for (const [key, val] of Object.entries(d.deductions)) {
+                dedHtml += `<tr><td>${val.name}</td><td>${val.rate}% (${val.basis})</td><td style="color:#dc2626;">$${val.amount.toFixed(2)}</td></tr>`;
+                totalDeductions += val.amount;
+            }
+            dedHtml += `<tr style="font-weight:700;background:#f9fafb;"><td>PAYE</td><td>${d.paye.effective_rate}% effective</td><td style="color:#dc2626;">$${d.paye.monthly.toFixed(2)}</td></tr>`;
+            dedHtml += `<tr style="font-weight:700;background:#fef2f2;"><td colspan="2">TOTAL DEDUCTIONS</td><td style="color:#dc2626;">$${d.total_deductions.toFixed(2)}</td></tr>`;
+            dedHtml += '</tbody></table>';
         }
 
         resultDiv.style.display = 'block';
         resultDiv.innerHTML = `
             <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;">
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:8px;">
                     <div>
-                        <div style="font-size:0.55rem;color:var(--text-muted);">Annual Salary</div>
-                        <div style="font-size:0.9rem;font-weight:700;color:#1E2A56;">$${(d.salary * 12).toLocaleString(undefined, {minimumFractionDigits:2})}</div>
+                        <div style="font-size:0.55rem;color:var(--text-muted);">Monthly Gross</div>
+                        <div style="font-size:0.9rem;font-weight:700;color:#1E2A56;">$${d.gross_salary.toFixed(2)}</div>
                     </div>
                     <div>
-                        <div style="font-size:0.55rem;color:var(--text-muted);">Annual PAYE Tax</div>
-                        <div style="font-size:0.9rem;font-weight:700;color:#dc2626;">$${d.annual_tax.toLocaleString(undefined, {minimumFractionDigits:2})}</div>
+                        <div style="font-size:0.55rem;color:var(--text-muted);">Annual Gross</div>
+                        <div style="font-size:0.85rem;font-weight:700;color:#1E2A56;">$${d.annual_salary.toLocaleString(undefined, {minimumFractionDigits:2})}</div>
                     </div>
                     <div>
-                        <div style="font-size:0.55rem;color:var(--text-muted);">Monthly PAYE</div>
-                        <div style="font-size:0.9rem;font-weight:700;color:#dc2626;">$${d.monthly_tax.toLocaleString(undefined, {minimumFractionDigits:2})}</div>
-                    </div>
-                    <div>
-                        <div style="font-size:0.55rem;color:var(--text-muted);">Effective Rate</div>
-                        <div style="font-size:0.9rem;font-weight:700;color:#7c3aed;">${d.effective_rate}%</div>
+                        <div style="font-size:0.55rem;color:var(--text-muted);">Total Deductions</div>
+                        <div style="font-size:0.9rem;font-weight:700;color:#dc2626;">$${d.total_deductions.toFixed(2)}</div>
                     </div>
                     <div>
                         <div style="font-size:0.55rem;color:var(--text-muted);">Net (Monthly)</div>
-                        <div style="font-size:0.9rem;font-weight:700;color:#16a34a;">$${(salary - d.monthly_tax).toLocaleString(undefined, {minimumFractionDigits:2})}</div>
+                        <div style="font-size:0.9rem;font-weight:700;color:#16a34a;">$${d.net_pay.toFixed(2)}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.55rem;color:var(--text-muted);">Net (Annual)</div>
+                        <div style="font-size:0.85rem;font-weight:700;color:#16a34a;">$${d.net_pay_annual.toLocaleString(undefined, {minimumFractionDigits:2})}</div>
                     </div>
                 </div>
-                ${detailsHtml}
+                ${dedHtml}
             </div>
         `;
     } catch(e) {
@@ -3489,19 +3588,29 @@ async function loadPayroll() {
         if (!tbody) return;
 
         if (!data.success || !data.data || data.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">' +
                 '<i class="bi bi-wallet2" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
                 'No payroll data. Click <strong>"Process Payroll"</strong> to generate.</td></tr>';
+            // Reset deduction breakdown
+            ['sumPaye','sumAids','sumNssa','sumZimdef'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '$0';
+            });
             return;
         }
 
         let gross = 0, deductions = 0, net = 0;
+        let sumPaye = 0, sumAids = 0, sumNssa = 0, sumZimdef = 0;
         tbody.innerHTML = '';
 
         data.data.forEach(rec => {
             gross += rec.basic_pay || 0;
             deductions += rec.deductions || 0;
             net += rec.net_pay || 0;
+            sumPaye += rec.paye_tax || 0;
+            sumAids += rec.aids_levy || 0;
+            sumNssa += rec.nssa || 0;
+            sumZimdef += rec.zimdef || 0;
 
             const statusBadge = rec.status === 'Paid' ? 'badge-hr active' :
                                rec.status === 'Processed' ? 'badge-hr pending' : 'badge-hr inactive';
@@ -3510,13 +3619,13 @@ async function loadPayroll() {
             row.innerHTML = `
                 <td><strong>${rec.first_name} ${rec.last_name}</strong></td>
                 <td>$${(rec.basic_pay || 0).toFixed(2)}</td>
-                <td>$${(rec.allowances || 0).toFixed(2)}</td>
+                <td style="color:#dc2626;">$${(rec.paye_tax || 0).toFixed(2)}</td>
+                <td style="color:#b45309;">$${(rec.aids_levy || 0).toFixed(2)}</td>
+                <td style="color:#16a34a;">$${(rec.nssa || 0).toFixed(2)}</td>
+                <td style="color:#7c3aed;">$${(rec.zimdef || 0).toFixed(2)}</td>
                 <td>$${(rec.deductions || 0).toFixed(2)}</td>
                 <td><strong>$${(rec.net_pay || 0).toFixed(2)}</strong></td>
                 <td><span class="${statusBadge}">${rec.status}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="alert('Payroll details for ${rec.first_name} ${rec.last_name}')"><i class="bi bi-eye"></i></button>
-                </td>
             `;
             tbody.appendChild(row);
         });
@@ -3525,6 +3634,12 @@ async function loadPayroll() {
         if (stats[1]) stats[1].textContent = '$' + gross.toFixed(2);
         if (stats[2]) stats[2].textContent = '$' + deductions.toFixed(2);
         if (stats[3]) stats[3].textContent = '$' + net.toFixed(2);
+
+        // Update deduction breakdown summary
+        document.getElementById('sumPaye').textContent = '$' + sumPaye.toFixed(2);
+        document.getElementById('sumAids').textContent = '$' + sumAids.toFixed(2);
+        document.getElementById('sumNssa').textContent = '$' + sumNssa.toFixed(2);
+        document.getElementById('sumZimdef').textContent = '$' + sumZimdef.toFixed(2);
     } catch(e) { console.error('Payroll error:', e); }
 }
 
@@ -3544,7 +3659,13 @@ async function processPayroll() {
         if (data.success) {
             await loadPayroll();
             await loadDashboardStats();
-            alert('✅ Payroll processed for ' + data.processed + ' employees!');
+            if (data.archive_saved) {
+                if (confirm('✅ Payroll processed for ' + data.processed + ' employees!\n\nExcel archive saved. Download now?')) {
+                    downloadCurrentPayroll();
+                }
+            } else {
+                alert('✅ Payroll processed for ' + data.processed + ' employees!');
+            }
         } else {
             alert('❌ ' + (data.error || 'Failed'));
         }
@@ -3553,6 +3674,170 @@ async function processPayroll() {
         alert('Error: ' + e.message);
     }
 }
+
+// ===== PAYROLL DEDUCTIONS CONFIG =====
+async function openDeductionsConfig() {
+    document.getElementById('deductionsConfigModal').style.display = 'flex';
+    await loadDeductionsConfig();
+}
+
+function closeDeductionsConfig() {
+    document.getElementById('deductionsConfigModal').style.display = 'none';
+}
+
+async function loadDeductionsConfig() {
+    try {
+        const res = await fetch('/api/hr/payroll/deductions-config');
+        const data = await res.json();
+        const container = document.getElementById('deductionsConfigList');
+        if (!container) return;
+
+        if (!data.success || !data.data || data.data.length === 0) {
+            container.innerHTML = '<div style="font-size:0.65rem;color:var(--text-muted);">No deductions configured.</div>';
+            return;
+        }
+
+        let html = '<div style="display:grid;gap:10px;">';
+        data.data.forEach(dc => {
+            const rateTypeLabel = dc.rate_type === 'percentage_of_paye' ? '% of PAYE' :
+                                 dc.rate_type === 'percentage_of_gross' ? '% of Gross' : dc.rate_type;
+            const icon = dc.deduction_code === 'AIDS_LEVY' ? 'bi-heart-pulse' :
+                        dc.deduction_code === 'NSSA_EMPLOYEE' ? 'bi-shield' :
+                        dc.deduction_code === 'ZIMDEF' ? 'bi-mortarboard' : 'bi-receipt';
+            html += `
+                <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <div>
+                            <strong style="font-size:0.7rem;"><i class="bi ${icon}"></i> ${dc.deduction_name}</strong>
+                            <span style="font-size:0.55rem;color:var(--text-muted);margin-left:8px;">(${dc.deduction_code})</span>
+                        </div>
+                        <label style="font-size:0.6rem;display:flex;align-items:center;gap:4px;">
+                            <input type="checkbox" class="dc-active" data-code="${dc.deduction_code}" ${dc.is_active ? 'checked' : ''}>
+                            Active
+                        </label>
+                    </div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                        <div>
+                            <label style="font-size:0.55rem;color:var(--text-muted);display:block;">Rate (%)</label>
+                            <input type="number" step="0.1" class="dc-rate" data-code="${dc.deduction_code}"
+                                   value="${dc.rate}" style="width:80px;padding:3px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.55rem;color:var(--text-muted);display:block;">Ceiling ($)</label>
+                            <input type="number" step="0.01" class="dc-ceiling" data-code="${dc.deduction_code}"
+                                   value="${dc.ceiling_amount}" style="width:100px;padding:3px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;" ${dc.rate_type !== 'percentage_of_gross' ? 'readonly style="background:#f3f4f6;width:100px;padding:3px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"' : ''}>
+                        </div>
+                        <div style="font-size:0.55rem;color:var(--text-muted);">
+                            Basis: <strong>${rateTypeLabel}</strong>
+                        </div>
+                    </div>
+                </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(e) {
+        console.error('Deductions config error:', e);
+    }
+}
+
+async function saveDeductionsConfig() {
+    const items = [];
+    document.querySelectorAll('.dc-rate').forEach(el => {
+        const code = el.dataset.code;
+        const activeEl = document.querySelector(`.dc-active[data-code="${code}"]`);
+        const ceilingEl = document.querySelector(`.dc-ceiling[data-code="${code}"]`);
+        items.push({
+            deduction_code: code,
+            rate: parseFloat(el.value) || 0,
+            ceiling_amount: parseFloat(ceilingEl?.value || 0) || 0,
+            is_active: activeEl ? activeEl.checked : true
+        });
+    });
+
+    try {
+        const res = await fetch('/api/hr/payroll/deductions-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(items)
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('✅ Deduction configuration saved!');
+            closeDeductionsConfig();
+        } else {
+            alert('❌ ' + (data.error || 'Failed to save'));
+        }
+    } catch(e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// Close deductions config modal on overlay click
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('deductionsConfigModal');
+    if (modal && modal.style.display === 'flex' && e.target === modal) {
+        closeDeductionsConfig();
+    }
+});
+
+// ===== PAYROLL ARCHIVES =====
+async function openPayrollArchives() {
+    document.getElementById('payrollArchivesModal').style.display = 'flex';
+    await loadPayrollArchives();
+}
+
+function closePayrollArchives() {
+    document.getElementById('payrollArchivesModal').style.display = 'none';
+}
+
+async function loadPayrollArchives() {
+    try {
+        const res = await fetch('/api/hr/payroll/archives');
+        const data = await res.json();
+        const tbody = document.getElementById('archivesTableBody');
+        if (!tbody) return;
+
+        if (!data.success || !data.data || data.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                '<i class="bi bi-archive" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                'No payroll archives yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        data.data.forEach(arc => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${arc.period}</strong></td>
+                <td>${arc.employee_count}</td>
+                <td>$${(arc.total_gross || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                <td>$${(arc.total_net || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                <td style="font-size:0.6rem;">${arc.generated_by || '—'}<br>${arc.generated_at ? new Date(arc.generated_at).toLocaleString() : ''}</td>
+                <td style="font-size:0.6rem;">${arc.file_size_str || ''}</td>
+                <td><button class="btn btn-sm btn-success" onclick="downloadPayrollArchive(${arc.id}, '${arc.period}')"><i class="bi bi-download"></i></button></td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch(e) { console.error('Archives error:', e); }
+}
+
+function downloadPayrollArchive(archiveId, period) {
+    window.open(`/api/hr/payroll/archives/${archiveId}/download`, '_blank');
+}
+
+function downloadCurrentPayroll() {
+    const now = new Date();
+    const period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    window.open(`/api/hr/payroll/archives/${period}/download`, '_blank');
+}
+
+// Close archives modal on overlay click
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('payrollArchivesModal');
+    if (modal && modal.style.display === 'flex' && e.target === modal) {
+        closePayrollArchives();
+    }
+});
 
 // ===== ASSETS =====
 async function loadAssets() {
