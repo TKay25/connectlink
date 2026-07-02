@@ -1443,6 +1443,7 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="projectsOldPw" placeholder="Enter current password" required>
                             <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('projectsOldPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1450,6 +1451,7 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="projectsNewPw" placeholder="Min 4 characters" required>
                             <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('projectsNewPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1457,8 +1459,10 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="projectsConfirmPw" placeholder="Re-enter new password" required>
                             <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('projectsConfirmPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
+                    <div style="font-size:0.5rem;color:var(--gray-400);text-align:center;margin-bottom:6px;padding:4px 8px;background:#f9fafb;border-radius:6px;"><i class="fas fa-info-circle"></i> This password will work across all portals you have access to</div>
                     <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
                     <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
                 </form>
@@ -1519,6 +1523,7 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="hardwareOldPw" placeholder="Enter current password" required>
                             <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('hardwareOldPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1526,6 +1531,7 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="hardwareNewPw" placeholder="Min 4 characters" required>
                             <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('hardwareNewPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1533,8 +1539,10 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="hardwareConfirmPw" placeholder="Re-enter new password" required>
                             <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('hardwareConfirmPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
+                    <div style="font-size:0.5rem;color:var(--gray-400);text-align:center;margin-bottom:6px;padding:4px 8px;background:#f9fafb;border-radius:6px;"><i class="fas fa-info-circle"></i> This password will work across all portals you have access to</div>
                     <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
                     <a href="#" onclick="event.preventDefault(); toggleResetForm('hardware')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
                 </form>
@@ -1595,6 +1603,7 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="hrOldPw" placeholder="Enter current password" required>
                             <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('hrOldPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1602,6 +1611,7 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="hrNewPw" placeholder="Min 4 characters" required>
                             <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('hrNewPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1609,8 +1619,10 @@
                         <div class="input-group-modal">
                             <input type="password" class="form-input-modal" id="hrConfirmPw" placeholder="Re-enter new password" required>
                             <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('hrConfirmPw', event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
+                    <div style="font-size:0.5rem;color:var(--gray-400);text-align:center;margin-bottom:6px;padding:4px 8px;background:#f9fafb;border-radius:6px;"><i class="fas fa-info-circle"></i> This password will work across all portals you have access to</div>
                     <button type="submit" class="modal-login-btn" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Update Password</button>
                     <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;"><i class="fas fa-arrow-left"></i> Back to login</a>
                 </form>
@@ -1850,6 +1862,21 @@
             else state.errors.users = msg;
             render();
         }
+
+        // Generic toggle for any password field (used by reset form fields)
+        window.toggleField = function(fieldId, e) {
+            const input = document.getElementById(fieldId);
+            const icon = e.currentTarget.querySelector('i');
+            if (input && icon) {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.classList.replace('fa-eye', 'fa-eye-slash');
+                } else {
+                    input.type = 'password';
+                    icon.classList.replace('fa-eye-slash', 'fa-eye');
+                }
+            }
+        };
 
         window.toggleProjectsPassword = function(e) {
             const input = dom.projectsPassword;
