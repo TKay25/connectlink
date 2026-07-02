@@ -820,7 +820,7 @@
             </div>
             <div class="dropdown-divider" style="height:1px;background:var(--gray-200);"></div>
             <button class="dropdown-item" onclick="showModule('dashboard')">
-                <i class="bi bi-speedometer2"></i> Dashboard
+                <i class="bi bi-layout-three-columns"></i> Dashboard
             </button>
             <div id="switchPortals"></div>
             <div class="dropdown-divider" style="height:1px;background:var(--gray-200);"></div>
@@ -836,24 +836,24 @@
 
     <!-- ===== SIDEBAR ===== -->
     <aside class="hr-sidebar" id="hrSidebar">
-        <div class="sidebar-section">Main</div>
+        <div class="sidebar-section" id="sidebarSectionMain">Main</div>
         <button class="nav-btn active" data-module="dashboard" onclick="showModule('dashboard')">
-            <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
+            <i class="bi bi-layout-three-columns"></i> <span>Dashboard</span>
         </button>
         <button class="nav-btn" data-module="employees" onclick="showModule('employees')" id="sidebar-employees">
             <i class="bi bi-people-fill"></i> <span>Employees</span>
         </button>
 
-        <div class="sidebar-section">Operations</div>
+        <div class="sidebar-section" id="sidebarSectionOps">Operations</div>
         <button class="nav-btn" data-module="leave" onclick="showModule('leave')">
             <i class="bi bi-calendar-check"></i> <span>Leave Management</span>
         </button>
-        <div class="sidebar-section">Finance</div>
+        <div class="sidebar-section" id="sidebarSectionFinance">Finance</div>
         <button class="nav-btn" data-module="payroll" onclick="showModule('payroll')" id="sidebar-payroll">
             <i class="bi bi-wallet2"></i> <span>Payroll</span>
         </button>
 
-        <div class="sidebar-section">Assets &amp; Records</div>
+        <div class="sidebar-section" id="sidebarSectionAssets">Assets &amp; Records</div>
         <button class="nav-btn" data-module="assets" onclick="showModule('assets')">
             <i class="bi bi-boxes"></i> <span>Asset Register</span>
         </button>
@@ -861,7 +861,7 @@
             <i class="bi bi-file-earmark-text"></i> <span>Documents</span>
         </button>
 
-        <div class="sidebar-section">Insights</div>
+        <div class="sidebar-section" id="sidebarSectionInsights">Insights</div>
         <button class="nav-btn" data-module="reports" onclick="showModule('reports')" id="sidebar-reports">
             <i class="bi bi-graph-up-arrow"></i> <span>Reports</span>
         </button>
@@ -880,7 +880,7 @@
 
             <div class="page-header">
                 <div>
-                    <h4><i class="bi bi-speedometer2"></i> HR Dashboard</h4>
+                    <h4><i class="bi bi-layout-three-columns"></i> HR Dashboard</h4>
                     <div class="breadcrumb"><i class="bi bi-house"></i> Home / HR / Dashboard</div>
                 </div>
                 <div>
@@ -1313,10 +1313,10 @@
             <div class="page-header">
                 <h4><i class="bi bi-boxes"></i> Asset Register</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm" onclick="resetAssetForm();openModal('addAssetModal')">
+                    <button class="btn btn-primary btn-sm admin-only" onclick="resetAssetForm();openModal('addAssetModal')">
                         <i class="bi bi-plus-circle"></i> Add Asset
                     </button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="alert('Export asset register...')">
+                    <button class="btn btn-outline-primary btn-sm" onclick="openExportModal()">
                         <i class="bi bi-download"></i> Export
                     </button>
                 </div>
@@ -1530,7 +1530,7 @@
                             </button>
                         </div>
                         <div class="col-md-3">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="alert('Export asset register...')">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="openExportModal()">
                                 <i class="bi bi-file-earmark-spreadsheet"></i> Asset Register
                             </button>
                         </div>
@@ -2008,12 +2008,19 @@ function toggleAdminView() {
     const profileModules = ['my-activity'];
     const profileSection = document.getElementById('sidebarProfileSection');
 
+    // Section labels to show/hide
+    const sectionLabels = ['sidebarSectionMain', 'sidebarSectionOps', 'sidebarSectionFinance', 'sidebarSectionAssets', 'sidebarSectionInsights'];
+
     if (isAdminView) {
         adminBtn.classList.add('active');
         userBtn.classList.remove('active');
-        // Show admin-only sidebar items
+        // Show admin-only sidebar items and sections
         adminModules.forEach(m => {
             const el = document.getElementById('sidebar-' + m);
+            if (el) el.style.display = '';
+        });
+        sectionLabels.forEach(id => {
+            const el = document.getElementById(id);
             if (el) el.style.display = '';
         });
         // Hide profile sidebar items
@@ -2033,12 +2040,17 @@ function toggleAdminView() {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = 'none';
         });
+        // Hide section labels in profile mode (few items, no need for sections)
+        sectionLabels.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
         // Show profile sidebar items
         profileModules.forEach(m => {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = '';
         });
-        if (profileSection) profileSection.style.display = '';
+        if (profileSection) profileSection.style.display = 'none'; // Keep hidden, no section label needed
         // Hide admin-only UI
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
         // Switch to leave view (personal)
@@ -2108,6 +2120,8 @@ function showModule(moduleId) {
         setLeaveView(_leaveView || 'all');
     } else if (moduleId === 'my-activity') {
         loadMyActivity();
+    } else if (moduleId === 'assets') {
+        loadAssets();
     }
 
     closeUserDropdown();
@@ -3071,17 +3085,30 @@ async function loadAssets() {
         const tbody = document.getElementById('assetsTableBody');
         if (!tbody) return;
 
-        if (!data.success || !data.data || data.data.length === 0) {
+        // In profile mode, only show assets assigned to me
+        let assets = data.data || [];
+        if (!isAdminView && HR_USER_NAME) {
+            assets = assets.filter(a => a.assigned_to === HR_USER_NAME);
+        }
+
+        if (!assets.length) {
+            const msg = !isAdminView ? 'No assets assigned to you.' : 'No assets registered.';
             tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
                 '<i class="bi bi-box" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
-                'No assets registered.</td></tr>';
+                msg + '</td></tr>';
+            // Update stats to zero
+            const stats = document.querySelectorAll('#module-assets .stats-grid .hr-stat-card .stat-value');
+            if (stats[0]) stats[0].textContent = 0;
+            if (stats[1]) stats[1].textContent = 0;
+            if (stats[2]) stats[2].textContent = 0;
+            if (stats[3]) stats[3].textContent = 0;
             return;
         }
 
         let total = 0, inService = 0, repair = 0, checkedOut = 0;
         tbody.innerHTML = '';
 
-        data.data.forEach(asset => {
+        assets.forEach(asset => {
             total++;
             if (asset.status === 'In Service') inService++;
             else if (asset.status === 'Under Repair') repair++;
@@ -3190,7 +3217,75 @@ async function loadAssetEmployees() {
         }
     } catch(e) { console.error('Load asset employees error:', e); }
 }
+
+// ===== EXPORT ASSET REGISTER =====
+function openExportModal() {
+    openModal('exportAssetModal');
+}
+
+async function doExport(format) {
+    closeModal('exportAssetModal');
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const res = await fetch('/api/hr/export-assets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: format })
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert('Export failed: ' + (err.error || 'Unknown error'));
+            document.getElementById('hrLoader').classList.remove('active');
+            return;
+        }
+        // Download the blob
+        const blob = await res.blob();
+        const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `asset_register.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        document.getElementById('hrLoader').classList.remove('active');
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('Export error: ' + e.message);
+    }
+}
 </script>
+
+<!-- Export Modal -->
+<div id="exportAssetModal" class="modal-overlay">
+    <div class="modal-container small">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-download"></i> Export Asset Register</h3>
+            <button class="modal-close" onclick="closeModal('exportAssetModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom" style="text-align:center;padding:24px 20px;">
+            <p style="font-size:0.65rem;color:var(--text-muted);margin-bottom:16px;">Choose export format</p>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button onclick="doExport('excel')" style="flex:1;padding:16px 12px;border:2px solid var(--gray-200);border-radius:12px;background:var(--white);cursor:pointer;transition:all 0.2s;text-align:center;"
+                    onmouseover="this.style.borderColor='#1a73e8';this.style.background='#e8f0fe';" 
+                    onmouseout="this.style.borderColor='var(--gray-200)';this.style.background='var(--white)';">
+                    <i class="bi bi-file-earmark-spreadsheet" style="font-size:1.6rem;color:#1a73e8;display:block;margin-bottom:6px;"></i>
+                    <span style="font-size:0.65rem;font-weight:700;color:var(--text-primary);display:block;">Excel</span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">.xlsx format</span>
+                </button>
+                <button onclick="doExport('pdf')" style="flex:1;padding:16px 12px;border:2px solid var(--gray-200);border-radius:12px;background:var(--white);cursor:pointer;transition:all 0.2s;text-align:center;"
+                    onmouseover="this.style.borderColor='#d32f2f';this.style.background='#fce4ec';" 
+                    onmouseout="this.style.borderColor='var(--gray-200)';this.style.background='var(--white)';">
+                    <i class="bi bi-file-earmark-pdf" style="font-size:1.6rem;color:#d32f2f;display:block;margin-bottom:6px;"></i>
+                    <span style="font-size:0.65rem;font-weight:700;color:var(--text-primary);display:block;">PDF</span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">Styled document</span>
+                </button>
+            </div>
+            <button onclick="closeModal('exportAssetModal')" class="btn btn-sm btn-outline-primary" style="margin-top:16px;font-size:0.6rem;">Cancel</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

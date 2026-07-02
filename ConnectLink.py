@@ -13027,6 +13027,185 @@ def hr_assets_api():
             return jsonify({'success': False, 'error': str(e)}), 500
 
 
+import io
+from openpyxl.styles import Font as ExcelFont, PatternFill as ExcelFill, Alignment as ExcelAlign, Border as ExcelBorder, Side as ExcelSide
+
+@app.route('/api/hr/export-assets', methods=['POST'])
+def hr_export_assets():
+    """Export Asset Register as Excel (.xlsx) or PDF"""
+    try:
+        fmt = request.get_json().get('format', 'excel') if request.is_json else request.form.get('format', 'excel')
+        user_name = session.get('user_name', 'Employee')
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT a.asset_tag, a.asset_name, a.category, a.value, a.purchase_date, a.status,
+                       COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as assigned_to, a.notes
+                FROM hr_assets a
+                LEFT JOIN hr_employees e ON a.assigned_to = e.id
+                ORDER BY a.asset_name
+            """)
+            rows = cursor.fetchall()
+            cols = ['Asset Tag', 'Asset Name', 'Category', 'Value (USD)', 'Purchase Date', 'Status', 'Assigned To', 'Notes']
+
+        if fmt == 'pdf':
+            # Build PDF with contract-style design
+            now_str = datetime.now().strftime('%d %B %Y')
+            rows_html = ''
+            total_val = 0
+            for r in rows:
+                total_val += float(r[3] or 0)
+                status_color = '#166534' if r[5] == 'In Service' else '#92400e' if r[5] == 'Under Repair' else '#1e40af'
+                rows_html += f'''
+                <tr>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[0] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;font-weight:600;">{r[1]}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[2] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;text-align:right;">${float(r[3] or 0):,.2f}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{str(r[4] or '')[:10]}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;color:{status_color};font-weight:600;">{r[5] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[6]}</td>
+                </tr>'''
+
+            html = f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+@page {{ size: A4 landscape; margin: 30px 35px; }}
+body {{ font-family: 'Roboto', 'Helvetica', sans-serif; color: #1E2A56; font-size: 10px; }}
+.watermark {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-45deg);
+    font-size: 120px; opacity: 0.03; color: #1E2A56; font-weight: 900; pointer-events: none; z-index: -1; }}
+.header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1E2A56; padding-bottom: 10px; margin-bottom: 14px; }}
+.header .logo {{ font-size: 20px; font-weight: 800; color: #1E2A56; letter-spacing: -0.5px; }}
+.header .logo span {{ color: #C12B3E; }}
+.header .meta {{ text-align: right; font-size: 9px; color: #475569; }}
+h2 {{ font-size: 14px; margin: 0 0 4px 0; color: #1E2A56; text-transform: uppercase; letter-spacing: 1px; }}
+.subtitle {{ font-size: 9px; color: #64748B; margin-bottom: 12px; }}
+table {{ width: 100%; border-collapse: collapse; margin-top: 6px; }}
+th {{ background: linear-gradient(135deg, #1E2A56, #2A3A78); color: #fff; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }}
+th:not(:last-child) {{ border-right: 1px solid rgba(255,255,255,0.15); }}
+td {{ padding: 5px 6px; border: 1px solid #e2e8f0; font-size: 9px; }}
+tr:nth-child(even) td {{ background: #F8FAFC; }}
+.summary {{ display: flex; gap: 20px; margin-top: 14px; padding: 10px 14px; background: #F1F5F9; border-radius: 6px; }}
+.summary .item {{ font-size: 9px; }}
+.summary .item strong {{ font-size: 12px; color: #1E2A56; }}
+.footer {{ position: fixed; bottom: 0; left: 35px; right: 35px; text-align: center; font-size: 8px; color: #94A3B8; border-top: 1px solid #e2e8f0; padding-top: 6px; }}
+</style></head><body>
+<div class="watermark">ASSET REGISTER</div>
+<div class="header">
+    <div><div class="logo">Connect<span>Link</span></div></div>
+    <div class="meta"><strong>Asset Register</strong><br>{now_str}<br>Prepared by: {user_name}</div>
+</div>
+<h2>Asset Register</h2>
+<div class="subtitle">Complete inventory of company assets and equipment</div>
+<table>
+<thead><tr>
+    <th>Tag</th><th>Name</th><th>Category</th><th>Value</th><th>Purchase</th><th>Status</th><th>Assigned To</th>
+</tr></thead>
+<tbody>{rows_html}</tbody>
+</table>
+<div class="summary">
+    <div class="item">Total Assets<br><strong>{len(rows)}</strong></div>
+    <div class="item">Total Value<br><strong>${total_val:,.2f}</strong></div>
+    <div class="item">Generated<br><strong>{now_str}</strong></div>
+</div>
+<div class="footer">ConnectLink Properties &amp; Hardware — Asset Register — Generated {now_str}</div>
+</body></html>'''
+
+            try:
+                pdf_bytes = HTML(string=html).write_pdf()
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    as_attachment=True,
+                    download_name=f"{user_name}_asset_register.pdf",
+                    mimetype='application/pdf'
+                )
+            except Exception as pdf_err:
+                # Fallback to Playwright
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    browser = p.chromium.launch()
+                    page = browser.new_page()
+                    page.set_content(html)
+                    pdf_bytes = page.pdf(format='A4', landscape=True, print_background=True)
+                    browser.close()
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    as_attachment=True,
+                    download_name=f"{user_name}_asset_register.pdf",
+                    mimetype='application/pdf'
+                )
+
+        else:
+            # Excel export
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Asset Register"
+
+            # Title row
+            ws.merge_cells('A1:H1')
+            title_cell = ws['A1']
+            title_cell.value = f"Asset Register — {user_name}"
+            title_cell.font = ExcelFont(bold=True, size=13, color='1E2A56')
+            title_cell.alignment = ExcelAlign(horizontal='left')
+
+            # Header row
+            header_fill = ExcelFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+            header_font = ExcelFont(bold=True, color='FFFFFF', size=10)
+            thin_border = ExcelBorder(
+                left=ExcelSide(style='thin', color='CBD5E1'),
+                right=ExcelSide(style='thin', color='CBD5E1'),
+                top=ExcelSide(style='thin', color='CBD5E1'),
+                bottom=ExcelSide(style='thin', color='CBD5E1')
+            )
+
+            for col_idx, col_name in enumerate(cols, 1):
+                cell = ws.cell(row=3, column=col_idx, value=col_name)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = ExcelAlign(horizontal='center', vertical='center')
+                cell.border = thin_border
+
+            # Data rows
+            total_val = 0
+            for row_idx, r in enumerate(rows, 4):
+                total_val += float(r[3] or 0)
+                for col_idx, val in enumerate(r, 1):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=val if val is not None else '')
+                    cell.font = ExcelFont(size=9)
+                    cell.border = thin_border
+                    if col_idx == 4:  # Value column
+                        cell.number_format = '#,##0.00'
+                        cell.alignment = ExcelAlign(horizontal='right')
+
+            # Totals row
+            total_row = len(rows) + 4
+            ws.cell(row=total_row, column=1, value='TOTAL').font = ExcelFont(bold=True, size=10)
+            ws.cell(row=total_row, column=4, value=total_val).font = ExcelFont(bold=True, size=10)
+            ws.cell(row=total_row, column=4).number_format = '#,##0.00'
+            for col_idx in range(1, len(cols) + 1):
+                ws.cell(row=total_row, column=col_idx).border = thin_border
+
+            # Column widths
+            widths = [14, 28, 18, 14, 14, 14, 24, 30]
+            for i, w in enumerate(widths, 1):
+                ws.column_dimensions[chr(64 + i)].width = w
+
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=f"{user_name}_asset_register.xlsx",
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+
+    except Exception as e:
+        print(f"Export assets error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/hr/stats')
 def hr_stats_api():
     """HR: Get dashboard statistics"""
