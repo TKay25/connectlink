@@ -1082,7 +1082,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-people-fill"></i> Employee Management</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm" onclick="openModal('addEmployeeModal')">
+                    <button class="btn btn-primary btn-sm" onclick="resetAddForm();openModal('addEmployeeModal')">
                         <i class="bi bi-person-plus"></i> Add Employee
                     </button>
                     <button class="btn btn-outline-primary btn-sm" onclick="alert('Exporting employee list...')">
@@ -2189,13 +2189,13 @@ async function loadApprovers() {
             const hidden = document.getElementById('empLeaveApprover');
             const dropdown = document.getElementById('approverDropdown');
             if (input && hidden && dropdown) {
-                // Store all admins for search
-                const admins = data.data.filter(emp => emp.role === 'Administrator');
-                window._approvers = admins;
+                // Store all employees for search (any employee can be an approver)
+                const employees = data.data;
+                window._approvers = employees;
 
                 const renderDropdown = (filter) => {
                     const q = (filter || '').toLowerCase();
-                    const filtered = q ? admins.filter(a => (a.first_name + ' ' + a.last_name).toLowerCase().includes(q)) : admins;
+                    const filtered = q ? employees.filter(a => (a.first_name + ' ' + a.last_name).toLowerCase().includes(q)) : employees;
                     dropdown.innerHTML = filtered.length
                         ? filtered.map(a => `<div data-id="${a.id}" style="padding:5px 10px;font-size:0.6rem;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.1s;">${a.first_name} ${a.last_name}</div>`).join('')
                         : '<div style="padding:5px 10px;font-size:0.55rem;color:#9ca3af;">No matching approvers</div>';
@@ -2232,7 +2232,7 @@ async function loadApprovers() {
 
                 // Set saved value when editing
                 if (window._editApproverId) {
-                    const match = admins.find(a => a.id == window._editApproverId);
+                    const match = employees.find(a => a.id == window._editApproverId);
                     if (match) {
                         hidden.value = match.id;
                         hidden._label = match.first_name + ' ' + match.last_name;
@@ -2298,6 +2298,26 @@ function collectLeaveBalances() {
         else if (inp.dataset.field === 'carry') types[type].carry_forward = val;
     });
     return Object.values(types);
+}
+
+function resetAddForm() {
+    document.getElementById('editEmployeeId').value = '';
+    document.getElementById('empModalTitle').textContent = 'Add New Employee';
+    document.getElementById('saveEmpBtnText').textContent = 'Save Employee';
+    document.getElementById('addEmployeeForm').reset();
+    // Clear all inputs that .reset() might miss (selects, hidden fields)
+    document.querySelectorAll('#addEmployeeForm select').forEach(s => s.selectedIndex = 0);
+    document.querySelectorAll('#addEmployeeForm input[type="hidden"]').forEach(h => h.value = '');
+    document.getElementById('empSalary').value = 0;
+    document.getElementById('empUsdPercent').value = 100;
+    document.getElementById('empZwgPercent').value = 0;
+    document.getElementById('empExchangeRate').value = 1;
+    document.getElementById('empLeaveApprover').value = '';
+    document.getElementById('empLeaveApproverInput').value = '';
+    document.getElementById('mixedCurrencyRow').style.display = 'none';
+    window._editApproverId = null;
+    // Clear leave balance inputs
+    document.querySelectorAll('.lb-input').forEach(inp => inp.value = '');
 }
 
 async function saveEmployee() {

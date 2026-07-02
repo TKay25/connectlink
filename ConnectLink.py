@@ -12323,6 +12323,25 @@ def hr_employee_detail(emp_id):
         try:
             data = request.get_json()
             with get_db() as (cursor, connection):
+                # Try updating hr_employees first
+                cursor.execute("UPDATE hr_employees SET id=id WHERE id=%s", (emp_id,))
+                exists = cursor.rowcount > 0
+                if not exists:
+                    # Employee not in hr_employees — check admin_users and auto-create
+                    cursor.execute("SELECT id, username, full_name, email FROM admin_users WHERE id=%s", (emp_id,))
+                    au = cursor.fetchone()
+                    if au:
+                        full_name = au[2] or ''
+                        parts = full_name.split(' ', 1)
+                        first = parts[0] if parts else full_name
+                        last = parts[1] if len(parts) > 1 else ''
+                        email = au[3] or data.get('email', '')
+                        # Insert into hr_employees with the same ID (so FK constraints work)
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name
+                        """, (emp_id, first, last, email))
                 cursor.execute("""
                     UPDATE hr_employees SET
                         first_name=%s, last_name=%s, whatsapp=%s, email=%s, address=%s,
@@ -12391,6 +12410,29 @@ def hr_leave_balances(emp_id):
             data = request.get_json()
             balances = data.get('balances', [])
             with get_db() as (cursor, connection):
+                # Ensure employee exists in hr_employees first (FK constraint)
+                cursor.execute("UPDATE hr_employees SET id=id WHERE id=%s", (emp_id,))
+                if cursor.rowcount == 0:
+                    # Auto-create from admin_users if available
+                    cursor.execute("SELECT id, username, full_name, email FROM admin_users WHERE id=%s", (emp_id,))
+                    au = cursor.fetchone()
+                    if au:
+                        full_name = au[2] or ''
+                        parts = full_name.split(' ', 1)
+                        first = parts[0] if parts else full_name
+                        last = parts[1] if len(parts) > 1 else ''
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO NOTHING
+                        """, (emp_id, first, last, au[3] or ''))
+                    else:
+                        # Create a minimal placeholder
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, 'Employee', '', '', 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO NOTHING
+                        """, (emp_id,))
                 for b in balances:
                     cursor.execute("""
                         INSERT INTO hr_employee_leave_balances
