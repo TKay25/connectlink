@@ -283,6 +283,15 @@ def initialize_database_tables():
                     whatsapp INT
                 );
             """)
+            # Fix whatsapp column type (was INT, needs to be VARCHAR for phone numbers with extensions)
+            try:
+                cursor.execute("""
+                    ALTER TABLE connectlinkusers 
+                    ALTER COLUMN whatsapp TYPE VARCHAR(50)
+                """)
+                connection.commit()
+            except Exception:
+                connection.rollback()  # Column might already be VARCHAR
 
             # ===== UNIFIED ADMIN USERS TABLE =====
             cursor.execute("""
