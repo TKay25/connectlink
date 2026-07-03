@@ -282,7 +282,7 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
  opacity: 0; pointer-events: none; transition: opacity var(--transition);
 }
 .modal-overlay.active { opacity: 1; pointer-events: auto; }
-.modal-content {
+.modal-content, .modal-container, .login-modal {
  background: var(--bg-card); border-radius: var(--radius-xl);
  box-shadow: var(--shadow-xl); max-width: 520px; width: 92%;
  max-height: 88vh; overflow-y: auto;
@@ -444,4 +444,16 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
 @media (max-width: 480px) {
  .stats-grid { grid-template-columns: 1fr; }
  body { font-size: 14px; }
+}
+
+/* ==================================================================
+   GLOBAL: Rounded borders for all cards, modals, popups
+   ================================================================== */
+.system-card, .portal-card, .dash-bottom-card, .dash-stat-card,
+.um-card, .modal-container, .modal-content, .login-modal,
+.card-glassmorphic, .hr-card, .card, .stat-card, .hr-stat-card {
+  border-radius: var(--radius-lg) !important;
+}
+.modal-container, .modal-content, .login-modal {
+  border-radius: var(--radius-xl) !important;
 }
