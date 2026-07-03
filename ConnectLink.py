@@ -12122,22 +12122,19 @@ def verify_reset_code():
             # Mark code as used
             cursor.execute("UPDATE password_reset_codes SET used = TRUE WHERE id = %s", (code_id,))
 
-            # Reset password in admin_users
+            # Reset password in ALL tables for universal sync
             cursor.execute("""
                 UPDATE admin_users SET password = %s, must_reset_password = FALSE, updated_at = NOW()
                 WHERE username = %s
             """, (new_password, username_or_email))
-            updated = cursor.rowcount
 
-            if updated == 0:
-                # Fallback: try connectlinkusers
-                cursor.execute("""
-                    UPDATE connectlinkusers SET password = %s WHERE email = %s OR name = %s
-                """, (new_password, username_or_email, username_or_email))
-                # Also try hardware_users
-                cursor.execute("""
-                    UPDATE hardware_users SET password = %s WHERE username = %s
-                """, (new_password, username_or_email))
+            cursor.execute("""
+                UPDATE connectlinkusers SET password = %s WHERE email = %s OR name = %s
+            """, (new_password, username_or_email, username_or_email))
+
+            cursor.execute("""
+                UPDATE hardware_users SET password = %s WHERE username = %s
+            """, (new_password, username_or_email))
 
             connection.commit()
             log_activity('password_reset', f'Password reset via WhatsApp code for: {username_or_email}', 'user', 0)
@@ -14541,9 +14538,9 @@ def change_password():
             return jsonify({'success': False, 'message': 'New password must be at least 4 characters'}), 400
         
         with get_db() as (cursor, connection):
-            # Verify current password
+            # Verify current password against any table
             cursor.execute("""
-                SELECT password FROM connectlinkusers WHERE id = %s
+                SELECT password, username, email FROM connectlinkusers WHERE id = %s
             """, (user_id,))
             row = cursor.fetchone()
             
@@ -14551,15 +14548,34 @@ def change_password():
                 return jsonify({'success': False, 'message': 'User not found'}), 404
             
             stored_password = row[0]
+            username_or_email = row[1] or row[2] or ''
             
-            # Check against current password
-            if stored_password != current_password:
+            # Also try admin_users for the same user
+            cursor.execute("""
+                SELECT password FROM admin_users WHERE source_id = %s OR username = %s
+            """, (user_id, username_or_email))
+            admin_row = cursor.fetchone()
+            
+            # Check against current password (try both tables)
+            password_match = (stored_password == current_password) or (admin_row and admin_row[0] == current_password)
+            
+            if not password_match:
                 return jsonify({'success': False, 'message': 'Current password is incorrect'}), 400
             
-            # Update password
+            # Update password in ALL tables for universal sync
             cursor.execute("""
                 UPDATE connectlinkusers SET password = %s WHERE id = %s
             """, (new_password, user_id))
+            
+            cursor.execute("""
+                UPDATE admin_users SET password = %s, must_reset_password = FALSE, updated_at = NOW()
+                WHERE source_id = %s OR username = %s
+            """, (new_password, user_id, username_or_email))
+            
+            cursor.execute("""
+                UPDATE hardware_users SET password = %s WHERE username = %s
+            """, (new_password, username_or_email))
+            
             connection.commit()
             
             return jsonify({'success': True, 'message': 'Password changed successfully'})

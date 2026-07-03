@@ -1317,25 +1317,35 @@ function renderProjectsUsers() {
 
 function renderHardwareUsers() {
     const tbody = document.getElementById('hardwareUsersBody');
-    const all = allUsersData.hardware || [];
+    // Hardware POS users + admin_users who have can_manage_hardware permission
+    const hwUsers = allUsersData.hardware || [];
+    const adminWithHw = (allUsersData.admin || []).filter(u => {
+        const p = permIndex[(u.source_system||'hardware') + ':' + (u.source_id||u.id)];
+        return p && (p.is_super_admin || p.can_manage_hardware);
+    });
+    // Merge and deduplicate by id
+    const seen = new Set();
+    const all = [];
+    hwUsers.forEach(u => { if (!seen.has(u.id)) { seen.add(u.id); all.push(u); } });
+    adminWithHw.forEach(u => { if (!seen.has(u.id)) { seen.add(u.id); all.push(u); } });
     const badge = (u) => {
-        const p = permIndex['hardware:' + u.id];
+        const p = permIndex['hardware:' + u.id] || permIndex[(u.source_system||'hardware') + ':' + (u.source_id||u.id)];
         if (p && p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
         if (p && p.can_manage_hardware) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
         return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
     };
-    const permType = () => 'hardware';
-    const permId = (u) => u.id;
+    const permType = (u) => u.source_system || 'hardware';
+    const permId = (u) => u.source_id || u.id;
     tbody.innerHTML = all.length
         ? all.map((u, i) => `<tr>
             <td>${i+1}</td>
             <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
-            <td>${u.username || 'N/A'}</td>
+            <td>${u.username || u.email || 'N/A'}</td>
             <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}" style="font-size:0.5rem;">${u.role||'op'}</span></td>
             <td>${badge(u)}</td>
             <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`).join('')
         : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
