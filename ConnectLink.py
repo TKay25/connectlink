@@ -21754,7 +21754,7 @@ def privacy_policy():
 @app.route('/pos-system.html')
 def pos_system():
     """POS System page"""
-    return send_from_directory('templates', 'pos-system.html')
+    return render_template('pos-system.html')
 
 
 # If you want to serve the landing page as index
