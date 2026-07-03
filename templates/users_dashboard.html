@@ -1231,7 +1231,7 @@ function renderAllUsers() {
             <td><span class="${statusBadge}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
             <td style="font-size:0.55rem;">${created}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${sourceForPerm}', ${u.source_id || u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('${sourceForPerm}', ${u.source_id || u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
                 <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteAdminUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
@@ -1254,7 +1254,7 @@ function renderAllUsers() {
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${(u.name||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${(u.name||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
                 <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
@@ -1277,7 +1277,7 @@ function renderAllUsers() {
             <td><span class="badge-um active">Active</span></td>
             <td style="font-size:0.55rem;">${created}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
                 <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`;
@@ -1316,7 +1316,7 @@ function renderProjectsUsers() {
             <td>${badge(u)}</td>
             <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button  class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`).join('')
         : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
@@ -1352,7 +1352,7 @@ function renderHardwareUsers() {
             <td>${badge(u)}</td>
             <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button  class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`).join('')
         : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
@@ -1379,7 +1379,7 @@ function renderHrUsers() {
             <td>${badge(u)}</td>
             <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
             <td>
-                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button  class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
             </td>
         </tr>`).join('')
         : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
