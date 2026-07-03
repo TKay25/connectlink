@@ -11967,10 +11967,9 @@ def Dashboard():
                 cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
                 au = cursor.fetchone()
                 source_sys = au[0] if au else 'projects'
-                source_id = au[1] if au else userid
+                source_id = au[1] if au and au[1] is not None else userid
 
-                # Check user permissions for Payments tab across all user types
-                # Try source_system first, then 'projects', then fallback to hr/hardware
+                # Check user permissions for Payments tab
                 perms = get_user_permissions(source_sys, source_id)
                 print(f"🔍 Dashboard perms for user {userid} ({source_sys},{source_id}): can_view_payments={perms.get('can_view_payments')}, is_super_admin={perms.get('is_super_admin')}")
                 can_view_payments = perms.get('can_view_payments', False) or perms.get('is_super_admin', False)
@@ -24796,7 +24795,7 @@ def user_management_dashboard():
                 cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
                 au = cursor.fetchone()
                 source_sys = au[0] if au else 'projects'
-                source_id = au[1] if au else userid
+                source_id = au[1] if au and au[1] is not None else userid
                 perms = get_user_permissions(source_sys, source_id)
                 session['um_permissions'] = perms
         except Exception as e:
