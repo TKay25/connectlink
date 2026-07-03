@@ -883,17 +883,22 @@
                 <span class="perm-label"><i class="bi bi-star-fill" style="color:#f59e0b;"></i> Super Admin (full access)</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-is_super_admin" onchange="toggleAllPermissions(this.checked)"><span class="toggle-slider"></span></label>
             </div>
-            <div class="perm-row">
-                <span class="perm-label"><i class="bi bi-building"></i> Manage Building Projects</span>
-                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_projects"><span class="toggle-slider"></span></label>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
+                <i class="bi bi-cart"></i> POS Access
             </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-cart"></i> Manage Hardware POS</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_hardware"><span class="toggle-slider"></span></label>
             </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
+                <i class="bi bi-people"></i> HR Admin Access
+            </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-people"></i> Manage HR</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_hr"><span class="toggle-slider"></span></label>
+            </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
+                <i class="bi bi-person-badge"></i> HR Basic Access
             </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-person-plus"></i> Add Users</span>
@@ -920,14 +925,21 @@
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_roles"><span class="toggle-slider"></span></label>
             </div>
             <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
-                <i class="bi bi-cash-coin"></i> Finance Access
+                <i class="bi bi-building"></i> Projects Access
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-building"></i> Manage Building Projects</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_projects"><span class="toggle-slider"></span></label>
+            </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
+                <i class="bi bi-cash-coin"></i> Projects Payments Tab
             </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-cash-coin"></i> View Payments Tab</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_view_payments"><span class="toggle-slider"></span></label>
             </div>
             <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
-                <i class="bi bi-building"></i> Projects Access
+                <i class="bi bi-pencil-square"></i> Projects Update
             </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-pencil-square"></i> Edit Projects</span>
@@ -1666,11 +1678,6 @@ async function loadPermModalData(userType, userId) {
                     const el = document.getElementById('toggle-' + t);
                     if (el) el.checked = !!perm[t];
                 });
-                // If super admin is on, cascade to all toggles
-                const saEl = document.getElementById('toggle-is_super_admin');
-                if (saEl && saEl.checked) {
-                    toggleAllPermissions(true);
-                }
                 document.getElementById('permModalMsg').textContent = '';
             } else {
                 document.getElementById('permModalMsg').textContent = 'No permissions set yet. Toggle and save to assign.';
